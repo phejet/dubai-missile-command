@@ -485,7 +485,7 @@ export default function DubaiMissileCommand() {
         }
         if (inRange.length > 0) g.ironBeamTimer = 0;
       }
-      g.laserBeams.forEach((b) => b.life -= dt);
+      g.laserBeams.forEach((b) => (b.life -= dt));
       g.laserBeams = g.laserBeams.filter((b) => b.life > 0);
     }
 
@@ -966,7 +966,6 @@ export default function DubaiMissileCommand() {
     g.explosions = g.explosions.filter((ex) => ex.alpha > 0);
     g.particles = g.particles.filter((p) => p.life > 0);
     g.planes = g.planes.filter((p) => p.alive);
-
   }
 
   // ── DRAWING ──

@@ -5,4 +5,7 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   base: "/dubai-missile-command/",
+  test: {
+    exclude: ["e2e/**", "node_modules/**"],
+  },
 });
