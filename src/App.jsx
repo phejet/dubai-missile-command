@@ -2138,24 +2138,13 @@ export default function DubaiMissileCommand() {
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
-    const FRAME_TIME = 1000 / 60; // lock game logic to 60fps
-    let accumulator = 0;
-    let lastTime = performance.now();
-    function loop(now) {
-      const delta = now - lastTime;
-      lastTime = now;
-      accumulator += delta;
+    function loop() {
       if (screen === "playing" && gameRef.current) {
-        while (accumulator >= FRAME_TIME) {
-          update(gameRef.current);
-          accumulator -= FRAME_TIME;
-        }
+        update(gameRef.current);
         drawGame(ctx, gameRef.current);
       } else if (screen === "title") {
-        accumulator = 0;
         drawTitle(ctx);
       } else if (screen === "gameover") {
-        accumulator = 0;
         drawGameOver(ctx);
       }
       rafRef.current = requestAnimationFrame(loop);
