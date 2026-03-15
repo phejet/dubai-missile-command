@@ -167,6 +167,7 @@ export default function DubaiMissileCommand() {
   const canvasRef = useRef(null);
   const gameRef = useRef(null);
   const rafRef = useRef(null);
+  const lastTimeRef = useRef(null);
   const [screen, setScreen] = useState("title");
   const [finalScore, setFinalScore] = useState(0);
   const [finalWave, setFinalWave] = useState(1);
@@ -398,7 +399,7 @@ export default function DubaiMissileCommand() {
   }
 
   // ── AUTO-DEFENSE SYSTEMS ──
-  function updateAutoSystems(g) {
+  function updateAutoSystems(g, dt) {
     const allThreats = [...g.missiles.filter((m) => m.alive), ...g.drones.filter((d) => d.alive)];
 
     // ── WILD HORNETS ──
@@ -407,7 +408,7 @@ export default function DubaiMissileCommand() {
       const interval = [240, 180, 120][lvl - 1];
       const count = lvl;
       const blastR = [25, 30, 40][lvl - 1];
-      g.hornetTimer++;
+      g.hornetTimer += dt;
       if (g.hornetTimer >= interval && allThreats.length > 0) {
         g.hornetTimer = 0;
         for (let i = 0; i < count; i++) {
@@ -436,7 +437,7 @@ export default function DubaiMissileCommand() {
             return;
           }
         }
-        h.wobble += 0.15;
+        h.wobble += 0.15 * dt;
         const dx = h.targetRef.x - h.x;
         const dy = h.targetRef.y - h.y;
         const d = Math.sqrt(dx * dx + dy * dy);
@@ -447,8 +448,8 @@ export default function DubaiMissileCommand() {
         }
         h.trail.push({ x: h.x, y: h.y });
         if (h.trail.length > 12) h.trail.shift();
-        h.x += (dx / d) * h.speed + Math.sin(h.wobble) * 0.8;
-        h.y += (dy / d) * h.speed + Math.cos(h.wobble) * 0.5;
+        h.x += ((dx / d) * h.speed + Math.sin(h.wobble) * 0.8) * dt;
+        h.y += ((dy / d) * h.speed + Math.cos(h.wobble) * 0.5) * dt;
       });
       g.hornets = g.hornets.filter((h) => h.alive);
     }
@@ -459,7 +460,7 @@ export default function DubaiMissileCommand() {
       const interval = [300, 240, 180][lvl - 1];
       const count = [1, 2, 3][lvl - 1];
       const speed = [4, 5.5, 7][lvl - 1];
-      g.roadrunnerTimer++;
+      g.roadrunnerTimer += dt;
       if (g.roadrunnerTimer >= interval && allThreats.length > 0) {
         g.roadrunnerTimer = 0;
         const sorted = [...allThreats].sort((a, b) => b.y - a.y);
@@ -481,7 +482,7 @@ export default function DubaiMissileCommand() {
         r.trail.push({ x: r.x, y: r.y });
         if (r.trail.length > 20) r.trail.shift();
         if (r.phase === "launch") {
-          r.y -= speed * 0.8;
+          r.y -= speed * 0.8 * dt;
           if (r.y <= r.launchY) r.phase = "track";
         } else {
           const t = r.targetRef;
@@ -501,8 +502,8 @@ export default function DubaiMissileCommand() {
             createExplosion(g, r.x, r.y, 30, COL.roadrunner);
             return;
           }
-          r.x += (dx / d) * r.speed;
-          r.y += (dy / d) * r.speed;
+          r.x += (dx / d) * r.speed * dt;
+          r.y += (dy / d) * r.speed * dt;
         }
       });
       g.roadrunners = g.roadrunners.filter((r) => r.alive);
@@ -514,7 +515,7 @@ export default function DubaiMissileCommand() {
       const interval = [300, 240, 180][lvl - 1];
       const count = lvl;
       const lureChance = [0.3, 0.45, 0.6][lvl - 1];
-      g.flareTimer++;
+      g.flareTimer += dt;
       if (g.flareTimer >= interval) {
         g.flareTimer = 0;
         for (let i = 0; i < count; i++) {
@@ -536,14 +537,16 @@ export default function DubaiMissileCommand() {
       // Update flares
       g.flares.forEach((f) => {
         if (!f.alive) return;
-        f.x += f.vx;
-        f.y += f.vy;
-        f.vy += 0.015; // slow arc
-        f.vx *= 0.99;
-        f.life--;
+        f.x += f.vx * dt;
+        f.y += f.vy * dt;
+        f.vy += 0.015 * dt; // slow arc
+        f.vx *= 0.99 ** dt;
+        f.life -= dt;
         if (f.life <= 0) f.alive = false;
         // Emit sparks
-        if (f.life > 30 && g.time % 3 === 0) {
+        f.sparkAccum = (f.sparkAccum || 0) + dt;
+        if (f.life > 30 && f.sparkAccum >= 3) {
+          f.sparkAccum -= 3;
           g.particles.push({
             x: f.x,
             y: f.y,
@@ -560,7 +563,7 @@ export default function DubaiMissileCommand() {
       g.missiles.forEach((m) => {
         if (!m.alive || m.luredByFlare) return;
         const nearFlare = g.flares.find((f) => f.alive && f.life > 30 && dist(m.x, m.y, f.x, f.y) < 200);
-        if (nearFlare && Math.random() < lureChance * 0.015) {
+        if (nearFlare && Math.random() < lureChance * 0.015 * dt) {
           m.luredByFlare = true;
           const dx = nearFlare.x - m.x,
             dy = nearFlare.y - m.y;
@@ -592,7 +595,7 @@ export default function DubaiMissileCommand() {
       const beamCount = lvl;
       const range = [250, 320, 420][lvl - 1];
       const chargeTime = [90, 60, 40][lvl - 1];
-      g.ironBeamTimer++;
+      g.ironBeamTimer += dt;
       if (g.ironBeamTimer >= chargeTime) {
         const inRange = allThreats
           .filter((t) => t.alive && dist(t.x, t.y, BURJ_X, GROUND_Y - BURJ_H * 0.6) < range)
@@ -623,7 +626,7 @@ export default function DubaiMissileCommand() {
         }
         if (inRange.length > 0) g.ironBeamTimer = 0;
       }
-      g.laserBeams.forEach((b) => b.life--);
+      g.laserBeams.forEach((b) => b.life -= dt);
       g.laserBeams = g.laserBeams.filter((b) => b.life > 0);
     }
 
@@ -635,7 +638,7 @@ export default function DubaiMissileCommand() {
       if (lvl >= 3) turrets.push({ x: 200, y: GROUND_Y - 30 });
       const range = [80, 100, 120][lvl - 1];
       const fireRate = lvl >= 3 ? 3 : 5;
-      g.phalanxTimer++;
+      g.phalanxTimer += dt;
       if (g.phalanxTimer >= fireRate) {
         g.phalanxTimer = 0;
         turrets.forEach((turret) => {
@@ -657,7 +660,7 @@ export default function DubaiMissileCommand() {
         });
       }
       g.phalanxBullets.forEach((b) => {
-        b.life--;
+        b.life -= dt;
         const progress = 1 - b.life / 8;
         b.cx = lerp(b.x, b.tx, progress);
         b.cy = lerp(b.y, b.ty, progress);
@@ -685,7 +688,7 @@ export default function DubaiMissileCommand() {
       const interval = [480, 360, 300][lvl - 1];
       const count = lvl >= 3 ? 2 : 1;
       const blastR = [50, 65, 80][lvl - 1];
-      g.patriotTimer++;
+      g.patriotTimer += dt;
       if (g.patriotTimer >= interval && allThreats.length > 0) {
         g.patriotTimer = 0;
         const sorted = [...allThreats].sort((a, b) => b.y - a.y);
@@ -708,7 +711,7 @@ export default function DubaiMissileCommand() {
         p.trail.push({ x: p.x, y: p.y });
         if (p.trail.length > 25) p.trail.shift();
         if (p.phase === "launch") {
-          p.y -= 3;
+          p.y -= 3 * dt;
           if (p.y <= p.launchY) p.phase = "track";
         } else {
           const t = p.targetRef;
@@ -728,17 +731,18 @@ export default function DubaiMissileCommand() {
             createExplosion(g, p.x, p.y, p.blastRadius, COL.patriot);
             return;
           }
-          p.x += (dx / d) * p.speed;
-          p.y += (dy / d) * p.speed;
+          p.x += (dx / d) * p.speed * dt;
+          p.y += (dy / d) * p.speed * dt;
         }
       });
       g.patriotMissiles = g.patriotMissiles.filter((p) => p.alive);
     }
   }
 
-  function update(g) {
-    g.time++;
-    if (g.shakeTimer > 0) g.shakeTimer--;
+  function update(g, dt) {
+    g.time += dt;
+    if (g.shakeTimer > 0) g.shakeTimer -= dt;
+    if (g.waveClearedTimer > 0) g.waveClearedTimer -= dt;
     if (g.waveComplete) return;
 
     // Check wave complete
@@ -755,26 +759,26 @@ export default function DubaiMissileCommand() {
 
     // Spawning
     if (g.waveMissiles < g.waveTarget) {
-      g.spawnTimer++;
+      g.spawnTimer += dt;
       if (g.spawnTimer >= g.spawnInterval) {
         g.spawnTimer = 0;
         const count = Math.min(1 + Math.floor(g.wave / 2), g.waveTarget - g.waveMissiles);
         for (let i = 0; i < Math.min(count, 3); i++) spawnMissile(g);
       }
     }
-    g.droneTimer++;
+    g.droneTimer += dt;
     if (g.droneTimer >= g.droneInterval && g.waveMissiles < g.waveTarget) {
       g.droneTimer = 0;
       const droneCount = 1 + Math.floor(g.wave / 3);
       for (let i = 0; i < Math.min(droneCount, 4); i++) spawnDrone(g);
     }
-    g.planeTimer++;
+    g.planeTimer += dt;
     if (g.planeTimer >= g.planeInterval) {
       g.planeTimer = 0;
       spawnPlane(g);
     }
 
-    updateAutoSystems(g);
+    updateAutoSystems(g, dt);
 
     // Update missiles
     g.missiles.forEach((m) => {
@@ -782,11 +786,11 @@ export default function DubaiMissileCommand() {
       m.trail.push({ x: m.x, y: m.y });
       if (m.trail.length > 30) m.trail.shift();
       if (m.accel) {
-        m.vx *= m.accel;
-        m.vy *= m.accel;
+        m.vx *= m.accel ** dt;
+        m.vy *= m.accel ** dt;
       }
-      m.x += m.vx;
-      m.y += m.vy;
+      m.x += m.vx * dt;
+      m.y += m.vy * dt;
       // Burj collision — matches rendered tapered shape
       if (
         g.burjAlive &&
@@ -859,11 +863,11 @@ export default function DubaiMissileCommand() {
     // Update drones (Shaheds)
     g.drones.forEach((d) => {
       if (!d.alive) return;
-      d.wobble += 0.05;
+      d.wobble += 0.05 * dt;
       if (d.subtype === "shahed238") {
         // Jet Shahed — dives toward a target after crossing ~40% of screen
         if (!d.diving && ((d.vx > 0 && d.x > CANVAS_W * 0.3) || (d.vx < 0 && d.x < CANVAS_W * 0.7))) {
-          if (Math.random() < 0.02) {
+          if (Math.random() < 0.02 * dt) {
             d.diving = true;
             const t = pickTarget(g, d.x);
             if (t) d.diveTarget = t;
@@ -876,17 +880,17 @@ export default function DubaiMissileCommand() {
           const diveSpeed = Math.abs(d.vx) * 1.2;
           d.vx = (dx / len) * diveSpeed;
           d.vy = (dy / len) * diveSpeed;
-          d.x += d.vx;
-          d.y += d.vy;
+          d.x += d.vx * dt;
+          d.y += d.vy * dt;
         } else {
-          d.x += d.vx;
-          d.y += d.vy + Math.sin(d.wobble) * 0.15;
+          d.x += d.vx * dt;
+          d.y += (d.vy + Math.sin(d.wobble) * 0.15) * dt;
         }
       } else {
         // Prop Shahed-136 — cruises, drops 1 bomb, then dives to Burj
         if (!d.diving) {
-          d.x += d.vx;
-          d.y += d.vy + Math.sin(d.wobble) * 0.3;
+          d.x += d.vx * dt;
+          d.y += (d.vy + Math.sin(d.wobble) * 0.3) * dt;
           // Drop bomb and begin dive near mid-screen
           const nearMid = (d.vx > 0 && d.x > CANVAS_W * 0.35) || (d.vx < 0 && d.x < CANVAS_W * 0.65);
           if (!d.bombDropped && nearMid) {
@@ -917,8 +921,8 @@ export default function DubaiMissileCommand() {
           const diveSpeed = Math.max(Math.abs(d.vx), 1.0) * 1.1;
           d.vx = (dx / len) * diveSpeed;
           d.vy = (dy / len) * diveSpeed;
-          d.x += d.vx;
-          d.y += d.vy;
+          d.x += d.vx * dt;
+          d.y += d.vy * dt;
         }
       }
       if (d.x < -60 || d.x > CANVAS_W + 60 || d.y > CANVAS_H + 20) d.alive = false;
@@ -970,8 +974,8 @@ export default function DubaiMissileCommand() {
       if (!ic.alive) return;
       ic.trail.push({ x: ic.x, y: ic.y });
       if (ic.trail.length > 15) ic.trail.shift();
-      ic.x += ic.vx;
-      ic.y += ic.vy;
+      ic.x += ic.vx * dt;
+      ic.y += ic.vy * dt;
       if (dist(ic.x, ic.y, ic.targetX, ic.targetY) < 16) {
         ic.alive = false;
         if (ic.fromF15) {
@@ -987,9 +991,9 @@ export default function DubaiMissileCommand() {
     // Explosion collisions
     g.explosions.forEach((ex) => {
       if (ex.growing) {
-        ex.radius += 2;
+        ex.radius += 2 * dt;
         if (ex.radius >= ex.maxRadius) ex.growing = false;
-      } else ex.alpha -= 0.03;
+      } else ex.alpha -= 0.03 * dt;
       if (ex.alpha > 0.2) {
         g.missiles.forEach((m) => {
           if (m.alive && dist(m.x, m.y, ex.x, ex.y) < ex.radius) {
@@ -1016,11 +1020,11 @@ export default function DubaiMissileCommand() {
     // F-15s — fast fighter jets that shoot down threats
     g.planes.forEach((p) => {
       if (!p.alive) return;
-      p.blinkTimer++;
-      p.x += p.vx;
-      p.y += p.vy;
+      p.blinkTimer += dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
       // Shoot at nearest threat
-      p.fireTimer++;
+      p.fireTimer += dt;
       if (p.fireTimer >= p.fireInterval) {
         const allThreats = [...g.missiles.filter((m) => m.alive), ...g.drones.filter((d) => d.alive)];
         let closest = null,
@@ -1072,10 +1076,10 @@ export default function DubaiMissileCommand() {
     });
 
     g.particles.forEach((p) => {
-      p.x += p.vx;
-      p.y += p.vy;
-      p.vy += 0.05;
-      p.life--;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += 0.05 * dt;
+      p.life -= dt;
     });
 
     // Cleanup
@@ -1091,7 +1095,7 @@ export default function DubaiMissileCommand() {
       g.gameOverTimer = 180; // ~3 seconds of destruction before game over screen
     }
     if (g.gameOverTimer > 0) {
-      g.gameOverTimer--;
+      g.gameOverTimer -= dt;
       if (g.gameOverTimer <= 0) {
         setFinalScore(g.score);
         setFinalWave(g.wave);
@@ -1965,7 +1969,6 @@ export default function DubaiMissileCommand() {
 
     // Wave cleared banner
     if (g.waveComplete && g.waveClearedTimer > 0) {
-      g.waveClearedTimer--;
       const alpha = Math.min(1, g.waveClearedTimer / 20);
       ctx.save();
       ctx.globalAlpha = alpha;
@@ -2138,14 +2141,20 @@ export default function DubaiMissileCommand() {
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
-    function loop() {
+    function loop(timestamp) {
       if (screen === "playing" && gameRef.current) {
-        update(gameRef.current);
+        if (lastTimeRef.current === null) lastTimeRef.current = timestamp;
+        const dt = Math.min((timestamp - lastTimeRef.current) / (1000 / 60), 3);
+        lastTimeRef.current = timestamp;
+        update(gameRef.current, dt);
         drawGame(ctx, gameRef.current);
-      } else if (screen === "title") {
-        drawTitle(ctx);
-      } else if (screen === "gameover") {
-        drawGameOver(ctx);
+      } else {
+        lastTimeRef.current = null;
+        if (screen === "title") {
+          drawTitle(ctx);
+        } else if (screen === "gameover") {
+          drawGameOver(ctx);
+        }
       }
       rafRef.current = requestAnimationFrame(loop);
     }
