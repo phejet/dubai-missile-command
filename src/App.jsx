@@ -7,7 +7,6 @@ import {
   COL,
   BURJ_X,
   BURJ_H,
-  BURJ_SHAPE,
   LAUNCHERS,
   burjHalfW,
   dist,
@@ -17,6 +16,9 @@ import {
   pickTarget,
   fireInterceptor,
   createExplosion,
+  destroyDefenseSite,
+  getPhalanxTurrets,
+  damageTarget,
 } from "./game-logic.js";
 
 const BUILDINGS_LEFT = [
@@ -113,7 +115,6 @@ export default function DubaiMissileCommand() {
   const [finalStats, setFinalStats] = useState({ missileKills: 0, droneKills: 0, shotsFired: 0 });
   const [showShop, setShowShop] = useState(false);
   const [shopData, setShopData] = useState(null);
-  const [, forceUpdate] = useState(0);
 
   const initGame = useCallback(() => {
     const allBuildings = [...BUILDINGS_LEFT, ...BUILDINGS_RIGHT].map(([x, w, h, win]) => ({
@@ -122,13 +123,11 @@ export default function DubaiMissileCommand() {
       h,
       windows: win,
       alive: true,
-      damage: 0,
     }));
 
     gameRef.current = {
       score: 0,
       wave: 1,
-      lives: 3,
       stats: { missileKills: 0, droneKills: 0, shotsFired: 0 },
       ammo: [22, 22, 22],
       launcherHP: [2, 2, 2],
@@ -155,7 +154,6 @@ export default function DubaiMissileCommand() {
       planeInterval: 800,
       waveMissiles: 0,
       waveTarget: 10,
-      waveTransition: 0,
       waveComplete: false,
       crosshairX: CANVAS_W / 2,
       crosshairY: CANVAS_H / 2,
@@ -258,8 +256,7 @@ export default function DubaiMissileCommand() {
   }
 
   // ── AUTO-DEFENSE SYSTEMS ──
-  function updateAutoSystems(g, dt) {
-    const allThreats = [...g.missiles.filter((m) => m.alive), ...g.drones.filter((d) => d.alive)];
+  function updateAutoSystems(g, dt, allThreats) {
 
     // ── WILD HORNETS ──
     if (g.upgrades.wildHornets > 0) {
@@ -470,18 +467,7 @@ export default function DubaiMissileCommand() {
             maxLife: 20,
             targetRef: t,
           });
-          if (t.type === "drone") {
-            t.health -= 2;
-            if (t.health <= 0) {
-              t.alive = false;
-              g.score += 150;
-              createExplosion(g, t.x, t.y, 20, COL.laser);
-            }
-          } else {
-            t.alive = false;
-            g.score += 50;
-            createExplosion(g, t.x, t.y, 15, COL.laser);
-          }
+          damageTarget(g, t, t.type === "drone" ? 2 : 1, COL.laser, t.type === "drone" ? 20 : 15);
         }
         if (inRange.length > 0) g.ironBeamTimer = 0;
       }
@@ -492,9 +478,7 @@ export default function DubaiMissileCommand() {
     // ── PHALANX CIWS ──
     if (g.upgrades.phalanx > 0) {
       const lvl = g.upgrades.phalanx;
-      const turrets = [{ x: BURJ_X, y: GROUND_Y - 30 }];
-      if (lvl >= 2) turrets.push({ x: 800, y: GROUND_Y - 30 });
-      if (lvl >= 3) turrets.push({ x: 200, y: GROUND_Y - 30 });
+      const turrets = getPhalanxTurrets(lvl);
       const range = [80, 100, 120][lvl - 1];
       const fireRate = lvl >= 3 ? 3 : 5;
       g.phalanxTimer += dt;
@@ -524,18 +508,7 @@ export default function DubaiMissileCommand() {
         b.cx = lerp(b.x, b.tx, progress);
         b.cy = lerp(b.y, b.ty, progress);
         if (b.life <= 0 && b.hit && b.targetRef.alive) {
-          if (b.targetRef.type === "drone") {
-            b.targetRef.health--;
-            if (b.targetRef.health <= 0) {
-              b.targetRef.alive = false;
-              g.score += 150;
-              createExplosion(g, b.targetRef.x, b.targetRef.y, 15, COL.phalanx);
-            }
-          } else {
-            b.targetRef.alive = false;
-            g.score += 50;
-            createExplosion(g, b.targetRef.x, b.targetRef.y, 12, COL.phalanx);
-          }
+          damageTarget(g, b.targetRef, 1, COL.phalanx, b.targetRef.type === "drone" ? 15 : 12);
         }
       });
       g.phalanxBullets = g.phalanxBullets.filter((b) => b.life > 0);
@@ -619,18 +592,23 @@ export default function DubaiMissileCommand() {
       return;
     }
 
-    if (g.waveComplete) return;
+    if (g.waveComplete) {
+      if (g.waveClearedTimer <= 0 && !g.shopOpened) {
+        g.shopOpened = true;
+        if (g.burjAlive) {
+          setShopData({ score: g.score, wave: g.wave, upgrades: { ...g.upgrades } });
+          setShowShop(true);
+        }
+      }
+      return;
+    }
 
     // Check wave complete
     if (g.burjAlive && g.waveMissiles >= g.waveTarget && g.missiles.length === 0 && g.drones.length === 0) {
       g.waveComplete = true;
+      g.shopOpened = false;
       g.waveClearedTimer = 120; // ~2 seconds at 60fps
       g.score += 250 * g.wave;
-      setTimeout(() => {
-        if (!g.burjAlive) return; // Burj destroyed during banner — skip shop
-        setShopData({ score: g.score, wave: g.wave, upgrades: { ...g.upgrades } });
-        setShowShop(true);
-      }, 2200);
       return;
     }
 
@@ -655,7 +633,8 @@ export default function DubaiMissileCommand() {
       spawnPlane(g);
     }
 
-    updateAutoSystems(g, dt);
+    const allThreats = [...g.missiles.filter((m) => m.alive), ...g.drones.filter((d) => d.alive)];
+    updateAutoSystems(g, dt, allThreats);
 
     // Update missiles
     g.missiles.forEach((m) => {
@@ -701,18 +680,10 @@ export default function DubaiMissileCommand() {
         g.defenseSites.forEach((site) => {
           if (site.alive && m.alive && Math.abs(m.x - site.x) < site.hw && Math.abs(m.y - site.y) < site.hh) {
             m.alive = false;
-            site.alive = false;
+            destroyDefenseSite(g, site);
             createExplosion(g, m.x, m.y, 35, "#ff4400");
             g.shakeTimer = 12;
             g.shakeIntensity = 5;
-            g.upgrades[site.key] = 0;
-            // Clean up associated entities
-            if (site.key === "wildHornets") g.hornets = [];
-            if (site.key === "roadrunner") g.roadrunners = [];
-            if (site.key === "patriot") g.patriotMissiles = [];
-            if (site.key === "phalanx") g.phalanxBullets = [];
-            if (site.key === "flare") g.flares = [];
-            if (site.key === "ironBeam") g.laserBeams = [];
           }
         });
       }
@@ -819,14 +790,7 @@ export default function DubaiMissileCommand() {
           });
           g.defenseSites.forEach((site) => {
             if (site.alive && Math.abs(d.x - site.x) < site.hw + 20 && Math.abs(d.y - site.y) < site.hh + 20) {
-              site.alive = false;
-              g.upgrades[site.key] = 0;
-              if (site.key === "wildHornets") g.hornets = [];
-              if (site.key === "roadrunner") g.roadrunners = [];
-              if (site.key === "patriot") g.patriotMissiles = [];
-              if (site.key === "phalanx") g.phalanxBullets = [];
-              if (site.key === "flare") g.flares = [];
-              if (site.key === "ironBeam") g.laserBeams = [];
+              destroyDefenseSite(g, site);
             }
           });
           LAUNCHERS.forEach((l, i) => {
@@ -881,7 +845,11 @@ export default function DubaiMissileCommand() {
           }
         });
         g.drones.forEach((d) => {
-          if (d.alive && dist(d.x, d.y, ex.x, ex.y) < ex.radius + 10) {
+          if (!d.alive) return;
+          if (!d._hitByExplosions) d._hitByExplosions = new Set();
+          if (d._hitByExplosions.has(ex.id)) return;
+          if (dist(d.x, d.y, ex.x, ex.y) < ex.radius + 10) {
+            d._hitByExplosions.add(ex.id);
             d.health--;
             if (d.health <= 0) {
               d.alive = false;
@@ -903,7 +871,6 @@ export default function DubaiMissileCommand() {
       // Shoot at nearest threat
       p.fireTimer += dt;
       if (p.fireTimer >= p.fireInterval) {
-        const allThreats = [...g.missiles.filter((m) => m.alive), ...g.drones.filter((d) => d.alive)];
         let closest = null,
           closestD = 200; // engagement range
         allThreats.forEach((t) => {
@@ -1067,10 +1034,6 @@ export default function DubaiMissileCommand() {
         }
       }
       ctx.globalAlpha = 1;
-      if (b.damage > 0) {
-        ctx.fillStyle = "rgba(255,50,0,0.3)";
-        ctx.fillRect(b.x, bTop, b.w, b.h);
-      }
     });
 
     // Burj Khalifa
@@ -1137,8 +1100,12 @@ export default function DubaiMissileCommand() {
       ctx.fillRect(bx - hpW / 2, by - bh - 50, hpW * (g.burjHealth / 5), hpH);
     } else {
       ctx.fillStyle = "#444";
-      for (let i = 0; i < 8; i++)
-        ctx.fillRect(BURJ_X - 15 + i * 4, CITY_Y - 10 - Math.random() * 20, 5, 10 + Math.random() * 15);
+      // Use deterministic pseudo-random offsets based on index to avoid per-frame jitter
+      for (let i = 0; i < 8; i++) {
+        const h1 = ((i * 7 + 3) % 13) / 13; // pseudo-random 0..1
+        const h2 = ((i * 11 + 5) % 13) / 13;
+        ctx.fillRect(BURJ_X - 15 + i * 4, CITY_Y - 10 - h1 * 20, 5, 10 + h2 * 15);
+      }
     }
 
     // F-15 Eagle fighter jets
@@ -1680,9 +1647,7 @@ export default function DubaiMissileCommand() {
 
     // Phalanx turrets
     if (g.upgrades.phalanx > 0) {
-      const turrets = [{ x: BURJ_X, y: GROUND_Y - 30 }];
-      if (g.upgrades.phalanx >= 2) turrets.push({ x: 800, y: GROUND_Y - 30 });
-      if (g.upgrades.phalanx >= 3) turrets.push({ x: 200, y: GROUND_Y - 30 });
+      const turrets = getPhalanxTurrets(g.upgrades.phalanx);
       turrets.forEach((t) => {
         ctx.fillStyle = "#556677";
         ctx.fillRect(t.x - 6, t.y, 12, 10);
@@ -1799,7 +1764,7 @@ export default function DubaiMissileCommand() {
       wpH = 8,
       wpY = 14;
     const waveProgress = Math.min(g.waveMissiles / g.waveTarget, 1);
-    const threatsLeft = g.missiles.filter((m) => m.alive).length + g.drones.filter((d) => d.alive).length;
+    const threatsLeft = g.missiles.length + g.drones.length;
     ctx.fillStyle = "rgba(255,255,255,0.1)";
     ctx.fillRect(wpX, wpY, wpW, wpH);
     ctx.fillStyle = waveProgress >= 1 ? "#44ff88" : COL.hud;
@@ -2076,16 +2041,13 @@ export default function DubaiMissileCommand() {
         roadrunner: { x: 620, y: GROUND_Y - 15, hw: 20, hh: 15 },
       };
       if (key === "phalanx") {
-        if (!g.defenseSites.find((s) => s.key === "phalanx")) {
-          g.defenseSites.push({ key: "phalanx", x: 720, y: GROUND_Y - 30, alive: true, hw: 10, hh: 15 });
-        }
+        g.defenseSites.push({ key: "phalanx", x: 720, y: GROUND_Y - 30, alive: true, hw: 10, hh: 15 });
       } else if (siteDefs[key]) {
         const sd = siteDefs[key];
         g.defenseSites.push({ key, x: sd.x, y: sd.y, alive: true, hw: sd.hw, hh: sd.hh });
       }
     }
     setShopData({ score: g.score, wave: g.wave, upgrades: { ...g.upgrades } });
-    forceUpdate((n) => n + 1);
   }
 
   function closeShop() {

@@ -36,6 +36,7 @@ export const COL = {
 
 export const BURJ_X = 460;
 export const BURJ_H = 340;
+export const MAX_PARTICLES = 500;
 
 // Burj half-width at a given y — matches the rendered tapered silhouette
 // Rendered shape: spire tip at y=GROUND_Y-BURJ_H-30 (w=0),
@@ -129,8 +130,10 @@ export function fireInterceptor(g, targetX, targetY) {
   });
 }
 
+let _explosionId = 0;
 export function createExplosion(g, x, y, radius, color, playerCaused) {
   g.explosions.push({
+    id: _explosionId++,
     x,
     y,
     radius: 0,
@@ -140,7 +143,8 @@ export function createExplosion(g, x, y, radius, color, playerCaused) {
     color: color || COL.explosion,
     playerCaused: !!playerCaused,
   });
-  for (let i = 0; i < 12; i++) {
+  const particleBudget = Math.min(12, MAX_PARTICLES - g.particles.length);
+  for (let i = 0; i < particleBudget; i++) {
     const angle = rand(0, Math.PI * 2);
     const sp = rand(1, 4);
     g.particles.push({
@@ -156,4 +160,45 @@ export function createExplosion(g, x, y, radius, color, playerCaused) {
   }
   g.shakeTimer = 8;
   g.shakeIntensity = radius / 10;
+}
+
+// Map from defense-site key to the game-state array that should be cleared
+const SITE_ENTITY_MAP = {
+  wildHornets: "hornets",
+  roadrunner: "roadrunners",
+  patriot: "patriotMissiles",
+  phalanx: "phalanxBullets",
+  flare: "flares",
+  ironBeam: "laserBeams",
+};
+
+export function destroyDefenseSite(g, site) {
+  site.alive = false;
+  g.upgrades[site.key] = 0;
+  const arrayKey = SITE_ENTITY_MAP[site.key];
+  if (arrayKey) g[arrayKey] = [];
+}
+
+export function getPhalanxTurrets(level) {
+  const turrets = [{ x: BURJ_X, y: GROUND_Y - 30 }];
+  if (level >= 2) turrets.push({ x: 800, y: GROUND_Y - 30 });
+  if (level >= 3) turrets.push({ x: 200, y: GROUND_Y - 30 });
+  return turrets;
+}
+
+export function damageTarget(g, target, damage, color, radius) {
+  if (target.type === "drone") {
+    target.health -= damage;
+    if (target.health <= 0) {
+      target.alive = false;
+      g.score += target.subtype === "shahed238" ? 250 : 150;
+      g.stats.droneKills++;
+      createExplosion(g, target.x, target.y, radius, color);
+    }
+  } else {
+    target.alive = false;
+    g.score += target.type === "bomb" ? 75 : 50;
+    g.stats.missileKills++;
+    createExplosion(g, target.x, target.y, radius, color);
+  }
 }
