@@ -234,6 +234,11 @@ export default function DubaiMissileCommand() {
     }
     const target = pickTarget(g, startX);
     if (!target) return;
+    // Avoid spawning directly above target — push spawn toward sides for a better angle
+    if (Math.abs(startX - target.x) < 150 && startY < 0) {
+      startX = target.x + (Math.random() > 0.5 ? 1 : -1) * rand(200, 400);
+      startX = Math.max(-10, Math.min(CANVAS_W + 10, startX));
+    }
     const dx = target.x - startX;
     const dy = target.y - startY;
     const len = Math.sqrt(dx * dx + dy * dy);
