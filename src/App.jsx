@@ -746,7 +746,7 @@ export default function DubaiMissileCommand() {
 
     // Game over — Burj destroyed (must tick even during waveComplete)
     if (!g.burjAlive && !g.gameOverTimer) {
-      g.gameOverTimer = 180; // ~3 seconds of destruction before game over screen
+      g.gameOverTimer = 60; // ~1 second of destruction before game over screen
     }
     if (g.gameOverTimer > 0) {
       g.gameOverTimer -= dt;
