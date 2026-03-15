@@ -743,14 +743,32 @@ export default function DubaiMissileCommand() {
     g.time += dt;
     if (g.shakeTimer > 0) g.shakeTimer -= dt;
     if (g.waveClearedTimer > 0) g.waveClearedTimer -= dt;
+
+    // Game over — Burj destroyed (must tick even during waveComplete)
+    if (!g.burjAlive && !g.gameOverTimer) {
+      g.gameOverTimer = 180; // ~3 seconds of destruction before game over screen
+    }
+    if (g.gameOverTimer > 0) {
+      g.gameOverTimer -= dt;
+      if (g.gameOverTimer <= 0) {
+        setShowShop(false);
+        setFinalScore(g.score);
+        setFinalWave(g.wave);
+        setFinalStats({ ...g.stats });
+        setScreen("gameover");
+      }
+      return;
+    }
+
     if (g.waveComplete) return;
 
     // Check wave complete
-    if (g.waveMissiles >= g.waveTarget && g.missiles.length === 0 && g.drones.length === 0) {
+    if (g.burjAlive && g.waveMissiles >= g.waveTarget && g.missiles.length === 0 && g.drones.length === 0) {
       g.waveComplete = true;
       g.waveClearedTimer = 120; // ~2 seconds at 60fps
       g.score += 250 * g.wave;
       setTimeout(() => {
+        if (!g.burjAlive) return; // Burj destroyed during banner — skip shop
         setShopData({ score: g.score, wave: g.wave, upgrades: { ...g.upgrades } });
         setShowShop(true);
       }, 2200);
@@ -1090,19 +1108,6 @@ export default function DubaiMissileCommand() {
     g.particles = g.particles.filter((p) => p.life > 0);
     g.planes = g.planes.filter((p) => p.alive);
 
-    // Game over — Burj destroyed
-    if (!g.burjAlive && !g.gameOverTimer) {
-      g.gameOverTimer = 180; // ~3 seconds of destruction before game over screen
-    }
-    if (g.gameOverTimer > 0) {
-      g.gameOverTimer -= dt;
-      if (g.gameOverTimer <= 0) {
-        setFinalScore(g.score);
-        setFinalWave(g.wave);
-        setFinalStats({ ...g.stats });
-        setScreen("gameover");
-      }
-    }
   }
 
   // ── DRAWING ──
