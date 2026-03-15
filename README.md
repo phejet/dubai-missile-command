@@ -1,16 +1,58 @@
-# React + Vite
+# Dubai Missile Command
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+[![Lint](https://github.com/phejet/dubai-missile-command/actions/workflows/ci.yml/badge.svg)](https://github.com/phejet/dubai-missile-command/actions/workflows/ci.yml)
+[![Format](https://github.com/phejet/dubai-missile-command/actions/workflows/ci.yml/badge.svg)](https://github.com/phejet/dubai-missile-command/actions/workflows/ci.yml)
+[![Build](https://github.com/phejet/dubai-missile-command/actions/workflows/deploy.yml/badge.svg)](https://github.com/phejet/dubai-missile-command/actions/workflows/deploy.yml)
 
-Currently, two official plugins are available:
+A retro-inspired missile defense game set in Dubai. Defend Burj Khalifa from waves of ballistic missiles and Shahed drones. Built with React + Canvas.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+**[Play Now](https://phejet.github.io/dubai-missile-command/)**
 
-## React Compiler
+## Gameplay
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Click to launch interceptors from ground launchers
+- Destroy incoming missiles and kamikaze drones
+- Earn score to buy automated defense systems between waves
+- Protect the Burj Khalifa at all costs
 
-## Expanding the ESLint configuration
+### Defense Systems
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+| Upgrade         | Description                                                  |
+| --------------- | ------------------------------------------------------------ |
+| Wild Hornets    | Ukrainian FPV drone swarm — autonomous kamikaze interceptors |
+| Roadrunner      | Anduril AI-guided vertical-launch interceptors               |
+| Decoy Flares    | IR decoys launched from Burj that lure missiles off course   |
+| Iron Beam       | High-energy laser that burns down nearby threats             |
+| Phalanx CIWS    | Rapid-fire close-in autocannon turrets                       |
+| Patriot Battery | Long-range SAM with massive blast radius                     |
+
+### F-15 Eagles
+
+Friendly fighter jets periodically fly across the battlefield, shooting down threats. Avoid hitting them — friendly fire costs -500 score.
+
+## Development
+
+```bash
+npm install
+npm run dev       # start dev server
+npm run build     # production build
+npm run lint      # run ESLint
+npm run format    # run Prettier (auto-fix)
+```
+
+### Autoplay Bot
+
+A Playwright bot that plays the game automatically for testing:
+
+```bash
+npm run dev                  # start dev server first
+# update GAME_URL in play-bot.mjs to match your port
+node play-bot.mjs            # opens Chromium and plays
+```
+
+## Tech Stack
+
+- React 19 + Vite
+- HTML5 Canvas (all rendering)
+- Playwright (autoplay bot)
+- GitHub Pages (deployment)

@@ -4,7 +4,11 @@ const GAME_URL = "http://localhost:5176";
 const TICK_MS = 200;
 const GROUND_Y = 570;
 const INTERCEPTOR_SPEED = 5;
-const LAUNCHERS = [{ x: 60, y: 565 }, { x: 550, y: 565 }, { x: 860, y: 565 }];
+const LAUNCHERS = [
+  { x: 60, y: 565 },
+  { x: 550, y: 565 },
+  { x: 860, y: 565 },
+];
 
 async function main() {
   const browser = await chromium.launch({ headless: false });
@@ -41,7 +45,7 @@ async function main() {
         let bought = true;
         while (bought) {
           bought = false;
-          const upgradeBtns = page.locator('button:not([disabled])');
+          const upgradeBtns = page.locator("button:not([disabled])");
           const count = await upgradeBtns.count();
           for (let i = 0; i < count; i++) {
             const btn = upgradeBtns.nth(i);
@@ -57,7 +61,7 @@ async function main() {
         }
         // Click deploy
         await sleep(200);
-        const deployBtn = page.locator('button:not([disabled])');
+        const deployBtn = page.locator("button:not([disabled])");
         const dcount = await deployBtn.count();
         for (let i = 0; i < dcount; i++) {
           const btn = deployBtn.nth(i);
@@ -78,21 +82,36 @@ async function main() {
         if (!ref || !ref.current) return null;
         const g = ref.current;
         return {
-          missiles: g.missiles.filter(m => m.alive).map(m => ({
-            x: m.x, y: m.y, vx: m.vx, vy: m.vy, type: m.type,
-          })),
-          drones: g.drones.filter(d => d.alive).map(d => ({
-            x: d.x, y: d.y, vx: d.vx, vy: d.vy,
-            subtype: d.subtype, diving: d.diving,
-          })),
-          planes: g.planes.filter(p => p.alive && !p.landed).map(p => ({
-            x: p.x, y: p.y,
-          })),
+          missiles: g.missiles
+            .filter((m) => m.alive)
+            .map((m) => ({
+              x: m.x,
+              y: m.y,
+              vx: m.vx,
+              vy: m.vy,
+              type: m.type,
+            })),
+          drones: g.drones
+            .filter((d) => d.alive)
+            .map((d) => ({
+              x: d.x,
+              y: d.y,
+              vx: d.vx,
+              vy: d.vy,
+              subtype: d.subtype,
+              diving: d.diving,
+            })),
+          planes: g.planes
+            .filter((p) => p.alive && !p.landed)
+            .map((p) => ({
+              x: p.x,
+              y: p.y,
+            })),
           ammo: g.ammo,
           score: g.score,
           wave: g.wave,
           burjAlive: g.burjAlive,
-          interceptors: g.interceptors.filter(i => i.alive).length,
+          interceptors: g.interceptors.filter((i) => i.alive).length,
         };
       });
 
@@ -106,7 +125,9 @@ async function main() {
       // Periodic status
       if (tick % 20 === 0) {
         const ammo = state.ammo.reduce((s, a) => s + a, 0);
-        console.log(`W${state.wave} | $${state.score} | Ammo:${ammo} | Threats:${state.missiles.length}m+${state.drones.length}d | Burj:${state.burjAlive}`);
+        console.log(
+          `W${state.wave} | $${state.score} | Ammo:${ammo} | Threats:${state.missiles.length}m+${state.drones.length}d | Burj:${state.burjAlive}`,
+        );
       }
 
       // Game over — click to restart
@@ -161,16 +182,20 @@ async function main() {
           const d = Math.sqrt((t.x - o.x) ** 2 + (t.y - o.y) ** 2);
           if (d < 70) score += 1;
         }
-        score += (4 - t.priority);
-        if (score > bestScore) { bestScore = score; bestPoint = t; }
+        score += 4 - t.priority;
+        if (score > bestScore) {
+          bestScore = score;
+          bestPoint = t;
+        }
       }
 
       // Avoid hitting planes
       if (bestPoint && state.planes) {
-        const tooClose = state.planes.some(p =>
-          Math.sqrt((bestPoint.x - p.x) ** 2 + (bestPoint.y - p.y) ** 2) < 80
-        );
-        if (tooClose) { await sleep(TICK_MS); continue; }
+        const tooClose = state.planes.some((p) => Math.sqrt((bestPoint.x - p.x) ** 2 + (bestPoint.y - p.y) ** 2) < 80);
+        if (tooClose) {
+          await sleep(TICK_MS);
+          continue;
+        }
       }
 
       if (bestPoint) {
@@ -192,7 +217,8 @@ async function main() {
 }
 
 function leadTarget(tx, ty, tvx, tvy) {
-  let aimX = tx, aimY = ty;
+  let aimX = tx,
+    aimY = ty;
   for (let iter = 0; iter < 3; iter++) {
     let best = Infinity;
     for (const l of LAUNCHERS) {
@@ -207,7 +233,7 @@ function leadTarget(tx, ty, tvx, tvy) {
 }
 
 function sleep(ms) {
-  return new Promise(r => setTimeout(r, ms));
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 main().catch(console.error);
