@@ -257,7 +257,6 @@ export default function DubaiMissileCommand() {
 
   // ── AUTO-DEFENSE SYSTEMS ──
   function updateAutoSystems(g, dt, allThreats) {
-
     // ── WILD HORNETS ──
     if (g.upgrades.wildHornets > 0) {
       const lvl = g.upgrades.wildHornets;
