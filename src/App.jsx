@@ -13,11 +13,11 @@ const COL = {
   missile: "#ff3333", drone: "#ff6600",
   interceptor: "#44ffaa", explosion: "#ffaa00",
   plane: "#ffffff", planeLight: "#ff0000",
-  runway: "#445566", text: "#ffffff",
+  text: "#ffffff",
   hud: "#00ffcc", warning: "#ff4444",
   gold: "#ffd700", upgradeBg: "#0c1225",
   panelBg: "#111a30", panelBorder: "#1a3060",
-  laser: "#ff2200", ecm: "#aa44ff",
+  laser: "#ff2200", flare: "#ff8833",
   hornet: "#ffcc00", roadrunner: "#44aaff",
   phalanx: "#ff8844", patriot: "#88ff44",
 };
@@ -26,13 +26,13 @@ const BUILDINGS_LEFT = [
   [40, 35, 80, 3], [85, 30, 120, 3], [125, 40, 95, 4], [175, 28, 140, 3],
   [210, 45, 110, 4], [265, 32, 70, 3], [305, 38, 130, 3], [350, 42, 100, 4],
 ];
-const BUILDINGS_RIGHT = [];
+const BUILDINGS_RIGHT = [
+  [530, 38, 90, 3], [575, 32, 110, 3], [615, 45, 75, 4], [665, 30, 130, 3],
+  [700, 40, 100, 4], [745, 35, 85, 3], [790, 42, 120, 3], [840, 28, 95, 3],
+];
 
 const BURJ_X = 460;
 const BURJ_H = 340;
-const AIRPORT_X = 700;
-const AIRPORT_Y = GROUND_Y - 8;
-const RUNWAY_W = 160;
 
 // Burj half-width at a given y — matches the rendered tapered silhouette
 // Rendered shape: spire tip at y=GROUND_Y-BURJ_H-30 (w=0),
@@ -50,9 +50,9 @@ function burjHalfW(py) {
 }
 
 const LAUNCHERS = [
-  { x: 100, y: GROUND_Y - 5 },
-  { x: 450, y: GROUND_Y - 5 },
-  { x: 800, y: GROUND_Y - 5 },
+  { x: 60, y: GROUND_Y - 5 },
+  { x: 550, y: GROUND_Y - 5 },
+  { x: 860, y: GROUND_Y - 5 },
 ];
 
 // ── UPGRADE DEFINITIONS ──
@@ -62,7 +62,7 @@ const UPGRADES = {
     icon: "🐝",
     desc: "Ukrainian FPV drone swarm. Autonomous kamikaze drones hunt incoming threats.",
     maxLevel: 3,
-    costs: [800, 2000, 5000],
+    costs: [1200, 3000, 7500],
     color: COL.hornet,
     statLines: [
       "1 drone / 4s · 25 blast",
@@ -75,7 +75,7 @@ const UPGRADES = {
     icon: "🦅",
     desc: "AI-guided reusable interceptor. Launches vertically, locks nearest threat.",
     maxLevel: 3,
-    costs: [1000, 2500, 6000],
+    costs: [1500, 3750, 9000],
     color: COL.roadrunner,
     statLines: [
       "1 interceptor / 5s · fast",
@@ -83,17 +83,17 @@ const UPGRADES = {
       "3 interceptors / 3s · max speed",
     ],
   },
-  ecm: {
-    name: "ECM Jammer",
-    icon: "📡",
-    desc: "Electronic countermeasures. Disrupts guidance — missiles veer off course, drones slow.",
+  flare: {
+    name: "Decoy Flares",
+    icon: "🎆",
+    desc: "Burj launches IR decoys. Incoming missiles retarget to flares and miss.",
     maxLevel: 3,
-    costs: [600, 1500, 4000],
-    color: COL.ecm,
+    costs: [900, 2250, 6000],
+    color: COL.flare,
     statLines: [
-      "10% deflection · small radius",
-      "20% deflection · medium radius",
-      "35% deflection · full coverage",
+      "1 flare / 5s · 30% lure chance",
+      "2 flares / 4s · 45% lure chance",
+      "3 flares / 3s · 60% lure chance",
     ],
   },
   ironBeam: {
@@ -101,7 +101,7 @@ const UPGRADES = {
     icon: "⚡",
     desc: "High-energy laser defense. Instant beam locks on and burns down incoming projectiles.",
     maxLevel: 3,
-    costs: [1200, 3000, 7000],
+    costs: [1800, 4500, 10500],
     color: COL.laser,
     statLines: [
       "1 beam · 60 range · slow charge",
@@ -114,11 +114,11 @@ const UPGRADES = {
     icon: "🔫",
     desc: "Close-in weapon system. Last-resort rapid-fire autocannon near protected sites.",
     maxLevel: 3,
-    costs: [900, 2200, 5500],
+    costs: [1350, 3300, 8250],
     color: COL.phalanx,
     statLines: [
       "1 turret at Burj · 80 range",
-      "+ turret at DXB · 100 range",
+      "+ turret at east launcher · 100 range",
       "3 turrets · 120 range · faster",
     ],
   },
@@ -127,7 +127,7 @@ const UPGRADES = {
     icon: "🚀",
     desc: "Long-range SAM battery. Massive blast radius, targets highest threats first.",
     maxLevel: 3,
-    costs: [1500, 3500, 8000],
+    costs: [2250, 5250, 12000],
     color: COL.patriot,
     statLines: [
       "1 launch / 8s · 50 blast",
@@ -149,6 +149,7 @@ export default function DubaiMissileCommand() {
   const [screen, setScreen] = useState("title");
   const [finalScore, setFinalScore] = useState(0);
   const [finalWave, setFinalWave] = useState(1);
+  const [finalStats, setFinalStats] = useState({ missileKills: 0, droneKills: 0, shotsFired: 0 });
   const [showShop, setShowShop] = useState(false);
   const [shopData, setShopData] = useState(null);
   const [, forceUpdate] = useState(0);
@@ -160,63 +161,87 @@ export default function DubaiMissileCommand() {
 
     gameRef.current = {
       score: 0, wave: 1, lives: 3,
-      ammo: [22, 22, 22],
+      stats: { missileKills: 0, droneKills: 0, shotsFired: 0 },
+      ammo: [22, 22, 22], launcherHP: [2, 2, 2],
       missiles: [], drones: [], interceptors: [],
       explosions: [], particles: [], planes: [],
       buildings: allBuildings,
       burjAlive: true, burjHealth: 5,
-      airportAlive: true, airportHealth: 3,
       stars: Array.from({ length: 120 }, () => ({
         x: rand(0, CANVAS_W), y: rand(0, CANVAS_H * 0.6),
         size: rand(0.5, 2), twinkle: rand(0, Math.PI * 2),
       })),
       spawnTimer: 0, spawnInterval: 120,
-      droneTimer: 0, droneInterval: 300,
-      planeTimer: 0, planeInterval: 400,
+      droneTimer: 0, droneInterval: 180,
+      planeTimer: 0, planeInterval: 800,
       waveMissiles: 0, waveTarget: 10,
       waveTransition: 0, waveComplete: false,
       crosshairX: CANVAS_W / 2, crosshairY: CANVAS_H / 2,
       time: 0, shakeTimer: 0, shakeIntensity: 0,
       upgrades: {
-        wildHornets: 0, roadrunner: 0, ecm: 0,
+        wildHornets: 0, roadrunner: 0, flare: 0,
         ironBeam: 0, phalanx: 0, patriot: 0,
       },
+      defenseSites: [],
       hornets: [], roadrunners: [], laserBeams: [],
-      phalanxBullets: [], patriotMissiles: [], ecmPulses: [],
+      phalanxBullets: [], patriotMissiles: [], flares: [],
       hornetTimer: 0, roadrunnerTimer: 0,
       ironBeamTimer: 0, phalanxTimer: 0,
-      patriotTimer: 0, ecmTimer: 0,
+      patriotTimer: 0, flareTimer: 0,
     };
-    spawnPlane(gameRef.current);
     window.__gameRef = gameRef;
   }, []);
 
   function spawnPlane(g) {
-    if (!g.airportAlive) return;
-    const startY = rand(50, 100);
+    const goRight = Math.random() > 0.5;
     g.planes.push({
-      x: CANVAS_W + 60, y: startY,
-      vx: -1, vy: 0, startY,
-      blinkTimer: 0, alive: true, landed: false, t: 0,
+      x: goRight ? -60 : CANVAS_W + 60,
+      y: rand(120, 280),
+      vx: goRight ? rand(2.8, 4.0) : rand(-4.0, -2.8),
+      vy: 0,
+      blinkTimer: 0, alive: true,
+      fireTimer: 0, fireInterval: 25,
     });
   }
 
+  function pickTarget(g, fromX) {
+    // 30% chance to target Burj
+    if (g.burjAlive && Math.random() < 0.3) return { x: BURJ_X, y: CITY_Y };
+    // 70% target defense sites / launchers, closest first
+    const all = [];
+    g.defenseSites.forEach(s => { if (s.alive) all.push({ x: s.x, y: s.y }); });
+    LAUNCHERS.forEach((l, i) => { if (g.launcherHP[i] > 0) all.push({ x: l.x, y: l.y }); });
+    if (all.length === 0) {
+      if (g.burjAlive) return { x: BURJ_X, y: CITY_Y };
+      return null;
+    }
+    all.sort((a, b) => Math.abs(a.x - fromX) - Math.abs(b.x - fromX));
+    const pick = Math.min(all.length - 1, Math.random() < 0.7 ? 0 : 1);
+    return all[pick];
+  }
+
   function spawnMissile(g) {
-    const targets = [];
-    g.buildings.forEach(b => { if (b.alive) targets.push({ x: b.x + b.w / 2, y: CITY_Y }); });
-    if (g.burjAlive) targets.push({ x: BURJ_X, y: CITY_Y });
-    if (g.airportAlive) targets.push({ x: AIRPORT_X + RUNWAY_W / 2, y: AIRPORT_Y });
-    if (targets.length === 0) return;
-    const target = targets[randInt(0, targets.length - 1)];
-    const startX = rand(50, CANVAS_W - 50);
     const speed = rand(0.5, 1.0) + g.wave * 0.08;
+    // From wave 2+, some missiles come from sides
+    let startX, startY;
+    if (g.wave >= 2 && Math.random() < Math.min(0.4, (g.wave - 1) * 0.1)) {
+      const fromLeft = Math.random() > 0.5;
+      startX = fromLeft ? -10 : CANVAS_W + 10;
+      startY = rand(20, 200);
+    } else {
+      startX = rand(50, CANVAS_W - 50);
+      startY = -10;
+    }
+    const target = pickTarget(g, startX);
+    if (!target) return;
     const dx = target.x - startX;
-    const dy = target.y;
+    const dy = target.y - startY;
     const len = Math.sqrt(dx * dx + dy * dy);
     g.missiles.push({
-      x: startX, y: -10,
+      x: startX, y: startY,
       vx: (dx / len) * speed, vy: (dy / len) * speed,
-      trail: [], alive: true, type: "missile", ecmAffected: false,
+      accel: 1.003 + g.wave * 0.0006,
+      trail: [], alive: true, type: "missile",
     });
     g.waveMissiles++;
   }
@@ -240,19 +265,19 @@ export default function DubaiMissileCommand() {
       alive: true, type: "drone",
       subtype: isJet ? "shahed238" : "shahed136",
       health,
-      ecmSlowed: false,
     });
   }
 
   function fireInterceptor(g, targetX, targetY) {
     let bestIdx = -1, bestDist = Infinity;
     for (let i = 0; i < LAUNCHERS.length; i++) {
-      if (g.ammo[i] <= 0) continue;
+      if (g.ammo[i] <= 0 || g.launcherHP[i] <= 0) continue;
       const d = dist(LAUNCHERS[i].x, LAUNCHERS[i].y, targetX, targetY);
       if (d < bestDist) { bestDist = d; bestIdx = i; }
     }
     if (bestIdx === -1) return;
     g.ammo[bestIdx]--;
+    g.stats.shotsFired++;
     const l = LAUNCHERS[bestIdx];
     const speed = 5;
     const dx = targetX - l.x;
@@ -366,34 +391,57 @@ export default function DubaiMissileCommand() {
       g.roadrunners = g.roadrunners.filter(r => r.alive);
     }
 
-    // ── ECM JAMMER ──
-    if (g.upgrades.ecm > 0) {
-      const lvl = g.upgrades.ecm;
-      const chance = [0.10, 0.20, 0.35][lvl - 1];
-      const radius = [200, 350, CANVAS_W][lvl - 1];
-      g.ecmTimer++;
-      if (g.ecmTimer % 30 === 0) {
-        g.ecmPulses.push({ x: BURJ_X, y: GROUND_Y - 100, radius: 0, maxRadius: radius, alpha: 0.3 });
+    // ── DECOY FLARES ──
+    if (g.upgrades.flare > 0) {
+      const lvl = g.upgrades.flare;
+      const interval = [300, 240, 180][lvl - 1];
+      const count = lvl;
+      const lureChance = [0.30, 0.45, 0.60][lvl - 1];
+      g.flareTimer++;
+      if (g.flareTimer >= interval) {
+        g.flareTimer = 0;
+        for (let i = 0; i < count; i++) {
+          const fx = BURJ_X + rand(-120, 120);
+          const fy = rand(200, 420);
+          g.flares.push({
+            x: BURJ_X, y: GROUND_Y - BURJ_H * 0.5,
+            tx: fx, ty: fy,
+            vx: (fx - BURJ_X) * 0.04, vy: -rand(2, 4),
+            life: 180, maxLife: 180, alive: true,
+          });
+        }
       }
+      // Update flares
+      g.flares.forEach(f => {
+        if (!f.alive) return;
+        f.x += f.vx; f.y += f.vy;
+        f.vy += 0.015; // slow arc
+        f.vx *= 0.99;
+        f.life--;
+        if (f.life <= 0) f.alive = false;
+        // Emit sparks
+        if (f.life > 30 && g.time % 3 === 0) {
+          g.particles.push({ x: f.x, y: f.y, vx: rand(-1, 1), vy: rand(-0.5, 1.5), life: 15, maxLife: 15, color: COL.flare, size: rand(1, 2.5) });
+        }
+      });
+      // Lure missiles toward flares
       g.missiles.forEach(m => {
-        if (!m.alive) return;
-        const d = dist(m.x, m.y, BURJ_X, GROUND_Y - 100);
-        if (d < radius && !m.ecmAffected && Math.random() < chance * 0.02) {
-          m.ecmAffected = true;
-          m.vx += rand(-0.8, 0.8);
-          m.vy *= rand(0.5, 0.8);
-          for (let i = 0; i < 4; i++) {
-            g.particles.push({ x: m.x, y: m.y, vx: rand(-2, 2), vy: rand(-2, 2), life: 15, maxLife: 15, color: COL.ecm, size: 1.5 });
+        if (!m.alive || m.luredByFlare) return;
+        const nearFlare = g.flares.find(f => f.alive && f.life > 30 && dist(m.x, m.y, f.x, f.y) < 200);
+        if (nearFlare && Math.random() < lureChance * 0.015) {
+          m.luredByFlare = true;
+          const dx = nearFlare.x - m.x, dy = nearFlare.y - m.y;
+          const len = Math.sqrt(dx * dx + dy * dy);
+          const spd = Math.sqrt(m.vx * m.vx + m.vy * m.vy);
+          m.vx = (dx / len) * spd;
+          m.vy = (dy / len) * spd;
+          m.accel = 1; // stop accelerating — it's chasing a decoy
+          for (let i = 0; i < 5; i++) {
+            g.particles.push({ x: m.x, y: m.y, vx: rand(-1.5, 1.5), vy: rand(-1.5, 1.5), life: 20, maxLife: 20, color: "#ffaa44", size: 1.5 });
           }
         }
       });
-      g.drones.forEach(d => {
-        if (!d.alive) return;
-        const dd = dist(d.x, d.y, BURJ_X, GROUND_Y - 100);
-        if (dd < radius && !d.ecmSlowed) { d.ecmSlowed = true; d.vx *= 0.5; }
-      });
-      g.ecmPulses.forEach(p => { p.radius += 4; p.alpha -= 0.005; });
-      g.ecmPulses = g.ecmPulses.filter(p => p.alpha > 0);
+      g.flares = g.flares.filter(f => f.alive);
     }
 
     // ── IRON BEAM ──
@@ -428,7 +476,7 @@ export default function DubaiMissileCommand() {
     if (g.upgrades.phalanx > 0) {
       const lvl = g.upgrades.phalanx;
       const turrets = [{ x: BURJ_X, y: GROUND_Y - 30 }];
-      if (lvl >= 2) turrets.push({ x: AIRPORT_X + 40, y: AIRPORT_Y - 30 });
+      if (lvl >= 2) turrets.push({ x: 800, y: GROUND_Y - 30 });
       if (lvl >= 3) turrets.push({ x: 200, y: GROUND_Y - 30 });
       const range = [80, 100, 120][lvl - 1];
       const fireRate = lvl >= 3 ? 3 : 5;
@@ -516,11 +564,12 @@ export default function DubaiMissileCommand() {
     // Check wave complete
     if (g.waveMissiles >= g.waveTarget && g.missiles.length === 0 && g.drones.length === 0) {
       g.waveComplete = true;
-      g.score += 500 * g.wave;
+      g.waveClearedTimer = 120; // ~2 seconds at 60fps
+      g.score += 250 * g.wave;
       setTimeout(() => {
         setShopData({ score: g.score, wave: g.wave, upgrades: { ...g.upgrades } });
         setShowShop(true);
-      }, 600);
+      }, 2200);
       return;
     }
 
@@ -534,9 +583,13 @@ export default function DubaiMissileCommand() {
       }
     }
     g.droneTimer++;
-    if (g.droneTimer >= g.droneInterval && g.waveMissiles < g.waveTarget) { g.droneTimer = 0; spawnDrone(g); }
+    if (g.droneTimer >= g.droneInterval && g.waveMissiles < g.waveTarget) {
+      g.droneTimer = 0;
+      const droneCount = 1 + Math.floor(g.wave / 3);
+      for (let i = 0; i < Math.min(droneCount, 4); i++) spawnDrone(g);
+    }
     g.planeTimer++;
-    if (g.planeTimer >= g.planeInterval && g.airportAlive) { g.planeTimer = 0; spawnPlane(g); }
+    if (g.planeTimer >= g.planeInterval) { g.planeTimer = 0; spawnPlane(g); }
 
     updateAutoSystems(g);
 
@@ -545,6 +598,7 @@ export default function DubaiMissileCommand() {
       if (!m.alive) return;
       m.trail.push({ x: m.x, y: m.y });
       if (m.trail.length > 30) m.trail.shift();
+      if (m.accel) { m.vx *= m.accel; m.vy *= m.accel; }
       m.x += m.vx; m.y += m.vy;
       // Burj collision — matches rendered tapered shape
       if (g.burjAlive && m.alive && m.y >= GROUND_Y - BURJ_H - 30 && m.y <= GROUND_Y && Math.abs(m.x - BURJ_X) < burjHalfW(m.y)) {
@@ -560,7 +614,38 @@ export default function DubaiMissileCommand() {
           if (b.alive && m.alive && m.x >= b.x && m.x <= b.x + b.w && m.y >= GROUND_Y - b.h) {
             m.alive = false;
             createExplosion(g, m.x, m.y, 20, "#ff4400");
-            b.damage++; if (b.damage >= 2) b.alive = false;
+            b.alive = false;
+          }
+        });
+      }
+      // Defense site collisions
+      if (m.alive) {
+        g.defenseSites.forEach(site => {
+          if (site.alive && m.alive && Math.abs(m.x - site.x) < site.hw && Math.abs(m.y - site.y) < site.hh) {
+            m.alive = false;
+            site.alive = false;
+            createExplosion(g, m.x, m.y, 35, "#ff4400");
+            g.shakeTimer = 12; g.shakeIntensity = 5;
+            g.upgrades[site.key] = 0;
+            // Clean up associated entities
+            if (site.key === "wildHornets") g.hornets = [];
+            if (site.key === "roadrunner") g.roadrunners = [];
+            if (site.key === "patriot") g.patriotMissiles = [];
+            if (site.key === "phalanx") g.phalanxBullets = [];
+            if (site.key === "flare") g.flares = [];
+            if (site.key === "ironBeam") g.laserBeams = [];
+          }
+        });
+      }
+      // Launcher collision
+      if (m.alive) {
+        LAUNCHERS.forEach((l, i) => {
+          if (g.launcherHP[i] > 0 && m.alive && Math.abs(m.x - l.x) < 15 && m.y >= l.y - 12) {
+            m.alive = false;
+            g.launcherHP[i]--;
+            createExplosion(g, m.x, m.y, 25, "#ff4400");
+            g.shakeTimer = 10; g.shakeIntensity = 4;
+            if (g.launcherHP[i] <= 0) g.ammo[i] = 0;
           }
         });
       }
@@ -568,10 +653,6 @@ export default function DubaiMissileCommand() {
       if (m.alive && m.y >= GROUND_Y) {
         m.alive = false;
         createExplosion(g, m.x, GROUND_Y, 25, "#ff4400");
-        if (g.airportAlive && m.x >= AIRPORT_X - 10 && m.x <= AIRPORT_X + RUNWAY_W + 10) {
-          g.airportHealth--;
-          if (g.airportHealth <= 0) { g.airportAlive = false; createExplosion(g, AIRPORT_X + RUNWAY_W / 2, AIRPORT_Y, 50, "#ff4400"); }
-        }
       }
       if (m.x < -50 || m.x > CANVAS_W + 50 || m.y > CANVAS_H + 50) m.alive = false;
     });
@@ -585,14 +666,8 @@ export default function DubaiMissileCommand() {
         if (!d.diving && ((d.vx > 0 && d.x > CANVAS_W * 0.3) || (d.vx < 0 && d.x < CANVAS_W * 0.7))) {
           if (Math.random() < 0.02) {
             d.diving = true;
-            const targets = [];
-            g.buildings.forEach(b => { if (b.alive) targets.push({ x: b.x + b.w / 2, y: CITY_Y }); });
-            if (g.burjAlive) targets.push({ x: BURJ_X, y: CITY_Y });
-            if (g.airportAlive) targets.push({ x: AIRPORT_X + RUNWAY_W / 2, y: AIRPORT_Y });
-            if (targets.length > 0) {
-              const t = targets[randInt(0, targets.length - 1)];
-              d.diveTarget = t;
-            }
+            const t = pickTarget(g, d.x);
+            if (t) d.diveTarget = t;
           }
         }
         if (d.diving && d.diveTarget) {
@@ -614,27 +689,18 @@ export default function DubaiMissileCommand() {
           const nearMid = (d.vx > 0 && d.x > CANVAS_W * 0.35) || (d.vx < 0 && d.x < CANVAS_W * 0.65);
           if (!d.bombDropped && nearMid) {
             d.bombDropped = true;
-            const targets = [];
-            g.buildings.forEach(b => { if (b.alive) targets.push(b.x + b.w / 2); });
-            if (g.burjAlive) targets.push(BURJ_X);
-            if (targets.length > 0) {
-              const tx = targets[randInt(0, targets.length - 1)];
+            const bombT = pickTarget(g, d.x);
+            if (bombT) {
+              const tx = bombT.x;
               g.missiles.push({
                 x: d.x, y: d.y, vx: (tx - d.x) * 0.002, vy: rand(1.2, 2.0),
-                trail: [], alive: true, type: "bomb", ecmAffected: false,
+                trail: [], alive: true, type: "bomb",
               });
             }
-            // Immediately begin kamikaze dive toward Burj
+            // Immediately begin kamikaze dive
             d.diving = true;
-            if (g.burjAlive) {
-              d.diveTarget = { x: BURJ_X, y: CITY_Y - BURJ_H * 0.3 };
-            } else {
-              // Pick a random surviving building
-              const alive = [];
-              g.buildings.forEach(b => { if (b.alive) alive.push({ x: b.x + b.w / 2, y: CITY_Y }); });
-              if (g.airportAlive) alive.push({ x: AIRPORT_X + RUNWAY_W / 2, y: AIRPORT_Y });
-              d.diveTarget = alive.length > 0 ? alive[randInt(0, alive.length - 1)] : { x: BURJ_X, y: CITY_Y };
-            }
+            const diveT = pickTarget(g, d.x);
+            d.diveTarget = diveT || { x: BURJ_X, y: CITY_Y };
           }
         } else {
           // Diving
@@ -658,16 +724,33 @@ export default function DubaiMissileCommand() {
           g.shakeTimer = 15; g.shakeIntensity = 6;
           g.buildings.forEach(b => {
             if (b.alive && Math.abs(d.x - (b.x + b.w / 2)) < b.w / 2 + 30) {
-              b.damage++; if (b.damage >= 2) b.alive = false;
+              b.alive = false;
+            }
+          });
+          g.defenseSites.forEach(site => {
+            if (site.alive && Math.abs(d.x - site.x) < site.hw + 20 && Math.abs(d.y - site.y) < site.hh + 20) {
+              site.alive = false;
+              g.upgrades[site.key] = 0;
+              if (site.key === "wildHornets") g.hornets = [];
+              if (site.key === "roadrunner") g.roadrunners = [];
+              if (site.key === "patriot") g.patriotMissiles = [];
+              if (site.key === "phalanx") g.phalanxBullets = [];
+              if (site.key === "flare") g.flares = [];
+              if (site.key === "ironBeam") g.laserBeams = [];
+            }
+          });
+          LAUNCHERS.forEach((l, i) => {
+            if (g.launcherHP[i] > 0 && Math.abs(d.x - l.x) < 30) {
+              g.launcherHP[i]--;
+              if (g.launcherHP[i] <= 0) g.ammo[i] = 0;
             }
           });
           if (g.burjAlive && Math.abs(d.x - BURJ_X) < 50) { g.burjHealth--; if (g.burjHealth <= 0) { g.burjAlive = false; createExplosion(g, BURJ_X, CITY_Y - BURJ_H / 2, 60, "#ff2200"); } }
-          if (g.airportAlive && Math.abs(d.x - (AIRPORT_X + RUNWAY_W / 2)) < RUNWAY_W / 2 + 20) { g.airportHealth--; if (g.airportHealth <= 0) { g.airportAlive = false; createExplosion(g, AIRPORT_X + RUNWAY_W / 2, AIRPORT_Y, 50, "#ff4400"); } }
         }
       }
     });
 
-    // Update player interceptors
+    // Update interceptors (player + F-15)
     g.interceptors.forEach(ic => {
       if (!ic.alive) return;
       ic.trail.push({ x: ic.x, y: ic.y });
@@ -675,8 +758,14 @@ export default function DubaiMissileCommand() {
       ic.x += ic.vx; ic.y += ic.vy;
       if (dist(ic.x, ic.y, ic.targetX, ic.targetY) < 16) {
         ic.alive = false;
-        createExplosion(g, ic.x, ic.y, 49, COL.interceptor, true);
+        if (ic.fromF15) {
+          createExplosion(g, ic.x, ic.y, 30, "#aaccff", false);
+        } else {
+          createExplosion(g, ic.x, ic.y, 49, COL.interceptor, true);
+        }
       }
+      // F-15 shots that go off-screen
+      if (ic.fromF15 && (ic.x < -50 || ic.x > CANVAS_W + 50 || ic.y < -50 || ic.y > CANVAS_H + 50)) ic.alive = false;
     });
 
     // Explosion collisions
@@ -686,68 +775,64 @@ export default function DubaiMissileCommand() {
       if (ex.alpha > 0.2) {
         g.missiles.forEach(m => {
           if (m.alive && dist(m.x, m.y, ex.x, ex.y) < ex.radius) {
-            m.alive = false; g.score += m.type === "bomb" ? 75 : 50;
+            m.alive = false; g.score += m.type === "bomb" ? 75 : 50; g.stats.missileKills++;
             createExplosion(g, m.x, m.y, 30, "#ffcc00", ex.playerCaused);
           }
         });
         g.drones.forEach(d => {
           if (d.alive && dist(d.x, d.y, ex.x, ex.y) < ex.radius + 10) {
             d.health--;
-            if (d.health <= 0) { d.alive = false; g.score += d.subtype === "shahed238" ? 250 : 150; createExplosion(g, d.x, d.y, 60, "#ff8800", ex.playerCaused); }
+            if (d.health <= 0) { d.alive = false; g.score += d.subtype === "shahed238" ? 250 : 150; g.stats.droneKills++; createExplosion(g, d.x, d.y, 60, "#ff8800", ex.playerCaused); }
           }
         });
       }
     });
 
-    // Planes — landing at DXB
-    // Flight path: enter right at altitude → fly left → smooth U-turn → long glide to runway
+    // F-15s — fast fighter jets that shoot down threats
     g.planes.forEach(p => {
-      if (!p.alive || p.landed) return;
+      if (!p.alive) return;
       p.blinkTimer++;
-      // Progress along path using a parametric approach
-      if (!p.t) p.t = 0;
-      p.t += 0.0012;
-      const t = Math.min(p.t, 1);
-      // Bezier: enter right → cruise left past city → loop far left & descend → approach runway from left
-      const p0x = CANVAS_W + 60, p0y = p.startY || 70;
-      const p1x = 200,            p1y = 50;         // cruise left at altitude
-      const p2x = -100,           p2y = AIRPORT_Y;  // far left, at runway height
-      const p3x = AIRPORT_X + 20, p3y = AIRPORT_Y;  // runway
-      // Cubic bezier
-      const u = 1 - t;
-      const newX = u*u*u*p0x + 3*u*u*t*p1x + 3*u*t*t*p2x + t*t*t*p3x;
-      const newY = u*u*u*p0y + 3*u*u*t*p1y + 3*u*t*t*p2y + t*t*t*p3y;
-      p.vx = newX - p.x;
-      p.vy = newY - p.y;
-      p.x = newX;
-      p.y = newY;
-      // Only vulnerable when on approach (below y=250)
-      if (p.y > 250) {
-        // Enemy missile/drone hits plane — no bonus, plane destroyed
-        g.missiles.forEach(m => {
-          if (m.alive && p.alive && dist(m.x, m.y, p.x, p.y) < 20) {
-            p.alive = false; m.alive = false;
-            createExplosion(g, p.x, p.y, 40, "#ff0000");
-          }
+      p.x += p.vx;
+      p.y += p.vy;
+      // Shoot at nearest threat
+      p.fireTimer++;
+      if (p.fireTimer >= p.fireInterval) {
+        const allThreats = [...g.missiles.filter(m => m.alive), ...g.drones.filter(d => d.alive)];
+        let closest = null, closestD = 200; // engagement range
+        allThreats.forEach(t => {
+          const d2 = dist(p.x, p.y, t.x, t.y);
+          if (d2 < closestD) { closestD = d2; closest = t; }
         });
-        // Player interceptor explosions hit plane — penalty
-        g.explosions.forEach(ex => {
-          if (ex.playerCaused && ex.alpha > 0.2 && p.alive && dist(p.x, p.y, ex.x, ex.y) < ex.radius + 15) {
-            p.alive = false;
-            g.score -= 500;
-            createExplosion(g, p.x, p.y, 40, "#ff0000");
-          }
-        });
-      }
-      // Successful landing
-      if (p.alive && dist(p.x, p.y, AIRPORT_X + RUNWAY_W / 2, AIRPORT_Y) < 30) {
-        p.landed = true;
-        g.score += 300;
-        for (let i = 0; i < 6; i++) {
-          g.particles.push({ x: p.x, y: p.y, vx: rand(-1, 1), vy: rand(-2, -0.5), life: 30, maxLife: 30, color: COL.gold, size: 2 });
+        if (closest) {
+          p.fireTimer = 0;
+          // Fire air-to-air shot
+          const dx = closest.x - p.x, dy = closest.y - p.y;
+          const len = Math.sqrt(dx * dx + dy * dy);
+          const spd = 8;
+          g.interceptors.push({
+            x: p.x, y: p.y,
+            targetX: closest.x, targetY: closest.y,
+            vx: (dx / len) * spd, vy: (dy / len) * spd,
+            trail: [], alive: true, fromF15: true,
+          });
         }
       }
-      if (p.x < -80 || p.x > CANVAS_W + 80 || p.y > CANVAS_H + 50) p.alive = false;
+      // Player interceptor explosions hit F-15 — penalty
+      g.explosions.forEach(ex => {
+        if (ex.playerCaused && ex.alpha > 0.2 && p.alive && dist(p.x, p.y, ex.x, ex.y) < ex.radius + 15) {
+          p.alive = false;
+          g.score -= 500;
+          createExplosion(g, p.x, p.y, 40, "#ff0000");
+        }
+      });
+      // Enemy missile/drone hits F-15
+      g.missiles.forEach(m => {
+        if (m.alive && p.alive && dist(m.x, m.y, p.x, p.y) < 20) {
+          p.alive = false; m.alive = false;
+          createExplosion(g, p.x, p.y, 40, "#ff0000");
+        }
+      });
+      if (p.x < -80 || p.x > CANVAS_W + 80) p.alive = false;
     });
 
     g.particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.life--; });
@@ -758,11 +843,17 @@ export default function DubaiMissileCommand() {
     g.interceptors = g.interceptors.filter(ic => ic.alive);
     g.explosions = g.explosions.filter(ex => ex.alpha > 0);
     g.particles = g.particles.filter(p => p.life > 0);
-    g.planes = g.planes.filter(p => p.alive && p.x > -80 && p.x < CANVAS_W + 80);
+    g.planes = g.planes.filter(p => p.alive);
 
     // Game over — Burj destroyed
-    if (!g.burjAlive) {
-      setFinalScore(g.score); setFinalWave(g.wave); setScreen("gameover");
+    if (!g.burjAlive && !g.gameOverTimer) {
+      g.gameOverTimer = 180; // ~3 seconds of destruction before game over screen
+    }
+    if (g.gameOverTimer > 0) {
+      g.gameOverTimer--;
+      if (g.gameOverTimer <= 0) {
+        setFinalScore(g.score); setFinalWave(g.wave); setFinalStats({ ...g.stats }); setScreen("gameover");
+      }
     }
   }
 
@@ -795,11 +886,17 @@ export default function DubaiMissileCommand() {
     ctx.fillStyle = COL.sky1;
     ctx.beginPath(); ctx.arc(788, 55, 22, 0, Math.PI * 2); ctx.fill();
 
-    // ECM pulses
-    g.ecmPulses.forEach(p => {
-      ctx.globalAlpha = p.alpha * 0.15;
-      ctx.strokeStyle = COL.ecm; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.stroke();
+    // Decoy flares
+    g.flares.forEach(f => {
+      if (!f.alive) return;
+      const alpha = Math.min(1, f.life / 30);
+      const flicker = 0.7 + 0.3 * Math.sin(f.life * 0.5);
+      ctx.globalAlpha = alpha * flicker;
+      ctx.fillStyle = COL.flare; ctx.shadowColor = COL.flare; ctx.shadowBlur = 12;
+      ctx.beginPath(); ctx.arc(f.x, f.y, 3 + Math.sin(f.life * 0.3) * 1.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.beginPath(); ctx.arc(f.x, f.y, 1.5, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
       ctx.globalAlpha = 1;
     });
 
@@ -875,73 +972,45 @@ export default function DubaiMissileCommand() {
       for (let i = 0; i < 8; i++) ctx.fillRect(BURJ_X - 15 + i * 4, CITY_Y - 10 - Math.random() * 20, 5, 10 + Math.random() * 15);
     }
 
-    // Airport
-    if (g.airportAlive) {
-      ctx.fillStyle = "#334455"; ctx.fillRect(AIRPORT_X, AIRPORT_Y, RUNWAY_W, 6);
-      ctx.fillStyle = "#fff";
-      for (let i = 0; i < 8; i++) ctx.fillRect(AIRPORT_X + 10 + i * 19, AIRPORT_Y + 2, 10, 2);
-      for (let i = 0; i < 10; i++) {
-        ctx.fillStyle = (g.time * 0.1 + i * 0.5) % 2 < 1 ? "#44ff44" : "#226622";
-        ctx.beginPath(); ctx.arc(AIRPORT_X + i * (RUNWAY_W / 9), AIRPORT_Y - 2, 2, 0, Math.PI * 2); ctx.fill();
-      }
-      ctx.fillStyle = "#1a2540"; ctx.fillRect(AIRPORT_X + 20, AIRPORT_Y - 25, 80, 25);
-      ctx.fillStyle = "#2a4070"; ctx.fillRect(AIRPORT_X + 22, AIRPORT_Y - 23, 76, 10);
-      ctx.fillStyle = "#2a3555"; ctx.fillRect(AIRPORT_X + RUNWAY_W - 20, AIRPORT_Y - 40, 12, 40);
-      ctx.fillStyle = "#4488aa"; ctx.fillRect(AIRPORT_X + RUNWAY_W - 24, AIRPORT_Y - 48, 20, 10);
-      ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.font = "bold 8px monospace"; ctx.fillText("DXB", AIRPORT_X + 50, AIRPORT_Y - 6);
-      const ahpW = 30;
-      ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillRect(AIRPORT_X + RUNWAY_W / 2 - ahpW / 2, AIRPORT_Y - 55, ahpW, 4);
-      ctx.fillStyle = g.airportHealth > 1 ? "#44ff88" : "#ff3333";
-      ctx.fillRect(AIRPORT_X + RUNWAY_W / 2 - ahpW / 2, AIRPORT_Y - 55, ahpW * (g.airportHealth / 3), 4);
-    } else {
-      ctx.fillStyle = "#333"; ctx.fillRect(AIRPORT_X, AIRPORT_Y, RUNWAY_W, 6);
-      for (let i = 0; i < 5; i++) {
-        ctx.fillStyle = `rgba(255,${100 + Math.random() * 100},0,${0.3 + Math.random() * 0.3})`;
-        ctx.beginPath(); ctx.arc(AIRPORT_X + 30 + i * 25, AIRPORT_Y - 10 - Math.random() * 15, 5 + Math.random() * 8, 0, Math.PI * 2); ctx.fill();
-      }
-    }
-
-    // Planes
+    // F-15 Eagle fighter jets
     g.planes.forEach(p => {
-      if (!p.alive && !p.landed) return;
-      if (p.landed) {
-        // Parked on runway — small static plane
-        ctx.save(); ctx.translate(p.x, AIRPORT_Y - 4);
-        ctx.globalAlpha = 0.6;
-        ctx.fillStyle = "#aabbcc";
-        ctx.beginPath(); ctx.ellipse(0, 0, 12, 3, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.globalAlpha = 1;
-        ctx.restore();
-        return;
-      }
+      if (!p.alive) return;
       ctx.save(); ctx.translate(p.x, p.y);
-      // Rotate to match flight direction
-      const angle = Math.atan2(p.vy, p.vx);
-      ctx.rotate(angle);
-      // Fuselage
-      ctx.fillStyle = "#dde4ee";
-      ctx.beginPath(); ctx.ellipse(0, 0, 22, 4, 0, 0, Math.PI * 2); ctx.fill();
-      // Nose
-      ctx.fillStyle = "#bbccdd";
-      ctx.beginPath(); ctx.moveTo(22, 0); ctx.lineTo(28, -1); ctx.lineTo(28, 1); ctx.closePath(); ctx.fill();
-      // Wings
-      ctx.fillStyle = "#ccd4e0";
-      ctx.beginPath(); ctx.moveTo(-2, -2); ctx.lineTo(-8, -14); ctx.lineTo(4, -2); ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(-2, 2); ctx.lineTo(-8, 14); ctx.lineTo(4, 2); ctx.closePath(); ctx.fill();
-      // Tail
-      ctx.fillStyle = "#aabbcc";
-      ctx.beginPath(); ctx.moveTo(-18, -2); ctx.lineTo(-24, -10); ctx.lineTo(-14, -2); ctx.closePath(); ctx.fill();
-      // Landing lights — brighter as plane gets closer to runway
-      const landDist = dist(p.x, p.y, AIRPORT_X + RUNWAY_W / 2, AIRPORT_Y);
-      const lightAlpha = Math.min(1, 300 / Math.max(landDist, 1));
-      ctx.fillStyle = `rgba(255,255,200,${lightAlpha})`; ctx.shadowColor = "#ffffcc"; ctx.shadowBlur = 8 * lightAlpha;
-      ctx.beginPath(); ctx.arc(26, 0, 2, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+      if (p.vx < 0) ctx.scale(-1, 1);
+      // Fuselage — sleek fighter body
+      ctx.fillStyle = "#7888a0";
+      ctx.beginPath(); ctx.moveTo(22, 0); ctx.lineTo(10, -3); ctx.lineTo(-18, -3.5); ctx.lineTo(-22, -2); ctx.lineTo(-22, 2); ctx.lineTo(-18, 3.5); ctx.lineTo(10, 3); ctx.closePath(); ctx.fill();
+      // Nose cone — pointed
+      ctx.fillStyle = "#5a6a80";
+      ctx.beginPath(); ctx.moveTo(22, 0); ctx.lineTo(30, 0); ctx.lineTo(22, -1.5); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(22, 0); ctx.lineTo(30, 0); ctx.lineTo(22, 1.5); ctx.closePath(); ctx.fill();
+      // Swept wings
+      ctx.fillStyle = "#687890";
+      ctx.beginPath(); ctx.moveTo(2, -3); ctx.lineTo(-8, -16); ctx.lineTo(-14, -14); ctx.lineTo(-6, -3); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(2, 3); ctx.lineTo(-8, 16); ctx.lineTo(-14, 14); ctx.lineTo(-6, 3); ctx.closePath(); ctx.fill();
+      // Twin vertical stabilizers
+      ctx.fillStyle = "#5a6878";
+      ctx.beginPath(); ctx.moveTo(-16, -3.5); ctx.lineTo(-20, -10); ctx.lineTo(-22, -9); ctx.lineTo(-20, -3.5); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-16, 3.5); ctx.lineTo(-20, 10); ctx.lineTo(-22, 9); ctx.lineTo(-20, 3.5); ctx.closePath(); ctx.fill();
+      // Engine nozzles (twin)
+      ctx.fillStyle = "#4a5060";
+      ctx.beginPath(); ctx.ellipse(-22, -2, 3, 2, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(-22, 2, 3, 2, 0, 0, Math.PI * 2); ctx.fill();
+      // Afterburner glow
+      const abLen = 4 + Math.random() * 5;
+      ctx.fillStyle = "#ff8844"; ctx.shadowColor = "#ff6600"; ctx.shadowBlur = 8;
+      ctx.beginPath(); ctx.moveTo(-22, -3); ctx.lineTo(-22 - abLen, -2); ctx.lineTo(-22, -1); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-22, 1); ctx.lineTo(-22 - abLen, 2); ctx.lineTo(-22, 3); ctx.closePath(); ctx.fill();
+      ctx.shadowBlur = 0;
+      // Cockpit
+      ctx.fillStyle = "rgba(100,200,255,0.4)";
+      ctx.beginPath(); ctx.ellipse(14, 0, 4, 2, 0, 0, Math.PI * 2); ctx.fill();
       // Nav lights
       if (Math.sin(p.blinkTimer * 0.15) > 0) {
         ctx.fillStyle = "#f00"; ctx.shadowColor = "#f00"; ctx.shadowBlur = 6;
-        ctx.beginPath(); ctx.arc(-6, -12, 1.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-10, -14, 1.5, 0, Math.PI * 2); ctx.fill();
         ctx.fillStyle = "#0f0"; ctx.shadowColor = "#0f0";
-        ctx.beginPath(); ctx.arc(-6, 12, 1.5, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+        ctx.beginPath(); ctx.arc(-10, 14, 1.5, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
       }
       ctx.restore();
     });
@@ -1045,9 +1114,9 @@ export default function DubaiMissileCommand() {
         ctx.restore();
       }
 
-      if (m.ecmAffected) {
-        ctx.fillStyle = COL.ecm; ctx.globalAlpha = 0.6;
-        ctx.fillRect(m.x - 4, m.y - 4, 8, 8); ctx.globalAlpha = 1;
+      if (m.luredByFlare) {
+        ctx.fillStyle = COL.flare; ctx.globalAlpha = 0.5;
+        ctx.beginPath(); ctx.arc(m.x, m.y, 6, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
       }
     });
 
@@ -1064,11 +1133,11 @@ export default function DubaiMissileCommand() {
 
       if (d.subtype === "shahed238") {
         // Jet Shahed-238 — sleek delta wing, larger
-        ctx.fillStyle = d.ecmSlowed ? "#3a3a55" : "#4a4a5a";
+        ctx.fillStyle = "#4a4a5a";
         // Fuselage
         ctx.beginPath(); ctx.moveTo(16, 0); ctx.lineTo(-10, -3); ctx.lineTo(-14, 0); ctx.lineTo(-10, 3); ctx.closePath(); ctx.fill();
         // Delta wings
-        ctx.fillStyle = d.ecmSlowed ? "#2a2a40" : "#3a3a4a";
+        ctx.fillStyle = "#3a3a4a";
         ctx.beginPath(); ctx.moveTo(4, -2); ctx.lineTo(-8, -14); ctx.lineTo(-12, -2); ctx.closePath(); ctx.fill();
         ctx.beginPath(); ctx.moveTo(4, 2); ctx.lineTo(-8, 14); ctx.lineTo(-12, 2); ctx.closePath(); ctx.fill();
         // Jet exhaust
@@ -1086,7 +1155,7 @@ export default function DubaiMissileCommand() {
         }
       } else {
         // Prop Shahed-136 — stubby delta with pusher prop
-        ctx.fillStyle = d.ecmSlowed ? "#3a3a55" : "#555566";
+        ctx.fillStyle = "#555566";
         // Fuselage
         ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(-8, -2.5); ctx.lineTo(-10, 0); ctx.lineTo(-8, 2.5); ctx.closePath(); ctx.fill();
         // Short delta wings
@@ -1102,10 +1171,6 @@ export default function DubaiMissileCommand() {
         ctx.stroke();
       }
 
-      if (d.ecmSlowed) {
-        ctx.strokeStyle = COL.ecm; ctx.globalAlpha = 0.4 + Math.sin(g.time * 0.2) * 0.2;
-        ctx.beginPath(); ctx.arc(0, 0, 18, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
-      }
       // Blinking nav light
       if (Math.sin(g.time * 0.15) > 0) {
         ctx.fillStyle = d.subtype === "shahed238" ? "#ff2200" : "#ff4400";
@@ -1115,17 +1180,22 @@ export default function DubaiMissileCommand() {
       ctx.restore();
     });
 
-    // Player interceptors
+    // Interceptors (player green, F-15 blue-white)
     g.interceptors.forEach(ic => {
+      const isF15 = ic.fromF15;
       ctx.beginPath();
       ic.trail.forEach((t, i) => {
-        ctx.strokeStyle = `rgba(68,255,170,${i / ic.trail.length * 0.8})`;
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = isF15
+          ? `rgba(150,200,255,${i / ic.trail.length * 0.6})`
+          : `rgba(68,255,170,${i / ic.trail.length * 0.8})`;
+        ctx.lineWidth = isF15 ? 1.5 : 2;
         if (i === 0) ctx.moveTo(t.x, t.y); else ctx.lineTo(t.x, t.y);
       });
       if (ic.trail.length > 1) ctx.stroke();
-      ctx.fillStyle = COL.interceptor; ctx.shadowColor = COL.interceptor; ctx.shadowBlur = 10;
-      ctx.beginPath(); ctx.arc(ic.x, ic.y, 3, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+      ctx.fillStyle = isF15 ? "#aaccff" : COL.interceptor;
+      ctx.shadowColor = isF15 ? "#6699ff" : COL.interceptor;
+      ctx.shadowBlur = isF15 ? 6 : 10;
+      ctx.beginPath(); ctx.arc(ic.x, ic.y, isF15 ? 2 : 3, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
     });
 
     // Wild Hornets
@@ -1193,23 +1263,44 @@ export default function DubaiMissileCommand() {
 
     // Launchers
     LAUNCHERS.forEach((l, i) => {
-      ctx.fillStyle = "#2a3a50"; ctx.fillRect(l.x - 12, l.y - 8, 24, 12);
-      ctx.fillStyle = "#3a4a60"; ctx.fillRect(l.x - 8, l.y - 12, 16, 8);
+      if (g.launcherHP[i] <= 0) {
+        // Destroyed rubble
+        ctx.fillStyle = "#333";
+        ctx.fillRect(l.x - 10, l.y - 3, 20, 6);
+        ctx.fillStyle = "#2a2a2a";
+        ctx.fillRect(l.x - 5, l.y - 5, 8, 4);
+        ctx.fillRect(l.x + 2, l.y - 4, 5, 3);
+        return;
+      }
+      // Damaged tint
+      if (g.launcherHP[i] === 1) {
+        ctx.fillStyle = "#3a2020"; ctx.fillRect(l.x - 12, l.y - 8, 24, 12);
+        ctx.fillStyle = "#4a3030"; ctx.fillRect(l.x - 8, l.y - 12, 16, 8);
+      } else {
+        ctx.fillStyle = "#2a3a50"; ctx.fillRect(l.x - 12, l.y - 8, 24, 12);
+        ctx.fillStyle = "#3a4a60"; ctx.fillRect(l.x - 8, l.y - 12, 16, 8);
+      }
       ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillRect(l.x - 15, l.y + 8, 30, 5);
       const ammoMax = 20 + g.wave * 2;
       const ammoRatio = g.ammo[i] / ammoMax;
       ctx.fillStyle = ammoRatio > 0.3 ? COL.hud : COL.warning;
       ctx.fillRect(l.x - 15, l.y + 8, 30 * ammoRatio, 5);
+      // HP pips
+      for (let h = 0; h < 2; h++) {
+        ctx.fillStyle = h < g.launcherHP[i] ? "#44ff88" : "#333";
+        ctx.fillRect(l.x - 5 + h * 6, l.y + 15, 4, 3);
+      }
       const angle = Math.atan2(g.crosshairY - l.y, g.crosshairX - l.x);
       ctx.save(); ctx.translate(l.x, l.y - 8);
       ctx.rotate(Math.min(-0.2, Math.max(angle, -Math.PI + 0.2)));
-      ctx.fillStyle = "#4a5a70"; ctx.fillRect(0, -2, 18, 4); ctx.restore();
+      ctx.fillStyle = g.launcherHP[i] === 1 ? "#5a3a3a" : "#4a5a70";
+      ctx.fillRect(0, -2, 18, 4); ctx.restore();
     });
 
     // Phalanx turrets
     if (g.upgrades.phalanx > 0) {
       const turrets = [{ x: BURJ_X, y: GROUND_Y - 30 }];
-      if (g.upgrades.phalanx >= 2) turrets.push({ x: AIRPORT_X + 40, y: AIRPORT_Y - 30 });
+      if (g.upgrades.phalanx >= 2) turrets.push({ x: 800, y: GROUND_Y - 30 });
       if (g.upgrades.phalanx >= 3) turrets.push({ x: 200, y: GROUND_Y - 30 });
       turrets.forEach(t => {
         ctx.fillStyle = "#556677"; ctx.fillRect(t.x - 6, t.y, 12, 10);
@@ -1232,15 +1323,41 @@ export default function DubaiMissileCommand() {
       ctx.fillText("PAC-3", 30, GROUND_Y + 10);
     }
 
-    // ECM dish
-    if (g.upgrades.ecm > 0) {
-      ctx.fillStyle = "#3a3055"; ctx.fillRect(BURJ_X - 25, GROUND_Y - 18, 8, 18);
-      ctx.fillStyle = COL.ecm;
-      ctx.globalAlpha = 0.5 + Math.sin(g.time * 0.1) * 0.3;
-      ctx.beginPath(); ctx.arc(BURJ_X - 21, GROUND_Y - 22, 8, -Math.PI * 0.8, Math.PI * 0.8); ctx.stroke();
-      ctx.globalAlpha = 1;
-      ctx.font = "7px monospace"; ctx.fillText("ECM", BURJ_X - 32, GROUND_Y + 10);
+    // Flare launcher
+    if (g.upgrades.flare > 0) {
+      ctx.fillStyle = "#4a3a28"; ctx.fillRect(BURJ_X - 27, GROUND_Y - 14, 10, 14);
+      ctx.fillStyle = "#5a4a38"; ctx.fillRect(BURJ_X - 26, GROUND_Y - 20, 8, 8);
+      // Tubes
+      ctx.fillStyle = "#3a2a18";
+      for (let i = 0; i < g.upgrades.flare; i++) {
+        ctx.fillRect(BURJ_X - 25 + i * 3, GROUND_Y - 24, 2, 6);
+      }
+      ctx.fillStyle = "rgba(255,136,51,0.6)"; ctx.font = "7px monospace";
+      ctx.fillText("FLARE", BURJ_X - 35, GROUND_Y + 10);
     }
+
+    // Defense sites — destroyed rubble or alive glow
+    g.defenseSites.forEach(site => {
+      if (!site.alive) {
+        // Rubble
+        ctx.fillStyle = "#333";
+        ctx.fillRect(site.x - site.hw * 0.6, site.y - 3, site.hw * 1.2, 6);
+        ctx.fillStyle = "#2a2a2a";
+        ctx.fillRect(site.x - site.hw * 0.3, site.y - 5, site.hw * 0.4, 4);
+        ctx.fillRect(site.x + 2, site.y - 4, site.hw * 0.3, 3);
+        ctx.fillStyle = "rgba(255,60,0,0.15)";
+        ctx.fillRect(site.x - site.hw * 0.6, site.y - 5, site.hw * 1.2, 8);
+      } else {
+        // Subtle targeting indicator glow
+        const def = UPGRADES[site.key];
+        const pulse = 0.2 + 0.15 * Math.sin(g.time * 0.06);
+        ctx.strokeStyle = def ? def.color : "#44ffaa";
+        ctx.globalAlpha = pulse;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(site.x - site.hw, site.y - site.hh, site.hw * 2, site.hh * 2);
+        ctx.globalAlpha = 1;
+      }
+    });
 
     // Crosshair
     if (!showShop) {
@@ -1266,9 +1383,7 @@ export default function DubaiMissileCommand() {
     ctx.fillStyle = COL.hud; ctx.fillText(`WAVE ${g.wave}`, 130, 23);
     ctx.fillStyle = g.burjAlive ? "#44ff88" : "#ff4444";
     ctx.fillText(`BURJ:${g.burjAlive ? "OK" : "XX"}`, 240, 23);
-    ctx.fillStyle = g.airportAlive ? "#44ff88" : "#ff4444";
-    ctx.fillText(`DXB:${g.airportAlive ? "OK" : "XX"}`, 360, 23);
-    ctx.fillStyle = COL.hud; ctx.fillText(`AMMO ${g.ammo[0]}|${g.ammo[1]}|${g.ammo[2]}`, 470, 23);
+    ctx.fillStyle = COL.hud; ctx.fillText(`AMMO ${g.ammo[0]}|${g.ammo[1]}|${g.ammo[2]}`, 360, 23);
 
     // Wave progress bar
     const wpX = 650, wpW = 120, wpH = 8, wpY = 14;
@@ -1293,6 +1408,25 @@ export default function DubaiMissileCommand() {
         ux += 38;
       });
       ctx.globalAlpha = 1;
+    }
+
+    // Wave cleared banner
+    if (g.waveComplete && g.waveClearedTimer > 0) {
+      g.waveClearedTimer--;
+      const alpha = Math.min(1, g.waveClearedTimer / 20);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = "rgba(0,20,10,0.6)";
+      ctx.fillRect(CANVAS_W / 2 - 160, 280, 320, 50);
+      ctx.strokeStyle = COL.hud;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(CANVAS_W / 2 - 160, 280, 320, 50);
+      ctx.textAlign = "center";
+      ctx.font = "bold 22px 'Courier New', monospace";
+      ctx.fillStyle = COL.hud;
+      ctx.fillText(`WAVE ${g.wave} CLEARED`, CANVAS_W / 2, 312);
+      ctx.textAlign = "left";
+      ctx.restore();
     }
   }
 
@@ -1320,10 +1454,10 @@ export default function DubaiMissileCommand() {
     ctx.fillText("CLICK TO LAUNCH INTERCEPTORS", CANVAS_W / 2, 360);
     ctx.fillText("DESTROY MISSILES & DRONES", CANVAS_W / 2, 380);
     ctx.fillText("EARN SCORE TO BUY AUTOMATED DEFENSES", CANVAS_W / 2, 400);
-    ctx.fillText("PROTECT BURJ KHALIFA & DXB AIRPORT", CANVAS_W / 2, 420);
+    ctx.fillText("PROTECT BURJ KHALIFA", CANVAS_W / 2, 420);
     // Upgrade preview
     ctx.fillStyle = "#556677"; ctx.font = "11px 'Courier New', monospace";
-    ctx.fillText("🐝 Wild Hornets  🦅 Roadrunner  📡 ECM  ⚡ Iron Beam  🔫 Phalanx  🚀 Patriot", CANVAS_W / 2, 460);
+    ctx.fillText("🐝 Wild Hornets  🦅 Roadrunner  🎆 Flares  ⚡ Iron Beam  🔫 Phalanx  🚀 Patriot", CANVAS_W / 2, 460);
     const pulse = 0.5 + 0.5 * Math.sin(t * 3);
     ctx.fillStyle = `rgba(0,255,200,${pulse})`;
     ctx.font = "bold 18px 'Courier New', monospace";
@@ -1334,21 +1468,67 @@ export default function DubaiMissileCommand() {
   function drawGameOver(ctx) {
     const t = performance.now() / 1000;
     ctx.fillStyle = "#080008"; ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-    for (let i = 0; i < 200; i++) {
-      ctx.fillStyle = `rgba(255,0,0,${Math.random() * 0.05})`;
-      ctx.fillRect(Math.random() * CANVAS_W, Math.random() * CANVAS_H, 2, 2);
+    // Animated embers / ash
+    for (let i = 0; i < 300; i++) {
+      const px = (Math.sin(i * 73.1 + t * 0.3) * 0.5 + 0.5) * CANVAS_W;
+      const py = ((i * 37.7 + t * 20) % CANVAS_H);
+      ctx.fillStyle = `rgba(255,${50 + (i % 60)},0,${0.03 + Math.sin(i + t) * 0.02})`;
+      ctx.fillRect(px, py, 2, 2);
     }
+    // Ruined Burj silhouette
+    ctx.fillStyle = "rgba(60,20,10,0.4)";
+    ctx.beginPath();
+    ctx.moveTo(CANVAS_W / 2 - 12, 500); ctx.lineTo(CANVAS_W / 2 - 8, 400);
+    ctx.lineTo(CANVAS_W / 2 - 5, 360); ctx.lineTo(CANVAS_W / 2 - 3, 340);
+    ctx.lineTo(CANVAS_W / 2 + 2, 350); ctx.lineTo(CANVAS_W / 2 + 6, 380);
+    ctx.lineTo(CANVAS_W / 2 + 10, 420); ctx.lineTo(CANVAS_W / 2 + 12, 500);
+    ctx.closePath(); ctx.fill();
+    // Smoke wisps
+    for (let i = 0; i < 5; i++) {
+      const sx = CANVAS_W / 2 + Math.sin(t + i * 1.3) * 15;
+      const sy = 330 - i * 20 - (t * 8) % 40;
+      ctx.globalAlpha = 0.1 - i * 0.015;
+      ctx.fillStyle = "#442222";
+      ctx.beginPath(); ctx.arc(sx, sy, 8 + i * 3, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // Title
     ctx.textAlign = "center";
     ctx.fillStyle = COL.warning; ctx.shadowColor = "#ff0000"; ctx.shadowBlur = 30;
-    ctx.font = "bold 44px 'Courier New', monospace"; ctx.fillText("CITY FALLEN", CANVAS_W / 2, 200);
+    ctx.font = "bold 48px 'Courier New', monospace"; ctx.fillText("CITY FALLEN", CANVAS_W / 2, 140);
     ctx.shadowBlur = 0;
-    ctx.fillStyle = "#aaa"; ctx.font = "18px 'Courier New', monospace";
-    ctx.fillText(`FINAL SCORE: ${finalScore}`, CANVAS_W / 2, 280);
-    ctx.fillText(`WAVES SURVIVED: ${finalWave}`, CANVAS_W / 2, 310);
-    const pulse = 0.5 + 0.5 * Math.sin(t * 3);
-    ctx.fillStyle = `rgba(0,255,200,${pulse})`;
-    ctx.font = "bold 16px 'Courier New', monospace";
-    ctx.fillText("[ CLICK TO RETRY ]", CANVAS_W / 2, 420);
+    // Divider line
+    ctx.strokeStyle = "rgba(255,60,60,0.3)"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(CANVAS_W / 2 - 150, 160); ctx.lineTo(CANVAS_W / 2 + 150, 160); ctx.stroke();
+    // Stats
+    ctx.fillStyle = "#887766"; ctx.font = "13px 'Courier New', monospace";
+    ctx.fillText("AFTER ACTION REPORT", CANVAS_W / 2, 195);
+    ctx.fillStyle = "#ccbbaa"; ctx.font = "20px 'Courier New', monospace";
+    ctx.fillText(`SCORE: ${finalScore}`, CANVAS_W / 2, 240);
+    ctx.fillStyle = "#aa9988"; ctx.font = "16px 'Courier New', monospace";
+    ctx.fillText(`WAVES SURVIVED: ${finalWave}`, CANVAS_W / 2, 275);
+    // Rating
+    let rating, ratingColor;
+    if (finalWave >= 10) { rating = "LEGENDARY COMMANDER"; ratingColor = COL.gold; }
+    else if (finalWave >= 7) { rating = "VETERAN DEFENDER"; ratingColor = "#44ffaa"; }
+    else if (finalWave >= 4) { rating = "CAPABLE OFFICER"; ratingColor = "#88aacc"; }
+    else { rating = "CADET"; ratingColor = "#886655"; }
+    ctx.fillStyle = ratingColor; ctx.font = "bold 14px 'Courier New', monospace";
+    ctx.fillText(rating, CANVAS_W / 2, 310);
+    // Combat stats
+    ctx.strokeStyle = "rgba(255,60,60,0.15)"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(CANVAS_W / 2 - 120, 330); ctx.lineTo(CANVAS_W / 2 + 120, 330); ctx.stroke();
+    ctx.fillStyle = "#887766"; ctx.font = "11px 'Courier New', monospace";
+    ctx.fillText("COMBAT RECORD", CANVAS_W / 2, 352);
+    ctx.fillStyle = "#aa9988"; ctx.font = "14px 'Courier New', monospace";
+    ctx.fillText(`MISSILES DESTROYED: ${finalStats.missileKills}`, CANVAS_W / 2, 378);
+    ctx.fillText(`DRONES KILLED: ${finalStats.droneKills}`, CANVAS_W / 2, 400);
+    ctx.fillText(`SHOTS FIRED: ${finalStats.shotsFired}`, CANVAS_W / 2, 422);
+    const totalKills = finalStats.missileKills + finalStats.droneKills;
+    const hitRatio = finalStats.shotsFired > 0 ? Math.round((totalKills / finalStats.shotsFired) * 100) : 0;
+    ctx.fillStyle = hitRatio >= 50 ? "#44ff88" : hitRatio >= 25 ? "#ffaa44" : "#ff4444";
+    ctx.font = "bold 14px 'Courier New', monospace";
+    ctx.fillText(`HIT RATIO: ${hitRatio}%`, CANVAS_W / 2, 448);
     ctx.textAlign = "left";
   }
 
@@ -1370,7 +1550,7 @@ export default function DubaiMissileCommand() {
   function handleCanvasClick(e) {
     if (showShop) return;
     if (screen === "title") { initGame(); setScreen("playing"); }
-    else if (screen === "gameover") { initGame(); setScreen("playing"); }
+    else if (screen === "gameover") { return; }
     else {
       const g = gameRef.current;
       if (!g) return;
@@ -1400,6 +1580,27 @@ export default function DubaiMissileCommand() {
     if (g.score < cost) return;
     g.score -= cost;
     g.upgrades[key]++;
+    // Register or revive defense site
+    const existingSite = g.defenseSites.find(s => s.key === key);
+    if (existingSite) {
+      existingSite.alive = true;
+    } else {
+      const siteDefs = {
+        patriot:     { x: 50,  y: GROUND_Y - 15,  hw: 25, hh: 15 },
+        flare:       { x: 380, y: GROUND_Y - 18,   hw: 12, hh: 20 },
+        ironBeam:    { x: 320, y: GROUND_Y - 15,    hw: 10, hh: 15 },
+        wildHornets: { x: 150, y: GROUND_Y - 15,    hw: 20, hh: 15 },
+        roadrunner:  { x: 620, y: GROUND_Y - 15,    hw: 20, hh: 15 },
+      };
+      if (key === "phalanx") {
+        if (!g.defenseSites.find(s => s.key === "phalanx")) {
+          g.defenseSites.push({ key: "phalanx", x: 720, y: GROUND_Y - 30, alive: true, hw: 10, hh: 15 });
+        }
+      } else if (siteDefs[key]) {
+        const sd = siteDefs[key];
+        g.defenseSites.push({ key, x: sd.x, y: sd.y, alive: true, hw: sd.hw, hh: sd.hh });
+      }
+    }
     setShopData({ score: g.score, wave: g.wave, upgrades: { ...g.upgrades } });
     forceUpdate(n => n + 1);
   }
@@ -1410,8 +1611,9 @@ export default function DubaiMissileCommand() {
     g.waveMissiles = 0;
     g.waveTarget = 10 + g.wave * 5;
     g.spawnInterval = Math.max(20, 110 - g.wave * 10);
-    g.droneInterval = Math.max(60, 250 - g.wave * 25);
-    g.ammo = g.ammo.map(() => 20 + g.wave * 2);
+    g.droneInterval = Math.max(40, 160 - g.wave * 20);
+    g.launcherHP = g.launcherHP.map(hp => hp > 0 ? 2 : 0);
+    g.ammo = g.ammo.map((_, i) => g.launcherHP[i] > 0 ? 20 + g.wave * 2 : 0);
     g.waveComplete = false;
     setShowShop(false); setShopData(null);
   }
@@ -1433,6 +1635,29 @@ export default function DubaiMissileCommand() {
             transition: "filter 0.3s",
           }}
         />
+
+        {/* GAME OVER OVERLAY */}
+        {screen === "gameover" && (
+          <div style={{
+            position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+            display: "flex", flexDirection: "column", alignItems: "center",
+            justifyContent: "center", zIndex: 10,
+          }}>
+            <button onClick={() => { initGame(); setScreen("playing"); }}
+              style={{
+                marginTop: "420px",
+                padding: "14px 50px", background: "rgba(255,60,60,0.15)",
+                border: "1px solid rgba(255,80,80,0.5)", borderRadius: "4px",
+                color: COL.warning, fontSize: "16px", fontWeight: "bold",
+                fontFamily: "'Courier New', monospace", cursor: "pointer", letterSpacing: "3px",
+              }}
+              onMouseEnter={e => { e.target.style.background = "rgba(255,60,60,0.3)"; e.target.style.boxShadow = "0 0 25px rgba(255,60,60,0.3)"; }}
+              onMouseLeave={e => { e.target.style.background = "rgba(255,60,60,0.15)"; e.target.style.boxShadow = "none"; }}
+            >
+              RETRY
+            </button>
+          </div>
+        )}
 
         {/* UPGRADE SHOP */}
         {showShop && shopData && (

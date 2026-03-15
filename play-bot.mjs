@@ -1,10 +1,10 @@
 import { chromium } from "playwright";
 
-const GAME_URL = "http://localhost:5174";
+const GAME_URL = "http://localhost:5176";
 const TICK_MS = 200;
 const GROUND_Y = 570;
 const INTERCEPTOR_SPEED = 5;
-const LAUNCHERS = [{ x: 100, y: 565 }, { x: 450, y: 565 }, { x: 800, y: 565 }];
+const LAUNCHERS = [{ x: 60, y: 565 }, { x: 550, y: 565 }, { x: 860, y: 565 }];
 
 async function main() {
   const browser = await chromium.launch({ headless: false });
