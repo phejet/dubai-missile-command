@@ -104,6 +104,20 @@ const UPGRADES = {
   },
 };
 
+// FPS probe: measure first 60 frames, disable shadowBlur if avg FPS < 45
+const perfState = { frameCount: 0, startTime: 0, glowEnabled: true, probed: false };
+
+function glow(ctx, color, radius) {
+  if (!perfState.glowEnabled) return;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = radius;
+}
+
+function glowOff(ctx) {
+  if (!perfState.glowEnabled) return;
+  ctx.shadowBlur = 0;
+}
+
 export default function DubaiMissileCommand() {
   const canvasRef = useRef(null);
   const gameRef = useRef(null);
@@ -981,8 +995,7 @@ export default function DubaiMissileCommand() {
       const flicker = 0.7 + 0.3 * Math.sin(f.life * 0.5);
       ctx.globalAlpha = alpha * flicker;
       ctx.fillStyle = COL.flare;
-      ctx.shadowColor = COL.flare;
-      ctx.shadowBlur = 12;
+      glow(ctx, COL.flare, 12);
       ctx.beginPath();
       ctx.arc(f.x, f.y, 3 + Math.sin(f.life * 0.3) * 1.5, 0, Math.PI * 2);
       ctx.fill();
@@ -990,7 +1003,7 @@ export default function DubaiMissileCommand() {
       ctx.beginPath();
       ctx.arc(f.x, f.y, 1.5, 0, Math.PI * 2);
       ctx.fill();
-      ctx.shadowBlur = 0;
+      glowOff(ctx);
       ctx.globalAlpha = 1;
     });
 
@@ -1060,12 +1073,11 @@ export default function DubaiMissileCommand() {
       ctx.lineTo(bx + 3, by - bh);
       ctx.closePath();
       ctx.fill();
-      ctx.shadowColor = COL.burjGlow;
-      ctx.shadowBlur = 20 + Math.sin(g.time * 0.03) * 8;
+      glow(ctx, COL.burjGlow, 20 + Math.sin(g.time * 0.03) * 8);
       ctx.strokeStyle = "rgba(68,136,255,0.4)";
       ctx.lineWidth = 1;
       ctx.stroke();
-      ctx.shadowBlur = 0;
+      glowOff(ctx);
       for (let i = 0; i < 15; i++) {
         const ly = by - bh * 0.1 - bh * 0.8 * (i / 15);
         const lw = 8 * (1 - i / 20);
@@ -1076,12 +1088,11 @@ export default function DubaiMissileCommand() {
       }
       if (Math.sin(g.time * 0.1) > 0.5) {
         ctx.fillStyle = "#f00";
-        ctx.shadowColor = "#f00";
-        ctx.shadowBlur = 15;
+        glow(ctx, "#f00", 15);
         ctx.beginPath();
         ctx.arc(bx, by - bh - 30, 3, 0, Math.PI * 2);
         ctx.fill();
-        ctx.shadowBlur = 0;
+        glowOff(ctx);
       }
       if (g.upgrades.ironBeam > 0) {
         const pulse = 0.5 + 0.5 * Math.sin(g.time * 0.08);
@@ -1182,8 +1193,7 @@ export default function DubaiMissileCommand() {
       // Afterburner glow
       const abLen = 4 + Math.random() * 5;
       ctx.fillStyle = "#ff8844";
-      ctx.shadowColor = "#ff6600";
-      ctx.shadowBlur = 8;
+      glow(ctx, "#ff6600", 8);
       ctx.beginPath();
       ctx.moveTo(-22, -3);
       ctx.lineTo(-22 - abLen, -2);
@@ -1196,7 +1206,7 @@ export default function DubaiMissileCommand() {
       ctx.lineTo(-22, 3);
       ctx.closePath();
       ctx.fill();
-      ctx.shadowBlur = 0;
+      glowOff(ctx);
       // Cockpit
       ctx.fillStyle = "rgba(100,200,255,0.4)";
       ctx.beginPath();
@@ -1205,17 +1215,16 @@ export default function DubaiMissileCommand() {
       // Nav lights
       if (Math.sin(p.blinkTimer * 0.15) > 0) {
         ctx.fillStyle = "#f00";
-        ctx.shadowColor = "#f00";
-        ctx.shadowBlur = 6;
+        glow(ctx, "#f00", 6);
         ctx.beginPath();
         ctx.arc(-10, -14, 1.5, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = "#0f0";
-        ctx.shadowColor = "#0f0";
+        glow(ctx, "#0f0", 6);
         ctx.beginPath();
         ctx.arc(-10, 14, 1.5, 0, Math.PI * 2);
         ctx.fill();
-        ctx.shadowBlur = 0;
+        glowOff(ctx);
       }
       ctx.restore();
     });
@@ -1225,8 +1234,7 @@ export default function DubaiMissileCommand() {
       const alpha = b.life / b.maxLife;
       ctx.globalAlpha = alpha;
       ctx.strokeStyle = COL.laser;
-      ctx.shadowColor = COL.laser;
-      ctx.shadowBlur = 15;
+      glow(ctx, COL.laser, 15);
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.moveTo(b.x1, b.y1);
@@ -1238,7 +1246,7 @@ export default function DubaiMissileCommand() {
       ctx.moveTo(b.x1, b.y1);
       ctx.lineTo(b.x2, b.y2);
       ctx.stroke();
-      ctx.shadowBlur = 0;
+      glowOff(ctx);
       ctx.globalAlpha = 1;
     });
 
@@ -1272,12 +1280,11 @@ export default function DubaiMissileCommand() {
         });
         if (m.trail.length > 1) ctx.stroke();
         ctx.fillStyle = "#ff8800";
-        ctx.shadowColor = "#ff6600";
-        ctx.shadowBlur = 8;
+        glow(ctx, "#ff6600", 8);
         ctx.beginPath();
         ctx.arc(m.x, m.y, 2.5, 0, Math.PI * 2);
         ctx.fill();
-        ctx.shadowBlur = 0;
+        glowOff(ctx);
       } else {
         // Ballistic missile — pointed warhead with body and exhaust
         ctx.save();
@@ -1346,8 +1353,7 @@ export default function DubaiMissileCommand() {
         // Rocket flame
         const flameLen = 4 + Math.random() * 6;
         ctx.fillStyle = "#ff6633";
-        ctx.shadowColor = "#ff4400";
-        ctx.shadowBlur = 10;
+        glow(ctx, "#ff4400", 10);
         ctx.beginPath();
         ctx.moveTo(-6, -2);
         ctx.lineTo(-6 - flameLen, 0);
@@ -1355,14 +1361,14 @@ export default function DubaiMissileCommand() {
         ctx.closePath();
         ctx.fill();
         ctx.fillStyle = "#ffcc66";
-        ctx.shadowBlur = 0;
+        glowOff(ctx);
         ctx.beginPath();
         ctx.moveTo(-6, -1);
         ctx.lineTo(-6 - flameLen * 0.5, 0);
         ctx.lineTo(-6, 1);
         ctx.closePath();
         ctx.fill();
-        ctx.shadowBlur = 0;
+        glowOff(ctx);
 
         ctx.restore();
       }
@@ -1417,8 +1423,7 @@ export default function DubaiMissileCommand() {
         // Jet exhaust
         const exLen = 6 + Math.random() * 8;
         ctx.fillStyle = "#ff6600";
-        ctx.shadowColor = "#ff4400";
-        ctx.shadowBlur = 12;
+        glow(ctx, "#ff4400", 12);
         ctx.beginPath();
         ctx.moveTo(-14, -2);
         ctx.lineTo(-14 - exLen, 0);
@@ -1426,14 +1431,14 @@ export default function DubaiMissileCommand() {
         ctx.closePath();
         ctx.fill();
         ctx.fillStyle = "#ffcc44";
-        ctx.shadowBlur = 0;
+        glowOff(ctx);
         ctx.beginPath();
         ctx.moveTo(-14, -1);
         ctx.lineTo(-14 - exLen * 0.5, 0);
         ctx.lineTo(-14, 1);
         ctx.closePath();
         ctx.fill();
-        ctx.shadowBlur = 0;
+        glowOff(ctx);
         // Dive warning indicator
         if (d.diving) {
           ctx.strokeStyle = "#ff2200";
@@ -1482,12 +1487,11 @@ export default function DubaiMissileCommand() {
       // Blinking nav light
       if (Math.sin(g.time * 0.15) > 0) {
         ctx.fillStyle = d.subtype === "shahed238" ? "#ff2200" : "#ff4400";
-        ctx.shadowColor = ctx.fillStyle;
-        ctx.shadowBlur = 6;
+        glow(ctx, ctx.fillStyle, 6);
         ctx.beginPath();
         ctx.arc(0, 0, 1.5, 0, Math.PI * 2);
         ctx.fill();
-        ctx.shadowBlur = 0;
+        glowOff(ctx);
       }
       ctx.restore();
     });
@@ -1506,12 +1510,11 @@ export default function DubaiMissileCommand() {
       });
       if (ic.trail.length > 1) ctx.stroke();
       ctx.fillStyle = isF15 ? "#aaccff" : COL.interceptor;
-      ctx.shadowColor = isF15 ? "#6699ff" : COL.interceptor;
-      ctx.shadowBlur = isF15 ? 6 : 10;
+      glow(ctx, isF15 ? "#6699ff" : COL.interceptor, isF15 ? 6 : 10);
       ctx.beginPath();
       ctx.arc(ic.x, ic.y, isF15 ? 2 : 3, 0, Math.PI * 2);
       ctx.fill();
-      ctx.shadowBlur = 0;
+      glowOff(ctx);
     });
 
     // Wild Hornets
@@ -1525,15 +1528,14 @@ export default function DubaiMissileCommand() {
       });
       if (h.trail.length > 1) ctx.stroke();
       ctx.fillStyle = COL.hornet;
-      ctx.shadowColor = COL.hornet;
-      ctx.shadowBlur = 8;
+      glow(ctx, COL.hornet, 8);
       ctx.beginPath();
       ctx.arc(h.x, h.y, 3, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = "rgba(255,204,0,0.5)";
       ctx.fillRect(h.x - 5, h.y - 1, 3, 2);
       ctx.fillRect(h.x + 2, h.y - 1, 3, 2);
-      ctx.shadowBlur = 0;
+      glowOff(ctx);
     });
 
     // Roadrunners
@@ -1547,15 +1549,14 @@ export default function DubaiMissileCommand() {
       });
       if (r.trail.length > 1) ctx.stroke();
       ctx.fillStyle = COL.roadrunner;
-      ctx.shadowColor = COL.roadrunner;
-      ctx.shadowBlur = 10;
+      glow(ctx, COL.roadrunner, 10);
       ctx.save();
       ctx.translate(r.x, r.y);
       ctx.fillRect(-4, -6, 8, 12);
       ctx.fillStyle = "#fff";
       ctx.fillRect(-2, -8, 4, 3);
       ctx.restore();
-      ctx.shadowBlur = 0;
+      glowOff(ctx);
     });
 
     // Patriot missiles
@@ -1569,12 +1570,11 @@ export default function DubaiMissileCommand() {
       });
       if (p.trail.length > 1) ctx.stroke();
       ctx.fillStyle = COL.patriot;
-      ctx.shadowColor = COL.patriot;
-      ctx.shadowBlur = 12;
+      glow(ctx, COL.patriot, 12);
       ctx.beginPath();
       ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
       ctx.fill();
-      ctx.shadowBlur = 0;
+      glowOff(ctx);
     });
 
     // Explosions
@@ -1825,13 +1825,12 @@ export default function DubaiMissileCommand() {
     for (let y = 0; y < CANVAS_H; y += 3) ctx.fillRect(0, y + ((t * 20) % 3), CANVAS_W, 1);
     ctx.textAlign = "center";
     ctx.fillStyle = COL.hud;
-    ctx.shadowColor = COL.hud;
-    ctx.shadowBlur = 20;
+    glow(ctx, COL.hud, 20);
     ctx.font = "bold 48px 'Courier New', monospace";
     ctx.fillText("DUBAI", CANVAS_W / 2, 160);
     ctx.font = "bold 36px 'Courier New', monospace";
     ctx.fillText("MISSILE COMMAND", CANVAS_W / 2, 210);
-    ctx.shadowBlur = 0;
+    glowOff(ctx);
     ctx.fillStyle = "#ff6644";
     ctx.font = "14px 'Courier New', monospace";
     ctx.fillText("DEFEND THE CITY  ★  PROTECT THE SKIES", CANVAS_W / 2, 250);
@@ -1902,11 +1901,10 @@ export default function DubaiMissileCommand() {
     // Title
     ctx.textAlign = "center";
     ctx.fillStyle = COL.warning;
-    ctx.shadowColor = "#ff0000";
-    ctx.shadowBlur = 30;
+    glow(ctx, "#ff0000", 30);
     ctx.font = "bold 48px 'Courier New', monospace";
     ctx.fillText("CITY FALLEN", CANVAS_W / 2, 140);
-    ctx.shadowBlur = 0;
+    glowOff(ctx);
     // Divider line
     ctx.strokeStyle = "rgba(255,60,60,0.3)";
     ctx.lineWidth = 1;
@@ -1969,6 +1967,17 @@ export default function DubaiMissileCommand() {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     function loop(timestamp) {
+      // FPS probe: measure first 60 frames of gameplay
+      if (!perfState.probed && screen === "playing" && gameRef.current) {
+        if (perfState.frameCount === 0) perfState.startTime = timestamp;
+        perfState.frameCount++;
+        if (perfState.frameCount >= 60) {
+          const elapsed = timestamp - perfState.startTime;
+          const avgFps = (60 / elapsed) * 1000;
+          perfState.glowEnabled = avgFps >= 45;
+          perfState.probed = true;
+        }
+      }
       if (screen === "playing" && gameRef.current) {
         if (lastTimeRef.current === null) lastTimeRef.current = timestamp;
         const dt = Math.min((timestamp - lastTimeRef.current) / (1000 / 60), 3);
