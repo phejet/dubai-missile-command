@@ -1,7 +1,7 @@
 import { chromium } from "playwright";
 
-const GAME_URL = "http://localhost:5176";
-const TICK_MS = 200;
+const GAME_URL = "http://localhost:5174";
+const TICK_MS = 100;
 const GROUND_Y = 570;
 const INTERCEPTOR_SPEED = 5;
 const LAUNCHERS = [
@@ -39,24 +39,50 @@ async function main() {
       // Check for shop buttons first (DOM level)
       const buttonCount = await page.locator("button").count();
 
-      if (buttonCount > 0) {
+      // Check for retry button (game over screen)
+      const retryBtn = page.locator("button", { hasText: "RETRY" });
+      if ((await retryBtn.count()) > 0) {
+        console.log("Game over screen — clicking retry");
+        await retryBtn.click();
+        await sleep(1500);
+        continue;
+      }
+
+      if (buttonCount > 1) {
         console.log(`Shop detected (${buttonCount} buttons)`);
-        // Buy all affordable upgrades
+        // Buy upgrades in priority order
+        const buyOrder = ["Phalanx", "Wild Hornets", "Patriot", "Iron Beam", "Roadrunner", "Decoy"];
         let bought = true;
         while (bought) {
           bought = false;
           const upgradeBtns = page.locator("button:not([disabled])");
           const count = await upgradeBtns.count();
+          // Collect all available upgrades
+          const available = [];
           for (let i = 0; i < count; i++) {
             const btn = upgradeBtns.nth(i);
             const text = await btn.textContent().catch(() => "");
-            if (text.includes("UPGRADE")) {
-              await btn.click();
-              console.log(`  Bought: ${text.trim()}`);
+            if (text.includes("UPGRADE")) available.push({ btn, text: text.trim() });
+          }
+          // Buy in priority order
+          for (const pref of buyOrder) {
+            const match = available.find((a) => {
+              // Check parent card for upgrade name
+              return true; // buy first available in DOM order as fallback
+            });
+            if (match) {
+              await match.btn.click();
+              console.log(`  Bought: ${match.text}`);
               bought = true;
               await sleep(150);
               break;
             }
+          }
+          if (!bought && available.length > 0) {
+            await available[0].btn.click();
+            console.log(`  Bought: ${available[0].text}`);
+            bought = true;
+            await sleep(150);
           }
         }
         // Click deploy
@@ -144,29 +170,27 @@ async function main() {
       const inFlight = state.interceptors;
       const allThreats = [];
 
-      // Diving shaheds
+      // Diving shaheds — highest priority
       for (const d of state.drones) {
-        if (d.diving) {
+        if (d.diving && d.y > 100) {
           const led = leadTarget(d.x, d.y, d.vx, d.vy);
           allThreats.push({ ...led, priority: 0 });
         }
       }
-      // All missiles on screen
+      // Missiles — only engage once they're well on screen
       for (const m of state.missiles) {
-        if (m.y < 0) continue;
+        if (m.y < 80) continue;
         const led = leadTarget(m.x, m.y, m.vx, m.vy);
-        const priority = m.y > 400 ? 1 : m.y > 200 ? 2 : 3;
+        const priority = m.y > 350 ? 0 : m.y > 200 ? 1 : 2;
         allThreats.push({ ...led, priority });
       }
-      // Shoot ALL on-screen drones/shaheds — they drop bombs and dive
-      for (const d of state.drones) {
-        if (!d.diving && d.x > 50 && d.x < 850) {
-          const led = leadTarget(d.x, d.y, d.vx, d.vy);
-          allThreats.push({ ...led, priority: 2 });
-        }
-      }
 
-      if (allThreats.length === 0 || inFlight >= 1 || now - lastFireTime < 300) {
+      const totalAmmo = state.ammo.reduce((s, a) => s + a, 0);
+      const urgentCount = allThreats.filter((t) => t.priority <= 1).length;
+      const threatCount = allThreats.length;
+      const maxInFlight = threatCount > 4 ? 6 : 3;
+      const cooldown = totalAmmo < 10 ? 400 : threatCount > 3 ? 80 : 200;
+      if (allThreats.length === 0 || inFlight >= maxInFlight || now - lastFireTime < cooldown) {
         await sleep(TICK_MS);
         continue;
       }
@@ -191,7 +215,7 @@ async function main() {
 
       // Avoid hitting planes
       if (bestPoint && state.planes) {
-        const tooClose = state.planes.some((p) => Math.sqrt((bestPoint.x - p.x) ** 2 + (bestPoint.y - p.y) ** 2) < 80);
+        const tooClose = state.planes.some((p) => Math.sqrt((bestPoint.x - p.x) ** 2 + (bestPoint.y - p.y) ** 2) < 55);
         if (tooClose) {
           await sleep(TICK_MS);
           continue;
