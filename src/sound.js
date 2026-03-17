@@ -97,19 +97,52 @@ const SFX = {
 
   fire() {
     if (!ensureCtx() || !trackVoice()) return;
-    const o = ctx.createOscillator();
-    o.type = "square";
     const t = now();
-    o.frequency.setValueAtTime(800, t);
-    o.frequency.linearRampToValueAtTime(1200, t + 0.1);
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0.15, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
-    o.connect(g);
-    g.connect(master);
+    // Ignition pop — short noise burst
+    const src = ctx.createBufferSource();
+    src.buffer = noiseBuffer;
+    const bp = ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.value = 1200;
+    bp.Q.value = 2;
+    const ng = ctx.createGain();
+    ng.gain.setValueAtTime(0.3, t);
+    ng.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+    src.connect(bp);
+    bp.connect(ng);
+    ng.connect(master);
+    src.start(t);
+    src.stop(t + 0.07);
+    // Rising whoosh — noise through sweeping bandpass
+    const src2 = ctx.createBufferSource();
+    src2.buffer = noiseBuffer;
+    const bp2 = ctx.createBiquadFilter();
+    bp2.type = "bandpass";
+    bp2.frequency.setValueAtTime(600, t + 0.03);
+    bp2.frequency.linearRampToValueAtTime(3000, t + 0.25);
+    bp2.Q.value = 1.5;
+    const ng2 = ctx.createGain();
+    ng2.gain.setValueAtTime(0.001, t);
+    ng2.gain.linearRampToValueAtTime(0.22, t + 0.06);
+    ng2.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+    src2.connect(bp2);
+    bp2.connect(ng2);
+    ng2.connect(master);
+    src2.start(t);
+    src2.stop(t + 0.25);
+    // Low thud from motor ignition
+    const o = ctx.createOscillator();
+    o.type = "sine";
+    o.frequency.setValueAtTime(200, t);
+    o.frequency.exponentialRampToValueAtTime(100, t + 0.15);
+    const og = ctx.createGain();
+    og.gain.setValueAtTime(0.18, t);
+    og.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+    o.connect(og);
+    og.connect(master);
     o.start(t);
-    o.stop(t + 0.1);
-    scheduleRelease(0.1);
+    o.stop(t + 0.15);
+    scheduleRelease(0.25);
   },
 
   explosion(size) {
@@ -360,32 +393,46 @@ const SFX = {
   laserBeam() {
     if (!ensureCtx() || !trackVoice()) return null;
     const t = now();
+    // Star Wars style — sharp descending "pew" with buzzy harmonics
+    // Main tone: sharp sine pitch drop
     const o1 = ctx.createOscillator();
-    o1.type = "sawtooth";
-    o1.frequency.value = 1200;
+    o1.type = "sine";
+    o1.frequency.setValueAtTime(1800, t);
+    o1.frequency.exponentialRampToValueAtTime(400, t + 0.15);
+    o1.frequency.exponentialRampToValueAtTime(200, t + 0.4);
+    // Buzzy harmonic layer
     const o2 = ctx.createOscillator();
-    o2.type = "sawtooth";
-    o2.frequency.value = 1205;
+    o2.type = "square";
+    o2.frequency.setValueAtTime(900, t);
+    o2.frequency.exponentialRampToValueAtTime(200, t + 0.15);
+    o2.frequency.exponentialRampToValueAtTime(100, t + 0.4);
+    // Envelope
     const g = ctx.createGain();
-    g.gain.value = 0.08;
-    o1.connect(g);
+    g.gain.setValueAtTime(0.18, t);
+    g.gain.setValueAtTime(0.12, t + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+    // Slight distortion via waveshaper for that crunchy edge
+    const ws = ctx.createWaveShaper();
+    const curve = new Float32Array(256);
+    for (let i = 0; i < 256; i++) {
+      const x = (i / 128 - 1) * 1.5;
+      curve[i] = Math.tanh(x);
+    }
+    ws.curve = curve;
+    o1.connect(ws);
     o2.connect(g);
+    ws.connect(g);
     g.connect(master);
     o1.start(t);
     o2.start(t);
+    o1.stop(t + 0.4);
+    o2.stop(t + 0.4);
     let stopped = false;
+    scheduleRelease(0.4);
     return {
       stop() {
         if (stopped) return;
         stopped = true;
-        const t2 = now();
-        g.gain.setValueAtTime(g.gain.value, t2);
-        g.gain.exponentialRampToValueAtTime(0.001, t2 + 0.05);
-        setTimeout(() => {
-          o1.stop();
-          o2.stop();
-          releaseVoice();
-        }, 80);
       },
     };
   },

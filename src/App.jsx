@@ -513,7 +513,6 @@ export default function DubaiMissileCommand() {
       g.phalanxTimer += dt;
       if (g.phalanxTimer >= fireRate) {
         g.phalanxTimer = 0;
-        SFX.phalanxBurst();
         turrets.forEach((turret) => {
           const close = allThreats
             .filter((t) => t.alive && dist(t.x, t.y, turret.x, turret.y) < range)
@@ -610,6 +609,10 @@ export default function DubaiMissileCommand() {
     // Game over — Burj destroyed (must tick even during waveComplete)
     if (!g.burjAlive && !g.gameOverTimer) {
       g.gameOverTimer = 60; // ~1 second of destruction before game over screen
+      if (g._laserHandle) {
+        g._laserHandle.stop();
+        g._laserHandle = null;
+      }
       SFX.gameOver();
     }
     if (g.gameOverTimer > 0) {
@@ -625,6 +628,11 @@ export default function DubaiMissileCommand() {
     }
 
     if (g.waveComplete) {
+      // Stop any sustained sounds when wave ends
+      if (g._laserHandle) {
+        g._laserHandle.stop();
+        g._laserHandle = null;
+      }
       if (g.waveClearedTimer <= 0 && !g.shopOpened) {
         g.shopOpened = true;
         if (g.burjAlive) {
@@ -1784,6 +1792,13 @@ export default function DubaiMissileCommand() {
     ctx.fillText(`BURJ:${g.burjAlive ? "OK" : "XX"}`, 240, 23);
     ctx.fillStyle = COL.hud;
     ctx.fillText(`AMMO ${g.ammo[0]}|${g.ammo[1]}|${g.ammo[2]}`, 360, 23);
+    // FPS
+    if (g._fpsDisplay) {
+      ctx.fillStyle = g._fpsDisplay >= 50 ? "#556677" : g._fpsDisplay >= 30 ? "#ffaa44" : "#ff4444";
+      ctx.font = "10px 'Courier New', monospace";
+      ctx.fillText(`${g._fpsDisplay} FPS`, CANVAS_W - 60, 23);
+      ctx.font = "bold 12px 'Courier New', monospace";
+    }
 
     // Wave progress bar
     const wpX = 650,
@@ -2008,8 +2023,18 @@ export default function DubaiMissileCommand() {
       }
       if (screen === "playing" && gameRef.current) {
         if (lastTimeRef.current === null) lastTimeRef.current = timestamp;
-        const dt = Math.min((timestamp - lastTimeRef.current) / (1000 / 60), 3);
+        const elapsed = timestamp - lastTimeRef.current;
+        const dt = Math.min(elapsed / (1000 / 60), 3);
         lastTimeRef.current = timestamp;
+        // FPS tracking
+        const g = gameRef.current;
+        g._fpsFrames = (g._fpsFrames || 0) + 1;
+        g._fpsAccum = (g._fpsAccum || 0) + elapsed;
+        if (g._fpsAccum >= 500) {
+          g._fpsDisplay = Math.round((g._fpsFrames / g._fpsAccum) * 1000);
+          g._fpsFrames = 0;
+          g._fpsAccum = 0;
+        }
         update(gameRef.current, dt);
         drawGame(ctx, gameRef.current);
       } else {
@@ -2074,6 +2099,7 @@ export default function DubaiMissileCommand() {
     const existingSite = g.defenseSites.find((s) => s.key === key);
     if (existingSite) {
       existingSite.alive = true;
+      existingSite.savedLevel = g.upgrades[key];
     } else {
       const siteDefs = {
         patriot: { x: 50, y: GROUND_Y - 15, hw: 25, hh: 15 },
@@ -2083,10 +2109,10 @@ export default function DubaiMissileCommand() {
         roadrunner: { x: 620, y: GROUND_Y - 15, hw: 20, hh: 15 },
       };
       if (key === "phalanx") {
-        g.defenseSites.push({ key: "phalanx", x: 720, y: GROUND_Y - 30, alive: true, hw: 10, hh: 15 });
+        g.defenseSites.push({ key: "phalanx", x: 720, y: GROUND_Y - 30, alive: true, hw: 10, hh: 15, savedLevel: g.upgrades[key] });
       } else if (siteDefs[key]) {
         const sd = siteDefs[key];
-        g.defenseSites.push({ key, x: sd.x, y: sd.y, alive: true, hw: sd.hw, hh: sd.hh });
+        g.defenseSites.push({ key, x: sd.x, y: sd.y, alive: true, hw: sd.hw, hh: sd.hh, savedLevel: g.upgrades[key] });
       }
     }
     setShopData({ score: g.score, wave: g.wave, upgrades: { ...g.upgrades } });
@@ -2102,6 +2128,14 @@ export default function DubaiMissileCommand() {
     g.droneInterval = Math.max(40, 160 - g.wave * 20);
     g.launcherHP = g.launcherHP.map((hp) => (hp > 0 ? 2 : 0));
     g.ammo = g.ammo.map((_, i) => (g.launcherHP[i] > 0 ? 20 + g.wave * 2 : 0));
+    // Resurrect all destroyed defense sites and restore their upgrades
+    g.defenseSites.forEach((site) => {
+      if (!site.alive) {
+        site.alive = true;
+        // Restore upgrade level from last purchased level (stored on site)
+        if (site.savedLevel) g.upgrades[site.key] = site.savedLevel;
+      }
+    });
     g.waveComplete = false;
     setShowShop(false);
     setShopData(null);
