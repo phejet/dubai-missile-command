@@ -169,7 +169,7 @@ export default function DubaiMissileCommand() {
       planeTimer: 0,
       planeInterval: 800,
       waveMissiles: 0,
-      waveTarget: 10,
+      waveTarget: 12,
       waveComplete: false,
       crosshairX: CANVAS_W / 2,
       crosshairY: CANVAS_H / 2,
@@ -236,8 +236,8 @@ export default function DubaiMissileCommand() {
     const target = pickTarget(g, startX);
     if (!target) return;
     // Avoid spawning directly above target — push spawn toward sides for a better angle
-    if (Math.abs(startX - target.x) < 150 && startY < 0) {
-      startX = target.x + (Math.random() > 0.5 ? 1 : -1) * rand(200, 400);
+    if (Math.abs(startX - target.x) < 200 && startY < 0) {
+      startX = target.x + (Math.random() > 0.5 ? 1 : -1) * rand(300, 500);
       startX = Math.max(-10, Math.min(CANVAS_W + 10, startX));
     }
     const dx = target.x - startX;
@@ -2097,7 +2097,7 @@ export default function DubaiMissileCommand() {
     if (!g) return;
     g.wave++;
     g.waveMissiles = 0;
-    g.waveTarget = 10 + g.wave * 5;
+    g.waveTarget = 8 + g.wave * 4;
     g.spawnInterval = Math.max(20, 110 - g.wave * 10);
     g.droneInterval = Math.max(40, 160 - g.wave * 20);
     g.launcherHP = g.launcherHP.map((hp) => (hp > 0 ? 2 : 0));
