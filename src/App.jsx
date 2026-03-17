@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import SFX from "./sound.js";
 import {
   CANVAS_W,
   CANVAS_H,
@@ -129,6 +130,7 @@ export default function DubaiMissileCommand() {
   const [finalStats, setFinalStats] = useState({ missileKills: 0, droneKills: 0, shotsFired: 0 });
   const [showShop, setShowShop] = useState(false);
   const [shopData, setShopData] = useState(null);
+  const [muted, setMuted] = useState(false);
 
   const initGame = useCallback(() => {
     const allBuildings = [...BUILDINGS_LEFT, ...BUILDINGS_RIGHT].map(([x, w, h, win]) => ({
@@ -199,6 +201,11 @@ export default function DubaiMissileCommand() {
     window.__gameRef = gameRef;
   }, []);
 
+  function boom(g, x, y, radius, color, playerCaused) {
+    createExplosion(g, x, y, radius, color, playerCaused);
+    SFX.explosion(radius > 45 ? "large" : radius > 25 ? "medium" : "small");
+  }
+
   function spawnPlane(g) {
     const goRight = Math.random() > 0.5;
     g.planes.push({
@@ -211,6 +218,7 @@ export default function DubaiMissileCommand() {
       fireTimer: 0,
       fireInterval: 25,
     });
+    SFX.planePass();
   }
 
   function spawnMissile(g) {
@@ -280,6 +288,7 @@ export default function DubaiMissileCommand() {
       g.hornetTimer += dt;
       if (g.hornetTimer >= interval && allThreats.length > 0) {
         g.hornetTimer = 0;
+        SFX.hornetBuzz();
         for (let i = 0; i < count; i++) {
           const target = allThreats[randInt(0, allThreats.length - 1)];
           if (!target) continue;
@@ -312,7 +321,7 @@ export default function DubaiMissileCommand() {
         const d = Math.sqrt(dx * dx + dy * dy);
         if (d < 12) {
           h.alive = false;
-          createExplosion(g, h.x, h.y, h.blastRadius, COL.hornet);
+          boom(g, h.x, h.y, h.blastRadius, COL.hornet);
           return;
         }
         h.trail.push({ x: h.x, y: h.y });
@@ -368,7 +377,7 @@ export default function DubaiMissileCommand() {
           const d = Math.sqrt(dx * dx + dy * dy);
           if (d < 15) {
             r.alive = false;
-            createExplosion(g, r.x, r.y, 30, COL.roadrunner);
+            boom(g, r.x, r.y, 30, COL.roadrunner);
             return;
           }
           r.x += (dx / d) * r.speed * dt;
@@ -482,10 +491,17 @@ export default function DubaiMissileCommand() {
           });
           damageTarget(g, t, t.type === "drone" ? 2 : 1, COL.laser, t.type === "drone" ? 20 : 15);
         }
-        if (inRange.length > 0) g.ironBeamTimer = 0;
+        if (inRange.length > 0) {
+          g.ironBeamTimer = 0;
+          if (!g._laserHandle) g._laserHandle = SFX.laserBeam();
+        }
       }
       g.laserBeams.forEach((b) => (b.life -= dt));
       g.laserBeams = g.laserBeams.filter((b) => b.life > 0);
+      if (g.laserBeams.length === 0 && g._laserHandle) {
+        g._laserHandle.stop();
+        g._laserHandle = null;
+      }
     }
 
     // ── PHALANX CIWS ──
@@ -497,6 +513,7 @@ export default function DubaiMissileCommand() {
       g.phalanxTimer += dt;
       if (g.phalanxTimer >= fireRate) {
         g.phalanxTimer = 0;
+        SFX.phalanxBurst();
         turrets.forEach((turret) => {
           const close = allThreats
             .filter((t) => t.alive && dist(t.x, t.y, turret.x, turret.y) < range)
@@ -536,6 +553,7 @@ export default function DubaiMissileCommand() {
       g.patriotTimer += dt;
       if (g.patriotTimer >= interval && allThreats.length > 0) {
         g.patriotTimer = 0;
+        SFX.patriotLaunch();
         const sorted = [...allThreats].sort((a, b) => b.y - a.y);
         for (let i = 0; i < Math.min(count, sorted.length); i++) {
           g.patriotMissiles.push({
@@ -573,7 +591,7 @@ export default function DubaiMissileCommand() {
           const d = Math.sqrt(dx * dx + dy * dy);
           if (d < 20) {
             p.alive = false;
-            createExplosion(g, p.x, p.y, p.blastRadius, COL.patriot);
+            boom(g, p.x, p.y, p.blastRadius, COL.patriot);
             return;
           }
           p.x += (dx / d) * p.speed * dt;
@@ -592,6 +610,7 @@ export default function DubaiMissileCommand() {
     // Game over — Burj destroyed (must tick even during waveComplete)
     if (!g.burjAlive && !g.gameOverTimer) {
       g.gameOverTimer = 60; // ~1 second of destruction before game over screen
+      SFX.gameOver();
     }
     if (g.gameOverTimer > 0) {
       g.gameOverTimer -= dt;
@@ -622,6 +641,7 @@ export default function DubaiMissileCommand() {
       g.shopOpened = false;
       g.waveClearedTimer = 120; // ~2 seconds at 60fps
       g.score += 250 * g.wave;
+      SFX.waveCleared();
       return;
     }
 
@@ -669,13 +689,14 @@ export default function DubaiMissileCommand() {
         Math.abs(m.x - BURJ_X) < burjHalfW(m.y)
       ) {
         m.alive = false;
-        createExplosion(g, m.x, m.y, 30, "#ff4400");
+        boom(g, m.x, m.y, 30, "#ff4400");
         g.shakeTimer = 10;
         g.shakeIntensity = 4;
         g.burjHealth--;
+        SFX.burjHit();
         if (g.burjHealth <= 0) {
           g.burjAlive = false;
-          createExplosion(g, BURJ_X, CITY_Y - BURJ_H / 2, 60, "#ff2200");
+          boom(g, BURJ_X, CITY_Y - BURJ_H / 2, 60, "#ff2200");
         }
       }
       // Building collisions
@@ -683,7 +704,7 @@ export default function DubaiMissileCommand() {
         g.buildings.forEach((b) => {
           if (b.alive && m.alive && m.x >= b.x && m.x <= b.x + b.w && m.y >= GROUND_Y - b.h) {
             m.alive = false;
-            createExplosion(g, m.x, m.y, 20, "#ff4400");
+            boom(g, m.x, m.y, 20, "#ff4400");
             b.alive = false;
           }
         });
@@ -694,7 +715,7 @@ export default function DubaiMissileCommand() {
           if (site.alive && m.alive && Math.abs(m.x - site.x) < site.hw && Math.abs(m.y - site.y) < site.hh) {
             m.alive = false;
             destroyDefenseSite(g, site);
-            createExplosion(g, m.x, m.y, 35, "#ff4400");
+            boom(g, m.x, m.y, 35, "#ff4400");
             g.shakeTimer = 12;
             g.shakeIntensity = 5;
           }
@@ -706,17 +727,20 @@ export default function DubaiMissileCommand() {
           if (g.launcherHP[i] > 0 && m.alive && Math.abs(m.x - l.x) < 15 && m.y >= l.y - 12) {
             m.alive = false;
             g.launcherHP[i]--;
-            createExplosion(g, m.x, m.y, 25, "#ff4400");
+            boom(g, m.x, m.y, 25, "#ff4400");
             g.shakeTimer = 10;
             g.shakeIntensity = 4;
-            if (g.launcherHP[i] <= 0) g.ammo[i] = 0;
+            if (g.launcherHP[i] <= 0) {
+              g.ammo[i] = 0;
+              SFX.launcherDestroyed();
+            }
           }
         });
       }
       // Ground impact
       if (m.alive && m.y >= GROUND_Y) {
         m.alive = false;
-        createExplosion(g, m.x, GROUND_Y, 25, "#ff4400");
+        boom(g, m.x, GROUND_Y, 25, "#ff4400");
       }
       if (m.x < -50 || m.x > CANVAS_W + 50 || m.y > CANVAS_H + 50) m.alive = false;
     });
@@ -793,7 +817,7 @@ export default function DubaiMissileCommand() {
         const hitGround = d.y >= GROUND_Y - 5;
         if (hitTarget || hitGround) {
           d.alive = false;
-          createExplosion(g, d.x, d.y, 40, "#ff6600");
+          boom(g, d.x, d.y, 40, "#ff6600");
           g.shakeTimer = 15;
           g.shakeIntensity = 6;
           g.buildings.forEach((b) => {
@@ -809,14 +833,18 @@ export default function DubaiMissileCommand() {
           LAUNCHERS.forEach((l, i) => {
             if (g.launcherHP[i] > 0 && Math.abs(d.x - l.x) < 30) {
               g.launcherHP[i]--;
-              if (g.launcherHP[i] <= 0) g.ammo[i] = 0;
+              if (g.launcherHP[i] <= 0) {
+                g.ammo[i] = 0;
+                SFX.launcherDestroyed();
+              }
             }
           });
           if (g.burjAlive && Math.abs(d.x - BURJ_X) < 50) {
             g.burjHealth--;
+            SFX.burjHit();
             if (g.burjHealth <= 0) {
               g.burjAlive = false;
-              createExplosion(g, BURJ_X, CITY_Y - BURJ_H / 2, 60, "#ff2200");
+              boom(g, BURJ_X, CITY_Y - BURJ_H / 2, 60, "#ff2200");
             }
           }
         }
@@ -833,9 +861,9 @@ export default function DubaiMissileCommand() {
       if (dist(ic.x, ic.y, ic.targetX, ic.targetY) < 16) {
         ic.alive = false;
         if (ic.fromF15) {
-          createExplosion(g, ic.x, ic.y, 30, "#aaccff", false);
+          boom(g, ic.x, ic.y, 30, "#aaccff", false);
         } else {
-          createExplosion(g, ic.x, ic.y, 49, COL.interceptor, true);
+          boom(g, ic.x, ic.y, 49, COL.interceptor, true);
         }
       }
       // F-15 shots that go off-screen
@@ -854,7 +882,7 @@ export default function DubaiMissileCommand() {
             m.alive = false;
             g.score += m.type === "bomb" ? 75 : 50;
             g.stats.missileKills++;
-            createExplosion(g, m.x, m.y, 30, "#ffcc00", ex.playerCaused);
+            boom(g, m.x, m.y, 30, "#ffcc00", ex.playerCaused);
           }
         });
         g.drones.forEach((d) => {
@@ -868,7 +896,7 @@ export default function DubaiMissileCommand() {
               d.alive = false;
               g.score += d.subtype === "shahed238" ? 250 : 150;
               g.stats.droneKills++;
-              createExplosion(g, d.x, d.y, 60, "#ff8800", ex.playerCaused);
+              boom(g, d.x, d.y, 60, "#ff8800", ex.playerCaused);
             }
           }
         });
@@ -918,7 +946,7 @@ export default function DubaiMissileCommand() {
         if (ex.playerCaused && ex.alpha > 0.2 && p.alive && dist(p.x, p.y, ex.x, ex.y) < ex.radius + 15) {
           p.alive = false;
           g.score -= 500;
-          createExplosion(g, p.x, p.y, 40, "#ff0000");
+          boom(g, p.x, p.y, 40, "#ff0000");
         }
       });
       // Enemy missile/drone hits F-15
@@ -926,7 +954,7 @@ export default function DubaiMissileCommand() {
         if (m.alive && p.alive && dist(m.x, m.y, p.x, p.y) < 20) {
           p.alive = false;
           m.alive = false;
-          createExplosion(g, p.x, p.y, 40, "#ff0000");
+          boom(g, p.x, p.y, 40, "#ff0000");
         }
       });
       if (p.x < -80 || p.x > CANVAS_W + 80) p.alive = false;
@@ -2001,8 +2029,10 @@ export default function DubaiMissileCommand() {
   function handleCanvasClick(e) {
     if (showShop) return;
     if (screen === "title") {
+      SFX.init();
       initGame();
       setScreen("playing");
+      SFX.gameStart();
     } else if (screen === "gameover") {
       return;
     } else {
@@ -2012,7 +2042,10 @@ export default function DubaiMissileCommand() {
       const rect = canvas.getBoundingClientRect();
       const mx = (e.clientX - rect.left) * (CANVAS_W / rect.width);
       const my = (e.clientY - rect.top) * (CANVAS_H / rect.height);
-      if (my < GROUND_Y - 20) fireInterceptor(g, mx, my);
+      if (my < GROUND_Y - 20) {
+        fireInterceptor(g, mx, my);
+        SFX.fire();
+      }
     }
   }
 
@@ -2036,6 +2069,7 @@ export default function DubaiMissileCommand() {
     if (g.score < cost) return;
     g.score -= cost;
     g.upgrades[key]++;
+    SFX.buyUpgrade();
     // Register or revive defense site
     const existingSite = g.defenseSites.find((s) => s.key === key);
     if (existingSite) {
@@ -2104,6 +2138,35 @@ export default function DubaiMissileCommand() {
           }}
         />
 
+        <button
+          onClick={() => {
+            SFX.init();
+            SFX.mute();
+            setMuted(SFX.isMuted());
+          }}
+          style={{
+            position: "absolute",
+            top: "6px",
+            right: "6px",
+            zIndex: 20,
+            background: "rgba(0,10,20,0.7)",
+            border: "1px solid rgba(0,255,200,0.3)",
+            borderRadius: "4px",
+            color: "#aabbcc",
+            fontSize: "18px",
+            width: "32px",
+            height: "32px",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 0,
+          }}
+          title={muted ? "Unmute" : "Mute"}
+        >
+          {muted ? "\uD83D\uDD07" : "\uD83D\uDD0A"}
+        </button>
+
         {/* GAME OVER OVERLAY */}
         {screen === "gameover" && (
           <div
@@ -2122,8 +2185,10 @@ export default function DubaiMissileCommand() {
           >
             <button
               onClick={() => {
+                SFX.init();
                 initGame();
                 setScreen("playing");
+                SFX.gameStart();
               }}
               style={{
                 marginTop: "420px",
