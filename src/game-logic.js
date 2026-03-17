@@ -66,11 +66,19 @@ export const LAUNCHERS = [
   { x: 860, y: GROUND_Y - 5 },
 ];
 
+let _rng = Math.random;
+export function setRng(fn) {
+  _rng = fn;
+}
+export function getRng() {
+  return _rng;
+}
+
 export function dist(x1, y1, x2, y2) {
   return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
 }
 export function rand(a, b) {
-  return a + Math.random() * (b - a);
+  return a + _rng() * (b - a);
 }
 export function randInt(a, b) {
   return Math.floor(rand(a, b + 1));
@@ -81,7 +89,7 @@ export function lerp(a, b, t) {
 
 export function pickTarget(g, fromX) {
   // 30% chance to target Burj
-  if (g.burjAlive && Math.random() < 0.3) return { x: BURJ_X, y: CITY_Y };
+  if (g.burjAlive && _rng() < 0.3) return { x: BURJ_X, y: CITY_Y };
   // 70% target defense sites / launchers, closest first
   const all = [];
   g.defenseSites.forEach((s) => {
@@ -95,7 +103,7 @@ export function pickTarget(g, fromX) {
     return null;
   }
   all.sort((a, b) => Math.abs(a.x - fromX) - Math.abs(b.x - fromX));
-  const pick = Math.min(all.length - 1, Math.random() < 0.7 ? 0 : 1);
+  const pick = Math.min(all.length - 1, _rng() < 0.7 ? 0 : 1);
   return all[pick];
 }
 
@@ -154,7 +162,7 @@ export function createExplosion(g, x, y, radius, color, playerCaused) {
       vy: Math.sin(angle) * sp,
       life: rand(20, 50),
       maxLife: 50,
-      color: Math.random() > 0.5 ? "#ffcc00" : "#ff6600",
+      color: _rng() > 0.5 ? "#ffcc00" : "#ff6600",
       size: rand(1, 3),
     });
   }

@@ -1,0 +1,21 @@
+{
+  "targeting": {
+    "minThreatY": 80,
+    "maxInFlightBase": 3,
+    "maxInFlightHigh": 6,
+    "highThreatThreshold": 4,
+    "cooldownLowAmmo": 400,
+    "cooldownHighThreat": 80,
+    "cooldownNormal": 200,
+    "lowAmmoThreshold": 10,
+    "clusterRadius": 70,
+    "missileYThresholds": { "urgent": 350, "medium": 200 },
+    "droneEngageRange": [200, 700]
+  },
+  "leadShot": {
+    "iterations": 3,
+    "timeScaleFactor": 0.75
+  },
+  "planeAvoidance": { "radius": 55 },
+  "upgradePriority": ["phalanx", "wildHornets", "patriot", "ironBeam", "roadrunner", "flare"]
+}

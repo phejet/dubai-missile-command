@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   dist,
   lerp,
@@ -6,6 +6,7 @@ import {
   pickTarget,
   fireInterceptor,
   createExplosion,
+  setRng,
   BURJ_X,
   CITY_Y,
   GROUND_Y,
@@ -94,49 +95,51 @@ describe("burjHalfW", () => {
 // ── pickTarget ──
 
 describe("pickTarget", () => {
+  afterEach(() => {
+    setRng(Math.random);
+  });
+
   it("returns Burj when random < 0.3 and burjAlive", () => {
-    vi.spyOn(Math, "random").mockReturnValue(0.1);
+    setRng(() => 0.1);
     const g = makeGameState();
     const target = pickTarget(g, 100);
     expect(target).toEqual({ x: BURJ_X, y: CITY_Y });
-    vi.restoreAllMocks();
   });
 
   it("returns defense/launcher target when random >= 0.3", () => {
-    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    setRng(() => 0.5);
     const g = makeGameState();
     const target = pickTarget(g, 100);
     // Should pick a launcher (closest to fromX=100 is launcher 0 at x=60)
     expect(target.x).toBe(LAUNCHERS[0].x);
-    vi.restoreAllMocks();
   });
 
   it("falls back to Burj when no defenses alive", () => {
-    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    setRng(() => 0.5);
     const g = makeGameState({ launcherHP: [0, 0, 0] });
     const target = pickTarget(g, 100);
     expect(target).toEqual({ x: BURJ_X, y: CITY_Y });
-    vi.restoreAllMocks();
   });
 
   it("returns null when nothing alive and Burj dead", () => {
-    vi.spyOn(Math, "random").mockReturnValue(0.5);
+    setRng(() => 0.5);
     const g = makeGameState({ burjAlive: false, launcherHP: [0, 0, 0] });
     const target = pickTarget(g, 100);
     expect(target).toBeNull();
-    vi.restoreAllMocks();
   });
 
   it("sorts targets by proximity to fromX", () => {
-    // Mock: first call (Burj check) returns >= 0.3, second call (pick) returns >= 0.7 to pick index 1
-    const mockRandom = vi.spyOn(Math, "random");
-    mockRandom.mockReturnValueOnce(0.5).mockReturnValueOnce(0.8);
+    // First call (Burj check) returns >= 0.3, second call (pick) returns >= 0.7 to pick index 1
+    let callCount = 0;
+    setRng(() => {
+      callCount++;
+      return callCount === 1 ? 0.5 : 0.8;
+    });
     const g = makeGameState();
     // fromX=500: closest launcher is #1 (x=550), second is #2 (x=860)
     const target = pickTarget(g, 500);
     // With random >= 0.7, picks index 1 (second closest)
     expect(target.x).not.toBe(LAUNCHERS[1].x); // not the closest
-    vi.restoreAllMocks();
   });
 });
 
