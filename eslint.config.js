@@ -22,4 +22,10 @@ export default defineConfig([
       "no-unused-vars": ["error", { varsIgnorePattern: "^[A-Z_]" }],
     },
   },
+  {
+    files: ["src/headless/**/*.js"],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
 ]);

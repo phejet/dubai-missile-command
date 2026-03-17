@@ -178,9 +178,15 @@ async function main() {
 
     const stats = aggregateStats(results);
     console.log(`  ${NUM_GAMES} games in ${(elapsed / 1000).toFixed(1)}s`);
-    console.log(`  Score: mean=${stats.score.mean} median=${stats.score.median} p10=${stats.score.p10} p90=${stats.score.p90}`);
-    console.log(`  Waves: mean=${stats.waves.mean} median=${stats.waves.median} p10=${stats.waves.p10} p90=${stats.waves.p90}`);
-    console.log(`  Efficiency: ${stats.efficiency.mean} (${stats.efficiency.meanKills} kills / ${stats.efficiency.meanShots} shots)`);
+    console.log(
+      `  Score: mean=${stats.score.mean} median=${stats.score.median} p10=${stats.score.p10} p90=${stats.score.p90}`,
+    );
+    console.log(
+      `  Waves: mean=${stats.waves.mean} median=${stats.waves.median} p10=${stats.waves.p10} p90=${stats.waves.p90}`,
+    );
+    console.log(
+      `  Efficiency: ${stats.efficiency.mean} (${stats.efficiency.meanKills} kills / ${stats.efficiency.meanShots} shots)`,
+    );
     console.log(`  Deaths: ${JSON.stringify(stats.deathCauses)}`);
 
     const logEntry = { iteration: iter, timestamp: new Date().toISOString(), stats, config };

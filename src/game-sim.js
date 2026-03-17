@@ -12,7 +12,6 @@ import {
   rand,
   randInt,
   pickTarget,
-  fireInterceptor,
   createExplosion,
   destroyDefenseSite,
   getPhalanxTurrets,
@@ -38,7 +37,11 @@ export const UPGRADES = {
     maxLevel: 3,
     costs: [1000, 2500, 6000],
     color: COL.roadrunner,
-    statLines: ["1 interceptor / 5s \u00B7 fast", "2 interceptors / 4s \u00B7 faster", "3 interceptors / 3s \u00B7 max speed"],
+    statLines: [
+      "1 interceptor / 5s \u00B7 fast",
+      "2 interceptors / 4s \u00B7 faster",
+      "3 interceptors / 3s \u00B7 max speed",
+    ],
   },
   flare: {
     name: "Decoy Flares",
@@ -47,7 +50,11 @@ export const UPGRADES = {
     maxLevel: 3,
     costs: [600, 1500, 3900],
     color: COL.flare,
-    statLines: ["1 flare / 5s \u00B7 30% lure chance", "2 flares / 4s \u00B7 45% lure chance", "3 flares / 3s \u00B7 60% lure chance"],
+    statLines: [
+      "1 flare / 5s \u00B7 30% lure chance",
+      "2 flares / 4s \u00B7 45% lure chance",
+      "3 flares / 3s \u00B7 60% lure chance",
+    ],
   },
   ironBeam: {
     name: "Iron Beam",
@@ -56,7 +63,11 @@ export const UPGRADES = {
     maxLevel: 3,
     costs: [1200, 3000, 7050],
     color: COL.laser,
-    statLines: ["1 beam \u00B7 60 range \u00B7 slow charge", "2 beams \u00B7 80 range \u00B7 medium", "3 beams \u00B7 100 range \u00B7 fast"],
+    statLines: [
+      "1 beam \u00B7 60 range \u00B7 slow charge",
+      "2 beams \u00B7 80 range \u00B7 medium",
+      "3 beams \u00B7 100 range \u00B7 fast",
+    ],
   },
   phalanx: {
     name: "Phalanx CIWS",
@@ -193,7 +204,7 @@ export function spawnPlane(g, onEvent) {
   if (onEvent) onEvent("sfx", { name: "planePass" });
 }
 
-export function spawnMissile(g, onEvent) {
+export function spawnMissile(g) {
   const _rng = getRng();
   const speed = rand(0.5, 1.0) + g.wave * 0.08;
   let startX, startY;
@@ -630,7 +641,7 @@ export function update(g, dt, onEvent) {
     if (g.spawnTimer >= g.spawnInterval) {
       g.spawnTimer = 0;
       const count = Math.min(1 + Math.floor(g.wave / 2), g.waveTarget - g.waveMissiles);
-      for (let i = 0; i < Math.min(count, 3); i++) spawnMissile(g, onEvent);
+      for (let i = 0; i < Math.min(count, 3); i++) spawnMissile(g);
     }
   }
   g.droneTimer += dt;
@@ -968,7 +979,15 @@ export function buyUpgrade(g, key) {
       roadrunner: { x: 620, y: GROUND_Y - 15, hw: 20, hh: 15 },
     };
     if (key === "phalanx") {
-      g.defenseSites.push({ key: "phalanx", x: 720, y: GROUND_Y - 30, alive: true, hw: 10, hh: 15, savedLevel: g.upgrades[key] });
+      g.defenseSites.push({
+        key: "phalanx",
+        x: 720,
+        y: GROUND_Y - 30,
+        alive: true,
+        hw: 10,
+        hh: 15,
+        savedLevel: g.upgrades[key],
+      });
     } else if (siteDefs[key]) {
       const sd = siteDefs[key];
       g.defenseSites.push({ key, x: sd.x, y: sd.y, alive: true, hw: sd.hw, hh: sd.hh, savedLevel: g.upgrades[key] });
@@ -1002,7 +1021,7 @@ export function createGameSim(options = {}) {
     update: (g, dt) => update(g, dt, onEvent),
     buyUpgrade,
     closeShop,
-    spawnMissile: (g) => spawnMissile(g, onEvent),
+    spawnMissile,
     spawnDrone,
     spawnPlane: (g) => spawnPlane(g, onEvent),
     updateAutoSystems: (g, dt, threats) => updateAutoSystems(g, dt, threats, onEvent),

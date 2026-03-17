@@ -1,4 +1,4 @@
-import { LAUNCHERS, GROUND_Y, dist } from "../game-logic.js";
+import { LAUNCHERS, GROUND_Y } from "../game-logic.js";
 
 const INTERCEPTOR_SPEED = 5;
 

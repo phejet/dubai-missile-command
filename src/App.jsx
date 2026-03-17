@@ -9,9 +9,6 @@ import {
   BURJ_X,
   BURJ_H,
   LAUNCHERS,
-  burjHalfW,
-  dist,
-  lerp,
   fireInterceptor,
   getPhalanxTurrets,
 } from "./game-logic.js";

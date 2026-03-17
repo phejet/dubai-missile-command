@@ -1,5 +1,4 @@
-import { setRng } from "../game-logic.js";
-import { fireInterceptor } from "../game-logic.js";
+import { setRng, fireInterceptor } from "../game-logic.js";
 import { initGame, update, buyUpgrade, closeShop } from "../game-sim.js";
 import { mulberry32 } from "./rng.js";
 import { botDecideAction, botDecideUpgrades } from "./bot-brain.js";
@@ -29,7 +28,9 @@ export function runGame(botConfig, options = {}) {
       const keys = botDecideUpgrades(g, config);
       for (const key of keys) {
         // Try buying each upgrade as many times as possible (multi-level)
-        while (buyUpgrade(g, key)) {}
+        while (buyUpgrade(g, key)) {
+          // keep buying until we can't afford the next level
+        }
       }
       closeShop(g);
       continue;
