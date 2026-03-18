@@ -26,3 +26,7 @@ dist-ssr
 # Playwright
 test-results/
 playwright-report/
+
+# Replay files
+replay.json
+public/replay.json
