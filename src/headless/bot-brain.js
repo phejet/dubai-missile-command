@@ -22,17 +22,22 @@ export function leadTarget(tx, ty, tvx, tvy, config) {
 
 export function botDecideAction(g, config, lastFireTick, tick) {
   const cfg = config.targeting;
+
+  // Check if any launcher has ammo
+  const hasAmmo = g.ammo.some((a, i) => a > 0 && g.launcherHP[i] > 0);
+  if (!hasAmmo) return null;
+
   const inFlight = g.interceptors.filter((i) => i.alive).length;
   const allThreats = [];
 
-  // Drones — diving ones are highest priority, engage non-diving ones past center
+  // Drones — diving ones are highest priority, engage non-diving ones early
   for (const d of g.drones) {
     if (!d.alive) continue;
     if (d.diving && d.y > cfg.minThreatY) {
       const led = leadTarget(d.x, d.y, d.vx, d.vy, config);
       allThreats.push({ ...led, priority: 0 });
     } else if (d.y > cfg.minThreatY) {
-      // Engage horizontal drones past configurable range to prevent bomb drops
+      // Engage horizontal drones before they drop bombs
       const [minX, maxX] = cfg.droneEngageRange;
       if ((d.vx > 0 && d.x > minX) || (d.vx < 0 && d.x < maxX)) {
         const led = leadTarget(d.x, d.y, d.vx, d.vy, config);
@@ -63,6 +68,29 @@ export function botDecideAction(g, config, lastFireTick, tick) {
     return null;
   }
 
+  // Avoid hitting planes helper
+  function isSafeFromPlanes(point) {
+    if (!g.planes) return true;
+    return !g.planes.some(
+      (p) => p.alive && Math.sqrt((point.x - p.x) ** 2 + (point.y - p.y) ** 2) < config.planeAvoidance.radius,
+    );
+  }
+
+  // Urgent fast-path: if any threat is priority 0 and very low, fire immediately
+  const urgentThreats = allThreats.filter((t) => t.priority === 0);
+  if (urgentThreats.length > 0) {
+    // Pick the lowest (closest to impact) urgent threat
+    urgentThreats.sort((a, b) => b.y - a.y);
+    for (const ut of urgentThreats) {
+      if (isSafeFromPlanes(ut)) {
+        return {
+          x: Math.max(20, Math.min(880, ut.x)),
+          y: Math.max(20, Math.min(545, ut.y)),
+        };
+      }
+    }
+  }
+
   allThreats.sort((a, b) => a.priority - b.priority);
 
   // Find best cluster shot
@@ -74,19 +102,11 @@ export function botDecideAction(g, config, lastFireTick, tick) {
       const d = Math.sqrt((t.x - o.x) ** 2 + (t.y - o.y) ** 2);
       if (d < cfg.clusterRadius) score += 1;
     }
-    score += (4 - t.priority) * 3;
+    score += (4 - t.priority) * 8;
     if (score > bestScore) {
       bestScore = score;
       bestPoint = t;
     }
-  }
-
-  // Avoid hitting planes — try fallback targets if best is blocked
-  function isSafeFromPlanes(point) {
-    if (!g.planes) return true;
-    return !g.planes.some(
-      (p) => p.alive && Math.sqrt((point.x - p.x) ** 2 + (point.y - p.y) ** 2) < config.planeAvoidance.radius,
-    );
   }
 
   if (bestPoint && !isSafeFromPlanes(bestPoint)) {
@@ -98,7 +118,7 @@ export function botDecideAction(g, config, lastFireTick, tick) {
           const d = Math.sqrt((t.x - o.x) ** 2 + (t.y - o.y) ** 2);
           if (d < cfg.clusterRadius) score += 1;
         }
-        score += (4 - t.priority) * 3;
+        score += (4 - t.priority) * 8;
         return { point: t, score };
       })
       .sort((a, b) => b.score - a.score);
@@ -121,9 +141,5 @@ export function botDecideAction(g, config, lastFireTick, tick) {
 }
 
 export function botDecideUpgrades(g, config) {
-  const toBuy = [];
-  for (const key of config.upgradePriority) {
-    toBuy.push(key);
-  }
-  return toBuy;
+  return config.upgradePriority;
 }

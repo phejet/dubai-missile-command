@@ -1,21 +1,21 @@
 {
   "targeting": {
-    "minThreatY": 80,
-    "maxInFlightBase": 5,
-    "maxInFlightHigh": 10,
-    "highThreatThreshold": 2,
-    "cooldownLowAmmo": 200,
-    "cooldownHighThreat": 25,
-    "cooldownNormal": 80,
-    "lowAmmoThreshold": 10,
-    "clusterRadius": 70,
-    "missileYThresholds": { "urgent": 350, "medium": 200 },
-    "droneEngageRange": [300, 600]
+    "minThreatY": 60,
+    "maxInFlightBase": 4,
+    "maxInFlightHigh": 7,
+    "highThreatThreshold": 3,
+    "cooldownLowAmmo": 300,
+    "cooldownHighThreat": 20,
+    "cooldownNormal": 60,
+    "lowAmmoThreshold": 15,
+    "clusterRadius": 85,
+    "missileYThresholds": { "urgent": 380, "medium": 200 },
+    "droneEngageRange": [150, 750]
   },
   "leadShot": {
-    "iterations": 4,
-    "timeScaleFactor": 0.98
+    "iterations": 5,
+    "timeScaleFactor": 0.97
   },
-  "planeAvoidance": { "radius": 35 },
-  "upgradePriority": ["flare", "wildHornets", "roadrunner", "phalanx", "ironBeam", "patriot"]
+  "planeAvoidance": { "radius": 30 },
+  "upgradePriority": ["flare", "ironBeam", "wildHornets", "roadrunner", "phalanx", "patriot"]
 }

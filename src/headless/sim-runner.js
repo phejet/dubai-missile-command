@@ -28,9 +28,15 @@ export function runGame(botConfig, options = {}) {
     if (g.state === "shop") {
       const bought = [];
       const keys = botDecideUpgrades(g, config);
-      for (const key of keys) {
-        while (buyUpgrade(g, key)) {
-          bought.push(key);
+      // Round-robin: buy one level of each priority per pass
+      let boughtAny = true;
+      while (boughtAny) {
+        boughtAny = false;
+        for (const key of keys) {
+          if (buyUpgrade(g, key)) {
+            bought.push(key);
+            boughtAny = true;
+          }
         }
       }
       if (record) actions.push({ tick, type: "shop", bought });
