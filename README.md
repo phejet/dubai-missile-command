@@ -60,6 +60,9 @@ node src/headless/sim-runner.js [seed]
 # Learning loop — benchmark, Sonnet analysis, apply changes, repeat
 node src/headless/learn.js --rounds=3 --duration=10000 [--dry-run]
 
+# Game balance analysis — get design suggestions from Claude
+node src/headless/balance.js [--focus=all|enemies|upgrades|mechanics|visual]
+
 # Batch training — runs games with worker threads, tunes config only
 node src/headless/train.js --games=100 --iterations=10 [--dry-run]
 

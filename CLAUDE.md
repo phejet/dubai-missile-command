@@ -37,6 +37,9 @@ node src/headless/sim-runner.js [seed]
 # Learn: benchmark → Sonnet analysis → apply changes → repeat
 node src/headless/learn.js --rounds=3 --duration=10000 [--dry-run]
 
+# Balance: game design analysis with focused topics
+node src/headless/balance.js [--focus=all|enemies|upgrades|mechanics|visual]
+
 # Train: batch-run games with worker threads, then tune config only
 node src/headless/train.js --games=100 --iterations=10 [--dry-run]
 
@@ -56,6 +59,7 @@ node play-replay.mjs replay.json
 - `src/headless/bot-brain.js` — parameterized bot targeting/firing logic
 - `src/headless/bot-config.json` — tunable bot parameters
 - `src/headless/learn.js` — full learning loop (benchmark + Sonnet analysis + code/config patches)
+- `src/headless/balance.js` — game balance analysis (enemies, upgrades, mechanics, visual)
 - `src/headless/train.js` — batch training loop with Claude API tuning
 - `src/headless/game-worker.js` — worker thread for parallel game execution
 
