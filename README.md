@@ -49,9 +49,39 @@ npm run dev                  # start dev server first
 node play-bot.mjs            # opens Chromium and plays
 ```
 
+### Headless Simulation & Training
+
+Run thousands of games headlessly (~770 games/sec) for automated bot tuning:
+
+```bash
+# Single headless game with determinism check
+node src/headless/sim-runner.js [seed]
+
+# Batch training — runs games, then calls Claude to tune bot config
+node src/headless/train.js --games=100 --iterations=10 [--dry-run]
+
+# Record best game as a replay file
+node src/headless/record.js [--seed=N] [--tries=1000] [--out=replay.json]
+```
+
+### Replay System
+
+Replay recorded bot games in the browser with full visual playback:
+
+```bash
+# Start dev server, then launch replay in Chromium
+npm run dev
+node play-replay.mjs replay.json
+```
+
+You can also drag-and-drop a `replay.json` file onto the game canvas, or load via console: `window.__loadReplay(data)`.
+
 ## Tech Stack
 
 - React 19 + Vite
 - HTML5 Canvas (all rendering)
-- Playwright (autoplay bot)
+- Playwright (autoplay bot + replay viewer)
+- Headless simulation with seeded PRNG for deterministic runs
+- Worker threads for parallel game execution
+- Claude API for automated bot parameter tuning
 - GitHub Pages (deployment)
