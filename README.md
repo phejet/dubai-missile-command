@@ -70,6 +70,8 @@ node src/headless/train.js --games=100 --iterations=10 [--dry-run]
 node src/headless/record.js [--seed=N] [--tries=1000] [--out=replay.json]
 ```
 
+Four rounds of Sonnet-driven optimization took the bot from wave 1 to wave 17. See the full [Bot Learning Report](src/headless/learning-reports/round-1-to-4-report.md).
+
 ### Replay System
 
 Replay recorded bot games in the browser with full visual playback:
