@@ -26,9 +26,42 @@ node play-bot.mjs
 
 The bot reads game state via `window.__gameRef`, calculates leading shots, prioritizes threats, buys upgrades in the shop, and avoids hitting friendly F-15s.
 
+## Headless Simulation & Training
+
+Run thousands of games headlessly at ~770 games/sec for bot tuning.
+
+```bash
+# Run a single headless game with determinism check
+node src/headless/sim-runner.js [seed]
+
+# Train: batch-run games, then call Claude to tune bot config
+node src/headless/train.js --games=100 --iterations=10 [--dry-run]
+
+# Record best game as a replay file
+node src/headless/record.js [--seed=N] [--tries=1000] [--out=replay.json]
+
+# Play a replay in the browser (requires dev server running)
+node play-replay.mjs replay.json
+```
+
+### Key files
+
+- `src/game-sim.js` — extracted game loop (spawning, upgrades, auto-systems)
+- `src/game-logic.js` — constants, collision, injectable seeded RNG
+- `src/replay.js` — replay runner (action-log based deterministic replay)
+- `src/headless/sim-runner.js` — headless game runner
+- `src/headless/bot-brain.js` — parameterized bot targeting/firing logic
+- `src/headless/bot-config.json` — tunable bot parameters
+- `src/headless/train.js` — batch training loop with Claude API tuning
+- `src/headless/game-worker.js` — worker thread for parallel game execution
+
+### Replay system
+
+Replays record bot actions (fire coordinates + shop purchases at tick numbers) with a seeded RNG. Drop a `replay.json` onto the game canvas or use `window.__loadReplay(data)` in the console. During replay, the shop UI shows for 2 seconds between waves and a toast displays what the bot purchased.
+
 ## Architecture
 
-Single-file game: `src/App.jsx` (~1600 lines). All game logic, rendering, and UI in one component.
+Game logic is split across `src/game-sim.js` (simulation) and `src/App.jsx` (rendering + React UI).
 
 ### Key constants
 
