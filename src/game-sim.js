@@ -751,7 +751,7 @@ export function update(g, dt, onEvent) {
         if (_rng() < 0.02 * dt) {
           d.diving = true;
           const t = pickTarget(g, d.x);
-          if (t) d.diveTarget = t;
+          d.diveTarget = t || { x: BURJ_X, y: CITY_Y };
         }
       }
       if (d.diving && d.diveTarget) {
