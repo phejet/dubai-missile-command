@@ -934,6 +934,30 @@ export default function DubaiMissileCommand() {
       ctx.font = "bold 12px 'Courier New', monospace";
     }
 
+    // Purchase toast (replay mode)
+    if (g._purchaseToast && g._purchaseToast.timer > 0) {
+      const toast = g._purchaseToast;
+      const alpha = Math.min(1, toast.timer / 500); // fade out last 500ms
+      const items = toast.items.map((key) => UPGRADES[key]?.name || key);
+      // Deduplicate and count
+      const counts = {};
+      items.forEach((name) => {
+        counts[name] = (counts[name] || 0) + 1;
+      });
+      const label = Object.entries(counts)
+        .map(([name, n]) => (n > 1 ? `${name} x${n}` : name))
+        .join(", ");
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.font = "bold 22px 'Courier New', monospace";
+      ctx.fillStyle = "#44ffaa";
+      ctx.textAlign = "center";
+      ctx.fillText(`BOT BOUGHT: ${label}`, CANVAS_W / 2, CANVAS_H / 3);
+      ctx.restore();
+      ctx.textAlign = "left";
+      toast.timer -= 16.7; // ~1 frame at 60fps
+    }
+
     // Wave progress bar
     const wpX = 650,
       wpW = 120,
@@ -1172,7 +1196,22 @@ export default function DubaiMissileCommand() {
         if (replayRef.current) {
           // Replay mode: step once per frame (dt=1 fixed timestep)
           const rr = replayRef.current;
-          rr.step();
+          if (rr.isShopPaused()) {
+            // Shop is showing — wait 2 seconds then resume
+            if (!g._replayShopTimer) {
+              g._replayShopTimer = performance.now();
+            } else if (performance.now() - g._replayShopTimer > 2000) {
+              // Store bought items for toast before closing
+              const bought = g._replayShopBought || [];
+              g._purchaseToast = { items: [...bought], timer: 5000 };
+              delete g._replayShopBought;
+              delete g._replayShopTimer;
+              rr.resumeFromShop();
+              setShowShop(false);
+            }
+          } else {
+            rr.step();
+          }
           if (rr.isFinished()) {
             rr.cleanup();
             replayRef.current = null;

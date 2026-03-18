@@ -8,6 +8,7 @@ export function createReplayRunner(replayData, onEvent = null) {
   let tick = 0;
   let g = null;
   let finished = false;
+  let shopPaused = false;
 
   function init() {
     const rng = mulberry32(seed);
@@ -16,11 +17,12 @@ export function createReplayRunner(replayData, onEvent = null) {
     actionIdx = 0;
     tick = 0;
     finished = false;
+    shopPaused = false;
     return g;
   }
 
   function step() {
-    if (finished || !g) return;
+    if (finished || !g || shopPaused) return;
 
     if (g.state === "gameover") {
       finished = true;
@@ -28,6 +30,7 @@ export function createReplayRunner(replayData, onEvent = null) {
     }
 
     // Process all actions at this tick
+    let shopTick = false;
     while (actionIdx < actions.length && actions[actionIdx].tick === tick) {
       const action = actions[actionIdx];
       if (action.type === "fire") {
@@ -36,13 +39,29 @@ export function createReplayRunner(replayData, onEvent = null) {
         for (const key of action.bought) {
           buyUpgrade(g, key);
         }
-        closeShop(g);
+        // Don't closeShop yet — pause so UI can show purchases
+        g._replayShopBought = action.bought;
+        shopPaused = true;
+        shopTick = true;
       }
       actionIdx++;
     }
 
-    update(g, 1, onEvent);
+    // Match sim-runner: shop ticks skip update (continue)
+    if (!shopTick) {
+      update(g, 1, onEvent);
+    }
     tick++;
+  }
+
+  function resumeFromShop() {
+    if (!shopPaused || !g) return;
+    closeShop(g);
+    shopPaused = false;
+  }
+
+  function isShopPaused() {
+    return shopPaused;
   }
 
   function getState() {
@@ -61,5 +80,5 @@ export function createReplayRunner(replayData, onEvent = null) {
     setRng(Math.random);
   }
 
-  return { init, step, getState, getTick, isFinished, cleanup };
+  return { init, step, getState, getTick, isFinished, isShopPaused, resumeFromShop, cleanup };
 }
