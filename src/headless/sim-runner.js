@@ -8,6 +8,7 @@ export function runGame(botConfig, options = {}) {
   const config = botConfig || defaultConfig;
   const seed = options.seed ?? Date.now();
   const maxTicks = options.maxTicks ?? 100000;
+  const record = options.record ?? false;
   const dt = 1; // fixed timestep per tick
 
   const rng = mulberry32(seed);
@@ -16,6 +17,7 @@ export function runGame(botConfig, options = {}) {
   const g = initGame();
   let lastFireTick = -Infinity;
   let deathCause = "timeout";
+  const actions = record ? [] : null;
 
   for (let tick = 0; tick < maxTicks; tick++) {
     if (g.state === "gameover") {
@@ -24,14 +26,14 @@ export function runGame(botConfig, options = {}) {
     }
 
     if (g.state === "shop") {
-      // Buy upgrades in priority order
+      const bought = [];
       const keys = botDecideUpgrades(g, config);
       for (const key of keys) {
-        // Try buying each upgrade as many times as possible (multi-level)
         while (buyUpgrade(g, key)) {
-          // keep buying until we can't afford the next level
+          bought.push(key);
         }
       }
+      if (record) actions.push({ tick, type: "shop", bought });
       closeShop(g);
       continue;
     }
@@ -41,6 +43,7 @@ export function runGame(botConfig, options = {}) {
     if (action) {
       fireInterceptor(g, action.x, action.y);
       lastFireTick = tick;
+      if (record) actions.push({ tick, type: "fire", x: action.x, y: action.y });
     }
 
     // Advance simulation
@@ -50,7 +53,7 @@ export function runGame(botConfig, options = {}) {
   // Restore default RNG
   setRng(Math.random);
 
-  return {
+  const result = {
     score: g.score,
     wave: g.wave,
     stats: { ...g.stats },
@@ -58,6 +61,8 @@ export function runGame(botConfig, options = {}) {
     deathCause,
     seed,
   };
+  if (record) result.actions = actions;
+  return result;
 }
 
 // Allow running directly: node src/headless/sim-runner.js

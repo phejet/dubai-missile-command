@@ -112,7 +112,7 @@ function aggregateStats(results) {
   };
 }
 
-async function callClaude(config, stats, history) {
+async function callClaude(config, history) {
   const Anthropic = (await import("@anthropic-ai/sdk")).default;
   const client = new Anthropic();
 
@@ -121,16 +121,15 @@ async function callClaude(config, stats, history) {
 Current config:
 ${JSON.stringify(config, null, 2)}
 
-Latest batch stats (${stats.games} games):
-${JSON.stringify(stats, null, 2)}
+All iteration results (${history.length} batches):
+${history.map((h) => JSON.stringify(h)).join("\n")}
 
-${history.length > 0 ? `Previous iterations (most recent first):\n${history.map((h) => JSON.stringify(h)).join("\n")}` : "No previous iterations."}
-
-Analyze the results and suggest parameter changes to improve median score and waves survived. Consider:
+Analyze the full training run and suggest parameter changes to improve median score and waves survived. Consider:
 - If the bot dies early (low waves), it may need better targeting or faster firing
 - If ammo efficiency is low, increase cooldowns or improve lead-shot accuracy
 - Upgrade priority affects which defenses get purchased first
 - The cluster radius affects multi-kill targeting
+- Look at trends across iterations to understand what's working and what isn't
 
 Return ONLY a JSON object with the changed fields (same structure as config, but only include fields you want to change). No explanation, just JSON.`;
 
@@ -166,10 +165,11 @@ async function main() {
   console.log(`Dry run: ${DRY_RUN}`);
   console.log();
 
+  const config = loadConfig();
   const history = [];
 
+  const totalT0 = performance.now();
   for (let iter = 1; iter <= NUM_ITERATIONS; iter++) {
-    const config = loadConfig();
     console.log(`── Iteration ${iter}/${NUM_ITERATIONS} ──`);
 
     const t0 = performance.now();
@@ -190,33 +190,37 @@ async function main() {
     console.log(`  Deaths: ${JSON.stringify(stats.deathCauses)}`);
 
     const logEntry = { iteration: iter, timestamp: new Date().toISOString(), stats, config };
-
-    if (DRY_RUN) {
-      console.log(`  [dry-run] Skipping Claude API call`);
-      appendFileSync(LOG_PATH, JSON.stringify(logEntry) + "\n");
-      history.push({ iteration: iter, stats });
-      continue;
-    }
-
-    try {
-      console.log(`  Asking Claude for parameter updates...`);
-      const patch = await callClaude(config, stats, history.slice(-5));
-      console.log(`  Patch: ${JSON.stringify(patch)}`);
-
-      const newConfig = deepMerge(config, patch);
-      saveConfig(newConfig);
-      logEntry.patch = patch;
-      console.log(`  Config updated.`);
-    } catch (err) {
-      console.log(`  Claude API error: ${err.message}`);
-      logEntry.error = err.message;
-    }
-
     appendFileSync(LOG_PATH, JSON.stringify(logEntry) + "\n");
     history.push({ iteration: iter, stats });
   }
 
-  console.log(`\nTraining complete. Log: ${LOG_PATH}`);
+  const totalElapsed = performance.now() - totalT0;
+  console.log(
+    `\nAll ${NUM_ITERATIONS} iterations complete (${(totalElapsed / 1000).toFixed(1)}s total, ${NUM_ITERATIONS * NUM_GAMES} games)`,
+  );
+
+  if (DRY_RUN) {
+    console.log(`[dry-run] Skipping Claude API call`);
+  } else {
+    try {
+      console.log(`\nSending all results to Claude for analysis...`);
+      const patch = await callClaude(config, history);
+      console.log(`Suggested config patch:\n${JSON.stringify(patch, null, 2)}`);
+
+      const newConfig = deepMerge(config, patch);
+      saveConfig(newConfig);
+      appendFileSync(LOG_PATH, JSON.stringify({ type: "tuning", timestamp: new Date().toISOString(), patch }) + "\n");
+      console.log(`Config updated and saved.`);
+    } catch (err) {
+      console.log(`Claude API error: ${err.message}`);
+      appendFileSync(
+        LOG_PATH,
+        JSON.stringify({ type: "error", timestamp: new Date().toISOString(), error: err.message }) + "\n",
+      );
+    }
+  }
+
+  console.log(`Log: ${LOG_PATH}`);
 }
 
 main().catch((err) => {

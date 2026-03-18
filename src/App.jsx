@@ -19,6 +19,7 @@ import {
   buyUpgrade as simBuyUpgrade,
   closeShop as simCloseShop,
 } from "./game-sim.js";
+import { createReplayRunner } from "./replay.js";
 
 // FPS probe: measure first 60 frames, disable shadowBlur if avg FPS < 45
 const perfState = { frameCount: 0, startTime: 0, glowEnabled: true, probed: false };
@@ -39,6 +40,7 @@ export default function DubaiMissileCommand() {
   const gameRef = useRef(null);
   const rafRef = useRef(null);
   const lastTimeRef = useRef(null);
+  const replayRef = useRef(null);
   const [screen, setScreen] = useState("title");
   const [finalScore, setFinalScore] = useState(0);
   const [finalWave, setFinalWave] = useState(1);
@@ -46,6 +48,7 @@ export default function DubaiMissileCommand() {
   const [showShop, setShowShop] = useState(false);
   const [shopData, setShopData] = useState(null);
   const [muted, setMuted] = useState(false);
+  const [replayActive, setReplayActive] = useState(false);
 
   const initGame = useCallback(() => {
     gameRef.current = simInitGame();
@@ -53,7 +56,7 @@ export default function DubaiMissileCommand() {
   }, []);
 
   // SFX event handler for game-sim events
-  function handleSimEvent(type, data) {
+  const handleSimEvent = useCallback(function handleSimEvent(type, data) {
     if (type === "sfx") {
       const sfxMap = {
         explosion: () => SFX.explosion(data.size),
@@ -83,7 +86,30 @@ export default function DubaiMissileCommand() {
       setShopData({ score: data.score, wave: data.wave, upgrades: { ...data.upgrades } });
       setShowShop(true);
     }
-  }
+  }, []);
+
+  const startReplay = useCallback(
+    (replayData) => {
+      SFX.init();
+      const runner = createReplayRunner(replayData, handleSimEvent);
+      gameRef.current = runner.init();
+      gameRef.current._replay = true;
+      window.__gameRef = gameRef;
+      replayRef.current = runner;
+      setReplayActive(true);
+      setShowShop(false);
+      setScreen("playing");
+    },
+    [handleSimEvent],
+  );
+
+  // Expose replay loader on window for console/external use
+  useEffect(() => {
+    window.__loadReplay = (replayData) => startReplay(replayData);
+    return () => {
+      delete window.__loadReplay;
+    };
+  }, [startReplay]);
 
   // update is now delegated to simUpdate via the RAF loop
 
@@ -895,6 +921,11 @@ export default function DubaiMissileCommand() {
     ctx.fillText(`BURJ:${g.burjAlive ? "OK" : "XX"}`, 240, 23);
     ctx.fillStyle = COL.hud;
     ctx.fillText(`AMMO ${g.ammo[0]}|${g.ammo[1]}|${g.ammo[2]}`, 360, 23);
+    // Replay indicator
+    if (g._replay) {
+      ctx.fillStyle = "#ff8844";
+      ctx.fillText("REPLAY", 520, 23);
+    }
     // FPS
     if (g._fpsDisplay) {
       ctx.fillStyle = g._fpsDisplay >= 50 ? "#556677" : g._fpsDisplay >= 30 ? "#ffaa44" : "#ff4444";
@@ -1138,7 +1169,22 @@ export default function DubaiMissileCommand() {
           g._fpsFrames = 0;
           g._fpsAccum = 0;
         }
-        simUpdate(gameRef.current, dt, handleSimEvent);
+        if (replayRef.current) {
+          // Replay mode: step once per frame (dt=1 fixed timestep)
+          const rr = replayRef.current;
+          rr.step();
+          if (rr.isFinished()) {
+            rr.cleanup();
+            replayRef.current = null;
+            setReplayActive(false);
+            setFinalScore(g.score);
+            setFinalWave(g.wave);
+            setFinalStats({ ...g.stats });
+            setScreen("gameover");
+          }
+        } else {
+          simUpdate(gameRef.current, dt, handleSimEvent);
+        }
         // Stop browser laser SFX when sim clears laser handle
         if (!gameRef.current._laserHandle && gameRef.current._browserLaserHandle) {
           gameRef.current._browserLaserHandle.stop();
@@ -1160,7 +1206,7 @@ export default function DubaiMissileCommand() {
   }, [screen, finalScore, finalWave, showShop]);
 
   function handleCanvasClick(e) {
-    if (showShop) return;
+    if (showShop || replayActive) return;
     if (screen === "title") {
       SFX.init();
       initGame();
@@ -1222,7 +1268,27 @@ export default function DubaiMissileCommand() {
         padding: "10px",
       }}
     >
-      <div style={{ position: "relative" }}>
+      <div
+        style={{ position: "relative" }}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault();
+          const file = e.dataTransfer.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              const data = JSON.parse(reader.result);
+              if (data.seed !== undefined && data.actions) {
+                startReplay(data);
+              }
+            } catch {
+              // ignore invalid files
+            }
+          };
+          reader.readAsText(file);
+        }}
+      >
         <canvas
           ref={canvasRef}
           width={CANVAS_W}
