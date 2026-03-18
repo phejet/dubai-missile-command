@@ -30,10 +30,11 @@ export function botDecideAction(g, config, lastFireTick, tick) {
   const inFlight = g.interceptors.filter((i) => i.alive).length;
   const allThreats = [];
 
-  // Drones — diving ones are highest priority, engage non-diving ones early
+  // Drones — diving ones are always priority 0, engage non-diving ones early
   for (const d of g.drones) {
     if (!d.alive) continue;
-    if (d.diving && d.y > cfg.minThreatY) {
+    if (d.diving) {
+      // All diving drones are urgent regardless of Y position
       const led = leadTarget(d.x, d.y, d.vx, d.vy, config);
       allThreats.push({ ...led, priority: 0 });
     } else if (d.y > cfg.minThreatY) {
@@ -45,24 +46,37 @@ export function botDecideAction(g, config, lastFireTick, tick) {
       }
     }
   }
-  // Missiles
+  // Missiles — bombs get elevated priority
   for (const m of g.missiles) {
     if (!m.alive) continue;
     if (m.y < cfg.minThreatY) continue;
     const led = leadTarget(m.x, m.y, m.vx, m.vy, config);
-    const priority = m.y > cfg.missileYThresholds.urgent ? 0 : m.y > cfg.missileYThresholds.medium ? 1 : 2;
+    const priority =
+      m.type === "bomb"
+        ? m.y > cfg.missileYThresholds.urgent
+          ? 0
+          : 1
+        : m.y > cfg.missileYThresholds.urgent
+          ? 0
+          : m.y > cfg.missileYThresholds.medium
+            ? 1
+            : 2;
     allThreats.push({ ...led, priority });
   }
 
   const totalAmmo = g.ammo.reduce((s, a) => s + a, 0);
   const threatCount = allThreats.length;
   const maxInFlight = threatCount > cfg.highThreatThreshold ? cfg.maxInFlightHigh : cfg.maxInFlightBase;
-  const cooldown =
+  let cooldown =
     totalAmmo < cfg.lowAmmoThreshold
       ? cfg.cooldownLowAmmo
       : threatCount > cfg.highThreatThreshold
         ? cfg.cooldownHighThreat
         : cfg.cooldownNormal;
+
+  // Fire faster when jet drones (multi-HP) are present
+  const hasJetDrone = g.drones.some((d) => d.alive && d.subtype === "shahed238" && d.y > cfg.minThreatY);
+  if (hasJetDrone) cooldown = Math.floor(cooldown * 0.6);
 
   if (allThreats.length === 0 || inFlight >= maxInFlight || tick - lastFireTick < cooldown) {
     return null;
