@@ -614,6 +614,13 @@ export function update(g, dt, onEvent) {
     }
     if (g.waveClearedTimer <= 0 && !g.shopOpened) {
       g.shopOpened = true;
+      // Restore destroyed defense sites before shop so bot doesn't re-buy them
+      g.defenseSites.forEach((site) => {
+        if (!site.alive && site.savedLevel) {
+          site.alive = true;
+          g.upgrades[site.key] = site.savedLevel;
+        }
+      });
       if (g.burjAlive) {
         g.state = "shop";
         if (onEvent) onEvent("shopOpen", { score: g.score, wave: g.wave, upgrades: { ...g.upgrades } });
