@@ -25,12 +25,19 @@ export function botDecideAction(g, config, lastFireTick, tick) {
   const inFlight = g.interceptors.filter((i) => i.alive).length;
   const allThreats = [];
 
-  // Diving shaheds — highest priority
+  // Drones — diving ones are highest priority, engage non-diving ones past center
   for (const d of g.drones) {
     if (!d.alive) continue;
     if (d.diving && d.y > cfg.minThreatY) {
       const led = leadTarget(d.x, d.y, d.vx, d.vy, config);
       allThreats.push({ ...led, priority: 0 });
+    } else if (d.y > cfg.minThreatY) {
+      // Engage horizontal drones past configurable range to prevent bomb drops
+      const [minX, maxX] = cfg.droneEngageRange;
+      if ((d.vx > 0 && d.x > minX) || (d.vx < 0 && d.x < maxX)) {
+        const led = leadTarget(d.x, d.y, d.vx, d.vy, config);
+        allThreats.push({ ...led, priority: 1 });
+      }
     }
   }
   // Missiles
@@ -67,19 +74,41 @@ export function botDecideAction(g, config, lastFireTick, tick) {
       const d = Math.sqrt((t.x - o.x) ** 2 + (t.y - o.y) ** 2);
       if (d < cfg.clusterRadius) score += 1;
     }
-    score += 4 - t.priority;
+    score += (4 - t.priority) * 3;
     if (score > bestScore) {
       bestScore = score;
       bestPoint = t;
     }
   }
 
-  // Avoid hitting planes
-  if (bestPoint && g.planes) {
-    const tooClose = g.planes.some(
-      (p) => p.alive && Math.sqrt((bestPoint.x - p.x) ** 2 + (bestPoint.y - p.y) ** 2) < config.planeAvoidance.radius,
+  // Avoid hitting planes — try fallback targets if best is blocked
+  function isSafeFromPlanes(point) {
+    if (!g.planes) return true;
+    return !g.planes.some(
+      (p) => p.alive && Math.sqrt((point.x - p.x) ** 2 + (point.y - p.y) ** 2) < config.planeAvoidance.radius,
     );
-    if (tooClose) return null;
+  }
+
+  if (bestPoint && !isSafeFromPlanes(bestPoint)) {
+    // Try other threats as fallback
+    const sorted = allThreats
+      .map((t) => {
+        let score = 0;
+        for (const o of allThreats) {
+          const d = Math.sqrt((t.x - o.x) ** 2 + (t.y - o.y) ** 2);
+          if (d < cfg.clusterRadius) score += 1;
+        }
+        score += (4 - t.priority) * 3;
+        return { point: t, score };
+      })
+      .sort((a, b) => b.score - a.score);
+    bestPoint = null;
+    for (const s of sorted) {
+      if (isSafeFromPlanes(s.point)) {
+        bestPoint = s.point;
+        break;
+      }
+    }
   }
 
   if (bestPoint) {
