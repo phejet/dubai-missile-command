@@ -57,7 +57,10 @@ Run thousands of games headlessly (~770 games/sec) for automated bot tuning:
 # Single headless game with determinism check
 node src/headless/sim-runner.js [seed]
 
-# Batch training — runs games, then calls Claude to tune bot config
+# Learning loop — benchmark, Sonnet analysis, apply changes, repeat
+node src/headless/learn.js --rounds=3 --duration=10000 [--dry-run]
+
+# Batch training — runs games with worker threads, tunes config only
 node src/headless/train.js --games=100 --iterations=10 [--dry-run]
 
 # Record best game as a replay file
