@@ -32,6 +32,7 @@ export const COL = {
   roadrunner: "#44aaff",
   phalanx: "#ff8844",
   patriot: "#88ff44",
+  launcherKit: "#66aaff",
 };
 
 export const BURJ_X = 460;
@@ -118,11 +119,11 @@ export function fireInterceptor(g, targetX, targetY) {
       bestIdx = i;
     }
   }
-  if (bestIdx === -1) return;
+  if (bestIdx === -1) return false;
   g.ammo[bestIdx]--;
   g.stats.shotsFired++;
   const l = LAUNCHERS[bestIdx];
-  const speed = 5;
+  const speed = g.upgrades.launcherKit >= 3 ? 7 : 5;
   const dx = targetX - l.x;
   const dy = targetY - l.y;
   const len = Math.sqrt(dx * dx + dy * dy);
@@ -136,6 +137,7 @@ export function fireInterceptor(g, targetX, targetY) {
     trail: [],
     alive: true,
   });
+  return true;
 }
 
 let _explosionId = 0;

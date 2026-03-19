@@ -51,7 +51,16 @@ async function main() {
       if (buttonCount > 1) {
         console.log(`Shop detected (${buttonCount} buttons)`);
         // Buy upgrades in priority order
-        const buyOrder = ["Phalanx", "Wild Hornets", "Patriot", "Iron Beam", "Roadrunner", "Decoy"];
+        const buyOrder = [
+          "Launcher Upgrade",
+          "Phalanx",
+          "Wild Hornets",
+          "Patriot",
+          "Iron Beam",
+          "Roadrunner",
+          "Decoy",
+          "Burj Repair",
+        ];
         let bought = true;
         while (bought) {
           bought = false;
@@ -62,7 +71,8 @@ async function main() {
           for (let i = 0; i < count; i++) {
             const btn = upgradeBtns.nth(i);
             const text = await btn.textContent().catch(() => "");
-            if (text.includes("UPGRADE")) available.push({ btn, text: text.trim() });
+            if (text.includes("UPGRADE") || text.includes("HEAL") || text.includes("REPAIR"))
+              available.push({ btn, text: text.trim() });
           }
           // Buy in priority order
           for (const pref of buyOrder) {

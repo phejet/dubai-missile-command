@@ -1,5 +1,5 @@
 import { setRng, fireInterceptor } from "../game-logic.js";
-import { initGame, update, buyUpgrade, closeShop } from "../game-sim.js";
+import { initGame, update, buyUpgrade, closeShop, repairSite, repairLauncher } from "../game-sim.js";
 import { mulberry32 } from "./rng.js";
 import { botDecideAction, botDecideUpgrades } from "./bot-brain.js";
 import defaultConfig from "./bot-config.json" with { type: "json" };
@@ -27,12 +27,20 @@ export function runGame(botConfig, options = {}) {
 
     if (g.state === "shop") {
       const bought = [];
-      const keys = botDecideUpgrades(g, config);
+      const { repairs, priority } = botDecideUpgrades(g, config);
+      // Repair destroyed launchers/sites first
+      for (const r of repairs) {
+        if (r.type === "repairLauncher") {
+          if (repairLauncher(g, r.index)) bought.push(`repair_launcher_${r.index}`);
+        } else if (r.type === "repairSite") {
+          if (repairSite(g, r.key)) bought.push(`repair_${r.key}`);
+        }
+      }
       // Round-robin: buy one level of each priority per pass
       let boughtAny = true;
       while (boughtAny) {
         boughtAny = false;
-        for (const key of keys) {
+        for (const key of priority) {
           if (buyUpgrade(g, key)) {
             bought.push(key);
             boughtAny = true;

@@ -4,20 +4,20 @@
 
 Four rounds of automated analysis using Claude Sonnet took the bot from dying on wave 1 to consistently reaching wave 12, with a max of wave 17. Each round benchmarked ~10 seconds of headless games, sent results + code to Sonnet for analysis, then applied suggested changes.
 
-| Metric | Round 1 (baseline) | Round 2 | Round 3 | Round 4 | Round 4b (bugfix) |
-|---|---|---|---|---|---|
-| Games benchmarked | 7,323 | 2,185 | 132 | 178 | 318 |
-| Median wave | 1 | 3 | 4 | 11 | 12 |
-| Mean wave | 1.43 | 2.58 | 4.42 | 10.66 | 10.82 |
-| P10 wave | 1 | 2 | 3 | 6 | 6 |
-| P90 wave | 2 | 3 | 8 | 15 | 15 |
-| Max wave | 4 | 5 | 12 | 17 | 17 |
-| Median score | 850 | 1,375 | 2,475 | 10,950 | 35,725 |
-| Mean score | 807 | 1,478 | 3,632 | 12,463 | 36,637 |
-| Max score | 3,175 | 4,050 | 36,225 | 54,000 | 130,700 |
-| Min score | -350 | -350 | 450 | 1,150 | 3,750 |
-| Mean kills | 11.4 | 42.4 | 134.3 | 571.5 | 582.8 |
-| Efficiency | 1.018 | 0.595 | 0.809 | 0.930 | 0.947 |
+| Metric            | Round 1 (baseline) | Round 2 | Round 3 | Round 4 | Round 4b (bugfix) |
+| ----------------- | ------------------ | ------- | ------- | ------- | ----------------- |
+| Games benchmarked | 7,323              | 2,185   | 132     | 178     | 318               |
+| Median wave       | 1                  | 3       | 4       | 11      | 12                |
+| Mean wave         | 1.43               | 2.58    | 4.42    | 10.66   | 10.82             |
+| P10 wave          | 1                  | 2       | 3       | 6       | 6                 |
+| P90 wave          | 2                  | 3       | 8       | 15      | 15                |
+| Max wave          | 4                  | 5       | 12      | 17      | 17                |
+| Median score      | 850                | 1,375   | 2,475   | 10,950  | 35,725            |
+| Mean score        | 807                | 1,478   | 3,632   | 12,463  | 36,637            |
+| Max score         | 3,175              | 4,050   | 36,225  | 54,000  | 130,700           |
+| Min score         | -350               | -350    | 450     | 1,150   | 3,750             |
+| Mean kills        | 11.4               | 42.4    | 134.3   | 571.5   | 582.8             |
+| Efficiency        | 1.018              | 0.595   | 0.809   | 0.930   | 0.947             |
 
 > Games per benchmark decreased across rounds because each game lasted longer (more waves survived = more ticks per game).
 
@@ -26,12 +26,14 @@ Four rounds of automated analysis using Claude Sonnet took the bot from dying on
 ## Round 1: Baseline → First Tuning
 
 ### Before (Baseline)
+
 - Median wave: **1** — most games didn't survive past wave 1
 - 10.9 shots fired per game, 11.4 kills — very few actions taken
 - Some games went negative score (hitting F-15 friendlies)
 
 ### Sonnet Analysis
-1. **Cooldowns too conservative** — `cooldownNormal=200` meant the bot fired once every 200 ticks. The game spawns a new missile every 120 ticks, so the bot fired *slower than enemies spawned*.
+
+1. **Cooldowns too conservative** — `cooldownNormal=200` meant the bot fired once every 200 ticks. The game spawns a new missile every 120 ticks, so the bot fired _slower than enemies spawned_.
 2. **Lead shot intentionally undershoots** — `timeScaleFactor=0.75` aimed at 75% of where targets would be, systematically missing.
 3. **Drones completely ignored until diving** — horizontal drones dropped free bombs before the bot engaged them.
 4. **Plane avoidance suppressed all firing** — any plane within 55px of the target cancelled the shot entirely with no fallback, potentially suppressing 32% of game time.
@@ -39,6 +41,7 @@ Four rounds of automated analysis using Claude Sonnet took the bot from dying on
 6. **Urgency vs clustering tied** — a single urgent missile scored the same as a cluster of distant ones.
 
 ### Changes Applied
+
 ```
 Config:
   cooldownNormal:      200 → 80
@@ -59,6 +62,7 @@ Code (bot-brain.js):
 ```
 
 ### After
+
 - Median wave: **3** (+2 waves)
 - Mean kills: **42.4** (4x increase)
 - Efficiency dropped to 0.595 (expected — much more aggressive firing)
@@ -69,11 +73,13 @@ Code (bot-brain.js):
 ## Round 2: Firing Rate → Strategic Depth
 
 ### Before
+
 - Median wave 3, max wave 5
 - Bot fires 69.7 shots per game but only 42.4 kills (27 wasted shots)
 - Efficiency 0.595 — lots of misses
 
 ### Sonnet Analysis
+
 1. **Upgrade buying was greedy** — `while (buyUpgrade(g, key))` bought all levels of one upgrade before moving to the next. Flare L1+L2 consumed entire budget; Roadrunner and Iron Beam never purchased.
 2. **Drones engaged too late** — `droneEngageRange [300, 600]` intercepted drones right at the bomb-drop threshold, not before it.
 3. **No ammo check before firing** — if closest launcher was empty, `fireInterceptor` was a no-op but bot burned its cooldown anyway.
@@ -81,6 +87,7 @@ Code (bot-brain.js):
 5. **Iron Beam undervalued** — higher DPS than Wild Hornets at close range, should be bought earlier.
 
 ### Changes Applied
+
 ```
 Config:
   cooldownNormal:       80 → 60
@@ -108,6 +115,7 @@ Code (sim-runner.js):
 ```
 
 ### After
+
 - Median wave: **4** (+1)
 - Max wave: **12** (up from 5!)
 - Mean kills: **134.3** (3x increase)
@@ -119,10 +127,12 @@ Code (sim-runner.js):
 ## Round 3: Targeting Precision → Jet Drone Era
 
 ### Before
+
 - Median wave 4, max wave 12
 - Big variance: p10=3, p90=8 — RNG-dependent
 
 ### Sonnet Analysis
+
 1. **Diving drones gated by Y threshold** — `if (d.diving && d.y > minThreatY)` excluded drones that just started diving from high altitude. All diving drones should be priority 0 immediately.
 2. **Bomb-type missiles treated as regular missiles** — drone bombs can't be lured by flares and drop nearly vertically, but got the same low priority as high-altitude missiles.
 3. **No jet drone awareness in cooldown** — Shahed-238 jets have multi-HP and need double-tapping, but the bot used the same cooldown regardless.
@@ -130,6 +140,7 @@ Code (sim-runner.js):
 5. **Drone engagement still too late for left-movers** — left-to-right drones engaged at x=150 but bomb threshold is x=315, barely any buffer.
 
 ### Changes Applied
+
 ```
 Config:
   cooldownNormal:       60 → 50
@@ -150,6 +161,7 @@ Code (bot-brain.js):
 ```
 
 ### After
+
 - Median wave: **11** (from 4!)
 - Max wave: **17**
 - Mean kills: **571.5** (4x increase)
@@ -161,6 +173,7 @@ Code (bot-brain.js):
 ## Round 4b: Defense Site Re-Buy Bug Fix
 
 ### Discovery
+
 User noticed the bot was buying "Patriots all 3 upgrades multiple times" during replay. Investigation revealed:
 
 1. When a defense site is destroyed mid-wave, `destroyDefenseSite()` sets `g.upgrades[key] = 0`
@@ -169,7 +182,8 @@ User noticed the bot was buying "Patriots all 3 upgrades multiple times" during 
 4. `closeShop()` would have restored the level anyway via `savedLevel` — the money was completely wasted
 
 ### Fix
-Moved defense site restoration from `closeShop()` to the shop-opening logic — sites are restored *before* the shop opens, so the bot sees the correct upgrade levels.
+
+Moved defense site restoration from `closeShop()` to the shop-opening logic — sites are restored _before_ the shop opens, so the bot sees the correct upgrade levels.
 
 ```js
 // Before shop opens, restore destroyed defense sites
@@ -182,6 +196,7 @@ g.defenseSites.forEach((site) => {
 ```
 
 ### Impact
+
 - Median score: **35,725** (from 10,950 — **3.3x increase** from one bug fix!)
 - Max score: **130,700** (from 54,000)
 - This single fix was more impactful than any parameter tuning round
@@ -192,12 +207,15 @@ g.defenseSites.forEach((site) => {
 ## Additional Bug Fix: Jet Drone Stuck in Air
 
 ### Discovery
+
 User reported jet drones getting "stuck in the air with a red circle around them."
 
 ### Root Cause
+
 When a Shahed-238 entered diving state but `pickTarget()` returned null (no valid target), `diveTarget` remained undefined. The movement check `if (d.diving && d.diveTarget)` was false, so the drone fell through to horizontal-only movement, floating in place indefinitely. The Shahed-136 code already handled this with a fallback to Burj coordinates.
 
 ### Fix
+
 ```js
 // Before (broken):
 const t = pickTarget(g, d.x);
@@ -209,6 +227,7 @@ d.diveTarget = t || { x: BURJ_X, y: CITY_Y };
 ```
 
 ### Impact
+
 Minimal gameplay impact (pickTarget rarely returns null in practice), but fixed a visual bug where jet drones would hover indefinitely with their red nav light blinking.
 
 ---
@@ -216,6 +235,7 @@ Minimal gameplay impact (pickTarget rarely returns null in practice), but fixed 
 ## Key Learnings
 
 ### What Mattered Most (in order of impact)
+
 1. **Bug fixes > parameter tuning** — The defense site re-buy fix (3.3x score) dwarfed all config changes combined.
 2. **Firing rate was the #1 bottleneck** — Reducing cooldowns from 200 to 50 ticks was the single biggest parameter change.
 3. **Lead shot accuracy** — Changing timeScaleFactor from 0.75 to 0.96 stopped the bot from systematically undershooting.
@@ -223,12 +243,14 @@ Minimal gameplay impact (pickTarget rarely returns null in practice), but fixed 
 5. **Threat prioritization** — Urgent fast-path and bomb priority elevation prevented the bot from ignoring imminent threats.
 
 ### What Sonnet Was Good At
+
 - Reading game code and understanding complex system interactions (ammo, cooldowns, upgrade economics)
 - Suggesting code changes, not just config tweaks (urgent fast-path, bomb priority, jet drone cooldown)
 - Identifying unused config values (`droneEngageRange` was dead config in the baseline)
 - Correctly diagnosing why the bot died (firing rate < spawn rate in round 1)
 
 ### What Sonnet Missed
+
 - The defense site re-buy bug (biggest single fix, 3.3x score) was found by the **user** watching a replay, not by Sonnet — despite Sonnet reading the full game-sim.js code each round
 - The jet drone stuck-in-air bug was also spotted by the **user** during visual replay
 - Sonnet sometimes suggested changes in opposite directions across rounds (e.g., highThreatThreshold went 4→2→3→2)
@@ -236,6 +258,7 @@ Minimal gameplay impact (pickTarget rarely returns null in practice), but fixed 
 - Sonnet couldn't observe visual/behavioral bugs that were obvious in replay playback
 
 ### Architecture Decisions That Enabled This
+
 - **Seeded RNG** — deterministic games made benchmarks reproducible
 - **Headless simulation** — ~300 games in 10 seconds for reliable statistics
 - **Action-log replay** — visual verification caught bugs that stats couldn't
@@ -268,22 +291,22 @@ Minimal gameplay impact (pickTarget rarely returns null in practice), but fixed 
 
 ## Config Evolution Across Rounds
 
-| Parameter | Baseline | Round 1 | Round 2 | Round 3 |
-|---|---|---|---|---|
-| cooldownNormal | 200 | 80 | 60 | 50 |
-| cooldownHighThreat | 80 | 25 | 20 | 15 |
-| cooldownLowAmmo | 400 | 200 | 300 | 300 |
-| maxInFlightBase | 3 | 5 | 4 | 5 |
-| maxInFlightHigh | 6 | 10 | 7 | 8 |
-| highThreatThreshold | 4 | 2 | 3 | 2 |
-| lowAmmoThreshold | 10 | 10 | 15 | 8 |
-| clusterRadius | 70 | 70 | 85 | 100 |
-| minThreatY | 80 | 80 | 60 | 60 |
-| urgentY | 350 | 350 | 380 | 380 |
-| droneEngageRange | [200,700]* | [300,600] | [150,750] | [80,820] |
-| leadShot iterations | 3 | 4 | 5 | 8 |
-| timeScaleFactor | 0.75 | 0.98 | 0.97 | 0.96 |
-| planeAvoidance | 55 | 35 | 30 | 30 |
-| 1st upgrade | phalanx | flare | flare | ironBeam |
+| Parameter           | Baseline    | Round 1   | Round 2   | Round 3  |
+| ------------------- | ----------- | --------- | --------- | -------- |
+| cooldownNormal      | 200         | 80        | 60        | 50       |
+| cooldownHighThreat  | 80          | 25        | 20        | 15       |
+| cooldownLowAmmo     | 400         | 200       | 300       | 300      |
+| maxInFlightBase     | 3           | 5         | 4         | 5        |
+| maxInFlightHigh     | 6           | 10        | 7         | 8        |
+| highThreatThreshold | 4           | 2         | 3         | 2        |
+| lowAmmoThreshold    | 10          | 10        | 15        | 8        |
+| clusterRadius       | 70          | 70        | 85        | 100      |
+| minThreatY          | 80          | 80        | 60        | 60       |
+| urgentY             | 350         | 350       | 380       | 380      |
+| droneEngageRange    | [200,700]\* | [300,600] | [150,750] | [80,820] |
+| leadShot iterations | 3           | 4         | 5         | 8        |
+| timeScaleFactor     | 0.75        | 0.98      | 0.97      | 0.96     |
+| planeAvoidance      | 55          | 35        | 30        | 30       |
+| 1st upgrade         | phalanx     | flare     | flare     | ironBeam |
 
 \* Baseline `droneEngageRange` existed in config but was dead code — the original bot-brain only engaged diving drones. Round 1 added horizontal drone engagement using the range values.

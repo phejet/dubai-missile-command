@@ -145,6 +145,26 @@ const SFX = {
     scheduleRelease(0.25);
   },
 
+  emptyClick() {
+    if (!ensureCtx() || !trackVoice()) return;
+    const t = now();
+    // Short dry click — highpass noise snap
+    const src = ctx.createBufferSource();
+    src.buffer = noiseBuffer;
+    const hp = ctx.createBiquadFilter();
+    hp.type = "highpass";
+    hp.frequency.value = 3000;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.15, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+    src.connect(hp);
+    hp.connect(g);
+    g.connect(master);
+    src.start(t);
+    src.stop(t + 0.04);
+    scheduleRelease(0.04);
+  },
+
   explosion(size) {
     if (!ensureCtx()) return;
     // Throttle: max 3 per 100ms

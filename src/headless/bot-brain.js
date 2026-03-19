@@ -1,8 +1,6 @@
 import { LAUNCHERS, GROUND_Y } from "../game-logic.js";
 
-const INTERCEPTOR_SPEED = 5;
-
-export function leadTarget(tx, ty, tvx, tvy, config) {
+export function leadTarget(tx, ty, tvx, tvy, config, interceptorSpeed = 5) {
   const iterations = config.leadShot.iterations;
   const timeScale = config.leadShot.timeScaleFactor;
   let aimX = tx,
@@ -13,7 +11,7 @@ export function leadTarget(tx, ty, tvx, tvy, config) {
       const d = Math.sqrt((aimX - l.x) ** 2 + (aimY - l.y) ** 2);
       if (d < best) best = d;
     }
-    const frames = (best / INTERCEPTOR_SPEED) * timeScale;
+    const frames = (best / interceptorSpeed) * timeScale;
     aimX = tx + tvx * frames;
     aimY = Math.min(ty + tvy * frames, GROUND_Y - 25);
   }
@@ -22,6 +20,7 @@ export function leadTarget(tx, ty, tvx, tvy, config) {
 
 export function botDecideAction(g, config, lastFireTick, tick) {
   const cfg = config.targeting;
+  const interceptorSpeed = g.upgrades.launcherKit >= 3 ? 7 : 5;
 
   // Check if any launcher has ammo
   const hasAmmo = g.ammo.some((a, i) => a > 0 && g.launcherHP[i] > 0);
@@ -35,13 +34,13 @@ export function botDecideAction(g, config, lastFireTick, tick) {
     if (!d.alive) continue;
     if (d.diving) {
       // All diving drones are urgent regardless of Y position
-      const led = leadTarget(d.x, d.y, d.vx, d.vy, config);
+      const led = leadTarget(d.x, d.y, d.vx, d.vy, config, interceptorSpeed);
       allThreats.push({ ...led, priority: 0 });
     } else if (d.y > cfg.minThreatY) {
       // Engage horizontal drones before they drop bombs
       const [minX, maxX] = cfg.droneEngageRange;
       if ((d.vx > 0 && d.x > minX) || (d.vx < 0 && d.x < maxX)) {
-        const led = leadTarget(d.x, d.y, d.vx, d.vy, config);
+        const led = leadTarget(d.x, d.y, d.vx, d.vy, config, interceptorSpeed);
         allThreats.push({ ...led, priority: 1 });
       }
     }
@@ -50,7 +49,7 @@ export function botDecideAction(g, config, lastFireTick, tick) {
   for (const m of g.missiles) {
     if (!m.alive) continue;
     if (m.y < cfg.minThreatY) continue;
-    const led = leadTarget(m.x, m.y, m.vx, m.vy, config);
+    const led = leadTarget(m.x, m.y, m.vx, m.vy, config, interceptorSpeed);
     const priority =
       m.type === "bomb"
         ? m.y > cfg.missileYThresholds.urgent
@@ -155,5 +154,20 @@ export function botDecideAction(g, config, lastFireTick, tick) {
 }
 
 export function botDecideUpgrades(g, config) {
-  return config.upgradePriority;
+  const repairs = [];
+  // Prioritize repairing destroyed launchers
+  for (let i = 0; i < g.launcherHP.length; i++) {
+    if (g.launcherHP[i] <= 0) repairs.push({ type: "repairLauncher", index: i });
+  }
+  // Prioritize repairing destroyed defense sites
+  if (g.defenseSites) {
+    for (const site of g.defenseSites) {
+      if (!site.alive) repairs.push({ type: "repairSite", key: site.key });
+    }
+  }
+  const priority = config.upgradePriority.filter((key) => {
+    if (key === "burjRepair" && g.burjHealth >= 5) return false;
+    return true;
+  });
+  return { repairs, priority };
 }

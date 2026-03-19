@@ -17,5 +17,14 @@
     "timeScaleFactor": 0.96
   },
   "planeAvoidance": { "radius": 30 },
-  "upgradePriority": ["ironBeam", "wildHornets", "phalanx", "roadrunner", "flare", "patriot"]
+  "upgradePriority": [
+    "launcherKit",
+    "ironBeam",
+    "wildHornets",
+    "phalanx",
+    "roadrunner",
+    "flare",
+    "burjRepair",
+    "patriot"
+  ]
 }

@@ -48,12 +48,12 @@ export const UPGRADES = {
     icon: "\uD83C\uDF86",
     desc: "Burj launches IR decoys. Incoming missiles retarget to flares and miss.",
     maxLevel: 3,
-    costs: [600, 1500, 3900],
+    costs: [900, 2200, 5500],
     color: COL.flare,
     statLines: [
-      "1 flare / 5s \u00B7 30% lure chance",
-      "2 flares / 4s \u00B7 45% lure chance",
-      "3 flares / 3s \u00B7 60% lure chance",
+      "1 flare / 5s \u00B7 lures 1 missile",
+      "2 flares / 4s \u00B7 lures 2 each",
+      "3 flares / 3s \u00B7 lures 3 each",
     ],
   },
   ironBeam: {
@@ -74,12 +74,12 @@ export const UPGRADES = {
     icon: "\uD83D\uDD2B",
     desc: "Close-in weapon system. Last-resort rapid-fire autocannon near protected sites.",
     maxLevel: 3,
-    costs: [900, 2200, 5500],
+    costs: [1100, 2800, 6500],
     color: COL.phalanx,
     statLines: [
-      "1 turret at Burj \u00B7 80 range",
-      "+ turret at east launcher \u00B7 100 range",
-      "3 turrets \u00B7 120 range \u00B7 faster",
+      "1 turret at Burj \u00B7 100 range \u00B7 50% acc",
+      "+ east turret \u00B7 130 range \u00B7 60% acc",
+      "3 turrets \u00B7 160 range \u00B7 70% acc \u00B7 faster",
     ],
   },
   patriot: {
@@ -90,6 +90,29 @@ export const UPGRADES = {
     costs: [1500, 3450, 7900],
     color: COL.patriot,
     statLines: ["1 launch / 8s \u00B7 50 blast", "1 launch / 6s \u00B7 65 blast", "2 launches / 5s \u00B7 80 blast"],
+  },
+  burjRepair: {
+    name: "Burj Repair Kit",
+    icon: "\uD83D\uDD27",
+    desc: "Emergency structural repair. Restores 1 HP to Burj Khalifa.",
+    maxLevel: 3,
+    costs: [1500, 2500, 4000],
+    color: "#00ffcc",
+    statLines: ["+1 Burj HP (1/3)", "+1 Burj HP (2/3)", "+1 Burj HP (3/3)"],
+    consumable: true,
+  },
+  launcherKit: {
+    name: "Launcher Upgrade",
+    icon: "\uD83D\uDEE1\uFE0F",
+    desc: "Progressive launcher enhancement. Magazine, armor, then speed.",
+    maxLevel: 3,
+    costs: [800, 1800, 3000],
+    color: COL.launcherKit,
+    statLines: [
+      "Extended Mag: +8 ammo per wave",
+      "Reinforced: launchers gain +1 HP",
+      "Fast Interceptors: speed 5 \u2192 7",
+    ],
   },
 };
 
@@ -133,8 +156,8 @@ export function initGame() {
     score: 0,
     wave: 1,
     stats: { missileKills: 0, droneKills: 0, shotsFired: 0 },
-    ammo: [22, 22, 22],
-    launcherHP: [2, 2, 2],
+    ammo: [11, 11, 11],
+    launcherHP: [1, 1, 1],
     missiles: [],
     drones: [],
     interceptors: [],
@@ -171,6 +194,8 @@ export function initGame() {
       ironBeam: 0,
       phalanx: 0,
       patriot: 0,
+      burjRepair: 0,
+      launcherKit: 0,
     },
     defenseSites: [],
     hornets: [],
@@ -374,7 +399,6 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
     const lvl = g.upgrades.flare;
     const interval = [300, 240, 180][lvl - 1];
     const count = lvl;
-    const lureChance = [0.3, 0.45, 0.6][lvl - 1];
     g.flareTimer += dt;
     if (g.flareTimer >= interval) {
       g.flareTimer = 0;
@@ -391,6 +415,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
           life: 180,
           maxLife: 180,
           alive: true,
+          luresLeft: lvl,
         });
       }
     }
@@ -419,8 +444,11 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
     });
     g.missiles.forEach((m) => {
       if (!m.alive || m.luredByFlare) return;
-      const nearFlare = g.flares.find((f) => f.alive && f.life > 30 && dist(m.x, m.y, f.x, f.y) < 200);
-      if (nearFlare && _rng() < lureChance * 0.015 * dt) {
+      const nearFlare = g.flares.find(
+        (f) => f.alive && f.life > 30 && f.luresLeft > 0 && dist(m.x, m.y, f.x, f.y) < 200,
+      );
+      if (nearFlare) {
+        nearFlare.luresLeft--;
         m.luredByFlare = true;
         const dx = nearFlare.x - m.x,
           dy = nearFlare.y - m.y;
@@ -490,7 +518,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
   if (g.upgrades.phalanx > 0) {
     const lvl = g.upgrades.phalanx;
     const turrets = getPhalanxTurrets(lvl);
-    const range = [80, 100, 120][lvl - 1];
+    const range = [100, 130, 160][lvl - 1];
     const fireRate = lvl >= 3 ? 3 : 5;
     g.phalanxTimer += dt;
     if (g.phalanxTimer >= fireRate) {
@@ -507,7 +535,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
             tx: t.x + rand(-5, 5),
             ty: t.y + rand(-5, 5),
             life: 8,
-            hit: _rng() < 0.35,
+            hit: _rng() < [0.5, 0.6, 0.7][lvl - 1],
             targetRef: t,
           });
         }
@@ -614,13 +642,6 @@ export function update(g, dt, onEvent) {
     }
     if (g.waveClearedTimer <= 0 && !g.shopOpened) {
       g.shopOpened = true;
-      // Restore destroyed defense sites before shop so bot doesn't re-buy them
-      g.defenseSites.forEach((site) => {
-        if (!site.alive && site.savedLevel) {
-          site.alive = true;
-          g.upgrades[site.key] = site.savedLevel;
-        }
-      });
       if (g.burjAlive) {
         g.state = "shop";
         if (onEvent) onEvent("shopOpen", { score: g.score, wave: g.wave, upgrades: { ...g.upgrades } });
@@ -972,6 +993,18 @@ export function buyUpgrade(g, key) {
   if (g.score < cost) return false;
   g.score -= cost;
   g.upgrades[key]++;
+  // Consumable: Burj Repair Kit
+  if (key === "burjRepair") {
+    g.burjHealth = Math.min(5, g.burjHealth + 1);
+    if (g.burjHealth > 0) g.burjAlive = true;
+    return true;
+  }
+  // Reinforced upgrade (launcherKit L2): set alive launchers to 2 HP
+  if (key === "launcherKit" && g.upgrades.launcherKit >= 2) {
+    for (let i = 0; i < g.launcherHP.length; i++) {
+      if (g.launcherHP[i] > 0) g.launcherHP[i] = 2;
+    }
+  }
   // Register or revive defense site
   const existingSite = g.defenseSites.find((s) => s.key === key);
   if (existingSite) {
@@ -984,6 +1017,7 @@ export function buyUpgrade(g, key) {
       ironBeam: { x: 320, y: GROUND_Y - 15, hw: 10, hh: 15 },
       wildHornets: { x: 150, y: GROUND_Y - 15, hw: 20, hh: 15 },
       roadrunner: { x: 620, y: GROUND_Y - 15, hw: 20, hh: 15 },
+      launcherKit: { x: 770, y: GROUND_Y - 15, hw: 20, hh: 15 },
     };
     if (key === "phalanx") {
       g.defenseSites.push({
@@ -1009,16 +1043,35 @@ export function closeShop(g) {
   g.waveTarget = 8 + g.wave * 4;
   g.spawnInterval = Math.max(20, 110 - g.wave * 10);
   g.droneInterval = Math.max(40, 160 - g.wave * 20);
-  g.launcherHP = g.launcherHP.map((hp) => (hp > 0 ? 2 : 0));
-  g.ammo = g.ammo.map((_, i) => (g.launcherHP[i] > 0 ? 20 + g.wave * 2 : 0));
-  g.defenseSites.forEach((site) => {
-    if (!site.alive) {
-      site.alive = true;
-      if (site.savedLevel) g.upgrades[site.key] = site.savedLevel;
-    }
-  });
+  const bonusAmmo = g.upgrades.launcherKit >= 1 ? 8 : 0;
+  g.ammo = g.ammo.map((_, i) => (g.launcherHP[i] > 0 ? 10 + g.wave * 1 + bonusAmmo : 0));
   g.waveComplete = false;
   g.state = "playing";
+}
+
+export function repairCost(wave) {
+  return 200 + 50 * wave;
+}
+
+export function repairSite(g, siteKey) {
+  const cost = repairCost(g.wave);
+  if (g.score < cost) return false;
+  const site = g.defenseSites.find((s) => s.key === siteKey && !s.alive);
+  if (!site) return false;
+  g.score -= cost;
+  site.alive = true;
+  g.upgrades[site.key] = site.savedLevel;
+  return true;
+}
+
+export function repairLauncher(g, index) {
+  const cost = repairCost(g.wave);
+  if (g.score < cost) return false;
+  if (g.launcherHP[index] > 0) return false;
+  g.score -= cost;
+  const baseHP = g.upgrades.launcherKit >= 2 ? 2 : 1;
+  g.launcherHP[index] = baseHP;
+  return true;
 }
 
 export function createGameSim(options = {}) {

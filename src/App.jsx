@@ -18,6 +18,9 @@ import {
   update as simUpdate,
   buyUpgrade as simBuyUpgrade,
   closeShop as simCloseShop,
+  repairCost,
+  repairSite as simRepairSite,
+  repairLauncher as simRepairLauncher,
 } from "./game-sim.js";
 import { createReplayRunner } from "./replay.js";
 
@@ -83,7 +86,14 @@ export default function DubaiMissileCommand() {
       setFinalStats({ ...data.stats });
       setScreen("gameover");
     } else if (type === "shopOpen") {
-      setShopData({ score: data.score, wave: data.wave, upgrades: { ...data.upgrades } });
+      setShopData({
+        score: data.score,
+        wave: data.wave,
+        upgrades: { ...data.upgrades },
+        burjHealth: gameRef.current.burjHealth,
+        launcherHP: [...gameRef.current.launcherHP],
+        defenseSites: gameRef.current.defenseSites.map((s) => ({ key: s.key, alive: s.alive })),
+      });
       setShowShop(true);
     }
   }, []);
@@ -777,8 +787,9 @@ export default function DubaiMissileCommand() {
         ctx.fillRect(l.x + 2, l.y - 4, 5, 3);
         return;
       }
-      // Damaged tint
-      if (g.launcherHP[i] === 1) {
+      // Damaged tint (only show when reinforced launcher is damaged)
+      const launcherMaxHP = g.upgrades.launcherKit >= 2 ? 2 : 1;
+      if (launcherMaxHP === 2 && g.launcherHP[i] === 1) {
         ctx.fillStyle = "#3a2020";
         ctx.fillRect(l.x - 12, l.y - 8, 24, 12);
         ctx.fillStyle = "#4a3030";
@@ -791,12 +802,13 @@ export default function DubaiMissileCommand() {
       }
       ctx.fillStyle = "rgba(0,0,0,0.5)";
       ctx.fillRect(l.x - 15, l.y + 8, 30, 5);
-      const ammoMax = 20 + g.wave * 2;
+      const ammoMax = 10 + g.wave * 1 + (g.upgrades.launcherKit >= 1 ? 8 : 0);
       const ammoRatio = g.ammo[i] / ammoMax;
       ctx.fillStyle = ammoRatio > 0.3 ? COL.hud : COL.warning;
       ctx.fillRect(l.x - 15, l.y + 8, 30 * ammoRatio, 5);
       // HP pips
-      for (let h = 0; h < 2; h++) {
+      const maxHP = g.upgrades.launcherKit >= 2 ? 2 : 1;
+      for (let h = 0; h < maxHP; h++) {
         ctx.fillStyle = h < g.launcherHP[i] ? "#44ff88" : "#333";
         ctx.fillRect(l.x - 5 + h * 6, l.y + 15, 4, 3);
       }
@@ -804,7 +816,7 @@ export default function DubaiMissileCommand() {
       ctx.save();
       ctx.translate(l.x, l.y - 8);
       ctx.rotate(Math.min(-0.2, Math.max(angle, -Math.PI + 0.2)));
-      ctx.fillStyle = g.launcherHP[i] === 1 ? "#5a3a3a" : "#4a5a70";
+      ctx.fillStyle = launcherMaxHP === 2 && g.launcherHP[i] === 1 ? "#5a3a3a" : "#4a5a70";
       ctx.fillRect(0, -2, 18, 4);
       ctx.restore();
     });
@@ -995,6 +1007,35 @@ export default function DubaiMissileCommand() {
       ctx.globalAlpha = 1;
     }
 
+    // Low ammo warning — flash for 3 seconds then disappear
+    const totalAmmo = g.ammo.reduce((s, a) => s + a, 0);
+    const maxTotalAmmo = g.ammo.reduce(
+      (s, _, i) => s + (g.launcherHP[i] > 0 ? 10 + g.wave * 1 + (g.upgrades.launcherKit >= 1 ? 8 : 0) : 0),
+      0,
+    );
+    const isLowAmmo = maxTotalAmmo > 0 && totalAmmo / maxTotalAmmo < 0.25 && !g.waveComplete;
+    if (isLowAmmo && !g._lowAmmoTimer) {
+      g._lowAmmoTimer = 180; // ~3 seconds at 60fps
+    }
+    if (!isLowAmmo) {
+      g._lowAmmoTimer = 0;
+    }
+    if (g._lowAmmoTimer > 0) {
+      g._lowAmmoTimer -= 1;
+      const flash = 0.5 + 0.5 * Math.sin(g.time * 0.2);
+      const fadeOut = Math.min(1, g._lowAmmoTimer / 30);
+      ctx.save();
+      ctx.globalAlpha = flash * 0.9 * fadeOut;
+      ctx.textAlign = "center";
+      ctx.font = "bold 28px 'Courier New', monospace";
+      ctx.fillStyle = COL.warning;
+      glow(ctx, COL.warning, 20);
+      ctx.fillText("\u26A0 LOW AMMO \u26A0", CANVAS_W / 2, CANVAS_H / 2 - 40);
+      glowOff(ctx);
+      ctx.textAlign = "left";
+      ctx.restore();
+    }
+
     // Wave cleared banner
     if (g.waveComplete && g.waveClearedTimer > 0) {
       const alpha = Math.min(1, g.waveClearedTimer / 20);
@@ -1056,7 +1097,11 @@ export default function DubaiMissileCommand() {
     // Upgrade preview
     ctx.fillStyle = "#556677";
     ctx.font = "11px 'Courier New', monospace";
-    ctx.fillText("🐝 Wild Hornets  🦅 Roadrunner  🎆 Flares  ⚡ Iron Beam  🔫 Phalanx  🚀 Patriot", CANVAS_W / 2, 460);
+    ctx.fillText(
+      "🐝 Hornets  🦅 Roadrunner  🎆 Flares  ⚡ Iron Beam  🔫 Phalanx  🚀 Patriot  🛡️ Launcher  🔧 Repair",
+      CANVAS_W / 2,
+      460,
+    );
     const pulse = 0.5 + 0.5 * Math.sin(t * 3);
     ctx.fillStyle = `rgba(0,255,200,${pulse})`;
     ctx.font = "bold 18px 'Courier New', monospace";
@@ -1242,6 +1287,7 @@ export default function DubaiMissileCommand() {
     }
     rafRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen, finalScore, finalWave, showShop]);
 
   function handleCanvasClick(e) {
@@ -1261,11 +1307,31 @@ export default function DubaiMissileCommand() {
       const mx = (e.clientX - rect.left) * (CANVAS_W / rect.width);
       const my = (e.clientY - rect.top) * (CANVAS_H / rect.height);
       if (my < GROUND_Y - 20) {
-        fireInterceptor(g, mx, my);
-        SFX.fire();
+        if (fireInterceptor(g, mx, my)) {
+          SFX.fire();
+        } else {
+          SFX.emptyClick();
+        }
       }
     }
   }
+
+  useEffect(() => {
+    function handleKeyDown() {
+      if (screen !== "playing" || showShop || replayActive) return;
+      const g = gameRef.current;
+      if (!g || g.state !== "playing") return;
+      if (g.crosshairY < GROUND_Y - 20) {
+        if (fireInterceptor(g, g.crosshairX, g.crosshairY)) {
+          SFX.fire();
+        } else {
+          SFX.emptyClick();
+        }
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [screen, showShop, replayActive]);
 
   function handleMouseMove(e) {
     if (screen !== "playing") return;
@@ -1282,7 +1348,46 @@ export default function DubaiMissileCommand() {
     if (!g) return;
     if (simBuyUpgrade(g, key)) {
       SFX.buyUpgrade();
-      setShopData({ score: g.score, wave: g.wave, upgrades: { ...g.upgrades } });
+      setShopData({
+        score: g.score,
+        wave: g.wave,
+        upgrades: { ...g.upgrades },
+        burjHealth: g.burjHealth,
+        launcherHP: [...g.launcherHP],
+        defenseSites: g.defenseSites.map((s) => ({ key: s.key, alive: s.alive })),
+      });
+    }
+  }
+
+  function doRepairSite(siteKey) {
+    const g = gameRef.current;
+    if (!g) return;
+    if (simRepairSite(g, siteKey)) {
+      SFX.buyUpgrade();
+      setShopData({
+        score: g.score,
+        wave: g.wave,
+        upgrades: { ...g.upgrades },
+        burjHealth: g.burjHealth,
+        launcherHP: [...g.launcherHP],
+        defenseSites: g.defenseSites.map((s) => ({ key: s.key, alive: s.alive })),
+      });
+    }
+  }
+
+  function doRepairLauncher(index) {
+    const g = gameRef.current;
+    if (!g) return;
+    if (simRepairLauncher(g, index)) {
+      SFX.buyUpgrade();
+      setShopData({
+        score: g.score,
+        wave: g.wave,
+        upgrades: { ...g.upgrades },
+        burjHealth: g.burjHealth,
+        launcherHP: [...g.launcherHP],
+        defenseSites: g.defenseSites.map((s) => ({ key: s.key, alive: s.alive })),
+      });
     }
   }
 
@@ -1479,6 +1584,15 @@ export default function DubaiMissileCommand() {
                   const maxed = lvl >= def.maxLevel;
                   const cost = maxed ? null : def.costs[lvl];
                   const canAfford = cost !== null && shopData.score >= cost;
+                  const isBurjRepair = key === "burjRepair";
+                  const burjFull = isBurjRepair && shopData.burjHealth >= 5;
+                  // Hide burjRepair when maxed AND burj at full HP
+                  if (isBurjRepair && maxed && burjFull) return null;
+                  // Check if defense site is destroyed (needs repair first)
+                  const siteDestroyed =
+                    shopData.defenseSites && shopData.defenseSites.find((s) => s.key === key && !s.alive);
+                  const rCost = repairCost(shopData.wave);
+                  const canAffordRepair = shopData.score >= rCost;
 
                   return (
                     <div
@@ -1488,7 +1602,7 @@ export default function DubaiMissileCommand() {
                         border: `1px solid ${maxed ? "rgba(0,255,200,0.3)" : canAfford ? def.color + "66" : "rgba(255,255,255,0.08)"}`,
                         borderRadius: "6px",
                         padding: "11px",
-                        opacity: maxed ? 0.7 : 1,
+                        opacity: maxed && !isBurjRepair ? 0.7 : 1,
                       }}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "5px" }}>
@@ -1525,7 +1639,7 @@ export default function DubaiMissileCommand() {
                       >
                         {def.desc}
                       </div>
-                      {!maxed && (
+                      {!maxed && !siteDestroyed && (
                         <div
                           style={{
                             color: def.color,
@@ -1540,47 +1654,133 @@ export default function DubaiMissileCommand() {
                           LVL {lvl + 1}: {def.statLines[lvl]}
                         </div>
                       )}
-                      <button
-                        onClick={() => buyUpgrade(key)}
-                        disabled={maxed || !canAfford}
-                        style={{
-                          width: "100%",
-                          padding: "5px 0",
-                          background: maxed
-                            ? "rgba(0,255,200,0.1)"
-                            : canAfford
-                              ? `${def.color}22`
-                              : "rgba(255,255,255,0.03)",
-                          border: `1px solid ${maxed ? "rgba(0,255,200,0.3)" : canAfford ? def.color : "rgba(255,255,255,0.1)"}`,
-                          borderRadius: "4px",
-                          color: maxed ? COL.hud : canAfford ? def.color : "#444",
-                          fontSize: "10px",
-                          fontWeight: "bold",
-                          fontFamily: "'Courier New', monospace",
-                          cursor: maxed || !canAfford ? "default" : "pointer",
-                          letterSpacing: "1px",
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!maxed && canAfford) {
-                            e.target.style.background = `${def.color}44`;
-                            e.target.style.boxShadow = `0 0 12px ${def.color}33`;
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          e.target.style.background = maxed
-                            ? "rgba(0,255,200,0.1)"
-                            : canAfford
-                              ? `${def.color}22`
+                      {siteDestroyed ? (
+                        <button
+                          onClick={() => doRepairSite(key)}
+                          disabled={!canAffordRepair}
+                          style={{
+                            width: "100%",
+                            padding: "5px 0",
+                            background: canAffordRepair ? "rgba(255,100,0,0.15)" : "rgba(255,255,255,0.03)",
+                            border: `1px solid ${canAffordRepair ? "#ff6600" : "rgba(255,255,255,0.1)"}`,
+                            borderRadius: "4px",
+                            color: canAffordRepair ? "#ff6600" : "#444",
+                            fontSize: "10px",
+                            fontWeight: "bold",
+                            fontFamily: "'Courier New', monospace",
+                            cursor: canAffordRepair ? "pointer" : "default",
+                            letterSpacing: "1px",
+                          }}
+                          onMouseEnter={(e) => {
+                            if (canAffordRepair) {
+                              e.target.style.background = "rgba(255,100,0,0.3)";
+                              e.target.style.boxShadow = "0 0 12px rgba(255,100,0,0.3)";
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.background = canAffordRepair
+                              ? "rgba(255,100,0,0.15)"
                               : "rgba(255,255,255,0.03)";
-                          e.target.style.boxShadow = "none";
-                        }}
-                      >
-                        {maxed ? "✓ MAXED" : canAfford ? `UPGRADE — $${cost}` : `$${cost} NEEDED`}
-                      </button>
+                            e.target.style.boxShadow = "none";
+                          }}
+                        >
+                          {canAffordRepair ? `REPAIR — $${rCost}` : `$${rCost} NEEDED`}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => buyUpgrade(key)}
+                          disabled={(maxed && !isBurjRepair) || burjFull || !canAfford}
+                          style={{
+                            width: "100%",
+                            padding: "5px 0",
+                            background:
+                              (maxed && !isBurjRepair) || burjFull
+                                ? "rgba(0,255,200,0.1)"
+                                : canAfford
+                                  ? `${def.color}22`
+                                  : "rgba(255,255,255,0.03)",
+                            border: `1px solid ${(maxed && !isBurjRepair) || burjFull ? "rgba(0,255,200,0.3)" : canAfford ? def.color : "rgba(255,255,255,0.1)"}`,
+                            borderRadius: "4px",
+                            color: (maxed && !isBurjRepair) || burjFull ? COL.hud : canAfford ? def.color : "#444",
+                            fontSize: "10px",
+                            fontWeight: "bold",
+                            fontFamily: "'Courier New', monospace",
+                            cursor: (maxed && !isBurjRepair) || burjFull || !canAfford ? "default" : "pointer",
+                            letterSpacing: "1px",
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!((maxed && !isBurjRepair) || burjFull) && canAfford) {
+                              e.target.style.background = `${def.color}44`;
+                              e.target.style.boxShadow = `0 0 12px ${def.color}33`;
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.background =
+                              (maxed && !isBurjRepair) || burjFull
+                                ? "rgba(0,255,200,0.1)"
+                                : canAfford
+                                  ? `${def.color}22`
+                                  : "rgba(255,255,255,0.03)";
+                            e.target.style.boxShadow = "none";
+                          }}
+                        >
+                          {(maxed && !isBurjRepair) || burjFull
+                            ? "\u2713 MAXED"
+                            : canAfford
+                              ? isBurjRepair
+                                ? `HEAL — $${cost}`
+                                : `UPGRADE — $${cost}`
+                              : `$${cost} NEEDED`}
+                        </button>
+                      )}
                     </div>
                   );
                 })}
               </div>
+
+              {/* Launcher repair row */}
+              {shopData.launcherHP && shopData.launcherHP.some((hp) => hp <= 0) && (
+                <div style={{ display: "flex", justifyContent: "center", gap: "12px", marginBottom: "14px" }}>
+                  {shopData.launcherHP.map((hp, i) => {
+                    if (hp > 0) return null;
+                    const rCost = repairCost(shopData.wave);
+                    const canAffordRepair = shopData.score >= rCost;
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => doRepairLauncher(i)}
+                        disabled={!canAffordRepair}
+                        style={{
+                          padding: "6px 16px",
+                          background: canAffordRepair ? "rgba(255,100,0,0.15)" : "rgba(255,255,255,0.03)",
+                          border: `1px solid ${canAffordRepair ? "#ff6600" : "rgba(255,255,255,0.1)"}`,
+                          borderRadius: "4px",
+                          color: canAffordRepair ? "#ff6600" : "#444",
+                          fontSize: "10px",
+                          fontWeight: "bold",
+                          fontFamily: "'Courier New', monospace",
+                          cursor: canAffordRepair ? "pointer" : "default",
+                          letterSpacing: "1px",
+                        }}
+                        onMouseEnter={(e) => {
+                          if (canAffordRepair) {
+                            e.target.style.background = "rgba(255,100,0,0.3)";
+                            e.target.style.boxShadow = "0 0 12px rgba(255,100,0,0.3)";
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.background = canAffordRepair
+                            ? "rgba(255,100,0,0.15)"
+                            : "rgba(255,255,255,0.03)";
+                          e.target.style.boxShadow = "none";
+                        }}
+                      >
+                        LAUNCHER {i + 1} — REPAIR ${rCost}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               <div style={{ textAlign: "center" }}>
                 <button
