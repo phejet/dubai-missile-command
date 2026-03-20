@@ -6,6 +6,7 @@ import {
   COL,
   BURJ_X,
   BURJ_H,
+  MAX_PARTICLES,
   LAUNCHERS,
   burjHalfW,
   dist,
@@ -114,6 +115,20 @@ export const UPGRADES = {
       "Fast Interceptors: speed 5 \u2192 7",
     ],
   },
+  emp: {
+    name: "EMP Shockwave",
+    icon: "\uD83C\uDF00",
+    desc: "Tesla coil EMP cannon. Charge up, then press SPACE to unleash a shockwave from Burj.",
+    maxLevel: 3,
+    costs: [1200, 3200, 7500],
+    color: COL.emp,
+    statLines: [
+      "250 range \u00B7 20s charge \u00B7 1 dmg",
+      "400 range \u00B7 15s charge \u00B7 2 dmg",
+      "FULL MAP \u00B7 12s charge \u00B7 3 dmg + slow",
+    ],
+    active: true,
+  },
 };
 
 const BUILDINGS_LEFT = [
@@ -196,6 +211,7 @@ export function initGame() {
       patriot: 0,
       burjRepair: 0,
       launcherKit: 0,
+      emp: 0,
     },
     defenseSites: [],
     hornets: [],
@@ -210,6 +226,11 @@ export function initGame() {
     phalanxTimer: 0,
     patriotTimer: 0,
     flareTimer: 0,
+    empCharge: 0,
+    empChargeMax: 0,
+    empReady: false,
+    empRings: [],
+    multiKillToast: null,
   };
 }
 
@@ -609,6 +630,62 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
     });
     g.patriotMissiles = g.patriotMissiles.filter((p) => p.alive);
   }
+
+  // ── EMP SHOCKWAVE ── (charging is handled in update() before waveComplete check)
+  if (g.empRings.length > 0) {
+    // Update active rings
+    g.empRings.forEach((ring) => {
+      ring.radius += 5 * dt;
+      if (ring.radius > ring.maxRadius) {
+        ring.alive = false;
+        return;
+      }
+      ring.alpha = 1 - ring.radius / ring.maxRadius;
+      // Damage threats in the ring band
+      const bandInner = ring.radius - 15;
+      const bandOuter = ring.radius + 15;
+      allThreats.forEach((t) => {
+        if (!t.alive || ring.hitSet.has(t)) return;
+        const d = dist(t.x, t.y, ring.x, ring.y);
+        if (d >= bandInner && d <= bandOuter) {
+          ring.hitSet.add(t);
+          if (t.type === "drone") {
+            t.health -= ring.damage;
+            if (t.health <= 0) {
+              t.alive = false;
+              g.score += t.subtype === "shahed238" ? 250 : 150;
+              g.stats.droneKills++;
+            }
+          } else {
+            t.alive = false;
+            g.score += t.type === "bomb" ? 75 : 50;
+            g.stats.missileKills++;
+          }
+          // Violet spark particles — big burst
+          const sparkCount = Math.min(15, MAX_PARTICLES - g.particles.length);
+          for (let i = 0; i < sparkCount; i++) {
+            const angle = rand(0, Math.PI * 2);
+            const sp = rand(2, 7);
+            g.particles.push({
+              x: t.x,
+              y: t.y,
+              vx: Math.cos(angle) * sp,
+              vy: Math.sin(angle) * sp,
+              life: rand(20, 50),
+              maxLife: 50,
+              color: _rng() > 0.4 ? "#cc44ff" : _rng() > 0.5 ? "#aa66ff" : "#ffffff",
+              size: rand(1.5, 4),
+            });
+          }
+          // L3 slow effect on survivors
+          if (ring.applySlow && t.alive) {
+            t.empSlowTimer = 120;
+          }
+        }
+      });
+    });
+    g.empRings = g.empRings.filter((r) => r.alive);
+  }
 }
 
 export function update(g, dt, onEvent) {
@@ -616,6 +693,10 @@ export function update(g, dt, onEvent) {
   g.time += dt;
   if (g.shakeTimer > 0) g.shakeTimer -= dt;
   if (g.waveClearedTimer > 0) g.waveClearedTimer -= dt;
+  if (g.multiKillToast && g.multiKillToast.timer > 0) {
+    g.multiKillToast.timer -= dt;
+    if (g.multiKillToast.timer <= 0) g.multiKillToast = null;
+  }
 
   // Game over — Burj destroyed
   if (!g.burjAlive && !g.gameOverTimer) {
@@ -633,6 +714,12 @@ export function update(g, dt, onEvent) {
       if (onEvent) onEvent("gameOver", { score: g.score, wave: g.wave, stats: { ...g.stats } });
     }
     return;
+  }
+
+  // EMP charges even between waves
+  if (g.upgrades.emp > 0 && !g.empReady) {
+    g.empCharge = Math.min(g.empCharge + dt, g.empChargeMax);
+    if (g.empCharge >= g.empChargeMax) g.empReady = true;
   }
 
   if (g.waveComplete) {
@@ -696,8 +783,9 @@ export function update(g, dt, onEvent) {
       m.vx *= m.accel ** dt;
       m.vy *= m.accel ** dt;
     }
-    m.x += m.vx * dt;
-    m.y += m.vy * dt;
+    const mSlow = m.empSlowTimer > 0 ? ((m.empSlowTimer -= dt), 0.4) : 1;
+    m.x += m.vx * dt * mSlow;
+    m.y += m.vy * dt * mSlow;
     // Burj collision
     if (
       g.burjAlive &&
@@ -766,6 +854,8 @@ export function update(g, dt, onEvent) {
   // Update drones (Shaheds)
   g.drones.forEach((d) => {
     if (!d.alive) return;
+    if (d.empSlowTimer > 0) d.empSlowTimer -= dt;
+    const dSlow = d.empSlowTimer > 0 ? 0.4 : 1;
     d.wobble += 0.05 * dt;
     if (d.subtype === "shahed238") {
       if (!d.diving && ((d.vx > 0 && d.x > CANVAS_W * 0.3) || (d.vx < 0 && d.x < CANVAS_W * 0.7))) {
@@ -782,16 +872,16 @@ export function update(g, dt, onEvent) {
         const diveSpeed = Math.abs(d.vx) * 1.2;
         d.vx = (dx / len) * diveSpeed;
         d.vy = (dy / len) * diveSpeed;
-        d.x += d.vx * dt;
-        d.y += d.vy * dt;
+        d.x += d.vx * dt * dSlow;
+        d.y += d.vy * dt * dSlow;
       } else {
-        d.x += d.vx * dt;
-        d.y += (d.vy + Math.sin(d.wobble) * 0.15) * dt;
+        d.x += d.vx * dt * dSlow;
+        d.y += (d.vy + Math.sin(d.wobble) * 0.15) * dt * dSlow;
       }
     } else {
       if (!d.diving) {
-        d.x += d.vx * dt;
-        d.y += (d.vy + Math.sin(d.wobble) * 0.3) * dt;
+        d.x += d.vx * dt * dSlow;
+        d.y += (d.vy + Math.sin(d.wobble) * 0.3) * dt * dSlow;
         const nearMid = (d.vx > 0 && d.x > CANVAS_W * 0.35) || (d.vx < 0 && d.x < CANVAS_W * 0.65);
         if (!d.bombDropped && nearMid) {
           d.bombDropped = true;
@@ -819,8 +909,8 @@ export function update(g, dt, onEvent) {
         const diveSpeed = Math.max(Math.abs(d.vx), 1.0) * 1.1;
         d.vx = (dx / len) * diveSpeed;
         d.vy = (dy / len) * diveSpeed;
-        d.x += d.vx * dt;
-        d.y += d.vy * dt;
+        d.x += d.vx * dt * dSlow;
+        d.y += d.vy * dt * dSlow;
       }
     }
     if (d.x < -60 || d.x > CANVAS_W + 60 || d.y > CANVAS_H + 20) d.alive = false;
@@ -889,11 +979,13 @@ export function update(g, dt, onEvent) {
       if (ex.radius >= ex.maxRadius) ex.growing = false;
     } else ex.alpha -= 0.03 * dt;
     if (ex.alpha > 0.2) {
+      if (!ex.kills) ex.kills = 0;
       g.missiles.forEach((m) => {
         if (m.alive && dist(m.x, m.y, ex.x, ex.y) < ex.radius) {
           m.alive = false;
           g.score += m.type === "bomb" ? 75 : 50;
           g.stats.missileKills++;
+          ex.kills++;
           boom(g, m.x, m.y, 30, "#ffcc00", ex.playerCaused, onEvent);
         }
       });
@@ -908,11 +1000,34 @@ export function update(g, dt, onEvent) {
             d.alive = false;
             g.score += d.subtype === "shahed238" ? 250 : 150;
             g.stats.droneKills++;
+            ex.kills++;
             boom(g, d.x, d.y, 60, "#ff8800", ex.playerCaused, onEvent);
           }
         }
       });
+      // Multi-kill bonus
+      if (ex.kills >= 2 && !ex.bonusAwarded) {
+        ex.bonusAwarded = true;
+        const bonus = ex.kills === 2 ? 100 : ex.kills === 3 ? 250 : 500;
+        const label = ex.kills === 2 ? "DOUBLE KILL" : ex.kills === 3 ? "TRIPLE KILL" : "MEGA KILL";
+        g.score += bonus;
+        g.multiKillToast = { label, bonus, x: ex.x, y: ex.y, timer: 90 };
+        if (onEvent) onEvent("sfx", { name: "multiKill" });
+      }
     }
+    // Check again at end of frame — explosion may have gotten more kills while still growing
+    if (ex.bonusAwarded && ex.kills > (ex._lastBonusKills || 0)) {
+      const prevKills = ex._lastBonusKills || 2;
+      if (ex.kills > prevKills) {
+        // Upgrade the bonus
+        const oldBonus = prevKills === 2 ? 100 : prevKills === 3 ? 250 : 500;
+        const newBonus = ex.kills === 2 ? 100 : ex.kills === 3 ? 250 : 500;
+        g.score += newBonus - oldBonus;
+        const label = ex.kills === 2 ? "DOUBLE KILL" : ex.kills === 3 ? "TRIPLE KILL" : "MEGA KILL";
+        g.multiKillToast = { label, bonus: newBonus, x: ex.x, y: ex.y, timer: 90 };
+      }
+    }
+    if (ex.kills) ex._lastBonusKills = ex.kills;
   });
 
   // F-15s
@@ -1034,6 +1149,12 @@ export function buyUpgrade(g, key) {
       g.defenseSites.push({ key, x: sd.x, y: sd.y, alive: true, hw: sd.hw, hh: sd.hh, savedLevel: g.upgrades[key] });
     }
   }
+  // Set EMP charge rate on purchase/upgrade
+  if (key === "emp") {
+    g.empChargeMax = [1200, 900, 720][g.upgrades.emp - 1];
+    g.empCharge = g.empChargeMax;
+    g.empReady = true;
+  }
   return true;
 }
 
@@ -1047,6 +1168,28 @@ export function closeShop(g) {
   g.ammo = g.ammo.map((_, i) => (g.launcherHP[i] > 0 ? 10 + g.wave * 1 + bonusAmmo : 0));
   g.waveComplete = false;
   g.state = "playing";
+}
+
+export function fireEmp(g, onEvent) {
+  if (!g.empReady || g.upgrades.emp <= 0) return false;
+  const lvl = g.upgrades.emp;
+  g.empCharge = 0;
+  g.empReady = false;
+  g.empRings.push({
+    x: BURJ_X,
+    y: GROUND_Y - BURJ_H * 0.3,
+    radius: 0,
+    maxRadius: [250, 400, 550][lvl - 1],
+    damage: lvl,
+    applySlow: lvl >= 3,
+    hitSet: new Set(),
+    alive: true,
+    alpha: 1,
+  });
+  g.shakeTimer = 6;
+  g.shakeIntensity = 3;
+  if (onEvent) onEvent("sfx", { name: "empBlast" });
+  return true;
 }
 
 export function repairCost(wave) {

@@ -1,5 +1,5 @@
 import { setRng, fireInterceptor } from "./game-logic.js";
-import { initGame, update, buyUpgrade, closeShop } from "./game-sim.js";
+import { initGame, update, buyUpgrade, closeShop, fireEmp } from "./game-sim.js";
 import { mulberry32 } from "./headless/rng.js";
 
 export function createReplayRunner(replayData, onEvent = null) {
@@ -35,6 +35,8 @@ export function createReplayRunner(replayData, onEvent = null) {
       const action = actions[actionIdx];
       if (action.type === "fire") {
         fireInterceptor(g, action.x, action.y);
+      } else if (action.type === "emp") {
+        fireEmp(g, onEvent);
       } else if (action.type === "shop") {
         for (const key of action.bought) {
           buyUpgrade(g, key);

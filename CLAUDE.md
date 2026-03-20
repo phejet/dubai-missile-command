@@ -26,22 +26,13 @@ node play-bot.mjs
 
 The bot reads game state via `window.__gameRef`, calculates leading shots, prioritizes threats, buys upgrades in the shop, and avoids hitting friendly F-15s.
 
-## Headless Simulation & Training
+## Headless Simulation
 
-Run thousands of games headlessly at ~770 games/sec for bot tuning.
+Run games headlessly for testing and bot tuning.
 
 ```bash
 # Run a single headless game with determinism check
 node src/headless/sim-runner.js [seed]
-
-# Learn: benchmark → Sonnet analysis → apply changes → repeat
-node src/headless/learn.js --rounds=3 --duration=10000 [--dry-run]
-
-# Balance: game design analysis with focused topics
-node src/headless/balance.js [--focus=all|enemies|upgrades|mechanics|visual]
-
-# Train: batch-run games with worker threads, then tune config only
-node src/headless/train.js --games=100 --iterations=10 [--dry-run]
 
 # Record best game as a replay file
 node src/headless/record.js [--seed=N] [--tries=1000] [--out=replay.json]
@@ -49,6 +40,10 @@ node src/headless/record.js [--seed=N] [--tries=1000] [--out=replay.json]
 # Play a replay in the browser (requires dev server running)
 node play-replay.mjs replay.json
 ```
+
+### Bot training
+
+Use the `/train-bot` skill to benchmark and tune the bot. It runs batch games via `src/headless/train.js` and analyzes results to tune `src/headless/bot-config.json`.
 
 ### Key files
 
@@ -58,9 +53,7 @@ node play-replay.mjs replay.json
 - `src/headless/sim-runner.js` — headless game runner
 - `src/headless/bot-brain.js` — parameterized bot targeting/firing logic
 - `src/headless/bot-config.json` — tunable bot parameters
-- `src/headless/learn.js` — full learning loop (benchmark + Sonnet analysis + code/config patches)
-- `src/headless/balance.js` — game balance analysis (enemies, upgrades, mechanics, visual)
-- `src/headless/train.js` — batch training loop with Claude API tuning
+- `src/headless/train.js` — batch training benchmark (multi-worker)
 - `src/headless/game-worker.js` — worker thread for parallel game execution
 
 ### Replay system

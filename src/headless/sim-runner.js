@@ -1,5 +1,5 @@
 import { setRng, fireInterceptor } from "../game-logic.js";
-import { initGame, update, buyUpgrade, closeShop, repairSite, repairLauncher } from "../game-sim.js";
+import { initGame, update, buyUpgrade, closeShop, repairSite, repairLauncher, fireEmp } from "../game-sim.js";
 import { mulberry32 } from "./rng.js";
 import { botDecideAction, botDecideUpgrades } from "./bot-brain.js";
 import defaultConfig from "./bot-config.json" with { type: "json" };
@@ -50,6 +50,15 @@ export function runGame(botConfig, options = {}) {
       if (record) actions.push({ tick, type: "shop", bought });
       closeShop(g);
       continue;
+    }
+
+    // Bot fires EMP when ready and enough threats
+    if (g.empReady) {
+      const threats = g.missiles.filter((m) => m.alive).length + g.drones.filter((d) => d.alive).length;
+      if (threats >= (config.emp?.minThreatsToFire || 4)) {
+        fireEmp(g, null);
+        if (record) actions.push({ tick, type: "emp" });
+      }
     }
 
     // Bot decides whether to fire

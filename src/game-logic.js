@@ -33,6 +33,7 @@ export const COL = {
   phalanx: "#ff8844",
   patriot: "#88ff44",
   launcherKit: "#66aaff",
+  emp: "#cc44ff",
 };
 
 export const BURJ_X = 460;

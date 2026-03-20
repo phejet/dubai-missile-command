@@ -1,30 +1,32 @@
 {
   "targeting": {
-    "minThreatY": 60,
-    "maxInFlightBase": 5,
-    "maxInFlightHigh": 8,
-    "highThreatThreshold": 2,
-    "cooldownLowAmmo": 300,
-    "cooldownHighThreat": 15,
-    "cooldownNormal": 50,
-    "lowAmmoThreshold": 8,
-    "clusterRadius": 100,
-    "missileYThresholds": { "urgent": 380, "medium": 200 },
+    "minThreatY": 35,
+    "maxInFlightBase": 6,
+    "maxInFlightHigh": 10,
+    "highThreatThreshold": 3,
+    "cooldownLowAmmo": 60,
+    "cooldownHighThreat": 18,
+    "cooldownNormal": 25,
+    "lowAmmoThreshold": 10,
+    "clusterRadius": 50,
+    "missileYThresholds": { "urgent": 400, "medium": 220 },
     "droneEngageRange": [80, 820]
   },
   "leadShot": {
     "iterations": 8,
-    "timeScaleFactor": 0.96
+    "timeScaleFactor": 1.0
   },
   "planeAvoidance": { "radius": 30 },
+  "emp": { "minThreatsToFire": 3 },
   "upgradePriority": [
     "launcherKit",
-    "ironBeam",
     "wildHornets",
-    "phalanx",
     "roadrunner",
+    "phalanx",
+    "ironBeam",
     "flare",
     "burjRepair",
-    "patriot"
+    "patriot",
+    "emp"
   ]
 }

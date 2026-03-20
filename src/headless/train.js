@@ -1,5 +1,5 @@
 import { Worker } from "worker_threads";
-import { readFileSync, writeFileSync, appendFileSync } from "fs";
+import { readFileSync, appendFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
@@ -16,7 +16,6 @@ function getArg(name, defaultVal) {
 const NUM_GAMES = parseInt(getArg("games", "100"));
 const NUM_ITERATIONS = parseInt(getArg("iterations", "10"));
 const NUM_WORKERS = parseInt(getArg("workers", String(Math.min(8, (await import("os")).cpus().length))));
-const DRY_RUN = args.includes("--dry-run");
 const MAX_TICKS = parseInt(getArg("maxTicks", "100000"));
 
 const CONFIG_PATH = join(__dirname, "bot-config.json");
@@ -24,10 +23,6 @@ const LOG_PATH = join(__dirname, "training-log.jsonl");
 
 function loadConfig() {
   return JSON.parse(readFileSync(CONFIG_PATH, "utf-8"));
-}
-
-function saveConfig(config) {
-  writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2) + "\n");
 }
 
 function runBatch(config, numGames) {
@@ -112,57 +107,11 @@ function aggregateStats(results) {
   };
 }
 
-async function callClaude(config, history) {
-  const Anthropic = (await import("@anthropic-ai/sdk")).default;
-  const client = new Anthropic();
-
-  const prompt = `You are tuning a bot that plays a missile defense game. The bot has configurable parameters that control its targeting, firing cadence, lead-shot computation, and upgrade purchase priority.
-
-Current config:
-${JSON.stringify(config, null, 2)}
-
-All iteration results (${history.length} batches):
-${history.map((h) => JSON.stringify(h)).join("\n")}
-
-Analyze the full training run and suggest parameter changes to improve median score and waves survived. Consider:
-- If the bot dies early (low waves), it may need better targeting or faster firing
-- If ammo efficiency is low, increase cooldowns or improve lead-shot accuracy
-- Upgrade priority affects which defenses get purchased first
-- The cluster radius affects multi-kill targeting
-- Look at trends across iterations to understand what's working and what isn't
-
-Return ONLY a JSON object with the changed fields (same structure as config, but only include fields you want to change). No explanation, just JSON.`;
-
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 1024,
-    messages: [{ role: "user", content: prompt }],
-  });
-
-  const text = response.content[0].text.trim();
-  // Extract JSON from response (handle markdown code blocks)
-  const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, text];
-  return JSON.parse(jsonMatch[1].trim());
-}
-
-function deepMerge(target, source) {
-  const result = { ...target };
-  for (const key of Object.keys(source)) {
-    if (source[key] && typeof source[key] === "object" && !Array.isArray(source[key])) {
-      result[key] = deepMerge(target[key] || {}, source[key]);
-    } else {
-      result[key] = source[key];
-    }
-  }
-  return result;
-}
-
 async function main() {
   console.log(`\n=== Dubai Missile Command Bot Training ===`);
   console.log(`Games per iteration: ${NUM_GAMES}`);
   console.log(`Iterations: ${NUM_ITERATIONS}`);
   console.log(`Workers: ${NUM_WORKERS}`);
-  console.log(`Dry run: ${DRY_RUN}`);
   console.log();
 
   const config = loadConfig();
@@ -199,28 +148,7 @@ async function main() {
     `\nAll ${NUM_ITERATIONS} iterations complete (${(totalElapsed / 1000).toFixed(1)}s total, ${NUM_ITERATIONS * NUM_GAMES} games)`,
   );
 
-  if (DRY_RUN) {
-    console.log(`[dry-run] Skipping Claude API call`);
-  } else {
-    try {
-      console.log(`\nSending all results to Claude for analysis...`);
-      const patch = await callClaude(config, history);
-      console.log(`Suggested config patch:\n${JSON.stringify(patch, null, 2)}`);
-
-      const newConfig = deepMerge(config, patch);
-      saveConfig(newConfig);
-      appendFileSync(LOG_PATH, JSON.stringify({ type: "tuning", timestamp: new Date().toISOString(), patch }) + "\n");
-      console.log(`Config updated and saved.`);
-    } catch (err) {
-      console.log(`Claude API error: ${err.message}`);
-      appendFileSync(
-        LOG_PATH,
-        JSON.stringify({ type: "error", timestamp: new Date().toISOString(), error: err.message }) + "\n",
-      );
-    }
-  }
-
-  console.log(`Log: ${LOG_PATH}`);
+  console.log(`\nLog: ${LOG_PATH}`);
 }
 
 main().catch((err) => {

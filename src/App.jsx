@@ -21,6 +21,7 @@ import {
   repairCost,
   repairSite as simRepairSite,
   repairLauncher as simRepairLauncher,
+  fireEmp as simFireEmp,
 } from "./game-sim.js";
 import { createReplayRunner } from "./replay.js";
 
@@ -76,6 +77,8 @@ export default function DubaiMissileCommand() {
         gameOver: () => SFX.gameOver(),
         burjHit: () => SFX.burjHit(),
         launcherDestroyed: () => SFX.launcherDestroyed(),
+        empBlast: () => SFX.empBlast(),
+        multiKill: () => SFX.multiKill(),
       };
       const fn = sfxMap[data.name];
       if (fn) fn();
@@ -869,6 +872,152 @@ export default function DubaiMissileCommand() {
       ctx.fillText("FLARE", BURJ_X - 35, GROUND_Y + 10);
     }
 
+    // Tesla coils (EMP)
+    if (g.upgrades.emp > 0) {
+      const tcX = BURJ_X + 25;
+      // Poles
+      ctx.fillStyle = "#5a4a6a";
+      ctx.fillRect(tcX - 8, GROUND_Y - 22, 3, 22);
+      ctx.fillRect(tcX + 5, GROUND_Y - 22, 3, 22);
+      // Spheres
+      ctx.fillStyle = "#8866aa";
+      ctx.beginPath();
+      ctx.arc(tcX - 6.5, GROUND_Y - 24, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(tcX + 6.5, GROUND_Y - 24, 4, 0, Math.PI * 2);
+      ctx.fill();
+      // Arc between coils when charged
+      if (g.empCharge > 0) {
+        const chargeRatio = g.empCharge / g.empChargeMax;
+        ctx.strokeStyle = COL.emp;
+        ctx.globalAlpha = chargeRatio * 0.8;
+        glow(ctx, COL.emp, 8);
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(tcX - 3, GROUND_Y - 24);
+        const midY = GROUND_Y - 24 - Math.sin(g.time * 0.3) * 6 * chargeRatio;
+        ctx.quadraticCurveTo(tcX, midY, tcX + 3, GROUND_Y - 24);
+        ctx.stroke();
+        glowOff(ctx);
+        ctx.globalAlpha = 1;
+      }
+      // Ready glow
+      if (g.empReady) {
+        const pulse = 0.4 + 0.4 * Math.sin(g.time * 0.2);
+        ctx.fillStyle = COL.emp;
+        glow(ctx, COL.emp, 15);
+        ctx.globalAlpha = pulse;
+        ctx.beginPath();
+        ctx.arc(tcX, GROUND_Y - 24, 10, 0, Math.PI * 2);
+        ctx.fill();
+        glowOff(ctx);
+        ctx.globalAlpha = 1;
+      }
+      ctx.fillStyle = "rgba(204,68,255,0.6)";
+      ctx.font = "7px monospace";
+      ctx.fillText("EMP", tcX - 8, GROUND_Y + 10);
+    }
+
+    // EMP shockwave rings
+    g.empRings.forEach((ring) => {
+      if (!ring.alive) return;
+      const progress = ring.radius / ring.maxRadius;
+      ctx.save();
+
+      // Screen-wide flash at the start
+      if (progress < 0.15) {
+        const flashAlpha = (1 - progress / 0.15) * 0.25;
+        ctx.fillStyle = COL.emp;
+        ctx.globalAlpha = flashAlpha;
+        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+        ctx.globalAlpha = 1;
+      }
+
+      // Filled shockwave area — faint violet wash behind the ring
+      const washAlpha = ring.alpha * 0.08;
+      if (washAlpha > 0.005) {
+        const wash = ctx.createRadialGradient(ring.x, ring.y, 0, ring.x, ring.y, ring.radius);
+        wash.addColorStop(0, "rgba(204,68,255,0)");
+        wash.addColorStop(0.7, "rgba(204,68,255,0)");
+        wash.addColorStop(1, `rgba(204,68,255,${washAlpha})`);
+        ctx.fillStyle = wash;
+        ctx.beginPath();
+        ctx.arc(ring.x, ring.y, ring.radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Main thick outer ring with heavy glow
+      ctx.globalAlpha = ring.alpha;
+      ctx.strokeStyle = COL.emp;
+      glow(ctx, COL.emp, 40 + ring.radius * 0.08);
+      ctx.lineWidth = 6 + (1 - progress) * 4;
+      ctx.beginPath();
+      ctx.arc(ring.x, ring.y, ring.radius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Second ring slightly inside — creates thickness
+      ctx.strokeStyle = "#dd88ff";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(ring.x, ring.y, Math.max(0, ring.radius - 8), 0, Math.PI * 2);
+      ctx.stroke();
+
+      // White-hot core ring
+      ctx.strokeStyle = "#fff";
+      glow(ctx, "#fff", 8);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(ring.x, ring.y, ring.radius, 0, Math.PI * 2);
+      ctx.stroke();
+      glowOff(ctx);
+
+      // Electric lightning arcs — more of them, longer, forked
+      ctx.globalAlpha = ring.alpha * 0.9;
+      const arcCount = 10 + Math.floor(ring.radius * 0.04);
+      for (let i = 0; i < arcCount; i++) {
+        const angle = (i / arcCount) * Math.PI * 2 + g.time * 0.15 + Math.random() * 0.3;
+        const ax = ring.x + Math.cos(angle) * ring.radius;
+        const ay = ring.y + Math.sin(angle) * ring.radius;
+        const len = 12 + ring.radius * 0.06;
+        // Main bolt
+        ctx.strokeStyle = Math.random() > 0.3 ? "#dd88ff" : "#fff";
+        glow(ctx, "#cc44ff", 6);
+        ctx.lineWidth = Math.random() > 0.5 ? 1.5 : 1;
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        const mx = ax + (Math.random() - 0.5) * len;
+        const my = ay + (Math.random() - 0.5) * len;
+        ctx.lineTo(mx, my);
+        // Fork
+        const fx = mx + (Math.random() - 0.5) * len * 0.6;
+        const fy = my + (Math.random() - 0.5) * len * 0.6;
+        ctx.lineTo(fx, fy);
+        ctx.stroke();
+        // Second fork from midpoint
+        if (Math.random() > 0.5) {
+          ctx.beginPath();
+          ctx.moveTo(mx, my);
+          ctx.lineTo(mx + (Math.random() - 0.5) * len * 0.5, my + (Math.random() - 0.5) * len * 0.5);
+          ctx.stroke();
+        }
+        glowOff(ctx);
+      }
+
+      // Trailing sparks inside the ring area
+      ctx.globalAlpha = ring.alpha * 0.4;
+      for (let i = 0; i < 12; i++) {
+        const sa = Math.random() * Math.PI * 2;
+        const sr = ring.radius * (0.6 + Math.random() * 0.35);
+        const sx = ring.x + Math.cos(sa) * sr;
+        const sy = ring.y + Math.sin(sa) * sr;
+        ctx.fillStyle = Math.random() > 0.5 ? "#cc44ff" : "#aa66ff";
+        ctx.fillRect(sx, sy, 2, 2);
+      }
+
+      ctx.restore();
+    });
+
     // Defense sites — destroyed rubble or alive glow
     g.defenseSites.forEach((site) => {
       if (!site.alive) {
@@ -933,6 +1082,45 @@ export default function DubaiMissileCommand() {
     ctx.fillText(`BURJ:${g.burjAlive ? "OK" : "XX"}`, 240, 23);
     ctx.fillStyle = COL.hud;
     ctx.fillText(`AMMO ${g.ammo[0]}|${g.ammo[1]}|${g.ammo[2]}`, 360, 23);
+    // EMP charge meter
+    if (g.empChargeMax > 0) {
+      const empCx = 530;
+      const empCy = 18;
+      const empR = 8;
+      const chargeRatio = g.empChargeMax > 0 ? g.empCharge / g.empChargeMax : 0;
+      // Background ring
+      ctx.strokeStyle = "rgba(204,68,255,0.2)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(empCx, empCy, empR, 0, Math.PI * 2);
+      ctx.stroke();
+      // Charge arc
+      ctx.strokeStyle = COL.emp;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(empCx, empCy, empR, -Math.PI / 2, -Math.PI / 2 + chargeRatio * Math.PI * 2);
+      ctx.stroke();
+      if (g.empReady) {
+        const pulse = 0.5 + 0.5 * Math.sin(g.time * 0.2);
+        glow(ctx, COL.emp, 10);
+        ctx.fillStyle = COL.emp;
+        ctx.globalAlpha = pulse;
+        ctx.beginPath();
+        ctx.arc(empCx, empCy, empR, 0, Math.PI * 2);
+        ctx.fill();
+        glowOff(ctx);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 7px 'Courier New', monospace";
+        ctx.fillText("SPC", empCx - 8, empCy + 3);
+        ctx.font = "bold 12px 'Courier New', monospace";
+      } else {
+        ctx.fillStyle = COL.emp;
+        ctx.font = "7px 'Courier New', monospace";
+        ctx.fillText("\uD83C\uDF00", empCx - 5, empCy + 4);
+        ctx.font = "bold 12px 'Courier New', monospace";
+      }
+    }
     // Replay indicator
     if (g._replay) {
       ctx.fillStyle = "#ff8844";
@@ -1036,6 +1224,27 @@ export default function DubaiMissileCommand() {
       ctx.restore();
     }
 
+    // Multi-kill toast
+    if (g.multiKillToast && g.multiKillToast.timer > 0) {
+      const mk = g.multiKillToast;
+      const fadeOut = Math.min(1, mk.timer / 20);
+      const rise = (90 - mk.timer) * 0.5;
+      ctx.save();
+      ctx.globalAlpha = fadeOut;
+      ctx.textAlign = "center";
+      ctx.font = "bold 22px 'Courier New', monospace";
+      const labelColor = mk.label === "MEGA KILL" ? "#ff4444" : mk.label === "TRIPLE KILL" ? "#ffaa00" : "#ffdd00";
+      ctx.fillStyle = labelColor;
+      glow(ctx, labelColor, 15);
+      ctx.fillText(mk.label, mk.x, mk.y - 30 - rise);
+      ctx.font = "bold 16px 'Courier New', monospace";
+      ctx.fillStyle = "#00ffcc";
+      ctx.fillText(`+${mk.bonus}`, mk.x, mk.y - 10 - rise);
+      glowOff(ctx);
+      ctx.textAlign = "left";
+      ctx.restore();
+    }
+
     // Wave cleared banner
     if (g.waveComplete && g.waveClearedTimer > 0) {
       const alpha = Math.min(1, g.waveClearedTimer / 20);
@@ -1098,7 +1307,7 @@ export default function DubaiMissileCommand() {
     ctx.fillStyle = "#556677";
     ctx.font = "11px 'Courier New', monospace";
     ctx.fillText(
-      "🐝 Hornets  🦅 Roadrunner  🎆 Flares  ⚡ Iron Beam  🔫 Phalanx  🚀 Patriot  🛡️ Launcher  🔧 Repair",
+      "🐝 Hornets 🦅 Roadrunner 🎆 Flares ⚡ Beam 🔫 Phalanx 🚀 Patriot 🛡️ Launcher 🔧 Repair 🌀 EMP",
       CANVAS_W / 2,
       460,
     );
@@ -1317,10 +1526,17 @@ export default function DubaiMissileCommand() {
   }
 
   useEffect(() => {
-    function handleKeyDown() {
+    function handleKeyDown(e) {
       if (screen !== "playing" || showShop || replayActive) return;
       const g = gameRef.current;
       if (!g || g.state !== "playing") return;
+      if (e.key === " ") {
+        e.preventDefault();
+        if (g.upgrades.emp > 0 && simFireEmp(g, handleSimEvent)) {
+          SFX.empBlast();
+        }
+        return; // space never fires interceptors
+      }
       if (g.crosshairY < GROUND_Y - 20) {
         if (fireInterceptor(g, g.crosshairX, g.crosshairY)) {
           SFX.fire();
@@ -1331,7 +1547,7 @@ export default function DubaiMissileCommand() {
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [screen, showShop, replayActive]);
+  }, [screen, showShop, replayActive, handleSimEvent]);
 
   function handleMouseMove(e) {
     if (screen !== "playing") return;
@@ -1608,8 +1824,32 @@ export default function DubaiMissileCommand() {
                       <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "5px" }}>
                         <span style={{ fontSize: "20px" }}>{def.icon}</span>
                         <div>
-                          <div style={{ color: def.color, fontSize: "11px", fontWeight: "bold", letterSpacing: "1px" }}>
+                          <div
+                            style={{
+                              color: def.color,
+                              fontSize: "11px",
+                              fontWeight: "bold",
+                              letterSpacing: "1px",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "5px",
+                            }}
+                          >
                             {def.name.toUpperCase()}
+                            {def.active && (
+                              <span
+                                style={{
+                                  fontSize: "7px",
+                                  padding: "1px 4px",
+                                  background: def.color + "33",
+                                  border: `1px solid ${def.color}`,
+                                  borderRadius: "3px",
+                                  letterSpacing: "0.5px",
+                                }}
+                              >
+                                ACTIVE
+                              </span>
+                            )}
                           </div>
                           <div style={{ display: "flex", gap: "3px", marginTop: "2px" }}>
                             {Array.from({ length: def.maxLevel }, (_, i) => (

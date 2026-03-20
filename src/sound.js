@@ -457,6 +457,75 @@ const SFX = {
     };
   },
 
+  multiKill() {
+    if (!ensureCtx() || !trackVoice()) return;
+    const t = now();
+    // Rising power chord — two detuned sines + bright shimmer
+    const o1 = ctx.createOscillator();
+    o1.type = "sine";
+    o1.frequency.setValueAtTime(400, t);
+    o1.frequency.exponentialRampToValueAtTime(800, t + 0.15);
+    const o2 = ctx.createOscillator();
+    o2.type = "sine";
+    o2.frequency.setValueAtTime(600, t);
+    o2.frequency.exponentialRampToValueAtTime(1200, t + 0.15);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.2, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+    o1.connect(g);
+    o2.connect(g);
+    g.connect(master);
+    o1.start(t);
+    o2.start(t);
+    o1.stop(t + 0.3);
+    o2.stop(t + 0.3);
+    // High shimmer
+    const o3 = ctx.createOscillator();
+    o3.type = "triangle";
+    o3.frequency.value = 1600;
+    const g2 = ctx.createGain();
+    g2.gain.setValueAtTime(0.1, t + 0.05);
+    g2.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+    o3.connect(g2);
+    g2.connect(master);
+    o3.start(t + 0.05);
+    o3.stop(t + 0.25);
+    scheduleRelease(0.3);
+  },
+
+  empBlast() {
+    if (!ensureCtx() || !trackVoice()) return;
+    const t = now();
+    // Charge release chirp
+    const o1 = ctx.createOscillator();
+    o1.type = "sine";
+    o1.frequency.setValueAtTime(200, t);
+    o1.frequency.exponentialRampToValueAtTime(1200, t + 0.05);
+    o1.frequency.exponentialRampToValueAtTime(80, t + 0.5);
+    const g1 = ctx.createGain();
+    g1.gain.setValueAtTime(0.25, t);
+    g1.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+    o1.connect(g1);
+    g1.connect(master);
+    o1.start(t);
+    o1.stop(t + 0.5);
+    // Buzzy electric crackle
+    const o2 = ctx.createOscillator();
+    o2.type = "sawtooth";
+    o2.frequency.setValueAtTime(600, t);
+    o2.frequency.exponentialRampToValueAtTime(100, t + 0.4);
+    const g2 = ctx.createGain();
+    g2.gain.setValueAtTime(0.12, t + 0.02);
+    g2.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+    o2.connect(g2);
+    g2.connect(master);
+    o2.start(t);
+    o2.stop(t + 0.4);
+    // Low thump
+    osc("sine", 60, 0.3, 0.3);
+    scheduleRelease(0.5);
+  },
+
   hornetBuzz() {
     if (!ensureCtx()) return;
     // Throttle: max once per 0.5s
