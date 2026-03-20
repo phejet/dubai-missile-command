@@ -26,6 +26,7 @@ function makeGameState(overrides = {}) {
     interceptors: [],
     explosions: [],
     particles: [],
+    upgrades: { launcherKit: 0 },
     stats: { missileKills: 0, droneKills: 0, shotsFired: 0 },
     shakeTimer: 0,
     shakeIntensity: 0,
