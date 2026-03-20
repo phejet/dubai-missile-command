@@ -83,6 +83,21 @@ export function botDecideAction(g, config, lastFireTick, tick) {
     allThreats.push({ ...led, priority });
   }
 
+  // Deprioritize threats that already have interceptors heading toward them
+  const COVERED_RADIUS = 55; // slightly larger than explosion radius (49)
+  for (const t of allThreats) {
+    t.coveredBy = 0;
+    for (const ic of g.interceptors) {
+      if (!ic.alive) continue;
+      const d = Math.sqrt((ic.targetX - t.x) ** 2 + (ic.targetY - t.y) ** 2);
+      if (d < COVERED_RADIUS) t.coveredBy++;
+    }
+    // Demote covered threats: each existing interceptor adds 1 to priority (lower = more urgent)
+    if (t.coveredBy > 0 && t.priority > 0) {
+      t.priority = Math.min(t.priority + t.coveredBy, 3);
+    }
+  }
+
   const totalAmmo = g.ammo.reduce((s, a) => s + a, 0);
   const threatCount = allThreats.length;
   const maxInFlight = threatCount > cfg.highThreatThreshold ? cfg.maxInFlightHigh : cfg.maxInFlightBase;

@@ -6,7 +6,7 @@ const replayData = JSON.parse(readFileSync(file, "utf-8"));
 
 const browser = await chromium.launch({ headless: false });
 const page = await browser.newPage();
-await page.goto("http://localhost:5173");
+await page.goto("http://localhost:5180/dubai-missile-command/");
 await page.waitForTimeout(1000);
 
 await page.evaluate((data) => {
