@@ -32,6 +32,9 @@ replay.json
 public/replay.json
 play-replay.mjs
 
+# Claude worktrees
+.claude/worktrees/
+
 # Training/learning logs
 src/headless/training-log.jsonl
 src/headless/learning-log.jsonl
