@@ -1649,14 +1649,15 @@ export default function DubaiMissileCommand() {
           // Replay mode: step once per frame (dt=1 fixed timestep)
           const rr = replayRef.current;
           if (rr.isShopPaused()) {
-            // Shop is showing — wait 2 seconds then resume
+            // Show toast with purchases and resume after 1 second
             if (!g._replayShopTimer) {
               g._replayShopTimer = performance.now();
-            } else if (performance.now() - g._replayShopTimer > 2000) {
-              // Store bought items for toast before closing
               const bought = g._replayShopBought || [];
-              g._purchaseToast = { items: [...bought], timer: 5000 };
+              if (bought.length > 0) {
+                g._purchaseToast = { items: [...bought], timer: 5000 };
+              }
               delete g._replayShopBought;
+            } else if (performance.now() - g._replayShopTimer > 1000) {
               delete g._replayShopTimer;
               rr.resumeFromShop();
               setShowShop(false);

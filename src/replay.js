@@ -29,12 +29,21 @@ export function createReplayRunner(replayData, onEvent = null) {
       return;
     }
 
-    // When game enters shop state, wait for the shop action at this tick
+    // When game enters shop state, find and apply the next shop action immediately
     if (g.state === "shop") {
-      // Check if there's a shop action at current tick
-      if (actionIdx < actions.length && actions[actionIdx].tick === tick && actions[actionIdx].type === "shop") {
-        const action = actions[actionIdx];
-        for (const key of action.bought) {
+      // Scan forward for the shop action (tick may not match exactly)
+      let shopAction = null;
+      while (actionIdx < actions.length) {
+        if (actions[actionIdx].type === "shop") {
+          shopAction = actions[actionIdx];
+          actionIdx++;
+          break;
+        }
+        // Skip any fire/emp actions that were recorded during shop transition
+        actionIdx++;
+      }
+      if (shopAction) {
+        for (const key of shopAction.bought) {
           if (key.startsWith("repair_launcher_")) {
             repairLauncher(g, parseInt(key.split("_")[2]));
           } else if (key.startsWith("repair_")) {
@@ -43,11 +52,9 @@ export function createReplayRunner(replayData, onEvent = null) {
             buyUpgrade(g, key);
           }
         }
-        g._replayShopBought = action.bought;
-        shopPaused = true;
-        actionIdx++;
+        g._replayShopBought = shopAction.bought;
       }
-      // Don't increment tick or call update while in shop
+      shopPaused = true;
       return;
     }
 
