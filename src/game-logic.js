@@ -198,12 +198,27 @@ export function getPhalanxTurrets(level) {
   return turrets;
 }
 
+export function getKillReward(target) {
+  if (target.type === "drone") return target.subtype === "shahed238" ? 40 : 20;
+  if (target.type === "mirv") return 100;
+  if (target.type === "bomb") return 42;
+  if (target.type === "mirv_warhead") return 56;
+  return 28;
+}
+
+export function getMultiKillBonus(kills) {
+  if (kills >= 4) return 700;
+  if (kills === 3) return 350;
+  if (kills === 2) return 150;
+  return 0;
+}
+
 export function damageTarget(g, target, damage, color, radius) {
   if (target.type === "drone") {
     target.health -= damage;
     if (target.health <= 0) {
       target.alive = false;
-      g.score += target.subtype === "shahed238" ? 250 : 150;
+      g.score += getKillReward(target);
       g.stats.droneKills++;
       createExplosion(g, target.x, target.y, radius, color);
     }
@@ -211,13 +226,13 @@ export function damageTarget(g, target, damage, color, radius) {
     target.health -= damage;
     if (target.health <= 0) {
       target.alive = false;
-      g.score += 500;
+      g.score += getKillReward(target);
       g.stats.missileKills++;
       createExplosion(g, target.x, target.y, 60, color);
     }
   } else {
     target.alive = false;
-    g.score += target.type === "bomb" ? 75 : target.type === "mirv_warhead" ? 100 : 50;
+    g.score += getKillReward(target);
     g.stats.missileKills++;
     createExplosion(g, target.x, target.y, radius, color);
   }

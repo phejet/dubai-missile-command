@@ -71,6 +71,26 @@ test.describe("Smoke tests", () => {
     expect(stats.shotsFired).toBeGreaterThanOrEqual(1);
   });
 
+  test("clicking canvas does not fire while sim is in shop state", async ({ page }) => {
+    const canvas = page.locator("canvas");
+    await canvas.click({ position: { x: 450, y: 320 } });
+
+    await page.evaluate(() => {
+      const g = window.__gameRef.current;
+      g.state = "shop";
+    });
+
+    await canvas.click({ position: { x: 450, y: 200 } });
+
+    const stats = await page.evaluate(() => {
+      const g = window.__gameRef.current;
+      return { shotsFired: g.stats.shotsFired, interceptors: g.interceptors.length };
+    });
+
+    expect(stats.shotsFired).toBe(0);
+    expect(stats.interceptors).toBe(0);
+  });
+
   test("game spawns threats after a few seconds", async ({ page }) => {
     const canvas = page.locator("canvas");
     await canvas.click({ position: { x: 450, y: 320 } });

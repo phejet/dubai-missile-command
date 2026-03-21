@@ -1751,7 +1751,7 @@ export default function DubaiMissileCommand() {
       return;
     } else {
       const g = gameRef.current;
-      if (!g) return;
+      if (!g || g.state !== "playing") return;
       const canvas = canvasRef.current;
       const rect = canvas.getBoundingClientRect();
       const mx = (e.clientX - rect.left) * (CANVAS_W / rect.width);
@@ -1858,7 +1858,7 @@ export default function DubaiMissileCommand() {
   function closeShop() {
     const g = gameRef.current;
     if (!g) return;
-    if (g._actionLog && shopBoughtRef.current.length > 0) {
+    if (g._actionLog) {
       g._actionLog.push({ tick: g._replayTick, type: "shop", bought: [...shopBoughtRef.current] });
     }
     shopBoughtRef.current = [];
