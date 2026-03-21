@@ -905,6 +905,13 @@ export default function DubaiMissileCommand() {
       glow(ctx, COL.roadrunner, 10);
       ctx.save();
       ctx.translate(r.x, r.y);
+      // Rotate to face direction of travel
+      let angle = -Math.PI / 2; // default: pointing up (launch phase)
+      if (r.trail.length >= 2) {
+        const prev = r.trail[r.trail.length - 1];
+        angle = Math.atan2(r.y - prev.y, r.x - prev.x) + Math.PI / 2;
+      }
+      ctx.rotate(angle);
       ctx.fillRect(-4, -6, 8, 12);
       ctx.fillStyle = "#fff";
       ctx.fillRect(-2, -8, 4, 3);
@@ -922,11 +929,39 @@ export default function DubaiMissileCommand() {
         else ctx.lineTo(t.x, t.y);
       });
       if (p.trail.length > 1) ctx.stroke();
-      ctx.fillStyle = COL.patriot;
+      // Rotate to face direction of travel
+      let pAngle = -Math.PI / 2;
+      if (p.trail.length >= 2) {
+        const prev = p.trail[p.trail.length - 1];
+        pAngle = Math.atan2(p.y - prev.y, p.x - prev.x) + Math.PI / 2;
+      }
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(pAngle);
       glow(ctx, COL.patriot, 12);
+      // Missile body
+      ctx.fillStyle = "#2a5a2a";
+      ctx.fillRect(-3, -8, 6, 16);
+      // Nosecone
+      ctx.fillStyle = COL.patriot;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+      ctx.moveTo(-3, -8);
+      ctx.lineTo(0, -13);
+      ctx.lineTo(3, -8);
       ctx.fill();
+      // Fins
+      ctx.fillStyle = "#1a4a1a";
+      ctx.fillRect(-5, 5, 2, 4);
+      ctx.fillRect(3, 5, 2, 4);
+      // Exhaust flame
+      ctx.fillStyle = "#ffaa22";
+      const flameLen = 4 + Math.random() * 6;
+      ctx.beginPath();
+      ctx.moveTo(-2, 8);
+      ctx.lineTo(0, 8 + flameLen);
+      ctx.lineTo(2, 8);
+      ctx.fill();
+      ctx.restore();
       glowOff(ctx);
     });
 

@@ -152,8 +152,8 @@ const BUILDINGS_RIGHT = [
   [840, 28, 95, 3],
 ];
 
-function boom(g, x, y, radius, color, playerCaused, onEvent) {
-  createExplosion(g, x, y, radius, color, playerCaused);
+function boom(g, x, y, radius, color, playerCaused, onEvent, initialRadius = 0) {
+  createExplosion(g, x, y, radius, color, playerCaused, initialRadius);
   if (onEvent) onEvent("sfx", { name: "explosion", size: radius > 45 ? "large" : radius > 25 ? "medium" : "small" });
 }
 
@@ -325,9 +325,9 @@ export function spawnDrone(g) {
   const goingRight = _rng() > 0.5;
   const jetChance = g.wave >= 3 ? Math.min(1, 0.2 + (g.wave - 3) * 0.16) : 0;
   const isJet = jetChance > 0 && _rng() < jetChance;
-  const baseSpeed = isJet ? rand(1.8, 2.8) : rand(0.6, 1.2);
+  const baseSpeed = isJet ? rand(3.6, 5.6) : rand(0.6, 1.2);
   const speed = baseSpeed + g.wave * 0.05;
-  const health = isJet ? 2 + Math.floor(g.wave / 4) : 1 + Math.floor(g.wave / 3);
+  const health = isJet ? 1 : 1 + Math.floor(g.wave / 3);
   g.drones.push({
     x: goingRight ? -20 : CANVAS_W + 20,
     y: rand(80, 250),
@@ -390,7 +390,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
       const d = Math.sqrt(dx * dx + dy * dy);
       if (d < 12) {
         h.alive = false;
-        boom(g, h.targetRef.x, h.targetRef.y, h.blastRadius, COL.hornet, false, onEvent);
+        boom(g, h.targetRef.x, h.targetRef.y, h.blastRadius, COL.hornet, false, onEvent, h.blastRadius * 0.5);
         return;
       }
       h.trail.push({ x: h.x, y: h.y });
@@ -411,7 +411,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
     const lvl = g.upgrades.roadrunner;
     const interval = [300, 240, 180][lvl - 1];
     const count = [1, 2, 3][lvl - 1];
-    const speed = [4, 5.5, 7][lvl - 1];
+    const speed = [8, 11, 14][lvl - 1];
     g.roadrunnerTimer += dt;
     if (g.roadrunnerTimer >= interval && allThreats.length > 0) {
       g.roadrunnerTimer = 0;
@@ -452,7 +452,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
         if (d < 15) {
           r.alive = false;
           // Detonate at target position for reliable hit
-          boom(g, r.targetRef.x, r.targetRef.y, 35, COL.roadrunner, false, onEvent);
+          boom(g, r.targetRef.x, r.targetRef.y, 35, COL.roadrunner, false, onEvent, 15);
           return;
         }
         // Lead the target slightly
@@ -644,7 +644,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
           x: 50,
           y: GROUND_Y - 20,
           targetRef: sorted[i],
-          speed: 3.5,
+          speed: 10.5,
           trail: [],
           alive: true,
           blastRadius: blastR,
@@ -658,7 +658,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
       p.trail.push({ x: p.x, y: p.y });
       if (p.trail.length > 25) p.trail.shift();
       if (p.phase === "launch") {
-        p.y -= 3 * dt;
+        p.y -= 9 * dt;
         if (p.y <= p.launchY) p.phase = "track";
       } else {
         const t = p.targetRef;
@@ -675,7 +675,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
         const d = Math.sqrt(dx * dx + dy * dy);
         if (d < 20) {
           p.alive = false;
-          boom(g, p.targetRef.x, p.targetRef.y, p.blastRadius, COL.patriot, false, onEvent);
+          boom(g, p.targetRef.x, p.targetRef.y, p.blastRadius, COL.patriot, false, onEvent, p.blastRadius * 0.4);
           return;
         }
         // Lead the target

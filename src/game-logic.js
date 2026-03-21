@@ -143,12 +143,12 @@ export function fireInterceptor(g, targetX, targetY) {
 }
 
 let _explosionId = 0;
-export function createExplosion(g, x, y, radius, color, playerCaused) {
+export function createExplosion(g, x, y, radius, color, playerCaused, initialRadius = 0) {
   g.explosions.push({
     id: _explosionId++,
     x,
     y,
-    radius: 0,
+    radius: initialRadius,
     maxRadius: radius,
     growing: true,
     alpha: 1,
