@@ -411,7 +411,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
     const lvl = g.upgrades.roadrunner;
     const interval = [300, 240, 180][lvl - 1];
     const count = [1, 2, 3][lvl - 1];
-    const speed = [8, 11, 14][lvl - 1];
+    const speed = [5.6, 7.7, 9.8][lvl - 1];
     g.roadrunnerTimer += dt;
     if (g.roadrunnerTimer >= interval && allThreats.length > 0) {
       g.roadrunnerTimer = 0;
@@ -644,7 +644,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
           x: 50,
           y: GROUND_Y - 20,
           targetRef: sorted[i],
-          speed: 10.5,
+          speed: 5.25,
           trail: [],
           alive: true,
           blastRadius: blastR,
@@ -658,7 +658,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
       p.trail.push({ x: p.x, y: p.y });
       if (p.trail.length > 25) p.trail.shift();
       if (p.phase === "launch") {
-        p.y -= 9 * dt;
+        p.y -= 4.5 * dt;
         if (p.y <= p.launchY) p.phase = "track";
       } else {
         const t = p.targetRef;
