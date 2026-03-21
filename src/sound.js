@@ -340,6 +340,63 @@ const SFX = {
     scheduleRelease(0.25);
   },
 
+  mirvIncoming() {
+    if (!ensureCtx() || !trackVoice()) return;
+    const t = now();
+    // Deep rumbling descent
+    const o = ctx.createOscillator();
+    o.type = "sawtooth";
+    o.frequency.setValueAtTime(200, t);
+    o.frequency.linearRampToValueAtTime(80, t + 1.0);
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 300;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.001, t);
+    g.gain.linearRampToValueAtTime(0.1, t + 0.3);
+    g.gain.linearRampToValueAtTime(0.08, t + 0.8);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 1.0);
+    o.connect(lp);
+    lp.connect(g);
+    g.connect(master);
+    o.start(t);
+    o.stop(t + 1.0);
+    scheduleRelease(1.0);
+  },
+
+  mirvSplit() {
+    if (!ensureCtx() || !trackVoice()) return;
+    const t = now();
+    // Deep crack + metallic burst
+    const o = ctx.createOscillator();
+    o.type = "square";
+    o.frequency.setValueAtTime(60, t);
+    o.frequency.exponentialRampToValueAtTime(30, t + 0.3);
+    const g1 = ctx.createGain();
+    g1.gain.setValueAtTime(0.15, t);
+    g1.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+    o.connect(g1);
+    g1.connect(master);
+    o.start(t);
+    o.stop(t + 0.3);
+    // Metallic burst
+    const src = ctx.createBufferSource();
+    src.buffer = noiseBuffer;
+    const bp = ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.value = 2000;
+    bp.Q.value = 3;
+    const g2 = ctx.createGain();
+    g2.gain.setValueAtTime(0.12, t);
+    g2.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+    src.connect(bp);
+    bp.connect(g2);
+    g2.connect(master);
+    src.start(t);
+    src.stop(t + 0.4);
+    scheduleRelease(0.4);
+  },
+
   planeIncoming() {
     if (!ensureCtx() || !trackVoice()) return;
     const t = now();

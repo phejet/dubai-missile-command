@@ -11,7 +11,9 @@ import {
   LAUNCHERS,
   fireInterceptor,
   getPhalanxTurrets,
+  setRng,
 } from "./game-logic.js";
+import { mulberry32 } from "./headless/rng.js";
 import {
   UPGRADES,
   initGame as simInitGame,
@@ -53,9 +55,17 @@ export default function DubaiMissileCommand() {
   const [shopData, setShopData] = useState(null);
   const [muted, setMuted] = useState(false);
   const [replayActive, setReplayActive] = useState(false);
+  const [lastReplay, setLastReplay] = useState(null);
+  const shopBoughtRef = useRef([]);
 
   const initGame = useCallback(() => {
+    const seed = (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0;
+    setRng(mulberry32(seed));
     gameRef.current = simInitGame();
+    gameRef.current._gameSeed = seed;
+    gameRef.current._actionLog = [];
+    gameRef.current._replayTick = 0;
+    shopBoughtRef.current = [];
     window.__gameRef = gameRef;
   }, []);
 
@@ -64,6 +74,8 @@ export default function DubaiMissileCommand() {
     if (type === "sfx") {
       const sfxMap = {
         explosion: () => SFX.explosion(data.size),
+        mirvIncoming: () => SFX.mirvIncoming(),
+        mirvSplit: () => SFX.mirvSplit(),
         planeIncoming: () => SFX.planeIncoming(),
         planePass: () => SFX.planePass(),
         hornetBuzz: () => SFX.hornetBuzz(),
@@ -88,6 +100,18 @@ export default function DubaiMissileCommand() {
       setFinalScore(data.score);
       setFinalWave(data.wave);
       setFinalStats({ ...data.stats });
+      const g = gameRef.current;
+      if (g && g._actionLog) {
+        const replay = { seed: g._gameSeed, actions: g._actionLog };
+        setLastReplay(replay);
+        // Auto-save replay to disk (dev server only, silently fails in prod)
+        fetch("/api/save-replay", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...replay, score: data.score, wave: data.wave, stats: data.stats }),
+        }).catch(() => {});
+      }
+      setRng(Math.random);
       setScreen("gameover");
     } else if (type === "shopOpen") {
       setShopData({
@@ -117,13 +141,15 @@ export default function DubaiMissileCommand() {
     [handleSimEvent],
   );
 
-  // Expose replay loader on window for console/external use
+  // Expose replay loader and last replay on window for console/external use
   useEffect(() => {
     window.__loadReplay = (replayData) => startReplay(replayData);
+    window.__lastReplay = lastReplay;
     return () => {
       delete window.__loadReplay;
+      delete window.__lastReplay;
     };
-  }, [startReplay]);
+  }, [startReplay, lastReplay]);
 
   // update is now delegated to simUpdate via the RAF loop
 
@@ -453,7 +479,149 @@ export default function DubaiMissileCommand() {
     g.missiles.forEach((m) => {
       const angle = Math.atan2(m.vy, m.vx);
 
-      if (m.type === "bomb") {
+      if (m.type === "mirv") {
+        // MIRV — large imposing ballistic missile
+        ctx.save();
+        // Thick smoke trail
+        m.trail.forEach((t, i) => {
+          const a = (i / m.trail.length) * 0.5;
+          const r = 3 + (1 - i / m.trail.length) * 5;
+          ctx.fillStyle = `rgba(200,160,120,${a})`;
+          ctx.beginPath();
+          ctx.arc(t.x, t.y, r, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        // Hot inner trail
+        for (let i = Math.max(0, m.trail.length - 8); i < m.trail.length; i++) {
+          const a = ((i - (m.trail.length - 8)) / 8) * 0.7;
+          ctx.fillStyle = `rgba(255,180,60,${a})`;
+          ctx.beginPath();
+          ctx.arc(m.trail[i].x, m.trail[i].y, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.translate(m.x, m.y);
+        ctx.rotate(angle);
+
+        // Pulsing red glow
+        glow(ctx, "#ff2200", 15 + Math.sin(g.time * 0.2) * 5);
+
+        // Body — large gunmetal
+        ctx.fillStyle = "#445060";
+        ctx.beginPath();
+        ctx.moveTo(14, 0);
+        ctx.lineTo(8, -4.5);
+        ctx.lineTo(-14, -4.5);
+        ctx.lineTo(-14, 4.5);
+        ctx.lineTo(8, 4.5);
+        ctx.closePath();
+        ctx.fill();
+
+        // Red nosecone
+        ctx.fillStyle = "#cc2200";
+        ctx.beginPath();
+        ctx.moveTo(20, 0);
+        ctx.lineTo(14, -4.5);
+        ctx.lineTo(14, 4.5);
+        ctx.closePath();
+        ctx.fill();
+
+        // Stage separation bands (white rings)
+        ctx.strokeStyle = "rgba(255,255,255,0.6)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(2, -4.5);
+        ctx.lineTo(2, 4.5);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(-6, -4.5);
+        ctx.lineTo(-6, 4.5);
+        ctx.stroke();
+
+        // Large fins
+        ctx.fillStyle = "#556878";
+        ctx.beginPath();
+        ctx.moveTo(-14, -4.5);
+        ctx.lineTo(-18, -11);
+        ctx.lineTo(-10, -4.5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(-14, 4.5);
+        ctx.lineTo(-18, 11);
+        ctx.lineTo(-10, 4.5);
+        ctx.closePath();
+        ctx.fill();
+
+        // Oversized exhaust
+        const mFlameLen = 8 + Math.random() * 12;
+        ctx.fillStyle = "#ff6633";
+        ctx.beginPath();
+        ctx.moveTo(-14, -3.5);
+        ctx.lineTo(-14 - mFlameLen, 0);
+        ctx.lineTo(-14, 3.5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#ffcc66";
+        ctx.beginPath();
+        ctx.moveTo(-14, -2);
+        ctx.lineTo(-14 - mFlameLen * 0.5, 0);
+        ctx.lineTo(-14, 2);
+        ctx.closePath();
+        ctx.fill();
+
+        glowOff(ctx);
+
+        // Health bar (only when damaged)
+        if (m.health < m.maxHealth) {
+          ctx.rotate(-angle); // un-rotate for horizontal health bar
+          const barW = 24;
+          const barH = 3;
+          const ratio = m.health / m.maxHealth;
+          ctx.fillStyle = "rgba(0,0,0,0.6)";
+          ctx.fillRect(-barW / 2, -16, barW, barH);
+          ctx.fillStyle = ratio > 0.5 ? "#44ff44" : ratio > 0.25 ? "#ffaa00" : "#ff2222";
+          ctx.fillRect(-barW / 2, -16, barW * ratio, barH);
+        }
+
+        ctx.restore();
+      } else if (m.type === "mirv_warhead") {
+        // MIRV warhead — smaller, red-orange, glowing
+        ctx.save();
+        // Trail
+        m.trail.forEach((t, i) => {
+          const a = (i / m.trail.length) * 0.4;
+          ctx.fillStyle = `rgba(220,100,50,${a})`;
+          ctx.beginPath();
+          ctx.arc(t.x, t.y, 1.5, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.translate(m.x, m.y);
+        ctx.rotate(angle);
+        // Pulsing glow
+        glow(ctx, "#dd4422", 8 + Math.sin(g.time * 0.4) * 3);
+        // Body
+        ctx.fillStyle = "#dd4422";
+        ctx.beginPath();
+        ctx.moveTo(7, 0);
+        ctx.lineTo(3, -2);
+        ctx.lineTo(-5, -2);
+        ctx.lineTo(-5, 2);
+        ctx.lineTo(3, 2);
+        ctx.closePath();
+        ctx.fill();
+        // Bright flame
+        const wFlameLen = 4 + Math.random() * 7;
+        ctx.fillStyle = "#ff8844";
+        ctx.beginPath();
+        ctx.moveTo(-5, -1.5);
+        ctx.lineTo(-5 - wFlameLen, 0);
+        ctx.lineTo(-5, 1.5);
+        ctx.closePath();
+        ctx.fill();
+        glowOff(ctx);
+        ctx.restore();
+      } else if (m.type === "bomb") {
         // Bomb trail
         ctx.beginPath();
         m.trail.forEach((t, i) => {
@@ -1147,6 +1315,21 @@ export default function DubaiMissileCommand() {
       ctx.font = "bold 12px 'Courier New', monospace";
     }
 
+    // MIRV INCOMING warning
+    const activeMirvs = g.missiles.filter((m) => m.alive && m.type === "mirv");
+    if (activeMirvs.length > 0) {
+      const pulse = 0.5 + 0.5 * Math.sin(g.time * 0.15);
+      ctx.save();
+      ctx.globalAlpha = 0.6 + pulse * 0.4;
+      ctx.font = "bold 18px 'Courier New', monospace";
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#ff2200";
+      glow(ctx, "#ff2200", 8 + pulse * 6);
+      ctx.fillText("⚠ MIRV INCOMING ⚠", CANVAS_W / 2, 56);
+      glow(ctx, "transparent", 0);
+      ctx.restore();
+    }
+
     // Purchase toast (replay mode)
     if (g._purchaseToast && g._purchaseToast.timer > 0) {
       const toast = g._purchaseToast;
@@ -1449,7 +1632,6 @@ export default function DubaiMissileCommand() {
       if (screen === "playing" && gameRef.current) {
         if (lastTimeRef.current === null) lastTimeRef.current = timestamp;
         const elapsed = timestamp - lastTimeRef.current;
-        const dt = Math.min(elapsed / (1000 / 60), 3);
         lastTimeRef.current = timestamp;
         // FPS tracking
         const g = gameRef.current;
@@ -1460,6 +1642,9 @@ export default function DubaiMissileCommand() {
           g._fpsFrames = 0;
           g._fpsAccum = 0;
         }
+        // Fixed timestep: accumulate elapsed time, step in dt=1 increments
+        g._timeAccum = (g._timeAccum || 0) + Math.min(elapsed / (1000 / 60), 3);
+        const dt = 1;
         if (replayRef.current) {
           // Replay mode: step once per frame (dt=1 fixed timestep)
           const rr = replayRef.current;
@@ -1489,7 +1674,12 @@ export default function DubaiMissileCommand() {
             setScreen("gameover");
           }
         } else {
-          simUpdate(gameRef.current, dt, handleSimEvent);
+          while (g._timeAccum >= 1) {
+            g._timeAccum -= 1;
+            simUpdate(gameRef.current, dt, handleSimEvent);
+            g._replayTick++;
+            if (g.state === "gameover" || g.state === "shop") break;
+          }
         }
         // Stop browser laser SFX when sim clears laser handle
         if (!gameRef.current._laserHandle && gameRef.current._browserLaserHandle) {
@@ -1531,6 +1721,7 @@ export default function DubaiMissileCommand() {
       if (my < GROUND_Y - 20) {
         if (fireInterceptor(g, mx, my)) {
           SFX.fire();
+          if (g._actionLog) g._actionLog.push({ tick: g._replayTick, type: "fire", x: mx, y: my });
         } else {
           SFX.emptyClick();
         }
@@ -1547,12 +1738,15 @@ export default function DubaiMissileCommand() {
         e.preventDefault();
         if (g.upgrades.emp > 0 && simFireEmp(g, handleSimEvent)) {
           SFX.empBlast();
+          if (g._actionLog) g._actionLog.push({ tick: g._replayTick, type: "emp" });
         }
         return; // space never fires interceptors
       }
       if (g.crosshairY < GROUND_Y - 20) {
         if (fireInterceptor(g, g.crosshairX, g.crosshairY)) {
           SFX.fire();
+          if (g._actionLog)
+            g._actionLog.push({ tick: g._replayTick, type: "fire", x: g.crosshairX, y: g.crosshairY });
         } else {
           SFX.emptyClick();
         }
@@ -1577,6 +1771,7 @@ export default function DubaiMissileCommand() {
     if (!g) return;
     if (simBuyUpgrade(g, key)) {
       SFX.buyUpgrade();
+      shopBoughtRef.current.push(key);
       setShopData({
         score: g.score,
         wave: g.wave,
@@ -1593,6 +1788,7 @@ export default function DubaiMissileCommand() {
     if (!g) return;
     if (simRepairSite(g, siteKey)) {
       SFX.buyUpgrade();
+      shopBoughtRef.current.push(`repair_${siteKey}`);
       setShopData({
         score: g.score,
         wave: g.wave,
@@ -1609,6 +1805,7 @@ export default function DubaiMissileCommand() {
     if (!g) return;
     if (simRepairLauncher(g, index)) {
       SFX.buyUpgrade();
+      shopBoughtRef.current.push(`repair_launcher_${index}`);
       setShopData({
         score: g.score,
         wave: g.wave,
@@ -1623,6 +1820,10 @@ export default function DubaiMissileCommand() {
   function closeShop() {
     const g = gameRef.current;
     if (!g) return;
+    if (g._actionLog && shopBoughtRef.current.length > 0) {
+      g._actionLog.push({ tick: g._replayTick, type: "shop", bought: [...shopBoughtRef.current] });
+    }
+    shopBoughtRef.current = [];
     simCloseShop(g);
     setShowShop(false);
     setShopData(null);
@@ -1724,37 +1925,68 @@ export default function DubaiMissileCommand() {
               zIndex: 10,
             }}
           >
-            <button
-              onClick={() => {
-                SFX.init();
-                initGame();
-                setScreen("playing");
-                SFX.gameStart();
-              }}
-              style={{
-                marginTop: "420px",
-                padding: "14px 50px",
-                background: "rgba(255,60,60,0.15)",
-                border: "1px solid rgba(255,80,80,0.5)",
-                borderRadius: "4px",
-                color: COL.warning,
-                fontSize: "16px",
-                fontWeight: "bold",
-                fontFamily: "'Courier New', monospace",
-                cursor: "pointer",
-                letterSpacing: "3px",
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.background = "rgba(255,60,60,0.3)";
-                e.target.style.boxShadow = "0 0 25px rgba(255,60,60,0.3)";
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.background = "rgba(255,60,60,0.15)";
-                e.target.style.boxShadow = "none";
-              }}
-            >
-              RETRY
-            </button>
+            <div style={{ marginTop: "420px", display: "flex", gap: "20px" }}>
+              <button
+                onClick={() => {
+                  SFX.init();
+                  initGame();
+                  setScreen("playing");
+                  SFX.gameStart();
+                }}
+                style={{
+                  padding: "14px 50px",
+                  background: "rgba(255,60,60,0.15)",
+                  border: "1px solid rgba(255,80,80,0.5)",
+                  borderRadius: "4px",
+                  color: COL.warning,
+                  fontSize: "16px",
+                  fontWeight: "bold",
+                  fontFamily: "'Courier New', monospace",
+                  cursor: "pointer",
+                  letterSpacing: "3px",
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.background = "rgba(255,60,60,0.3)";
+                  e.target.style.boxShadow = "0 0 25px rgba(255,60,60,0.3)";
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = "rgba(255,60,60,0.15)";
+                  e.target.style.boxShadow = "none";
+                }}
+              >
+                RETRY
+              </button>
+              {lastReplay && (
+                <button
+                  onClick={() => {
+                    setReplayActive(false);
+                    startReplay(lastReplay);
+                  }}
+                  style={{
+                    padding: "14px 40px",
+                    background: "rgba(60,160,255,0.15)",
+                    border: "1px solid rgba(60,160,255,0.5)",
+                    borderRadius: "4px",
+                    color: "#44aaff",
+                    fontSize: "16px",
+                    fontWeight: "bold",
+                    fontFamily: "'Courier New', monospace",
+                    cursor: "pointer",
+                    letterSpacing: "3px",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.background = "rgba(60,160,255,0.3)";
+                    e.target.style.boxShadow = "0 0 25px rgba(60,160,255,0.3)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = "rgba(60,160,255,0.15)";
+                    e.target.style.boxShadow = "none";
+                  }}
+                >
+                  WATCH REPLAY
+                </button>
+              )}
+            </div>
           </div>
         )}
 

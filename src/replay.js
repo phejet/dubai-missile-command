@@ -1,5 +1,5 @@
 import { setRng, fireInterceptor } from "./game-logic.js";
-import { initGame, update, buyUpgrade, closeShop, fireEmp } from "./game-sim.js";
+import { initGame, update, buyUpgrade, closeShop, fireEmp, repairSite, repairLauncher } from "./game-sim.js";
 import { mulberry32 } from "./headless/rng.js";
 
 export function createReplayRunner(replayData, onEvent = null) {
@@ -29,30 +29,40 @@ export function createReplayRunner(replayData, onEvent = null) {
       return;
     }
 
+    // When game enters shop state, wait for the shop action at this tick
+    if (g.state === "shop") {
+      // Check if there's a shop action at current tick
+      if (actionIdx < actions.length && actions[actionIdx].tick === tick && actions[actionIdx].type === "shop") {
+        const action = actions[actionIdx];
+        for (const key of action.bought) {
+          if (key.startsWith("repair_launcher_")) {
+            repairLauncher(g, parseInt(key.split("_")[2]));
+          } else if (key.startsWith("repair_")) {
+            repairSite(g, key.replace("repair_", ""));
+          } else {
+            buyUpgrade(g, key);
+          }
+        }
+        g._replayShopBought = action.bought;
+        shopPaused = true;
+        actionIdx++;
+      }
+      // Don't increment tick or call update while in shop
+      return;
+    }
+
     // Process all actions at this tick
-    let shopTick = false;
     while (actionIdx < actions.length && actions[actionIdx].tick === tick) {
       const action = actions[actionIdx];
       if (action.type === "fire") {
         fireInterceptor(g, action.x, action.y);
       } else if (action.type === "emp") {
         fireEmp(g, onEvent);
-      } else if (action.type === "shop") {
-        for (const key of action.bought) {
-          buyUpgrade(g, key);
-        }
-        // Don't closeShop yet — pause so UI can show purchases
-        g._replayShopBought = action.bought;
-        shopPaused = true;
-        shopTick = true;
       }
       actionIdx++;
     }
 
-    // Match sim-runner: shop ticks skip update (continue)
-    if (!shopTick) {
-      update(g, 1, onEvent);
-    }
+    update(g, 1, onEvent);
     tick++;
   }
 

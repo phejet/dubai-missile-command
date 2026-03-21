@@ -35,6 +35,9 @@ play-replay.mjs
 # Claude worktrees
 .claude/worktrees/
 
+# Auto-saved replays
+replays/
+
 # Training/learning logs
 src/headless/training-log.jsonl
 src/headless/learning-log.jsonl

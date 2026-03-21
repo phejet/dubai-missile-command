@@ -18,6 +18,7 @@
   },
   "planeAvoidance": { "radius": 30 },
   "emp": { "minThreatsToFire": 3 },
+  "mirv": { "cooldownMultiplier": 0.4 },
   "upgradePriority": [
     "launcherKit",
     "wildHornets",

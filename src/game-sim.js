@@ -231,7 +231,42 @@ export function initGame() {
     empReady: false,
     empRings: [],
     multiKillToast: null,
+    mirvTimer: 0,
+    mirvInterval: 600,
+    mirvCount: 0,
+    mirvTarget: 0,
   };
+}
+
+export function spawnMirv(g, onEvent) {
+  const startX = rand(100, CANVAS_W - 100);
+  const target = pickTarget(g, startX);
+  if (!target) return;
+  const dx = target.x - startX;
+  const dy = target.y - (-20);
+  const len = Math.sqrt(dx * dx + dy * dy);
+  const speed = rand(0.3, 0.5) + g.wave * 0.03;
+  const hp = 3 + Math.floor(g.wave / 4);
+  g.missiles.push({
+    x: startX,
+    y: -20,
+    vx: (dx / len) * speed,
+    vy: (dy / len) * speed,
+    accel: 1.001,
+    trail: [],
+    alive: true,
+    type: "mirv",
+    health: hp,
+    maxHealth: hp,
+    splitY: rand(200, 300),
+    warheadCount: 3 + Math.min(2, Math.floor((g.wave - 8) / 4)),
+    splitTriggered: false,
+    empSlowTimer: 0,
+    _hitByExplosions: new Set(),
+  });
+  g.waveMissiles++;
+  g.mirvCount++;
+  if (onEvent) onEvent("sfx", { name: "mirvIncoming" });
 }
 
 export function spawnPlane(g, onEvent) {
@@ -288,8 +323,8 @@ export function spawnMissile(g) {
 export function spawnDrone(g) {
   const _rng = getRng();
   const goingRight = _rng() > 0.5;
-  const jetChance = Math.max(0, (g.wave - 3) * 0.15);
-  const isJet = g.wave >= 4 && _rng() < jetChance;
+  const jetChance = g.wave >= 3 ? Math.min(1, 0.2 + (g.wave - 3) * 0.16) : 0;
+  const isJet = jetChance > 0 && _rng() < jetChance;
   const baseSpeed = isJet ? rand(1.8, 2.8) : rand(0.6, 1.2);
   const speed = baseSpeed + g.wave * 0.05;
   const health = isJet ? 2 + Math.floor(g.wave / 4) : 1 + Math.floor(g.wave / 3);
@@ -355,13 +390,18 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
       const d = Math.sqrt(dx * dx + dy * dy);
       if (d < 12) {
         h.alive = false;
-        boom(g, h.x, h.y, h.blastRadius, COL.hornet, false, onEvent);
+        boom(g, h.targetRef.x, h.targetRef.y, h.blastRadius, COL.hornet, false, onEvent);
         return;
       }
       h.trail.push({ x: h.x, y: h.y });
       if (h.trail.length > 12) h.trail.shift();
-      h.x += ((dx / d) * h.speed + Math.sin(h.wobble) * 0.8) * dt;
-      h.y += ((dy / d) * h.speed + Math.cos(h.wobble) * 0.5) * dt;
+      // Lead the target slightly
+      const hLeadFrames = d / h.speed;
+      const hlx = h.targetRef.x + (h.targetRef.vx || 0) * hLeadFrames * 0.3;
+      const hly = h.targetRef.y + (h.targetRef.vy || 0) * hLeadFrames * 0.3;
+      const hld = Math.sqrt((hlx - h.x) ** 2 + (hly - h.y) ** 2) || 1;
+      h.x += (((hlx - h.x) / hld) * h.speed + Math.sin(h.wobble) * 0.8) * dt;
+      h.y += (((hly - h.y) / hld) * h.speed + Math.cos(h.wobble) * 0.5) * dt;
     });
     g.hornets = g.hornets.filter((h) => h.alive);
   }
@@ -411,11 +451,19 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
         const d = Math.sqrt(dx * dx + dy * dy);
         if (d < 15) {
           r.alive = false;
-          boom(g, r.x, r.y, 30, COL.roadrunner, false, onEvent);
+          // Detonate at target position for reliable hit
+          boom(g, r.targetRef.x, r.targetRef.y, 35, COL.roadrunner, false, onEvent);
           return;
         }
-        r.x += (dx / d) * r.speed * dt;
-        r.y += (dy / d) * r.speed * dt;
+        // Lead the target slightly
+        const leadFrames = d / r.speed;
+        const lx = r.targetRef.x + (r.targetRef.vx || 0) * leadFrames * 0.3;
+        const ly = r.targetRef.y + (r.targetRef.vy || 0) * leadFrames * 0.3;
+        const ldx = lx - r.x;
+        const ldy = ly - r.y;
+        const ld = Math.sqrt(ldx * ldx + ldy * ldy);
+        r.x += (ldx / ld) * r.speed * dt;
+        r.y += (ldy / ld) * r.speed * dt;
       }
     });
     g.roadrunners = g.roadrunners.filter((r) => r.alive);
@@ -470,7 +518,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
       }
     });
     g.missiles.forEach((m) => {
-      if (!m.alive || m.luredByFlare) return;
+      if (!m.alive || m.luredByFlare || m.type === "mirv") return;
       const nearFlare = g.flares.find(
         (f) => f.alive && f.life > 30 && f.luresLeft > 0 && dist(m.x, m.y, f.x, f.y) < 200,
       );
@@ -627,11 +675,16 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
         const d = Math.sqrt(dx * dx + dy * dy);
         if (d < 20) {
           p.alive = false;
-          boom(g, p.x, p.y, p.blastRadius, COL.patriot, false, onEvent);
+          boom(g, p.targetRef.x, p.targetRef.y, p.blastRadius, COL.patriot, false, onEvent);
           return;
         }
-        p.x += (dx / d) * p.speed * dt;
-        p.y += (dy / d) * p.speed * dt;
+        // Lead the target
+        const pLeadFrames = d / p.speed;
+        const plx = p.targetRef.x + (p.targetRef.vx || 0) * pLeadFrames * 0.3;
+        const ply = p.targetRef.y + (p.targetRef.vy || 0) * pLeadFrames * 0.3;
+        const pld = Math.sqrt((plx - p.x) ** 2 + (ply - p.y) ** 2) || 1;
+        p.x += ((plx - p.x) / pld) * p.speed * dt;
+        p.y += ((ply - p.y) / pld) * p.speed * dt;
       }
     });
     g.patriotMissiles = g.patriotMissiles.filter((p) => p.alive);
@@ -662,9 +715,16 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
               g.score += t.subtype === "shahed238" ? 250 : 150;
               g.stats.droneKills++;
             }
+          } else if (t.type === "mirv") {
+            t.health -= ring.damage;
+            if (t.health <= 0) {
+              t.alive = false;
+              g.score += 500;
+              g.stats.missileKills++;
+            }
           } else {
             t.alive = false;
-            g.score += t.type === "bomb" ? 75 : 50;
+            g.score += t.type === "bomb" ? 75 : t.type === "mirv_warhead" ? 100 : 50;
             g.stats.missileKills++;
           }
           // Violet spark particles — big burst
@@ -771,6 +831,14 @@ export function update(g, dt, onEvent) {
     const droneCount = 1 + Math.floor(g.wave / 3);
     for (let i = 0; i < Math.min(droneCount, 4); i++) spawnDrone(g);
   }
+  // MIRV spawning (wave 5+)
+  if (g.wave >= 5 && g.mirvCount < g.mirvTarget) {
+    g.mirvTimer += dt;
+    if (g.mirvTimer >= g.mirvInterval) {
+      g.mirvTimer = 0;
+      spawnMirv(g, onEvent);
+    }
+  }
   g.planeTimer += dt;
   // F-15 incoming warning ~2 seconds before arrival
   if (!g.planeWarned && g.planeTimer >= g.planeInterval - 120) {
@@ -798,6 +866,33 @@ export function update(g, dt, onEvent) {
     const mSlow = m.empSlowTimer > 0 ? ((m.empSlowTimer -= dt), 0.4) : 1;
     m.x += m.vx * dt * mSlow;
     m.y += m.vy * dt * mSlow;
+    // MIRV split
+    if (m.type === "mirv" && !m.splitTriggered && m.y >= m.splitY) {
+      m.splitTriggered = true;
+      m.alive = false;
+      for (let i = 0; i < m.warheadCount; i++) {
+        const t = pickTarget(g, m.x);
+        if (!t) continue;
+        const dx = t.x - m.x;
+        const dy = t.y - m.y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        const spd = rand(0.8, 1.2) + g.wave * 0.06;
+        g.missiles.push({
+          x: m.x + rand(-10, 10),
+          y: m.y + rand(-5, 5),
+          vx: (dx / len) * spd,
+          vy: (dy / len) * spd,
+          accel: 1.004 + g.wave * 0.0008,
+          trail: [],
+          alive: true,
+          type: "mirv_warhead",
+          empSlowTimer: 0,
+        });
+      }
+      boom(g, m.x, m.y, 35, COL.mirv, false, onEvent);
+      if (onEvent) onEvent("sfx", { name: "mirvSplit" });
+      return;
+    }
     // Burj collision
     if (
       g.burjAlive &&
@@ -871,6 +966,26 @@ export function update(g, dt, onEvent) {
     d.wobble += 0.05 * dt;
     if (d.subtype === "shahed238") {
       if (!d.diving && ((d.vx > 0 && d.x > CANVAS_W * 0.3) || (d.vx < 0 && d.x < CANVAS_W * 0.7))) {
+        // Drop bombs while flying (2 max)
+        if (!d.bombsDropped) d.bombsDropped = 0;
+        if (d.bombsDropped < 2 && !d.bombCooldown) {
+          const bombT = pickTarget(g, d.x);
+          if (bombT) {
+            g.missiles.push({
+              x: d.x,
+              y: d.y,
+              vx: (bombT.x - d.x) * 0.002,
+              vy: rand(1.2, 2.0),
+              trail: [],
+              alive: true,
+              type: "bomb",
+            });
+            d.bombsDropped++;
+            d.bombCooldown = 90; // cooldown between bombs
+          }
+        }
+        if (d.bombCooldown > 0) d.bombCooldown -= dt;
+        if (d.bombCooldown <= 0) d.bombCooldown = 0;
         if (_rng() < 0.02 * dt) {
           d.diving = true;
           const t = pickTarget(g, d.x);
@@ -878,12 +993,13 @@ export function update(g, dt, onEvent) {
         }
       }
       if (d.diving && d.diveTarget) {
+        // Lock dive speed on first dive frame to avoid deceleration
+        if (!d.diveSpeed) d.diveSpeed = Math.sqrt(d.vx * d.vx + d.vy * d.vy) * 1.2;
         const dx = d.diveTarget.x - d.x;
         const dy = d.diveTarget.y - d.y;
         const len = Math.sqrt(dx * dx + dy * dy);
-        const diveSpeed = Math.abs(d.vx) * 1.2;
-        d.vx = (dx / len) * diveSpeed;
-        d.vy = (dy / len) * diveSpeed;
+        d.vx = (dx / len) * d.diveSpeed;
+        d.vy = (dy / len) * d.diveSpeed;
         d.x += d.vx * dt * dSlow;
         d.y += d.vy * dt * dSlow;
       } else {
@@ -993,9 +1109,24 @@ export function update(g, dt, onEvent) {
     if (ex.alpha > 0.2) {
       if (!ex.kills) ex.kills = 0;
       g.missiles.forEach((m) => {
-        if (m.alive && dist(m.x, m.y, ex.x, ex.y) < ex.radius) {
+        if (!m.alive) return;
+        if (m.type === "mirv") {
+          if (!m._hitByExplosions) m._hitByExplosions = new Set();
+          if (m._hitByExplosions.has(ex.id)) return;
+          if (dist(m.x, m.y, ex.x, ex.y) < ex.radius) {
+            m._hitByExplosions.add(ex.id);
+            m.health--;
+            if (m.health <= 0) {
+              m.alive = false;
+              g.score += 500;
+              g.stats.missileKills++;
+              ex.kills++;
+              boom(g, m.x, m.y, 60, COL.mirv, ex.playerCaused, onEvent);
+            }
+          }
+        } else if (dist(m.x, m.y, ex.x, ex.y) < ex.radius) {
           m.alive = false;
-          g.score += m.type === "bomb" ? 75 : 50;
+          g.score += m.type === "bomb" ? 75 : m.type === "mirv_warhead" ? 100 : 50;
           g.stats.missileKills++;
           ex.kills++;
           boom(g, m.x, m.y, 30, "#ffcc00", ex.playerCaused, onEvent);
@@ -1202,6 +1333,10 @@ export function closeShop(g) {
   const baseAmmo = 12 + g.wave * 1;
   const ammoMultiplier = g.upgrades.launcherKit >= 3 ? 2 : g.upgrades.launcherKit >= 1 ? 1.5 : 1;
   g.ammo = g.ammo.map((_, i) => (g.launcherHP[i] > 0 ? Math.round(baseAmmo * ammoMultiplier) : 0));
+  g.mirvTarget = g.wave >= 5 ? Math.min(1 + Math.floor((g.wave - 4) / 2), 6) : 0;
+  g.mirvInterval = Math.max(250, 600 - (g.wave - 5) * 50);
+  g.mirvCount = 0;
+  g.mirvTimer = 0;
   g.waveComplete = false;
   g.state = "playing";
 }

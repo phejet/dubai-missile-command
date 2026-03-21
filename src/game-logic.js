@@ -34,6 +34,7 @@ export const COL = {
   patriot: "#88ff44",
   launcherKit: "#66aaff",
   emp: "#cc44ff",
+  mirv: "#dd4422",
 };
 
 export const BURJ_X = 460;
@@ -206,9 +207,17 @@ export function damageTarget(g, target, damage, color, radius) {
       g.stats.droneKills++;
       createExplosion(g, target.x, target.y, radius, color);
     }
+  } else if (target.type === "mirv") {
+    target.health -= damage;
+    if (target.health <= 0) {
+      target.alive = false;
+      g.score += 500;
+      g.stats.missileKills++;
+      createExplosion(g, target.x, target.y, 60, color);
+    }
   } else {
     target.alive = false;
-    g.score += target.type === "bomb" ? 75 : 50;
+    g.score += target.type === "bomb" ? 75 : target.type === "mirv_warhead" ? 100 : 50;
     g.stats.missileKills++;
     createExplosion(g, target.x, target.y, radius, color);
   }

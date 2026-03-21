@@ -69,6 +69,12 @@ export function botDecideAction(g, config, lastFireTick, tick) {
     if (!m.alive) continue;
     if (m.y < cfg.minThreatY) continue;
     if (m.luredByFlare) continue; // heading to flare, will miss — save ammo
+    if (m.type === "mirv") {
+      // MIRVs are always top priority — must kill before split
+      const led = leadTarget(m.x, m.y, m.vx, m.vy, config, interceptorSpeed, g, m.accel || 1);
+      allThreats.push({ ...led, priority: 0, isMirv: true });
+      continue;
+    }
     const led = leadTarget(m.x, m.y, m.vx, m.vy, config, interceptorSpeed, g, m.accel || 1);
     const priority =
       m.type === "bomb"
@@ -93,6 +99,8 @@ export function botDecideAction(g, config, lastFireTick, tick) {
       if (d < COVERED_RADIUS) t.coveredBy++;
     }
     // Demote covered threats: each existing interceptor adds 1 to priority (lower = more urgent)
+    // MIRVs need multiple hits — never demote them
+    if (t.isMirv) continue;
     if (t.coveredBy > 0 && t.priority > 0) {
       t.priority = Math.min(t.priority + t.coveredBy, 3);
     }
@@ -111,6 +119,10 @@ export function botDecideAction(g, config, lastFireTick, tick) {
   // Fire faster when jet drones (multi-HP) are present
   const hasJetDrone = g.drones.some((d) => d.alive && d.subtype === "shahed238" && d.y > cfg.minThreatY);
   if (hasJetDrone) cooldown = Math.floor(cooldown * 0.6);
+
+  // Rapid fire when MIRV present — must kill before split
+  const hasMirv = allThreats.some((t) => t.isMirv);
+  if (hasMirv) cooldown = Math.floor(cooldown * (config.mirv?.cooldownMultiplier || 0.4));
 
   // Never fully throttle when there's an urgent (priority-0) threat
   const hasUrgentThreat = allThreats.some((t) => t.priority === 0);
