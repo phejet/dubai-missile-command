@@ -27,9 +27,9 @@ export const UPGRADES = {
     icon: "\uD83D\uDC1D",
     desc: "Ukrainian FPV drone swarm. Autonomous kamikaze drones hunt incoming threats.",
     maxLevel: 3,
-    costs: [940, 2880, 7130],
+    costs: [760, 2880, 7130],
     color: COL.hornet,
-    statLines: ["1 drone / 4s \u00B7 25 blast", "2 drones / 3s \u00B7 30 blast", "3 drones / 2s \u00B7 40 blast"],
+    statLines: ["1 drone / 3s \u00B7 drone priority \u00B7 25 blast", "2 drones / 3s \u00B7 30 blast", "3 drones / 2s \u00B7 40 blast"],
   },
   roadrunner: {
     name: "Anduril Roadrunner",
@@ -62,12 +62,12 @@ export const UPGRADES = {
     icon: "\u26A1",
     desc: "High-energy laser defense. Instant beam locks on and burns down incoming projectiles.",
     maxLevel: 3,
-    costs: [1370, 4320, 10150],
+    costs: [1500, 4730, 11110],
     color: COL.laser,
     statLines: [
-      "1 beam \u00B7 60 range \u00B7 slow charge",
-      "2 beams \u00B7 80 range \u00B7 medium",
-      "3 beams \u00B7 100 range \u00B7 fast",
+      "1 beam \u00B7 42 range \u00B7 very slow charge",
+      "2 beams \u00B7 56 range \u00B7 slow",
+      "3 beams \u00B7 70 range \u00B7 medium",
     ],
   },
   phalanx: {
@@ -351,15 +351,20 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
   // ── WILD HORNETS ──
   if (g.upgrades.wildHornets > 0 && isSiteAlive(g, "wildHornets")) {
     const lvl = g.upgrades.wildHornets;
-    const interval = [240, 180, 120][lvl - 1];
+    const interval = [180, 180, 120][lvl - 1];
     const count = lvl;
     const blastR = [25, 30, 40][lvl - 1];
     g.hornetTimer += dt;
     if (g.hornetTimer >= interval && allThreats.length > 0) {
       g.hornetTimer = 0;
       if (onEvent) onEvent("sfx", { name: "hornetBuzz" });
+      const hornetTargets =
+        lvl === 1
+          ? allThreats.filter((t) => t.alive && t.type === "drone")
+          : allThreats;
+      const targetPool = hornetTargets.length > 0 ? hornetTargets : allThreats;
       for (let i = 0; i < count; i++) {
-        const target = allThreats[randInt(0, allThreats.length - 1)];
+        const target = targetPool[randInt(0, targetPool.length - 1)];
         if (!target) continue;
         g.hornets.push({
           x: rand(100, CANVAS_W - 100),
@@ -553,8 +558,8 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
   if (g.upgrades.ironBeam > 0 && isSiteAlive(g, "ironBeam")) {
     const lvl = g.upgrades.ironBeam;
     const beamCount = lvl;
-    const range = [250, 320, 420][lvl - 1];
-    const chargeTime = [90, 60, 40][lvl - 1];
+    const range = [175, 224, 294][lvl - 1];
+    const chargeTime = [117, 78, 52][lvl - 1];
     g.ironBeamTimer += dt;
     if (g.ironBeamTimer >= chargeTime) {
       const inRange = allThreats

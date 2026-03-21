@@ -20,11 +20,11 @@
   "emp": { "minThreatsToFire": 3 },
   "mirv": { "cooldownMultiplier": 0.4 },
   "upgradePriority": [
-    "launcherKit",
+    "ironBeam",
     "wildHornets",
+    "launcherKit",
     "roadrunner",
     "phalanx",
-    "ironBeam",
     "flare",
     "burjRepair",
     "patriot",

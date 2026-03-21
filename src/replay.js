@@ -76,6 +76,10 @@ export function createReplayRunner(replayData, onEvent = null) {
   function resumeFromShop() {
     if (!shopPaused || !g) return;
     closeShop(g);
+    // Recorded shop actions happen on a full loop iteration in the simulator.
+    // Advance once here so replay resumes on the next combat tick instead of
+    // replaying the same tick again after every shop.
+    tick++;
     shopPaused = false;
   }
 
