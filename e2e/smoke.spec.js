@@ -91,6 +91,26 @@ test.describe("Smoke tests", () => {
     expect(stats.interceptors).toBe(0);
   });
 
+  test("replay tick does not advance while sim is in shop state", async ({ page }) => {
+    const canvas = page.locator("canvas");
+    await canvas.click({ position: { x: 450, y: 320 } });
+
+    const tickBefore = await page.evaluate(() => {
+      const g = window.__gameRef.current;
+      g.state = "shop";
+      return g._replayTick;
+    });
+
+    await page.waitForTimeout(250);
+
+    const tickAfter = await page.evaluate(() => {
+      const g = window.__gameRef.current;
+      return g._replayTick;
+    });
+
+    expect(tickAfter).toBe(tickBefore);
+  });
+
   test("game spawns threats after a few seconds", async ({ page }) => {
     const canvas = page.locator("canvas");
     await canvas.click({ position: { x: 450, y: 320 } });

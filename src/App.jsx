@@ -14,6 +14,7 @@ import {
   setRng,
 } from "./game-logic.js";
 import { mulberry32 } from "./headless/rng.js";
+import { buildReplayCheckpoint } from "./replay-debug.js";
 import {
   UPGRADES,
   initGame as simInitGame,
@@ -29,6 +30,7 @@ import { createReplayRunner } from "./replay.js";
 
 // FPS probe: measure first 60 frames, disable shadowBlur if avg FPS < 45
 const perfState = { frameCount: 0, startTime: 0, glowEnabled: true, probed: false };
+const REPLAY_CHECKPOINT_INTERVAL = 60;
 
 function glow(ctx, color, radius) {
   if (!perfState.glowEnabled) return;
@@ -39,6 +41,19 @@ function glow(ctx, color, radius) {
 function glowOff(ctx) {
   if (!perfState.glowEnabled) return;
   ctx.shadowBlur = 0;
+}
+
+function maybeRecordReplayCheckpoint(g, { force = false, reason = null, tickOverride = null } = {}) {
+  if (!g || !g._replayCheckpoints) return;
+  const tick = tickOverride ?? g._replayTick;
+  if (!force && tick - (g._replayCheckpointLastTick ?? -Infinity) < REPLAY_CHECKPOINT_INTERVAL) return;
+
+  const checkpoint = buildReplayCheckpoint(g, tick, reason);
+  if (!force && checkpoint.hash === g._replayCheckpointLastHash) return;
+
+  g._replayCheckpoints.push(checkpoint);
+  g._replayCheckpointLastTick = tick;
+  g._replayCheckpointLastHash = checkpoint.hash;
 }
 
 export default function DubaiMissileCommand() {
@@ -65,6 +80,10 @@ export default function DubaiMissileCommand() {
     gameRef.current._gameSeed = seed;
     gameRef.current._actionLog = [];
     gameRef.current._replayTick = 0;
+    gameRef.current._replayCheckpoints = [];
+    gameRef.current._replayCheckpointLastTick = -Infinity;
+    gameRef.current._replayCheckpointLastHash = null;
+    maybeRecordReplayCheckpoint(gameRef.current, { force: true, reason: "start" });
     shopBoughtRef.current = [];
     window.__gameRef = gameRef;
   }, []);
@@ -102,7 +121,15 @@ export default function DubaiMissileCommand() {
       setFinalStats({ ...data.stats });
       const g = gameRef.current;
       if (g && g._actionLog) {
-        const replay = { seed: g._gameSeed, actions: g._actionLog, isHuman: true };
+        maybeRecordReplayCheckpoint(g, { force: true, reason: "gameover", tickOverride: g._replayTick + 1 });
+        const replay = {
+          version: 2,
+          seed: g._gameSeed,
+          actions: g._actionLog,
+          checkpoints: g._replayCheckpoints || [],
+          finalTick: g._replayTick + 1,
+          isHuman: true,
+        };
         setLastReplay(replay);
         // Auto-save replay to disk (dev server only, silently fails in prod)
         fetch("/api/save-replay", {
@@ -114,6 +141,11 @@ export default function DubaiMissileCommand() {
       setRng(Math.random);
       setScreen("gameover");
     } else if (type === "shopOpen") {
+      maybeRecordReplayCheckpoint(gameRef.current, {
+        force: true,
+        reason: "shopOpen",
+        tickOverride: gameRef.current._replayTick + 1,
+      });
       setShopData({
         score: data.score,
         wave: data.wave,
@@ -1712,11 +1744,17 @@ export default function DubaiMissileCommand() {
             setScreen("gameover");
           }
         } else {
-          while (g._timeAccum >= 1) {
-            g._timeAccum -= 1;
-            simUpdate(gameRef.current, dt, handleSimEvent);
-            g._replayTick++;
-            if (g.state === "gameover" || g.state === "shop") break;
+          if (g.state === "playing") {
+            while (g._timeAccum >= 1) {
+              g._timeAccum -= 1;
+              simUpdate(gameRef.current, dt, handleSimEvent);
+              g._replayTick++;
+              maybeRecordReplayCheckpoint(g);
+              if (g.state === "gameover" || g.state === "shop") break;
+            }
+          } else {
+            // Replay ticks represent deterministic sim steps, not wall-clock time spent in menus.
+            g._timeAccum = 0;
           }
         }
         // Stop browser laser SFX when sim clears laser handle

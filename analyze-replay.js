@@ -1,6 +1,7 @@
 import { setRng, fireInterceptor } from "./src/game-logic.js";
 import { initGame, update, buyUpgrade, closeShop, repairSite, repairLauncher, fireEmp } from "./src/game-sim.js";
 import { mulberry32 } from "./src/headless/rng.js";
+import { buildReplayCheckpoint } from "./src/replay-debug.js";
 import { readFileSync } from "fs";
 
 const replayFile = process.argv[2];
@@ -11,6 +12,7 @@ if (!replayFile) {
 
 const replayData = JSON.parse(readFileSync(replayFile, "utf8"));
 const { seed, actions } = replayData;
+const checkpointsByTick = new Map((replayData.checkpoints || []).map((checkpoint) => [checkpoint.tick, checkpoint]));
 
 const rng = mulberry32(seed);
 setRng(rng);
@@ -20,15 +22,34 @@ let actionIdx = 0;
 let tick = 0;
 const maxTicks = 100000;
 const events = [];
+let firstCheckpointMismatch = null;
 
 function log(msg) {
   events.push({ tick, msg });
+}
+
+function compareCheckpoint(checkpointTick) {
+  if (firstCheckpointMismatch) return;
+  const expected = checkpointsByTick.get(checkpointTick);
+  if (!expected) return;
+
+  const actual = buildReplayCheckpoint(g, checkpointTick);
+  if (actual.hash !== expected.hash) {
+    firstCheckpointMismatch = {
+      tick: checkpointTick,
+      expected,
+      actual,
+    };
+    log(`CHECKPOINT MISMATCH at tick ${checkpointTick}: recorded hash=${expected.hash}, replay hash=${actual.hash}`);
+  }
 }
 
 // Track state for change detection
 let prevWave = g.wave;
 let prevBurjHP = g.burjHealth;
 let prevLauncherHP = [...g.launcherHP];
+
+compareCheckpoint(0);
 
 for (let step = 0; step < maxTicks; step++) {
   if (g.state === "gameover") {
@@ -78,6 +99,7 @@ for (let step = 0; step < maxTicks; step++) {
       if (data.name === "planeIncoming") log("F-15 warning");
     }
   });
+  compareCheckpoint(tick + 1);
 
   // Detect state changes
   if (g.wave !== prevWave) {
@@ -138,6 +160,13 @@ for (let step = 0; step < maxTicks; step++) {
 console.log(`\n=== REPLAY ANALYSIS: seed=${seed} ===`);
 console.log(`Final: score=${g.score} wave=${g.wave} ticks=${tick}`);
 console.log(`Stats: ${JSON.stringify(g.stats)}`);
+if (firstCheckpointMismatch) {
+  console.log(`First checkpoint mismatch: tick=${firstCheckpointMismatch.tick}`);
+  console.log(`  recorded: ${JSON.stringify(firstCheckpointMismatch.expected)}`);
+  console.log(`  replayed: ${JSON.stringify(firstCheckpointMismatch.actual)}`);
+} else if (replayData.checkpoints?.length) {
+  console.log(`Checkpoint comparison: all ${replayData.checkpoints.length} checkpoints matched`);
+}
 console.log(`\n--- TIMELINE ---`);
 for (const e of events) {
   console.log(`  [${String(e.tick).padStart(5)}] ${e.msg}`);

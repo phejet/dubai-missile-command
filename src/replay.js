@@ -9,6 +9,7 @@ export function createReplayRunner(replayData, onEvent = null) {
   let g = null;
   let finished = false;
   let shopPaused = false;
+  let pendingShopAction = null;
 
   function init() {
     const rng = mulberry32(seed);
@@ -18,6 +19,7 @@ export function createReplayRunner(replayData, onEvent = null) {
     tick = 0;
     finished = false;
     shopPaused = false;
+    pendingShopAction = null;
     return g;
   }
 
@@ -31,7 +33,11 @@ export function createReplayRunner(replayData, onEvent = null) {
 
     // When game enters shop state, find and apply the next shop action immediately
     if (g.state === "shop") {
-      // Scan forward for the shop action (tick may not match exactly)
+      // Discard any stale combat actions that were recorded before the shop opened.
+      while (actionIdx < actions.length && actions[actionIdx].type !== "shop" && actions[actionIdx].tick <= tick) {
+        actionIdx++;
+      }
+
       let shopAction = null;
       while (actionIdx < actions.length) {
         if (actions[actionIdx].type === "shop") {
@@ -39,19 +45,11 @@ export function createReplayRunner(replayData, onEvent = null) {
           actionIdx++;
           break;
         }
-        // Skip any fire/emp actions that were recorded during shop transition
+        if (actions[actionIdx].tick > tick) break;
         actionIdx++;
       }
       if (shopAction) {
-        for (const key of shopAction.bought) {
-          if (key.startsWith("repair_launcher_")) {
-            repairLauncher(g, parseInt(key.split("_")[2]));
-          } else if (key.startsWith("repair_")) {
-            repairSite(g, key.replace("repair_", ""));
-          } else {
-            buyUpgrade(g, key);
-          }
-        }
+        pendingShopAction = shopAction;
         g._replayShopBought = shopAction.bought;
       }
       shopPaused = true;
@@ -61,6 +59,7 @@ export function createReplayRunner(replayData, onEvent = null) {
     // Process all actions at this tick
     while (actionIdx < actions.length && actions[actionIdx].tick === tick) {
       const action = actions[actionIdx];
+      if (action.type === "shop") break;
       if (action.type === "fire") {
         fireInterceptor(g, action.x, action.y);
       } else if (action.type === "emp") {
@@ -75,11 +74,21 @@ export function createReplayRunner(replayData, onEvent = null) {
 
   function resumeFromShop() {
     if (!shopPaused || !g) return;
+    if (pendingShopAction) {
+      for (const key of pendingShopAction.bought) {
+        if (key.startsWith("repair_launcher_")) {
+          repairLauncher(g, parseInt(key.split("_")[2]));
+        } else if (key.startsWith("repair_")) {
+          repairSite(g, key.replace("repair_", ""));
+        } else {
+          buyUpgrade(g, key);
+        }
+      }
+      pendingShopAction = null;
+    }
     closeShop(g);
-    // Recorded shop actions happen on a full loop iteration in the simulator.
-    // Advance once here so replay resumes on the next combat tick instead of
-    // replaying the same tick again after every shop.
-    tick++;
+    // Shop time no longer advances replay ticks, so combat resumes on the
+    // current tick without injecting an extra simulation step.
     shopPaused = false;
   }
 
