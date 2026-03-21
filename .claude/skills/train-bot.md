@@ -5,6 +5,7 @@ Run headless bot training, get Sonnet analysis, and apply tuning to `src/headles
 ## Steps
 
 1. Run the training benchmark:
+
    ```bash
    node src/headless/train.js --games=200 --iterations=5
    ```
@@ -31,6 +32,7 @@ Run headless bot training, get Sonnet analysis, and apply tuning to `src/headles
 5. Wait for user response. Apply only the accepted changes.
 
 6. After applying changes, re-run the benchmark to verify improvement:
+
    ```bash
    node src/headless/train.js --games=200 --iterations=3
    ```
