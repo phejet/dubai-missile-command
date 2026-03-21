@@ -43,6 +43,16 @@ function glowOff(ctx) {
   ctx.shadowBlur = 0;
 }
 
+function hash01(a, b = 0, c = 0) {
+  const value = Math.sin(a * 12.9898 + b * 78.233 + c * 37.719) * 43758.5453123;
+  return value - Math.floor(value);
+}
+
+function pulse(time, speed, phase = 0, min = 0, max = 1) {
+  const t = 0.5 + 0.5 * Math.sin(time * speed + phase);
+  return min + (max - min) * t;
+}
+
 function maybeRecordReplayCheckpoint(g, { force = false, reason = null, tickOverride = null } = {}) {
   if (!g || !g._replayCheckpoints) return;
   const tick = tickOverride ?? g._replayTick;
@@ -206,24 +216,64 @@ export default function DubaiMissileCommand() {
     ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
+    // Atmospheric bloom over the skyline
+    const skylineGlow = ctx.createRadialGradient(BURJ_X, GROUND_Y - 60, 40, BURJ_X, GROUND_Y - 60, 420);
+    skylineGlow.addColorStop(0, "rgba(80, 180, 255, 0.16)");
+    skylineGlow.addColorStop(0.45, "rgba(50, 120, 220, 0.09)");
+    skylineGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = skylineGlow;
+    ctx.fillRect(0, 0, CANVAS_W, GROUND_Y + 30);
+
+    const heatBand = ctx.createLinearGradient(0, GROUND_Y - 140, 0, GROUND_Y + 10);
+    heatBand.addColorStop(0, "rgba(255, 160, 90, 0)");
+    heatBand.addColorStop(0.55, "rgba(255, 120, 70, 0.06)");
+    heatBand.addColorStop(1, "rgba(255, 90, 50, 0.12)");
+    ctx.fillStyle = heatBand;
+    ctx.fillRect(0, GROUND_Y - 140, CANVAS_W, 170);
+
     // Stars
     g.stars.forEach((s) => {
-      ctx.globalAlpha = 0.4 + 0.6 * Math.sin(g.time * 0.02 + s.twinkle);
+      const twinkle = 0.35 + 0.65 * Math.sin(g.time * 0.02 + s.twinkle);
+      ctx.globalAlpha = twinkle;
+      glow(ctx, "#ffffff", 3 + s.size * 3);
       ctx.fillStyle = "#fff";
       ctx.beginPath();
       ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
       ctx.fill();
+      glowOff(ctx);
     });
     ctx.globalAlpha = 1;
 
     // Moon
+    glow(ctx, "#ffe8b0", 24);
     ctx.fillStyle = "#ffe8b0";
     ctx.beginPath();
     ctx.arc(780, 60, 25, 0, Math.PI * 2);
     ctx.fill();
+    glowOff(ctx);
     ctx.fillStyle = COL.sky1;
     ctx.beginPath();
     ctx.arc(788, 55, 22, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Distant skyline silhouettes and dunes
+    ctx.fillStyle = "rgba(20, 26, 46, 0.75)";
+    for (let i = 0; i < 12; i++) {
+      const x = i * 82 + ((i % 2) * 10 - 6);
+      const w = 42 + (i % 3) * 18;
+      const h = 28 + ((i * 17) % 4) * 12;
+      ctx.fillRect(x, GROUND_Y - 40 - h, w, h);
+    }
+    ctx.fillStyle = "rgba(38, 30, 58, 0.9)";
+    ctx.beginPath();
+    ctx.moveTo(0, GROUND_Y);
+    for (let x = 0; x <= CANVAS_W; x += 30) {
+      const y = GROUND_Y - 18 - Math.sin(x * 0.012 + g.time * 0.01) * 7 - Math.cos(x * 0.02) * 4;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(CANVAS_W, CANVAS_H);
+    ctx.lineTo(0, CANVAS_H);
+    ctx.closePath();
     ctx.fill();
 
     // Decoy flares
@@ -267,6 +317,11 @@ export default function DubaiMissileCommand() {
       bGrad.addColorStop(1, "#0d1525");
       ctx.fillStyle = bGrad;
       ctx.fillRect(b.x, bTop, b.w, b.h);
+      const edgeGlow = ctx.createLinearGradient(b.x, bTop, b.x, CITY_Y);
+      edgeGlow.addColorStop(0, "rgba(160,200,255,0.08)");
+      edgeGlow.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = edgeGlow;
+      ctx.fillRect(b.x, bTop, 6, b.h);
       ctx.strokeStyle = "rgba(80,120,200,0.15)";
       ctx.lineWidth = 1;
       ctx.strokeRect(b.x, bTop, b.w, b.h);
@@ -277,9 +332,11 @@ export default function DubaiMissileCommand() {
       const startX = b.x + (b.w - cols * (winW + gap) + gap) / 2;
       for (let row = 0; row < Math.floor(b.h / 15); row++) {
         for (let col = 0; col < cols; col++) {
-          const lit = Math.sin(g.time * 0.01 + b.x + row + col * 3) > -0.3;
+          const seed = hash01(b.x, row, col);
+          const lit = Math.sin(g.time * (0.006 + seed * 0.01) + b.x * 0.03 + row * 0.8 + col * 2.4) > -0.35;
+          const brightness = 0.55 + 0.45 * Math.sin(g.time * (0.01 + seed * 0.02) + row + col * 2 + seed * 4);
           ctx.fillStyle = lit ? COL.buildingLit : "#0a0a15";
-          ctx.globalAlpha = lit ? 0.7 + Math.random() * 0.3 : 0.3;
+          ctx.globalAlpha = lit ? 0.45 + brightness * 0.35 : 0.22;
           ctx.fillRect(startX + col * (winW + gap), bTop + 10 + row * 15, winW, winH);
         }
       }
@@ -316,6 +373,12 @@ export default function DubaiMissileCommand() {
       ctx.lineWidth = 1;
       ctx.stroke();
       glowOff(ctx);
+      const spineGlow = ctx.createLinearGradient(bx, by - bh - 30, bx, by);
+      spineGlow.addColorStop(0, "rgba(255,255,255,0.45)");
+      spineGlow.addColorStop(0.25, "rgba(160,220,255,0.26)");
+      spineGlow.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = spineGlow;
+      ctx.fillRect(bx - 1, by - bh - 25, 2, bh + 20);
       for (let i = 0; i < 15; i++) {
         const ly = by - bh * 0.1 - bh * 0.8 * (i / 15);
         const lw = 8 * (1 - i / 20);
@@ -434,7 +497,7 @@ export default function DubaiMissileCommand() {
       ctx.ellipse(-22, 2, 3, 2, 0, 0, Math.PI * 2);
       ctx.fill();
       // Afterburner glow
-      const abLen = 4 + Math.random() * 5;
+      const abLen = 5 + 4 * pulse(g.time, 0.35, p.x * 0.04 + p.y * 0.02);
       ctx.fillStyle = "#ff8844";
       glow(ctx, "#ff6600", 8);
       ctx.beginPath();
@@ -587,7 +650,7 @@ export default function DubaiMissileCommand() {
         ctx.fill();
 
         // Oversized exhaust
-        const mFlameLen = 8 + Math.random() * 12;
+        const mFlameLen = 10 + 8 * pulse(g.time, 0.3, m.x * 0.015 + m.y * 0.02);
         ctx.fillStyle = "#ff6633";
         ctx.beginPath();
         ctx.moveTo(-14, -3.5);
@@ -644,7 +707,7 @@ export default function DubaiMissileCommand() {
         ctx.closePath();
         ctx.fill();
         // Bright flame
-        const wFlameLen = 4 + Math.random() * 7;
+        const wFlameLen = 5 + 4 * pulse(g.time, 0.4, m.x * 0.02 + m.y * 0.025);
         ctx.fillStyle = "#ff8844";
         ctx.beginPath();
         ctx.moveTo(-5, -1.5);
@@ -736,7 +799,7 @@ export default function DubaiMissileCommand() {
         ctx.fill();
 
         // Rocket flame
-        const flameLen = 4 + Math.random() * 6;
+        const flameLen = 5 + 4 * pulse(g.time, 0.45, m.x * 0.018 + m.y * 0.02);
         ctx.fillStyle = "#ff6633";
         glow(ctx, "#ff4400", 10);
         ctx.beginPath();
@@ -806,7 +869,7 @@ export default function DubaiMissileCommand() {
         ctx.closePath();
         ctx.fill();
         // Jet exhaust
-        const exLen = 6 + Math.random() * 8;
+        const exLen = 7 + 5 * pulse(g.time, 0.55, d.x * 0.02 + d.y * 0.03);
         ctx.fillStyle = "#ff6600";
         glow(ctx, "#ff4400", 12);
         ctx.beginPath();
@@ -904,6 +967,8 @@ export default function DubaiMissileCommand() {
 
     // Wild Hornets
     g.hornets.forEach((h) => {
+      const heading =
+        h.trail.length >= 1 ? Math.atan2(h.y - h.trail[h.trail.length - 1].y, h.x - h.trail[h.trail.length - 1].x) : 0;
       ctx.beginPath();
       h.trail.forEach((t, i) => {
         ctx.strokeStyle = `rgba(255,204,0,${(i / h.trail.length) * 0.6})`;
@@ -912,14 +977,24 @@ export default function DubaiMissileCommand() {
         else ctx.lineTo(t.x, t.y);
       });
       if (h.trail.length > 1) ctx.stroke();
+      ctx.save();
+      ctx.translate(h.x, h.y);
+      ctx.rotate(heading + Math.PI / 2);
       ctx.fillStyle = COL.hornet;
       glow(ctx, COL.hornet, 8);
       ctx.beginPath();
-      ctx.arc(h.x, h.y, 3, 0, Math.PI * 2);
+      ctx.moveTo(0, -5);
+      ctx.lineTo(3.5, 4);
+      ctx.lineTo(0, 2);
+      ctx.lineTo(-3.5, 4);
+      ctx.closePath();
       ctx.fill();
-      ctx.fillStyle = "rgba(255,204,0,0.5)";
-      ctx.fillRect(h.x - 5, h.y - 1, 3, 2);
-      ctx.fillRect(h.x + 2, h.y - 1, 3, 2);
+      ctx.fillStyle = "rgba(255,244,160,0.85)";
+      ctx.fillRect(-0.8, -4, 1.6, 5);
+      ctx.fillStyle = "rgba(255,204,0,0.45)";
+      ctx.fillRect(-6, 0, 4, 1.6);
+      ctx.fillRect(2, 0, 4, 1.6);
+      ctx.restore();
       glowOff(ctx);
     });
 
@@ -944,9 +1019,18 @@ export default function DubaiMissileCommand() {
         angle = Math.atan2(r.y - prev.y, r.x - prev.x) + Math.PI / 2;
       }
       ctx.rotate(angle);
-      ctx.fillRect(-4, -6, 8, 12);
-      ctx.fillStyle = "#fff";
-      ctx.fillRect(-2, -8, 4, 3);
+      ctx.fillStyle = "#2c4760";
+      ctx.beginPath();
+      ctx.moveTo(0, -10);
+      ctx.lineTo(5, 5);
+      ctx.lineTo(0, 2);
+      ctx.lineTo(-5, 5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#7fd5ff";
+      ctx.fillRect(-1.5, -8, 3, 5);
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.fillRect(-0.7, -5, 1.4, 2);
       ctx.restore();
       glowOff(ctx);
     });
@@ -987,7 +1071,7 @@ export default function DubaiMissileCommand() {
       ctx.fillRect(3, 5, 2, 4);
       // Exhaust flame
       ctx.fillStyle = "#ffaa22";
-      const flameLen = 4 + Math.random() * 6;
+      const flameLen = 5 + 4 * pulse(g.time, 0.5, p.x * 0.02 + p.y * 0.015);
       ctx.beginPath();
       ctx.moveTo(-2, 8);
       ctx.lineTo(0, 8 + flameLen);
@@ -1294,8 +1378,13 @@ export default function DubaiMissileCommand() {
     if (!showShop) {
       const cx = g.crosshairX,
         cy = g.crosshairY;
+      ctx.fillStyle = "rgba(0,255,200,0.08)";
+      ctx.beginPath();
+      ctx.arc(cx, cy, 18, 0, Math.PI * 2);
+      ctx.fill();
       ctx.strokeStyle = "rgba(0,255,200,0.7)";
       ctx.lineWidth = 1;
+      glow(ctx, COL.hud, 10);
       ctx.beginPath();
       ctx.arc(cx, cy, 12, 0, Math.PI * 2);
       ctx.stroke();
@@ -1309,9 +1398,22 @@ export default function DubaiMissileCommand() {
       ctx.moveTo(cx, cy + 6);
       ctx.lineTo(cx, cy + 18);
       ctx.stroke();
+      glowOff(ctx);
     }
 
     ctx.restore();
+
+    // Vignette and CRT-style glass finish
+    const vignette = ctx.createRadialGradient(CANVAS_W / 2, CANVAS_H * 0.45, 180, CANVAS_W / 2, CANVAS_H * 0.45, 620);
+    vignette.addColorStop(0, "rgba(0,0,0,0)");
+    vignette.addColorStop(0.68, "rgba(0,0,0,0.08)");
+    vignette.addColorStop(1, "rgba(2,4,12,0.42)");
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    ctx.fillStyle = "rgba(140, 220, 255, 0.035)";
+    ctx.fillRect(0, 0, CANVAS_W, 1);
+    ctx.fillStyle = "rgba(255,255,255,0.025)";
+    for (let y = 0; y < CANVAS_H; y += 4) ctx.fillRect(0, y, CANVAS_W, 1);
 
     // HUD
     ctx.fillStyle = "rgba(0,10,20,0.7)";
