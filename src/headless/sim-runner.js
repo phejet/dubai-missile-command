@@ -1,11 +1,11 @@
 import { setRng, fireInterceptor } from "../game-logic.js";
 import { initGame, update, buyUpgrade, closeShop, repairSite, repairLauncher, fireEmp } from "../game-sim.js";
 import { mulberry32 } from "./rng.js";
-import { botDecideAction, botDecideUpgrades } from "./bot-brain.js";
+import { botDecideAction, botDecideUpgrades, resolveBotConfig } from "./bot-brain.js";
 import defaultConfig from "./bot-config.json" with { type: "json" };
 
 export function runGame(botConfig, options = {}) {
-  const config = botConfig || defaultConfig;
+  const config = resolveBotConfig(botConfig || defaultConfig, options.preset);
   const seed = options.seed ?? Date.now();
   const maxTicks = options.maxTicks ?? 100000;
   const record = options.record ?? false;
@@ -96,9 +96,12 @@ const isMain =
 
 if (isMain) {
   const seed = parseInt(process.argv[2]) || 42;
+  const presetArg = process.argv.find((arg) => arg.startsWith("--preset="));
+  const preset = presetArg ? presetArg.split("=")[1] : null;
   console.log(`Running game with seed ${seed}...`);
+  if (preset) console.log(`Preset: ${preset}`);
   const t0 = performance.now();
-  const result = runGame(null, { seed });
+  const result = runGame(null, { seed, preset });
   const elapsed = performance.now() - t0;
   console.log(`Done in ${elapsed.toFixed(0)}ms`);
   console.log(`  Score: ${result.score}`);
@@ -108,7 +111,7 @@ if (isMain) {
 
   // Determinism check
   console.log(`\nDeterminism check (same seed)...`);
-  const result2 = runGame(null, { seed });
+  const result2 = runGame(null, { seed, preset });
   if (result.score === result2.score && result.wave === result2.wave) {
     console.log(`  PASS — same seed produces same result`);
   } else {

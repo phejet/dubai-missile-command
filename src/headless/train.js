@@ -2,6 +2,7 @@ import { Worker } from "worker_threads";
 import { readFileSync, appendFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import { resolveBotConfig } from "./bot-brain.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -17,6 +18,7 @@ const NUM_GAMES = parseInt(getArg("games", "100"));
 const NUM_ITERATIONS = parseInt(getArg("iterations", "10"));
 const NUM_WORKERS = parseInt(getArg("workers", String(Math.min(8, (await import("os")).cpus().length))));
 const MAX_TICKS = parseInt(getArg("maxTicks", "100000"));
+const PRESET = getArg("preset", null);
 
 const CONFIG_PATH = join(__dirname, "bot-config.json");
 const LOG_PATH = join(__dirname, "training-log.jsonl");
@@ -44,7 +46,7 @@ function runBatch(config, numGames) {
       }
 
       const worker = new Worker(join(__dirname, "game-worker.js"), {
-        workerData: { games, config },
+        workerData: { games, config, preset: PRESET },
       });
 
       workers.push(worker);
@@ -112,9 +114,10 @@ async function main() {
   console.log(`Games per iteration: ${NUM_GAMES}`);
   console.log(`Iterations: ${NUM_ITERATIONS}`);
   console.log(`Workers: ${NUM_WORKERS}`);
+  console.log(`Preset: ${PRESET || "perfect"}`);
   console.log();
 
-  const config = loadConfig();
+  const config = resolveBotConfig(loadConfig(), PRESET);
   const history = [];
 
   const totalT0 = performance.now();

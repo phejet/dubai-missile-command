@@ -1,4 +1,117 @@
-import { LAUNCHERS, GROUND_Y } from "../game-logic.js";
+import { CANVAS_W, LAUNCHERS, GROUND_Y, getRng } from "../game-logic.js";
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function randRange(rng, min, max) {
+  return min + rng() * (max - min);
+}
+
+function randIntRange(rng, min, max) {
+  return Math.round(randRange(rng, min, max));
+}
+
+function deepMerge(target, source) {
+  const out = Array.isArray(target) ? [...target] : { ...target };
+  for (const [key, value] of Object.entries(source)) {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      out[key] = deepMerge(out[key] || {}, value);
+    } else {
+      out[key] = value;
+    }
+  }
+  return out;
+}
+
+export function resolveBotConfig(baseConfig, presetName = null) {
+  const { presets = {}, defaultPreset = "perfect", ...config } = baseConfig;
+  const resolvedPreset = presetName || defaultPreset;
+  const presetOverrides = presets[resolvedPreset];
+  if (!presetOverrides) {
+    throw new Error(`Unknown bot preset: ${resolvedPreset}`);
+  }
+  const resolved = deepMerge(config, presetOverrides);
+  resolved.activePreset = resolvedPreset;
+  return resolved;
+}
+
+function getHumanState(g) {
+  if (!g._botHumanState) {
+    g._botHumanState = {
+      focusCenterX: CANVAS_W * 0.5,
+      focusWidth: CANVAS_W * 0.45,
+      focusUntil: 0,
+      reactionDelay: 0,
+      seenTicks: new WeakMap(),
+      committedTargetRef: null,
+      committedUntil: -Infinity,
+    };
+  }
+  return g._botHumanState;
+}
+
+function refreshHumanFocus(state, human, tick, rng, committedTargetRef) {
+  if (tick < state.focusUntil) return;
+  const centers = [CANVAS_W * 0.2, CANVAS_W * 0.5, CANVAS_W * 0.8];
+  const nextCenter =
+    tick === 0 && state.focusUntil === 0
+      ? CANVAS_W * 0.5
+      : committedTargetRef && committedTargetRef.alive && rng() < 0.4
+        ? clamp(committedTargetRef.x, CANVAS_W * 0.18, CANVAS_W * 0.82)
+        : centers[Math.floor(rng() * centers.length)];
+  state.focusCenterX = nextCenter;
+  state.focusWidth = CANVAS_W * human.focusWidthRatio;
+  state.focusUntil = tick + randIntRange(rng, human.focusDurationMin, human.focusDurationMax);
+  state.reactionDelay = randIntRange(rng, human.reactionDelayMin, human.reactionDelayMax);
+}
+
+function humanizeThreats(g, threats, human, tick) {
+  const rng = getRng();
+  const state = getHumanState(g);
+  if (g.wave < human.startWave || threats.length < human.minThreatCount) {
+    return {
+      state,
+      perceived: threats.map((threat) => ({ ...threat, inFocus: true })),
+    };
+  }
+  refreshHumanFocus(state, human, tick, rng, state.committedTargetRef);
+
+  const perceived = [];
+  for (const threat of threats) {
+    if (!threat.targetRef?.alive) continue;
+    const inFocus = Math.abs(threat.rawX - state.focusCenterX) <= state.focusWidth / 2;
+    const highSalience = threat.isMirv || threat.priority <= 1 || threat.targetRef.diving;
+    const urgentPeripheral = threat.rawY >= human.peripheralUrgentY;
+    const urgentNoticeChance = threat.priority === 0 ? human.urgentNoticeChance : human.peripheralNoticeChance;
+    const noticed = highSalience || inFocus || (urgentPeripheral && rng() < urgentNoticeChance);
+    if (!noticed) continue;
+
+    if (!state.seenTicks.has(threat.targetRef)) {
+      state.seenTicks.set(threat.targetRef, tick);
+    }
+    const seenTick = state.seenTicks.get(threat.targetRef);
+    const reactionDelay =
+      threat.priority === 0 ? 0 : highSalience ? Math.floor(state.reactionDelay * 0.5) : state.reactionDelay;
+    if (tick - seenTick < reactionDelay) continue;
+
+    const priorityPenalty = !inFocus && !highSalience ? 1 : 0;
+    perceived.push({ ...threat, inFocus, priority: Math.min(threat.priority + priorityPenalty, 3) });
+  }
+
+  return { state, perceived };
+}
+
+function applyHumanAim(point, human) {
+  const rng = getRng();
+  const leadBlend = randRange(rng, human.leadBlendMin, human.leadBlendMax);
+  const jitterX = randRange(rng, -human.aimJitter, human.aimJitter);
+  const jitterY = randRange(rng, -human.aimJitter, human.aimJitter);
+  return {
+    x: clamp(point.rawX + (point.x - point.rawX) * leadBlend + jitterX, 20, 880),
+    y: clamp(point.rawY + (point.y - point.rawY) * leadBlend + jitterY, 20, 545),
+  };
+}
 
 export function leadTarget(tx, ty, tvx, tvy, config, interceptorSpeed = 5, g = null, accel = 1) {
   const iterations = config.leadShot.iterations;
@@ -36,6 +149,8 @@ export function leadTarget(tx, ty, tvx, tvy, config, interceptorSpeed = 5, g = n
 
 export function botDecideAction(g, config, lastFireTick, tick) {
   const cfg = config.targeting;
+  const human = config.humanization?.enabled ? config.humanization : null;
+  const rng = getRng();
   const interceptorSpeed = 5;
 
   // Check if any launcher has ammo
@@ -50,17 +165,17 @@ export function botDecideAction(g, config, lastFireTick, tick) {
     if (!d.alive) continue;
     if (d.diving) {
       const led = leadTarget(d.x, d.y, d.vx, d.vy, config, interceptorSpeed, g);
-      allThreats.push({ ...led, priority: 0 });
+      allThreats.push({ ...led, rawX: d.x, rawY: d.y, priority: 0, targetRef: d });
     } else if (d.bombDropped && !d.diving) {
       // Transitional: bomb dropped but not yet diving — still a threat
       const led = leadTarget(d.x, d.y, d.vx, d.vy, config, interceptorSpeed, g);
-      allThreats.push({ ...led, priority: 1 });
+      allThreats.push({ ...led, rawX: d.x, rawY: d.y, priority: 1, targetRef: d });
     } else if (d.y > cfg.minThreatY && !d.bombDropped) {
       // Engage horizontal drones before they drop bombs
       const [minX, maxX] = cfg.droneEngageRange;
       if ((d.vx > 0 && d.x > minX) || (d.vx < 0 && d.x < maxX)) {
         const led = leadTarget(d.x, d.y, d.vx, d.vy, config, interceptorSpeed, g);
-        allThreats.push({ ...led, priority: 1 });
+        allThreats.push({ ...led, rawX: d.x, rawY: d.y, priority: 1, targetRef: d });
       }
     }
   }
@@ -72,7 +187,7 @@ export function botDecideAction(g, config, lastFireTick, tick) {
     if (m.type === "mirv") {
       // MIRVs are always top priority — must kill before split
       const led = leadTarget(m.x, m.y, m.vx, m.vy, config, interceptorSpeed, g, m.accel || 1);
-      allThreats.push({ ...led, priority: 0, isMirv: true });
+      allThreats.push({ ...led, rawX: m.x, rawY: m.y, priority: 0, isMirv: true, targetRef: m });
       continue;
     }
     const led = leadTarget(m.x, m.y, m.vx, m.vy, config, interceptorSpeed, g, m.accel || 1);
@@ -86,7 +201,7 @@ export function botDecideAction(g, config, lastFireTick, tick) {
           : m.y > cfg.missileYThresholds.medium
             ? 1
             : 2;
-    allThreats.push({ ...led, priority });
+    allThreats.push({ ...led, rawX: m.x, rawY: m.y, priority, targetRef: m });
   }
 
   // Deprioritize threats that already have interceptors heading toward them
@@ -101,13 +216,22 @@ export function botDecideAction(g, config, lastFireTick, tick) {
     // Demote covered threats: each existing interceptor adds 1 to priority (lower = more urgent)
     // MIRVs need multiple hits — never demote them
     if (t.isMirv) continue;
-    if (t.coveredBy > 0 && t.priority > 0) {
+    const respectsCover = !human || rng() >= human.ignoreCoverChance;
+    if (respectsCover && t.coveredBy > 0 && t.priority > 0) {
       t.priority = Math.min(t.priority + t.coveredBy, 3);
     }
   }
 
+  let candidateThreats = allThreats;
+  let humanState = null;
+  if (human) {
+    const humanized = humanizeThreats(g, allThreats, human, tick);
+    humanState = humanized.state;
+    candidateThreats = humanized.perceived;
+  }
+
   const totalAmmo = g.ammo.reduce((s, a) => s + a, 0);
-  const threatCount = allThreats.length;
+  const threatCount = candidateThreats.length;
   const maxInFlight = threatCount > cfg.highThreatThreshold ? cfg.maxInFlightHigh : cfg.maxInFlightBase;
   let cooldown =
     totalAmmo < cfg.lowAmmoThreshold
@@ -121,11 +245,11 @@ export function botDecideAction(g, config, lastFireTick, tick) {
   if (hasJetDrone) cooldown = Math.floor(cooldown * 0.6);
 
   // Rapid fire when MIRV present — must kill before split
-  const hasMirv = allThreats.some((t) => t.isMirv);
+  const hasMirv = candidateThreats.some((t) => t.isMirv);
   if (hasMirv) cooldown = Math.floor(cooldown * (config.mirv?.cooldownMultiplier || 0.4));
 
   // Never fully throttle when there's an urgent (priority-0) threat
-  const hasUrgentThreat = allThreats.some((t) => t.priority === 0);
+  const hasUrgentThreat = candidateThreats.some((t) => t.priority === 0);
   if (hasUrgentThreat && cooldown > cfg.cooldownHighThreat) {
     cooldown = cfg.cooldownHighThreat;
   }
@@ -138,41 +262,60 @@ export function botDecideAction(g, config, lastFireTick, tick) {
     );
   }
 
+  function finalizeAim(point) {
+    const aimed = human ? applyHumanAim(point, human) : point;
+    if (human && humanState && point.targetRef) {
+      humanState.committedTargetRef = point.targetRef;
+      humanState.committedUntil = tick + randIntRange(rng, human.commitmentDurationMin, human.commitmentDurationMax);
+    }
+    return {
+      x: clamp(aimed.x, 20, 880),
+      y: clamp(aimed.y, 20, 545),
+    };
+  }
+
+  if (human && humanState && humanState.committedTargetRef && tick < humanState.committedUntil) {
+    const committedThreat = candidateThreats.find((t) => t.targetRef === humanState.committedTargetRef);
+    if (
+      committedThreat &&
+      tick - lastFireTick >= cooldown &&
+      inFlight < maxInFlight &&
+      rng() < human.commitmentChance &&
+      isSafeFromPlanes(committedThreat)
+    ) {
+      return finalizeAim(committedThreat);
+    }
+  }
+
   // Urgent fast-path: bypass inFlight cap for priority-0 threats
   if (hasUrgentThreat && tick - lastFireTick >= cooldown) {
-    const urgentThreats = allThreats.filter((t) => t.priority === 0);
+    const urgentThreats = candidateThreats.filter((t) => t.priority === 0);
     urgentThreats.sort((a, b) => b.y - a.y);
     for (const ut of urgentThreats) {
       if (isSafeFromPlanes(ut)) {
-        return {
-          x: Math.max(20, Math.min(880, ut.x)),
-          y: Math.max(20, Math.min(545, ut.y)),
-        };
+        return finalizeAim(ut);
       }
     }
   }
 
-  if (allThreats.length === 0 || inFlight >= maxInFlight || tick - lastFireTick < cooldown) {
+  if (candidateThreats.length === 0 || inFlight >= maxInFlight || tick - lastFireTick < cooldown) {
     return null;
   }
 
   // Fast-exit: solo priority-0 threat — skip cluster scoring
-  const p0Threats = allThreats.filter((t) => t.priority === 0);
+  const p0Threats = candidateThreats.filter((t) => t.priority === 0);
   if (p0Threats.length === 1 && isSafeFromPlanes(p0Threats[0])) {
-    return {
-      x: Math.max(20, Math.min(880, p0Threats[0].x)),
-      y: Math.max(20, Math.min(545, p0Threats[0].y)),
-    };
+    return finalizeAim(p0Threats[0]);
   }
 
-  allThreats.sort((a, b) => a.priority - b.priority);
+  candidateThreats.sort((a, b) => a.priority - b.priority);
 
   // Find best cluster shot
   let bestPoint = null;
   let bestScore = 0;
-  for (const t of allThreats) {
+  for (const t of candidateThreats) {
     let score = 0;
-    for (const o of allThreats) {
+    for (const o of candidateThreats) {
       const d = Math.sqrt((t.x - o.x) ** 2 + (t.y - o.y) ** 2);
       if (d < cfg.clusterRadius) score += 1;
     }
@@ -185,10 +328,10 @@ export function botDecideAction(g, config, lastFireTick, tick) {
 
   if (bestPoint && !isSafeFromPlanes(bestPoint)) {
     // Try other threats as fallback
-    const sorted = allThreats
+    const sorted = candidateThreats
       .map((t) => {
         let score = 0;
-        for (const o of allThreats) {
+        for (const o of candidateThreats) {
           const d = Math.sqrt((t.x - o.x) ** 2 + (t.y - o.y) ** 2);
           if (d < cfg.clusterRadius) score += 1;
         }
@@ -206,10 +349,7 @@ export function botDecideAction(g, config, lastFireTick, tick) {
   }
 
   if (bestPoint) {
-    return {
-      x: Math.max(20, Math.min(880, bestPoint.x)),
-      y: Math.max(20, Math.min(545, bestPoint.y)),
-    };
+    return finalizeAim(bestPoint);
   }
   return null;
 }
