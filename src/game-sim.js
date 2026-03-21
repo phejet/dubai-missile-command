@@ -162,8 +162,8 @@ const BUILDINGS_RIGHT = [
   [840, 28, 95, 3],
 ];
 
-function boom(g, x, y, radius, color, playerCaused, onEvent, initialRadius = 0) {
-  createExplosion(g, x, y, radius, color, playerCaused, initialRadius);
+function boom(g, x, y, radius, color, playerCaused, onEvent, initialRadius = 0, options = {}) {
+  createExplosion(g, x, y, radius, color, playerCaused, initialRadius, options);
   if (onEvent) onEvent("sfx", { name: "explosion", size: radius > 45 ? "large" : radius > 25 ? "medium" : "small" });
 }
 
@@ -269,7 +269,7 @@ export function spawnMirv(g, onEvent) {
     health: hp,
     maxHealth: hp,
     splitY: rand(200, 300),
-    warheadCount: 3 + Math.min(2, Math.floor((g.wave - 8) / 4)),
+    warheadCount: 3 + Math.min(2, Math.max(0, Math.floor((g.wave - 8) / 4))),
     splitTriggered: false,
     empSlowTimer: 0,
     _hitByExplosions: new Set(),
@@ -1050,7 +1050,7 @@ export function update(g, dt, onEvent) {
           empSlowTimer: 0,
         });
       }
-      boom(g, m.x, m.y, 35, COL.mirv, false, onEvent);
+      boom(g, m.x, m.y, 35, COL.mirv, false, onEvent, 0, { harmless: true });
       if (onEvent) onEvent("sfx", { name: "mirvSplit" });
       return;
     }
@@ -1269,7 +1269,7 @@ export function update(g, dt, onEvent) {
       ex.radius += 2 * dt;
       if (ex.radius >= ex.maxRadius) ex.growing = false;
     } else ex.alpha -= 0.03 * dt;
-    if (ex.alpha > 0.2) {
+    if (ex.alpha > 0.2 && !ex.harmless) {
       if (!ex.kills) ex.kills = 0;
       g.missiles.forEach((m) => {
         if (!m.alive) return;
@@ -1491,10 +1491,11 @@ export function buyUpgrade(g, key) {
 
 export function closeShop(g) {
   g.wave++;
+  const lateWavePressure = Math.max(0, g.wave - 8);
   g.waveMissiles = 0;
-  g.waveTarget = 8 + g.wave * 4;
-  g.spawnInterval = Math.max(25, 120 - g.wave * 8);
-  g.droneInterval = Math.max(40, 160 - g.wave * 20);
+  g.waveTarget = 8 + g.wave * 4 + lateWavePressure * 2;
+  g.spawnInterval = Math.max(22, 120 - g.wave * 8 - lateWavePressure * 2);
+  g.droneInterval = Math.max(36, 160 - g.wave * 20 - lateWavePressure * 4);
   const baseAmmo = 12 + g.wave * 1;
   const ammoMultiplier = g.upgrades.launcherKit >= 3 ? 2 : g.upgrades.launcherKit >= 1 ? 1.5 : 1;
   g.ammo = g.ammo.map((_, i) => (g.launcherHP[i] > 0 ? Math.round(baseAmmo * ammoMultiplier) : 0));

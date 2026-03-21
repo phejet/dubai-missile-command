@@ -143,7 +143,7 @@ export function fireInterceptor(g, targetX, targetY) {
 }
 
 let _explosionId = 0;
-export function createExplosion(g, x, y, radius, color, playerCaused, initialRadius = 0) {
+export function createExplosion(g, x, y, radius, color, playerCaused, initialRadius = 0, options = {}) {
   g.explosions.push({
     id: _explosionId++,
     x,
@@ -154,6 +154,7 @@ export function createExplosion(g, x, y, radius, color, playerCaused, initialRad
     alpha: 1,
     color: color || COL.explosion,
     playerCaused: !!playerCaused,
+    harmless: !!options.harmless,
   });
   const particleBudget = Math.min(12, MAX_PARTICLES - g.particles.length);
   for (let i = 0; i < particleBudget; i++) {
