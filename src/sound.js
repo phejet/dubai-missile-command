@@ -340,6 +340,30 @@ const SFX = {
     scheduleRelease(0.25);
   },
 
+  planeIncoming() {
+    if (!ensureCtx() || !trackVoice()) return;
+    const t = now();
+    // Distant jet engine spool-up
+    const o = ctx.createOscillator();
+    o.type = "sawtooth";
+    o.frequency.setValueAtTime(60, t);
+    o.frequency.linearRampToValueAtTime(110, t + 1.5);
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.setValueAtTime(150, t);
+    lp.frequency.linearRampToValueAtTime(400, t + 1.5);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.001, t);
+    g.gain.linearRampToValueAtTime(0.06, t + 0.8);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 1.5);
+    o.connect(lp);
+    lp.connect(g);
+    g.connect(master);
+    o.start(t);
+    o.stop(t + 1.5);
+    scheduleRelease(1.5);
+  },
+
   planePass() {
     if (!ensureCtx() || !trackVoice()) return;
     const t = now();

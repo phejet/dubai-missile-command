@@ -27,7 +27,7 @@ export const UPGRADES = {
     icon: "\uD83D\uDC1D",
     desc: "Ukrainian FPV drone swarm. Autonomous kamikaze drones hunt incoming threats.",
     maxLevel: 3,
-    costs: [800, 2000, 4950],
+    costs: [650, 2000, 4950],
     color: COL.hornet,
     statLines: ["1 drone / 4s \u00B7 25 blast", "2 drones / 3s \u00B7 30 blast", "3 drones / 2s \u00B7 40 blast"],
   },
@@ -36,7 +36,7 @@ export const UPGRADES = {
     icon: "\uD83E\uDD85",
     desc: "AI-guided reusable interceptor. Launches vertically, locks nearest threat.",
     maxLevel: 3,
-    costs: [1000, 2500, 6000],
+    costs: [800, 2500, 6000],
     color: COL.roadrunner,
     statLines: [
       "1 interceptor / 5s \u00B7 fast",
@@ -49,7 +49,7 @@ export const UPGRADES = {
     icon: "\uD83C\uDF86",
     desc: "Burj launches IR decoys. Incoming missiles retarget to flares and miss.",
     maxLevel: 3,
-    costs: [900, 2200, 5500],
+    costs: [700, 2200, 5500],
     color: COL.flare,
     statLines: [
       "1 flare / 5s \u00B7 lures 1 missile",
@@ -62,7 +62,7 @@ export const UPGRADES = {
     icon: "\u26A1",
     desc: "High-energy laser defense. Instant beam locks on and burns down incoming projectiles.",
     maxLevel: 3,
-    costs: [1200, 3000, 7050],
+    costs: [950, 3000, 7050],
     color: COL.laser,
     statLines: [
       "1 beam \u00B7 60 range \u00B7 slow charge",
@@ -75,7 +75,7 @@ export const UPGRADES = {
     icon: "\uD83D\uDD2B",
     desc: "Close-in weapon system. Last-resort rapid-fire autocannon near protected sites.",
     maxLevel: 3,
-    costs: [1100, 2800, 6500],
+    costs: [850, 2800, 6500],
     color: COL.phalanx,
     statLines: [
       "1 turret at Burj \u00B7 100 range \u00B7 50% acc",
@@ -105,14 +105,14 @@ export const UPGRADES = {
   launcherKit: {
     name: "Launcher Upgrade",
     icon: "\uD83D\uDEE1\uFE0F",
-    desc: "Progressive launcher enhancement. Magazine, armor, then speed.",
+    desc: "Progressive launcher enhancement. Magazine, armor, then double magazine.",
     maxLevel: 3,
     costs: [800, 1800, 3000],
     color: COL.launcherKit,
     statLines: [
-      "Extended Mag: +8 ammo per wave",
+      "Extended Mag: +50% ammo per wave",
       "Reinforced: launchers gain +1 HP",
-      "Fast Interceptors: speed 5 \u2192 7",
+      "Deep Magazine: +100% ammo per wave",
     ],
   },
   emp: {
@@ -246,6 +246,7 @@ export function spawnPlane(g, onEvent) {
     alive: true,
     fireTimer: 0,
     fireInterval: 25,
+    evadeTimer: 0,
   });
   if (onEvent) onEvent("sfx", { name: "planePass" });
 }
@@ -305,10 +306,15 @@ export function spawnDrone(g) {
   });
 }
 
+function isSiteAlive(g, key) {
+  const site = g.defenseSites.find((s) => s.key === key);
+  return !site || site.alive; // no site yet (pre-purchase) = active
+}
+
 export function updateAutoSystems(g, dt, allThreats, onEvent) {
   const _rng = getRng();
   // ── WILD HORNETS ──
-  if (g.upgrades.wildHornets > 0) {
+  if (g.upgrades.wildHornets > 0 && isSiteAlive(g, "wildHornets")) {
     const lvl = g.upgrades.wildHornets;
     const interval = [240, 180, 120][lvl - 1];
     const count = lvl;
@@ -361,7 +367,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
   }
 
   // ── ANDURIL ROADRUNNER ──
-  if (g.upgrades.roadrunner > 0) {
+  if (g.upgrades.roadrunner > 0 && isSiteAlive(g, "roadrunner")) {
     const lvl = g.upgrades.roadrunner;
     const interval = [300, 240, 180][lvl - 1];
     const count = [1, 2, 3][lvl - 1];
@@ -416,7 +422,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
   }
 
   // ── DECOY FLARES ──
-  if (g.upgrades.flare > 0) {
+  if (g.upgrades.flare > 0 && isSiteAlive(g, "flare")) {
     const lvl = g.upgrades.flare;
     const interval = [300, 240, 180][lvl - 1];
     const count = lvl;
@@ -496,7 +502,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
   }
 
   // ── IRON BEAM ──
-  if (g.upgrades.ironBeam > 0) {
+  if (g.upgrades.ironBeam > 0 && isSiteAlive(g, "ironBeam")) {
     const lvl = g.upgrades.ironBeam;
     const beamCount = lvl;
     const range = [250, 320, 420][lvl - 1];
@@ -536,7 +542,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
   }
 
   // ── PHALANX CIWS ──
-  if (g.upgrades.phalanx > 0) {
+  if (g.upgrades.phalanx > 0 && isSiteAlive(g, "phalanx")) {
     const lvl = g.upgrades.phalanx;
     const turrets = getPhalanxTurrets(lvl);
     const range = [100, 130, 160][lvl - 1];
@@ -575,7 +581,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
   }
 
   // ── PATRIOT BATTERY ──
-  if (g.upgrades.patriot > 0) {
+  if (g.upgrades.patriot > 0 && isSiteAlive(g, "patriot")) {
     const lvl = g.upgrades.patriot;
     const interval = [480, 360, 300][lvl - 1];
     const count = lvl >= 3 ? 2 : 1;
@@ -766,8 +772,14 @@ export function update(g, dt, onEvent) {
     for (let i = 0; i < Math.min(droneCount, 4); i++) spawnDrone(g);
   }
   g.planeTimer += dt;
+  // F-15 incoming warning ~2 seconds before arrival
+  if (!g.planeWarned && g.planeTimer >= g.planeInterval - 120) {
+    g.planeWarned = true;
+    if (onEvent) onEvent("sfx", { name: "planeIncoming" });
+  }
   if (g.planeTimer >= g.planeInterval) {
     g.planeTimer = 0;
+    g.planeWarned = false;
     spawnPlane(g, onEvent);
   }
 
@@ -1034,8 +1046,26 @@ export function update(g, dt, onEvent) {
   g.planes.forEach((p) => {
     if (!p.alive) return;
     p.blinkTimer += dt;
+
+    // Evasion: bank away from nearby player explosions
+    if (p.evadeTimer > 0) {
+      p.evadeTimer -= dt;
+      if (p.evadeTimer <= 0) {
+        p.vy = 0; // return to level flight
+        p.evadeTimer = 0;
+      }
+    } else {
+      g.explosions.forEach((ex) => {
+        if (ex.playerCaused && ex.growing && p.alive && dist(p.x, p.y, ex.x, ex.y) < 120) {
+          // Bank away from explosion
+          p.vy = ex.y > p.y ? -3 : 3;
+          p.evadeTimer = 30;
+        }
+      });
+    }
+
     p.x += p.vx * dt;
-    p.y += p.vy * dt;
+    p.y = Math.max(60, Math.min(320, p.y + p.vy * dt));
     p.fireTimer += dt;
     if (p.fireTimer >= p.fireInterval) {
       let closest = null,
@@ -1049,15 +1079,23 @@ export function update(g, dt, onEvent) {
       });
       if (closest) {
         p.fireTimer = 0;
-        const dx = closest.x - p.x,
-          dy = closest.y - p.y;
-        const len = Math.sqrt(dx * dx + dy * dy);
         const spd = 8;
+        // Lead the target: estimate where it will be when interceptor arrives
+        let aimX = closest.x, aimY = closest.y;
+        for (let i = 0; i < 4; i++) {
+          const d = Math.sqrt((aimX - p.x) ** 2 + (aimY - p.y) ** 2);
+          const frames = d / spd;
+          aimX = closest.x + (closest.vx || 0) * frames;
+          aimY = closest.y + (closest.vy || 0) * frames;
+        }
+        const dx = aimX - p.x,
+          dy = aimY - p.y;
+        const len = Math.sqrt(dx * dx + dy * dy);
         g.interceptors.push({
           x: p.x,
           y: p.y,
-          targetX: closest.x,
-          targetY: closest.y,
+          targetX: aimX,
+          targetY: aimY,
           vx: (dx / len) * spd,
           vy: (dy / len) * spd,
           trail: [],
@@ -1066,20 +1104,17 @@ export function update(g, dt, onEvent) {
         });
       }
     }
-    g.explosions.forEach((ex) => {
-      if (ex.playerCaused && ex.alpha > 0.2 && p.alive && dist(p.x, p.y, ex.x, ex.y) < ex.radius + 15) {
+    // Only direct interceptor hits kill F-15s (not splash damage)
+    g.interceptors.forEach((ic) => {
+      if (!ic.alive || ic.fromF15) return;
+      if (p.alive && dist(ic.x, ic.y, p.x, p.y) < 18) {
+        ic.alive = false;
         p.alive = false;
         g.score -= 500;
         boom(g, p.x, p.y, 40, "#ff0000", false, onEvent);
       }
     });
-    g.missiles.forEach((m) => {
-      if (m.alive && p.alive && dist(m.x, m.y, p.x, p.y) < 20) {
-        p.alive = false;
-        m.alive = false;
-        boom(g, p.x, p.y, 40, "#ff0000", false, onEvent);
-      }
-    });
+    // Missiles pass through F-15s — only player interceptors can shoot them down
     if (p.x < -80 || p.x > CANVAS_W + 80) p.alive = false;
   });
 
@@ -1162,10 +1197,11 @@ export function closeShop(g) {
   g.wave++;
   g.waveMissiles = 0;
   g.waveTarget = 8 + g.wave * 4;
-  g.spawnInterval = Math.max(20, 110 - g.wave * 10);
+  g.spawnInterval = Math.max(25, 120 - g.wave * 8);
   g.droneInterval = Math.max(40, 160 - g.wave * 20);
-  const bonusAmmo = g.upgrades.launcherKit >= 1 ? 8 : 0;
-  g.ammo = g.ammo.map((_, i) => (g.launcherHP[i] > 0 ? 10 + g.wave * 1 + bonusAmmo : 0));
+  const baseAmmo = 12 + g.wave * 1;
+  const ammoMultiplier = g.upgrades.launcherKit >= 3 ? 2 : g.upgrades.launcherKit >= 1 ? 1.5 : 1;
+  g.ammo = g.ammo.map((_, i) => (g.launcherHP[i] > 0 ? Math.round(baseAmmo * ammoMultiplier) : 0));
   g.waveComplete = false;
   g.state = "playing";
 }
@@ -1177,7 +1213,7 @@ export function fireEmp(g, onEvent) {
   g.empReady = false;
   g.empRings.push({
     x: BURJ_X,
-    y: GROUND_Y - BURJ_H * 0.3,
+    y: GROUND_Y - BURJ_H * 0.5,
     radius: 0,
     maxRadius: [250, 400, 550][lvl - 1],
     damage: lvl,
@@ -1203,7 +1239,6 @@ export function repairSite(g, siteKey) {
   if (!site) return false;
   g.score -= cost;
   site.alive = true;
-  g.upgrades[site.key] = site.savedLevel;
   return true;
 }
 

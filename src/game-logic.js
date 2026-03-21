@@ -124,7 +124,7 @@ export function fireInterceptor(g, targetX, targetY) {
   g.ammo[bestIdx]--;
   g.stats.shotsFired++;
   const l = LAUNCHERS[bestIdx];
-  const speed = g.upgrades.launcherKit >= 3 ? 7 : 5;
+  const speed = 5;
   const dx = targetX - l.x;
   const dy = targetY - l.y;
   const len = Math.sqrt(dx * dx + dy * dy);
@@ -185,7 +185,7 @@ const SITE_ENTITY_MAP = {
 
 export function destroyDefenseSite(g, site) {
   site.alive = false;
-  g.upgrades[site.key] = 0;
+  // Disable the system but preserve upgrade level — repair restores function
   const arrayKey = SITE_ENTITY_MAP[site.key];
   if (arrayKey) g[arrayKey] = [];
 }

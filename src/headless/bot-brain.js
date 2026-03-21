@@ -36,7 +36,7 @@ export function leadTarget(tx, ty, tvx, tvy, config, interceptorSpeed = 5, g = n
 
 export function botDecideAction(g, config, lastFireTick, tick) {
   const cfg = config.targeting;
-  const interceptorSpeed = g.upgrades.launcherKit >= 3 ? 7 : 5;
+  const interceptorSpeed = 5;
 
   // Check if any launcher has ammo
   const hasAmmo = g.ammo.some((a, i) => a > 0 && g.launcherHP[i] > 0);

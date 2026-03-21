@@ -64,6 +64,7 @@ export default function DubaiMissileCommand() {
     if (type === "sfx") {
       const sfxMap = {
         explosion: () => SFX.explosion(data.size),
+        planeIncoming: () => SFX.planeIncoming(),
         planePass: () => SFX.planePass(),
         hornetBuzz: () => SFX.hornetBuzz(),
         patriotLaunch: () => SFX.patriotLaunch(),
@@ -302,6 +303,11 @@ export default function DubaiMissileCommand() {
       ctx.save();
       ctx.translate(p.x, p.y);
       if (p.vx < 0) ctx.scale(-1, 1);
+      // Bank when evading
+      if (p.evadeTimer > 0) {
+        const bankAngle = p.vy > 0 ? 0.3 : -0.3;
+        ctx.rotate(bankAngle);
+      }
       // Fuselage — sleek fighter body
       ctx.fillStyle = "#7888a0";
       ctx.beginPath();
@@ -805,10 +811,17 @@ export default function DubaiMissileCommand() {
       }
       ctx.fillStyle = "rgba(0,0,0,0.5)";
       ctx.fillRect(l.x - 15, l.y + 8, 30, 5);
-      const ammoMax = 10 + g.wave * 1 + (g.upgrades.launcherKit >= 1 ? 8 : 0);
+      const baseAmmo = 12 + g.wave * 1;
+      const ammoMul = g.upgrades.launcherKit >= 3 ? 2 : g.upgrades.launcherKit >= 1 ? 1.5 : 1;
+      const ammoMax = Math.round(baseAmmo * ammoMul);
       const ammoRatio = g.ammo[i] / ammoMax;
       ctx.fillStyle = ammoRatio > 0.3 ? COL.hud : COL.warning;
       ctx.fillRect(l.x - 15, l.y + 8, 30 * ammoRatio, 5);
+      // Ammo count
+      ctx.font = "bold 10px monospace";
+      ctx.textAlign = "center";
+      ctx.fillStyle = ammoRatio > 0.3 ? COL.hud : COL.warning;
+      ctx.fillText(g.ammo[i], l.x, l.y + 25);
       // HP pips
       const maxHP = g.upgrades.launcherKit >= 2 ? 2 : 1;
       for (let h = 0; h < maxHP; h++) {
@@ -1795,7 +1808,13 @@ export default function DubaiMissileCommand() {
               <div
                 style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", marginBottom: "14px" }}
               >
-                {Object.entries(UPGRADES).map(([key, def]) => {
+                {(() => {
+                  const deadLaunchers = shopData.launcherHP ? shopData.launcherHP.filter((hp) => hp <= 0).length : 0;
+                  const launchersNeedRepair = deadLaunchers > 0;
+                  const rCost = repairCost(shopData.wave);
+                  const canAffordRepair = shopData.score >= rCost;
+
+                  return Object.entries(UPGRADES).map(([key, def]) => {
                   const lvl = shopData.upgrades[key];
                   const maxed = lvl >= def.maxLevel;
                   const cost = maxed ? null : def.costs[lvl];
@@ -1807,8 +1826,11 @@ export default function DubaiMissileCommand() {
                   // Check if defense site is destroyed (needs repair first)
                   const siteDestroyed =
                     shopData.defenseSites && shopData.defenseSites.find((s) => s.key === key && !s.alive);
-                  const rCost = repairCost(shopData.wave);
-                  const canAffordRepair = shopData.score >= rCost;
+                  // Launcher repair shows on launcherKit tile
+                  const isLauncherKit = key === "launcherKit";
+                  const showLauncherRepair = isLauncherKit && launchersNeedRepair;
+                  // Block all non-repair upgrades when launchers need repair
+                  const blockedByLauncherRepair = launchersNeedRepair && !isLauncherKit;
 
                   return (
                     <div
@@ -1894,7 +1916,47 @@ export default function DubaiMissileCommand() {
                           LVL {lvl + 1}: {def.statLines[lvl]}
                         </div>
                       )}
-                      {siteDestroyed ? (
+                      {showLauncherRepair ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                          {shopData.launcherHP.map((hp, i) => {
+                            if (hp > 0) return null;
+                            return (
+                              <button
+                                key={i}
+                                onClick={() => doRepairLauncher(i)}
+                                disabled={!canAffordRepair}
+                                style={{
+                                  width: "100%",
+                                  padding: "5px 0",
+                                  background: canAffordRepair ? "rgba(255,100,0,0.15)" : "rgba(255,255,255,0.03)",
+                                  border: `1px solid ${canAffordRepair ? "#ff6600" : "rgba(255,255,255,0.1)"}`,
+                                  borderRadius: "4px",
+                                  color: canAffordRepair ? "#ff6600" : "#444",
+                                  fontSize: "10px",
+                                  fontWeight: "bold",
+                                  fontFamily: "'Courier New', monospace",
+                                  cursor: canAffordRepair ? "pointer" : "default",
+                                  letterSpacing: "1px",
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (canAffordRepair) {
+                                    e.target.style.background = "rgba(255,100,0,0.3)";
+                                    e.target.style.boxShadow = "0 0 12px rgba(255,100,0,0.3)";
+                                  }
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.target.style.background = canAffordRepair
+                                    ? "rgba(255,100,0,0.15)"
+                                    : "rgba(255,255,255,0.03)";
+                                  e.target.style.boxShadow = "none";
+                                }}
+                              >
+                                {canAffordRepair ? `REPAIR L${i + 1} — $${rCost}` : `L${i + 1} — $${rCost} NEEDED`}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : siteDestroyed ? (
                         <button
                           onClick={() => doRepairSite(key)}
                           disabled={!canAffordRepair}
@@ -1926,6 +1988,22 @@ export default function DubaiMissileCommand() {
                         >
                           {canAffordRepair ? `REPAIR — $${rCost}` : `$${rCost} NEEDED`}
                         </button>
+                      ) : blockedByLauncherRepair ? (
+                        <div
+                          style={{
+                            width: "100%",
+                            padding: "5px 0",
+                            textAlign: "center",
+                            color: "#ff6600",
+                            fontSize: "9px",
+                            fontWeight: "bold",
+                            fontFamily: "'Courier New', monospace",
+                            letterSpacing: "1px",
+                            opacity: 0.7,
+                          }}
+                        >
+                          ⚠ REPAIR LAUNCHERS FIRST
+                        </div>
                       ) : (
                         <button
                           onClick={() => buyUpgrade(key)}
@@ -1975,52 +2053,10 @@ export default function DubaiMissileCommand() {
                       )}
                     </div>
                   );
-                })}
+                });
+                })()}
               </div>
 
-              {/* Launcher repair row */}
-              {shopData.launcherHP && shopData.launcherHP.some((hp) => hp <= 0) && (
-                <div style={{ display: "flex", justifyContent: "center", gap: "12px", marginBottom: "14px" }}>
-                  {shopData.launcherHP.map((hp, i) => {
-                    if (hp > 0) return null;
-                    const rCost = repairCost(shopData.wave);
-                    const canAffordRepair = shopData.score >= rCost;
-                    return (
-                      <button
-                        key={i}
-                        onClick={() => doRepairLauncher(i)}
-                        disabled={!canAffordRepair}
-                        style={{
-                          padding: "6px 16px",
-                          background: canAffordRepair ? "rgba(255,100,0,0.15)" : "rgba(255,255,255,0.03)",
-                          border: `1px solid ${canAffordRepair ? "#ff6600" : "rgba(255,255,255,0.1)"}`,
-                          borderRadius: "4px",
-                          color: canAffordRepair ? "#ff6600" : "#444",
-                          fontSize: "10px",
-                          fontWeight: "bold",
-                          fontFamily: "'Courier New', monospace",
-                          cursor: canAffordRepair ? "pointer" : "default",
-                          letterSpacing: "1px",
-                        }}
-                        onMouseEnter={(e) => {
-                          if (canAffordRepair) {
-                            e.target.style.background = "rgba(255,100,0,0.3)";
-                            e.target.style.boxShadow = "0 0 12px rgba(255,100,0,0.3)";
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          e.target.style.background = canAffordRepair
-                            ? "rgba(255,100,0,0.15)"
-                            : "rgba(255,255,255,0.03)";
-                          e.target.style.boxShadow = "none";
-                        }}
-                      >
-                        LAUNCHER {i + 1} — REPAIR ${rCost}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
 
               <div style={{ textAlign: "center" }}>
                 <button
