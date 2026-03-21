@@ -102,7 +102,7 @@ export default function DubaiMissileCommand() {
       setFinalStats({ ...data.stats });
       const g = gameRef.current;
       if (g && g._actionLog) {
-        const replay = { seed: g._gameSeed, actions: g._actionLog };
+        const replay = { seed: g._gameSeed, actions: g._actionLog, isHuman: true };
         setLastReplay(replay);
         // Auto-save replay to disk (dev server only, silently fails in prod)
         fetch("/api/save-replay", {
@@ -132,6 +132,7 @@ export default function DubaiMissileCommand() {
       const runner = createReplayRunner(replayData, handleSimEvent);
       gameRef.current = runner.init();
       gameRef.current._replay = true;
+      gameRef.current._replayIsHuman = !!replayData.isHuman;
       window.__gameRef = gameRef;
       replayRef.current = runner;
       setReplayActive(true);
@@ -1348,7 +1349,8 @@ export default function DubaiMissileCommand() {
       ctx.font = "bold 22px 'Courier New', monospace";
       ctx.fillStyle = "#44ffaa";
       ctx.textAlign = "center";
-      ctx.fillText(`BOT BOUGHT: ${label}`, CANVAS_W / 2, CANVAS_H / 3);
+      const who = g._replayIsHuman ? "PLAYER" : "BOT";
+      ctx.fillText(`${who} BOUGHT: ${label}`, CANVAS_W / 2, CANVAS_H / 3);
       ctx.restore();
       ctx.textAlign = "left";
       toast.timer -= 16.7; // ~1 frame at 60fps
