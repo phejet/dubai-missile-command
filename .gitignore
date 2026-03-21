@@ -30,6 +30,7 @@ playwright-report/
 # Replay files
 replay.json
 public/replay.json
+play-replay.mjs
 
 # Training/learning logs
 src/headless/training-log.jsonl
