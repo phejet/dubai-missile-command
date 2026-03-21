@@ -253,7 +253,7 @@ export function spawnMirv(g, onEvent) {
   const target = pickTarget(g, startX);
   if (!target) return;
   const dx = target.x - startX;
-  const dy = target.y - (-20);
+  const dy = target.y - -20;
   const len = Math.sqrt(dx * dx + dy * dy);
   const speed = rand(0.3, 0.5) + g.wave * 0.03;
   const hp = 3 + Math.floor(g.wave / 4);
@@ -430,9 +430,7 @@ function pickRoadrunnerTargets(allThreats, activeRoadrunners, count) {
   const aliveThreats = allThreats.filter((t) => t.alive);
   if (aliveThreats.length === 0) return [];
 
-  const reserved = new Set(
-    activeRoadrunners.filter((r) => r.alive && r.targetRef?.alive).map((r) => r.targetRef),
-  );
+  const reserved = new Set(activeRoadrunners.filter((r) => r.alive && r.targetRef?.alive).map((r) => r.targetRef));
   const picked = [];
 
   const pickNext = (allowReserved) => {
@@ -1377,7 +1375,8 @@ export function update(g, dt, onEvent) {
         p.fireTimer = 0;
         const spd = 11;
         // Lead the target with a few refinement passes so fast missiles don't outrun the shot.
-        let aimX = closest.x, aimY = closest.y;
+        let aimX = closest.x,
+          aimY = closest.y;
         const accelFactor = closest.accel ? closest.accel ** 8 : 1;
         for (let i = 0; i < 6; i++) {
           const d = Math.sqrt((aimX - p.x) ** 2 + (aimY - p.y) ** 2);

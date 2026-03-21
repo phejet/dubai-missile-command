@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+staged_files=()
+while IFS= read -r file; do
+  staged_files+=("$file")
+done < <(git diff --cached --name-only --diff-filter=ACMR)
+
+if [ "${#staged_files[@]}" -eq 0 ]; then
+  exit 0
+fi
+
+prettier_files=()
+eslint_files=()
+
+for file in "${staged_files[@]}"; do
+  case "$file" in
+    *.js|*.jsx|*.mjs|*.json|*.md|*.css|*.html)
+      prettier_files+=("$file")
+      ;;
+  esac
+
+  case "$file" in
+    *.js|*.jsx|*.mjs)
+      eslint_files+=("$file")
+      ;;
+  esac
+done
+
+if [ "${#prettier_files[@]}" -gt 0 ]; then
+  echo "Running Prettier on staged files..."
+  npx prettier --write "${prettier_files[@]}"
+  git add -- "${prettier_files[@]}"
+fi
+
+if [ "${#eslint_files[@]}" -gt 0 ]; then
+  echo "Running ESLint on staged files..."
+  npx eslint "${eslint_files[@]}"
+fi

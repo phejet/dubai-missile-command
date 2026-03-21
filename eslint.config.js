@@ -23,7 +23,7 @@ export default defineConfig([
     },
   },
   {
-    files: ["src/headless/**/*.js"],
+    files: ["*.{js,mjs}", "src/headless/**/*.js"],
     languageOptions: {
       globals: globals.node,
     },

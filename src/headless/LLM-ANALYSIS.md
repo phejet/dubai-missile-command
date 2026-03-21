@@ -24,18 +24,18 @@ node src/headless/analyze-with-llm.js --games=200 --api=http://YOUR_WINDOWS_IP:1
 
 ### Options
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--games=N` | 200 | Number of games to simulate |
-| `--api=URL` | `http://localhost:1234/v1` | OpenAI-compatible API endpoint |
-| `--model=NAME` | auto-detect | Model name override |
+| Flag           | Default                    | Description                    |
+| -------------- | -------------------------- | ------------------------------ |
+| `--games=N`    | 200                        | Number of games to simulate    |
+| `--api=URL`    | `http://localhost:1234/v1` | OpenAI-compatible API endpoint |
+| `--model=NAME` | auto-detect                | Model name override            |
 
 ### Environment variables
 
-| Variable | Description |
-|----------|-------------|
+| Variable      | Description                       |
+| ------------- | --------------------------------- |
 | `LLM_API_URL` | Base URL of API (same as `--api`) |
-| `LLM_MODEL` | Model name (same as `--model`) |
+| `LLM_MODEL`   | Model name (same as `--model`)    |
 
 ## What it does
 

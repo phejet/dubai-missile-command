@@ -1,10 +1,13 @@
-import { setRng, fireInterceptor, GROUND_Y, LAUNCHERS, BURJ_X } from "./src/game-logic.js";
+import { setRng, fireInterceptor } from "./src/game-logic.js";
 import { initGame, update, buyUpgrade, closeShop, repairSite, repairLauncher, fireEmp } from "./src/game-sim.js";
 import { mulberry32 } from "./src/headless/rng.js";
 import { readFileSync } from "fs";
 
 const replayFile = process.argv[2];
-if (!replayFile) { console.error("Usage: node analyze-replay.js <replay.json>"); process.exit(1); }
+if (!replayFile) {
+  console.error("Usage: node analyze-replay.js <replay.json>");
+  process.exit(1);
+}
 
 const replayData = JSON.parse(readFileSync(replayFile, "utf8"));
 const { seed, actions } = replayData;
@@ -18,11 +21,12 @@ let tick = 0;
 const maxTicks = 100000;
 const events = [];
 
-function log(msg) { events.push({ tick, msg }); }
+function log(msg) {
+  events.push({ tick, msg });
+}
 
 // Track state for change detection
 let prevWave = g.wave;
-let prevState = g.state;
 let prevBurjHP = g.burjHealth;
 let prevLauncherHP = [...g.launcherHP];
 
@@ -93,16 +97,16 @@ for (let step = 0; step < maxTicks; step++) {
 
   // Track active threats every 100 ticks
   if (tick % 200 === 0 && tick > 0) {
-    const aliveMissiles = g.missiles.filter(m => m.alive);
-    const aliveDrones = g.drones.filter(d => d.alive);
-    const aliveInterceptors = g.interceptors.filter(i => i.alive);
+    const aliveMissiles = g.missiles.filter((m) => m.alive);
+    const aliveDrones = g.drones.filter((d) => d.alive);
+    const aliveInterceptors = g.interceptors.filter((i) => i.alive);
     if (aliveMissiles.length > 0 || aliveDrones.length > 0) {
-      const mirvs = aliveMissiles.filter(m => m.type === "mirv");
-      const warheads = aliveMissiles.filter(m => m.type === "mirv_warhead");
-      const bombs = aliveMissiles.filter(m => m.type === "bomb");
-      const regular = aliveMissiles.filter(m => !m.type || m.type === "missile");
-      const jets = aliveDrones.filter(d => d.subtype === "shahed238");
-      const slowDrones = aliveDrones.filter(d => d.subtype === "shahed136");
+      const mirvs = aliveMissiles.filter((m) => m.type === "mirv");
+      const warheads = aliveMissiles.filter((m) => m.type === "mirv_warhead");
+      const bombs = aliveMissiles.filter((m) => m.type === "bomb");
+      const regular = aliveMissiles.filter((m) => !m.type || m.type === "missile");
+      const jets = aliveDrones.filter((d) => d.subtype === "shahed238");
+      const slowDrones = aliveDrones.filter((d) => d.subtype === "shahed136");
 
       let parts = [];
       if (regular.length) parts.push(`${regular.length} missiles`);
@@ -114,13 +118,6 @@ for (let step = 0; step < maxTicks; step++) {
       parts.push(`${aliveInterceptors.length} interceptors`);
       parts.push(`ammo: ${g.ammo.join("|")}`);
       log(`STATUS: ${parts.join(", ")}`);
-    }
-  }
-
-  // Log missiles/drones hitting ground-level targets
-  for (const m of g.missiles) {
-    if (!m.alive && m._justDied) {
-      // Already handled
     }
   }
 
@@ -152,10 +149,16 @@ const totalAmmo = g.ammo.reduce((s, a) => s + a, 0);
 console.log(`Ammo remaining: ${g.ammo.join("|")} (total: ${totalAmmo})`);
 console.log(`Launchers: ${g.launcherHP.map((hp, i) => `L${i}=${hp}HP`).join(" ")}`);
 console.log(`Burj: ${g.burjAlive ? `alive (${g.burjHealth}HP)` : "DESTROYED"}`);
-console.log(`Upgrades:`, Object.entries(g.upgrades).filter(([k,v]) => v > 0).map(([k,v]) => `${k}:L${v}`).join(", ") || "none");
+console.log(
+  `Upgrades:`,
+  Object.entries(g.upgrades)
+    .filter(([, v]) => v > 0)
+    .map(([k, v]) => `${k}:L${v}`)
+    .join(", ") || "none",
+);
 if (g.defenseSites) {
-  const dead = g.defenseSites.filter(s => !s.alive);
-  if (dead.length) console.log(`Destroyed sites: ${dead.map(s => s.key).join(", ")}`);
+  const dead = g.defenseSites.filter((s) => !s.alive);
+  if (dead.length) console.log(`Destroyed sites: ${dead.map((s) => s.key).join(", ")}`);
 }
 
 setRng(Math.random);

@@ -12,7 +12,6 @@
 
 import { runGame } from "./sim-runner.js";
 import defaultConfig from "./bot-config.json" with { type: "json" };
-import { readFileSync } from "fs";
 
 // Parse args
 const args = Object.fromEntries(
@@ -73,14 +72,6 @@ const efficiency = (avgStats.missileKills + avgStats.droneKills) / avgStats.shot
 // Read current config
 const configStr = JSON.stringify(defaultConfig, null, 2);
 
-// Read current upgrade costs
-let upgradeCosts = "";
-try {
-  const simSrc = readFileSync(new URL("../game-sim.js", import.meta.url), "utf8");
-  const upgradeBlock = simSrc.match(/export const UPGRADES[\s\S]*?^}/m);
-  if (upgradeBlock) upgradeCosts = upgradeBlock[0].slice(0, 2000);
-} catch {}
-
 const summary = `
 === TRAINING RESULTS (${numGames} games) ===
 
@@ -125,7 +116,7 @@ Key balance issues we're tracking:
 
 Analyze the training data and suggest specific, actionable changes to improve balance. Focus on closing the mid-game gap (waves 8-20) and reducing snowball effect.`;
 
-async function queryLLM(prompt) {
+async function queryLLM() {
   // Auto-detect model if not specified
   let model = modelOverride;
   if (!model) {
@@ -145,7 +136,10 @@ async function queryLLM(prompt) {
       model,
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: `Here are the results from ${numGames} bot-played games. Analyze the balance and suggest improvements:\n\n${summary}` },
+        {
+          role: "user",
+          content: `Here are the results from ${numGames} bot-played games. Analyze the balance and suggest improvements:\n\n${summary}`,
+        },
       ],
       temperature: 0.7,
       max_tokens: 4096,
@@ -179,14 +173,16 @@ async function queryLLM(prompt) {
         const json = JSON.parse(data);
         const content = json.choices?.[0]?.delta?.content;
         if (content) process.stdout.write(content);
-      } catch {}
+      } catch {
+        continue;
+      }
     }
   }
   console.log();
 }
 
 try {
-  await queryLLM(summary);
+  await queryLLM();
 } catch (e) {
   console.error(`\nFailed to connect to LLM at ${apiUrl}`);
   console.error(`Make sure LM Studio is running and the API server is enabled.`);

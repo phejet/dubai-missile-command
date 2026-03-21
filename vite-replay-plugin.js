@@ -26,7 +26,9 @@ function pruneOldReplays(dir) {
     for (const f of files.slice(MAX_REPLAYS)) {
       unlinkSync(join(dir, f.name));
     }
-  } catch {}
+  } catch {
+    return;
+  }
 }
 
 export default function replayPlugin() {
