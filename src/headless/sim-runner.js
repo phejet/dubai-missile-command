@@ -49,7 +49,8 @@ export function runGame(botConfig, options = {}) {
       }
       if (record) actions.push({ tick, type: "shop", bought });
       closeShop(g);
-      continue;
+      // Fall through to update() below — matches replay runner behavior
+      // (createReplayRunner calls update() on the first step after shop resume)
     }
 
     // Bot fires EMP when ready and enough threats
