@@ -2028,13 +2028,15 @@ export default function DubaiMissileCommand() {
           if (!file) return;
           const reader = new FileReader();
           reader.onload = () => {
+            let data;
             try {
-              const data = JSON.parse(reader.result);
-              if (data.seed !== undefined && data.actions) {
-                startReplay(data);
-              }
+              data = JSON.parse(reader.result);
             } catch {
-              // ignore invalid files
+              console.warn("Dropped file is not valid JSON");
+              return;
+            }
+            if (data.seed !== undefined && Array.isArray(data.actions)) {
+              startReplay(data);
             }
           };
           reader.readAsText(file);

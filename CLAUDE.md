@@ -74,15 +74,15 @@ Game logic is split across `src/game-sim.js` (simulation) and `src/App.jsx` (ren
 
 - `missiles`, `drones`, `interceptors`, `explosions`, `particles`, `planes`
 - `defenseSites[]` — physical upgrade structures enemies can destroy
-- `launcherHP[3]` — each launcher has 2 HP, destroyed = can't fire
-- `upgrades{}` — wildHornets, roadrunner, flare, ironBeam, phalanx, patriot
+- `launcherHP[3]` — each launcher starts with 1 HP (upgradable to 2 with Launcher Kit L2), destroyed = can't fire
+- `upgrades{}` — wildHornets, roadrunner, flare, ironBeam, phalanx, patriot, burjRepair, launcherKit, emp
 - `stats{}` — missileKills, droneKills, shotsFired (shown on game over)
 
 ### Targeting system (`pickTarget`)
 
 - 30% chance enemies target Burj directly
-- 70% target defense sites and alive launchers, sorted by proximity to spawn
-- Missiles spawn biased away from target (min 200px offset) for interceptable angles
+- Otherwise, targets defense sites and alive launchers; picks closest-to-missile-spawn 70% of the time, second-closest 30%
+- Top-spawning missiles within 200px of their target are offset 300-500px for interceptable angles
 
 ### Upgrade systems
 
@@ -94,10 +94,13 @@ Game logic is split across `src/game-sim.js` (simulation) and `src/App.jsx` (ren
 | Iron Beam       | Laser burns down threats near Burj                    |
 | Phalanx CIWS    | Rapid-fire autocannon turrets                         |
 | Patriot Battery | Long-range SAM with massive blast radius              |
+| Launcher Kit    | Upgrades launcher HP and ammo capacity                |
+| EMP Shockwave   | Charged area-of-effect pulse that damages all threats |
+| Burj Repair Kit | Consumable that restores 1 Burj HP                    |
 
 ### F-15 Eagles
 
-Friendly fighter jets that fly across screen and shoot down threats. Player is penalized -500 for hitting them.
+Friendly fighter jets that fly across screen and shoot down threats. Only direct interceptor hits (not splash damage) can destroy F-15s, penalizing -500 points.
 
 ## Deployment
 

@@ -255,6 +255,7 @@ export function spawnMirv(g, onEvent) {
   const dx = target.x - startX;
   const dy = target.y - -20;
   const len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 1) return;
   const speed = rand(0.3, 0.5) + g.wave * 0.03;
   const hp = 3 + Math.floor(g.wave / 4);
   g.missiles.push({
@@ -317,6 +318,7 @@ export function spawnMissile(g) {
   const dx = target.x - startX;
   const dy = target.y - startY;
   const len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 1) return;
   g.missiles.push({
     x: startX,
     y: startY,
@@ -1159,10 +1161,14 @@ export function update(g, dt, onEvent) {
         const dx = d.diveTarget.x - d.x;
         const dy = d.diveTarget.y - d.y;
         const len = Math.sqrt(dx * dx + dy * dy);
-        d.vx = (dx / len) * d.diveSpeed;
-        d.vy = (dy / len) * d.diveSpeed;
-        d.x += d.vx * dt * dSlow;
-        d.y += d.vy * dt * dSlow;
+        if (len < 0.01) {
+          d.alive = false;
+        } else {
+          d.vx = (dx / len) * d.diveSpeed;
+          d.vy = (dy / len) * d.diveSpeed;
+          d.x += d.vx * dt * dSlow;
+          d.y += d.vy * dt * dSlow;
+        }
       } else {
         d.x += d.vx * dt * dSlow;
         d.y += (d.vy + Math.sin(d.wobble) * 0.15) * dt * dSlow;
@@ -1197,11 +1203,15 @@ export function update(g, dt, onEvent) {
         const dx = d.diveTarget.x - d.x;
         const dy = d.diveTarget.y - d.y;
         const len = Math.sqrt(dx * dx + dy * dy);
-        const diveSpeed = Math.max(Math.abs(d.vx), 1.0) * 1.1;
-        d.vx = (dx / len) * diveSpeed;
-        d.vy = (dy / len) * diveSpeed;
-        d.x += d.vx * dt * dSlow;
-        d.y += d.vy * dt * dSlow;
+        if (len < 0.01) {
+          d.alive = false;
+        } else {
+          const diveSpeed = Math.max(Math.abs(d.vx), 1.0) * 1.1;
+          d.vx = (dx / len) * diveSpeed;
+          d.vy = (dy / len) * diveSpeed;
+          d.x += d.vx * dt * dSlow;
+          d.y += d.vy * dt * dSlow;
+        }
       }
     }
     if (d.x < -60 || d.x > CANVAS_W + 60 || d.y > CANVAS_H + 20) d.alive = false;
@@ -1544,6 +1554,7 @@ export function repairSite(g, siteKey) {
 }
 
 export function repairLauncher(g, index) {
+  if (index < 0 || index >= g.launcherHP.length) return false;
   const cost = repairCost(g.wave);
   if (g.score < cost) return false;
   if (g.launcherHP[index] > 0) return false;

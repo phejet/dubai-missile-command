@@ -18,8 +18,9 @@ export function runGame(botConfig, options = {}) {
   let lastFireTick = -Infinity;
   let deathCause = "timeout";
   const actions = record ? [] : null;
+  let tick;
 
-  for (let tick = 0; tick < maxTicks; tick++) {
+  for (tick = 0; tick < maxTicks; tick++) {
     if (g.state === "gameover") {
       deathCause = "destroyed";
       break;
@@ -49,8 +50,8 @@ export function runGame(botConfig, options = {}) {
       }
       if (record) actions.push({ tick, type: "shop", bought });
       closeShop(g);
-      // Fall through to update() below — matches replay runner behavior
-      // (createReplayRunner calls update() on the first step after shop resume)
+      // Fall through to update() below — matches how the replay runner
+      // processes the first step() after resumeFromShop()
     }
 
     // Bot fires EMP when ready and enough threats
@@ -81,7 +82,7 @@ export function runGame(botConfig, options = {}) {
     score: g.score,
     wave: g.wave,
     stats: { ...g.stats },
-    ticks: Math.min(maxTicks, maxTicks),
+    ticks: tick,
     deathCause,
     seed,
   };

@@ -129,6 +129,7 @@ export function fireInterceptor(g, targetX, targetY) {
   const dx = targetX - l.x;
   const dy = targetY - l.y;
   const len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 1) return false;
   g.interceptors.push({
     x: l.x,
     y: l.y,
