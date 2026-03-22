@@ -23,6 +23,7 @@ import {
   getRng,
   computeShahed238Path,
 } from "./game-logic.js";
+import { createCommander, generateWaveSchedule, advanceSpawnSchedule, isWaveFullySpawned } from "./wave-spawner.js";
 
 // ── UPGRADE DEFINITIONS ──
 export const UPGRADES = {
@@ -178,7 +179,10 @@ export function initGame() {
     alive: true,
   }));
 
-  return {
+  const commander = createCommander("balanced");
+  const wave1 = generateWaveSchedule(1, commander);
+
+  const g = {
     state: "playing",
     score: 0,
     wave: 1,
@@ -200,14 +204,8 @@ export function initGame() {
       size: rand(0.5, 2),
       twinkle: rand(0, Math.PI * 2),
     })),
-    spawnTimer: 0,
-    spawnInterval: 120,
-    droneTimer: 0,
-    droneInterval: 180,
     planeTimer: 0,
     planeInterval: 800,
-    waveMissiles: 0,
-    waveTarget: 12,
     waveComplete: false,
     crosshairX: CANVAS_W / 2,
     crosshairY: CANVAS_H / 2,
@@ -243,11 +241,16 @@ export function initGame() {
     empReady: false,
     empRings: [],
     multiKillToast: null,
-    mirvTimer: 0,
-    mirvInterval: 600,
-    mirvCount: 0,
-    mirvTarget: 0,
+    // Spawn commander + schedule
+    commander,
+    schedule: wave1.schedule,
+    scheduleIdx: 0,
+    waveTick: 0,
+    concurrentCap: wave1.concurrentCap,
+    waveTactics: wave1.tactics,
   };
+
+  return g;
 }
 
 export function spawnMirv(g, onEvent) {
@@ -277,8 +280,6 @@ export function spawnMirv(g, onEvent) {
     empSlowTimer: 0,
     _hitByExplosions: new Set(),
   });
-  g.waveMissiles++;
-  g.mirvCount++;
   if (onEvent) onEvent("sfx", { name: "mirvIncoming" });
 }
 
@@ -299,11 +300,21 @@ export function spawnPlane(g, onEvent) {
   if (onEvent) onEvent("sfx", { name: "planePass" });
 }
 
-export function spawnMissile(g) {
+export function spawnMissile(g, overrides) {
   const _rng = getRng();
   const speed = rand(0.5, 1.0) + g.wave * 0.08;
   let startX, startY;
-  if (g.wave >= 2 && _rng() < Math.min(0.4, (g.wave - 1) * 0.1)) {
+  const side = overrides?.side;
+  if (side === "left") {
+    startX = -10;
+    startY = rand(20, 200);
+  } else if (side === "right") {
+    startX = CANVAS_W + 10;
+    startY = rand(20, 200);
+  } else if (side === "top") {
+    startX = rand(50, CANVAS_W - 50);
+    startY = -10;
+  } else if (g.wave >= 2 && _rng() < Math.min(0.4, (g.wave - 1) * 0.1)) {
     const fromLeft = _rng() > 0.5;
     startX = fromLeft ? -10 : CANVAS_W + 10;
     startY = rand(20, 200);
@@ -332,19 +343,22 @@ export function spawnMissile(g) {
     type: "missile",
     _hitByExplosions: new Set(),
   });
-  g.waveMissiles++;
 }
 
-export function spawnDrone(g) {
+export function spawnDroneOfType(g, subtype, overrides) {
   const _rng = getRng();
-  const goingRight = _rng() > 0.5;
-  const jetChance = g.wave >= 3 ? Math.min(1, 0.2 + (g.wave - 3) * 0.16) : 0;
-  const isJet = jetChance > 0 && _rng() < jetChance;
-  const baseSpeed = isJet ? rand(3.6, 5.6) : rand(0.6, 1.2);
+  const isJet = subtype === "shahed238";
+  const side = overrides?.side;
+  const yRange = overrides?.yRange || [80, 250];
+  let goingRight;
+  if (side === "left") goingRight = true;
+  else if (side === "right") goingRight = false;
+  else goingRight = _rng() > 0.5;
+  const baseSpeed = isJet ? rand(2.5, 3.9) : rand(0.6, 1.2);
   const speed = baseSpeed + g.wave * 0.05;
   const health = isJet ? 1 : 1 + Math.floor(g.wave / 3);
   const spawnX = goingRight ? -20 : CANVAS_W + 20;
-  const spawnY = rand(80, 250);
+  const spawnY = rand(yRange[0], yRange[1]);
   const drone = {
     x: spawnX,
     y: spawnY,
@@ -353,12 +367,11 @@ export function spawnDrone(g) {
     wobble: rand(0, Math.PI * 2),
     alive: true,
     type: "drone",
-    subtype: isJet ? "shahed238" : "shahed136",
+    subtype,
     health,
     _hitByExplosions: new Set(),
   };
   if (isJet) {
-    // Precompute aerodynamic trajectory
     const estimatedMidX = spawnX + (goingRight ? 1 : -1) * CANVAS_W * 0.4;
     const target = pickTarget(g, estimatedMidX) || { x: BURJ_X, y: CITY_Y };
     const path = computeShahed238Path(spawnX, spawnY, goingRight, speed, target);
@@ -370,6 +383,13 @@ export function spawnDrone(g) {
     drone.diveTarget = target;
   }
   g.drones.push(drone);
+}
+
+export function spawnDrone(g) {
+  const _rng = getRng();
+  const jetChance = g.wave >= 3 ? Math.min(1, 0.2 + (g.wave - 3) * 0.16) : 0;
+  const isJet = jetChance > 0 && _rng() < jetChance;
+  spawnDroneOfType(g, isJet ? "shahed238" : "shahed136");
 }
 
 function isSiteAlive(g, key) {
@@ -1395,7 +1415,7 @@ export function update(g, dt, onEvent) {
   }
 
   // Check wave complete
-  if (g.burjAlive && g.waveMissiles >= g.waveTarget && g.missiles.length === 0 && g.drones.length === 0) {
+  if (g.burjAlive && isWaveFullySpawned(g) && g.missiles.length === 0 && g.drones.length === 0) {
     g.waveComplete = true;
     g.shopOpened = false;
     g.waveClearedTimer = 120;
@@ -1407,29 +1427,14 @@ export function update(g, dt, onEvent) {
     return;
   }
 
-  // Spawning
-  if (g.waveMissiles < g.waveTarget) {
-    g.spawnTimer += dt;
-    if (g.spawnTimer >= g.spawnInterval) {
-      g.spawnTimer = 0;
-      const count = Math.min(1 + Math.floor(g.wave / 2), g.waveTarget - g.waveMissiles);
-      for (let i = 0; i < Math.min(count, 3); i++) spawnMissile(g);
-    }
-  }
-  g.droneTimer += dt;
-  if (g.droneTimer >= g.droneInterval && g.waveMissiles < g.waveTarget) {
-    g.droneTimer = 0;
-    const droneCount = g.wave <= 2 ? 2 : 1 + Math.floor(g.wave / 3);
-    for (let i = 0; i < Math.min(droneCount, 4); i++) spawnDrone(g);
-  }
-  // MIRV spawning (wave 5+)
-  if (g.wave >= 5 && g.mirvCount < g.mirvTarget) {
-    g.mirvTimer += dt;
-    if (g.mirvTimer >= g.mirvInterval) {
-      g.mirvTimer = 0;
-      spawnMirv(g, onEvent);
-    }
-  }
+  // Spawning — consume schedule entries
+  advanceSpawnSchedule(g, dt, (gameState, type, overrides) => {
+    if (type === "missile") spawnMissile(gameState, overrides);
+    else if (type === "drone136") spawnDroneOfType(gameState, "shahed136", overrides);
+    else if (type === "drone238") spawnDroneOfType(gameState, "shahed238", overrides);
+    else if (type === "mirv") spawnMirv(gameState, onEvent);
+  });
+
   g.planeTimer += dt;
   // F-15 incoming warning ~2 seconds before arrival
   if (!g.planeWarned && g.planeTimer >= g.planeInterval - 120) {
@@ -1527,16 +1532,13 @@ export function buyUpgrade(g, key) {
 
 export function closeShop(g) {
   g.wave++;
-  const lateWavePressure = Math.max(0, g.wave - 8);
-  g.waveMissiles = 0;
-  g.waveTarget = 8 + g.wave * 4 + lateWavePressure * 2;
-  g.spawnInterval = Math.max(22, 120 - g.wave * 8 - lateWavePressure * 2);
-  g.droneInterval = Math.max(36, 160 - g.wave * 20 - lateWavePressure * 4);
+  const waveData = generateWaveSchedule(g.wave, g.commander);
+  g.schedule = waveData.schedule;
+  g.scheduleIdx = 0;
+  g.waveTick = 0;
+  g.concurrentCap = waveData.concurrentCap;
+  g.waveTactics = waveData.tactics;
   g.ammo = g.ammo.map((_, i) => (g.launcherHP[i] > 0 ? getAmmoCapacity(g.wave, g.upgrades.launcherKit) : 0));
-  g.mirvTarget = g.wave >= 5 ? Math.min(1 + Math.floor((g.wave - 4) / 2), 6) : 0;
-  g.mirvInterval = Math.max(250, 600 - (g.wave - 5) * 50);
-  g.mirvCount = 0;
-  g.mirvTimer = 0;
   g.waveComplete = false;
   g.state = "playing";
 }
@@ -1597,6 +1599,7 @@ export function createGameSim(options = {}) {
     closeShop,
     spawnMissile,
     spawnDrone,
+    spawnDroneOfType,
     spawnPlane: (g) => spawnPlane(g, onEvent),
     updateAutoSystems: (g, dt, threats) => updateAutoSystems(g, dt, threats, onEvent),
   };

@@ -1367,7 +1367,8 @@ export function drawGame(ctx, game, { showShop = false } = {}) {
     wpW = 120,
     wpH = 8,
     wpY = 14;
-  const waveProgress = Math.min(game.waveMissiles / game.waveTarget, 1);
+  const scheduleLen = game.schedule ? game.schedule.length : 1;
+  const waveProgress = Math.min(game.scheduleIdx / scheduleLen, 1);
   const threatsLeft = game.missiles.length + game.drones.length;
   ctx.fillStyle = "rgba(255,255,255,0.1)";
   ctx.fillRect(wpX, wpY, wpW, wpH);
@@ -1378,7 +1379,7 @@ export function drawGame(ctx, game, { showShop = false } = {}) {
   ctx.fillStyle = "#aabbcc";
   ctx.font = "9px 'Courier New', monospace";
   ctx.fillText(
-    waveProgress >= 1 ? `CLEAR ${threatsLeft}` : `${game.waveMissiles}/${game.waveTarget}`,
+    waveProgress >= 1 ? `CLEAR ${threatsLeft}` : `${game.scheduleIdx}/${scheduleLen}`,
     wpX + wpW + 6,
     wpY + 7,
   );

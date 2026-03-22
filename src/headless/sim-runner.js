@@ -20,6 +20,11 @@ export function runGame(botConfig, options = {}) {
   const actions = record ? [] : null;
   let tick;
 
+  // Record initial wave plan
+  if (record) {
+    actions.push({ tick: 0, type: "wave_plan", wave: g.wave, tactics: g.waveTactics, style: g.commander.style });
+  }
+
   for (tick = 0; tick < maxTicks; tick++) {
     if (g.state === "gameover") {
       deathCause = "destroyed";
@@ -50,6 +55,9 @@ export function runGame(botConfig, options = {}) {
       }
       if (record) actions.push({ tick, type: "shop", bought });
       closeShop(g);
+      if (record) {
+        actions.push({ tick, type: "wave_plan", wave: g.wave, tactics: g.waveTactics, style: g.commander.style });
+      }
       // Fall through to update() below — matches how the replay runner
       // processes the first step() after resumeFromShop()
     }

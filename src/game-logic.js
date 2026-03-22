@@ -276,10 +276,13 @@ export function computeShahed238Path(spawnX, spawnY, goingRight, speed, target) 
   const diveStartIndex = cruiseWaypoints.length;
 
   // Dive arc segment (smooth bank into target)
+  // P1 extends forward to maintain momentum. P2 approaches at ~45-60° angle
+  // by offsetting horizontally from the target (same side the drone came from).
+  const diveExtend = Math.abs(target.x - transX) * 0.5;
   const diveWaypoints = sampleCubicBezier(
     { x: transX, y: transY },
-    { x: transX + dir * 60, y: transY + 40 },
-    { x: target.x - dir * 40, y: target.y - 120 },
+    { x: transX + dir * Math.max(diveExtend, 120), y: transY + 80 },
+    { x: target.x + dir * 100, y: target.y - 150 },
     { x: target.x, y: target.y },
     speed * 1.2,
   );

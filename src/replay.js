@@ -60,6 +60,10 @@ export function createReplayRunner(replayData, onEvent = null) {
     while (actionIdx < actions.length && actions[actionIdx].tick === tick) {
       const action = actions[actionIdx];
       if (action.type === "shop") break;
+      if (action.type === "wave_plan") {
+        actionIdx++;
+        continue;
+      }
       if (action.type === "fire") {
         fireInterceptor(g, action.x, action.y);
       } else if (action.type === "emp") {
