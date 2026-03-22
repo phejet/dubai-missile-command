@@ -81,14 +81,14 @@ const STYLE_WEIGHTS = {
 
 const WAVE_TABLE = [
   null, // index 0 unused (waves start at 1)
-  { budget: 14, cap: 8, missile: [2, 4], drone136: [4, 6], drone238: [0, 0], mirv: [0, 0] },
-  { budget: 20, cap: 10, missile: [3, 5], drone136: [5, 7], drone238: [0, 0], mirv: [0, 0] },
-  { budget: 28, cap: 12, missile: [4, 6], drone136: [5, 8], drone238: [0, 0], mirv: [0, 0] },
-  { budget: 38, cap: 16, missile: [6, 8], drone136: [4, 6], drone238: [1, 3], mirv: [0, 0] },
-  { budget: 48, cap: 18, missile: [8, 10], drone136: [4, 6], drone238: [2, 4], mirv: [0, 0] },
-  { budget: 60, cap: 22, missile: [10, 12], drone136: [3, 5], drone238: [3, 5], mirv: [0, 0] },
-  { budget: 74, cap: 26, missile: [12, 14], drone136: [3, 5], drone238: [4, 6], mirv: [1, 1] },
-  { budget: 90, cap: 30, missile: [14, 16], drone136: [2, 4], drone238: [5, 7], mirv: [1, 2] },
+  { budget: 18, cap: 10, missile: [3, 5], drone136: [6, 8], drone238: [0, 0], mirv: [0, 0] },
+  { budget: 26, cap: 14, missile: [5, 7], drone136: [7, 9], drone238: [0, 0], mirv: [0, 0] },
+  { budget: 36, cap: 16, missile: [6, 8], drone136: [7, 10], drone238: [1, 2], mirv: [0, 0] },
+  { budget: 50, cap: 20, missile: [8, 11], drone136: [6, 8], drone238: [3, 5], mirv: [0, 0] },
+  { budget: 65, cap: 24, missile: [10, 14], drone136: [6, 8], drone238: [4, 6], mirv: [1, 2] },
+  { budget: 82, cap: 28, missile: [14, 18], drone136: [5, 7], drone238: [5, 7], mirv: [2, 3] },
+  { budget: 100, cap: 34, missile: [16, 20], drone136: [4, 6], drone238: [6, 8], mirv: [3, 5] },
+  { budget: 125, cap: 40, missile: [20, 24], drone136: [4, 6], drone238: [7, 10], mirv: [4, 6] },
 ];
 
 export function getWaveConfig(wave) {
@@ -105,16 +105,16 @@ export function getWaveConfig(wave) {
       },
     };
   }
-  // Wave 9+: formula-based scaling
+  // Wave 9+: exponential pressure — overwhelm defenses by wave 12-15
   const w = wave - 8;
   return {
-    budget: 90 + w * 18,
-    concurrentCap: 30 + w * 4,
+    budget: 105 + w * 40 + w * w * 8,
+    concurrentCap: 35 + w * 10 + w * w * 2,
     types: {
-      missile: { min: 14 + w * 2, max: 16 + w * 2 },
-      drone136: { min: 2, max: 4 },
-      drone238: { min: 5 + w, max: 7 + w },
-      mirv: { min: 1 + Math.floor((wave - 7) / 2), max: 2 + Math.floor((wave - 7) / 2) },
+      missile: { min: 16 + w * 5, max: 20 + w * 5 },
+      drone136: { min: 3 + w, max: 5 + w },
+      drone238: { min: 6 + w * 3, max: 8 + w * 3 },
+      mirv: { min: 3 + w, max: 4 + w },
     },
   };
 }
@@ -305,9 +305,10 @@ export function generateWaveSchedule(wave, commander) {
   const hasMirvStrike = tactics.includes("MIRV_STRIKE");
   const hasMixedAxis = tactics.includes("MIXED_AXIS");
 
-  const missileInterval = Math.max(22, 120 - wave * 8);
-  const droneInterval = Math.max(36, 160 - wave * 20);
-  const mirvInterval = Math.max(250, 600 - (wave - 5) * 50);
+  const lateFloor = Math.max(0, wave - 10) * 2; // shrinks floors on late waves
+  const missileInterval = Math.max(Math.max(4, 10 - lateFloor), 90 - wave * 7);
+  const droneInterval = Math.max(Math.max(6, 14 - lateFloor), 120 - wave * 12);
+  const mirvInterval = Math.max(Math.max(30, 60 - lateFloor * 3), 400 - (wave - 5) * 40);
 
   function spacedTicks(count, interval, jitterFrac, offset) {
     const ticks = [];

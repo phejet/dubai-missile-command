@@ -53,26 +53,26 @@ describe("getWaveConfig", () => {
     }
   });
 
-  it("no drone238 on waves 1-3", () => {
-    for (let w = 1; w <= 3; w++) {
+  it("no drone238 on waves 1-2", () => {
+    for (let w = 1; w <= 2; w++) {
       const cfg = getWaveConfig(w);
       expect(cfg.types.drone238.max).toBe(0);
     }
   });
 
-  it("no mirv on waves 1-6", () => {
-    for (let w = 1; w <= 6; w++) {
+  it("no mirv on waves 1-4", () => {
+    for (let w = 1; w <= 4; w++) {
       const cfg = getWaveConfig(w);
       expect(cfg.types.mirv.max).toBe(0);
     }
   });
 
-  it("drone238 available wave 4+", () => {
-    expect(getWaveConfig(4).types.drone238.max).toBeGreaterThan(0);
+  it("drone238 available wave 3+", () => {
+    expect(getWaveConfig(3).types.drone238.max).toBeGreaterThan(0);
   });
 
-  it("mirv available wave 7+", () => {
-    expect(getWaveConfig(7).types.mirv.max).toBeGreaterThan(0);
+  it("mirv available wave 5+", () => {
+    expect(getWaveConfig(5).types.mirv.max).toBeGreaterThan(0);
   });
 });
 
@@ -126,10 +126,10 @@ describe("generateWaveSchedule", () => {
     }
   });
 
-  it("wave 1-3 has only missiles and drone136", () => {
+  it("wave 1-2 has only missiles and drone136", () => {
     setRng(makeSeededRng(42));
     const cmdr = createCommander("balanced");
-    for (let w = 1; w <= 3; w++) {
+    for (let w = 1; w <= 2; w++) {
       const { schedule } = generateWaveSchedule(w, cmdr);
       for (const entry of schedule) {
         expect(["missile", "drone136"]).toContain(entry.type);
@@ -137,17 +137,16 @@ describe("generateWaveSchedule", () => {
     }
   });
 
-  it("wave 4+ can include drone238", () => {
+  it("wave 3+ can include drone238", () => {
     // Run multiple seeds to ensure at least one produces drone238
     let found = false;
     for (let seed = 1; seed <= 20; seed++) {
       setRng(makeSeededRng(seed));
       const cmdr = createCommander("balanced");
-      // Skip to wave 4 — need to burn through waves 1-3 for history
+      // Skip to wave 3 — need to burn through waves 1-2 for history
       generateWaveSchedule(1, cmdr);
       generateWaveSchedule(2, cmdr);
-      generateWaveSchedule(3, cmdr);
-      const { schedule } = generateWaveSchedule(4, cmdr);
+      const { schedule } = generateWaveSchedule(3, cmdr);
       if (schedule.some((e) => e.type === "drone238")) {
         found = true;
         break;
@@ -156,13 +155,13 @@ describe("generateWaveSchedule", () => {
     expect(found).toBe(true);
   });
 
-  it("wave 7+ includes mirvs", () => {
+  it("wave 5+ includes mirvs", () => {
     let found = false;
     for (let seed = 1; seed <= 20; seed++) {
       setRng(makeSeededRng(seed));
       const cmdr = createCommander("balanced");
-      for (let w = 1; w <= 6; w++) generateWaveSchedule(w, cmdr);
-      const { schedule } = generateWaveSchedule(7, cmdr);
+      for (let w = 1; w <= 4; w++) generateWaveSchedule(w, cmdr);
+      const { schedule } = generateWaveSchedule(5, cmdr);
       if (schedule.some((e) => e.type === "mirv")) {
         found = true;
         break;

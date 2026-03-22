@@ -18,11 +18,11 @@ describe("MIRV behavior", () => {
 
     const mirv = g.missiles.find((m) => m.alive && m.type === "mirv");
     expect(mirv).toBeTruthy();
-    expect(mirv.warheadCount).toBe(3);
+    expect(mirv.warheadCount).toBe(5);
     mirv.splitY = mirv.y + 1;
 
     sim.update(g, 2);
-    expect(g.missiles.filter((m) => m.alive && m.type === "mirv_warhead")).toHaveLength(3);
+    expect(g.missiles.filter((m) => m.alive && m.type === "mirv_warhead")).toHaveLength(5);
     expect(g.explosions.some((ex) => ex.harmless)).toBe(true);
   });
 });
