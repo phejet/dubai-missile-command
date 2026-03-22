@@ -117,7 +117,9 @@ async function main() {
   console.log(`Preset: ${PRESET || "perfect"}`);
   console.log();
 
-  const config = resolveBotConfig(loadConfig(), PRESET);
+  // Validate preset early, but pass raw config + preset to workers
+  resolveBotConfig(loadConfig(), PRESET);
+  const config = loadConfig();
   const history = [];
 
   const totalT0 = performance.now();
