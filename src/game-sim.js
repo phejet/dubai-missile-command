@@ -261,14 +261,14 @@ export function spawnMirv(g, onEvent) {
   const dy = target.y - -20;
   const len = Math.sqrt(dx * dx + dy * dy);
   if (len < 1) return;
-  const speed = rand(0.3, 0.5) + g.wave * 0.03;
+  const speed = rand(0.6, 0.9) + g.wave * 0.05;
   const hp = 3 + Math.floor(g.wave / 4);
   g.missiles.push({
     x: startX,
     y: -20,
     vx: (dx / len) * speed,
     vy: (dy / len) * speed,
-    accel: 1.001,
+    accel: 1.002,
     trail: [],
     alive: true,
     type: "mirv",
