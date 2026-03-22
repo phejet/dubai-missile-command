@@ -205,7 +205,7 @@ export default function DubaiMissileCommand() {
               game._replayShopTimer = performance.now();
               const bought = game._replayShopBought || [];
               if (bought.length > 0) {
-                game._purchaseToast = { items: [...bought], timer: 5000 };
+                game._purchaseToast = { items: [...bought], timer: 300 };
               }
               delete game._replayShopBought;
             } else if (performance.now() - game._replayShopTimer > 1000) {

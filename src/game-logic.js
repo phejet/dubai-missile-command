@@ -176,21 +176,9 @@ export function createExplosion(g, x, y, radius, color, playerCaused, initialRad
   g.shakeIntensity = radius / 10;
 }
 
-// Map from defense-site key to the game-state array that should be cleared
-const SITE_ENTITY_MAP = {
-  wildHornets: "hornets",
-  roadrunner: "roadrunners",
-  patriot: "patriotMissiles",
-  phalanx: "phalanxBullets",
-  flare: "flares",
-  ironBeam: "laserBeams",
-};
-
 export function destroyDefenseSite(g, site) {
   site.alive = false;
-  // Disable the system but preserve upgrade level — repair restores function
-  const arrayKey = SITE_ENTITY_MAP[site.key];
-  if (arrayKey) g[arrayKey] = [];
+  // isSiteAlive() prevents new spawns; existing in-flight entities finish naturally
 }
 
 export function getPhalanxTurrets(level) {
@@ -208,6 +196,12 @@ export function getKillReward(target) {
   return 28;
 }
 
+export function getAmmoCapacity(wave, launcherKitLevel) {
+  const baseAmmo = 12 + wave * 1;
+  const multiplier = launcherKitLevel >= 3 ? 2 : launcherKitLevel >= 1 ? 1.5 : 1;
+  return Math.round(baseAmmo * multiplier);
+}
+
 export function getMultiKillBonus(kills) {
   if (kills >= 4) return 700;
   if (kills === 3) return 350;
@@ -215,14 +209,99 @@ export function getMultiKillBonus(kills) {
   return 0;
 }
 
-export function damageTarget(g, target, damage, color, radius) {
+function cubicBezier(p0, p1, p2, p3, t) {
+  const u = 1 - t;
+  const uu = u * u;
+  const tt = t * t;
+  return {
+    x: uu * u * p0.x + 3 * uu * t * p1.x + 3 * u * tt * p2.x + tt * t * p3.x,
+    y: uu * u * p0.y + 3 * uu * t * p1.y + 3 * u * tt * p2.y + tt * t * p3.y,
+  };
+}
+
+function sampleCubicBezier(p0, p1, p2, p3, stepSize) {
+  const N = 500;
+  const fine = [];
+  for (let i = 0; i <= N; i++) {
+    fine.push(cubicBezier(p0, p1, p2, p3, i / N));
+  }
+  // Compute cumulative arc lengths
+  const arcLen = [0];
+  for (let i = 1; i < fine.length; i++) {
+    const dx = fine[i].x - fine[i - 1].x;
+    const dy = fine[i].y - fine[i - 1].y;
+    arcLen.push(arcLen[i - 1] + Math.sqrt(dx * dx + dy * dy));
+  }
+  // Walk at uniform stepSize intervals
+  const totalLen = arcLen[arcLen.length - 1];
+  const waypoints = [{ x: fine[0].x, y: fine[0].y }];
+  let nextDist = stepSize;
+  for (let i = 1; i < fine.length; i++) {
+    while (nextDist <= arcLen[i] && nextDist <= totalLen) {
+      const segStart = arcLen[i - 1];
+      const segEnd = arcLen[i];
+      const frac = segEnd > segStart ? (nextDist - segStart) / (segEnd - segStart) : 0;
+      waypoints.push({
+        x: fine[i - 1].x + (fine[i].x - fine[i - 1].x) * frac,
+        y: fine[i - 1].y + (fine[i].y - fine[i - 1].y) * frac,
+      });
+      nextDist += stepSize;
+    }
+  }
+  // Ensure endpoint is included
+  const last = fine[fine.length - 1];
+  const wLast = waypoints[waypoints.length - 1];
+  if (Math.abs(wLast.x - last.x) > 0.5 || Math.abs(wLast.y - last.y) > 0.5) {
+    waypoints.push({ x: last.x, y: last.y });
+  }
+  return waypoints;
+}
+
+export function computeShahed238Path(spawnX, spawnY, goingRight, speed, target) {
+  const dir = goingRight ? 1 : -1;
+
+  // Transition point — where cruise ends and dive arc begins
+  const transX = spawnX + dir * CANVAS_W * 0.55;
+  const transY = spawnY + rand(25, 50);
+
+  // Cruise segment (horizontal flight with gentle descent)
+  const cruiseWaypoints = sampleCubicBezier(
+    { x: spawnX, y: spawnY },
+    { x: spawnX + dir * CANVAS_W * 0.2, y: spawnY + rand(5, 15) },
+    { x: transX - dir * 80, y: spawnY + rand(15, 30) },
+    { x: transX, y: transY },
+    speed,
+  );
+
+  const diveStartIndex = cruiseWaypoints.length;
+
+  // Dive arc segment (smooth bank into target)
+  const diveWaypoints = sampleCubicBezier(
+    { x: transX, y: transY },
+    { x: transX + dir * 60, y: transY + 40 },
+    { x: target.x - dir * 40, y: target.y - 120 },
+    { x: target.x, y: target.y },
+    speed * 1.2,
+  );
+
+  const waypoints = cruiseWaypoints.concat(diveWaypoints.slice(1));
+
+  // Bomb drop positions: 35% and 65% through cruise
+  const bombIdx0 = Math.floor(diveStartIndex * 0.35);
+  const bombIdx1 = Math.min(diveStartIndex - 1, bombIdx0 + Math.min(90, Math.floor(diveStartIndex * 0.3)));
+  const bombIndices = [Math.max(1, bombIdx0), Math.max(2, bombIdx1)];
+
+  return { waypoints, diveStartIndex, bombIndices };
+}
+
+export function damageTarget(g, target, damage, color, radius, { noExplosion = false } = {}) {
   if (target.type === "drone") {
     target.health -= damage;
     if (target.health <= 0) {
       target.alive = false;
       g.score += getKillReward(target);
       g.stats.droneKills++;
-      createExplosion(g, target.x, target.y, radius, color);
+      if (!noExplosion) createExplosion(g, target.x, target.y, radius, color);
     }
   } else if (target.type === "mirv") {
     target.health -= damage;
@@ -230,12 +309,12 @@ export function damageTarget(g, target, damage, color, radius) {
       target.alive = false;
       g.score += getKillReward(target);
       g.stats.missileKills++;
-      createExplosion(g, target.x, target.y, 60, color);
+      if (!noExplosion) createExplosion(g, target.x, target.y, 60, color);
     }
   } else {
     target.alive = false;
     g.score += getKillReward(target);
     g.stats.missileKills++;
-    createExplosion(g, target.x, target.y, radius, color);
+    if (!noExplosion) createExplosion(g, target.x, target.y, radius, color);
   }
 }

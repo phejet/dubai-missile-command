@@ -18,8 +18,10 @@ import {
   getPhalanxTurrets,
   damageTarget,
   getKillReward,
+  getAmmoCapacity,
   getMultiKillBonus,
   getRng,
+  computeShahed238Path,
 } from "./game-logic.js";
 
 // ── UPGRADE DEFINITIONS ──
@@ -328,6 +330,7 @@ export function spawnMissile(g) {
     trail: [],
     alive: true,
     type: "missile",
+    _hitByExplosions: new Set(),
   });
   g.waveMissiles++;
 }
@@ -340,9 +343,11 @@ export function spawnDrone(g) {
   const baseSpeed = isJet ? rand(3.6, 5.6) : rand(0.6, 1.2);
   const speed = baseSpeed + g.wave * 0.05;
   const health = isJet ? 1 : 1 + Math.floor(g.wave / 3);
-  g.drones.push({
-    x: goingRight ? -20 : CANVAS_W + 20,
-    y: rand(80, 250),
+  const spawnX = goingRight ? -20 : CANVAS_W + 20;
+  const spawnY = rand(80, 250);
+  const drone = {
+    x: spawnX,
+    y: spawnY,
     vx: goingRight ? speed : -speed,
     vy: rand(-0.1, 0.3),
     wobble: rand(0, Math.PI * 2),
@@ -350,7 +355,21 @@ export function spawnDrone(g) {
     type: "drone",
     subtype: isJet ? "shahed238" : "shahed136",
     health,
-  });
+    _hitByExplosions: new Set(),
+  };
+  if (isJet) {
+    // Precompute aerodynamic trajectory
+    const estimatedMidX = spawnX + (goingRight ? 1 : -1) * CANVAS_W * 0.4;
+    const target = pickTarget(g, estimatedMidX) || { x: BURJ_X, y: CITY_Y };
+    const path = computeShahed238Path(spawnX, spawnY, goingRight, speed, target);
+    drone.waypoints = path.waypoints;
+    drone.pathIndex = 0;
+    drone.bombIndices = path.bombIndices;
+    drone.bombsDropped = 0;
+    drone.diveStartIndex = path.diveStartIndex;
+    drone.diveTarget = target;
+  }
+  g.drones.push(drone);
 }
 
 function isSiteAlive(g, key) {
@@ -489,9 +508,7 @@ function pickPatriotTargets(allThreats, count, blastRadius) {
 }
 
 function normalizeAngle(angle) {
-  while (angle > Math.PI) angle -= Math.PI * 2;
-  while (angle < -Math.PI) angle += Math.PI * 2;
-  return angle;
+  return ((((angle + Math.PI) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)) - Math.PI;
 }
 
 export function updateAutoSystems(g, dt, allThreats, onEvent) {
@@ -518,11 +535,18 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
           alive: true,
           blastRadius: blastR,
           wobble: rand(0, Math.PI * 2),
+          life: 300,
         });
       }
     }
     g.hornets.forEach((h) => {
       if (!h.alive) return;
+      h.life -= dt;
+      if (h.life <= 0 || h.x < -60 || h.x > CANVAS_W + 60 || h.y < -60 || h.y > CANVAS_H + 20) {
+        h.alive = false;
+        boom(g, h.x, h.y, h.blastRadius * 0.5, COL.hornet, false, onEvent, h.blastRadius * 0.2);
+        return;
+      }
       const t = h.targetRef;
       if (!t || !t.alive) {
         const newT = pickHornetRetargetTarget(
@@ -627,6 +651,11 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
         r.heading = normalizeAngle(r.heading + appliedTurn);
         r.x += Math.cos(r.heading) * r.speed * dt;
         r.y += Math.sin(r.heading) * r.speed * dt;
+        if (r.y >= GROUND_Y - 5) {
+          r.alive = false;
+          boom(g, r.x, GROUND_Y - 5, blastR, COL.roadrunner, false, onEvent, 15);
+          return;
+        }
       }
     });
     g.roadrunners = g.roadrunners.filter((r) => r.alive);
@@ -744,12 +773,13 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
         }
       }
     }
-    g.laserBeams.forEach((b) => (b.life -= dt));
-    g.laserBeams = g.laserBeams.filter((b) => b.life > 0);
-    if (g.laserBeams.length === 0 && g._laserHandle) {
-      g._laserHandle.stop();
-      g._laserHandle = null;
-    }
+  }
+  // Decay existing beams even if site is destroyed
+  g.laserBeams.forEach((b) => (b.life -= dt));
+  g.laserBeams = g.laserBeams.filter((b) => b.life > 0);
+  if (g.laserBeams.length === 0 && g._laserHandle) {
+    g._laserHandle.stop();
+    g._laserHandle = null;
   }
 
   // ── PHALANX CIWS ──
@@ -779,17 +809,18 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
         }
       });
     }
-    g.phalanxBullets.forEach((b) => {
-      b.life -= dt;
-      const progress = 1 - b.life / 8;
-      b.cx = b.x + (b.tx - b.x) * progress;
-      b.cy = b.y + (b.ty - b.y) * progress;
-      if (b.life <= 0 && b.hit && b.targetRef.alive) {
-        damageTarget(g, b.targetRef, 1, COL.phalanx, b.targetRef.type === "drone" ? 15 : 12);
-      }
-    });
-    g.phalanxBullets = g.phalanxBullets.filter((b) => b.life > 0);
   }
+  // Decay existing bullets even if site is destroyed
+  g.phalanxBullets.forEach((b) => {
+    b.life -= dt;
+    const progress = 1 - b.life / 8;
+    b.cx = b.x + (b.tx - b.x) * progress;
+    b.cy = b.y + (b.ty - b.y) * progress;
+    if (b.life <= 0 && b.hit && b.targetRef.alive) {
+      damageTarget(g, b.targetRef, 1, COL.phalanx, b.targetRef.type === "drone" ? 15 : 12);
+    }
+  });
+  g.phalanxBullets = g.phalanxBullets.filter((b) => b.life > 0);
 
   // ── PATRIOT BATTERY ──
   if (g.upgrades.patriot > 0 && isSiteAlive(g, "patriot")) {
@@ -871,25 +902,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
         const d = dist(t.x, t.y, ring.x, ring.y);
         if (d >= bandInner && d <= bandOuter) {
           ring.hitSet.add(t);
-          if (t.type === "drone") {
-            t.health -= ring.damage;
-            if (t.health <= 0) {
-              t.alive = false;
-              g.score += getKillReward(t);
-              g.stats.droneKills++;
-            }
-          } else if (t.type === "mirv") {
-            t.health -= ring.damage;
-            if (t.health <= 0) {
-              t.alive = false;
-              g.score += getKillReward(t);
-              g.stats.missileKills++;
-            }
-          } else {
-            t.alive = false;
-            g.score += getKillReward(t);
-            g.stats.missileKills++;
-          }
+          damageTarget(g, t, ring.damage, COL.emp, 20, { noExplosion: true });
           // Violet spark particles — big burst
           const sparkCount = Math.min(15, MAX_PARTICLES - g.particles.length);
           for (let i = 0; i < sparkCount; i++) {
@@ -915,6 +928,421 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
     });
     g.empRings = g.empRings.filter((r) => r.alive);
   }
+}
+
+function updateMissiles(g, dt, onEvent) {
+  g.missiles.forEach((m) => {
+    if (!m.alive) return;
+    m.trail.push({ x: m.x, y: m.y });
+    if (m.trail.length > 30) m.trail.shift();
+    if (m.accel) {
+      m.vx *= m.accel ** dt;
+      m.vy *= m.accel ** dt;
+    }
+    const mSlow = m.empSlowTimer > 0 ? ((m.empSlowTimer -= dt), 0.4) : 1;
+    m.x += m.vx * dt * mSlow;
+    m.y += m.vy * dt * mSlow;
+    // MIRV split
+    if (m.type === "mirv" && !m.splitTriggered && m.y >= m.splitY) {
+      m.splitTriggered = true;
+      m.alive = false;
+      for (let i = 0; i < m.warheadCount; i++) {
+        const t = pickTarget(g, m.x);
+        if (!t) continue;
+        const dx = t.x - m.x;
+        const dy = t.y - m.y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        const spd = rand(0.8, 1.2) + g.wave * 0.06;
+        g.missiles.push({
+          x: m.x + rand(-10, 10),
+          y: m.y + rand(-5, 5),
+          vx: (dx / len) * spd,
+          vy: (dy / len) * spd,
+          accel: 1.004 + g.wave * 0.0008,
+          trail: [],
+          alive: true,
+          type: "mirv_warhead",
+          empSlowTimer: 0,
+          _hitByExplosions: new Set(),
+        });
+      }
+      boom(g, m.x, m.y, 35, COL.mirv, false, onEvent, 0, { harmless: true });
+      if (onEvent) onEvent("sfx", { name: "mirvSplit" });
+      return;
+    }
+    // Burj collision
+    if (
+      g.burjAlive &&
+      m.alive &&
+      m.y >= GROUND_Y - BURJ_H - 30 &&
+      m.y <= GROUND_Y &&
+      Math.abs(m.x - BURJ_X) < burjHalfW(m.y)
+    ) {
+      m.alive = false;
+      boom(g, m.x, m.y, 30, "#ff4400", false, onEvent);
+      g.shakeTimer = 10;
+      g.shakeIntensity = 4;
+      g.burjHealth--;
+      if (onEvent) onEvent("sfx", { name: "burjHit" });
+      if (g.burjHealth <= 0) {
+        g.burjAlive = false;
+        boom(g, BURJ_X, CITY_Y - BURJ_H / 2, 60, "#ff2200", false, onEvent);
+      }
+    }
+    // Building collisions
+    if (m.alive) {
+      g.buildings.forEach((b) => {
+        if (b.alive && m.alive && m.x >= b.x && m.x <= b.x + b.w && m.y >= GROUND_Y - b.h) {
+          m.alive = false;
+          boom(g, m.x, m.y, 20, "#ff4400", false, onEvent);
+          b.alive = false;
+        }
+      });
+    }
+    // Defense site collisions
+    if (m.alive) {
+      g.defenseSites.forEach((site) => {
+        if (site.alive && m.alive && Math.abs(m.x - site.x) < site.hw && Math.abs(m.y - site.y) < site.hh) {
+          m.alive = false;
+          destroyDefenseSite(g, site);
+          boom(g, m.x, m.y, 35, "#ff4400", false, onEvent);
+          g.shakeTimer = 12;
+          g.shakeIntensity = 5;
+        }
+      });
+    }
+    // Launcher collision
+    if (m.alive) {
+      LAUNCHERS.forEach((l, i) => {
+        if (g.launcherHP[i] > 0 && m.alive && Math.abs(m.x - l.x) < 15 && m.y >= l.y - 12) {
+          m.alive = false;
+          g.launcherHP[i]--;
+          boom(g, m.x, m.y, 25, "#ff4400", false, onEvent);
+          g.shakeTimer = 10;
+          g.shakeIntensity = 4;
+          if (g.launcherHP[i] <= 0) {
+            g.ammo[i] = 0;
+            if (onEvent) onEvent("sfx", { name: "launcherDestroyed" });
+          }
+        }
+      });
+    }
+    // Ground impact
+    if (m.alive && m.y >= GROUND_Y) {
+      m.alive = false;
+      boom(g, m.x, GROUND_Y, 25, "#ff4400", false, onEvent);
+    }
+    if (m.x < -50 || m.x > CANVAS_W + 50 || m.y > CANVAS_H + 50) m.alive = false;
+  });
+}
+
+function updateDrones(g, _rng, dt, onEvent) {
+  g.drones.forEach((d) => {
+    if (!d.alive) return;
+    if (d.empSlowTimer > 0) d.empSlowTimer -= dt;
+    const dSlow = d.empSlowTimer > 0 ? 0.4 : 1;
+    d.wobble += 0.05 * dt;
+    if (d.subtype === "shahed238") {
+      // Follow precomputed Bezier trajectory
+      const prevX = d.x;
+      const prevY = d.y;
+      d.pathIndex = Math.min(d.pathIndex + dt * dSlow, d.waypoints.length - 1);
+      const i0 = Math.floor(d.pathIndex);
+      const frac = d.pathIndex - i0;
+      const i1 = Math.min(i0 + 1, d.waypoints.length - 1);
+      d.x = d.waypoints[i0].x + (d.waypoints[i1].x - d.waypoints[i0].x) * frac;
+      d.y = d.waypoints[i0].y + (d.waypoints[i1].y - d.waypoints[i0].y) * frac;
+      d.vx = d.x - prevX;
+      d.vy = d.y - prevY;
+      if (!d.diving && d.pathIndex >= d.diveStartIndex) d.diving = true;
+      // Drop bombs at precomputed path positions
+      if (d.bombsDropped < 2 && d.pathIndex >= d.bombIndices[d.bombsDropped]) {
+        const bombT = pickTarget(g, d.x);
+        if (bombT) {
+          g.missiles.push({
+            x: d.x,
+            y: d.y,
+            vx: (bombT.x - d.x) * 0.002,
+            vy: rand(1.2, 2.0),
+            trail: [],
+            alive: true,
+            type: "bomb",
+            _hitByExplosions: new Set(),
+          });
+        }
+        d.bombsDropped++;
+      }
+    } else {
+      if (!d.diving) {
+        d.x += d.vx * dt * dSlow;
+        d.y += (d.vy + Math.sin(d.wobble) * 0.3) * dt * dSlow;
+        const nearMid = (d.vx > 0 && d.x > CANVAS_W * 0.35) || (d.vx < 0 && d.x < CANVAS_W * 0.65);
+        if (nearMid) {
+          if (g.wave >= 3 && !d.bombDropped) {
+            d.bombDropped = true;
+            const bombT = pickTarget(g, d.x);
+            if (bombT) {
+              const tx = bombT.x;
+              g.missiles.push({
+                x: d.x,
+                y: d.y,
+                vx: (tx - d.x) * 0.002,
+                vy: rand(1.2, 2.0),
+                trail: [],
+                alive: true,
+                type: "bomb",
+                _hitByExplosions: new Set(),
+              });
+            }
+          }
+          d.diving = true;
+          const diveT = pickTarget(g, d.x);
+          d.diveTarget = diveT || { x: BURJ_X, y: CITY_Y };
+        }
+      } else {
+        const dx = d.diveTarget.x - d.x;
+        const dy = d.diveTarget.y - d.y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (len < 0.01) {
+          d.alive = false;
+        } else {
+          if (!d.diveSpeed) d.diveSpeed = Math.max(Math.abs(d.vx), 1.0) * 1.8;
+          d.vx = (dx / len) * d.diveSpeed;
+          d.vy = (dy / len) * d.diveSpeed;
+          d.x += d.vx * dt * dSlow;
+          d.y += d.vy * dt * dSlow;
+        }
+      }
+    }
+    if (d.x < -60 || d.x > CANVAS_W + 60 || d.y > CANVAS_H + 20) d.alive = false;
+    // Shahed impact
+    if (d.diveTarget && d.alive) {
+      const hitTarget = dist(d.x, d.y, d.diveTarget.x, d.diveTarget.y) < 20;
+      const hitGround = d.y >= GROUND_Y - 5;
+      const pathDone = d.waypoints && d.pathIndex >= d.waypoints.length - 1;
+      if (hitTarget || hitGround || pathDone) {
+        d.alive = false;
+        boom(g, d.x, d.y, 40, "#ff6600", false, onEvent);
+        g.shakeTimer = 15;
+        g.shakeIntensity = 6;
+        g.buildings.forEach((b) => {
+          if (b.alive && Math.abs(d.x - (b.x + b.w / 2)) < b.w / 2 + 30) {
+            b.alive = false;
+          }
+        });
+        g.defenseSites.forEach((site) => {
+          if (site.alive && Math.abs(d.x - site.x) < site.hw + 20 && Math.abs(d.y - site.y) < site.hh + 20) {
+            destroyDefenseSite(g, site);
+          }
+        });
+        LAUNCHERS.forEach((l, i) => {
+          if (g.launcherHP[i] > 0 && Math.abs(d.x - l.x) < 30) {
+            g.launcherHP[i]--;
+            if (g.launcherHP[i] <= 0) {
+              g.ammo[i] = 0;
+              if (onEvent) onEvent("sfx", { name: "launcherDestroyed" });
+            }
+          }
+        });
+        if (g.burjAlive && Math.abs(d.x - BURJ_X) < 50) {
+          g.burjHealth--;
+          if (onEvent) onEvent("sfx", { name: "burjHit" });
+          if (g.burjHealth <= 0) {
+            g.burjAlive = false;
+            boom(g, BURJ_X, CITY_Y - BURJ_H / 2, 60, "#ff2200", false, onEvent);
+          }
+        }
+      }
+    }
+  });
+}
+
+function updateInterceptors(g, dt, onEvent) {
+  g.interceptors.forEach((ic) => {
+    if (!ic.alive) return;
+    ic.trail.push({ x: ic.x, y: ic.y });
+    if (ic.trail.length > 15) ic.trail.shift();
+    ic.x += ic.vx * dt;
+    ic.y += ic.vy * dt;
+    let detonate = false;
+    if (dist(ic.x, ic.y, ic.targetX, ic.targetY) < 16) {
+      detonate = true;
+    }
+    // Proximity fuse: detonate early if passing close to any threat
+    if (!detonate && !ic.fromF15) {
+      const fuseRadius = 18;
+      for (const m of g.missiles) {
+        if (m.alive && dist(ic.x, ic.y, m.x, m.y) < fuseRadius) {
+          detonate = true;
+          break;
+        }
+      }
+      if (!detonate) {
+        for (const d of g.drones) {
+          if (d.alive && dist(ic.x, ic.y, d.x, d.y) < fuseRadius) {
+            detonate = true;
+            break;
+          }
+        }
+      }
+    }
+    if (detonate) {
+      ic.alive = false;
+      if (ic.fromF15) {
+        boom(g, ic.x, ic.y, 30, "#aaccff", false, onEvent);
+      } else {
+        boom(g, ic.x, ic.y, 49, COL.interceptor, true, onEvent);
+      }
+    }
+    if (ic.fromF15 && (ic.x < -50 || ic.x > CANVAS_W + 50 || ic.y < -50 || ic.y > CANVAS_H + 50)) ic.alive = false;
+  });
+}
+
+function updateExplosions(g, dt, onEvent) {
+  g.explosions.forEach((ex) => {
+    if (ex.growing) {
+      ex.radius += 2 * dt;
+      if (ex.radius >= ex.maxRadius) ex.growing = false;
+    } else ex.alpha -= 0.03 * dt;
+    if (ex.alpha > 0.2 && !ex.harmless) {
+      if (!ex.kills) ex.kills = 0;
+      g.missiles.forEach((m) => {
+        if (!m.alive) return;
+        if (m.type === "mirv") {
+          if (m._hitByExplosions.has(ex.id)) return;
+          if (dist(m.x, m.y, ex.x, ex.y) < ex.radius) {
+            m._hitByExplosions.add(ex.id);
+            m.health--;
+            if (m.health <= 0) {
+              m.alive = false;
+              g.score += getKillReward(m);
+              g.stats.missileKills++;
+              ex.kills++;
+              boom(g, m.x, m.y, 60, COL.mirv, ex.playerCaused, onEvent);
+            }
+          }
+        } else if (dist(m.x, m.y, ex.x, ex.y) < ex.radius) {
+          m.alive = false;
+          g.score += getKillReward(m);
+          g.stats.missileKills++;
+          ex.kills++;
+          boom(g, m.x, m.y, 30, "#ffcc00", ex.playerCaused, onEvent);
+        }
+      });
+      g.drones.forEach((d) => {
+        if (!d.alive) return;
+        if (d._hitByExplosions.has(ex.id)) return;
+        if (dist(d.x, d.y, ex.x, ex.y) < ex.radius + 10) {
+          d._hitByExplosions.add(ex.id);
+          d.health--;
+          if (d.health <= 0) {
+            d.alive = false;
+            g.score += getKillReward(d);
+            g.stats.droneKills++;
+            ex.kills++;
+            boom(g, d.x, d.y, 60, "#ff8800", ex.playerCaused, onEvent);
+          }
+        }
+      });
+      // Multi-kill bonus
+      if (ex.kills >= 2 && !ex.bonusAwarded) {
+        ex.bonusAwarded = true;
+        const bonus = getMultiKillBonus(ex.kills);
+        const label = ex.kills === 2 ? "DOUBLE KILL" : ex.kills === 3 ? "TRIPLE KILL" : "MEGA KILL";
+        g.score += bonus;
+        g.multiKillToast = { label, bonus, x: ex.x, y: ex.y, timer: 90 };
+        if (onEvent) onEvent("sfx", { name: "multiKill" });
+      }
+    }
+    // Check again at end of frame — explosion may have gotten more kills while still growing
+    if (ex.bonusAwarded && ex.kills > (ex._lastBonusKills || 0)) {
+      const prevKills = ex._lastBonusKills || 2;
+      if (ex.kills > prevKills) {
+        const oldBonus = getMultiKillBonus(prevKills);
+        const newBonus = getMultiKillBonus(ex.kills);
+        g.score += newBonus - oldBonus;
+        const label = ex.kills === 2 ? "DOUBLE KILL" : ex.kills === 3 ? "TRIPLE KILL" : "MEGA KILL";
+        g.multiKillToast = { label, bonus: newBonus, x: ex.x, y: ex.y, timer: 90 };
+      }
+    }
+    if (ex.kills) ex._lastBonusKills = ex.kills;
+  });
+}
+
+function updatePlanes(g, dt, allThreats, onEvent) {
+  g.planes.forEach((p) => {
+    if (!p.alive) return;
+    p.blinkTimer += dt;
+
+    // Evasion: bank away from nearby player explosions
+    if (p.evadeTimer > 0) {
+      p.evadeTimer -= dt;
+      if (p.evadeTimer <= 0) {
+        p.vy = 0;
+        p.evadeTimer = 0;
+      }
+    } else {
+      g.explosions.forEach((ex) => {
+        if (ex.playerCaused && ex.growing && p.alive && dist(p.x, p.y, ex.x, ex.y) < 120) {
+          p.vy = ex.y > p.y ? -3 : 3;
+          p.evadeTimer = 30;
+        }
+      });
+    }
+
+    p.x += p.vx * dt;
+    p.y = Math.max(60, Math.min(320, p.y + p.vy * dt));
+    p.fireTimer += dt;
+    if (p.fireTimer >= p.fireInterval) {
+      let closest = null,
+        closestD = 200;
+      allThreats.forEach((t) => {
+        const d2 = dist(p.x, p.y, t.x, t.y);
+        if (d2 < closestD) {
+          closestD = d2;
+          closest = t;
+        }
+      });
+      if (closest) {
+        p.fireTimer = 0;
+        const spd = 11;
+        let aimX = closest.x,
+          aimY = closest.y;
+        const accelFactor = closest.accel ? closest.accel ** 8 : 1;
+        for (let i = 0; i < 6; i++) {
+          const d = Math.sqrt((aimX - p.x) ** 2 + (aimY - p.y) ** 2);
+          const frames = d / spd;
+          aimX = closest.x + (closest.vx || 0) * accelFactor * frames;
+          aimY = closest.y + (closest.vy || 0) * accelFactor * frames;
+        }
+        const dx = aimX - p.x,
+          dy = aimY - p.y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        g.interceptors.push({
+          x: p.x,
+          y: p.y,
+          targetX: aimX,
+          targetY: aimY,
+          vx: (dx / len) * spd,
+          vy: (dy / len) * spd,
+          trail: [],
+          alive: true,
+          fromF15: true,
+        });
+      }
+    }
+    // Only direct interceptor hits kill F-15s (not splash damage)
+    g.interceptors.forEach((ic) => {
+      if (!ic.alive || ic.fromF15) return;
+      if (p.alive && dist(ic.x, ic.y, p.x, p.y) < 18) {
+        ic.alive = false;
+        p.alive = false;
+        g.score -= 500;
+        boom(g, p.x, p.y, 40, "#ff0000", false, onEvent);
+      }
+    });
+    if (p.x < -80 || p.x > CANVAS_W + 80) p.alive = false;
+  });
 }
 
 export function update(g, dt, onEvent) {
@@ -1016,413 +1444,11 @@ export function update(g, dt, onEvent) {
 
   const allThreats = [...g.missiles.filter((m) => m.alive), ...g.drones.filter((d) => d.alive)];
   updateAutoSystems(g, dt, allThreats, onEvent);
-
-  // Update missiles
-  g.missiles.forEach((m) => {
-    if (!m.alive) return;
-    m.trail.push({ x: m.x, y: m.y });
-    if (m.trail.length > 30) m.trail.shift();
-    if (m.accel) {
-      m.vx *= m.accel ** dt;
-      m.vy *= m.accel ** dt;
-    }
-    const mSlow = m.empSlowTimer > 0 ? ((m.empSlowTimer -= dt), 0.4) : 1;
-    m.x += m.vx * dt * mSlow;
-    m.y += m.vy * dt * mSlow;
-    // MIRV split
-    if (m.type === "mirv" && !m.splitTriggered && m.y >= m.splitY) {
-      m.splitTriggered = true;
-      m.alive = false;
-      for (let i = 0; i < m.warheadCount; i++) {
-        const t = pickTarget(g, m.x);
-        if (!t) continue;
-        const dx = t.x - m.x;
-        const dy = t.y - m.y;
-        const len = Math.sqrt(dx * dx + dy * dy);
-        const spd = rand(0.8, 1.2) + g.wave * 0.06;
-        g.missiles.push({
-          x: m.x + rand(-10, 10),
-          y: m.y + rand(-5, 5),
-          vx: (dx / len) * spd,
-          vy: (dy / len) * spd,
-          accel: 1.004 + g.wave * 0.0008,
-          trail: [],
-          alive: true,
-          type: "mirv_warhead",
-          empSlowTimer: 0,
-        });
-      }
-      boom(g, m.x, m.y, 35, COL.mirv, false, onEvent, 0, { harmless: true });
-      if (onEvent) onEvent("sfx", { name: "mirvSplit" });
-      return;
-    }
-    // Burj collision
-    if (
-      g.burjAlive &&
-      m.alive &&
-      m.y >= GROUND_Y - BURJ_H - 30 &&
-      m.y <= GROUND_Y &&
-      Math.abs(m.x - BURJ_X) < burjHalfW(m.y)
-    ) {
-      m.alive = false;
-      boom(g, m.x, m.y, 30, "#ff4400", false, onEvent);
-      g.shakeTimer = 10;
-      g.shakeIntensity = 4;
-      g.burjHealth--;
-      if (onEvent) onEvent("sfx", { name: "burjHit" });
-      if (g.burjHealth <= 0) {
-        g.burjAlive = false;
-        boom(g, BURJ_X, CITY_Y - BURJ_H / 2, 60, "#ff2200", false, onEvent);
-      }
-    }
-    // Building collisions
-    if (m.alive) {
-      g.buildings.forEach((b) => {
-        if (b.alive && m.alive && m.x >= b.x && m.x <= b.x + b.w && m.y >= GROUND_Y - b.h) {
-          m.alive = false;
-          boom(g, m.x, m.y, 20, "#ff4400", false, onEvent);
-          b.alive = false;
-        }
-      });
-    }
-    // Defense site collisions
-    if (m.alive) {
-      g.defenseSites.forEach((site) => {
-        if (site.alive && m.alive && Math.abs(m.x - site.x) < site.hw && Math.abs(m.y - site.y) < site.hh) {
-          m.alive = false;
-          destroyDefenseSite(g, site);
-          boom(g, m.x, m.y, 35, "#ff4400", false, onEvent);
-          g.shakeTimer = 12;
-          g.shakeIntensity = 5;
-        }
-      });
-    }
-    // Launcher collision
-    if (m.alive) {
-      LAUNCHERS.forEach((l, i) => {
-        if (g.launcherHP[i] > 0 && m.alive && Math.abs(m.x - l.x) < 15 && m.y >= l.y - 12) {
-          m.alive = false;
-          g.launcherHP[i]--;
-          boom(g, m.x, m.y, 25, "#ff4400", false, onEvent);
-          g.shakeTimer = 10;
-          g.shakeIntensity = 4;
-          if (g.launcherHP[i] <= 0) {
-            g.ammo[i] = 0;
-            if (onEvent) onEvent("sfx", { name: "launcherDestroyed" });
-          }
-        }
-      });
-    }
-    // Ground impact
-    if (m.alive && m.y >= GROUND_Y) {
-      m.alive = false;
-      boom(g, m.x, GROUND_Y, 25, "#ff4400", false, onEvent);
-    }
-    if (m.x < -50 || m.x > CANVAS_W + 50 || m.y > CANVAS_H + 50) m.alive = false;
-  });
-
-  // Update drones (Shaheds)
-  g.drones.forEach((d) => {
-    if (!d.alive) return;
-    if (d.empSlowTimer > 0) d.empSlowTimer -= dt;
-    const dSlow = d.empSlowTimer > 0 ? 0.4 : 1;
-    d.wobble += 0.05 * dt;
-    if (d.subtype === "shahed238") {
-      if (!d.diving && ((d.vx > 0 && d.x > CANVAS_W * 0.3) || (d.vx < 0 && d.x < CANVAS_W * 0.7))) {
-        // Drop bombs while flying (2 max)
-        if (!d.bombsDropped) d.bombsDropped = 0;
-        if (d.bombsDropped < 2 && !d.bombCooldown) {
-          const bombT = pickTarget(g, d.x);
-          if (bombT) {
-            g.missiles.push({
-              x: d.x,
-              y: d.y,
-              vx: (bombT.x - d.x) * 0.002,
-              vy: rand(1.2, 2.0),
-              trail: [],
-              alive: true,
-              type: "bomb",
-            });
-            d.bombsDropped++;
-            d.bombCooldown = 90; // cooldown between bombs
-          }
-        }
-        if (d.bombCooldown > 0) d.bombCooldown -= dt;
-        if (d.bombCooldown <= 0) d.bombCooldown = 0;
-        if (_rng() < 0.02 * dt) {
-          d.diving = true;
-          const t = pickTarget(g, d.x);
-          d.diveTarget = t || { x: BURJ_X, y: CITY_Y };
-        }
-      }
-      if (d.diving && d.diveTarget) {
-        // Lock dive speed on first dive frame to avoid deceleration
-        if (!d.diveSpeed) d.diveSpeed = Math.sqrt(d.vx * d.vx + d.vy * d.vy) * 1.2;
-        const dx = d.diveTarget.x - d.x;
-        const dy = d.diveTarget.y - d.y;
-        const len = Math.sqrt(dx * dx + dy * dy);
-        if (len < 0.01) {
-          d.alive = false;
-        } else {
-          d.vx = (dx / len) * d.diveSpeed;
-          d.vy = (dy / len) * d.diveSpeed;
-          d.x += d.vx * dt * dSlow;
-          d.y += d.vy * dt * dSlow;
-        }
-      } else {
-        d.x += d.vx * dt * dSlow;
-        d.y += (d.vy + Math.sin(d.wobble) * 0.15) * dt * dSlow;
-      }
-    } else {
-      if (!d.diving) {
-        d.x += d.vx * dt * dSlow;
-        d.y += (d.vy + Math.sin(d.wobble) * 0.3) * dt * dSlow;
-        const nearMid = (d.vx > 0 && d.x > CANVAS_W * 0.35) || (d.vx < 0 && d.x < CANVAS_W * 0.65);
-        if (nearMid) {
-          if (g.wave >= 3 && !d.bombDropped) {
-            d.bombDropped = true;
-            const bombT = pickTarget(g, d.x);
-            if (bombT) {
-              const tx = bombT.x;
-              g.missiles.push({
-                x: d.x,
-                y: d.y,
-                vx: (tx - d.x) * 0.002,
-                vy: rand(1.2, 2.0),
-                trail: [],
-                alive: true,
-                type: "bomb",
-              });
-            }
-          }
-          d.diving = true;
-          const diveT = pickTarget(g, d.x);
-          d.diveTarget = diveT || { x: BURJ_X, y: CITY_Y };
-        }
-      } else {
-        const dx = d.diveTarget.x - d.x;
-        const dy = d.diveTarget.y - d.y;
-        const len = Math.sqrt(dx * dx + dy * dy);
-        if (len < 0.01) {
-          d.alive = false;
-        } else {
-          const diveSpeed = Math.max(Math.abs(d.vx), 1.0) * 1.1;
-          d.vx = (dx / len) * diveSpeed;
-          d.vy = (dy / len) * diveSpeed;
-          d.x += d.vx * dt * dSlow;
-          d.y += d.vy * dt * dSlow;
-        }
-      }
-    }
-    if (d.x < -60 || d.x > CANVAS_W + 60 || d.y > CANVAS_H + 20) d.alive = false;
-    // Shahed impact
-    if (d.diving && d.diveTarget && d.alive) {
-      const hitTarget = dist(d.x, d.y, d.diveTarget.x, d.diveTarget.y) < 20;
-      const hitGround = d.y >= GROUND_Y - 5;
-      if (hitTarget || hitGround) {
-        d.alive = false;
-        boom(g, d.x, d.y, 40, "#ff6600", false, onEvent);
-        g.shakeTimer = 15;
-        g.shakeIntensity = 6;
-        g.buildings.forEach((b) => {
-          if (b.alive && Math.abs(d.x - (b.x + b.w / 2)) < b.w / 2 + 30) {
-            b.alive = false;
-          }
-        });
-        g.defenseSites.forEach((site) => {
-          if (site.alive && Math.abs(d.x - site.x) < site.hw + 20 && Math.abs(d.y - site.y) < site.hh + 20) {
-            destroyDefenseSite(g, site);
-          }
-        });
-        LAUNCHERS.forEach((l, i) => {
-          if (g.launcherHP[i] > 0 && Math.abs(d.x - l.x) < 30) {
-            g.launcherHP[i]--;
-            if (g.launcherHP[i] <= 0) {
-              g.ammo[i] = 0;
-              if (onEvent) onEvent("sfx", { name: "launcherDestroyed" });
-            }
-          }
-        });
-        if (g.burjAlive && Math.abs(d.x - BURJ_X) < 50) {
-          g.burjHealth--;
-          if (onEvent) onEvent("sfx", { name: "burjHit" });
-          if (g.burjHealth <= 0) {
-            g.burjAlive = false;
-            boom(g, BURJ_X, CITY_Y - BURJ_H / 2, 60, "#ff2200", false, onEvent);
-          }
-        }
-      }
-    }
-  });
-
-  // Update interceptors
-  g.interceptors.forEach((ic) => {
-    if (!ic.alive) return;
-    ic.trail.push({ x: ic.x, y: ic.y });
-    if (ic.trail.length > 15) ic.trail.shift();
-    ic.x += ic.vx * dt;
-    ic.y += ic.vy * dt;
-    if (dist(ic.x, ic.y, ic.targetX, ic.targetY) < 16) {
-      ic.alive = false;
-      if (ic.fromF15) {
-        boom(g, ic.x, ic.y, 30, "#aaccff", false, onEvent);
-      } else {
-        boom(g, ic.x, ic.y, 49, COL.interceptor, true, onEvent);
-      }
-    }
-    if (ic.fromF15 && (ic.x < -50 || ic.x > CANVAS_W + 50 || ic.y < -50 || ic.y > CANVAS_H + 50)) ic.alive = false;
-  });
-
-  // Explosion collisions
-  g.explosions.forEach((ex) => {
-    if (ex.growing) {
-      ex.radius += 2 * dt;
-      if (ex.radius >= ex.maxRadius) ex.growing = false;
-    } else ex.alpha -= 0.03 * dt;
-    if (ex.alpha > 0.2 && !ex.harmless) {
-      if (!ex.kills) ex.kills = 0;
-      g.missiles.forEach((m) => {
-        if (!m.alive) return;
-        if (m.type === "mirv") {
-          if (!m._hitByExplosions) m._hitByExplosions = new Set();
-          if (m._hitByExplosions.has(ex.id)) return;
-          if (dist(m.x, m.y, ex.x, ex.y) < ex.radius) {
-            m._hitByExplosions.add(ex.id);
-            m.health--;
-            if (m.health <= 0) {
-              m.alive = false;
-              g.score += getKillReward(m);
-              g.stats.missileKills++;
-              ex.kills++;
-              boom(g, m.x, m.y, 60, COL.mirv, ex.playerCaused, onEvent);
-            }
-          }
-        } else if (dist(m.x, m.y, ex.x, ex.y) < ex.radius) {
-          m.alive = false;
-          g.score += getKillReward(m);
-          g.stats.missileKills++;
-          ex.kills++;
-          boom(g, m.x, m.y, 30, "#ffcc00", ex.playerCaused, onEvent);
-        }
-      });
-      g.drones.forEach((d) => {
-        if (!d.alive) return;
-        if (!d._hitByExplosions) d._hitByExplosions = new Set();
-        if (d._hitByExplosions.has(ex.id)) return;
-        if (dist(d.x, d.y, ex.x, ex.y) < ex.radius + 10) {
-          d._hitByExplosions.add(ex.id);
-          d.health--;
-          if (d.health <= 0) {
-            d.alive = false;
-            g.score += getKillReward(d);
-            g.stats.droneKills++;
-            ex.kills++;
-            boom(g, d.x, d.y, 60, "#ff8800", ex.playerCaused, onEvent);
-          }
-        }
-      });
-      // Multi-kill bonus
-      if (ex.kills >= 2 && !ex.bonusAwarded) {
-        ex.bonusAwarded = true;
-        const bonus = getMultiKillBonus(ex.kills);
-        const label = ex.kills === 2 ? "DOUBLE KILL" : ex.kills === 3 ? "TRIPLE KILL" : "MEGA KILL";
-        g.score += bonus;
-        g.multiKillToast = { label, bonus, x: ex.x, y: ex.y, timer: 90 };
-        if (onEvent) onEvent("sfx", { name: "multiKill" });
-      }
-    }
-    // Check again at end of frame — explosion may have gotten more kills while still growing
-    if (ex.bonusAwarded && ex.kills > (ex._lastBonusKills || 0)) {
-      const prevKills = ex._lastBonusKills || 2;
-      if (ex.kills > prevKills) {
-        // Upgrade the bonus
-        const oldBonus = getMultiKillBonus(prevKills);
-        const newBonus = getMultiKillBonus(ex.kills);
-        g.score += newBonus - oldBonus;
-        const label = ex.kills === 2 ? "DOUBLE KILL" : ex.kills === 3 ? "TRIPLE KILL" : "MEGA KILL";
-        g.multiKillToast = { label, bonus: newBonus, x: ex.x, y: ex.y, timer: 90 };
-      }
-    }
-    if (ex.kills) ex._lastBonusKills = ex.kills;
-  });
-
-  // F-15s
-  g.planes.forEach((p) => {
-    if (!p.alive) return;
-    p.blinkTimer += dt;
-
-    // Evasion: bank away from nearby player explosions
-    if (p.evadeTimer > 0) {
-      p.evadeTimer -= dt;
-      if (p.evadeTimer <= 0) {
-        p.vy = 0; // return to level flight
-        p.evadeTimer = 0;
-      }
-    } else {
-      g.explosions.forEach((ex) => {
-        if (ex.playerCaused && ex.growing && p.alive && dist(p.x, p.y, ex.x, ex.y) < 120) {
-          // Bank away from explosion
-          p.vy = ex.y > p.y ? -3 : 3;
-          p.evadeTimer = 30;
-        }
-      });
-    }
-
-    p.x += p.vx * dt;
-    p.y = Math.max(60, Math.min(320, p.y + p.vy * dt));
-    p.fireTimer += dt;
-    if (p.fireTimer >= p.fireInterval) {
-      let closest = null,
-        closestD = 200;
-      allThreats.forEach((t) => {
-        const d2 = dist(p.x, p.y, t.x, t.y);
-        if (d2 < closestD) {
-          closestD = d2;
-          closest = t;
-        }
-      });
-      if (closest) {
-        p.fireTimer = 0;
-        const spd = 11;
-        // Lead the target with a few refinement passes so fast missiles don't outrun the shot.
-        let aimX = closest.x,
-          aimY = closest.y;
-        const accelFactor = closest.accel ? closest.accel ** 8 : 1;
-        for (let i = 0; i < 6; i++) {
-          const d = Math.sqrt((aimX - p.x) ** 2 + (aimY - p.y) ** 2);
-          const frames = d / spd;
-          aimX = closest.x + (closest.vx || 0) * accelFactor * frames;
-          aimY = closest.y + (closest.vy || 0) * accelFactor * frames;
-        }
-        const dx = aimX - p.x,
-          dy = aimY - p.y;
-        const len = Math.sqrt(dx * dx + dy * dy);
-        g.interceptors.push({
-          x: p.x,
-          y: p.y,
-          targetX: aimX,
-          targetY: aimY,
-          vx: (dx / len) * spd,
-          vy: (dy / len) * spd,
-          trail: [],
-          alive: true,
-          fromF15: true,
-        });
-      }
-    }
-    // Only direct interceptor hits kill F-15s (not splash damage)
-    g.interceptors.forEach((ic) => {
-      if (!ic.alive || ic.fromF15) return;
-      if (p.alive && dist(ic.x, ic.y, p.x, p.y) < 18) {
-        ic.alive = false;
-        p.alive = false;
-        g.score -= 500;
-        boom(g, p.x, p.y, 40, "#ff0000", false, onEvent);
-      }
-    });
-    // Missiles pass through F-15s — only player interceptors can shoot them down
-    if (p.x < -80 || p.x > CANVAS_W + 80) p.alive = false;
-  });
+  updateMissiles(g, dt, onEvent);
+  updateDrones(g, _rng, dt, onEvent);
+  updateInterceptors(g, dt, onEvent);
+  updateExplosions(g, dt, onEvent);
+  updatePlanes(g, dt, allThreats, onEvent);
 
   g.particles.forEach((p) => {
     p.x += p.vx * dt;
@@ -1506,9 +1532,7 @@ export function closeShop(g) {
   g.waveTarget = 8 + g.wave * 4 + lateWavePressure * 2;
   g.spawnInterval = Math.max(22, 120 - g.wave * 8 - lateWavePressure * 2);
   g.droneInterval = Math.max(36, 160 - g.wave * 20 - lateWavePressure * 4);
-  const baseAmmo = 12 + g.wave * 1;
-  const ammoMultiplier = g.upgrades.launcherKit >= 3 ? 2 : g.upgrades.launcherKit >= 1 ? 1.5 : 1;
-  g.ammo = g.ammo.map((_, i) => (g.launcherHP[i] > 0 ? Math.round(baseAmmo * ammoMultiplier) : 0));
+  g.ammo = g.ammo.map((_, i) => (g.launcherHP[i] > 0 ? getAmmoCapacity(g.wave, g.upgrades.launcherKit) : 0));
   g.mirvTarget = g.wave >= 5 ? Math.min(1 + Math.floor((g.wave - 4) / 2), 6) : 0;
   g.mirvInterval = Math.max(250, 600 - (g.wave - 5) * 50);
   g.mirvCount = 0;

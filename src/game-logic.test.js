@@ -6,7 +6,9 @@ import {
   pickTarget,
   fireInterceptor,
   createExplosion,
+  computeShahed238Path,
   setRng,
+  CANVAS_W,
   BURJ_X,
   CITY_Y,
   GROUND_Y,
@@ -199,5 +201,63 @@ describe("createExplosion", () => {
     const g = makeGameState();
     createExplosion(g, 100, 200, 30, "#ff0000");
     expect(g.particles).toHaveLength(12);
+  });
+});
+
+describe("computeShahed238Path", () => {
+  afterEach(() => setRng(Math.random));
+
+  it("returns waypoints, diveStartIndex, and bombIndices", () => {
+    setRng(() => 0.5);
+    const target = { x: 460, y: 570 };
+    const path = computeShahed238Path(-20, 150, true, 4, target);
+    expect(path.waypoints.length).toBeGreaterThan(10);
+    expect(path.diveStartIndex).toBeGreaterThan(0);
+    expect(path.diveStartIndex).toBeLessThan(path.waypoints.length);
+    expect(path.bombIndices).toHaveLength(2);
+    expect(path.bombIndices[0]).toBeLessThan(path.diveStartIndex);
+    expect(path.bombIndices[1]).toBeLessThan(path.diveStartIndex);
+    expect(path.bombIndices[1]).toBeGreaterThan(path.bombIndices[0]);
+  });
+
+  it("path starts at spawn and ends near target", () => {
+    setRng(() => 0.5);
+    const target = { x: 460, y: 570 };
+    const path = computeShahed238Path(-20, 150, true, 4, target);
+    const first = path.waypoints[0];
+    const last = path.waypoints[path.waypoints.length - 1];
+    expect(first.x).toBeCloseTo(-20, 0);
+    expect(first.y).toBeCloseTo(150, 0);
+    expect(Math.abs(last.x - target.x)).toBeLessThan(2);
+    expect(Math.abs(last.y - target.y)).toBeLessThan(2);
+  });
+
+  it("works for left-to-right and right-to-left", () => {
+    setRng(() => 0.5);
+    const target = { x: 460, y: 570 };
+    const pathR = computeShahed238Path(-20, 150, true, 4, target);
+    const pathL = computeShahed238Path(CANVAS_W + 20, 150, false, 4, target);
+    // Both should end near target
+    const lastR = pathR.waypoints[pathR.waypoints.length - 1];
+    const lastL = pathL.waypoints[pathL.waypoints.length - 1];
+    expect(Math.abs(lastR.x - target.x)).toBeLessThan(2);
+    expect(Math.abs(lastL.x - target.x)).toBeLessThan(2);
+    // Right path should move rightward initially, left path leftward
+    expect(pathR.waypoints[5].x).toBeGreaterThan(pathR.waypoints[0].x);
+    expect(pathL.waypoints[5].x).toBeLessThan(pathL.waypoints[0].x);
+  });
+
+  it("waypoints are spaced approximately by speed", () => {
+    setRng(() => 0.5);
+    const speed = 4;
+    const path = computeShahed238Path(-20, 150, true, speed, { x: 460, y: 570 });
+    // Check spacing of first few cruise waypoints (should be ~speed apart)
+    for (let i = 1; i < Math.min(10, path.waypoints.length); i++) {
+      const dx = path.waypoints[i].x - path.waypoints[i - 1].x;
+      const dy = path.waypoints[i].y - path.waypoints[i - 1].y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      expect(d).toBeGreaterThan(speed * 0.5);
+      expect(d).toBeLessThan(speed * 2);
+    }
   });
 });

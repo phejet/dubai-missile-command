@@ -7,6 +7,7 @@ import {
   BURJ_X,
   BURJ_H,
   LAUNCHERS,
+  getAmmoCapacity,
   getPhalanxTurrets,
 } from "./game-logic.js";
 import { UPGRADES } from "./game-sim.js";
@@ -674,7 +675,7 @@ export function drawGame(ctx, game, { showShop = false } = {}) {
     ctx.save();
     ctx.translate(d.x, d.y);
     const facing = d.vx > 0 ? 1 : -1;
-    if (d.diving) {
+    if (d.subtype === "shahed238" || d.diving) {
       const angle = Math.atan2(d.vy, d.vx);
       ctx.rotate(angle);
     } else {
@@ -969,9 +970,7 @@ export function drawGame(ctx, game, { showShop = false } = {}) {
     }
     ctx.fillStyle = "rgba(0,0,0,0.5)";
     ctx.fillRect(l.x - 15, l.y + 8, 30, 5);
-    const baseAmmo = 12 + game.wave * 1;
-    const ammoMul = game.upgrades.launcherKit >= 3 ? 2 : game.upgrades.launcherKit >= 1 ? 1.5 : 1;
-    const ammoMax = Math.round(baseAmmo * ammoMul);
+    const ammoMax = getAmmoCapacity(game.wave, game.upgrades.launcherKit);
     const ammoRatio = game.ammo[i] / ammoMax;
     ctx.fillStyle = ammoRatio > 0.3 ? COL.hud : COL.warning;
     ctx.fillRect(l.x - 15, l.y + 8, 30 * ammoRatio, 5);
@@ -1341,7 +1340,7 @@ export function drawGame(ctx, game, { showShop = false } = {}) {
   // Purchase toast (replay mode)
   if (game._purchaseToast && game._purchaseToast.timer > 0) {
     const toast = game._purchaseToast;
-    const alpha = Math.min(1, toast.timer / 500); // fade out last 500ms
+    const alpha = Math.min(1, toast.timer / 30); // fade out last ~0.5s (30 ticks)
     const items = toast.items.map((key) => UPGRADES[key]?.name || key);
     // Deduplicate and count
     const counts = {};
@@ -1360,7 +1359,7 @@ export function drawGame(ctx, game, { showShop = false } = {}) {
     ctx.fillText(`${who} BOUGHT: ${label}`, CANVAS_W / 2, CANVAS_H / 3);
     ctx.restore();
     ctx.textAlign = "left";
-    toast.timer -= 16.7; // ~1 frame at 60fps
+    toast.timer -= 1; // 1 tick per render frame (matched to fixed timestep)
   }
 
   // Wave progress bar
@@ -1403,7 +1402,7 @@ export function drawGame(ctx, game, { showShop = false } = {}) {
   // Low ammo warning — flash for 3 seconds then disappear
   const totalAmmo = game.ammo.reduce((s, a) => s + a, 0);
   const maxTotalAmmo = game.ammo.reduce(
-    (s, _, i) => s + (game.launcherHP[i] > 0 ? 10 + game.wave * 1 + (game.upgrades.launcherKit >= 1 ? 8 : 0) : 0),
+    (s, _, i) => s + (game.launcherHP[i] > 0 ? getAmmoCapacity(game.wave, game.upgrades.launcherKit) : 0),
     0,
   );
   const isLowAmmo = maxTotalAmmo > 0 && totalAmmo / maxTotalAmmo < 0.25 && !game.waveComplete;
