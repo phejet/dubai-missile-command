@@ -124,6 +124,8 @@ export function fireInterceptor(g, targetX, targetY) {
   if (bestIdx === -1) return false;
   g.ammo[bestIdx]--;
   g.stats.shotsFired++;
+  if (!g.launcherFireTick) g.launcherFireTick = [0, 0, 0];
+  g.launcherFireTick[bestIdx] = g._replayTick || 0;
   const l = LAUNCHERS[bestIdx];
   const speed = 5;
   const dx = targetX - l.x;

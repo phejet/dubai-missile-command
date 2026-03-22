@@ -64,12 +64,35 @@ export function createReplayRunner(replayData, onEvent = null) {
         actionIdx++;
         continue;
       }
+      if (action.type === "cursor") {
+        g.crosshairX = action.x;
+        g.crosshairY = action.y;
+        actionIdx++;
+        continue;
+      }
       if (action.type === "fire") {
+        g.crosshairX = action.x;
+        g.crosshairY = action.y;
         fireInterceptor(g, action.x, action.y);
       } else if (action.type === "emp") {
         fireEmp(g, onEvent);
       }
       actionIdx++;
+    }
+
+    // Interpolate cursor toward next cursor/fire action for smooth crosshair movement
+    for (let i = actionIdx; i < actions.length; i++) {
+      const next = actions[i];
+      if (next.type === "cursor" || next.type === "fire") {
+        const gap = next.tick - tick;
+        if (gap > 0 && gap <= 6) {
+          const t = 1 / gap;
+          g.crosshairX += (next.x - g.crosshairX) * t;
+          g.crosshairY += (next.y - g.crosshairY) * t;
+        }
+        break;
+      }
+      if (next.type === "shop") break;
     }
 
     update(g, 1, onEvent);

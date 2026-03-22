@@ -74,9 +74,15 @@ export function runGame(botConfig, options = {}) {
     // Bot decides whether to fire
     const action = botDecideAction(g, config, lastFireTick, tick);
     if (action) {
+      g.crosshairX = action.x;
+      g.crosshairY = action.y;
       fireInterceptor(g, action.x, action.y);
       lastFireTick = tick;
       if (record) actions.push({ tick, type: "fire", x: action.x, y: action.y });
+    }
+    // Record bot cursor position every 3 ticks for replay crosshair
+    if (record && tick % 3 === 0) {
+      actions.push({ tick, type: "cursor", x: Math.round(g.crosshairX || 450), y: Math.round(g.crosshairY || 300) });
     }
 
     // Advance simulation

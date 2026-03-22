@@ -58,7 +58,7 @@ describe("runGame recording", () => {
     const r = runGame(null, { seed: 42, maxTicks: 3000, record: true });
     for (const action of r.actions) {
       expect(typeof action.tick).toBe("number");
-      expect(["fire", "shop", "emp", "wave_plan"]).toContain(action.type);
+      expect(["fire", "shop", "emp", "wave_plan", "cursor"]).toContain(action.type);
       if (action.type === "fire") {
         expect(typeof action.x).toBe("number");
         expect(typeof action.y).toBe("number");

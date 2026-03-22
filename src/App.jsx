@@ -231,6 +231,15 @@ export default function DubaiMissileCommand() {
               game._timeAccum -= 1;
               simUpdate(gameRef.current, dt, handleSimEvent);
               game._replayTick++;
+              // Record cursor position every 3 ticks for replay
+              if (game._actionLog && game._replayTick % 3 === 0) {
+                game._actionLog.push({
+                  tick: game._replayTick,
+                  type: "cursor",
+                  x: Math.round(game.crosshairX),
+                  y: Math.round(game.crosshairY),
+                });
+              }
               maybeRecordReplayCheckpoint(game);
               if (game.state === "gameover" || game.state === "shop") break;
             }

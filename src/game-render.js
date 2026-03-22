@@ -988,9 +988,27 @@ export function drawGame(ctx, game, { showShop = false } = {}) {
     const angle = Math.atan2(game.crosshairY - l.y, game.crosshairX - l.x);
     ctx.save();
     ctx.translate(l.x, l.y - 8);
-    ctx.rotate(Math.min(-0.2, Math.max(angle, -Math.PI + 0.2)));
+    const barrelAngle = Math.min(-0.2, Math.max(angle, -Math.PI + 0.2));
+    ctx.rotate(barrelAngle);
     ctx.fillStyle = launcherMaxHP === 2 && game.launcherHP[i] === 1 ? "#5a3a3a" : "#4a5a70";
     ctx.fillRect(0, -2, 18, 4);
+    // Muzzle flash
+    const fireTick = game.launcherFireTick ? game.launcherFireTick[i] : 0;
+    const tickNow = game._replayTick || 0;
+    const fireAge = tickNow - fireTick;
+    if (fireAge < 6) {
+      const flash = 1 - fireAge / 6;
+      ctx.globalAlpha = flash * 0.9;
+      ctx.fillStyle = "#ffdd44";
+      ctx.beginPath();
+      ctx.arc(20, 0, 5 + flash * 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(20, 0, 2 + flash * 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
     ctx.restore();
   });
 
