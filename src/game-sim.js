@@ -534,6 +534,7 @@ function normalizeAngle(angle) {
 export function updateAutoSystems(g, dt, allThreats, onEvent) {
   const _rng = getRng();
   // ── WILD HORNETS ──
+  // Hornet launching — only if site alive
   if (g.upgrades.wildHornets > 0 && isSiteAlive(g, "wildHornets")) {
     const lvl = g.upgrades.wildHornets;
     const interval = [150, 150, 105][lvl - 1];
@@ -559,59 +560,61 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
         });
       }
     }
-    g.hornets.forEach((h) => {
-      if (!h.alive) return;
-      h.life -= dt;
-      if (h.life <= 0 || h.x < -60 || h.x > CANVAS_W + 60 || h.y < -60 || h.y > CANVAS_H + 20) {
-        h.alive = false;
-        boom(g, h.x, h.y, h.blastRadius * 0.5, COL.hornet, false, onEvent, h.blastRadius * 0.2);
-        return;
-      }
-      const t = h.targetRef;
-      if (!t || !t.alive) {
-        const newT = pickHornetRetargetTarget(
-          h,
-          allThreats,
-          g.hornets.filter((other) => other !== h),
-          lvl,
-        );
-        if (!newT) {
-          h.alive = false;
-          boom(g, h.x, h.y, h.blastRadius * 0.75, COL.hornet, false, onEvent, h.blastRadius * 0.25);
-          return;
-        }
-        h.targetRef = newT;
-      }
-      h.wobble += 0.15 * dt;
-      const dx = h.targetRef.x - h.x;
-      const dy = h.targetRef.y - h.y;
-      const d = Math.sqrt(dx * dx + dy * dy);
-      if (d < 12) {
-        h.alive = false;
-        boom(g, h.targetRef.x, h.targetRef.y, h.blastRadius, COL.hornet, false, onEvent, h.blastRadius * 0.5);
-        return;
-      }
-      h.trail.push({ x: h.x, y: h.y });
-      if (h.trail.length > 12) h.trail.shift();
-      // Lead the target slightly
-      const hLeadFrames = d / h.speed;
-      const hlx = h.targetRef.x + (h.targetRef.vx || 0) * hLeadFrames * 0.3;
-      const hly = h.targetRef.y + (h.targetRef.vy || 0) * hLeadFrames * 0.3;
-      const hld = Math.sqrt((hlx - h.x) ** 2 + (hly - h.y) ** 2) || 1;
-      h.x += (((hlx - h.x) / hld) * h.speed + Math.sin(h.wobble) * 0.8) * dt;
-      h.y += (((hly - h.y) / hld) * h.speed + Math.cos(h.wobble) * 0.5) * dt;
-    });
-    g.hornets = g.hornets.filter((h) => h.alive);
   }
+  // Hornet in-flight update — always runs so hornets don't freeze when site is destroyed
+  g.hornets.forEach((h) => {
+    if (!h.alive) return;
+    h.life -= dt;
+    if (h.life <= 0 || h.x < -60 || h.x > CANVAS_W + 60 || h.y < -60 || h.y > CANVAS_H + 20) {
+      h.alive = false;
+      boom(g, h.x, h.y, h.blastRadius * 0.5, COL.hornet, false, onEvent, h.blastRadius * 0.2);
+      return;
+    }
+    const t = h.targetRef;
+    if (!t || !t.alive) {
+      const newT = pickHornetRetargetTarget(
+        h,
+        allThreats,
+        g.hornets.filter((other) => other !== h),
+        g.upgrades.wildHornets,
+      );
+      if (!newT) {
+        h.alive = false;
+        boom(g, h.x, h.y, h.blastRadius * 0.75, COL.hornet, false, onEvent, h.blastRadius * 0.25);
+        return;
+      }
+      h.targetRef = newT;
+    }
+    h.wobble += 0.15 * dt;
+    const dx = h.targetRef.x - h.x;
+    const dy = h.targetRef.y - h.y;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d < 12) {
+      h.alive = false;
+      boom(g, h.targetRef.x, h.targetRef.y, h.blastRadius, COL.hornet, false, onEvent, h.blastRadius * 0.5);
+      return;
+    }
+    h.trail.push({ x: h.x, y: h.y });
+    if (h.trail.length > 12) h.trail.shift();
+    // Lead the target slightly
+    const hLeadFrames = d / h.speed;
+    const hlx = h.targetRef.x + (h.targetRef.vx || 0) * hLeadFrames * 0.3;
+    const hly = h.targetRef.y + (h.targetRef.vy || 0) * hLeadFrames * 0.3;
+    const hld = Math.sqrt((hlx - h.x) ** 2 + (hly - h.y) ** 2) || 1;
+    h.x += (((hlx - h.x) / hld) * h.speed + Math.sin(h.wobble) * 0.8) * dt;
+    h.y += (((hly - h.y) / hld) * h.speed + Math.cos(h.wobble) * 0.5) * dt;
+  });
+  g.hornets = g.hornets.filter((h) => h.alive);
 
   // ── ANDURIL ROADRUNNER ──
+  // Roadrunner launching — only if site alive
   if (g.upgrades.roadrunner > 0 && isSiteAlive(g, "roadrunner")) {
     const lvl = g.upgrades.roadrunner;
     const interval = [300, 240, 180][lvl - 1];
     const count = [1, 2, 3][lvl - 1];
-    const speed = [5.6, 7.7, 9.8][lvl - 1];
-    const blastR = [27, 27, 28][lvl - 1];
-    const turnRate = [0.08, 0.11, 0.14][lvl - 1];
+    const rrSpeed = [5.6, 7.7, 9.8][lvl - 1];
+    const rrBlastR = [27, 27, 28][lvl - 1];
+    const rrTurnRate = [0.08, 0.11, 0.14][lvl - 1];
     g.roadrunnerTimer += dt;
     if (g.roadrunnerTimer >= interval && allThreats.length > 0) {
       g.roadrunnerTimer = 0;
@@ -621,65 +624,67 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
           x: BURJ_X + rand(-30, 30),
           y: GROUND_Y - 10,
           targetRef: targets[i],
-          speed,
+          speed: rrSpeed,
           trail: [],
           alive: true,
           phase: "launch",
           launchY: GROUND_Y - 80 - rand(0, 40),
           heading: -Math.PI / 2,
+          blastRadius: rrBlastR,
+          turnRate: rrTurnRate,
         });
       }
     }
-    g.roadrunners.forEach((r) => {
-      if (!r.alive) return;
-      r.trail.push({ x: r.x, y: r.y });
-      if (r.trail.length > 20) r.trail.shift();
-      if (r.phase === "launch") {
-        r.y -= speed * 0.8 * dt;
-        if (r.y <= r.launchY) r.phase = "track";
-      } else {
-        const t = r.targetRef;
-        if (!t || !t.alive) {
-          const newT = pickRoadrunnerTargets(
-            allThreats,
-            g.roadrunners.filter((other) => other !== r),
-            1,
-          )[0];
-          if (newT) r.targetRef = newT;
-          else {
-            r.alive = false;
-            return;
-          }
-        }
-        const dx = r.targetRef.x - r.x;
-        const dy = r.targetRef.y - r.y;
-        const d = Math.sqrt(dx * dx + dy * dy);
-        if (d < 15) {
+  }
+  // Roadrunner in-flight update — always runs so missiles don't freeze when site is destroyed
+  g.roadrunners.forEach((r) => {
+    if (!r.alive) return;
+    r.trail.push({ x: r.x, y: r.y });
+    if (r.trail.length > 20) r.trail.shift();
+    if (r.phase === "launch") {
+      r.y -= r.speed * 0.8 * dt;
+      if (r.y <= r.launchY) r.phase = "track";
+    } else {
+      const t = r.targetRef;
+      if (!t || !t.alive) {
+        const newT = pickRoadrunnerTargets(
+          allThreats,
+          g.roadrunners.filter((other) => other !== r),
+          1,
+        )[0];
+        if (newT) r.targetRef = newT;
+        else {
           r.alive = false;
-          // Smaller blast keeps Roadrunner focused on precise kills, not wave clear.
-          boom(g, r.targetRef.x, r.targetRef.y, blastR, COL.roadrunner, false, onEvent, 15);
-          return;
-        }
-        // Lead the target slightly
-        const leadFrames = d / r.speed;
-        const lx = r.targetRef.x + (r.targetRef.vx || 0) * leadFrames * 0.3;
-        const ly = r.targetRef.y + (r.targetRef.vy || 0) * leadFrames * 0.3;
-        const desiredHeading = Math.atan2(ly - r.y, lx - r.x);
-        const headingDelta = normalizeAngle(desiredHeading - r.heading);
-        const maxTurn = turnRate * dt;
-        const appliedTurn = Math.max(-maxTurn, Math.min(maxTurn, headingDelta));
-        r.heading = normalizeAngle(r.heading + appliedTurn);
-        r.x += Math.cos(r.heading) * r.speed * dt;
-        r.y += Math.sin(r.heading) * r.speed * dt;
-        if (r.y >= GROUND_Y - 5) {
-          r.alive = false;
-          boom(g, r.x, GROUND_Y - 5, blastR, COL.roadrunner, false, onEvent, 15);
           return;
         }
       }
-    });
-    g.roadrunners = g.roadrunners.filter((r) => r.alive);
-  }
+      const dx = r.targetRef.x - r.x;
+      const dy = r.targetRef.y - r.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < 15) {
+        r.alive = false;
+        boom(g, r.targetRef.x, r.targetRef.y, r.blastRadius, COL.roadrunner, false, onEvent, 15);
+        return;
+      }
+      // Lead the target slightly
+      const leadFrames = d / r.speed;
+      const lx = r.targetRef.x + (r.targetRef.vx || 0) * leadFrames * 0.3;
+      const ly = r.targetRef.y + (r.targetRef.vy || 0) * leadFrames * 0.3;
+      const desiredHeading = Math.atan2(ly - r.y, lx - r.x);
+      const headingDelta = normalizeAngle(desiredHeading - r.heading);
+      const maxTurn = r.turnRate * dt;
+      const appliedTurn = Math.max(-maxTurn, Math.min(maxTurn, headingDelta));
+      r.heading = normalizeAngle(r.heading + appliedTurn);
+      r.x += Math.cos(r.heading) * r.speed * dt;
+      r.y += Math.sin(r.heading) * r.speed * dt;
+      if (r.y >= GROUND_Y - 5) {
+        r.alive = false;
+        boom(g, r.x, GROUND_Y - 5, r.blastRadius, COL.roadrunner, false, onEvent, 15);
+        return;
+      }
+    }
+  });
+  g.roadrunners = g.roadrunners.filter((r) => r.alive);
 
   // ── DECOY FLARES ──
   if (g.upgrades.flare > 0 && isSiteAlive(g, "flare")) {
@@ -843,6 +848,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
   g.phalanxBullets = g.phalanxBullets.filter((b) => b.life > 0);
 
   // ── PATRIOT BATTERY ──
+  // Patriot launching — only if site alive
   if (g.upgrades.patriot > 0 && isSiteAlive(g, "patriot")) {
     const lvl = g.upgrades.patriot;
     const interval = [480, 360, 300][lvl - 1];
@@ -867,42 +873,43 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
         });
       }
     }
-    g.patriotMissiles.forEach((p) => {
-      if (!p.alive) return;
-      p.trail.push({ x: p.x, y: p.y });
-      if (p.trail.length > 25) p.trail.shift();
-      if (p.phase === "launch") {
-        p.y -= 4.5 * dt;
-        if (p.y <= p.launchY) p.phase = "track";
-      } else {
-        const t = p.targetRef;
-        if (!t || !t.alive) {
-          const newT = pickPatriotTargets(allThreats, 1, p.blastRadius)[0];
-          if (newT) p.targetRef = newT;
-          else {
-            p.alive = false;
-            return;
-          }
-        }
-        const dx = p.targetRef.x - p.x;
-        const dy = p.targetRef.y - p.y;
-        const d = Math.sqrt(dx * dx + dy * dy);
-        if (d < 20) {
+  }
+  // Patriot in-flight update — always runs so missiles don't freeze when site is destroyed
+  g.patriotMissiles.forEach((p) => {
+    if (!p.alive) return;
+    p.trail.push({ x: p.x, y: p.y });
+    if (p.trail.length > 25) p.trail.shift();
+    if (p.phase === "launch") {
+      p.y -= 4.5 * dt;
+      if (p.y <= p.launchY) p.phase = "track";
+    } else {
+      const t = p.targetRef;
+      if (!t || !t.alive) {
+        const newT = pickPatriotTargets(allThreats, 1, p.blastRadius)[0];
+        if (newT) p.targetRef = newT;
+        else {
           p.alive = false;
-          boom(g, p.targetRef.x, p.targetRef.y, p.blastRadius, COL.patriot, false, onEvent, p.blastRadius * 0.4);
           return;
         }
-        // Lead the target
-        const pLeadFrames = d / p.speed;
-        const plx = p.targetRef.x + (p.targetRef.vx || 0) * pLeadFrames * 0.3;
-        const ply = p.targetRef.y + (p.targetRef.vy || 0) * pLeadFrames * 0.3;
-        const pld = Math.sqrt((plx - p.x) ** 2 + (ply - p.y) ** 2) || 1;
-        p.x += ((plx - p.x) / pld) * p.speed * dt;
-        p.y += ((ply - p.y) / pld) * p.speed * dt;
       }
-    });
-    g.patriotMissiles = g.patriotMissiles.filter((p) => p.alive);
-  }
+      const dx = p.targetRef.x - p.x;
+      const dy = p.targetRef.y - p.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < 20) {
+        p.alive = false;
+        boom(g, p.targetRef.x, p.targetRef.y, p.blastRadius, COL.patriot, false, onEvent, p.blastRadius * 0.4);
+        return;
+      }
+      // Lead the target
+      const pLeadFrames = d / p.speed;
+      const plx = p.targetRef.x + (p.targetRef.vx || 0) * pLeadFrames * 0.3;
+      const ply = p.targetRef.y + (p.targetRef.vy || 0) * pLeadFrames * 0.3;
+      const pld = Math.sqrt((plx - p.x) ** 2 + (ply - p.y) ** 2) || 1;
+      p.x += ((plx - p.x) / pld) * p.speed * dt;
+      p.y += ((ply - p.y) / pld) * p.speed * dt;
+    }
+  });
+  g.patriotMissiles = g.patriotMissiles.filter((p) => p.alive);
 
   // ── EMP SHOCKWAVE ── (charging is handled in update() before waveComplete check)
   if (g.empRings.length > 0) {

@@ -179,7 +179,7 @@ describe("computeAliveThreatValue", () => {
     expect(computeAliveThreatValue({ missiles: [], drones: [] })).toBe(0);
   });
 
-  it("counts missiles as 1", () => {
+  it("counts missiles as 1.5", () => {
     const g = {
       missiles: [
         { alive: true, type: "missile" },
@@ -187,10 +187,10 @@ describe("computeAliveThreatValue", () => {
       ],
       drones: [],
     };
-    expect(computeAliveThreatValue(g)).toBe(2);
+    expect(computeAliveThreatValue(g)).toBe(3);
   });
 
-  it("counts drone136 as 2, drone238 as 4", () => {
+  it("counts drone136 as 1, drone238 as 2.5", () => {
     const g = {
       missiles: [],
       drones: [
@@ -198,10 +198,10 @@ describe("computeAliveThreatValue", () => {
         { alive: true, subtype: "shahed238" },
       ],
     };
-    expect(computeAliveThreatValue(g)).toBe(6);
+    expect(computeAliveThreatValue(g)).toBe(3.5);
   });
 
-  it("counts mirv as 8, mirv_warhead as 2", () => {
+  it("counts mirv as 3, mirv_warhead as 1.5", () => {
     const g = {
       missiles: [
         { alive: true, type: "mirv" },
@@ -209,7 +209,7 @@ describe("computeAliveThreatValue", () => {
       ],
       drones: [],
     };
-    expect(computeAliveThreatValue(g)).toBe(10);
+    expect(computeAliveThreatValue(g)).toBe(4.5);
   });
 
   it("dead entities not counted", () => {
@@ -220,7 +220,7 @@ describe("computeAliveThreatValue", () => {
       ],
       drones: [{ alive: false, subtype: "shahed136" }],
     };
-    expect(computeAliveThreatValue(g)).toBe(1);
+    expect(computeAliveThreatValue(g)).toBe(1.5);
   });
 });
 

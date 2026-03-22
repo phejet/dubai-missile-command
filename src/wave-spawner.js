@@ -3,10 +3,10 @@ import { rand, randInt } from "./game-logic.js";
 // ── Threat values ──
 
 export const THREAT_VALUES = {
-  missile: 1,
-  drone136: 2,
-  drone238: 4,
-  mirv: 8,
+  missile: 1.5,
+  drone136: 1,
+  drone238: 2.5,
+  mirv: 3,
 };
 
 // ── Tactic definitions ──
@@ -398,10 +398,14 @@ export function generateWaveSchedule(wave, commander) {
 export function computeAliveThreatValue(g) {
   let v = 0;
   for (const m of g.missiles) {
-    if (m.alive) v += m.type === "mirv" ? 8 : m.type === "mirv_warhead" ? 2 : 1;
+    if (m.alive) {
+      if (m.type === "mirv") v += THREAT_VALUES.mirv;
+      else if (m.type === "mirv_warhead") v += 1.5;
+      else v += THREAT_VALUES.missile;
+    }
   }
   for (const d of g.drones) {
-    if (d.alive) v += d.subtype === "shahed238" ? 4 : 2;
+    if (d.alive) v += d.subtype === "shahed238" ? THREAT_VALUES.drone238 : THREAT_VALUES.drone136;
   }
   return v;
 }
