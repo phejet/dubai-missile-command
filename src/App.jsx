@@ -188,9 +188,11 @@ export default function DubaiMissileCommand() {
   useEffect(() => {
     window.__loadReplay = (replayData) => startReplay(replayData);
     window.__lastReplay = lastReplay;
+    window.__createReplayRunner = createReplayRunner;
     return () => {
       delete window.__loadReplay;
       delete window.__lastReplay;
+      delete window.__createReplayRunner;
     };
   }, [startReplay, lastReplay]);
 
