@@ -8,5 +8,20 @@ export default defineConfig({
   base: "/dubai-missile-command/",
   test: {
     exclude: ["e2e/**", "node_modules/**"],
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.{js,jsx}"],
+      exclude: [
+        "src/main.jsx",
+        "src/sound.js",
+        "src/headless/learn.js",
+        "src/headless/balance.js",
+        "src/headless/analyze-with-llm.js",
+        "src/headless/record.js",
+        "src/headless/train.js",
+        "src/headless/game-worker.js",
+      ],
+      reporter: ["text", "html", "json-summary"],
+    },
   },
 });

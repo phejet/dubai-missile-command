@@ -38,6 +38,9 @@ play-replay.mjs
 # Auto-saved replays
 replays/
 
+# Coverage
+coverage/
+
 # Training/learning logs
 src/headless/training-log.jsonl
 src/headless/learning-log.jsonl
