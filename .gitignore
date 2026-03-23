@@ -28,9 +28,9 @@ test-results/
 playwright-report/
 
 # Replay files
-replay.json
+*-replay.json
 public/replay.json
-play-replay.mjs
+*-replay.mjs
 
 # Claude worktrees
 .claude/worktrees/
