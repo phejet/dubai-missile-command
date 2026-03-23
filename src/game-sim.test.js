@@ -84,6 +84,21 @@ function makeJetDrone(overrides = {}) {
   };
 }
 
+function makeBallisticMissile(overrides = {}) {
+  return {
+    x: BURJ_X,
+    y: 210,
+    vx: 0,
+    vy: 2.1,
+    accel: 1.01,
+    trail: [],
+    alive: true,
+    type: "missile",
+    _hitByExplosions: new Set(),
+    ...overrides,
+  };
+}
+
 describe("Shahed-238 (jet) diving", () => {
   afterEach(() => setRng(Math.random));
 
@@ -170,6 +185,66 @@ describe("Shahed-238 (jet) diving", () => {
     sim.update(g, 1);
     expect(jet.alive).toBe(false);
     expect(g.explosions.length).toBeGreaterThan(0);
+  });
+});
+
+describe("Decoy flares", () => {
+  afterEach(() => setRng(Math.random));
+
+  it("only launches when an interceptable missile is in the flare response window", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.flare = 1;
+    g.flareTimer = 239;
+
+    sim.updateAutoSystems(g, 1, []);
+    expect(g.flares).toHaveLength(0);
+
+    const droneOnly = makePropDrone();
+    g.drones.push(droneOnly);
+    sim.updateAutoSystems(g, 1, [droneOnly]);
+    expect(g.flares).toHaveLength(0);
+
+    const missile = makeBallisticMissile({ x: BURJ_X + 30, y: 260 });
+    g.missiles.push(missile);
+    sim.updateAutoSystems(g, 1, [missile]);
+    expect(g.flares.length).toBeGreaterThan(0);
+  });
+
+  it("keeps a lured missile tracking its assigned flare", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.flare = 1;
+    const flare = {
+      id: 1,
+      x: BURJ_X + 20,
+      y: 240,
+      vx: 0,
+      vy: -0.2,
+      anchorX: BURJ_X + 20,
+      drag: 0.988,
+      life: 120,
+      maxLife: 120,
+      alive: true,
+      luresLeft: 1,
+      hotRadius: 18,
+      trail: [],
+    };
+    const missile = makeBallisticMissile({ x: BURJ_X - 55, y: 245, vx: 0.5, vy: 1.6, accel: 1 });
+    g.flares.push(flare);
+    g.nextFlareId = 2;
+    g.missiles.push(missile);
+
+    sim.updateAutoSystems(g, 1, [missile]);
+    expect(missile.luredByFlare).toBe(true);
+    expect(missile.flareTargetId).toBe(flare.id);
+
+    flare.x += 45;
+    flare.y += 10;
+    const beforeDist = Math.hypot(missile.x - flare.x, missile.y - flare.y);
+    sim.update(g, 1);
+    const afterDist = Math.hypot(missile.x - flare.x, missile.y - flare.y);
+
+    expect(afterDist).toBeLessThan(beforeDist);
+    expect(missile.vx).toBeGreaterThan(0);
   });
 });
 

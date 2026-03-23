@@ -237,6 +237,7 @@ export function initGame() {
     phalanxTimer: 5,
     patriotTimer: 480,
     flareTimer: 240,
+    nextFlareId: 1,
     empCharge: 0,
     empChargeMax: 0,
     empReady: false,
@@ -515,6 +516,67 @@ function normalizeAngle(angle) {
   return ((((angle + Math.PI) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)) - Math.PI;
 }
 
+function isFlareMissileTarget(m) {
+  return m.alive && !m.luredByFlare && m.type !== "bomb";
+}
+
+function getLiveFlare(g, flareId) {
+  if (flareId == null) return null;
+  return g.flares.find((f) => f.id === flareId && f.alive) || null;
+}
+
+function steerTowardPoint(entity, tx, ty, dt, turnRate) {
+  const dx = tx - entity.x;
+  const dy = ty - entity.y;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 0.001) return len;
+  const speed = Math.max(0.001, Math.sqrt(entity.vx * entity.vx + entity.vy * entity.vy));
+  const currentHeading = Math.atan2(entity.vy, entity.vx);
+  const desiredHeading = Math.atan2(dy, dx);
+  const headingDelta = normalizeAngle(desiredHeading - currentHeading);
+  const maxTurn = turnRate * dt;
+  const appliedTurn = Math.max(-maxTurn, Math.min(maxTurn, headingDelta));
+  const nextHeading = currentHeading + appliedTurn;
+  entity.vx = Math.cos(nextHeading) * speed;
+  entity.vy = Math.sin(nextHeading) * speed;
+  return len;
+}
+
+function detonateFlareLuredMissile(g, m, onEvent) {
+  m.alive = false;
+  boom(g, m.x, m.y, 20, COL.flare, false, onEvent, 0, { harmless: true });
+  g.stats.missileKills = (g.stats.missileKills || 0) + 1;
+}
+
+function launchFlareBurst(g, lvl, missileThreats) {
+  const count = [4, 6, 8][lvl - 1];
+  const threatCenterX = missileThreats.reduce((sum, m) => sum + m.x, 0) / Math.max(1, missileThreats.length);
+  const spreadCenterX = Math.max(BURJ_X - 140, Math.min(BURJ_X + 140, threatCenterX));
+  const originY = GROUND_Y - BURJ_H * 0.42;
+
+  for (let i = 0; i < count; i++) {
+    const lane = count === 1 ? 0 : i / (count - 1) - 0.5;
+    const bias = lane === 0 ? (i % 2 === 0 ? -1 : 1) : Math.sign(lane);
+    const anchorX = Math.max(BURJ_X - 170, Math.min(BURJ_X + 170, spreadCenterX + lane * 120 + rand(-14, 14)));
+    const originX = BURJ_X + bias * rand(8, 18);
+    g.flares.push({
+      id: g.nextFlareId++,
+      x: originX,
+      y: originY + rand(-8, 8),
+      vx: (anchorX - originX) * 0.028,
+      vy: -rand(0.9, 1.7),
+      anchorX,
+      drag: 0.988,
+      life: 180,
+      maxLife: 180,
+      alive: true,
+      luresLeft: 1,
+      hotRadius: 18 + rand(-2, 4),
+      trail: [],
+    });
+  }
+}
+
 export function updateAutoSystems(g, dt, allThreats, onEvent) {
   const _rng = getRng();
   // ── WILD HORNETS ──
@@ -674,69 +736,53 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
   if (g.upgrades.flare > 0 && isSiteAlive(g, "flare")) {
     const lvl = g.upgrades.flare;
     const interval = [240, 180, 120][lvl - 1];
-    const count = [4, 6, 8][lvl - 1];
-    const lureRange = 400;
+    const lureRange = [145, 165, 185][lvl - 1];
+    const responseY = GROUND_Y - BURJ_H * 0.35;
+    const missileThreats = g.missiles.filter((m) => isFlareMissileTarget(m) && dist(m.x, m.y, BURJ_X, responseY) < 320);
     g.flareTimer += dt;
-    if (g.flareTimer >= interval) {
+    if (g.flareTimer >= interval && missileThreats.length > 0) {
       g.flareTimer = 0;
-      for (let i = 0; i < count; i++) {
-        // Flares spread wide and fly upward to intercept incoming threats
-        const fx = BURJ_X + rand(-300, 300);
-        const fy = rand(80, 300);
-        g.flares.push({
-          x: BURJ_X,
-          y: GROUND_Y - BURJ_H * 0.5,
-          tx: fx,
-          ty: fy,
-          vx: (fx - BURJ_X) * 0.06,
-          vy: -rand(4, 7),
-          life: 240,
-          maxLife: 240,
-          alive: true,
-          luresLeft: 1,
-        });
-      }
+      launchFlareBurst(g, lvl, missileThreats);
     }
     g.flares.forEach((f) => {
       if (!f.alive) return;
+      f.trail.push({ x: f.x, y: f.y });
+      if (f.trail.length > 10) f.trail.shift();
+      f.vx += (f.anchorX - f.x) * 0.0025 * dt;
       f.x += f.vx * dt;
       f.y += f.vy * dt;
-      f.vy += 0.012 * dt;
-      f.vx *= 0.99 ** dt;
+      f.vy += (f.life > f.maxLife * 0.55 ? 0.008 : 0.018) * dt;
+      f.vx *= f.drag ** dt;
       f.life -= dt;
-      if (f.life <= 0) f.alive = false;
+      if (f.life <= 0 || f.y >= GROUND_Y - 10) f.alive = false;
       f.sparkAccum = (f.sparkAccum || 0) + dt;
-      if (f.life > 30 && f.sparkAccum >= 3) {
-        f.sparkAccum -= 3;
+      if (f.life > 24 && f.sparkAccum >= 4) {
+        f.sparkAccum -= 4;
         g.particles.push({
           x: f.x,
           y: f.y,
-          vx: rand(-1, 1),
-          vy: rand(-0.5, 1.5),
-          life: 15,
-          maxLife: 15,
+          vx: rand(-0.7, 0.7),
+          vy: rand(0.1, 1.1),
+          life: 12,
+          maxLife: 12,
           color: COL.flare,
-          size: rand(1, 2.5),
+          size: rand(1, 2),
         });
       }
     });
-    // Lure missiles (including MIRVs)
+    // Lure missiles once they enter the flare pocket.
     g.missiles.forEach((m) => {
-      if (!m.alive || m.luredByFlare) return;
+      if (!isFlareMissileTarget(m)) return;
       const nearFlare = g.flares.find(
-        (f) => f.alive && f.life > 30 && f.luresLeft > 0 && dist(m.x, m.y, f.x, f.y) < lureRange,
+        (f) => f.alive && f.life > 24 && f.luresLeft > 0 && dist(m.x, m.y, f.x, f.y) < lureRange,
       );
       if (nearFlare) {
         nearFlare.luresLeft--;
         m.luredByFlare = true;
-        m.lureDeathTimer = 120; // self-destructs after guidance scramble
-        const dx = nearFlare.x - m.x,
-          dy = nearFlare.y - m.y;
-        const len = Math.sqrt(dx * dx + dy * dy);
-        const spd = Math.sqrt(m.vx * m.vx + m.vy * m.vy);
-        m.vx = (dx / len) * spd;
-        m.vy = (dy / len) * spd;
+        m.flareTargetId = nearFlare.id;
+        m.lureDeathTimer = 180;
         m.accel = 1;
+        steerTowardPoint(m, nearFlare.x, nearFlare.y, 8, 0.5);
         for (let i = 0; i < 5; i++) {
           g.particles.push({
             x: m.x,
@@ -1005,16 +1051,32 @@ function updateMissiles(g, dt, onEvent) {
       m.vx *= m.accel ** dt;
       m.vy *= m.accel ** dt;
     }
+    if (m.luredByFlare) {
+      const flareTarget = getLiveFlare(g, m.flareTargetId);
+      if (flareTarget) {
+        const lureDist = steerTowardPoint(m, flareTarget.x, flareTarget.y, dt, 0.2);
+        if (lureDist <= flareTarget.hotRadius) {
+          detonateFlareLuredMissile(g, m, onEvent);
+          return;
+        }
+      }
+      m.accel = 1;
+    }
     const mSlow = m.empSlowTimer > 0 ? ((m.empSlowTimer -= dt), 0.4) : 1;
     m.x += m.vx * dt * mSlow;
     m.y += m.vy * dt * mSlow;
+    if (m.luredByFlare) {
+      const flareTarget = getLiveFlare(g, m.flareTargetId);
+      if (flareTarget && dist(m.x, m.y, flareTarget.x, flareTarget.y) <= flareTarget.hotRadius) {
+        detonateFlareLuredMissile(g, m, onEvent);
+        return;
+      }
+    }
     // Lured missiles self-destruct after guidance scramble
     if (m.lureDeathTimer > 0) {
       m.lureDeathTimer -= dt;
       if (m.lureDeathTimer <= 0) {
-        m.alive = false;
-        boom(g, m.x, m.y, 20, COL.flare, false, onEvent, 0, { harmless: true });
-        g.stats.missileKills = (g.stats.missileKills || 0) + 1;
+        detonateFlareLuredMissile(g, m, onEvent);
         return;
       }
     }

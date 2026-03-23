@@ -118,18 +118,41 @@ export function drawGame(ctx, game, { showShop = false } = {}) {
   // Decoy flares
   game.flares.forEach((f) => {
     if (!f.alive) return;
-    const alpha = Math.min(1, f.life / 30);
-    const flicker = 0.7 + 0.3 * Math.sin(f.life * 0.5);
+    const alpha = Math.min(1, f.life / 24);
+    const flicker = 0.78 + 0.22 * Math.sin(game.time * 0.25 + f.x * 0.03);
+    if (f.trail?.length) {
+      f.trail.forEach((t, i) => {
+        const tAlpha = alpha * (i / f.trail.length) * 0.32;
+        const radius = 1.5 + (i / f.trail.length) * 3.5;
+        ctx.fillStyle = `rgba(255,170,90,${tAlpha})`;
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
     ctx.globalAlpha = alpha * flicker;
     ctx.fillStyle = COL.flare;
-    glow(ctx, COL.flare, 12);
+    glow(ctx, COL.flare, 16);
     ctx.beginPath();
-    ctx.arc(f.x, f.y, 3 + Math.sin(f.life * 0.3) * 1.5, 0, Math.PI * 2);
+    ctx.arc(f.x, f.y, 5 + Math.sin(game.time * 0.18 + f.id) * 0.8, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "#fff";
+    ctx.strokeStyle = "rgba(255,230,180,0.65)";
+    ctx.lineWidth = 1.2;
     ctx.beginPath();
-    ctx.arc(f.x, f.y, 1.5, 0, Math.PI * 2);
+    ctx.arc(f.x, f.y, 8 + Math.sin(game.time * 0.16 + f.id) * 1.2, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = "#fff4d0";
+    ctx.beginPath();
+    ctx.arc(f.x, f.y, 2.4, 0, Math.PI * 2);
     ctx.fill();
+    ctx.strokeStyle = "rgba(255,245,220,0.75)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(f.x - 6, f.y);
+    ctx.lineTo(f.x + 6, f.y);
+    ctx.moveTo(f.x, f.y - 6);
+    ctx.lineTo(f.x, f.y + 6);
+    ctx.stroke();
     glowOff(ctx);
     ctx.globalAlpha = 1;
   });
@@ -687,11 +710,12 @@ export function drawGame(ctx, game, { showShop = false } = {}) {
     }
 
     if (m.luredByFlare) {
-      ctx.fillStyle = COL.flare;
-      ctx.globalAlpha = 0.5;
+      ctx.strokeStyle = "rgba(255,180,90,0.8)";
+      ctx.lineWidth = 1.5;
+      ctx.globalAlpha = 0.75;
       ctx.beginPath();
-      ctx.arc(m.x, m.y, 6, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.arc(m.x, m.y, 8 + Math.sin(game.time * 0.22 + m.x * 0.01) * 1.5, 0, Math.PI * 2);
+      ctx.stroke();
       ctx.globalAlpha = 1;
     }
   });
