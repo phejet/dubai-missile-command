@@ -1,255 +1,130 @@
 import { COL } from "./game-logic.js";
 import { UPGRADES } from "./game-sim.js";
+import "./ShopUI.css";
 
-export default function ShopUI({ shopData, onBuyUpgrade, onClose }) {
+function getEntries(shopData) {
+  const allEntries = Object.entries(UPGRADES).filter(([, def]) => !def.disabled);
+  return shopData.draftMode ? allEntries.filter(([key]) => shopData.draftOffers?.includes(key)) : allEntries;
+}
+
+function getButtonLabel({ maxed, isBurjRepair, burjFull, isDraft, draftPicked, canAfford, cost }) {
+  if ((maxed && !isBurjRepair) || burjFull) return "\u2713 MAXED";
+  if (isDraft) {
+    if (draftPicked) return "\u2014";
+    return isBurjRepair ? "HEAL - FREE" : "UPGRADE - FREE";
+  }
+  if (canAfford) return isBurjRepair ? `HEAL - $${cost}` : `UPGRADE - $${cost}`;
+  return `$${cost} NEEDED`;
+}
+
+export default function ShopUI({ shopData, onBuyUpgrade, onClose, mode = "desktop" }) {
+  const entries = getEntries(shopData);
+
   return (
-    <div
-      style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        zIndex: 10,
-      }}
-    >
-      <div
-        style={{
-          background: "rgba(8,14,30,0.97)",
-          border: "1px solid rgba(0,255,200,0.3)",
-          borderRadius: "8px",
-          padding: "18px 22px",
-          maxWidth: "860px",
-          width: "96%",
-          boxShadow: "0 0 60px rgba(0,100,200,0.2), inset 0 0 30px rgba(0,20,40,0.5)",
-        }}
-      >
-        <div style={{ textAlign: "center", marginBottom: "14px" }}>
-          <div style={{ color: COL.hud, fontSize: "18px", fontWeight: "bold", letterSpacing: "3px" }}>
-            ⬡ DEFENSE SYSTEMS MARKET ⬡
+    <div className={`shop-modal shop-modal--${mode}`} role="dialog" aria-modal="true">
+      <div className="shop-modal__backdrop" />
+      <div className="shop-modal__panel" data-shop-mode={mode}>
+        <header className="shop-modal__header">
+          <div>
+            <div className="shop-modal__eyebrow">Defense Systems Market</div>
+            <h2 className="shop-modal__title">Wave {shopData.wave} Complete</h2>
+            <p className="shop-modal__subtitle">
+              {shopData.draftMode
+                ? "Pick one free upgrade and redeploy."
+                : "Reinforce the skyline before the next strike."}
+            </p>
           </div>
-          <div style={{ color: "#667788", fontSize: "11px", marginTop: "3px" }}>
-            WAVE {shopData.wave} COMPLETE — {shopData.draftMode ? "PICK 1 FREE UPGRADE" : "UPGRADE YOUR DEFENSES"}
+          <div className="shop-modal__budget">
+            {shopData.draftMode ? (
+              <>
+                <span className="shop-modal__budget-label">Draft</span>
+                <strong className="shop-modal__budget-value">{shopData.draftPicked ? "Selected" : "Choose 1"}</strong>
+              </>
+            ) : (
+              <>
+                <span className="shop-modal__budget-label">Budget</span>
+                <strong className="shop-modal__budget-value">$ {shopData.score}</strong>
+              </>
+            )}
           </div>
-          {shopData.draftMode ? (
-            <div
-              style={{
-                color: "#ff8844",
-                fontSize: "13px",
-                fontWeight: "bold",
-                marginTop: "6px",
-                textShadow: "0 0 10px rgba(255,136,68,0.3)",
-              }}
-            >
-              {shopData.draftPicked ? "UPGRADE SELECTED" : "DRAFT MODE — CHOOSE 1"}
-            </div>
-          ) : (
-            <div
-              style={{
-                color: COL.gold,
-                fontSize: "16px",
-                fontWeight: "bold",
-                marginTop: "6px",
-                textShadow: "0 0 10px rgba(255,215,0,0.5)",
-              }}
-            >
-              BUDGET: $ {shopData.score}
-            </div>
-          )}
-        </div>
+        </header>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", marginBottom: "14px" }}>
-          {(() => {
-            const allEntries = Object.entries(UPGRADES).filter(([, def]) => !def.disabled);
-            const entries = shopData.draftMode
-              ? allEntries.filter(([key]) => shopData.draftOffers?.includes(key))
-              : allEntries;
-
-            return entries.map(([key, def]) => {
-              const lvl = shopData.upgrades[key];
-              const maxed = lvl >= def.maxLevel;
+        <div className="shop-modal__scroll">
+          <div className={`shop-grid shop-grid--${mode}`}>
+            {entries.map(([key, def]) => {
+              const level = shopData.upgrades[key];
+              const maxed = level >= def.maxLevel;
               const isDraft = shopData.draftMode;
-              const cost = maxed ? null : isDraft ? 0 : def.costs[lvl];
+              const cost = maxed ? null : isDraft ? 0 : def.costs[level];
               const canAfford = cost !== null && (isDraft ? !shopData.draftPicked : shopData.score >= cost);
               const isBurjRepair = key === "burjRepair";
               const burjFull = isBurjRepair && shopData.burjHealth >= 5;
-              // Hide burjRepair when maxed AND burj at full HP
               if (isBurjRepair && maxed && burjFull) return null;
 
+              const disabled = (maxed && !isBurjRepair) || burjFull || !canAfford;
+
               return (
-                <div
+                <article
                   key={key}
-                  style={{
-                    background: COL.panelBg,
-                    border: `1px solid ${maxed ? "rgba(0,255,200,0.3)" : canAfford ? def.color + "66" : "rgba(255,255,255,0.08)"}`,
-                    borderRadius: "6px",
-                    padding: "11px",
-                    opacity: maxed && !isBurjRepair ? 0.7 : 1,
-                  }}
+                  className={`shop-card ${disabled ? "shop-card--disabled" : ""}`}
+                  style={{ "--shop-accent": def.color, "--shop-panel": COL.panelBg }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "5px" }}>
-                    <span style={{ fontSize: "20px" }}>{def.icon}</span>
-                    <div>
-                      <div
-                        style={{
-                          color: def.color,
-                          fontSize: "11px",
-                          fontWeight: "bold",
-                          letterSpacing: "1px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "5px",
-                        }}
-                      >
-                        {def.name.toUpperCase()}
-                        {def.active && (
-                          <span
-                            style={{
-                              fontSize: "7px",
-                              padding: "1px 4px",
-                              background: def.color + "33",
-                              border: `1px solid ${def.color}`,
-                              borderRadius: "3px",
-                              letterSpacing: "0.5px",
-                            }}
-                          >
-                            ACTIVE
-                          </span>
-                        )}
+                  <div className="shop-card__topline">
+                    <span className="shop-card__icon" aria-hidden="true">
+                      {def.icon}
+                    </span>
+                    <div className="shop-card__headline">
+                      <div className="shop-card__name">
+                        {def.name}
+                        {def.active && <span className="shop-card__badge">Active</span>}
                       </div>
-                      <div style={{ display: "flex", gap: "3px", marginTop: "2px" }}>
-                        {Array.from({ length: def.maxLevel }, (_, i) => (
-                          <div
-                            key={i}
-                            style={{
-                              width: "7px",
-                              height: "7px",
-                              borderRadius: "50%",
-                              background: i < lvl ? def.color : "rgba(255,255,255,0.1)",
-                              border: `1px solid ${i < lvl ? def.color : "rgba(255,255,255,0.15)"}`,
-                              boxShadow: i < lvl ? `0 0 4px ${def.color}` : "none",
-                            }}
+                      <div className="shop-card__levels" aria-label={`Level ${level} of ${def.maxLevel}`}>
+                        {Array.from({ length: def.maxLevel }, (_, index) => (
+                          <span
+                            key={`${key}-level-${index}`}
+                            className={`shop-card__level-dot ${index < level ? "shop-card__level-dot--filled" : ""}`}
                           />
                         ))}
                       </div>
                     </div>
                   </div>
-                  <div
-                    style={{
-                      color: "#778899",
-                      fontSize: "9.5px",
-                      lineHeight: "1.4",
-                      marginBottom: "7px",
-                      minHeight: "26px",
-                    }}
-                  >
-                    {def.desc}
-                  </div>
+
+                  <p className="shop-card__description">{def.desc}</p>
+
                   {!maxed && (
-                    <div
-                      style={{
-                        color: def.color,
-                        fontSize: "9px",
-                        opacity: 0.8,
-                        marginBottom: "7px",
-                        padding: "3px 5px",
-                        background: "rgba(0,0,0,0.3)",
-                        borderRadius: "3px",
-                      }}
-                    >
-                      LVL {lvl + 1}: {def.statLines[lvl]}
+                    <div className="shop-card__statline">
+                      <span className="shop-card__statline-label">Next</span>
+                      <span>{def.statLines[level]}</span>
                     </div>
                   )}
-                  {
-                    <button
-                      onClick={() => onBuyUpgrade(key)}
-                      disabled={(maxed && !isBurjRepair) || burjFull || !canAfford}
-                      style={{
-                        width: "100%",
-                        padding: "5px 0",
-                        background:
-                          (maxed && !isBurjRepair) || burjFull
-                            ? "rgba(0,255,200,0.1)"
-                            : canAfford
-                              ? `${def.color}22`
-                              : "rgba(255,255,255,0.03)",
-                        border: `1px solid ${(maxed && !isBurjRepair) || burjFull ? "rgba(0,255,200,0.3)" : canAfford ? def.color : "rgba(255,255,255,0.1)"}`,
-                        borderRadius: "4px",
-                        color: (maxed && !isBurjRepair) || burjFull ? COL.hud : canAfford ? def.color : "#444",
-                        fontSize: "10px",
-                        fontWeight: "bold",
-                        fontFamily: "'Courier New', monospace",
-                        cursor: (maxed && !isBurjRepair) || burjFull || !canAfford ? "default" : "pointer",
-                        letterSpacing: "1px",
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!((maxed && !isBurjRepair) || burjFull) && canAfford) {
-                          e.target.style.background = `${def.color}44`;
-                          e.target.style.boxShadow = `0 0 12px ${def.color}33`;
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.style.background =
-                          (maxed && !isBurjRepair) || burjFull
-                            ? "rgba(0,255,200,0.1)"
-                            : canAfford
-                              ? `${def.color}22`
-                              : "rgba(255,255,255,0.03)";
-                        e.target.style.boxShadow = "none";
-                      }}
-                    >
-                      {(maxed && !isBurjRepair) || burjFull
-                        ? "\u2713 MAXED"
-                        : isDraft
-                          ? shopData.draftPicked
-                            ? "—"
-                            : isBurjRepair
-                              ? "HEAL — FREE"
-                              : "UPGRADE — FREE"
-                          : canAfford
-                            ? isBurjRepair
-                              ? `HEAL — $${cost}`
-                              : `UPGRADE — $${cost}`
-                            : `$${cost} NEEDED`}
-                    </button>
-                  }
-                </div>
+
+                  <button
+                    type="button"
+                    className={`shop-card__button ${disabled ? "shop-card__button--disabled" : ""}`}
+                    disabled={disabled}
+                    onClick={() => onBuyUpgrade(key)}
+                  >
+                    {getButtonLabel({
+                      maxed,
+                      isBurjRepair,
+                      burjFull,
+                      isDraft,
+                      draftPicked: shopData.draftPicked,
+                      canAfford,
+                      cost,
+                    })}
+                  </button>
+                </article>
               );
-            });
-          })()}
+            })}
+          </div>
         </div>
 
-        <div style={{ textAlign: "center" }}>
-          <button
-            onClick={onClose}
-            style={{
-              padding: "9px 36px",
-              background: "rgba(0,255,200,0.12)",
-              border: "1px solid rgba(0,255,200,0.5)",
-              borderRadius: "4px",
-              color: COL.hud,
-              fontSize: "13px",
-              fontWeight: "bold",
-              fontFamily: "'Courier New', monospace",
-              cursor: "pointer",
-              letterSpacing: "3px",
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.background = "rgba(0,255,200,0.25)";
-              e.target.style.boxShadow = "0 0 20px rgba(0,255,200,0.2)";
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.background = "rgba(0,255,200,0.12)";
-              e.target.style.boxShadow = "none";
-            }}
-          >
-            DEPLOY WAVE {shopData.wave + 1} →
+        <footer className="shop-modal__footer">
+          <button type="button" className="shop-modal__deploy" onClick={onClose}>
+            Deploy Wave {shopData.wave + 1}
           </button>
-        </div>
+        </footer>
       </div>
     </div>
   );

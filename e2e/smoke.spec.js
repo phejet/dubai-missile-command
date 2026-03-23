@@ -131,3 +131,37 @@ test.describe("Smoke tests", () => {
     expect(threats.missiles + threats.drones).toBeGreaterThan(0);
   });
 });
+
+test.describe("Portrait iPhone layout", () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/");
+  });
+
+  test("shows portrait title chrome outside the canvas", async ({ page }) => {
+    await expect(page.locator('[data-ui-mode="phonePortrait"]')).toBeVisible();
+    await expect(page.getByTestId("portrait-title")).toBeVisible();
+    await expect(page.getByRole("button", { name: /start defense/i })).toBeVisible();
+    await expect(page.locator("canvas")).toBeVisible();
+  });
+
+  test("renders a readable portrait HUD and fitted battlefield during play", async ({ page }) => {
+    await page.getByRole("button", { name: /start defense/i }).click();
+    await expect(page.getByTestId("portrait-hud")).toBeVisible();
+
+    const canvasBox = await page.locator("canvas").boundingBox();
+    expect(canvasBox).toBeTruthy();
+    expect(canvasBox.width).toBeLessThanOrEqual(390);
+
+    await expect(page.getByRole("button", { name: /mute audio/i })).toBeVisible();
+  });
+
+  test("opens the responsive portrait shop modal", async ({ page }) => {
+    await page.getByRole("button", { name: /start defense/i }).click();
+    await page.evaluate(() => window.__openShopPreview());
+    await expect(page.locator('[role="dialog"]')).toBeVisible();
+    await expect(page.locator('[data-shop-mode="phonePortrait"]')).toBeVisible();
+    await expect(page.getByRole("button", { name: /deploy wave/i })).toBeVisible();
+  });
+});

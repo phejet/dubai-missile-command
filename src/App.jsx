@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import SFX from "./sound.js";
-import { CANVAS_W, CANVAS_H, GROUND_Y, COL, LAUNCHERS, fireInterceptor, setRng } from "./game-logic.js";
+import "./App.css";
+import { CANVAS_W, CANVAS_H, GROUND_Y, COL, fireInterceptor, setRng } from "./game-logic.js";
 import { drawGame, drawTitle, drawTitleModeToggle, drawGameOver, perfState } from "./game-render.js";
 import ShopUI from "./ShopUI.jsx";
 import { mulberry32 } from "./headless/rng.js";
 import { buildReplayCheckpoint } from "./replay-debug.js";
 import {
+  UPGRADES,
   initGame as simInitGame,
   update as simUpdate,
   buyUpgrade as simBuyUpgrade,
@@ -16,6 +18,88 @@ import {
 import { createReplayRunner } from "./replay.js";
 
 const REPLAY_CHECKPOINT_INTERVAL = 60;
+const HUD_REFRESH_MS = 120;
+const PHONE_BREAKPOINT = 900;
+const LANDSCAPE_BREAKPOINT = 1100;
+
+const LAYOUT_PROFILES = {
+  desktop: {
+    key: "desktop",
+    showTopHud: true,
+    showSystemLabels: true,
+    externalTitle: false,
+    externalGameOver: false,
+    crosshairFillRadius: 18,
+    crosshairOuterRadius: 18,
+    crosshairInnerRadius: 12,
+    crosshairGap: 6,
+    crosshairArmLength: 18,
+    mirvWarningFontSize: 18,
+    mirvWarningY: 56,
+    purchaseToastFontSize: 22,
+    purchaseToastY: CANVAS_H / 3,
+    lowAmmoFontSize: 28,
+    lowAmmoY: CANVAS_H / 2 - 40,
+    waveClearedY: 312,
+    multiKillLabelSize: 22,
+    multiKillBonusSize: 16,
+  },
+  phonePortrait: {
+    key: "phonePortrait",
+    showTopHud: false,
+    showSystemLabels: false,
+    externalTitle: true,
+    externalGameOver: true,
+    crosshairFillRadius: 22,
+    crosshairOuterRadius: 16,
+    crosshairInnerRadius: 18,
+    crosshairGap: 9,
+    crosshairArmLength: 24,
+    mirvWarningFontSize: 24,
+    mirvWarningY: 86,
+    purchaseToastFontSize: 28,
+    purchaseToastY: CANVAS_H * 0.38,
+    lowAmmoFontSize: 34,
+    lowAmmoY: CANVAS_H * 0.42,
+    waveClearedY: 336,
+    multiKillLabelSize: 28,
+    multiKillBonusSize: 20,
+  },
+  phoneLandscape: {
+    key: "phoneLandscape",
+    showTopHud: true,
+    showSystemLabels: true,
+    externalTitle: false,
+    externalGameOver: false,
+    crosshairFillRadius: 20,
+    crosshairOuterRadius: 14,
+    crosshairInnerRadius: 12,
+    crosshairGap: 7,
+    crosshairArmLength: 20,
+    mirvWarningFontSize: 20,
+    mirvWarningY: 64,
+    purchaseToastFontSize: 24,
+    purchaseToastY: CANVAS_H / 3,
+    lowAmmoFontSize: 30,
+    lowAmmoY: CANVAS_H / 2 - 48,
+    waveClearedY: 320,
+    multiKillLabelSize: 24,
+    multiKillBonusSize: 18,
+  },
+};
+
+const EMPTY_HUD = {
+  score: 0,
+  wave: 1,
+  burjHealth: 5,
+  burjAlive: true,
+  ammo: [0, 0, 0],
+  launcherHP: [0, 0, 0],
+  activeUpgrades: [],
+  empCharge: 0,
+  empChargeMax: 0,
+  empReady: false,
+};
 
 function maybeRecordReplayCheckpoint(game, { force = false, reason = null, tickOverride = null } = {}) {
   if (!game || !game._replayCheckpoints) return;
@@ -30,12 +114,90 @@ function maybeRecordReplayCheckpoint(game, { force = false, reason = null, tickO
   game._replayCheckpointLastHash = checkpoint.hash;
 }
 
+function getViewportSnapshot() {
+  if (typeof window === "undefined") {
+    return { width: CANVAS_W, height: CANVAS_H };
+  }
+  return {
+    width: window.innerWidth,
+    height: window.innerHeight,
+  };
+}
+
+function getUiMode({ width, height }) {
+  if (width <= PHONE_BREAKPOINT && height > width) return "phonePortrait";
+  if (width <= LANDSCAPE_BREAKPOINT && width > height) return "phoneLandscape";
+  return "desktop";
+}
+
+function getLayoutProfile(uiMode) {
+  return LAYOUT_PROFILES[uiMode] ?? LAYOUT_PROFILES.desktop;
+}
+
+function buildHudSnapshot(game) {
+  if (!game) return EMPTY_HUD;
+  const activeUpgrades = Object.entries(game.upgrades)
+    .filter(([, level]) => level > 0)
+    .map(([key, level]) => {
+      const def = UPGRADES[key];
+      return {
+        key,
+        level,
+        icon: def?.icon ?? "•",
+        name: def?.name ?? key,
+        color: def?.color ?? COL.hud,
+      };
+    });
+  return {
+    score: game.score,
+    wave: game.wave,
+    burjHealth: game.burjHealth,
+    burjAlive: game.burjAlive,
+    ammo: [...game.ammo],
+    launcherHP: [...game.launcherHP],
+    activeUpgrades,
+    empCharge: game.empCharge,
+    empChargeMax: game.empChargeMax,
+    empReady: game.empReady,
+  };
+}
+
+function buildShopDataFromGame(game) {
+  return {
+    score: game.score,
+    wave: game.wave,
+    upgrades: { ...game.upgrades },
+    burjHealth: game.burjHealth,
+    launcherHP: [...game.launcherHP],
+    defenseSites: game.defenseSites.map((site) => ({ key: site.key, alive: site.alive })),
+    draftMode: game._draftMode,
+    draftOffers: game._draftOffers || null,
+    draftPicked: false,
+  };
+}
+
+function getHitRatio(stats) {
+  const totalKills = stats.missileKills + stats.droneKills;
+  return stats.shotsFired > 0 ? Math.round((totalKills / stats.shotsFired) * 100) : 0;
+}
+
+function formatEmpLabel(hud) {
+  if (hud.empChargeMax <= 0) return "EMP OFFLINE";
+  if (hud.empReady) return "EMP READY";
+  return `EMP ${Math.round((hud.empCharge / hud.empChargeMax) * 100)}%`;
+}
+
 export default function DubaiMissileCommand() {
   const canvasRef = useRef(null);
   const gameRef = useRef(null);
   const rafRef = useRef(null);
   const lastTimeRef = useRef(null);
   const replayRef = useRef(null);
+  const titleHoverRef = useRef(null);
+  const shopBoughtRef = useRef([]);
+  const pointerIdRef = useRef(null);
+  const hudRefreshRef = useRef(0);
+
   const [screen, setScreen] = useState("title");
   const [finalScore, setFinalScore] = useState(0);
   const [finalWave, setFinalWave] = useState(1);
@@ -46,8 +208,19 @@ export default function DubaiMissileCommand() {
   const [replayActive, setReplayActive] = useState(false);
   const [lastReplay, setLastReplay] = useState(null);
   const [draftMode, setDraftMode] = useState(false);
-  const titleHoverRef = useRef(null);
-  const shopBoughtRef = useRef([]);
+  const [viewport, setViewport] = useState(getViewportSnapshot);
+  const [hudSnapshot, setHudSnapshot] = useState(EMPTY_HUD);
+
+  const uiMode = getUiMode(viewport);
+  const layoutProfile = getLayoutProfile(uiMode);
+  const isPhonePortrait = uiMode === "phonePortrait";
+
+  const syncHudSnapshot = useCallback((game, { force = false } = {}) => {
+    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+    if (!force && now - hudRefreshRef.current < HUD_REFRESH_MS) return;
+    hudRefreshRef.current = now;
+    setHudSnapshot(buildHudSnapshot(game));
+  }, []);
 
   const initGame = useCallback(() => {
     const seed = (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0;
@@ -63,82 +236,75 @@ export default function DubaiMissileCommand() {
     maybeRecordReplayCheckpoint(gameRef.current, { force: true, reason: "start" });
     shopBoughtRef.current = [];
     window.__gameRef = gameRef;
-  }, [draftMode]);
+    syncHudSnapshot(gameRef.current, { force: true });
+  }, [draftMode, syncHudSnapshot]);
 
-  // SFX event handler for game-sim events
-  const handleSimEvent = useCallback(function handleSimEvent(type, data) {
-    if (type === "sfx") {
-      const sfxMap = {
-        explosion: () => SFX.explosion(data.size),
-        mirvIncoming: () => SFX.mirvIncoming(),
-        mirvSplit: () => SFX.mirvSplit(),
-        planeIncoming: () => SFX.planeIncoming(),
-        planePass: () => SFX.planePass(),
-        hornetBuzz: () => SFX.hornetBuzz(),
-        patriotLaunch: () => SFX.patriotLaunch(),
-        laserBeam: () => {
-          const game = gameRef.current;
-          if (game && !game._browserLaserHandle) {
-            game._browserLaserHandle = SFX.laserBeam();
-          }
-        },
-        waveCleared: () => SFX.waveCleared(),
-        gameOver: () => SFX.gameOver(),
-        burjHit: () => SFX.burjHit(),
-        launcherDestroyed: () => SFX.launcherDestroyed(),
-        empBlast: () => SFX.empBlast(),
-        multiKill: () => SFX.multiKill(),
-      };
-      const fn = sfxMap[data.name];
-      if (fn) fn();
-    } else if (type === "gameOver") {
-      setShowShop(false);
-      setFinalScore(data.score);
-      setFinalWave(data.wave);
-      setFinalStats({ ...data.stats });
-      const game = gameRef.current;
-      if (game && game._actionLog) {
-        maybeRecordReplayCheckpoint(game, { force: true, reason: "gameover", tickOverride: game._replayTick + 1 });
-        const replay = {
-          version: 2,
-          seed: game._gameSeed,
-          actions: game._actionLog,
-          checkpoints: game._replayCheckpoints || [],
-          finalTick: game._replayTick + 1,
-          isHuman: true,
-          draftMode: game._draftMode || false,
+  const handleSimEvent = useCallback(
+    function handleSimEvent(type, data) {
+      if (type === "sfx") {
+        const sfxMap = {
+          explosion: () => SFX.explosion(data.size),
+          mirvIncoming: () => SFX.mirvIncoming(),
+          mirvSplit: () => SFX.mirvSplit(),
+          planeIncoming: () => SFX.planeIncoming(),
+          planePass: () => SFX.planePass(),
+          hornetBuzz: () => SFX.hornetBuzz(),
+          patriotLaunch: () => SFX.patriotLaunch(),
+          laserBeam: () => {
+            const game = gameRef.current;
+            if (game && !game._browserLaserHandle) {
+              game._browserLaserHandle = SFX.laserBeam();
+            }
+          },
+          waveCleared: () => SFX.waveCleared(),
+          gameOver: () => SFX.gameOver(),
+          burjHit: () => SFX.burjHit(),
+          launcherDestroyed: () => SFX.launcherDestroyed(),
+          empBlast: () => SFX.empBlast(),
+          multiKill: () => SFX.multiKill(),
         };
-        setLastReplay(replay);
-        // Auto-save replay to disk (dev server only, silently fails in prod)
-        fetch("/api/save-replay", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...replay, score: data.score, wave: data.wave, stats: data.stats }),
-        }).catch(() => {});
+        const fn = sfxMap[data.name];
+        if (fn) fn();
+      } else if (type === "gameOver") {
+        setShowShop(false);
+        setFinalScore(data.score);
+        setFinalWave(data.wave);
+        setFinalStats({ ...data.stats });
+        syncHudSnapshot(gameRef.current, { force: true });
+        const game = gameRef.current;
+        if (game && game._actionLog) {
+          maybeRecordReplayCheckpoint(game, { force: true, reason: "gameover", tickOverride: game._replayTick + 1 });
+          const replay = {
+            version: 2,
+            seed: game._gameSeed,
+            actions: game._actionLog,
+            checkpoints: game._replayCheckpoints || [],
+            finalTick: game._replayTick + 1,
+            isHuman: true,
+            draftMode: game._draftMode || false,
+          };
+          setLastReplay(replay);
+          fetch("/api/save-replay", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...replay, score: data.score, wave: data.wave, stats: data.stats }),
+          }).catch(() => {});
+        }
+        setRng(Math.random);
+        setScreen("gameover");
+      } else if (type === "shopOpen") {
+        maybeRecordReplayCheckpoint(gameRef.current, {
+          force: true,
+          reason: "shopOpen",
+          tickOverride: gameRef.current._replayTick + 1,
+        });
+        setShopData(buildShopDataFromGame(gameRef.current));
+        setShowShop(true);
+        syncHudSnapshot(gameRef.current, { force: true });
       }
-      setRng(Math.random);
-      setScreen("gameover");
-    } else if (type === "shopOpen") {
-      maybeRecordReplayCheckpoint(gameRef.current, {
-        force: true,
-        reason: "shopOpen",
-        tickOverride: gameRef.current._replayTick + 1,
-      });
-      const game = gameRef.current;
-      setShopData({
-        score: data.score,
-        wave: data.wave,
-        upgrades: { ...data.upgrades },
-        burjHealth: game.burjHealth,
-        launcherHP: [...game.launcherHP],
-        defenseSites: game.defenseSites.map((s) => ({ key: s.key, alive: s.alive })),
-        draftMode: game._draftMode,
-        draftOffers: game._draftOffers || null,
-        draftPicked: false,
-      });
-      setShowShop(true);
-    }
-  }, []);
+    },
+    [syncHudSnapshot],
+  );
 
   const startReplay = useCallback(
     (replayData) => {
@@ -152,31 +318,75 @@ export default function DubaiMissileCommand() {
       setReplayActive(true);
       setShowShop(false);
       setScreen("playing");
+      syncHudSnapshot(gameRef.current, { force: true });
     },
-    [handleSimEvent],
+    [handleSimEvent, syncHudSnapshot],
   );
 
-  // Expose replay loader and last replay on window for console/external use
+  const startGame = useCallback(() => {
+    SFX.init();
+    initGame();
+    setReplayActive(false);
+    setShowShop(false);
+    setShopData(null);
+    setScreen("playing");
+    SFX.gameStart();
+  }, [initGame]);
+
+  const fireEmp = useCallback(() => {
+    if (screen !== "playing" || showShop || replayActive) return false;
+    const game = gameRef.current;
+    if (!game || game.state !== "playing") return false;
+    if (game.upgrades.emp > 0 && simFireEmp(game, handleSimEvent)) {
+      SFX.empBlast();
+      if (game._actionLog) game._actionLog.push({ tick: game._replayTick, type: "emp" });
+      syncHudSnapshot(game, { force: true });
+      return true;
+    }
+    return false;
+  }, [handleSimEvent, replayActive, screen, showShop, syncHudSnapshot]);
+
+  useEffect(() => {
+    function handleResize() {
+      setViewport(getViewportSnapshot());
+    }
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("orientationchange", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("orientationchange", handleResize);
+    };
+  }, []);
+
   useEffect(() => {
     window.__loadReplay = (replayData) => startReplay(replayData);
     window.__lastReplay = lastReplay;
     window.__createReplayRunner = createReplayRunner;
+    window.__openShopPreview = () => {
+      const game = gameRef.current;
+      if (!game) return false;
+      game.state = "shop";
+      setShopData(buildShopDataFromGame(game));
+      setShowShop(true);
+      syncHudSnapshot(game, { force: true });
+      return true;
+    };
     return () => {
       delete window.__loadReplay;
       delete window.__lastReplay;
       delete window.__createReplayRunner;
+      delete window.__openShopPreview;
     };
-  }, [startReplay, lastReplay]);
-
-  // update is now delegated to simUpdate via the RAF loop
-
-  // Drawing functions imported from game-render.js
+  }, [lastReplay, startReplay, syncHudSnapshot]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
+    const activeLayoutProfile = getLayoutProfile(uiMode);
+
     function loop(timestamp) {
-      // FPS probe: measure first 60 frames of gameplay
       if (!perfState.probed && screen === "playing" && gameRef.current) {
         if (perfState.frameCount === 0) perfState.startTime = timestamp;
         perfState.frameCount++;
@@ -187,11 +397,11 @@ export default function DubaiMissileCommand() {
           perfState.probed = true;
         }
       }
+
       if (screen === "playing" && gameRef.current) {
         if (lastTimeRef.current === null) lastTimeRef.current = timestamp;
         const elapsed = timestamp - lastTimeRef.current;
         lastTimeRef.current = timestamp;
-        // FPS tracking
         const game = gameRef.current;
         game._fpsFrames = (game._fpsFrames || 0) + 1;
         game._fpsAccum = (game._fpsAccum || 0) + elapsed;
@@ -200,14 +410,12 @@ export default function DubaiMissileCommand() {
           game._fpsFrames = 0;
           game._fpsAccum = 0;
         }
-        // Fixed timestep: accumulate elapsed time, step in dt=1 increments
         game._timeAccum = (game._timeAccum || 0) + Math.min(elapsed / (1000 / 60), 3);
         const dt = 1;
+
         if (replayRef.current) {
-          // Replay mode: step once per frame (dt=1 fixed timestep)
-          const rr = replayRef.current;
-          if (rr.isShopPaused()) {
-            // Show toast with purchases and resume after 1 second
+          const runner = replayRef.current;
+          if (runner.isShopPaused()) {
             if (!game._replayShopTimer) {
               game._replayShopTimer = performance.now();
               const bought = game._replayShopBought || [];
@@ -217,14 +425,14 @@ export default function DubaiMissileCommand() {
               delete game._replayShopBought;
             } else if (performance.now() - game._replayShopTimer > 1000) {
               delete game._replayShopTimer;
-              rr.resumeFromShop();
+              runner.resumeFromShop();
               setShowShop(false);
             }
           } else {
-            rr.step();
+            runner.step();
           }
-          if (rr.isFinished()) {
-            rr.cleanup();
+          if (runner.isFinished()) {
+            runner.cleanup();
             replayRef.current = null;
             setReplayActive(false);
             setFinalScore(game.score);
@@ -232,146 +440,179 @@ export default function DubaiMissileCommand() {
             setFinalStats({ ...game.stats });
             setScreen("gameover");
           }
-        } else {
-          if (game.state === "playing") {
-            while (game._timeAccum >= 1) {
-              game._timeAccum -= 1;
-              simUpdate(gameRef.current, dt, handleSimEvent);
-              game._replayTick++;
-              // Record cursor position every 3 ticks for replay
-              if (game._actionLog && game._replayTick % 3 === 0) {
-                game._actionLog.push({
-                  tick: game._replayTick,
-                  type: "cursor",
-                  x: Math.round(game.crosshairX),
-                  y: Math.round(game.crosshairY),
-                });
-              }
-              maybeRecordReplayCheckpoint(game);
-              if (game.state === "gameover" || game.state === "shop") break;
+        } else if (game.state === "playing") {
+          while (game._timeAccum >= 1) {
+            game._timeAccum -= 1;
+            simUpdate(game, dt, handleSimEvent);
+            game._replayTick++;
+            if (game._actionLog && game._replayTick % 3 === 0) {
+              game._actionLog.push({
+                tick: game._replayTick,
+                type: "cursor",
+                x: Math.round(game.crosshairX),
+                y: Math.round(game.crosshairY),
+              });
             }
-          } else {
-            // Replay ticks represent deterministic sim steps, not wall-clock time spent in menus.
-            game._timeAccum = 0;
+            maybeRecordReplayCheckpoint(game);
+            if (game.state === "gameover" || game.state === "shop") break;
           }
+        } else {
+          game._timeAccum = 0;
         }
-        // Stop browser laser SFX when sim clears laser handle
+
         if (!gameRef.current._laserHandle && gameRef.current._browserLaserHandle) {
           gameRef.current._browserLaserHandle.stop();
           gameRef.current._browserLaserHandle = null;
         }
-        drawGame(ctx, gameRef.current, { showShop });
+
+        syncHudSnapshot(gameRef.current);
+        drawGame(ctx, gameRef.current, { showShop, layoutProfile: activeLayoutProfile });
       } else {
         lastTimeRef.current = null;
         if (screen === "title") {
-          drawTitle(ctx);
-          drawTitleModeToggle(ctx, draftMode, titleHoverRef.current);
+          drawTitle(ctx, { layoutProfile: activeLayoutProfile });
+          if (!activeLayoutProfile.externalTitle) {
+            drawTitleModeToggle(ctx, draftMode, titleHoverRef.current);
+          }
         } else if (screen === "gameover") {
-          drawGameOver(ctx, finalScore, finalWave, finalStats);
+          drawGameOver(ctx, finalScore, finalWave, finalStats, { layoutProfile: activeLayoutProfile });
         }
       }
+
       rafRef.current = requestAnimationFrame(loop);
     }
+
     rafRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [screen, finalScore, finalWave, showShop]);
-
-  function handleCanvasClick(e) {
-    if (showShop || replayActive) return;
-    if (screen === "title") {
-      const canvas = canvasRef.current;
-      const rect = canvas.getBoundingClientRect();
-      const mx = (e.clientX - rect.left) * (CANVAS_W / rect.width);
-      const my = (e.clientY - rect.top) * (CANVAS_H / rect.height);
-      // Mode toggle buttons at y=490
-      if (my >= 478 && my <= 506) {
-        if (mx >= CANVAS_W / 2 - 135 && mx <= CANVAS_W / 2 - 45) {
-          setDraftMode(false);
-          return;
-        }
-        if (mx >= CANVAS_W / 2 + 45 && mx <= CANVAS_W / 2 + 135) {
-          setDraftMode(true);
-          return;
-        }
-      }
-      SFX.init();
-      initGame();
-      setScreen("playing");
-      SFX.gameStart();
-    } else if (screen === "gameover") {
-      return;
-    } else {
-      const game = gameRef.current;
-      if (!game || game.state !== "playing") return;
-      const canvas = canvasRef.current;
-      const rect = canvas.getBoundingClientRect();
-      const mx = (e.clientX - rect.left) * (CANVAS_W / rect.width);
-      const my = (e.clientY - rect.top) * (CANVAS_H / rect.height);
-      if (my < GROUND_Y - 20) {
-        if (fireInterceptor(game, mx, my)) {
-          SFX.fire();
-          if (game._actionLog) game._actionLog.push({ tick: game._replayTick, type: "fire", x: mx, y: my });
-        } else {
-          SFX.emptyClick();
-        }
-      }
-    }
-  }
+  }, [draftMode, finalScore, finalStats, finalWave, handleSimEvent, screen, showShop, syncHudSnapshot, uiMode]);
 
   useEffect(() => {
-    function handleKeyDown(e) {
+    function handleKeyDown(event) {
       if (screen !== "playing" || showShop || replayActive) return;
       const game = gameRef.current;
       if (!game || game.state !== "playing") return;
-      if (e.key === " ") {
-        e.preventDefault();
-        if (game.upgrades.emp > 0 && simFireEmp(game, handleSimEvent)) {
-          SFX.empBlast();
-          if (game._actionLog) game._actionLog.push({ tick: game._replayTick, type: "emp" });
-        }
-        return; // space never fires interceptors
+      if (event.key === " ") {
+        event.preventDefault();
+        fireEmp();
+        return;
       }
       if (game.crosshairY < GROUND_Y - 20) {
         if (fireInterceptor(game, game.crosshairX, game.crosshairY)) {
           SFX.fire();
-          if (game._actionLog)
+          if (game._actionLog) {
             game._actionLog.push({ tick: game._replayTick, type: "fire", x: game.crosshairX, y: game.crosshairY });
+          }
         } else {
           SFX.emptyClick();
         }
       }
     }
+
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [screen, showShop, replayActive, handleSimEvent]);
+  }, [fireEmp, replayActive, screen, showShop]);
 
-  function handleMouseMove(e) {
+  function getCanvasCoords(clientX, clientY) {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
-    const mx = (e.clientX - rect.left) * (CANVAS_W / rect.width);
-    const my = (e.clientY - rect.top) * (CANVAS_H / rect.height);
+    return {
+      x: (clientX - rect.left) * (CANVAS_W / rect.width),
+      y: (clientY - rect.top) * (CANVAS_H / rect.height),
+    };
+  }
+
+  function handleTitleModeHit(x, y) {
+    if (y < 478 || y > 506) return false;
+    if (x >= CANVAS_W / 2 - 135 && x <= CANVAS_W / 2 - 45) {
+      setDraftMode(false);
+      return true;
+    }
+    if (x >= CANVAS_W / 2 + 45 && x <= CANVAS_W / 2 + 135) {
+      setDraftMode(true);
+      return true;
+    }
+    return false;
+  }
+
+  function fireAt(game, x, y) {
+    if (y >= GROUND_Y - 20) return;
+    if (fireInterceptor(game, x, y)) {
+      SFX.fire();
+      if (game._actionLog) game._actionLog.push({ tick: game._replayTick, type: "fire", x, y });
+    } else {
+      SFX.emptyClick();
+    }
+  }
+
+  function handleCanvasPointerDown(event) {
+    if (showShop || replayActive) return;
+    const point = getCanvasCoords(event.clientX, event.clientY);
+    if (!point) return;
+    event.preventDefault();
+
     if (screen === "title") {
-      // Track hover over mode toggle buttons
-      if (my >= 478 && my <= 506) {
-        if (mx >= CANVAS_W / 2 - 135 && mx <= CANVAS_W / 2 - 45) {
-          titleHoverRef.current = "normal";
-          return;
-        }
-        if (mx >= CANVAS_W / 2 + 45 && mx <= CANVAS_W / 2 + 135) {
-          titleHoverRef.current = "draft";
-          return;
-        }
-      }
-      titleHoverRef.current = null;
+      if (!layoutProfile.externalTitle && handleTitleModeHit(point.x, point.y)) return;
+      startGame();
       return;
     }
+
+    if (screen === "gameover") return;
+
+    const game = gameRef.current;
+    if (!game || game.state !== "playing") return;
+
+    game.crosshairX = point.x;
+    game.crosshairY = point.y;
+    syncHudSnapshot(game, { force: true });
+    if (event.pointerType !== "mouse") {
+      pointerIdRef.current = event.pointerId;
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+    }
+    fireAt(game, point.x, point.y);
+  }
+
+  function handleCanvasPointerMove(event) {
+    const point = getCanvasCoords(event.clientX, event.clientY);
+    if (!point) return;
+
+    if (screen === "title") {
+      if (!layoutProfile.externalTitle) {
+        if (point.y >= 478 && point.y <= 506) {
+          if (point.x >= CANVAS_W / 2 - 135 && point.x <= CANVAS_W / 2 - 45) {
+            titleHoverRef.current = "normal";
+            return;
+          }
+          if (point.x >= CANVAS_W / 2 + 45 && point.x <= CANVAS_W / 2 + 135) {
+            titleHoverRef.current = "draft";
+            return;
+          }
+        }
+        titleHoverRef.current = null;
+      }
+      return;
+    }
+
     if (screen !== "playing") return;
     const game = gameRef.current;
     if (!game) return;
-    game.crosshairX = mx;
-    game.crosshairY = my;
+    if (event.pointerType !== "mouse" && event.buttons === 0 && pointerIdRef.current !== event.pointerId) return;
+
+    game.crosshairX = point.x;
+    game.crosshairY = point.y;
+  }
+
+  function handleCanvasPointerLeave() {
+    if (screen === "title") {
+      titleHoverRef.current = null;
+    }
+  }
+
+  function handleCanvasPointerUp(event) {
+    if (pointerIdRef.current === event.pointerId) {
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
+      pointerIdRef.current = null;
+    }
   }
 
   function buyUpgrade(key) {
@@ -382,13 +623,14 @@ export default function DubaiMissileCommand() {
     if (ok) {
       SFX.buyUpgrade();
       shopBoughtRef.current.push(key);
+      syncHudSnapshot(game, { force: true });
       setShopData((prev) => ({
         ...prev,
         score: game.score,
         upgrades: { ...game.upgrades },
         burjHealth: game.burjHealth,
         launcherHP: [...game.launcherHP],
-        defenseSites: game.defenseSites.map((s) => ({ key: s.key, alive: s.alive })),
+        defenseSites: game.defenseSites.map((site) => ({ key: site.key, alive: site.alive })),
         draftPicked: isDraft ? true : prev?.draftPicked,
       }));
     }
@@ -404,176 +646,286 @@ export default function DubaiMissileCommand() {
     simCloseShop(game);
     setShowShop(false);
     setShopData(null);
+    syncHudSnapshot(game, { force: true });
   }
 
+  const hitRatio = getHitRatio(finalStats);
+  const footerText = "Dubai Missile Command v2.0 - Integrated Air Defense Network";
+
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        minHeight: "100vh",
-        background: "#050810",
-        fontFamily: "'Courier New', monospace",
-        padding: "10px",
-      }}
-    >
-      <div
-        style={{ position: "relative" }}
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => {
-          e.preventDefault();
-          const file = e.dataTransfer.files[0];
-          if (!file) return;
-          const reader = new FileReader();
-          reader.onload = () => {
-            let data;
-            try {
-              data = JSON.parse(reader.result);
-            } catch {
-              console.warn("Dropped file is not valid JSON");
-              return;
-            }
-            if (data.seed !== undefined && Array.isArray(data.actions)) {
-              startReplay(data);
-            }
-          };
-          reader.readAsText(file);
-        }}
-      >
-        <canvas
-          ref={canvasRef}
-          width={CANVAS_W}
-          height={CANVAS_H}
-          onClick={handleCanvasClick}
-          onMouseMove={handleMouseMove}
-          style={{
-            cursor: screen === "playing" && !showShop ? "none" : "pointer",
-            border: "1px solid rgba(0,255,200,0.2)",
-            borderRadius: "4px",
-            maxWidth: "100%",
-            boxShadow: "0 0 40px rgba(0,100,200,0.15)",
-            filter: showShop ? "brightness(0.3) blur(2px)" : "none",
-            transition: "filter 0.3s",
-          }}
-        />
+    <div className={`game-shell game-shell--${uiMode}`} data-ui-mode={uiMode}>
+      <div className="game-shell__ambient" aria-hidden="true" />
+      <div className="game-shell__content">
+        {isPhonePortrait && screen === "title" && (
+          <section className="portrait-hero" data-testid="portrait-title">
+            <div className="portrait-hero__eyebrow">Integrated Air Defense Network</div>
+            <h1 className="portrait-hero__title">Dubai Missile Command</h1>
+            <p className="portrait-hero__copy">
+              Defend the skyline, intercept incoming strikes, and build a layered shield around the Burj.
+            </p>
+          </section>
+        )}
 
-        <button
-          onClick={() => {
-            SFX.init();
-            SFX.mute();
-            setMuted(SFX.isMuted());
-          }}
-          style={{
-            position: "absolute",
-            top: "6px",
-            right: "6px",
-            zIndex: 20,
-            background: "rgba(0,10,20,0.7)",
-            border: "1px solid rgba(0,255,200,0.3)",
-            borderRadius: "4px",
-            color: "#aabbcc",
-            fontSize: "18px",
-            width: "32px",
-            height: "32px",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 0,
-          }}
-          title={muted ? "Unmute" : "Mute"}
-        >
-          {muted ? "\uD83D\uDD07" : "\uD83D\uDD0A"}
-        </button>
+        {isPhonePortrait && screen === "playing" && (
+          <header className="portrait-hud" data-testid="portrait-hud">
+            <div className="portrait-hud__cluster">
+              <div className="hud-chip hud-chip--gold">
+                <span className="hud-chip__label">Score</span>
+                <strong className="hud-chip__value">$ {hudSnapshot.score}</strong>
+              </div>
+              <div className="hud-chip">
+                <span className="hud-chip__label">Wave</span>
+                <strong className="hud-chip__value">{hudSnapshot.wave}</strong>
+              </div>
+              <div className={`hud-chip ${hudSnapshot.burjAlive ? "hud-chip--good" : "hud-chip--danger"}`}>
+                <span className="hud-chip__label">Burj</span>
+                <strong className="hud-chip__value">
+                  {hudSnapshot.burjAlive ? `${hudSnapshot.burjHealth}/5` : "DOWN"}
+                </strong>
+              </div>
+            </div>
 
-        {/* GAME OVER OVERLAY */}
-        {screen === "gameover" && (
+            <button
+              type="button"
+              className="mute-button mute-button--mobile"
+              aria-label={muted ? "Unmute audio" : "Mute audio"}
+              onClick={() => {
+                SFX.init();
+                SFX.mute();
+                setMuted(SFX.isMuted());
+              }}
+            >
+              {muted ? "\uD83D\uDD07" : "\uD83D\uDD0A"}
+            </button>
+          </header>
+        )}
+
+        <div className="battlefield-shell">
           <div
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 10,
+            className={`battlefield-card ${showShop ? "battlefield-card--blurred" : ""}`}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.preventDefault();
+              const file = event.dataTransfer.files[0];
+              if (!file) return;
+              const reader = new FileReader();
+              reader.onload = () => {
+                let data;
+                try {
+                  data = JSON.parse(reader.result);
+                } catch {
+                  console.warn("Dropped file is not valid JSON");
+                  return;
+                }
+                if (data.seed !== undefined && Array.isArray(data.actions)) {
+                  startReplay(data);
+                }
+              };
+              reader.readAsText(file);
             }}
           >
-            <div style={{ marginTop: "420px", display: "flex", gap: "20px" }}>
+            <canvas
+              ref={canvasRef}
+              width={CANVAS_W}
+              height={CANVAS_H}
+              onPointerDown={handleCanvasPointerDown}
+              onPointerMove={handleCanvasPointerMove}
+              onPointerLeave={handleCanvasPointerLeave}
+              onPointerUp={handleCanvasPointerUp}
+              className={`game-canvas ${screen === "playing" && !showShop ? "game-canvas--active" : ""}`}
+            />
+
+            {!isPhonePortrait && (
               <button
+                type="button"
+                className="mute-button"
+                aria-label={muted ? "Unmute audio" : "Mute audio"}
                 onClick={() => {
                   SFX.init();
-                  initGame();
-                  setScreen("playing");
-                  SFX.gameStart();
-                }}
-                style={{
-                  padding: "14px 50px",
-                  background: "rgba(255,60,60,0.15)",
-                  border: "1px solid rgba(255,80,80,0.5)",
-                  borderRadius: "4px",
-                  color: COL.warning,
-                  fontSize: "16px",
-                  fontWeight: "bold",
-                  fontFamily: "'Courier New', monospace",
-                  cursor: "pointer",
-                  letterSpacing: "3px",
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = "rgba(255,60,60,0.3)";
-                  e.target.style.boxShadow = "0 0 25px rgba(255,60,60,0.3)";
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = "rgba(255,60,60,0.15)";
-                  e.target.style.boxShadow = "none";
+                  SFX.mute();
+                  setMuted(SFX.isMuted());
                 }}
               >
-                RETRY
+                {muted ? "\uD83D\uDD07" : "\uD83D\uDD0A"}
+              </button>
+            )}
+
+            {!isPhonePortrait && screen === "gameover" && (
+              <div className="battlefield-overlay battlefield-overlay--desktop">
+                <div className="desktop-gameover-actions">
+                  <button type="button" className="action-button action-button--danger" onClick={startGame}>
+                    Retry
+                  </button>
+                  {lastReplay && (
+                    <button
+                      type="button"
+                      className="action-button action-button--info"
+                      onClick={() => {
+                        setReplayActive(false);
+                        startReplay(lastReplay);
+                      }}
+                    >
+                      Watch Replay
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {isPhonePortrait && screen === "title" && (
+          <section className="portrait-panel portrait-panel--title">
+            <div className="portrait-panel__header">
+              <span className="portrait-panel__kicker">Launch Profile</span>
+              <span className="portrait-panel__subtle">Portrait-first command deck</span>
+            </div>
+            <div className="mode-toggle" role="group" aria-label="Game mode">
+              <button
+                type="button"
+                className={`mode-toggle__button ${!draftMode ? "mode-toggle__button--active" : ""}`}
+                onClick={() => setDraftMode(false)}
+              >
+                Normal
+              </button>
+              <button
+                type="button"
+                className={`mode-toggle__button ${draftMode ? "mode-toggle__button--draft" : ""}`}
+                onClick={() => setDraftMode(true)}
+              >
+                Draft
+              </button>
+            </div>
+            <p className="portrait-panel__copy">
+              {draftMode
+                ? "Pick one free upgrade each wave from three rotating options."
+                : "Earn score, buy systems, and build your own defense network."}
+            </p>
+            <button
+              type="button"
+              className="action-button action-button--primary action-button--wide"
+              onClick={startGame}
+            >
+              Start Defense
+            </button>
+            <div className="portrait-tip">Tap the battlefield at any time to start and fire.</div>
+          </section>
+        )}
+
+        {isPhonePortrait && screen === "playing" && (
+          <section className="portrait-panel portrait-panel--playing">
+            <div className="portrait-panel__header">
+              <span className="portrait-panel__kicker">Defense Grid</span>
+              <span className="portrait-panel__subtle">
+                {replayActive ? "Replay in progress" : "Touch and drag to aim, tap to fire"}
+              </span>
+            </div>
+            <div className="launcher-grid">
+              {hudSnapshot.ammo.map((ammo, index) => (
+                <div
+                  key={`launcher-${index + 1}`}
+                  className={`launcher-card ${hudSnapshot.launcherHP[index] > 0 ? "" : "launcher-card--down"}`}
+                >
+                  <span className="launcher-card__label">L{index + 1}</span>
+                  <strong className="launcher-card__value">{hudSnapshot.launcherHP[index] > 0 ? ammo : "OFF"}</strong>
+                  <span className="launcher-card__meta">HP {hudSnapshot.launcherHP[index]}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="portrait-panel__section">
+              <div className="portrait-panel__section-title">Active Systems</div>
+              <div className="upgrade-chip-list">
+                {hudSnapshot.activeUpgrades.length > 0 ? (
+                  hudSnapshot.activeUpgrades.map((upgrade) => (
+                    <span
+                      key={upgrade.key}
+                      className="upgrade-chip"
+                      style={{ "--chip-accent": upgrade.color }}
+                      title={`${upgrade.name} level ${upgrade.level}`}
+                    >
+                      <span className="upgrade-chip__icon">{upgrade.icon}</span>
+                      <span className="upgrade-chip__text">{upgrade.name}</span>
+                      <span className="upgrade-chip__level">L{upgrade.level}</span>
+                    </span>
+                  ))
+                ) : (
+                  <span className="upgrade-chip upgrade-chip--empty">No systems online yet</span>
+                )}
+              </div>
+            </div>
+
+            <div className="portrait-panel__actions">
+              <button
+                type="button"
+                className={`emp-button ${hudSnapshot.empReady ? "emp-button--ready" : ""}`}
+                onClick={fireEmp}
+                disabled={!hudSnapshot.empReady}
+              >
+                <span className="emp-button__label">{formatEmpLabel(hudSnapshot)}</span>
+                <span className="emp-button__meta">
+                  {hudSnapshot.empChargeMax > 0
+                    ? "Shockwave available once fully charged"
+                    : "Purchase EMP to unlock the emergency pulse"}
+                </span>
+              </button>
+            </div>
+          </section>
+        )}
+
+        {isPhonePortrait && screen === "gameover" && (
+          <section className="portrait-panel portrait-panel--gameover">
+            <div className="portrait-panel__header">
+              <span className="portrait-panel__kicker">After Action Report</span>
+              <span className="portrait-panel__subtle">The skyline has fallen</span>
+            </div>
+            <div className="report-grid">
+              <div className="report-card">
+                <span className="report-card__label">Score</span>
+                <strong className="report-card__value">{finalScore}</strong>
+              </div>
+              <div className="report-card">
+                <span className="report-card__label">Waves</span>
+                <strong className="report-card__value">{finalWave}</strong>
+              </div>
+              <div className="report-card">
+                <span className="report-card__label">Hit Ratio</span>
+                <strong className="report-card__value">{hitRatio}%</strong>
+              </div>
+              <div className="report-card">
+                <span className="report-card__label">Missiles</span>
+                <strong className="report-card__value">{finalStats.missileKills}</strong>
+              </div>
+            </div>
+            <div className="portrait-panel__actions portrait-panel__actions--stacked">
+              <button
+                type="button"
+                className="action-button action-button--danger action-button--wide"
+                onClick={startGame}
+              >
+                Retry
               </button>
               {lastReplay && (
                 <button
+                  type="button"
+                  className="action-button action-button--info action-button--wide"
                   onClick={() => {
                     setReplayActive(false);
                     startReplay(lastReplay);
                   }}
-                  style={{
-                    padding: "14px 40px",
-                    background: "rgba(60,160,255,0.15)",
-                    border: "1px solid rgba(60,160,255,0.5)",
-                    borderRadius: "4px",
-                    color: "#44aaff",
-                    fontSize: "16px",
-                    fontWeight: "bold",
-                    fontFamily: "'Courier New', monospace",
-                    cursor: "pointer",
-                    letterSpacing: "3px",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background = "rgba(60,160,255,0.3)";
-                    e.target.style.boxShadow = "0 0 25px rgba(60,160,255,0.3)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background = "rgba(60,160,255,0.15)";
-                    e.target.style.boxShadow = "none";
-                  }}
                 >
-                  WATCH REPLAY
+                  Watch Replay
                 </button>
               )}
             </div>
-          </div>
+          </section>
         )}
 
-        {/* UPGRADE SHOP */}
-        {showShop && shopData && <ShopUI shopData={shopData} onBuyUpgrade={buyUpgrade} onClose={closeShop} />}
-      </div>
-      <div style={{ color: "#445566", fontSize: "11px", marginTop: "10px", letterSpacing: "2px" }}>
-        DUBAI MISSILE COMMAND v2.0 — INTEGRATED AIR DEFENSE NETWORK
+        {showShop && shopData && (
+          <ShopUI shopData={shopData} onBuyUpgrade={buyUpgrade} onClose={closeShop} mode={uiMode} />
+        )}
+
+        <footer className={`game-footer ${isPhonePortrait ? "game-footer--compact" : ""}`}>{footerText}</footer>
       </div>
     </div>
   );

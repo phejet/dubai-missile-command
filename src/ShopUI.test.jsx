@@ -35,7 +35,7 @@ describe("ShopUI", () => {
 
   it("displays current wave and budget", () => {
     render(<ShopUI shopData={makeShopData({ wave: 5, score: 9999 })} onBuyUpgrade={noop} onClose={noop} />);
-    expect(screen.getByText(/WAVE 5 COMPLETE/)).toBeTruthy();
+    expect(screen.getByText(/wave 5 complete/i)).toBeTruthy();
     expect(screen.getByText(/9999/)).toBeTruthy();
   });
 
@@ -59,7 +59,7 @@ describe("ShopUI", () => {
   it("calls onClose when deploy button is clicked", () => {
     const onClose = vi.fn();
     const { container } = render(<ShopUI shopData={makeShopData()} onBuyUpgrade={noop} onClose={onClose} />);
-    const deployBtn = [...container.querySelectorAll("button")].find((b) => b.textContent.includes("DEPLOY WAVE"));
+    const deployBtn = [...container.querySelectorAll("button")].find((b) => /deploy wave/i.test(b.textContent));
     fireEvent.click(deployBtn);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
@@ -90,7 +90,7 @@ describe("ShopUI", () => {
       draftPicked: false,
     });
     const { container } = render(<ShopUI shopData={data} onBuyUpgrade={noop} onClose={noop} />);
-    expect(container.textContent).toContain("DRAFT MODE");
+    expect(container.textContent).toMatch(/draft/i);
     const freeButtons = [...container.querySelectorAll("button")].filter((b) => b.textContent.includes("FREE"));
     expect(freeButtons.length).toBe(3);
   });
@@ -102,8 +102,14 @@ describe("ShopUI", () => {
       draftPicked: true,
     });
     const { container } = render(<ShopUI shopData={data} onBuyUpgrade={noop} onClose={noop} />);
-    expect(container.textContent).toContain("UPGRADE SELECTED");
+    expect(container.textContent).toMatch(/selected/i);
     const dashButtons = [...container.querySelectorAll("button")].filter((b) => b.textContent.trim() === "—");
     expect(dashButtons.length).toBe(3);
+  });
+
+  it("switches to a one-column portrait layout when requested", () => {
+    render(<ShopUI shopData={makeShopData()} onBuyUpgrade={noop} onClose={noop} mode="phonePortrait" />);
+    expect(document.querySelector('[data-shop-mode="phonePortrait"]')).toBeTruthy();
+    expect(document.querySelector(".shop-grid--phonePortrait")).toBeTruthy();
   });
 });

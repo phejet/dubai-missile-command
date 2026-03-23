@@ -177,6 +177,16 @@ describe("drawGame", () => {
     expect(() => drawGame(ctx, gameState, { showShop: false })).not.toThrow();
   });
 
+  it("supports portrait layout profiles without the desktop HUD", () => {
+    const { ctx } = mockCanvasContext();
+    expect(() =>
+      drawGame(ctx, gameState, {
+        showShop: false,
+        layoutProfile: { showTopHud: false, showSystemLabels: false, crosshairArmLength: 24 },
+      }),
+    ).not.toThrow();
+  });
+
   it("calls canvas drawing methods", () => {
     const { ctx, callLog } = mockCanvasContext();
     drawGame(ctx, gameState, { showShop: false });
@@ -256,6 +266,11 @@ describe("drawTitle", () => {
     drawTitle(ctx);
     expect(callLog.length).toBeGreaterThan(0);
   });
+
+  it("supports an external title layout", () => {
+    const { ctx } = mockCanvasContext();
+    expect(() => drawTitle(ctx, { layoutProfile: { externalTitle: true } })).not.toThrow();
+  });
 });
 
 // ── drawGameOver ──
@@ -275,5 +290,18 @@ describe("drawGameOver", () => {
   it("handles zero stats without throwing", () => {
     const { ctx } = mockCanvasContext();
     expect(() => drawGameOver(ctx, 0, 1, { missileKills: 0, droneKills: 0, shotsFired: 0 })).not.toThrow();
+  });
+
+  it("supports an external mobile summary layout", () => {
+    const { ctx } = mockCanvasContext();
+    expect(() =>
+      drawGameOver(
+        ctx,
+        5000,
+        8,
+        { missileKills: 30, droneKills: 10, shotsFired: 50 },
+        { layoutProfile: { externalGameOver: true } },
+      ),
+    ).not.toThrow();
   });
 });
