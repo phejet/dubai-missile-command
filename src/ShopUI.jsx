@@ -1,7 +1,7 @@
 import { COL } from "./game-logic.js";
-import { UPGRADES, repairCost } from "./game-sim.js";
+import { UPGRADES } from "./game-sim.js";
 
-export default function ShopUI({ shopData, onBuyUpgrade, onRepairSite, onRepairLauncher, onClose }) {
+export default function ShopUI({ shopData, onBuyUpgrade, onClose }) {
   return (
     <div
       style={{
@@ -33,45 +33,52 @@ export default function ShopUI({ shopData, onBuyUpgrade, onRepairSite, onRepairL
             ⬡ DEFENSE SYSTEMS MARKET ⬡
           </div>
           <div style={{ color: "#667788", fontSize: "11px", marginTop: "3px" }}>
-            WAVE {shopData.wave} COMPLETE — UPGRADE YOUR DEFENSES
+            WAVE {shopData.wave} COMPLETE — {shopData.draftMode ? "PICK 1 FREE UPGRADE" : "UPGRADE YOUR DEFENSES"}
           </div>
-          <div
-            style={{
-              color: COL.gold,
-              fontSize: "16px",
-              fontWeight: "bold",
-              marginTop: "6px",
-              textShadow: "0 0 10px rgba(255,215,0,0.5)",
-            }}
-          >
-            BUDGET: $ {shopData.score}
-          </div>
+          {shopData.draftMode ? (
+            <div
+              style={{
+                color: "#ff8844",
+                fontSize: "13px",
+                fontWeight: "bold",
+                marginTop: "6px",
+                textShadow: "0 0 10px rgba(255,136,68,0.3)",
+              }}
+            >
+              {shopData.draftPicked ? "UPGRADE SELECTED" : "DRAFT MODE — CHOOSE 1"}
+            </div>
+          ) : (
+            <div
+              style={{
+                color: COL.gold,
+                fontSize: "16px",
+                fontWeight: "bold",
+                marginTop: "6px",
+                textShadow: "0 0 10px rgba(255,215,0,0.5)",
+              }}
+            >
+              BUDGET: $ {shopData.score}
+            </div>
+          )}
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", marginBottom: "14px" }}>
           {(() => {
-            const deadLaunchers = shopData.launcherHP ? shopData.launcherHP.filter((hp) => hp <= 0).length : 0;
-            const launchersNeedRepair = deadLaunchers > 0;
-            const rCost = repairCost(shopData.wave);
-            const canAffordRepair = shopData.score >= rCost;
+            const allEntries = Object.entries(UPGRADES).filter(([, def]) => !def.disabled);
+            const entries = shopData.draftMode
+              ? allEntries.filter(([key]) => shopData.draftOffers?.includes(key))
+              : allEntries;
 
-            return Object.entries(UPGRADES).map(([key, def]) => {
+            return entries.map(([key, def]) => {
               const lvl = shopData.upgrades[key];
               const maxed = lvl >= def.maxLevel;
-              const cost = maxed ? null : def.costs[lvl];
-              const canAfford = cost !== null && shopData.score >= cost;
+              const isDraft = shopData.draftMode;
+              const cost = maxed ? null : isDraft ? 0 : def.costs[lvl];
+              const canAfford = cost !== null && (isDraft ? !shopData.draftPicked : shopData.score >= cost);
               const isBurjRepair = key === "burjRepair";
               const burjFull = isBurjRepair && shopData.burjHealth >= 5;
               // Hide burjRepair when maxed AND burj at full HP
               if (isBurjRepair && maxed && burjFull) return null;
-              // Check if defense site is destroyed (needs repair first)
-              const siteDestroyed =
-                shopData.defenseSites && shopData.defenseSites.find((s) => s.key === key && !s.alive);
-              // Launcher repair shows on launcherKit tile
-              const isLauncherKit = key === "launcherKit";
-              const showLauncherRepair = isLauncherKit && launchersNeedRepair;
-              // Block all non-repair upgrades when launchers need repair
-              const blockedByLauncherRepair = launchersNeedRepair && !isLauncherKit;
 
               return (
                 <div
@@ -142,7 +149,7 @@ export default function ShopUI({ shopData, onBuyUpgrade, onRepairSite, onRepairL
                   >
                     {def.desc}
                   </div>
-                  {!maxed && !siteDestroyed && (
+                  {!maxed && (
                     <div
                       style={{
                         color: def.color,
@@ -157,93 +164,7 @@ export default function ShopUI({ shopData, onBuyUpgrade, onRepairSite, onRepairL
                       LVL {lvl + 1}: {def.statLines[lvl]}
                     </div>
                   )}
-                  {showLauncherRepair ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                      {shopData.launcherHP.map((hp, i) => {
-                        if (hp > 0) return null;
-                        return (
-                          <button
-                            key={i}
-                            onClick={() => onRepairLauncher(i)}
-                            disabled={!canAffordRepair}
-                            style={{
-                              width: "100%",
-                              padding: "5px 0",
-                              background: canAffordRepair ? "rgba(255,100,0,0.15)" : "rgba(255,255,255,0.03)",
-                              border: `1px solid ${canAffordRepair ? "#ff6600" : "rgba(255,255,255,0.1)"}`,
-                              borderRadius: "4px",
-                              color: canAffordRepair ? "#ff6600" : "#444",
-                              fontSize: "10px",
-                              fontWeight: "bold",
-                              fontFamily: "'Courier New', monospace",
-                              cursor: canAffordRepair ? "pointer" : "default",
-                              letterSpacing: "1px",
-                            }}
-                            onMouseEnter={(e) => {
-                              if (canAffordRepair) {
-                                e.target.style.background = "rgba(255,100,0,0.3)";
-                                e.target.style.boxShadow = "0 0 12px rgba(255,100,0,0.3)";
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              e.target.style.background = canAffordRepair
-                                ? "rgba(255,100,0,0.15)"
-                                : "rgba(255,255,255,0.03)";
-                              e.target.style.boxShadow = "none";
-                            }}
-                          >
-                            {canAffordRepair ? `REPAIR L${i + 1} — $${rCost}` : `L${i + 1} — $${rCost} NEEDED`}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : siteDestroyed ? (
-                    <button
-                      onClick={() => onRepairSite(key)}
-                      disabled={!canAffordRepair}
-                      style={{
-                        width: "100%",
-                        padding: "5px 0",
-                        background: canAffordRepair ? "rgba(255,100,0,0.15)" : "rgba(255,255,255,0.03)",
-                        border: `1px solid ${canAffordRepair ? "#ff6600" : "rgba(255,255,255,0.1)"}`,
-                        borderRadius: "4px",
-                        color: canAffordRepair ? "#ff6600" : "#444",
-                        fontSize: "10px",
-                        fontWeight: "bold",
-                        fontFamily: "'Courier New', monospace",
-                        cursor: canAffordRepair ? "pointer" : "default",
-                        letterSpacing: "1px",
-                      }}
-                      onMouseEnter={(e) => {
-                        if (canAffordRepair) {
-                          e.target.style.background = "rgba(255,100,0,0.3)";
-                          e.target.style.boxShadow = "0 0 12px rgba(255,100,0,0.3)";
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.style.background = canAffordRepair ? "rgba(255,100,0,0.15)" : "rgba(255,255,255,0.03)";
-                        e.target.style.boxShadow = "none";
-                      }}
-                    >
-                      {canAffordRepair ? `REPAIR — $${rCost}` : `$${rCost} NEEDED`}
-                    </button>
-                  ) : blockedByLauncherRepair ? (
-                    <div
-                      style={{
-                        width: "100%",
-                        padding: "5px 0",
-                        textAlign: "center",
-                        color: "#ff6600",
-                        fontSize: "9px",
-                        fontWeight: "bold",
-                        fontFamily: "'Courier New', monospace",
-                        letterSpacing: "1px",
-                        opacity: 0.7,
-                      }}
-                    >
-                      ⚠ REPAIR LAUNCHERS FIRST
-                    </div>
-                  ) : (
+                  {
                     <button
                       onClick={() => onBuyUpgrade(key)}
                       disabled={(maxed && !isBurjRepair) || burjFull || !canAfford}
@@ -283,13 +204,19 @@ export default function ShopUI({ shopData, onBuyUpgrade, onRepairSite, onRepairL
                     >
                       {(maxed && !isBurjRepair) || burjFull
                         ? "\u2713 MAXED"
-                        : canAfford
-                          ? isBurjRepair
-                            ? `HEAL — $${cost}`
-                            : `UPGRADE — $${cost}`
-                          : `$${cost} NEEDED`}
+                        : isDraft
+                          ? shopData.draftPicked
+                            ? "—"
+                            : isBurjRepair
+                              ? "HEAL — FREE"
+                              : "UPGRADE — FREE"
+                          : canAfford
+                            ? isBurjRepair
+                              ? `HEAL — $${cost}`
+                              : `UPGRADE — $${cost}`
+                            : `$${cost} NEEDED`}
                     </button>
-                  )}
+                  }
                 </div>
               );
             });

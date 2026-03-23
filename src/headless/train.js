@@ -19,6 +19,7 @@ const NUM_ITERATIONS = parseInt(getArg("iterations", "10"));
 const NUM_WORKERS = parseInt(getArg("workers", String(Math.min(8, (await import("os")).cpus().length))));
 const MAX_TICKS = parseInt(getArg("maxTicks", "100000"));
 const PRESET = getArg("preset", null);
+const DRAFT_MODE = args.includes("--draft");
 
 const CONFIG_PATH = join(__dirname, "bot-config.json");
 const LOG_PATH = join(__dirname, "training-log.jsonl");
@@ -46,7 +47,7 @@ function runBatch(config, numGames) {
       }
 
       const worker = new Worker(join(__dirname, "game-worker.js"), {
-        workerData: { games, config, preset: PRESET },
+        workerData: { games, config, preset: PRESET, draftMode: DRAFT_MODE },
       });
 
       workers.push(worker);

@@ -1,9 +1,18 @@
 import { setRng, fireInterceptor } from "./game-logic.js";
-import { initGame, update, buyUpgrade, closeShop, fireEmp, repairSite, repairLauncher } from "./game-sim.js";
+import {
+  initGame,
+  update,
+  buyUpgrade,
+  buyDraftUpgrade,
+  closeShop,
+  fireEmp,
+  repairSite,
+  repairLauncher,
+} from "./game-sim.js";
 import { mulberry32 } from "./headless/rng.js";
 
 export function createReplayRunner(replayData, onEvent = null) {
-  const { seed, actions } = replayData;
+  const { seed, actions, draftMode } = replayData;
   let actionIdx = 0;
   let tick = 0;
   let g = null;
@@ -15,6 +24,7 @@ export function createReplayRunner(replayData, onEvent = null) {
     const rng = mulberry32(seed);
     setRng(rng);
     g = initGame();
+    if (draftMode) g._draftMode = true;
     actionIdx = 0;
     tick = 0;
     finished = false;
@@ -107,6 +117,8 @@ export function createReplayRunner(replayData, onEvent = null) {
           repairLauncher(g, parseInt(key.split("_")[2]));
         } else if (key.startsWith("repair_")) {
           repairSite(g, key.replace("repair_", ""));
+        } else if (draftMode) {
+          buyDraftUpgrade(g, key);
         } else {
           buyUpgrade(g, key);
         }

@@ -1,5 +1,5 @@
 import { setRng, fireInterceptor } from "../game-logic.js";
-import { initGame, update, buyUpgrade, closeShop, repairSite, repairLauncher, fireEmp } from "../game-sim.js";
+import { initGame, update, buyUpgrade, buyDraftUpgrade, closeShop, fireEmp } from "../game-sim.js";
 import { mulberry32 } from "./rng.js";
 import { botDecideAction, botDecideUpgrades, resolveBotConfig } from "./bot-brain.js";
 import defaultConfig from "./bot-config.json" with { type: "json" };
@@ -9,16 +9,27 @@ export function runGame(botConfig, options = {}) {
   const seed = options.seed ?? Date.now();
   const maxTicks = options.maxTicks ?? 100000;
   const record = options.record ?? false;
+  const draftMode = options.draftMode ?? false;
   const dt = 1; // fixed timestep per tick
 
   const rng = mulberry32(seed);
+  const botRng = mulberry32(seed ^ 0x5f3759df); // separate RNG for bot decisions
   setRng(rng);
 
   const g = initGame();
+  if (draftMode) g._draftMode = true;
   let lastFireTick = -Infinity;
   let deathCause = "timeout";
   const actions = record ? [] : null;
   let tick;
+
+  // Swap to bot RNG for bot decisions, then restore game RNG
+  function withBotRng(fn) {
+    setRng(botRng);
+    const result = fn();
+    setRng(rng);
+    return result;
+  }
 
   // Record initial wave plan
   if (record) {
@@ -33,27 +44,29 @@ export function runGame(botConfig, options = {}) {
 
     if (g.state === "shop") {
       const bought = [];
-      const { repairs, priority } = botDecideUpgrades(g, config);
-      // Repair destroyed launchers/sites first
-      for (const r of repairs) {
-        if (r.type === "repairLauncher") {
-          if (repairLauncher(g, r.index)) bought.push(`repair_launcher_${r.index}`);
-        } else if (r.type === "repairSite") {
-          if (repairSite(g, r.key)) bought.push(`repair_${r.key}`);
-        }
-      }
-      // Round-robin: buy one level of each priority per pass
-      let boughtAny = true;
-      while (boughtAny) {
-        boughtAny = false;
+      const { priority } = withBotRng(() => botDecideUpgrades(g, config));
+      if (draftMode && g._draftOffers) {
+        // Draft mode: pick the highest-priority offered upgrade
         for (const key of priority) {
-          if (buyUpgrade(g, key)) {
-            bought.push(key);
-            boughtAny = true;
+          if (g._draftOffers.includes(key)) {
+            if (buyDraftUpgrade(g, key)) bought.push(key);
+            break;
+          }
+        }
+      } else {
+        // Round-robin: buy one level of each priority per pass
+        let boughtAny = true;
+        while (boughtAny) {
+          boughtAny = false;
+          for (const key of priority) {
+            if (buyUpgrade(g, key)) {
+              bought.push(key);
+              boughtAny = true;
+            }
           }
         }
       }
-      if (record) actions.push({ tick, type: "shop", bought });
+      if (record) actions.push({ tick, type: "shop", bought, draftMode: draftMode || undefined });
       closeShop(g);
       if (record) {
         actions.push({ tick, type: "wave_plan", wave: g.wave, tactics: g.waveTactics, style: g.commander.style });
@@ -72,7 +85,7 @@ export function runGame(botConfig, options = {}) {
     }
 
     // Bot decides whether to fire
-    const action = botDecideAction(g, config, lastFireTick, tick);
+    const action = withBotRng(() => botDecideAction(g, config, lastFireTick, tick));
     if (action) {
       g.crosshairX = action.x;
       g.crosshairY = action.y;
@@ -100,7 +113,10 @@ export function runGame(botConfig, options = {}) {
     deathCause,
     seed,
   };
-  if (record) result.actions = actions;
+  if (record) {
+    result.actions = actions;
+    if (draftMode) result.draftMode = true;
+  }
   return result;
 }
 

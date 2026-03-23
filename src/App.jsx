@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import SFX from "./sound.js";
 import { CANVAS_W, CANVAS_H, GROUND_Y, COL, LAUNCHERS, fireInterceptor, setRng } from "./game-logic.js";
-import { drawGame, drawTitle, drawGameOver, perfState } from "./game-render.js";
+import { drawGame, drawTitle, drawTitleModeToggle, drawGameOver, perfState } from "./game-render.js";
 import ShopUI from "./ShopUI.jsx";
 import { mulberry32 } from "./headless/rng.js";
 import { buildReplayCheckpoint } from "./replay-debug.js";
@@ -9,9 +9,8 @@ import {
   initGame as simInitGame,
   update as simUpdate,
   buyUpgrade as simBuyUpgrade,
+  buyDraftUpgrade as simBuyDraftUpgrade,
   closeShop as simCloseShop,
-  repairSite as simRepairSite,
-  repairLauncher as simRepairLauncher,
   fireEmp as simFireEmp,
 } from "./game-sim.js";
 import { createReplayRunner } from "./replay.js";
@@ -46,6 +45,8 @@ export default function DubaiMissileCommand() {
   const [muted, setMuted] = useState(false);
   const [replayActive, setReplayActive] = useState(false);
   const [lastReplay, setLastReplay] = useState(null);
+  const [draftMode, setDraftMode] = useState(false);
+  const titleHoverRef = useRef(null);
   const shopBoughtRef = useRef([]);
 
   const initGame = useCallback(() => {
@@ -53,6 +54,7 @@ export default function DubaiMissileCommand() {
     setRng(mulberry32(seed));
     gameRef.current = simInitGame();
     gameRef.current._gameSeed = seed;
+    gameRef.current._draftMode = draftMode;
     gameRef.current._actionLog = [];
     gameRef.current._replayTick = 0;
     gameRef.current._replayCheckpoints = [];
@@ -61,7 +63,7 @@ export default function DubaiMissileCommand() {
     maybeRecordReplayCheckpoint(gameRef.current, { force: true, reason: "start" });
     shopBoughtRef.current = [];
     window.__gameRef = gameRef;
-  }, []);
+  }, [draftMode]);
 
   // SFX event handler for game-sim events
   const handleSimEvent = useCallback(function handleSimEvent(type, data) {
@@ -104,6 +106,7 @@ export default function DubaiMissileCommand() {
           checkpoints: game._replayCheckpoints || [],
           finalTick: game._replayTick + 1,
           isHuman: true,
+          draftMode: game._draftMode || false,
         };
         setLastReplay(replay);
         // Auto-save replay to disk (dev server only, silently fails in prod)
@@ -121,13 +124,17 @@ export default function DubaiMissileCommand() {
         reason: "shopOpen",
         tickOverride: gameRef.current._replayTick + 1,
       });
+      const game = gameRef.current;
       setShopData({
         score: data.score,
         wave: data.wave,
         upgrades: { ...data.upgrades },
-        burjHealth: gameRef.current.burjHealth,
-        launcherHP: [...gameRef.current.launcherHP],
-        defenseSites: gameRef.current.defenseSites.map((s) => ({ key: s.key, alive: s.alive })),
+        burjHealth: game.burjHealth,
+        launcherHP: [...game.launcherHP],
+        defenseSites: game.defenseSites.map((s) => ({ key: s.key, alive: s.alive })),
+        draftMode: game._draftMode,
+        draftOffers: game._draftOffers || null,
+        draftPicked: false,
       });
       setShowShop(true);
     }
@@ -258,6 +265,7 @@ export default function DubaiMissileCommand() {
         lastTimeRef.current = null;
         if (screen === "title") {
           drawTitle(ctx);
+          drawTitleModeToggle(ctx, draftMode, titleHoverRef.current);
         } else if (screen === "gameover") {
           drawGameOver(ctx, finalScore, finalWave, finalStats);
         }
@@ -272,6 +280,21 @@ export default function DubaiMissileCommand() {
   function handleCanvasClick(e) {
     if (showShop || replayActive) return;
     if (screen === "title") {
+      const canvas = canvasRef.current;
+      const rect = canvas.getBoundingClientRect();
+      const mx = (e.clientX - rect.left) * (CANVAS_W / rect.width);
+      const my = (e.clientY - rect.top) * (CANVAS_H / rect.height);
+      // Mode toggle buttons at y=490
+      if (my >= 478 && my <= 506) {
+        if (mx >= CANVAS_W / 2 - 135 && mx <= CANVAS_W / 2 - 45) {
+          setDraftMode(false);
+          return;
+        }
+        if (mx >= CANVAS_W / 2 + 45 && mx <= CANVAS_W / 2 + 135) {
+          setDraftMode(true);
+          return;
+        }
+      }
       SFX.init();
       initGame();
       setScreen("playing");
@@ -324,63 +347,50 @@ export default function DubaiMissileCommand() {
   }, [screen, showShop, replayActive, handleSimEvent]);
 
   function handleMouseMove(e) {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (CANVAS_W / rect.width);
+    const my = (e.clientY - rect.top) * (CANVAS_H / rect.height);
+    if (screen === "title") {
+      // Track hover over mode toggle buttons
+      if (my >= 478 && my <= 506) {
+        if (mx >= CANVAS_W / 2 - 135 && mx <= CANVAS_W / 2 - 45) {
+          titleHoverRef.current = "normal";
+          return;
+        }
+        if (mx >= CANVAS_W / 2 + 45 && mx <= CANVAS_W / 2 + 135) {
+          titleHoverRef.current = "draft";
+          return;
+        }
+      }
+      titleHoverRef.current = null;
+      return;
+    }
     if (screen !== "playing") return;
     const game = gameRef.current;
     if (!game) return;
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    game.crosshairX = (e.clientX - rect.left) * (CANVAS_W / rect.width);
-    game.crosshairY = (e.clientY - rect.top) * (CANVAS_H / rect.height);
+    game.crosshairX = mx;
+    game.crosshairY = my;
   }
 
   function buyUpgrade(key) {
     const game = gameRef.current;
     if (!game) return;
-    if (simBuyUpgrade(game, key)) {
+    const isDraft = game._draftMode;
+    const ok = isDraft ? simBuyDraftUpgrade(game, key) : simBuyUpgrade(game, key);
+    if (ok) {
       SFX.buyUpgrade();
       shopBoughtRef.current.push(key);
-      setShopData({
+      setShopData((prev) => ({
+        ...prev,
         score: game.score,
-        wave: game.wave,
         upgrades: { ...game.upgrades },
         burjHealth: game.burjHealth,
         launcherHP: [...game.launcherHP],
         defenseSites: game.defenseSites.map((s) => ({ key: s.key, alive: s.alive })),
-      });
-    }
-  }
-
-  function doRepairSite(siteKey) {
-    const game = gameRef.current;
-    if (!game) return;
-    if (simRepairSite(game, siteKey)) {
-      SFX.buyUpgrade();
-      shopBoughtRef.current.push(`repair_${siteKey}`);
-      setShopData({
-        score: game.score,
-        wave: game.wave,
-        upgrades: { ...game.upgrades },
-        burjHealth: game.burjHealth,
-        launcherHP: [...game.launcherHP],
-        defenseSites: game.defenseSites.map((s) => ({ key: s.key, alive: s.alive })),
-      });
-    }
-  }
-
-  function doRepairLauncher(index) {
-    const game = gameRef.current;
-    if (!game) return;
-    if (simRepairLauncher(game, index)) {
-      SFX.buyUpgrade();
-      shopBoughtRef.current.push(`repair_launcher_${index}`);
-      setShopData({
-        score: game.score,
-        wave: game.wave,
-        upgrades: { ...game.upgrades },
-        burjHealth: game.burjHealth,
-        launcherHP: [...game.launcherHP],
-        defenseSites: game.defenseSites.map((s) => ({ key: s.key, alive: s.alive })),
-      });
+        draftPicked: isDraft ? true : prev?.draftPicked,
+      }));
     }
   }
 
@@ -560,15 +570,7 @@ export default function DubaiMissileCommand() {
         )}
 
         {/* UPGRADE SHOP */}
-        {showShop && shopData && (
-          <ShopUI
-            shopData={shopData}
-            onBuyUpgrade={buyUpgrade}
-            onRepairSite={doRepairSite}
-            onRepairLauncher={doRepairLauncher}
-            onClose={closeShop}
-          />
-        )}
+        {showShop && shopData && <ShopUI shopData={shopData} onBuyUpgrade={buyUpgrade} onClose={closeShop} />}
       </div>
       <div style={{ color: "#445566", fontSize: "11px", marginTop: "10px", letterSpacing: "2px" }}>
         DUBAI MISSILE COMMAND v2.0 — INTEGRATED AIR DEFENSE NETWORK

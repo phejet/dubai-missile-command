@@ -95,14 +95,14 @@ export const UPGRADES = {
   patriot: {
     name: "Patriot Battery",
     icon: "\uD83D\uDE80",
-    desc: "Long-range SAM battery. Slow heavy missiles punish clustered air threats with huge blasts.",
+    desc: "Fast SAM barrage. Prioritizes MIRVs, missiles, and jet drones with homing intercepts.",
     maxLevel: 3,
     costs: [1512, 3479, 7966],
     color: COL.patriot,
     statLines: [
-      "1 launch / 8s \u00B7 cluster seeker \u00B7 56 blast",
-      "1 launch / 6s \u00B7 heavy cluster punish \u00B7 72 blast",
-      "2 launches / 5s \u00B7 massive AoE \u00B7 88 blast",
+      "2 missiles / 8s \u00B7 MIRV priority \u00B7 56 blast",
+      "3 missiles / 6s \u00B7 fast homing \u00B7 72 blast",
+      "4 missiles / 5s \u00B7 rapid barrage \u00B7 88 blast",
     ],
   },
   burjRepair: {
@@ -114,6 +114,7 @@ export const UPGRADES = {
     color: "#00ffcc",
     statLines: ["+1 Burj HP (1/3)", "+1 Burj HP (2/3)", "+1 Burj HP (3/3)"],
     consumable: true,
+    disabled: true,
   },
   launcherKit: {
     name: "Launcher Upgrade",
@@ -230,12 +231,12 @@ export function initGame() {
     phalanxBullets: [],
     patriotMissiles: [],
     flares: [],
-    hornetTimer: 0,
-    roadrunnerTimer: 0,
-    ironBeamTimer: 0,
-    phalanxTimer: 0,
-    patriotTimer: 0,
-    flareTimer: 0,
+    hornetTimer: 360,
+    roadrunnerTimer: 480,
+    ironBeamTimer: 360,
+    phalanxTimer: 5,
+    patriotTimer: 480,
+    flareTimer: 300,
     empCharge: 0,
     empChargeMax: 0,
     empReady: false,
@@ -491,40 +492,23 @@ function pickRoadrunnerTargets(allThreats, activeRoadrunners, count) {
   return picked;
 }
 
-function patriotClusterScore(center, allThreats, blastRadius) {
-  const nearby = allThreats.filter((t) => t.alive && dist(t.x, t.y, center.x, center.y) <= blastRadius * 1.15);
-  let score = 0;
-  nearby.forEach((t) => {
-    let weight = 1;
-    if (t.type === "mirv") weight += 3;
-    else if (t.type === "bomb") weight += 2;
-    else if (t.type === "drone" && t.subtype === "shahed238") weight += 1.5;
-    if ((t.y || 0) > 360) weight += 1.5;
-    else if ((t.y || 0) > 240) weight += 0.75;
-    score += weight;
-  });
-  return { score, nearbyCount: nearby.length };
+function patriotTargetPriority(t) {
+  // MIRVs first (highest priority), then missiles and jet shaheds, then everything else
+  if (t.type === "mirv") return 100;
+  if (t.type === "mirv_warhead") return 80;
+  if (t.type === "missile") return 60;
+  if (t.type === "drone" && t.subtype === "shahed238") return 60;
+  if (t.type === "bomb") return 50;
+  return 10;
 }
 
-function pickPatriotTargets(allThreats, count, blastRadius) {
+function pickPatriotTargets(allThreats, count) {
   const aliveThreats = allThreats.filter((t) => t.alive);
   if (aliveThreats.length === 0) return [];
 
-  const picked = [];
-  const blocked = new Set();
-  while (picked.length < Math.min(count, aliveThreats.length)) {
-    const scored = aliveThreats
-      .filter((t) => !blocked.has(t))
-      .map((t) => ({ target: t, ...patriotClusterScore(t, aliveThreats, blastRadius) }))
-      .sort((a, b) => b.score - a.score || b.target.y - a.target.y);
-    const best = scored[0];
-    if (!best) break;
-    picked.push(best.target);
-    aliveThreats.forEach((t) => {
-      if (dist(t.x, t.y, best.target.x, best.target.y) <= blastRadius * 0.7) blocked.add(t);
-    });
-  }
-  return picked;
+  // Sort by priority (descending), then by Y position (lower = more urgent)
+  const sorted = [...aliveThreats].sort((a, b) => patriotTargetPriority(b) - patriotTargetPriority(a) || b.y - a.y);
+  return sorted.slice(0, count);
 }
 
 function normalizeAngle(angle) {
@@ -551,7 +535,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
           x: rand(100, CANVAS_W - 100),
           y: GROUND_Y - 20,
           targetRef: target,
-          speed: rand(3.9, 5.85),
+          speed: rand(2.73, 4.1),
           trail: [],
           alive: true,
           blastRadius: blastR,
@@ -771,7 +755,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
     const lvl = g.upgrades.ironBeam;
     const beamCount = lvl;
     const range = [175, 224, 294][lvl - 1];
-    const chargeTime = [122, 86, 60][lvl - 1];
+    const chargeTime = [360, 240, 180][lvl - 1];
     g.ironBeamTimer += dt;
     if (g.ironBeamTimer >= chargeTime) {
       const inRange = allThreats
@@ -852,62 +836,82 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
   if (g.upgrades.patriot > 0 && isSiteAlive(g, "patriot")) {
     const lvl = g.upgrades.patriot;
     const interval = [480, 360, 300][lvl - 1];
-    const count = lvl >= 3 ? 2 : 1;
+    const count = [2, 3, 4][lvl - 1];
     const blastR = [56, 72, 88][lvl - 1];
     g.patriotTimer += dt;
     if (g.patriotTimer >= interval && allThreats.length > 0) {
       g.patriotTimer = 0;
       if (onEvent) onEvent("sfx", { name: "patriotLaunch" });
-      const targets = pickPatriotTargets(allThreats, count, blastR);
+      const targets = pickPatriotTargets(allThreats, count);
       for (let i = 0; i < targets.length; i++) {
         g.patriotMissiles.push({
-          x: 50,
+          x: 50 + rand(-10, 10),
           y: GROUND_Y - 20,
           targetRef: targets[i],
-          speed: 5.25,
+          speed: rand(14, 17),
           trail: [],
           alive: true,
           blastRadius: blastR,
-          phase: "launch",
-          launchY: rand(100, 250),
+          wobble: rand(0, Math.PI * 2),
+          life: 200,
         });
       }
     }
   }
-  // Patriot in-flight update — always runs so missiles don't freeze when site is destroyed
+  // Patriot in-flight update — hornet-style homing
   g.patriotMissiles.forEach((p) => {
     if (!p.alive) return;
-    p.trail.push({ x: p.x, y: p.y });
-    if (p.trail.length > 25) p.trail.shift();
-    if (p.phase === "launch") {
-      p.y -= 4.5 * dt;
-      if (p.y <= p.launchY) p.phase = "track";
-    } else {
-      const t = p.targetRef;
-      if (!t || !t.alive) {
-        const newT = pickPatriotTargets(allThreats, 1, p.blastRadius)[0];
-        if (newT) p.targetRef = newT;
-        else {
-          p.alive = false;
-          return;
-        }
+    p.life -= dt;
+    if (p.life <= 0 || p.x < -60 || p.x > CANVAS_W + 60 || p.y < -60 || p.y > CANVAS_H + 20) {
+      p.alive = false;
+      boom(g, p.x, p.y, p.blastRadius * 0.5, COL.patriot, false, onEvent, p.blastRadius * 0.2);
+      return;
+    }
+    const t = p.targetRef;
+    if (!t || !t.alive) {
+      // Only retarget to threats nearly on current flight path (within ~25°)
+      const candidates = pickPatriotTargets(allThreats, 5);
+      let best = null;
+      const pdx = p.targetRef ? p.targetRef.x - p.x : 0;
+      const pdy = p.targetRef ? p.targetRef.y - p.y : -1;
+      const pMag = Math.sqrt(pdx * pdx + pdy * pdy) || 1;
+      const pnx = pdx / pMag;
+      const pny = pdy / pMag;
+      for (const c of candidates) {
+        const cdx = c.x - p.x;
+        const cdy = c.y - p.y;
+        const cMag = Math.sqrt(cdx * cdx + cdy * cdy) || 1;
+        const dot = (cdx / cMag) * pnx + (cdy / cMag) * pny;
+        if (dot > 0.9) {
+          best = c;
+          break;
+        } // ~25° cone
       }
-      const dx = p.targetRef.x - p.x;
-      const dy = p.targetRef.y - p.y;
-      const d = Math.sqrt(dx * dx + dy * dy);
-      if (d < 20) {
+      if (best) p.targetRef = best;
+      else {
         p.alive = false;
-        boom(g, p.targetRef.x, p.targetRef.y, p.blastRadius, COL.patriot, false, onEvent, p.blastRadius * 0.4);
+        boom(g, p.x, p.y, p.blastRadius * 0.5, COL.patriot, false, onEvent, p.blastRadius * 0.2);
         return;
       }
-      // Lead the target
-      const pLeadFrames = d / p.speed;
-      const plx = p.targetRef.x + (p.targetRef.vx || 0) * pLeadFrames * 0.3;
-      const ply = p.targetRef.y + (p.targetRef.vy || 0) * pLeadFrames * 0.3;
-      const pld = Math.sqrt((plx - p.x) ** 2 + (ply - p.y) ** 2) || 1;
-      p.x += ((plx - p.x) / pld) * p.speed * dt;
-      p.y += ((ply - p.y) / pld) * p.speed * dt;
     }
+    p.wobble += 0.12 * dt;
+    const dx = p.targetRef.x - p.x;
+    const dy = p.targetRef.y - p.y;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d < 15) {
+      p.alive = false;
+      boom(g, p.targetRef.x, p.targetRef.y, p.blastRadius, COL.patriot, false, onEvent, p.blastRadius * 0.4);
+      return;
+    }
+    p.trail.push({ x: p.x, y: p.y });
+    if (p.trail.length > 18) p.trail.shift();
+    // Lead the target
+    const pLeadFrames = d / p.speed;
+    const plx = p.targetRef.x + (p.targetRef.vx || 0) * pLeadFrames * 0.4;
+    const ply = p.targetRef.y + (p.targetRef.vy || 0) * pLeadFrames * 0.4;
+    const pld = Math.sqrt((plx - p.x) ** 2 + (ply - p.y) ** 2) || 1;
+    p.x += (((plx - p.x) / pld) * p.speed + Math.sin(p.wobble) * 0.6) * dt;
+    p.y += (((ply - p.y) / pld) * p.speed + Math.cos(p.wobble) * 0.4) * dt;
   });
   g.patriotMissiles = g.patriotMissiles.filter((p) => p.alive);
 
@@ -1415,6 +1419,10 @@ export function update(g, dt, onEvent) {
       g.shopOpened = true;
       if (g.burjAlive) {
         g.state = "shop";
+        // Draft pick consumes seeded RNG here so replay stays in sync
+        if (g._draftMode) {
+          g._draftOffers = draftPick3(g);
+        }
         if (onEvent) onEvent("shopOpen", { score: g.score, wave: g.wave, upgrades: { ...g.upgrades } });
       }
     }
@@ -1537,7 +1545,42 @@ export function buyUpgrade(g, key) {
   return true;
 }
 
+const ALL_UPGRADE_KEYS = Object.keys(UPGRADES);
+
+/** Draw 3 unique non-maxed upgrade keys for draft mode using the game's RNG. */
+export function draftPick3(g) {
+  const rng = getRng();
+  const available = ALL_UPGRADE_KEYS.filter((k) => !UPGRADES[k].disabled && g.upgrades[k] < UPGRADES[k].maxLevel);
+  if (available.length <= 3) return [...available];
+  const pool = [...available];
+  for (let i = 0; i < 3; i++) {
+    const j = i + Math.floor(rng() * (pool.length - i));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, 3);
+}
+
+/** Buy an upgrade for free (draft mode). */
+export function buyDraftUpgrade(g, key) {
+  const def = UPGRADES[key];
+  if (!def || g.upgrades[key] >= def.maxLevel) return false;
+  const savedCosts = [...def.costs];
+  def.costs = [0, 0, 0];
+  const ok = buyUpgrade(g, key);
+  def.costs = savedCosts;
+  return ok;
+}
+
 export function closeShop(g) {
+  // Auto-repair all destroyed launchers and defense sites (free)
+  const baseHP = g.upgrades.launcherKit >= 2 ? 2 : 1;
+  for (let i = 0; i < g.launcherHP.length; i++) {
+    if (g.launcherHP[i] <= 0) g.launcherHP[i] = baseHP;
+  }
+  for (const site of g.defenseSites) {
+    if (!site.alive) site.alive = true;
+  }
+
   g.wave++;
   const waveData = generateWaveSchedule(g.wave, g.commander);
   g.schedule = waveData.schedule;

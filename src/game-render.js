@@ -235,11 +235,37 @@ export function drawGame(ctx, game, { showShop = false } = {}) {
       glowOff(ctx);
     }
     if (game.upgrades.ironBeam > 0) {
-      const pulse = 0.5 + 0.5 * Math.sin(game.time * 0.08);
-      ctx.fillStyle = `rgba(255,34,0,${pulse * 0.6})`;
+      const lvl = game.upgrades.ironBeam;
+      const chargeTime = [360, 240, 180][lvl - 1];
+      const chargeRatio = Math.min(game.ironBeamTimer / chargeTime, 1);
+      const ready = chargeRatio >= 1;
+      const cx = bx,
+        cy = by - bh * 0.6,
+        r = 5;
+      // Charge arc background
+      ctx.strokeStyle = "rgba(255,34,0,0.15)";
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(bx, by - bh * 0.6, 4, 0, Math.PI * 2);
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.stroke();
+      // Charge arc fill
+      ctx.strokeStyle = ready ? "#ff2200" : `rgba(255,34,0,${0.3 + chargeRatio * 0.5})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * chargeRatio);
+      ctx.stroke();
+      // Center dot — pulses when ready, dim when charging
+      if (ready) {
+        const pulse = 0.5 + 0.5 * Math.sin(game.time * 0.12);
+        ctx.fillStyle = `rgba(255,34,0,${0.6 + pulse * 0.4})`;
+        glow(ctx, "#ff2200", 10);
+      } else {
+        ctx.fillStyle = `rgba(255,34,0,${0.15 + chargeRatio * 0.3})`;
+      }
+      ctx.beginPath();
+      ctx.arc(cx, cy, 2.5, 0, Math.PI * 2);
       ctx.fill();
+      if (ready) glowOff(ctx);
     }
     ctx.restore();
     const hpW = 40,
@@ -1538,6 +1564,44 @@ export function drawTitle(ctx) {
   ctx.fillStyle = `rgba(0,255,200,${pulse})`;
   ctx.font = "bold 18px 'Courier New', monospace";
   ctx.fillText("[ CLICK TO START ]", CANVAS_W / 2, 520);
+  ctx.textAlign = "left";
+}
+
+export function drawTitleModeToggle(ctx, draftMode, hoverMode) {
+  const y = 490;
+  const normalX = CANVAS_W / 2 - 90;
+  const draftX = CANVAS_W / 2 + 90;
+
+  ctx.textAlign = "center";
+  ctx.font = "bold 11px 'Courier New', monospace";
+
+  // NORMAL button
+  const normalActive = !draftMode;
+  ctx.fillStyle = normalActive ? COL.hud : hoverMode === "normal" ? "rgba(0,255,200,0.5)" : "#556677";
+  ctx.fillText("[ NORMAL ]", normalX, y);
+  if (normalActive) {
+    ctx.fillStyle = "rgba(0,255,200,0.15)";
+    ctx.fillRect(normalX - 45, y - 12, 90, 16);
+  }
+
+  // DRAFT button
+  const draftActive = draftMode;
+  ctx.fillStyle = draftActive ? "#ff8844" : hoverMode === "draft" ? "rgba(255,136,68,0.5)" : "#556677";
+  ctx.fillText("[ DRAFT ]", draftX, y);
+  if (draftActive) {
+    ctx.fillStyle = "rgba(255,136,68,0.15)";
+    ctx.fillRect(draftX - 45, y - 12, 90, 16);
+  }
+
+  // Description
+  ctx.font = "10px 'Courier New', monospace";
+  ctx.fillStyle = "#445566";
+  if (draftMode) {
+    ctx.fillText("3 random upgrades offered — pick 1 free each wave", CANVAS_W / 2, y + 16);
+  } else {
+    ctx.fillText("Buy any upgrade with earned score", CANVAS_W / 2, y + 16);
+  }
+
   ctx.textAlign = "left";
 }
 
