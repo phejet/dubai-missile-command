@@ -56,14 +56,14 @@ export const UPGRADES = {
   flare: {
     name: "Decoy Flares",
     icon: "\uD83C\uDF86",
-    desc: "Burj launches IR decoys. Incoming missiles retarget to flares and miss.",
+    desc: "Burj launches IR decoys that scramble guidance systems. Lured threats self-destruct.",
     maxLevel: 3,
     costs: [707, 2219, 5544],
     color: COL.flare,
     statLines: [
-      "2 flares / 5s \u00B7 lures 1 each",
-      "3 flares / 4s \u00B7 lures 1 each",
-      "5 flares / 3s \u00B7 lures 1 each",
+      "4 flares / 4s \u00B7 lures 1 each",
+      "6 flares / 3s \u00B7 lures 1 each",
+      "8 flares / 2s \u00B7 lures 1 each",
     ],
   },
   ironBeam: {
@@ -236,7 +236,7 @@ export function initGame() {
     ironBeamTimer: 360,
     phalanxTimer: 5,
     patriotTimer: 480,
-    flareTimer: 300,
+    flareTimer: 240,
     empCharge: 0,
     empChargeMax: 0,
     empReady: false,
@@ -673,23 +673,25 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
   // ── DECOY FLARES ──
   if (g.upgrades.flare > 0 && isSiteAlive(g, "flare")) {
     const lvl = g.upgrades.flare;
-    const interval = [300, 240, 180][lvl - 1];
-    const count = [2, 3, 5][lvl - 1];
+    const interval = [240, 180, 120][lvl - 1];
+    const count = [4, 6, 8][lvl - 1];
+    const lureRange = 400;
     g.flareTimer += dt;
     if (g.flareTimer >= interval) {
       g.flareTimer = 0;
       for (let i = 0; i < count; i++) {
-        const fx = BURJ_X + rand(-120, 120);
-        const fy = rand(200, 420);
+        // Flares spread wide and fly upward to intercept incoming threats
+        const fx = BURJ_X + rand(-300, 300);
+        const fy = rand(80, 300);
         g.flares.push({
           x: BURJ_X,
           y: GROUND_Y - BURJ_H * 0.5,
           tx: fx,
           ty: fy,
-          vx: (fx - BURJ_X) * 0.04,
-          vy: -rand(2, 4),
-          life: 180,
-          maxLife: 180,
+          vx: (fx - BURJ_X) * 0.06,
+          vy: -rand(4, 7),
+          life: 240,
+          maxLife: 240,
           alive: true,
           luresLeft: 1,
         });
@@ -699,7 +701,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
       if (!f.alive) return;
       f.x += f.vx * dt;
       f.y += f.vy * dt;
-      f.vy += 0.015 * dt;
+      f.vy += 0.012 * dt;
       f.vx *= 0.99 ** dt;
       f.life -= dt;
       if (f.life <= 0) f.alive = false;
@@ -718,14 +720,16 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
         });
       }
     });
+    // Lure missiles (including MIRVs)
     g.missiles.forEach((m) => {
       if (!m.alive || m.luredByFlare) return;
       const nearFlare = g.flares.find(
-        (f) => f.alive && f.life > 30 && f.luresLeft > 0 && dist(m.x, m.y, f.x, f.y) < 200,
+        (f) => f.alive && f.life > 30 && f.luresLeft > 0 && dist(m.x, m.y, f.x, f.y) < lureRange,
       );
       if (nearFlare) {
         nearFlare.luresLeft--;
         m.luredByFlare = true;
+        m.lureDeathTimer = 120; // self-destructs after guidance scramble
         const dx = nearFlare.x - m.x,
           dy = nearFlare.y - m.y;
         const len = Math.sqrt(dx * dx + dy * dy);
@@ -737,6 +741,37 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
           g.particles.push({
             x: m.x,
             y: m.y,
+            vx: rand(-1.5, 1.5),
+            vy: rand(-1.5, 1.5),
+            life: 20,
+            maxLife: 20,
+            color: "#ffaa44",
+            size: 1.5,
+          });
+        }
+      }
+    });
+    // Lure drones
+    g.drones.forEach((d) => {
+      if (!d.alive || d.luredByFlare) return;
+      const nearFlare = g.flares.find(
+        (f) => f.alive && f.life > 30 && f.luresLeft > 0 && dist(d.x, d.y, f.x, f.y) < lureRange,
+      );
+      if (nearFlare) {
+        nearFlare.luresLeft--;
+        d.luredByFlare = true;
+        d.lureDeathTimer = 150;
+        // Redirect drone toward flare
+        const dx = nearFlare.x - d.x,
+          dy = nearFlare.y - d.y;
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        const spd = Math.sqrt(d.vx * d.vx + d.vy * d.vy);
+        d.vx = (dx / len) * spd;
+        d.vy = (dy / len) * spd;
+        for (let i = 0; i < 5; i++) {
+          g.particles.push({
+            x: d.x,
+            y: d.y,
             vx: rand(-1.5, 1.5),
             vy: rand(-1.5, 1.5),
             life: 20,
@@ -973,6 +1008,16 @@ function updateMissiles(g, dt, onEvent) {
     const mSlow = m.empSlowTimer > 0 ? ((m.empSlowTimer -= dt), 0.4) : 1;
     m.x += m.vx * dt * mSlow;
     m.y += m.vy * dt * mSlow;
+    // Lured missiles self-destruct after guidance scramble
+    if (m.lureDeathTimer > 0) {
+      m.lureDeathTimer -= dt;
+      if (m.lureDeathTimer <= 0) {
+        m.alive = false;
+        boom(g, m.x, m.y, 20, COL.flare, false, onEvent, 0, { harmless: true });
+        g.stats.missileKills = (g.stats.missileKills || 0) + 1;
+        return;
+      }
+    }
     // MIRV split
     if (m.type === "mirv" && !m.splitTriggered && m.y >= m.splitY) {
       m.splitTriggered = true;
@@ -1070,6 +1115,16 @@ function updateMissiles(g, dt, onEvent) {
 function updateDrones(g, _rng, dt, onEvent) {
   g.drones.forEach((d) => {
     if (!d.alive) return;
+    // Lured drones self-destruct after guidance scramble
+    if (d.lureDeathTimer > 0) {
+      d.lureDeathTimer -= dt;
+      if (d.lureDeathTimer <= 0) {
+        d.alive = false;
+        boom(g, d.x, d.y, 20, COL.flare, false, onEvent, 0, { harmless: true });
+        g.stats.droneKills = (g.stats.droneKills || 0) + 1;
+        return;
+      }
+    }
     if (d.empSlowTimer > 0) d.empSlowTimer -= dt;
     const dSlow = d.empSlowTimer > 0 ? 0.4 : 1;
     d.wobble += 0.05 * dt;

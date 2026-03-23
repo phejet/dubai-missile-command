@@ -18,7 +18,7 @@
     "timeScaleFactor": 1.0
   },
   "planeAvoidance": { "radius": 30 },
-  "emp": { "minImminentThreats": 2, "impactY": 420, "impactRadius": 200 },
+  "emp": { "minImminentThreats": 1, "impactY": 380, "impactRadius": 250 },
   "mirv": { "cooldownMultiplier": 0.4 },
   "upgradePriority": [
     "ironBeam",
