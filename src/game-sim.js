@@ -61,9 +61,9 @@ export const UPGRADES = {
     costs: [707, 2219, 5544],
     color: COL.flare,
     statLines: [
-      "1 flare / 5s \u00B7 lures 1 missile",
-      "2 flares / 4s \u00B7 lures 2 each",
-      "3 flares / 3s \u00B7 lures 3 each",
+      "2 flares / 5s \u00B7 lures 1 each",
+      "3 flares / 4s \u00B7 lures 1 each",
+      "5 flares / 3s \u00B7 lures 1 each",
     ],
   },
   ironBeam: {
@@ -674,7 +674,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
   if (g.upgrades.flare > 0 && isSiteAlive(g, "flare")) {
     const lvl = g.upgrades.flare;
     const interval = [300, 240, 180][lvl - 1];
-    const count = lvl;
+    const count = [2, 3, 5][lvl - 1];
     g.flareTimer += dt;
     if (g.flareTimer >= interval) {
       g.flareTimer = 0;
@@ -691,7 +691,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
           life: 180,
           maxLife: 180,
           alive: true,
-          luresLeft: lvl,
+          luresLeft: 1,
         });
       }
     }
@@ -719,7 +719,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
       }
     });
     g.missiles.forEach((m) => {
-      if (!m.alive || m.luredByFlare || m.type === "mirv") return;
+      if (!m.alive || m.luredByFlare) return;
       const nearFlare = g.flares.find(
         (f) => f.alive && f.life > 30 && f.luresLeft > 0 && dist(m.x, m.y, f.x, f.y) < 200,
       );

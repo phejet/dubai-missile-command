@@ -366,9 +366,25 @@ export function botDecideUpgrades(g, config) {
       if (!site.alive) repairs.push({ type: "repairSite", key: site.key });
     }
   }
-  const priority = config.upgradePriority.filter((key) => {
-    if (key === "burjRepair" && g.burjHealth >= 5) return false;
-    return true;
-  });
+  let priority;
+  if (config.upgradeStrategy === "random") {
+    const rng = getRng();
+    const pool = config.upgradePriority.filter((key) => {
+      if (key === "burjRepair") return false;
+      return true;
+    });
+    // Fisher-Yates shuffle
+    const shuffled = [...pool];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    priority = shuffled;
+  } else {
+    priority = config.upgradePriority.filter((key) => {
+      if (key === "burjRepair" && g.burjHealth >= 5) return false;
+      return true;
+    });
+  }
   return { repairs, priority };
 }

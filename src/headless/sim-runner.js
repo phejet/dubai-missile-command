@@ -75,10 +75,20 @@ export function runGame(botConfig, options = {}) {
       // processes the first step() after resumeFromShop()
     }
 
-    // Bot fires EMP when ready and enough threats
+    // Bot fires EMP when threats are about to hit Burj
     if (g.empReady) {
-      const threats = g.missiles.filter((m) => m.alive).length + g.drones.filter((d) => d.alive).length;
-      if (threats >= (config.emp?.minThreatsToFire || 4)) {
+      const empCfg = config.emp || {};
+      const impactY = empCfg.impactY || 420;
+      const impactRadius = empCfg.impactRadius || 200;
+      const minImminent = empCfg.minImminentThreats || 2;
+      let imminent = 0;
+      for (const m of g.missiles) {
+        if (m.alive && m.y >= impactY && Math.abs(m.x - 460) < impactRadius) imminent++;
+      }
+      for (const d of g.drones) {
+        if (d.alive && d.y >= impactY && Math.abs(d.x - 460) < impactRadius) imminent++;
+      }
+      if (imminent >= minImminent) {
         fireEmp(g, null);
         if (record) actions.push({ tick, type: "emp" });
       }

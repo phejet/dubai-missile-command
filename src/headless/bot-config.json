@@ -18,7 +18,7 @@
     "timeScaleFactor": 1.0
   },
   "planeAvoidance": { "radius": 30 },
-  "emp": { "minThreatsToFire": 3 },
+  "emp": { "minImminentThreats": 2, "impactY": 420, "impactRadius": 200 },
   "mirv": { "cooldownMultiplier": 0.4 },
   "upgradePriority": [
     "ironBeam",
@@ -32,8 +32,11 @@
     "emp"
   ],
   "presets": {
-    "perfect": {},
+    "perfect": {
+      "upgradePriority": ["patriot", "wildHornets", "launcherKit", "ironBeam", "roadrunner", "phalanx", "flare", "emp"]
+    },
     "good": {
+      "upgradePriority": ["wildHornets", "ironBeam", "roadrunner", "launcherKit", "phalanx", "flare", "patriot", "emp"],
       "humanization": {
         "enabled": true,
         "startWave": 7,
@@ -57,6 +60,7 @@
       }
     },
     "average": {
+      "upgradePriority": ["launcherKit", "wildHornets", "phalanx", "ironBeam", "flare", "roadrunner", "emp", "patriot"],
       "humanization": {
         "enabled": true,
         "startWave": 4,
@@ -80,6 +84,7 @@
       }
     },
     "novice": {
+      "upgradeStrategy": "random",
       "humanization": {
         "enabled": true,
         "startWave": 2,
