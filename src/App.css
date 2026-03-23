@@ -283,6 +283,44 @@
   text-transform: uppercase;
 }
 
+.status-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.status-strip__card {
+  border-radius: 14px;
+  border: 1px solid rgba(109, 217, 255, 0.1);
+  background: rgba(7, 14, 25, 0.74);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.status-strip__label,
+.launcher-card__label,
+.portrait-panel__section-title,
+.report-card__label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+
+.status-strip__value {
+  font-size: 18px;
+  color: #effcff;
+}
+
+.status-strip__meta,
+.launcher-card__state {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #7e98a9;
+}
+
 .mode-toggle {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -350,25 +388,41 @@
   background: rgba(7, 14, 25, 0.82);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
 }
 
 .launcher-card--down {
   border-color: rgba(255, 96, 96, 0.24);
 }
 
-.launcher-card__label,
-.portrait-panel__section-title,
-.report-card__label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
+.launcher-card__topline {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .launcher-card__value,
 .report-card__value {
   font-size: 20px;
   color: #effcff;
+}
+
+.launcher-card__meter,
+.emp-button__meter {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.launcher-card__meter-fill,
+.emp-button__meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #18d0ff, #00ffc8);
 }
 
 .portrait-panel__section {
@@ -412,6 +466,9 @@
 .upgrade-chip--empty {
   border-style: dashed;
   color: #87a1b2;
+  border-radius: 18px;
+  line-height: 1.45;
+  padding-block: 10px;
 }
 
 .portrait-panel__actions {
@@ -450,6 +507,21 @@
   font-size: 15px;
   text-transform: uppercase;
   letter-spacing: 0.18em;
+}
+
+.emp-button__topline {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.emp-button__percent {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #d7b3ff;
 }
 
 .emp-button__meta {
@@ -505,5 +577,9 @@
   .launcher-grid,
   .report-grid {
     gap: 8px;
+  }
+
+  .status-strip {
+    gap: 6px;
   }
 }

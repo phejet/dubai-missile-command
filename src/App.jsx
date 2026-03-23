@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import SFX from "./sound.js";
 import "./App.css";
-import { CANVAS_W, CANVAS_H, GROUND_Y, COL, fireInterceptor, setRng } from "./game-logic.js";
+import { CANVAS_W, CANVAS_H, GROUND_Y, COL, fireInterceptor, getAmmoCapacity, setRng } from "./game-logic.js";
 import { drawGame, drawTitle, drawTitleModeToggle, drawGameOver, perfState } from "./game-render.js";
 import ShopUI from "./ShopUI.jsx";
 import { mulberry32 } from "./headless/rng.js";
@@ -94,8 +94,12 @@ const EMPTY_HUD = {
   burjHealth: 5,
   burjAlive: true,
   ammo: [0, 0, 0],
+  ammoMax: 0,
   launcherHP: [0, 0, 0],
   activeUpgrades: [],
+  systemsOnline: 0,
+  threatCount: 0,
+  readyLaunchers: 0,
   empCharge: 0,
   empChargeMax: 0,
   empReady: false,
@@ -136,6 +140,7 @@ function getLayoutProfile(uiMode) {
 
 function buildHudSnapshot(game) {
   if (!game) return EMPTY_HUD;
+  const ammoMax = getAmmoCapacity(game.wave, game.upgrades.launcherKit);
   const activeUpgrades = Object.entries(game.upgrades)
     .filter(([, level]) => level > 0)
     .map(([key, level]) => {
@@ -154,8 +159,12 @@ function buildHudSnapshot(game) {
     burjHealth: game.burjHealth,
     burjAlive: game.burjAlive,
     ammo: [...game.ammo],
+    ammoMax,
     launcherHP: [...game.launcherHP],
     activeUpgrades,
+    systemsOnline: activeUpgrades.length,
+    threatCount: game.missiles.length + game.drones.length,
+    readyLaunchers: game.launcherHP.filter((hp) => hp > 0).length,
     empCharge: game.empCharge,
     empChargeMax: game.empChargeMax,
     empReady: game.empReady,
@@ -185,6 +194,11 @@ function formatEmpLabel(hud) {
   if (hud.empChargeMax <= 0) return "EMP OFFLINE";
   if (hud.empReady) return "EMP READY";
   return `EMP ${Math.round((hud.empCharge / hud.empChargeMax) * 100)}%`;
+}
+
+function getEmpProgress(hud) {
+  if (hud.empChargeMax <= 0) return 0;
+  return Math.max(0, Math.min(100, Math.round((hud.empCharge / hud.empChargeMax) * 100)));
 }
 
 export default function DubaiMissileCommand() {
@@ -650,6 +664,7 @@ export default function DubaiMissileCommand() {
   }
 
   const hitRatio = getHitRatio(finalStats);
+  const empProgress = getEmpProgress(hudSnapshot);
   const footerText = "Dubai Missile Command v2.0 - Integrated Air Defense Network";
 
   return (
@@ -820,15 +835,51 @@ export default function DubaiMissileCommand() {
                 {replayActive ? "Replay in progress" : "Touch and drag to aim, tap to fire"}
               </span>
             </div>
+            <div className="status-strip">
+              <div className="status-strip__card">
+                <span className="status-strip__label">Threats</span>
+                <strong className="status-strip__value">{hudSnapshot.threatCount}</strong>
+                <span className="status-strip__meta">Active tracks</span>
+              </div>
+              <div className="status-strip__card">
+                <span className="status-strip__label">Interceptors</span>
+                <strong className="status-strip__value">{hudSnapshot.ammo.reduce((sum, ammo) => sum + ammo, 0)}</strong>
+                <span className="status-strip__meta">{hudSnapshot.readyLaunchers} launchers ready</span>
+              </div>
+              <div className="status-strip__card">
+                <span className="status-strip__label">Systems</span>
+                <strong className="status-strip__value">{hudSnapshot.systemsOnline}</strong>
+                <span className="status-strip__meta">Automations online</span>
+              </div>
+            </div>
             <div className="launcher-grid">
               {hudSnapshot.ammo.map((ammo, index) => (
                 <div
                   key={`launcher-${index + 1}`}
                   className={`launcher-card ${hudSnapshot.launcherHP[index] > 0 ? "" : "launcher-card--down"}`}
                 >
-                  <span className="launcher-card__label">L{index + 1}</span>
+                  <div className="launcher-card__topline">
+                    <span className="launcher-card__label">Launcher {index + 1}</span>
+                    <span className="launcher-card__state">
+                      {hudSnapshot.launcherHP[index] > 0 ? "Ready" : "Offline"}
+                    </span>
+                  </div>
                   <strong className="launcher-card__value">{hudSnapshot.launcherHP[index] > 0 ? ammo : "OFF"}</strong>
-                  <span className="launcher-card__meta">HP {hudSnapshot.launcherHP[index]}</span>
+                  <div className="launcher-card__meter" aria-hidden="true">
+                    <span
+                      className="launcher-card__meter-fill"
+                      style={{
+                        width:
+                          hudSnapshot.launcherHP[index] > 0 && hudSnapshot.ammoMax > 0
+                            ? `${(ammo / hudSnapshot.ammoMax) * 100}%`
+                            : "0%",
+                      }}
+                    />
+                  </div>
+                  <span className="launcher-card__meta">
+                    HP {hudSnapshot.launcherHP[index]} · cap{" "}
+                    {hudSnapshot.launcherHP[index] > 0 ? hudSnapshot.ammoMax : 0}
+                  </span>
                 </div>
               ))}
             </div>
@@ -850,7 +901,9 @@ export default function DubaiMissileCommand() {
                     </span>
                   ))
                 ) : (
-                  <span className="upgrade-chip upgrade-chip--empty">No systems online yet</span>
+                  <span className="upgrade-chip upgrade-chip--empty">
+                    No systems online yet. Clear waves to fund upgrades.
+                  </span>
                 )}
               </div>
             </div>
@@ -862,11 +915,19 @@ export default function DubaiMissileCommand() {
                 onClick={fireEmp}
                 disabled={!hudSnapshot.empReady}
               >
-                <span className="emp-button__label">{formatEmpLabel(hudSnapshot)}</span>
+                <div className="emp-button__topline">
+                  <span className="emp-button__label">{formatEmpLabel(hudSnapshot)}</span>
+                  <span className="emp-button__percent">
+                    {hudSnapshot.empChargeMax > 0 ? `${empProgress}%` : "LOCKED"}
+                  </span>
+                </div>
+                <div className="emp-button__meter" aria-hidden="true">
+                  <span className="emp-button__meter-fill" style={{ width: `${empProgress}%` }} />
+                </div>
                 <span className="emp-button__meta">
                   {hudSnapshot.empChargeMax > 0
-                    ? "Shockwave available once fully charged"
-                    : "Purchase EMP to unlock the emergency pulse"}
+                    ? "Charged shockwave damages every threat on screen."
+                    : "Purchase EMP to unlock the emergency pulse."}
                 </span>
               </button>
             </div>
