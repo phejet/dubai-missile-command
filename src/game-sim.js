@@ -1384,7 +1384,7 @@ function updateInterceptors(g, dt, onEvent) {
       if (ic.fromF15) {
         boom(g, ic.x, ic.y, 30, "#aaccff", false, onEvent);
       } else {
-        boom(g, ic.x, ic.y, 49, COL.interceptor, true, onEvent);
+        boom(g, ic.x, ic.y, 98, COL.interceptor, true, onEvent);
       }
     }
     if (ic.fromF15 && (ic.x < -50 || ic.x > CANVAS_W + 50 || ic.y < -50 || ic.y > CANVAS_H + 50)) ic.alive = false;
@@ -1411,7 +1411,7 @@ function updateExplosions(g, dt, onEvent) {
               g.score += getKillReward(m);
               g.stats.missileKills++;
               ex.kills++;
-              boom(g, m.x, m.y, 60, COL.mirv, ex.playerCaused, onEvent);
+              boom(g, m.x, m.y, 90, COL.mirv, ex.playerCaused, onEvent);
             }
           }
         } else if (dist(m.x, m.y, ex.x, ex.y) < ex.radius) {
@@ -1419,7 +1419,7 @@ function updateExplosions(g, dt, onEvent) {
           g.score += getKillReward(m);
           g.stats.missileKills++;
           ex.kills++;
-          boom(g, m.x, m.y, 30, "#ffcc00", ex.playerCaused, onEvent);
+          boom(g, m.x, m.y, 45, "#ffcc00", ex.playerCaused, onEvent);
         }
       });
       g.drones.forEach((d) => {
@@ -1433,7 +1433,7 @@ function updateExplosions(g, dt, onEvent) {
             g.score += getKillReward(d);
             g.stats.droneKills++;
             ex.kills++;
-            boom(g, d.x, d.y, 60, "#ff8800", ex.playerCaused, onEvent);
+            boom(g, d.x, d.y, 90, "#ff8800", ex.playerCaused, onEvent);
           }
         }
       });
