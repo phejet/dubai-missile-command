@@ -92,6 +92,7 @@ const EMPTY_HUD = {
   wave: 1,
   burjHealth: 5,
   burjAlive: true,
+  fps: 0,
   ammo: [0, 0, 0],
   ammoMax: 0,
   launcherHP: [0, 0, 0],
@@ -130,7 +131,7 @@ function getViewportSnapshot() {
 function getUiMode({ width, height }) {
   if (width <= PHONE_BREAKPOINT && height > width) return "phonePortrait";
   if (width <= LANDSCAPE_BREAKPOINT && width > height) return "phoneLandscape";
-  return "desktop";
+  return "phonePortrait";
 }
 
 function getLayoutProfile(uiMode) {
@@ -166,6 +167,7 @@ function buildHudSnapshot(game) {
     wave: game.wave,
     burjHealth: game.burjHealth,
     burjAlive: game.burjAlive,
+    fps: game._fpsDisplay || 0,
     ammo: [...game.ammo],
     ammoMax,
     launcherHP: [...game.launcherHP],
@@ -224,7 +226,7 @@ export default function DubaiMissileCommand() {
   const [muted, setMuted] = useState(false);
   const [replayActive, setReplayActive] = useState(false);
   const [lastReplay, setLastReplay] = useState(null);
-  const [draftMode, setDraftMode] = useState(false);
+  const [draftMode, setDraftMode] = useState(true);
   const [viewport, setViewport] = useState(getViewportSnapshot);
   const [hudSnapshot, setHudSnapshot] = useState(EMPTY_HUD);
   const [battlefieldRect, setBattlefieldRect] = useState({ width: 0, height: 0 });
@@ -258,11 +260,14 @@ export default function DubaiMissileCommand() {
     gameRef.current._replayCheckpoints = [];
     gameRef.current._replayCheckpointLastTick = -Infinity;
     gameRef.current._replayCheckpointLastHash = null;
+    gameRef.current._renderWorldOffsetY = 0;
+    gameRef.current._enemySpeedScale = isPhonePortrait ? 2 : 1;
+    gameRef.current._interceptorSpeedScale = isPhonePortrait ? 4 : 1;
     maybeRecordReplayCheckpoint(gameRef.current, { force: true, reason: "start" });
     shopBoughtRef.current = [];
     window.__gameRef = gameRef;
     syncHudSnapshot(gameRef.current, { force: true });
-  }, [draftMode, syncHudSnapshot]);
+  }, [draftMode, isPhonePortrait, syncHudSnapshot]);
 
   const handleSimEvent = useCallback(
     function handleSimEvent(type, data) {
@@ -435,7 +440,11 @@ export default function DubaiMissileCommand() {
             worldOffsetY,
             buildingScale: 2,
             burjScale: 2,
-            launcherScale: 2,
+            launcherScale: 3,
+            enemyScale: 3,
+            projectileScale: 2,
+            effectScale: 2,
+            planeScale: 3,
           }
         : combatCamera
           ? { ...getLayoutProfile(uiMode), cameraFrame: combatCamera }
@@ -458,6 +467,9 @@ export default function DubaiMissileCommand() {
         const elapsed = timestamp - lastTimeRef.current;
         lastTimeRef.current = timestamp;
         const game = gameRef.current;
+        game._renderWorldOffsetY = isPhonePortrait && screen === "playing" ? worldOffsetY : 0;
+        game._enemySpeedScale = isPhonePortrait && screen === "playing" ? 2 : 1;
+        game._interceptorSpeedScale = isPhonePortrait && screen === "playing" ? 4 : 1;
         game._fpsFrames = (game._fpsFrames || 0) + 1;
         game._fpsAccum = (game._fpsAccum || 0) + elapsed;
         if (game._fpsAccum >= 500) {
@@ -772,6 +784,13 @@ export default function DubaiMissileCommand() {
             </div>
 
             <div className="portrait-hud__actions">
+              <div
+                className={`hud-chip hud-chip--stat ${hudSnapshot.fps >= 50 ? "hud-chip--good" : hudSnapshot.fps >= 30 ? "" : "hud-chip--danger"}`}
+              >
+                <span className="hud-chip__label">FPS</span>
+                <strong className="hud-chip__value">{hudSnapshot.fps || "--"}</strong>
+              </div>
+
               <button
                 type="button"
                 className={`header-action header-action--emp ${hudSnapshot.empReady ? "header-action--ready" : ""}`}

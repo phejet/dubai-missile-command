@@ -40,6 +40,10 @@ const DEFAULT_LAYOUT_PROFILE = {
   buildingScale: 1,
   burjScale: 1,
   launcherScale: 1,
+  enemyScale: 1,
+  projectileScale: 1,
+  effectScale: 1,
+  planeScale: 1,
 };
 
 function resolveLayoutProfile(layoutProfile = {}) {
@@ -84,6 +88,10 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
   const layout = resolveLayoutProfile(layoutProfile);
   const renderHeight = layout.renderHeight ?? CANVAS_H;
   const worldOffsetY = layout.worldOffsetY ?? 0;
+  const enemyScale = layout.enemyScale ?? 1;
+  const projectileScale = layout.projectileScale ?? 1;
+  const effectScale = layout.effectScale ?? 1;
+  const planeScale = layout.planeScale ?? 1;
   let sx = 0,
     sy = 0;
   if (game.shakeTimer > 0) {
@@ -181,7 +189,7 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     if (f.trail?.length) {
       f.trail.forEach((t, i) => {
         const tAlpha = alpha * (i / f.trail.length) * 0.32;
-        const radius = 1.5 + (i / f.trail.length) * 3.5;
+        const radius = (1.5 + (i / f.trail.length) * 3.5) * effectScale;
         ctx.fillStyle = `rgba(255,170,90,${tAlpha})`;
         ctx.beginPath();
         ctx.arc(t.x, t.y, radius, 0, Math.PI * 2);
@@ -189,28 +197,30 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
       });
     }
     ctx.globalAlpha = alpha * flicker;
-    ctx.fillStyle = COL.flare;
-    glow(ctx, COL.flare, 16);
-    ctx.beginPath();
-    ctx.arc(f.x, f.y, 5 + Math.sin(game.time * 0.18 + f.id) * 0.8, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(255,230,180,0.65)";
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.arc(f.x, f.y, 8 + Math.sin(game.time * 0.16 + f.id) * 1.2, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.fillStyle = "#fff4d0";
-    ctx.beginPath();
-    ctx.arc(f.x, f.y, 2.4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(255,245,220,0.75)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(f.x - 6, f.y);
-    ctx.lineTo(f.x + 6, f.y);
-    ctx.moveTo(f.x, f.y - 6);
-    ctx.lineTo(f.x, f.y + 6);
-    ctx.stroke();
+    withAnchorScale(ctx, f.x, f.y, projectileScale, () => {
+      ctx.fillStyle = COL.flare;
+      glow(ctx, COL.flare, 16 * effectScale);
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, 5 + Math.sin(game.time * 0.18 + f.id) * 0.8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,230,180,0.65)";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, 8 + Math.sin(game.time * 0.16 + f.id) * 1.2, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = "#fff4d0";
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, 2.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,245,220,0.75)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(f.x - 6, f.y);
+      ctx.lineTo(f.x + 6, f.y);
+      ctx.moveTo(f.x, f.y - 6);
+      ctx.lineTo(f.x, f.y + 6);
+      ctx.stroke();
+    });
     glowOff(ctx);
     ctx.globalAlpha = 1;
   });
@@ -379,6 +389,7 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
       const bankAngle = p.vy > 0 ? 0.3 : -0.3;
       ctx.rotate(bankAngle);
     }
+    ctx.scale(planeScale, planeScale);
     // Fuselage — sleek fighter body
     ctx.fillStyle = "#7888a0";
     ctx.beginPath();
@@ -489,14 +500,14 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     const alpha = b.life / b.maxLife;
     ctx.globalAlpha = alpha;
     ctx.strokeStyle = COL.laser;
-    glow(ctx, COL.laser, 15);
-    ctx.lineWidth = 3;
+    glow(ctx, COL.laser, 15 * effectScale);
+    ctx.lineWidth = 3 * projectileScale;
     ctx.beginPath();
     ctx.moveTo(b.x1, b.y1);
     ctx.lineTo(b.x2, b.y2);
     ctx.stroke();
     ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 1;
+    ctx.lineWidth = projectileScale;
     ctx.beginPath();
     ctx.moveTo(b.x1, b.y1);
     ctx.lineTo(b.x2, b.y2);
@@ -510,9 +521,10 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     if (b.cx === undefined) return;
     ctx.fillStyle = COL.phalanx;
     ctx.globalAlpha = 0.8;
-    ctx.fillRect(b.cx - 1, b.cy - 1, 2, 2);
+    const bulletSize = 2 * projectileScale;
+    ctx.fillRect(b.cx - bulletSize / 2, b.cy - bulletSize / 2, bulletSize, bulletSize);
     ctx.strokeStyle = "rgba(255,136,68,0.4)";
-    ctx.lineWidth = 1;
+    ctx.lineWidth = projectileScale;
     ctx.beginPath();
     ctx.moveTo(b.x, b.y);
     ctx.lineTo(b.cx, b.cy);
@@ -530,7 +542,7 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
       // Thick smoke trail
       m.trail.forEach((t, i) => {
         const a = (i / m.trail.length) * 0.5;
-        const r = 3 + (1 - i / m.trail.length) * 5;
+        const r = (3 + (1 - i / m.trail.length) * 5) * effectScale;
         ctx.fillStyle = `rgba(200,160,120,${a})`;
         ctx.beginPath();
         ctx.arc(t.x, t.y, r, 0, Math.PI * 2);
@@ -541,15 +553,16 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
         const a = ((i - (m.trail.length - 8)) / 8) * 0.7;
         ctx.fillStyle = `rgba(255,180,60,${a})`;
         ctx.beginPath();
-        ctx.arc(m.trail[i].x, m.trail[i].y, 2.5, 0, Math.PI * 2);
+        ctx.arc(m.trail[i].x, m.trail[i].y, 2.5 * effectScale, 0, Math.PI * 2);
         ctx.fill();
       }
 
       ctx.translate(m.x, m.y);
       ctx.rotate(angle);
+      ctx.scale(enemyScale, enemyScale);
 
       // Pulsing red glow
-      glow(ctx, "#ff2200", 15 + Math.sin(game.time * 0.2) * 5);
+      glow(ctx, "#ff2200", (15 + Math.sin(game.time * 0.2) * 5) * effectScale);
 
       // Body — large gunmetal
       ctx.fillStyle = "#445060";
@@ -638,13 +651,14 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
         const a = (i / m.trail.length) * 0.4;
         ctx.fillStyle = `rgba(220,100,50,${a})`;
         ctx.beginPath();
-        ctx.arc(t.x, t.y, 1.5, 0, Math.PI * 2);
+        ctx.arc(t.x, t.y, 1.5 * effectScale, 0, Math.PI * 2);
         ctx.fill();
       });
       ctx.translate(m.x, m.y);
       ctx.rotate(angle);
+      ctx.scale(enemyScale, enemyScale);
       // Pulsing glow
-      glow(ctx, "#dd4422", 8 + Math.sin(game.time * 0.4) * 3);
+      glow(ctx, "#dd4422", (8 + Math.sin(game.time * 0.4) * 3) * effectScale);
       // Body
       ctx.fillStyle = "#dd4422";
       ctx.beginPath();
@@ -671,16 +685,18 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
       ctx.beginPath();
       m.trail.forEach((t, i) => {
         ctx.strokeStyle = `rgba(255,100,0,${(i / m.trail.length) * 0.6})`;
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 1.5 * effectScale;
         if (i === 0) ctx.moveTo(t.x, t.y);
         else ctx.lineTo(t.x, t.y);
       });
       if (m.trail.length > 1) ctx.stroke();
-      ctx.fillStyle = "#ff8800";
-      glow(ctx, "#ff6600", 8);
-      ctx.beginPath();
-      ctx.arc(m.x, m.y, 2.5, 0, Math.PI * 2);
-      ctx.fill();
+      withAnchorScale(ctx, m.x, m.y, enemyScale, () => {
+        ctx.fillStyle = "#ff8800";
+        glow(ctx, "#ff6600", 8 * effectScale);
+        ctx.beginPath();
+        ctx.arc(m.x, m.y, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      });
       glowOff(ctx);
     } else {
       // Ballistic missile — pointed warhead with body and exhaust
@@ -694,7 +710,7 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
       // Smoke trail
       m.trail.forEach((t, i) => {
         const a = (i / m.trail.length) * 0.35;
-        const r = 2 + (1 - i / m.trail.length) * 3;
+        const r = (2 + (1 - i / m.trail.length) * 3) * effectScale;
         ctx.fillStyle = `rgba(180,140,100,${a})`;
         ctx.beginPath();
         ctx.arc(t.x, t.y, r, 0, Math.PI * 2);
@@ -705,12 +721,13 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
         const a = ((i - (m.trail.length - 6)) / 6) * 0.6;
         ctx.fillStyle = `rgba(255,200,80,${a})`;
         ctx.beginPath();
-        ctx.arc(m.trail[i].x, m.trail[i].y, 1.5, 0, Math.PI * 2);
+        ctx.arc(m.trail[i].x, m.trail[i].y, 1.5 * effectScale, 0, Math.PI * 2);
         ctx.fill();
       }
 
       ctx.translate(m.x, m.y);
       ctx.rotate(angle);
+      ctx.scale(enemyScale, enemyScale);
 
       // Missile body
       ctx.fillStyle = "#889098";
@@ -750,7 +767,7 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
       // Rocket flame
       const flameLen = 5 + 4 * pulse(game.time, 0.45, m.x * 0.018 + m.y * 0.02);
       ctx.fillStyle = "#ff6633";
-      glow(ctx, "#ff4400", 10);
+      glow(ctx, "#ff4400", 10 * effectScale);
       ctx.beginPath();
       ctx.moveTo(-6, -2);
       ctx.lineTo(-6 - flameLen, 0);
@@ -772,10 +789,10 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
 
     if (m.luredByFlare) {
       ctx.strokeStyle = "rgba(255,180,90,0.8)";
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 1.5 * effectScale;
       ctx.globalAlpha = 0.75;
       ctx.beginPath();
-      ctx.arc(m.x, m.y, 8 + Math.sin(game.time * 0.22 + m.x * 0.01) * 1.5, 0, Math.PI * 2);
+      ctx.arc(m.x, m.y, (8 + Math.sin(game.time * 0.22 + m.x * 0.01) * 1.5) * effectScale, 0, Math.PI * 2);
       ctx.stroke();
       ctx.globalAlpha = 1;
     }
@@ -792,6 +809,7 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     } else {
       ctx.scale(facing, 1);
     }
+    ctx.scale(enemyScale, enemyScale);
 
     if (d.subtype === "shahed238") {
       // Jet Shahed-238 — sleek delta wing, larger
@@ -821,7 +839,7 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
       // Jet exhaust
       const exLen = 7 + 5 * pulse(game.time, 0.55, d.x * 0.02 + d.y * 0.03);
       ctx.fillStyle = "#ff6600";
-      glow(ctx, "#ff4400", 12);
+      glow(ctx, "#ff4400", 12 * effectScale);
       ctx.beginPath();
       ctx.moveTo(-14, -2);
       ctx.lineTo(-14 - exLen, 0);
@@ -841,7 +859,7 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
       if (d.diving) {
         ctx.strokeStyle = "#ff2200";
         ctx.globalAlpha = 0.5 + Math.sin(game.time * 0.3) * 0.3;
-        ctx.lineWidth = 1;
+        ctx.lineWidth = effectScale;
         ctx.beginPath();
         ctx.arc(0, 0, 20, 0, Math.PI * 2);
         ctx.stroke();
@@ -875,7 +893,7 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
       // Pusher propeller (rear spinning prop)
       const pa = game.time * 0.8;
       ctx.strokeStyle = "#aaa";
-      ctx.lineWidth = 1;
+      ctx.lineWidth = effectScale;
       ctx.beginPath();
       ctx.moveTo(-10 - Math.cos(pa) * 5, -Math.sin(pa) * 5);
       ctx.lineTo(-10 + Math.cos(pa) * 5, Math.sin(pa) * 5);
@@ -885,9 +903,9 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     // Blinking nav light
     if (Math.sin(game.time * 0.15) > 0) {
       ctx.fillStyle = d.subtype === "shahed238" ? "#ff2200" : "#ff4400";
-      glow(ctx, ctx.fillStyle, 6);
+      glow(ctx, ctx.fillStyle, 6 * effectScale);
       ctx.beginPath();
-      ctx.arc(0, 0, 1.5, 0, Math.PI * 2);
+      ctx.arc(0, 0, 1.5 * effectScale, 0, Math.PI * 2);
       ctx.fill();
       glowOff(ctx);
     }
@@ -897,22 +915,89 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
   // Interceptors (player green, F-15 blue-white)
   game.interceptors.forEach((ic) => {
     const isF15 = ic.fromF15;
-    ctx.beginPath();
+    if (isF15) {
+      ctx.beginPath();
+      ic.trail.forEach((t, i) => {
+        ctx.strokeStyle = `rgba(150,200,255,${(i / ic.trail.length) * 0.6})`;
+        ctx.lineWidth = 1.5 * effectScale;
+        if (i === 0) ctx.moveTo(t.x, t.y);
+        else ctx.lineTo(t.x, t.y);
+      });
+      if (ic.trail.length > 1) ctx.stroke();
+      withAnchorScale(ctx, ic.x, ic.y, projectileScale, () => {
+        ctx.fillStyle = "#aaccff";
+        glow(ctx, "#6699ff", 6 * effectScale);
+        ctx.beginPath();
+        ctx.arc(ic.x, ic.y, 2, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      glowOff(ctx);
+      return;
+    }
+
     ic.trail.forEach((t, i) => {
-      ctx.strokeStyle = isF15
-        ? `rgba(150,200,255,${(i / ic.trail.length) * 0.6})`
-        : `rgba(68,255,170,${(i / ic.trail.length) * 0.8})`;
-      ctx.lineWidth = isF15 ? 1.5 : 2;
-      if (i === 0) ctx.moveTo(t.x, t.y);
-      else ctx.lineTo(t.x, t.y);
+      const alpha = (i / Math.max(1, ic.trail.length)) * 0.42;
+      const radius = (1.3 + (i / Math.max(1, ic.trail.length)) * 2.6) * effectScale;
+      ctx.fillStyle = `rgba(120,255,210,${alpha})`;
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, radius, 0, Math.PI * 2);
+      ctx.fill();
     });
-    if (ic.trail.length > 1) ctx.stroke();
-    ctx.fillStyle = isF15 ? "#aaccff" : COL.interceptor;
-    glow(ctx, isF15 ? "#6699ff" : COL.interceptor, isF15 ? 6 : 10);
+
+    const heading =
+      typeof ic.heading === "number"
+        ? ic.heading
+        : ic.trail.length >= 1
+          ? Math.atan2(ic.y - ic.trail[ic.trail.length - 1].y, ic.x - ic.trail[ic.trail.length - 1].x)
+          : -Math.PI / 2;
+
+    ctx.save();
+    ctx.translate(ic.x, ic.y);
+    ctx.rotate(heading + Math.PI / 2);
+    ctx.scale(projectileScale, projectileScale);
+
+    const plume = 5.5 + 2.5 * pulse(game.time, 0.55, ic.x * 0.025 + ic.y * 0.02);
+    ctx.fillStyle = "rgba(68,255,170,0.32)";
     ctx.beginPath();
-    ctx.arc(ic.x, ic.y, isF15 ? 2 : 3, 0, Math.PI * 2);
+    ctx.moveTo(-2.6, 8);
+    ctx.lineTo(0, 8 + plume + 2);
+    ctx.lineTo(2.6, 8);
+    ctx.closePath();
+    ctx.fill();
+
+    glow(ctx, COL.interceptor, 10 * effectScale);
+    ctx.fillStyle = COL.interceptor;
+    ctx.beginPath();
+    ctx.moveTo(0, -9);
+    ctx.lineTo(4.2, 4.5);
+    ctx.lineTo(1.5, 3);
+    ctx.lineTo(1.5, 8);
+    ctx.lineTo(-1.5, 8);
+    ctx.lineTo(-1.5, 3);
+    ctx.lineTo(-4.2, 4.5);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = "#dffff8";
+    ctx.beginPath();
+    ctx.moveTo(0, -9);
+    ctx.lineTo(1.8, -5);
+    ctx.lineTo(-1.8, -5);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = "#144a42";
+    ctx.fillRect(-0.9, -3, 1.8, 5.5);
+
+    ctx.fillStyle = "#ffde7a";
+    ctx.beginPath();
+    ctx.moveTo(-1.6, 8);
+    ctx.lineTo(0, 8 + plume);
+    ctx.lineTo(1.6, 8);
+    ctx.closePath();
     ctx.fill();
     glowOff(ctx);
+    ctx.restore();
   });
 
   // Wild Hornets
@@ -922,7 +1007,7 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     ctx.beginPath();
     h.trail.forEach((t, i) => {
       ctx.strokeStyle = `rgba(255,204,0,${(i / h.trail.length) * 0.6})`;
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 1.5 * effectScale;
       if (i === 0) ctx.moveTo(t.x, t.y);
       else ctx.lineTo(t.x, t.y);
     });
@@ -930,8 +1015,9 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     ctx.save();
     ctx.translate(h.x, h.y);
     ctx.rotate(heading + Math.PI / 2);
+    ctx.scale(projectileScale, projectileScale);
     ctx.fillStyle = COL.hornet;
-    glow(ctx, COL.hornet, 8);
+    glow(ctx, COL.hornet, 8 * effectScale);
     ctx.beginPath();
     ctx.moveTo(0, -5);
     ctx.lineTo(3.5, 4);
@@ -953,13 +1039,13 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     ctx.beginPath();
     r.trail.forEach((t, i) => {
       ctx.strokeStyle = `rgba(68,170,255,${(i / r.trail.length) * 0.7})`;
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2 * effectScale;
       if (i === 0) ctx.moveTo(t.x, t.y);
       else ctx.lineTo(t.x, t.y);
     });
     if (r.trail.length > 1) ctx.stroke();
     ctx.fillStyle = COL.roadrunner;
-    glow(ctx, COL.roadrunner, 10);
+    glow(ctx, COL.roadrunner, 10 * effectScale);
     ctx.save();
     ctx.translate(r.x, r.y);
     // Rotate to face direction of travel
@@ -969,6 +1055,7 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
       angle = Math.atan2(r.y - prev.y, r.x - prev.x) + Math.PI / 2;
     }
     ctx.rotate(angle);
+    ctx.scale(projectileScale, projectileScale);
     ctx.fillStyle = "#2c4760";
     ctx.beginPath();
     ctx.moveTo(0, -10);
@@ -990,7 +1077,7 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     ctx.beginPath();
     p.trail.forEach((t, i) => {
       ctx.strokeStyle = `rgba(136,255,68,${(i / p.trail.length) * 0.7})`;
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = 2.5 * effectScale;
       if (i === 0) ctx.moveTo(t.x, t.y);
       else ctx.lineTo(t.x, t.y);
     });
@@ -1004,7 +1091,8 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     ctx.save();
     ctx.translate(p.x, p.y);
     ctx.rotate(pAngle);
-    glow(ctx, COL.patriot, 12);
+    ctx.scale(projectileScale, projectileScale);
+    glow(ctx, COL.patriot, 12 * effectScale);
     // Missile body
     ctx.fillStyle = "#2a5a2a";
     ctx.fillRect(-3, -8, 6, 16);
@@ -1034,13 +1122,14 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
   // Explosions
   game.explosions.forEach((ex) => {
     ctx.globalAlpha = ex.alpha;
-    const grad = ctx.createRadialGradient(ex.x, ex.y, 0, ex.x, ex.y, ex.radius);
+    const explosionRadius = ex.radius * effectScale;
+    const grad = ctx.createRadialGradient(ex.x, ex.y, 0, ex.x, ex.y, explosionRadius);
     grad.addColorStop(0, "#fff");
     grad.addColorStop(0.3, ex.color);
     grad.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.arc(ex.x, ex.y, ex.radius, 0, Math.PI * 2);
+    ctx.arc(ex.x, ex.y, explosionRadius, 0, Math.PI * 2);
     ctx.fill();
   });
   ctx.globalAlpha = 1;
@@ -1050,7 +1139,7 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     ctx.globalAlpha = p.life / p.maxLife;
     ctx.fillStyle = p.color;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, p.size * effectScale, 0, Math.PI * 2);
     ctx.fill();
   });
   ctx.globalAlpha = 1;

@@ -127,7 +127,10 @@ export function fireInterceptor(g, targetX, targetY) {
   if (!g.launcherFireTick) g.launcherFireTick = [0, 0, 0];
   g.launcherFireTick[bestIdx] = g._replayTick || 0;
   const l = LAUNCHERS[bestIdx];
-  const speed = 5;
+  const speedScale = Math.max(1, g?._interceptorSpeedScale || 1);
+  const targetAngle = Math.atan2(targetY - l.y, targetX - l.x);
+  const launchAngle = -Math.PI / 2 + (targetAngle + Math.PI / 2) * 0.32;
+  const speed = 3.4 * speedScale;
   const dx = targetX - l.x;
   const dy = targetY - l.y;
   const len = Math.sqrt(dx * dx + dy * dy);
@@ -137,8 +140,13 @@ export function fireInterceptor(g, targetX, targetY) {
     y: l.y,
     targetX,
     targetY,
-    vx: (dx / len) * speed,
-    vy: (dy / len) * speed,
+    vx: Math.cos(launchAngle) * speed,
+    vy: Math.sin(launchAngle) * speed,
+    heading: launchAngle,
+    speed,
+    accel: 1.03,
+    maxSpeed: 5.8 * speedScale,
+    turnRate: 0.055,
     trail: [],
     alive: true,
   });

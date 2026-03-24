@@ -118,6 +118,13 @@
   gap: 8px;
 }
 
+.hud-chip--stat {
+  min-width: 64px;
+  min-height: 52px;
+  padding: 8px 10px;
+  flex-shrink: 0;
+}
+
 .hud-chip {
   min-height: 58px;
   padding: 10px 12px;
