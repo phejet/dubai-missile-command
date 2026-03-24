@@ -14,6 +14,9 @@ import {
   buyDraftUpgrade as simBuyDraftUpgrade,
   closeShop as simCloseShop,
   fireEmp as simFireEmp,
+  snapshotPositions,
+  applyInterpolation,
+  restorePositions,
 } from "./game-sim.js";
 import { createReplayRunner } from "./replay.js";
 
@@ -510,6 +513,7 @@ export default function DubaiMissileCommand() {
         } else if (game.state === "playing") {
           while (game._timeAccum >= 1) {
             game._timeAccum -= 1;
+            snapshotPositions(game);
             simUpdate(game, dt, handleSimEvent);
             game._replayTick++;
             if (game._actionLog && game._replayTick % 3 === 0) {
@@ -532,8 +536,12 @@ export default function DubaiMissileCommand() {
           gameRef.current._browserLaserHandle = null;
         }
 
+        // Interpolate entity positions for smooth sub-tick rendering
+        const alpha = game.state === "playing" ? game._timeAccum : 1;
+        applyInterpolation(game, alpha);
         syncHudSnapshot(gameRef.current);
         drawGame(ctx, gameRef.current, { showShop, layoutProfile: activeLayoutProfile });
+        restorePositions(game);
       } else {
         lastTimeRef.current = null;
         if (screen === "title") {

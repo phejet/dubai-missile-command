@@ -1804,6 +1804,107 @@ export function repairLauncher(g, index) {
   return true;
 }
 
+// ── RENDER INTERPOLATION ──
+// Snapshot previous positions before each sim tick so the renderer can
+// interpolate between the last two ticks for smooth sub-tick movement.
+
+const LERP_ARRAYS_XY = [
+  "missiles",
+  "drones",
+  "interceptors",
+  "planes",
+  "hornets",
+  "roadrunners",
+  "patriotMissiles",
+  "flares",
+  "particles",
+];
+
+export function snapshotPositions(g) {
+  for (const key of LERP_ARRAYS_XY) {
+    const arr = g[key];
+    for (let i = 0; i < arr.length; i++) {
+      const e = arr[i];
+      e._px = e.x;
+      e._py = e.y;
+    }
+  }
+  // Explosions
+  for (let i = 0; i < g.explosions.length; i++) {
+    const e = g.explosions[i];
+    e._px = e.x;
+    e._py = e.y;
+  }
+  // Phalanx bullets use cx/cy as render position
+  for (let i = 0; i < g.phalanxBullets.length; i++) {
+    const b = g.phalanxBullets[i];
+    if (b.cx !== undefined) {
+      b._pcx = b.cx;
+      b._pcy = b.cy;
+    }
+  }
+}
+
+export function applyInterpolation(g, alpha) {
+  for (const key of LERP_ARRAYS_XY) {
+    const arr = g[key];
+    for (let i = 0; i < arr.length; i++) {
+      const e = arr[i];
+      if (e._px === undefined) continue;
+      e._ox = e.x;
+      e._oy = e.y;
+      e.x = e._px + (e.x - e._px) * alpha;
+      e.y = e._py + (e.y - e._py) * alpha;
+    }
+  }
+  for (let i = 0; i < g.explosions.length; i++) {
+    const e = g.explosions[i];
+    if (e._px === undefined) continue;
+    e._ox = e.x;
+    e._oy = e.y;
+    e.x = e._px + (e.x - e._px) * alpha;
+    e.y = e._py + (e.y - e._py) * alpha;
+  }
+  for (let i = 0; i < g.phalanxBullets.length; i++) {
+    const b = g.phalanxBullets[i];
+    if (b._pcx === undefined) continue;
+    b._ocx = b.cx;
+    b._ocy = b.cy;
+    b.cx = b._pcx + (b.cx - b._pcx) * alpha;
+    b.cy = b._pcy + (b.cy - b._pcy) * alpha;
+  }
+}
+
+export function restorePositions(g) {
+  for (const key of LERP_ARRAYS_XY) {
+    const arr = g[key];
+    for (let i = 0; i < arr.length; i++) {
+      const e = arr[i];
+      if (e._ox === undefined) continue;
+      e.x = e._ox;
+      e.y = e._oy;
+      e._ox = undefined;
+      e._oy = undefined;
+    }
+  }
+  for (let i = 0; i < g.explosions.length; i++) {
+    const e = g.explosions[i];
+    if (e._ox === undefined) continue;
+    e.x = e._ox;
+    e.y = e._oy;
+    e._ox = undefined;
+    e._oy = undefined;
+  }
+  for (let i = 0; i < g.phalanxBullets.length; i++) {
+    const b = g.phalanxBullets[i];
+    if (b._ocx === undefined) continue;
+    b.cx = b._ocx;
+    b.cy = b._ocy;
+    b._ocx = undefined;
+    b._ocy = undefined;
+  }
+}
+
 export function createGameSim(options = {}) {
   const onEvent = options.onEvent || (() => {});
   return {
