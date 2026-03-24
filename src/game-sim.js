@@ -1384,7 +1384,7 @@ function updateInterceptors(g, dt, onEvent) {
       if (ic.fromF15) {
         boom(g, ic.x, ic.y, 30, "#aaccff", false, onEvent);
       } else {
-        boom(g, ic.x, ic.y, 98, COL.interceptor, true, onEvent);
+        boom(g, ic.x, ic.y, 74, COL.interceptor, true, onEvent);
       }
     }
     if (ic.fromF15 && (ic.x < -50 || ic.x > CANVAS_W + 50 || ic.y < -50 || ic.y > CANVAS_H + 50)) ic.alive = false;
