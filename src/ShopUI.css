@@ -1,5 +1,5 @@
 .shop-modal {
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 20;
   display: flex;
@@ -20,7 +20,7 @@
   position: relative;
   z-index: 1;
   width: min(100%, 920px);
-  max-height: min(92svh, 860px);
+  max-height: min(92dvh, 860px);
   border-radius: 24px;
   overflow: hidden;
   border: 1px solid rgba(0, 255, 200, 0.22);
@@ -32,6 +32,19 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.shop-modal__panel--draft .shop-modal__header,
+.shop-modal__panel--draft .shop-modal__footer {
+  padding: 14px 16px;
+}
+
+.shop-modal__panel--draft .shop-modal__scroll {
+  padding: 14px 16px 6px;
+}
+
+.shop-modal__panel--draft {
+  border-color: transparent;
 }
 
 .shop-modal__header,
@@ -135,6 +148,12 @@
   opacity: 0.72;
 }
 
+.shop-card--draft {
+  min-height: 0;
+  gap: 10px;
+  padding: 12px;
+}
+
 .shop-card__topline {
   display: flex;
   align-items: flex-start;
@@ -206,6 +225,12 @@
   flex: 1;
 }
 
+.shop-card--draft .shop-card__description {
+  font-size: 12px;
+  line-height: 1.4;
+  flex: 0;
+}
+
 .shop-card__statline {
   display: flex;
   flex-direction: column;
@@ -238,6 +263,10 @@
   color: #5d7280;
 }
 
+.shop-card--draft .shop-card__button {
+  min-height: 44px;
+}
+
 .shop-modal__deploy {
   --shop-accent: #44ffaa;
   border-color: rgba(0, 255, 200, 0.3);
@@ -257,7 +286,7 @@
   }
 
   .shop-modal__panel {
-    max-height: calc(100svh - max(20px, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
+    max-height: calc(100dvh - max(20px, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
   }
 
   .shop-modal__header {
@@ -268,5 +297,83 @@
   .shop-modal__budget {
     width: 100%;
     text-align: left;
+  }
+
+  .shop-modal--phonePortrait .shop-modal__panel--draft .shop-modal__title {
+    margin: 0;
+    font-size: clamp(1.05rem, 4.7vw, 1.3rem);
+  }
+
+  .shop-modal--phonePortrait .shop-modal__panel--draft .shop-modal__header {
+    padding: 10px 14px;
+    gap: 10px;
+  }
+
+  .shop-modal--phonePortrait .shop-modal__panel--draft .shop-modal__eyebrow {
+    display: none;
+  }
+
+  .shop-modal--phonePortrait .shop-modal__panel--draft .shop-modal__budget {
+    padding: 8px 12px;
+    min-width: 0;
+    gap: 2px;
+  }
+
+  .shop-modal--phonePortrait .shop-modal__panel--draft .shop-modal__budget-label {
+    font-size: 10px;
+  }
+
+  .shop-modal--phonePortrait .shop-modal__panel--draft .shop-modal__budget-value {
+    font-size: 15px;
+  }
+
+  .shop-modal--phonePortrait .shop-modal__panel--draft .shop-grid {
+    gap: 8px;
+  }
+
+  .shop-modal--phonePortrait .shop-modal__panel--draft .shop-modal__scroll {
+    padding: 10px 14px 6px;
+  }
+
+  .shop-modal--phonePortrait .shop-card--draft .shop-card__icon {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+  }
+
+  .shop-modal--phonePortrait .shop-card--draft .shop-card__headline {
+    gap: 4px;
+  }
+
+  .shop-modal--phonePortrait .shop-card--draft .shop-card__name {
+    font-size: 13px;
+    gap: 6px;
+  }
+}
+
+@media (max-height: 760px) {
+  .shop-modal {
+    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+      max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  }
+
+  .shop-modal__header,
+  .shop-modal__footer {
+    padding: 14px 16px;
+  }
+
+  .shop-modal__scroll {
+    padding: 14px 16px 6px;
+  }
+
+  .shop-card {
+    min-height: 188px;
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .shop-card__description {
+    font-size: 12px;
+    line-height: 1.45;
   }
 }

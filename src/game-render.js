@@ -34,10 +34,29 @@ const DEFAULT_LAYOUT_PROFILE = {
   waveClearedY: 312,
   multiKillLabelSize: 22,
   multiKillBonusSize: 16,
+  cameraFrame: null,
+  renderHeight: CANVAS_H,
+  worldOffsetY: 0,
+  buildingScale: 1,
+  burjScale: 1,
+  launcherScale: 1,
 };
 
 function resolveLayoutProfile(layoutProfile = {}) {
   return { ...DEFAULT_LAYOUT_PROFILE, ...layoutProfile };
+}
+
+function withAnchorScale(ctx, anchorX, anchorY, scale, draw) {
+  if (scale === 1) {
+    draw();
+    return;
+  }
+  ctx.save();
+  ctx.translate(anchorX, anchorY);
+  ctx.scale(scale, scale);
+  ctx.translate(-anchorX, -anchorY);
+  draw();
+  ctx.restore();
 }
 
 export function glow(ctx, color, radius) {
@@ -63,6 +82,8 @@ export function pulse(time, speed, phase = 0, min = 0, max = 1) {
 
 export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {}) {
   const layout = resolveLayoutProfile(layoutProfile);
+  const renderHeight = layout.renderHeight ?? CANVAS_H;
+  const worldOffsetY = layout.worldOffsetY ?? 0;
   let sx = 0,
     sy = 0;
   if (game.shakeTimer > 0) {
@@ -71,15 +92,51 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
   }
   ctx.save();
   ctx.translate(sx, sy);
-
+  ctx.save();
+  if (layout.cameraFrame?.scale > 1) {
+    ctx.scale(layout.cameraFrame.scale, layout.cameraFrame.scale);
+    ctx.translate(-layout.cameraFrame.left, -layout.cameraFrame.top);
+  }
   // Sky
-  const skyGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, renderHeight);
   skyGrad.addColorStop(0, COL.sky1);
   skyGrad.addColorStop(0.4, COL.sky2);
   skyGrad.addColorStop(0.7, COL.sky3);
   skyGrad.addColorStop(1, COL.ground);
   ctx.fillStyle = skyGrad;
-  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+  ctx.fillRect(0, 0, CANVAS_W, renderHeight);
+
+  // Stars fill the extra portrait headroom as well as the original playfield sky.
+  game.stars.forEach((s) => {
+    const twinkle = 0.35 + 0.65 * Math.sin(game.time * 0.02 + s.twinkle);
+    const drawStar = (y) => {
+      if (y < 0 || y > renderHeight) return;
+      ctx.globalAlpha = twinkle;
+      glow(ctx, "#ffffff", 3 + s.size * 3);
+      ctx.fillStyle = "#fff";
+      ctx.beginPath();
+      ctx.arc(s.x, y, s.size, 0, Math.PI * 2);
+      ctx.fill();
+      glowOff(ctx);
+    };
+    drawStar(s.y);
+    if (worldOffsetY > 0) drawStar(s.y + worldOffsetY);
+  });
+  ctx.globalAlpha = 1;
+
+  // Moon stays in the upper sky band so the added height feels intentional.
+  glow(ctx, "#ffe8b0", 24);
+  ctx.fillStyle = "#ffe8b0";
+  ctx.beginPath();
+  ctx.arc(780, 60, 25, 0, Math.PI * 2);
+  ctx.fill();
+  glowOff(ctx);
+  ctx.fillStyle = COL.sky1;
+  ctx.beginPath();
+  ctx.arc(788, 55, 22, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.translate(0, worldOffsetY);
 
   // Atmospheric bloom over the skyline
   const skylineGlow = ctx.createRadialGradient(BURJ_X, GROUND_Y - 60, 40, BURJ_X, GROUND_Y - 60, 420);
@@ -95,31 +152,6 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
   heatBand.addColorStop(1, "rgba(255, 90, 50, 0.12)");
   ctx.fillStyle = heatBand;
   ctx.fillRect(0, GROUND_Y - 140, CANVAS_W, 170);
-
-  // Stars
-  game.stars.forEach((s) => {
-    const twinkle = 0.35 + 0.65 * Math.sin(game.time * 0.02 + s.twinkle);
-    ctx.globalAlpha = twinkle;
-    glow(ctx, "#ffffff", 3 + s.size * 3);
-    ctx.fillStyle = "#fff";
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
-    ctx.fill();
-    glowOff(ctx);
-  });
-  ctx.globalAlpha = 1;
-
-  // Moon
-  glow(ctx, "#ffe8b0", 24);
-  ctx.fillStyle = "#ffe8b0";
-  ctx.beginPath();
-  ctx.arc(780, 60, 25, 0, Math.PI * 2);
-  ctx.fill();
-  glowOff(ctx);
-  ctx.fillStyle = COL.sky1;
-  ctx.beginPath();
-  ctx.arc(788, 55, 22, 0, Math.PI * 2);
-  ctx.fill();
 
   // Distant skyline silhouettes and dunes
   ctx.fillStyle = "rgba(20, 26, 46, 0.75)";
@@ -194,41 +226,43 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
 
   // Buildings
   game.buildings.forEach((b) => {
-    if (!b.alive) {
-      ctx.fillStyle = "#333";
-      ctx.fillRect(b.x, CITY_Y - 8, b.w, 8);
-      return;
-    }
-    const bTop = CITY_Y - b.h;
-    const bGrad = ctx.createLinearGradient(b.x, bTop, b.x + b.w, CITY_Y);
-    bGrad.addColorStop(0, "#1a2545");
-    bGrad.addColorStop(1, "#0d1525");
-    ctx.fillStyle = bGrad;
-    ctx.fillRect(b.x, bTop, b.w, b.h);
-    const edgeGlow = ctx.createLinearGradient(b.x, bTop, b.x, CITY_Y);
-    edgeGlow.addColorStop(0, "rgba(160,200,255,0.08)");
-    edgeGlow.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = edgeGlow;
-    ctx.fillRect(b.x, bTop, 6, b.h);
-    ctx.strokeStyle = "rgba(80,120,200,0.15)";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(b.x, bTop, b.w, b.h);
-    const winW = 4,
-      winH = 5,
-      gap = 8,
-      cols = b.windows;
-    const startX = b.x + (b.w - cols * (winW + gap) + gap) / 2;
-    for (let row = 0; row < Math.floor(b.h / 15); row++) {
-      for (let col = 0; col < cols; col++) {
-        const seed = hash01(b.x, row, col);
-        const lit = Math.sin(game.time * (0.006 + seed * 0.01) + b.x * 0.03 + row * 0.8 + col * 2.4) > -0.35;
-        const brightness = 0.55 + 0.45 * Math.sin(game.time * (0.01 + seed * 0.02) + row + col * 2 + seed * 4);
-        ctx.fillStyle = lit ? COL.buildingLit : "#0a0a15";
-        ctx.globalAlpha = lit ? 0.45 + brightness * 0.35 : 0.22;
-        ctx.fillRect(startX + col * (winW + gap), bTop + 10 + row * 15, winW, winH);
+    withAnchorScale(ctx, b.x + b.w / 2, CITY_Y, layout.buildingScale, () => {
+      if (!b.alive) {
+        ctx.fillStyle = "#333";
+        ctx.fillRect(b.x, CITY_Y - 8, b.w, 8);
+        return;
       }
-    }
-    ctx.globalAlpha = 1;
+      const bTop = CITY_Y - b.h;
+      const bGrad = ctx.createLinearGradient(b.x, bTop, b.x + b.w, CITY_Y);
+      bGrad.addColorStop(0, "#1a2545");
+      bGrad.addColorStop(1, "#0d1525");
+      ctx.fillStyle = bGrad;
+      ctx.fillRect(b.x, bTop, b.w, b.h);
+      const edgeGlow = ctx.createLinearGradient(b.x, bTop, b.x, CITY_Y);
+      edgeGlow.addColorStop(0, "rgba(160,200,255,0.08)");
+      edgeGlow.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = edgeGlow;
+      ctx.fillRect(b.x, bTop, 6, b.h);
+      ctx.strokeStyle = "rgba(80,120,200,0.15)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(b.x, bTop, b.w, b.h);
+      const winW = 4,
+        winH = 5,
+        gap = 8,
+        cols = b.windows;
+      const startX = b.x + (b.w - cols * (winW + gap) + gap) / 2;
+      for (let row = 0; row < Math.floor(b.h / 15); row++) {
+        for (let col = 0; col < cols; col++) {
+          const seed = hash01(b.x, row, col);
+          const lit = Math.sin(game.time * (0.006 + seed * 0.01) + b.x * 0.03 + row * 0.8 + col * 2.4) > -0.35;
+          const brightness = 0.55 + 0.45 * Math.sin(game.time * (0.01 + seed * 0.02) + row + col * 2 + seed * 4);
+          ctx.fillStyle = lit ? COL.buildingLit : "#0a0a15";
+          ctx.globalAlpha = lit ? 0.45 + brightness * 0.35 : 0.22;
+          ctx.fillRect(startX + col * (winW + gap), bTop + 10 + row * 15, winW, winH);
+        }
+      }
+      ctx.globalAlpha = 1;
+    });
   });
 
   // Burj Khalifa
@@ -236,101 +270,102 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     const bx = BURJ_X,
       by = CITY_Y,
       bh = BURJ_H;
-    ctx.save();
-    const burjGrad = ctx.createLinearGradient(bx - 11, by - bh, bx + 11, by);
-    burjGrad.addColorStop(0, "#d0d8e8");
-    burjGrad.addColorStop(0.5, "#a0a8c0");
-    burjGrad.addColorStop(1, "#707888");
-    ctx.fillStyle = burjGrad;
-    ctx.beginPath();
-    ctx.moveTo(bx, by - bh - 30);
-    ctx.lineTo(bx - 3, by - bh);
-    ctx.lineTo(bx - 7, by - bh * 0.7);
-    ctx.lineTo(bx - 11, by - bh * 0.4);
-    ctx.lineTo(bx - 13, by - bh * 0.15);
-    ctx.lineTo(bx - 15, by);
-    ctx.lineTo(bx + 15, by);
-    ctx.lineTo(bx + 13, by - bh * 0.15);
-    ctx.lineTo(bx + 11, by - bh * 0.4);
-    ctx.lineTo(bx + 7, by - bh * 0.7);
-    ctx.lineTo(bx + 3, by - bh);
-    ctx.closePath();
-    ctx.fill();
-    glow(ctx, COL.burjGlow, 20 + Math.sin(game.time * 0.03) * 8);
-    ctx.strokeStyle = "rgba(68,136,255,0.4)";
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    glowOff(ctx);
-    const spineGlow = ctx.createLinearGradient(bx, by - bh - 30, bx, by);
-    spineGlow.addColorStop(0, "rgba(255,255,255,0.45)");
-    spineGlow.addColorStop(0.25, "rgba(160,220,255,0.26)");
-    spineGlow.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.fillStyle = spineGlow;
-    ctx.fillRect(bx - 1, by - bh - 25, 2, bh + 20);
-    for (let i = 0; i < 15; i++) {
-      const ly = by - bh * 0.1 - bh * 0.8 * (i / 15);
-      const lw = 8 * (1 - i / 20);
-      if (Math.sin(game.time * 0.05 + i * 0.5) > 0) {
-        ctx.fillStyle = `rgba(68,136,255,${0.3 + Math.sin(game.time * 0.05 + i) * 0.2})`;
-        ctx.fillRect(bx - lw, ly, lw * 2, 2);
-      }
-    }
-    if (Math.sin(game.time * 0.1) > 0.5) {
-      ctx.fillStyle = "#f00";
-      glow(ctx, "#f00", 15);
+    withAnchorScale(ctx, bx, by, layout.burjScale, () => {
+      ctx.save();
+      const burjGrad = ctx.createLinearGradient(bx - 11, by - bh, bx + 11, by);
+      burjGrad.addColorStop(0, "#d0d8e8");
+      burjGrad.addColorStop(0.5, "#a0a8c0");
+      burjGrad.addColorStop(1, "#707888");
+      ctx.fillStyle = burjGrad;
       ctx.beginPath();
-      ctx.arc(bx, by - bh - 30, 3, 0, Math.PI * 2);
+      ctx.moveTo(bx, by - bh - 30);
+      ctx.lineTo(bx - 3, by - bh);
+      ctx.lineTo(bx - 7, by - bh * 0.7);
+      ctx.lineTo(bx - 11, by - bh * 0.4);
+      ctx.lineTo(bx - 13, by - bh * 0.15);
+      ctx.lineTo(bx - 15, by);
+      ctx.lineTo(bx + 15, by);
+      ctx.lineTo(bx + 13, by - bh * 0.15);
+      ctx.lineTo(bx + 11, by - bh * 0.4);
+      ctx.lineTo(bx + 7, by - bh * 0.7);
+      ctx.lineTo(bx + 3, by - bh);
+      ctx.closePath();
       ctx.fill();
+      glow(ctx, COL.burjGlow, 20 + Math.sin(game.time * 0.03) * 8);
+      ctx.strokeStyle = "rgba(68,136,255,0.4)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
       glowOff(ctx);
-    }
-    if (game.upgrades.ironBeam > 0) {
-      const lvl = game.upgrades.ironBeam;
-      const chargeTime = [360, 240, 180][lvl - 1];
-      const chargeRatio = Math.min(game.ironBeamTimer / chargeTime, 1);
-      const ready = chargeRatio >= 1;
-      const cx = bx,
-        cy = by - bh * 0.6,
-        r = 5;
-      // Charge arc background
-      ctx.strokeStyle = "rgba(255,34,0,0.15)";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.stroke();
-      // Charge arc fill
-      ctx.strokeStyle = ready ? "#ff2200" : `rgba(255,34,0,${0.3 + chargeRatio * 0.5})`;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * chargeRatio);
-      ctx.stroke();
-      // Center dot — pulses when ready, dim when charging
-      if (ready) {
-        const pulse = 0.5 + 0.5 * Math.sin(game.time * 0.12);
-        ctx.fillStyle = `rgba(255,34,0,${0.6 + pulse * 0.4})`;
-        glow(ctx, "#ff2200", 10);
-      } else {
-        ctx.fillStyle = `rgba(255,34,0,${0.15 + chargeRatio * 0.3})`;
+      const spineGlow = ctx.createLinearGradient(bx, by - bh - 30, bx, by);
+      spineGlow.addColorStop(0, "rgba(255,255,255,0.45)");
+      spineGlow.addColorStop(0.25, "rgba(160,220,255,0.26)");
+      spineGlow.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = spineGlow;
+      ctx.fillRect(bx - 1, by - bh - 25, 2, bh + 20);
+      for (let i = 0; i < 15; i++) {
+        const ly = by - bh * 0.1 - bh * 0.8 * (i / 15);
+        const lw = 8 * (1 - i / 20);
+        if (Math.sin(game.time * 0.05 + i * 0.5) > 0) {
+          ctx.fillStyle = `rgba(68,136,255,${0.3 + Math.sin(game.time * 0.05 + i) * 0.2})`;
+          ctx.fillRect(bx - lw, ly, lw * 2, 2);
+        }
       }
-      ctx.beginPath();
-      ctx.arc(cx, cy, 2.5, 0, Math.PI * 2);
-      ctx.fill();
-      if (ready) glowOff(ctx);
-    }
-    ctx.restore();
-    const hpW = 40,
-      hpH = 4;
-    ctx.fillStyle = "rgba(0,0,0,0.5)";
-    ctx.fillRect(bx - hpW / 2, by - bh - 50, hpW, hpH);
-    ctx.fillStyle = game.burjHealth > 2 ? "#44ff88" : game.burjHealth > 1 ? "#ffaa00" : "#ff3333";
-    ctx.fillRect(bx - hpW / 2, by - bh - 50, hpW * (game.burjHealth / 5), hpH);
+      if (Math.sin(game.time * 0.1) > 0.5) {
+        ctx.fillStyle = "#f00";
+        glow(ctx, "#f00", 15);
+        ctx.beginPath();
+        ctx.arc(bx, by - bh - 30, 3, 0, Math.PI * 2);
+        ctx.fill();
+        glowOff(ctx);
+      }
+      if (game.upgrades.ironBeam > 0) {
+        const lvl = game.upgrades.ironBeam;
+        const chargeTime = [360, 240, 180][lvl - 1];
+        const chargeRatio = Math.min(game.ironBeamTimer / chargeTime, 1);
+        const ready = chargeRatio >= 1;
+        const cx = bx,
+          cy = by - bh * 0.6,
+          r = 5;
+        ctx.strokeStyle = "rgba(255,34,0,0.15)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = ready ? "#ff2200" : `rgba(255,34,0,${0.3 + chargeRatio * 0.5})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * chargeRatio);
+        ctx.stroke();
+        if (ready) {
+          const pulse = 0.5 + 0.5 * Math.sin(game.time * 0.12);
+          ctx.fillStyle = `rgba(255,34,0,${0.6 + pulse * 0.4})`;
+          glow(ctx, "#ff2200", 10);
+        } else {
+          ctx.fillStyle = `rgba(255,34,0,${0.15 + chargeRatio * 0.3})`;
+        }
+        ctx.beginPath();
+        ctx.arc(cx, cy, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        if (ready) glowOff(ctx);
+      }
+      ctx.restore();
+      const hpW = 40,
+        hpH = 4;
+      ctx.fillStyle = "rgba(0,0,0,0.5)";
+      ctx.fillRect(bx - hpW / 2, by - bh - 50, hpW, hpH);
+      ctx.fillStyle = game.burjHealth > 2 ? "#44ff88" : game.burjHealth > 1 ? "#ffaa00" : "#ff3333";
+      ctx.fillRect(bx - hpW / 2, by - bh - 50, hpW * (game.burjHealth / 5), hpH);
+    });
   } else {
-    ctx.fillStyle = "#444";
-    // Use deterministic pseudo-random offsets based on index to avoid per-frame jitter
-    for (let i = 0; i < 8; i++) {
-      const h1 = ((i * 7 + 3) % 13) / 13; // pseudo-random 0..1
-      const h2 = ((i * 11 + 5) % 13) / 13;
-      ctx.fillRect(BURJ_X - 15 + i * 4, CITY_Y - 10 - h1 * 20, 5, 10 + h2 * 15);
-    }
+    withAnchorScale(ctx, BURJ_X, CITY_Y, layout.burjScale, () => {
+      ctx.fillStyle = "#444";
+      // Use deterministic pseudo-random offsets based on index to avoid per-frame jitter
+      for (let i = 0; i < 8; i++) {
+        const h1 = ((i * 7 + 3) % 13) / 13;
+        const h2 = ((i * 11 + 5) % 13) / 13;
+        ctx.fillRect(BURJ_X - 15 + i * 4, CITY_Y - 10 - h1 * 20, 5, 10 + h2 * 15);
+      }
+    });
   }
 
   // F-15 Eagle fighter jets
@@ -1022,70 +1057,67 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
 
   // Launchers
   LAUNCHERS.forEach((l, i) => {
-    if (game.launcherHP[i] <= 0) {
-      // Destroyed rubble
-      ctx.fillStyle = "#333";
-      ctx.fillRect(l.x - 10, l.y - 3, 20, 6);
-      ctx.fillStyle = "#2a2a2a";
-      ctx.fillRect(l.x - 5, l.y - 5, 8, 4);
-      ctx.fillRect(l.x + 2, l.y - 4, 5, 3);
-      return;
-    }
-    // Damaged tint (only show when reinforced launcher is damaged)
-    const launcherMaxHP = game.upgrades.launcherKit >= 2 ? 2 : 1;
-    if (launcherMaxHP === 2 && game.launcherHP[i] === 1) {
-      ctx.fillStyle = "#3a2020";
-      ctx.fillRect(l.x - 12, l.y - 8, 24, 12);
-      ctx.fillStyle = "#4a3030";
-      ctx.fillRect(l.x - 8, l.y - 12, 16, 8);
-    } else {
-      ctx.fillStyle = "#2a3a50";
-      ctx.fillRect(l.x - 12, l.y - 8, 24, 12);
-      ctx.fillStyle = "#3a4a60";
-      ctx.fillRect(l.x - 8, l.y - 12, 16, 8);
-    }
-    ctx.fillStyle = "rgba(0,0,0,0.5)";
-    ctx.fillRect(l.x - 15, l.y + 8, 30, 5);
-    const ammoMax = getAmmoCapacity(game.wave, game.upgrades.launcherKit);
-    const ammoRatio = game.ammo[i] / ammoMax;
-    ctx.fillStyle = ammoRatio > 0.3 ? COL.hud : COL.warning;
-    ctx.fillRect(l.x - 15, l.y + 8, 30 * ammoRatio, 5);
-    // Ammo count
-    ctx.font = "bold 10px monospace";
-    ctx.textAlign = "center";
-    ctx.fillStyle = ammoRatio > 0.3 ? COL.hud : COL.warning;
-    ctx.fillText(game.ammo[i], l.x, l.y + 25);
-    // HP pips
-    const maxHP = game.upgrades.launcherKit >= 2 ? 2 : 1;
-    for (let h = 0; h < maxHP; h++) {
-      ctx.fillStyle = h < game.launcherHP[i] ? "#44ff88" : "#333";
-      ctx.fillRect(l.x - 5 + h * 6, l.y + 15, 4, 3);
-    }
-    const angle = Math.atan2(game.crosshairY - l.y, game.crosshairX - l.x);
-    ctx.save();
-    ctx.translate(l.x, l.y - 8);
-    const barrelAngle = Math.min(-0.2, Math.max(angle, -Math.PI + 0.2));
-    ctx.rotate(barrelAngle);
-    ctx.fillStyle = launcherMaxHP === 2 && game.launcherHP[i] === 1 ? "#5a3a3a" : "#4a5a70";
-    ctx.fillRect(0, -2, 18, 4);
-    // Muzzle flash
-    const fireTick = game.launcherFireTick ? game.launcherFireTick[i] : 0;
-    const tickNow = game._replayTick || 0;
-    const fireAge = tickNow - fireTick;
-    if (fireAge < 6) {
-      const flash = 1 - fireAge / 6;
-      ctx.globalAlpha = flash * 0.9;
-      ctx.fillStyle = "#ffdd44";
-      ctx.beginPath();
-      ctx.arc(20, 0, 5 + flash * 4, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "#ffffff";
-      ctx.beginPath();
-      ctx.arc(20, 0, 2 + flash * 2, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.globalAlpha = 1;
-    }
-    ctx.restore();
+    withAnchorScale(ctx, l.x, l.y, layout.launcherScale, () => {
+      if (game.launcherHP[i] <= 0) {
+        ctx.fillStyle = "#333";
+        ctx.fillRect(l.x - 10, l.y - 3, 20, 6);
+        ctx.fillStyle = "#2a2a2a";
+        ctx.fillRect(l.x - 5, l.y - 5, 8, 4);
+        ctx.fillRect(l.x + 2, l.y - 4, 5, 3);
+        return;
+      }
+      const launcherMaxHP = game.upgrades.launcherKit >= 2 ? 2 : 1;
+      if (launcherMaxHP === 2 && game.launcherHP[i] === 1) {
+        ctx.fillStyle = "#3a2020";
+        ctx.fillRect(l.x - 12, l.y - 8, 24, 12);
+        ctx.fillStyle = "#4a3030";
+        ctx.fillRect(l.x - 8, l.y - 12, 16, 8);
+      } else {
+        ctx.fillStyle = "#2a3a50";
+        ctx.fillRect(l.x - 12, l.y - 8, 24, 12);
+        ctx.fillStyle = "#3a4a60";
+        ctx.fillRect(l.x - 8, l.y - 12, 16, 8);
+      }
+      ctx.fillStyle = "rgba(0,0,0,0.5)";
+      ctx.fillRect(l.x - 15, l.y + 8, 30, 5);
+      const ammoMax = getAmmoCapacity(game.wave, game.upgrades.launcherKit);
+      const ammoRatio = game.ammo[i] / ammoMax;
+      ctx.fillStyle = ammoRatio > 0.3 ? COL.hud : COL.warning;
+      ctx.fillRect(l.x - 15, l.y + 8, 30 * ammoRatio, 5);
+      ctx.font = "bold 10px monospace";
+      ctx.textAlign = "center";
+      ctx.fillStyle = ammoRatio > 0.3 ? COL.hud : COL.warning;
+      ctx.fillText(game.ammo[i], l.x, l.y + 25);
+      const maxHP = game.upgrades.launcherKit >= 2 ? 2 : 1;
+      for (let h = 0; h < maxHP; h++) {
+        ctx.fillStyle = h < game.launcherHP[i] ? "#44ff88" : "#333";
+        ctx.fillRect(l.x - 5 + h * 6, l.y + 15, 4, 3);
+      }
+      const angle = Math.atan2(game.crosshairY - l.y, game.crosshairX - l.x);
+      ctx.save();
+      ctx.translate(l.x, l.y - 8);
+      const barrelAngle = Math.min(-0.2, Math.max(angle, -Math.PI + 0.2));
+      ctx.rotate(barrelAngle);
+      ctx.fillStyle = launcherMaxHP === 2 && game.launcherHP[i] === 1 ? "#5a3a3a" : "#4a5a70";
+      ctx.fillRect(0, -2, 18, 4);
+      const fireTick = game.launcherFireTick ? game.launcherFireTick[i] : 0;
+      const tickNow = game._replayTick || 0;
+      const fireAge = tickNow - fireTick;
+      if (fireAge < 6) {
+        const flash = 1 - fireAge / 6;
+        ctx.globalAlpha = flash * 0.9;
+        ctx.fillStyle = "#ffdd44";
+        ctx.beginPath();
+        ctx.arc(20, 0, 5 + flash * 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(20, 0, 2 + flash * 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+    });
   });
 
   // Phalanx turrets
@@ -1341,18 +1373,26 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
   }
 
   ctx.restore();
+  ctx.restore();
 
   // Vignette and CRT-style glass finish
-  const vignette = ctx.createRadialGradient(CANVAS_W / 2, CANVAS_H * 0.45, 180, CANVAS_W / 2, CANVAS_H * 0.45, 620);
+  const vignette = ctx.createRadialGradient(
+    CANVAS_W / 2,
+    renderHeight * 0.45,
+    180,
+    CANVAS_W / 2,
+    renderHeight * 0.45,
+    620,
+  );
   vignette.addColorStop(0, "rgba(0,0,0,0)");
   vignette.addColorStop(0.68, "rgba(0,0,0,0.08)");
   vignette.addColorStop(1, "rgba(2,4,12,0.42)");
   ctx.fillStyle = vignette;
-  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+  ctx.fillRect(0, 0, CANVAS_W, renderHeight);
   ctx.fillStyle = "rgba(140, 220, 255, 0.035)";
   ctx.fillRect(0, 0, CANVAS_W, 1);
   ctx.fillStyle = "rgba(255,255,255,0.025)";
-  for (let y = 0; y < CANVAS_H; y += 4) ctx.fillRect(0, y, CANVAS_W, 1);
+  for (let y = 0; y < renderHeight; y += 4) ctx.fillRect(0, y, CANVAS_W, 1);
 
   // HUD
   if (layout.showTopHud) {

@@ -187,6 +187,19 @@ describe("drawGame", () => {
     ).not.toThrow();
   });
 
+  it("supports a fixed portrait combat camera", () => {
+    const { ctx } = mockCanvasContext();
+    expect(() =>
+      drawGame(ctx, gameState, {
+        showShop: false,
+        layoutProfile: {
+          showTopHud: false,
+          cameraFrame: { scale: 1.12, left: 48, top: 64 },
+        },
+      }),
+    ).not.toThrow();
+  });
+
   it("calls canvas drawing methods", () => {
     const { ctx, callLog } = mockCanvasContext();
     drawGame(ctx, gameState, { showShop: false });

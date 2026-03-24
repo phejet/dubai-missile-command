@@ -19,27 +19,32 @@ function getButtonLabel({ maxed, isBurjRepair, burjFull, isDraft, draftPicked, c
 
 export default function ShopUI({ shopData, onBuyUpgrade, onClose, mode = "desktop" }) {
   const entries = getEntries(shopData);
+  const isDraftMode = !!shopData.draftMode;
+  const isPhonePortrait = mode === "phonePortrait";
+
+  function handleUpgradeClick(key, disabled) {
+    if (disabled) return;
+    onBuyUpgrade(key);
+    if (isDraftMode) onClose();
+  }
 
   return (
     <div className={`shop-modal shop-modal--${mode}`} role="dialog" aria-modal="true">
       <div className="shop-modal__backdrop" />
-      <div className="shop-modal__panel" data-shop-mode={mode}>
+      <div className={`shop-modal__panel ${isDraftMode ? "shop-modal__panel--draft" : ""}`} data-shop-mode={mode}>
         <header className="shop-modal__header">
           <div>
             <div className="shop-modal__eyebrow">Defense Systems Market</div>
             <h2 className="shop-modal__title">Wave {shopData.wave} Complete</h2>
-            <p className="shop-modal__subtitle">
-              {shopData.draftMode
-                ? "Pick one free upgrade and redeploy."
-                : "Reinforce the skyline before the next strike."}
-            </p>
+            {!(isDraftMode && isPhonePortrait) && (
+              <p className="shop-modal__subtitle">
+                {isDraftMode ? "Pick one free upgrade and redeploy." : "Reinforce the skyline before the next strike."}
+              </p>
+            )}
           </div>
           <div className="shop-modal__budget">
-            {shopData.draftMode ? (
-              <>
-                <span className="shop-modal__budget-label">Draft</span>
-                <strong className="shop-modal__budget-value">{shopData.draftPicked ? "Selected" : "Choose 1"}</strong>
-              </>
+            {isDraftMode ? (
+              <strong className="shop-modal__budget-value">{shopData.draftPicked ? "Selected" : "Choose 1"}</strong>
             ) : (
               <>
                 <span className="shop-modal__budget-label">Budget</span>
@@ -66,7 +71,7 @@ export default function ShopUI({ shopData, onBuyUpgrade, onClose, mode = "deskto
               return (
                 <article
                   key={key}
-                  className={`shop-card ${disabled ? "shop-card--disabled" : ""}`}
+                  className={`shop-card ${disabled ? "shop-card--disabled" : ""} ${isDraft ? "shop-card--draft" : ""}`}
                   style={{ "--shop-accent": def.color, "--shop-panel": COL.panelBg }}
                 >
                   <div className="shop-card__topline">
@@ -91,7 +96,7 @@ export default function ShopUI({ shopData, onBuyUpgrade, onClose, mode = "deskto
 
                   <p className="shop-card__description">{def.desc}</p>
 
-                  {!maxed && (
+                  {!maxed && !isDraft && (
                     <div className="shop-card__statline">
                       <span className="shop-card__statline-label">Next</span>
                       <span>{def.statLines[level]}</span>
@@ -102,7 +107,7 @@ export default function ShopUI({ shopData, onBuyUpgrade, onClose, mode = "deskto
                     type="button"
                     className={`shop-card__button ${disabled ? "shop-card__button--disabled" : ""}`}
                     disabled={disabled}
-                    onClick={() => onBuyUpgrade(key)}
+                    onClick={() => handleUpgradeClick(key, disabled)}
                   >
                     {getButtonLabel({
                       maxed,
@@ -120,11 +125,13 @@ export default function ShopUI({ shopData, onBuyUpgrade, onClose, mode = "deskto
           </div>
         </div>
 
-        <footer className="shop-modal__footer">
-          <button type="button" className="shop-modal__deploy" onClick={onClose}>
-            Deploy Wave {shopData.wave + 1}
-          </button>
-        </footer>
+        {!isDraftMode && (
+          <footer className="shop-modal__footer">
+            <button type="button" className="shop-modal__deploy" onClick={onClose}>
+              Deploy Wave {shopData.wave + 1}
+            </button>
+          </footer>
+        )}
       </div>
     </div>
   );

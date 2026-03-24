@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import ShopUI from "./ShopUI.jsx";
 
 function makeShopData(overrides = {}) {
@@ -90,9 +90,36 @@ describe("ShopUI", () => {
       draftPicked: false,
     });
     const { container } = render(<ShopUI shopData={data} onBuyUpgrade={noop} onClose={noop} />);
-    expect(container.textContent).toMatch(/draft/i);
+    expect(container.textContent).toMatch(/choose 1/i);
     const freeButtons = [...container.querySelectorAll("button")].filter((b) => b.textContent.includes("FREE"));
     expect(freeButtons.length).toBe(3);
+  });
+
+  it("omits next stat details in draft mode", () => {
+    const data = makeShopData({
+      draftMode: true,
+      draftOffers: ["wildHornets", "ironBeam", "phalanx"],
+      draftPicked: false,
+    });
+    const { container } = render(<ShopUI shopData={data} onBuyUpgrade={noop} onClose={noop} mode="phonePortrait" />);
+    expect(container.querySelector(".shop-card__statline")).toBeNull();
+    expect(container.querySelector(".shop-modal__deploy")).toBeNull();
+  });
+
+  it("treats draft pick as deploy action", () => {
+    const onBuy = vi.fn();
+    const onClose = vi.fn();
+    const data = makeShopData({
+      draftMode: true,
+      draftOffers: ["wildHornets", "ironBeam", "phalanx"],
+      draftPicked: false,
+    });
+    const { container } = render(
+      <ShopUI shopData={data} onBuyUpgrade={onBuy} onClose={onClose} mode="phonePortrait" />,
+    );
+    fireEvent.click(within(container).getAllByRole("button", { name: /free/i })[0]);
+    expect(onBuy).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("disables draft buttons after picking", () => {

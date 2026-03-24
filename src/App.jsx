@@ -21,7 +21,6 @@ const REPLAY_CHECKPOINT_INTERVAL = 60;
 const HUD_REFRESH_MS = 120;
 const PHONE_BREAKPOINT = 900;
 const LANDSCAPE_BREAKPOINT = 1100;
-
 const LAYOUT_PROFILES = {
   desktop: {
     key: "desktop",
@@ -138,6 +137,15 @@ function getLayoutProfile(uiMode) {
   return LAYOUT_PROFILES[uiMode] ?? LAYOUT_PROFILES.desktop;
 }
 
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function getPortraitCombatCamera(uiMode, screen) {
+  if (uiMode !== "phonePortrait" || screen !== "playing") return null;
+  return null;
+}
+
 function buildHudSnapshot(game) {
   if (!game) return EMPTY_HUD;
   const ammoMax = getAmmoCapacity(game.wave, game.upgrades.launcherKit);
@@ -190,12 +198,6 @@ function getHitRatio(stats) {
   return stats.shotsFired > 0 ? Math.round((totalKills / stats.shotsFired) * 100) : 0;
 }
 
-function formatEmpLabel(hud) {
-  if (hud.empChargeMax <= 0) return "EMP OFFLINE";
-  if (hud.empReady) return "EMP READY";
-  return `EMP ${Math.round((hud.empCharge / hud.empChargeMax) * 100)}%`;
-}
-
 function getEmpProgress(hud) {
   if (hud.empChargeMax <= 0) return 0;
   return Math.max(0, Math.min(100, Math.round((hud.empCharge / hud.empChargeMax) * 100)));
@@ -203,6 +205,7 @@ function getEmpProgress(hud) {
 
 export default function DubaiMissileCommand() {
   const canvasRef = useRef(null);
+  const battlefieldCardRef = useRef(null);
   const gameRef = useRef(null);
   const rafRef = useRef(null);
   const lastTimeRef = useRef(null);
@@ -224,10 +227,18 @@ export default function DubaiMissileCommand() {
   const [draftMode, setDraftMode] = useState(false);
   const [viewport, setViewport] = useState(getViewportSnapshot);
   const [hudSnapshot, setHudSnapshot] = useState(EMPTY_HUD);
+  const [battlefieldRect, setBattlefieldRect] = useState({ width: 0, height: 0 });
 
   const uiMode = getUiMode(viewport);
   const layoutProfile = getLayoutProfile(uiMode);
   const isPhonePortrait = uiMode === "phonePortrait";
+  const isCompactPortrait = isPhonePortrait && viewport.height <= 760;
+  const combatCamera = getPortraitCombatCamera(uiMode, screen);
+  const renderCanvasHeight =
+    isPhonePortrait && screen === "playing" && battlefieldRect.width > 0 && battlefieldRect.height > 0
+      ? Math.max(CANVAS_H, Math.round((battlefieldRect.height / battlefieldRect.width) * CANVAS_W))
+      : CANVAS_H;
+  const worldOffsetY = renderCanvasHeight - CANVAS_H;
 
   const syncHudSnapshot = useCallback((game, { force = false } = {}) => {
     const now = typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -396,9 +407,39 @@ export default function DubaiMissileCommand() {
   }, [lastReplay, startReplay, syncHudSnapshot]);
 
   useEffect(() => {
+    const card = battlefieldCardRef.current;
+    if (!card || typeof ResizeObserver === "undefined") return undefined;
+
+    const updateRect = () => {
+      const rect = card.getBoundingClientRect();
+      setBattlefieldRect((prev) =>
+        prev.width === rect.width && prev.height === rect.height ? prev : { width: rect.width, height: rect.height },
+      );
+    };
+
+    updateRect();
+    const observer = new ResizeObserver(updateRect);
+    observer.observe(card);
+    return () => observer.disconnect();
+  }, [screen, uiMode]);
+
+  useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
-    const activeLayoutProfile = getLayoutProfile(uiMode);
+    const activeLayoutProfile =
+      isPhonePortrait && screen === "playing"
+        ? {
+            ...getLayoutProfile(uiMode),
+            cameraFrame: combatCamera,
+            renderHeight: renderCanvasHeight,
+            worldOffsetY,
+            buildingScale: 2,
+            burjScale: 2,
+            launcherScale: 2,
+          }
+        : combatCamera
+          ? { ...getLayoutProfile(uiMode), cameraFrame: combatCamera }
+          : getLayoutProfile(uiMode);
 
     function loop(timestamp) {
       if (!perfState.probed && screen === "playing" && gameRef.current) {
@@ -498,7 +539,21 @@ export default function DubaiMissileCommand() {
 
     rafRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [draftMode, finalScore, finalStats, finalWave, handleSimEvent, screen, showShop, syncHudSnapshot, uiMode]);
+  }, [
+    combatCamera,
+    draftMode,
+    finalScore,
+    finalStats,
+    finalWave,
+    handleSimEvent,
+    isPhonePortrait,
+    renderCanvasHeight,
+    screen,
+    showShop,
+    syncHudSnapshot,
+    uiMode,
+    worldOffsetY,
+  ]);
 
   useEffect(() => {
     function handleKeyDown(event) {
@@ -530,9 +585,19 @@ export default function DubaiMissileCommand() {
     const canvas = canvasRef.current;
     if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
+    const canvasX = (clientX - rect.left) * (CANVAS_W / rect.width);
+    const canvasY = (clientY - rect.top) * (renderCanvasHeight / rect.height);
+    if (!combatCamera && worldOffsetY <= 0) {
+      return {
+        x: canvasX,
+        y: canvasY,
+      };
+    }
     return {
-      x: (clientX - rect.left) * (CANVAS_W / rect.width),
-      y: (clientY - rect.top) * (CANVAS_H / rect.height),
+      x: combatCamera ? clamp(combatCamera.left + canvasX / combatCamera.scale, 0, CANVAS_W) : canvasX,
+      y: combatCamera
+        ? clamp(combatCamera.top + canvasY / combatCamera.scale, -worldOffsetY, CANVAS_H)
+        : clamp(canvasY - worldOffsetY, -worldOffsetY, CANVAS_H),
     };
   }
 
@@ -668,16 +733,22 @@ export default function DubaiMissileCommand() {
   const footerText = "Dubai Missile Command v2.0 - Integrated Air Defense Network";
 
   return (
-    <div className={`game-shell game-shell--${uiMode}`} data-ui-mode={uiMode}>
+    <div
+      className={`game-shell game-shell--${uiMode} ${isCompactPortrait ? "game-shell--compactPortrait" : ""}`}
+      data-ui-mode={uiMode}
+      data-screen={screen}
+    >
       <div className="game-shell__ambient" aria-hidden="true" />
       <div className="game-shell__content">
         {isPhonePortrait && screen === "title" && (
           <section className="portrait-hero" data-testid="portrait-title">
             <div className="portrait-hero__eyebrow">Integrated Air Defense Network</div>
             <h1 className="portrait-hero__title">Dubai Missile Command</h1>
-            <p className="portrait-hero__copy">
-              Defend the skyline, intercept incoming strikes, and build a layered shield around the Burj.
-            </p>
+            {!isCompactPortrait && (
+              <p className="portrait-hero__copy">
+                Defend the skyline, intercept incoming strikes, and build a layered shield around the Burj.
+              </p>
+            )}
           </section>
         )}
 
@@ -700,24 +771,42 @@ export default function DubaiMissileCommand() {
               </div>
             </div>
 
-            <button
-              type="button"
-              className="mute-button mute-button--mobile"
-              aria-label={muted ? "Unmute audio" : "Mute audio"}
-              onClick={() => {
-                SFX.init();
-                SFX.mute();
-                setMuted(SFX.isMuted());
-              }}
-            >
-              {muted ? "\uD83D\uDD07" : "\uD83D\uDD0A"}
-            </button>
+            <div className="portrait-hud__actions">
+              <button
+                type="button"
+                className={`header-action header-action--emp ${hudSnapshot.empReady ? "header-action--ready" : ""}`}
+                onClick={fireEmp}
+                disabled={!hudSnapshot.empReady}
+                aria-label={hudSnapshot.empReady ? "Fire EMP" : "EMP unavailable"}
+              >
+                <span className="header-action__label">EMP</span>
+                <span className="header-action__meta">
+                  {hudSnapshot.empChargeMax > 0 ? (hudSnapshot.empReady ? "READY" : `${empProgress}%`) : "LOCK"}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                className="mute-button mute-button--mobile mute-button--hud"
+                aria-label={muted ? "Unmute audio" : "Mute audio"}
+                onClick={() => {
+                  SFX.init();
+                  SFX.mute();
+                  setMuted(SFX.isMuted());
+                }}
+              >
+                {muted ? "\uD83D\uDD07" : "\uD83D\uDD0A"}
+              </button>
+            </div>
           </header>
         )}
 
         <div className="battlefield-shell">
           <div
-            className={`battlefield-card ${showShop ? "battlefield-card--blurred" : ""}`}
+            ref={battlefieldCardRef}
+            className={`battlefield-card ${showShop ? "battlefield-card--blurred" : ""} ${
+              isPhonePortrait && screen === "playing" ? "battlefield-card--portraitSky" : ""
+            }`}
             onDragOver={(event) => event.preventDefault()}
             onDrop={(event) => {
               event.preventDefault();
@@ -742,7 +831,7 @@ export default function DubaiMissileCommand() {
             <canvas
               ref={canvasRef}
               width={CANVAS_W}
-              height={CANVAS_H}
+              height={renderCanvasHeight}
               onPointerDown={handleCanvasPointerDown}
               onPointerMove={handleCanvasPointerMove}
               onPointerLeave={handleCanvasPointerLeave}
@@ -793,7 +882,9 @@ export default function DubaiMissileCommand() {
           <section className="portrait-panel portrait-panel--title">
             <div className="portrait-panel__header">
               <span className="portrait-panel__kicker">Launch Profile</span>
-              <span className="portrait-panel__subtle">Portrait-first command deck</span>
+              <span className="portrait-panel__subtle">
+                {isCompactPortrait ? "Phone command deck" : "Portrait-first command deck"}
+              </span>
             </div>
             <div className="mode-toggle" role="group" aria-label="Game mode">
               <button
@@ -811,11 +902,13 @@ export default function DubaiMissileCommand() {
                 Draft
               </button>
             </div>
-            <p className="portrait-panel__copy">
-              {draftMode
-                ? "Pick one free upgrade each wave from three rotating options."
-                : "Earn score, buy systems, and build your own defense network."}
-            </p>
+            {!isCompactPortrait && (
+              <p className="portrait-panel__copy">
+                {draftMode
+                  ? "Pick one free upgrade each wave from three rotating options."
+                  : "Earn score, buy systems, and build your own defense network."}
+              </p>
+            )}
             <button
               type="button"
               className="action-button action-button--primary action-button--wide"
@@ -823,114 +916,9 @@ export default function DubaiMissileCommand() {
             >
               Start Defense
             </button>
-            <div className="portrait-tip">Tap the battlefield at any time to start and fire.</div>
-          </section>
-        )}
-
-        {isPhonePortrait && screen === "playing" && (
-          <section className="portrait-panel portrait-panel--playing">
-            <div className="portrait-panel__header">
-              <span className="portrait-panel__kicker">Defense Grid</span>
-              <span className="portrait-panel__subtle">
-                {replayActive ? "Replay in progress" : "Touch and drag to aim, tap to fire"}
-              </span>
-            </div>
-            <div className="status-strip">
-              <div className="status-strip__card">
-                <span className="status-strip__label">Threats</span>
-                <strong className="status-strip__value">{hudSnapshot.threatCount}</strong>
-                <span className="status-strip__meta">Active tracks</span>
-              </div>
-              <div className="status-strip__card">
-                <span className="status-strip__label">Interceptors</span>
-                <strong className="status-strip__value">{hudSnapshot.ammo.reduce((sum, ammo) => sum + ammo, 0)}</strong>
-                <span className="status-strip__meta">{hudSnapshot.readyLaunchers} launchers ready</span>
-              </div>
-              <div className="status-strip__card">
-                <span className="status-strip__label">Systems</span>
-                <strong className="status-strip__value">{hudSnapshot.systemsOnline}</strong>
-                <span className="status-strip__meta">Automations online</span>
-              </div>
-            </div>
-            <div className="launcher-grid">
-              {hudSnapshot.ammo.map((ammo, index) => (
-                <div
-                  key={`launcher-${index + 1}`}
-                  className={`launcher-card ${hudSnapshot.launcherHP[index] > 0 ? "" : "launcher-card--down"}`}
-                >
-                  <div className="launcher-card__topline">
-                    <span className="launcher-card__label">Launcher {index + 1}</span>
-                    <span className="launcher-card__state">
-                      {hudSnapshot.launcherHP[index] > 0 ? "Ready" : "Offline"}
-                    </span>
-                  </div>
-                  <strong className="launcher-card__value">{hudSnapshot.launcherHP[index] > 0 ? ammo : "OFF"}</strong>
-                  <div className="launcher-card__meter" aria-hidden="true">
-                    <span
-                      className="launcher-card__meter-fill"
-                      style={{
-                        width:
-                          hudSnapshot.launcherHP[index] > 0 && hudSnapshot.ammoMax > 0
-                            ? `${(ammo / hudSnapshot.ammoMax) * 100}%`
-                            : "0%",
-                      }}
-                    />
-                  </div>
-                  <span className="launcher-card__meta">
-                    HP {hudSnapshot.launcherHP[index]} · cap{" "}
-                    {hudSnapshot.launcherHP[index] > 0 ? hudSnapshot.ammoMax : 0}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            <div className="portrait-panel__section">
-              <div className="portrait-panel__section-title">Active Systems</div>
-              <div className="upgrade-chip-list">
-                {hudSnapshot.activeUpgrades.length > 0 ? (
-                  hudSnapshot.activeUpgrades.map((upgrade) => (
-                    <span
-                      key={upgrade.key}
-                      className="upgrade-chip"
-                      style={{ "--chip-accent": upgrade.color }}
-                      title={`${upgrade.name} level ${upgrade.level}`}
-                    >
-                      <span className="upgrade-chip__icon">{upgrade.icon}</span>
-                      <span className="upgrade-chip__text">{upgrade.name}</span>
-                      <span className="upgrade-chip__level">L{upgrade.level}</span>
-                    </span>
-                  ))
-                ) : (
-                  <span className="upgrade-chip upgrade-chip--empty">
-                    No systems online yet. Clear waves to fund upgrades.
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="portrait-panel__actions">
-              <button
-                type="button"
-                className={`emp-button ${hudSnapshot.empReady ? "emp-button--ready" : ""}`}
-                onClick={fireEmp}
-                disabled={!hudSnapshot.empReady}
-              >
-                <div className="emp-button__topline">
-                  <span className="emp-button__label">{formatEmpLabel(hudSnapshot)}</span>
-                  <span className="emp-button__percent">
-                    {hudSnapshot.empChargeMax > 0 ? `${empProgress}%` : "LOCKED"}
-                  </span>
-                </div>
-                <div className="emp-button__meter" aria-hidden="true">
-                  <span className="emp-button__meter-fill" style={{ width: `${empProgress}%` }} />
-                </div>
-                <span className="emp-button__meta">
-                  {hudSnapshot.empChargeMax > 0
-                    ? "Charged shockwave damages every threat on screen."
-                    : "Purchase EMP to unlock the emergency pulse."}
-                </span>
-              </button>
-            </div>
+            {!isCompactPortrait && (
+              <div className="portrait-tip">Tap the battlefield at any time to start and fire.</div>
+            )}
           </section>
         )}
 
@@ -986,7 +974,7 @@ export default function DubaiMissileCommand() {
           <ShopUI shopData={shopData} onBuyUpgrade={buyUpgrade} onClose={closeShop} mode={uiMode} />
         )}
 
-        <footer className={`game-footer ${isPhonePortrait ? "game-footer--compact" : ""}`}>{footerText}</footer>
+        {!isPhonePortrait && <footer className="game-footer">{footerText}</footer>}
       </div>
     </div>
   );
