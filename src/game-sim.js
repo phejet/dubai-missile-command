@@ -1151,7 +1151,7 @@ function updateMissiles(g, dt, onEvent) {
       Math.abs(m.x - BURJ_X) < burjHalfW(m.y)
     ) {
       m.alive = false;
-      boom(g, m.x, m.y, 30, "#ff4400", false, onEvent);
+      boom(g, m.x, m.y, 55, "#ff4400", false, onEvent, 30);
       g.shakeTimer = 10;
       g.shakeIntensity = 4;
       if (!g._debugMode) {
@@ -1159,7 +1159,7 @@ function updateMissiles(g, dt, onEvent) {
         if (onEvent) onEvent("sfx", { name: "burjHit" });
         if (g.burjHealth <= 0) {
           g.burjAlive = false;
-          boom(g, BURJ_X, CITY_Y - BURJ_H / 2, 60, "#ff2200", false, onEvent);
+          boom(g, BURJ_X, CITY_Y - BURJ_H / 2, 90, "#ff2200", false, onEvent, 50);
         }
       }
     }
@@ -1168,7 +1168,7 @@ function updateMissiles(g, dt, onEvent) {
       g.buildings.forEach((b) => {
         if (b.alive && m.alive && m.x >= b.x && m.x <= b.x + b.w && m.y >= GROUND_Y - b.h) {
           m.alive = false;
-          boom(g, m.x, m.y, 20, "#ff4400", false, onEvent);
+          boom(g, m.x, m.y, 40, "#ff4400", false, onEvent, 20);
           b.alive = false;
         }
       });
@@ -1179,7 +1179,7 @@ function updateMissiles(g, dt, onEvent) {
         if (site.alive && m.alive && Math.abs(m.x - site.x) < site.hw && Math.abs(m.y - site.y) < site.hh) {
           m.alive = false;
           destroyDefenseSite(g, site);
-          boom(g, m.x, m.y, 35, "#ff4400", false, onEvent);
+          boom(g, m.x, m.y, 60, "#ff4400", false, onEvent, 30);
           g.shakeTimer = 12;
           g.shakeIntensity = 5;
         }
@@ -1190,7 +1190,7 @@ function updateMissiles(g, dt, onEvent) {
       LAUNCHERS.forEach((l, i) => {
         if (g.launcherHP[i] > 0 && m.alive && Math.abs(m.x - l.x) < 15 && m.y >= l.y - 12) {
           m.alive = false;
-          boom(g, m.x, m.y, 25, "#ff4400", false, onEvent);
+          boom(g, m.x, m.y, 50, "#ff4400", false, onEvent, 25);
           g.shakeTimer = 10;
           g.shakeIntensity = 4;
           if (!g._debugMode) {
@@ -1206,7 +1206,7 @@ function updateMissiles(g, dt, onEvent) {
     // Ground impact
     if (m.alive && m.y >= GROUND_Y) {
       m.alive = false;
-      boom(g, m.x, GROUND_Y, 25, "#ff4400", false, onEvent);
+      boom(g, m.x, GROUND_Y, 50, "#ff4400", false, onEvent, 25);
     }
     if (m.x < -50 || m.x > CANVAS_W + 50 || m.y > CANVAS_H + 50) m.alive = false;
   });
@@ -1309,7 +1309,7 @@ function updateDrones(g, _rng, dt, onEvent) {
       const pathDone = d.waypoints && d.pathIndex >= d.waypoints.length - 1;
       if (hitTarget || hitGround || pathDone) {
         d.alive = false;
-        boom(g, d.x, d.y, 40, "#ff6600", false, onEvent);
+        boom(g, d.x, d.y, 70, "#ff6600", false, onEvent, 40);
         g.shakeTimer = 15;
         g.shakeIntensity = 6;
         g.buildings.forEach((b) => {
@@ -1404,10 +1404,10 @@ function updateExplosions(g, dt, onEvent) {
     if (ex.growing) {
       ex.radius += (ex.chain ? 4 : 2) * dt;
       if (ex.radius >= ex.maxRadius) ex.growing = false;
-    } else ex.alpha -= 0.03 * dt;
+    } else ex.alpha -= 0.05 * dt;
     if (ex.ringAlpha > 0) {
-      ex.ringRadius += 6 * dt;
-      ex.ringAlpha -= 0.06 * dt;
+      ex.ringRadius += 14 * dt;
+      ex.ringAlpha -= 0.25 * dt;
     }
     if (ex.alpha > 0.2 && !ex.harmless) {
       if (!ex.kills) ex.kills = 0;

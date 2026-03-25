@@ -891,13 +891,18 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
       ctx.lineTo(-8, 2);
       ctx.closePath();
       ctx.fill();
-      // Pusher propeller (rear spinning prop)
+      // Pusher propeller (rear, side-view — vertical disc with foreshortened wobble)
       const pa = game.time * 0.8;
+      const wobble = Math.cos(pa) * 0.8;
       ctx.strokeStyle = "#aaa";
-      ctx.lineWidth = effectScale;
+      ctx.lineWidth = effectScale * 0.7;
       ctx.beginPath();
-      ctx.moveTo(-10 - Math.cos(pa) * 5, -Math.sin(pa) * 5);
-      ctx.lineTo(-10 + Math.cos(pa) * 5, Math.sin(pa) * 5);
+      ctx.moveTo(-10 + wobble, -3);
+      ctx.lineTo(-10 - wobble, 3);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(-10 - wobble, -2.5);
+      ctx.lineTo(-10 + wobble, 2.5);
       ctx.stroke();
     }
 
@@ -1122,23 +1127,58 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
 
   // Explosions
   game.explosions.forEach((ex) => {
-    ctx.globalAlpha = ex.alpha;
-    const explosionRadius = ex.radius * effectScale;
-    const grad = ctx.createRadialGradient(ex.x, ex.y, 0, ex.x, ex.y, explosionRadius);
-    grad.addColorStop(0, "#fff");
-    grad.addColorStop(0.3, ex.color);
-    grad.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(ex.x, ex.y, explosionRadius, 0, Math.PI * 2);
-    ctx.fill();
-    // Flash ring — fast-expanding shockwave outline
-    if (ex.ringAlpha > 0) {
-      ctx.globalAlpha = ex.ringAlpha;
-      ctx.strokeStyle = "#fff";
-      ctx.lineWidth = 2 * effectScale;
+    const r = ex.radius * effectScale;
+    if (r < 1) return;
+
+    const isInterceptorBlast = ex.playerCaused && !ex.chain;
+    if (isInterceptorBlast) {
+      // Interceptor detonation — punchy flash + particles, no blob
+      const popR = r * 0.35;
+      if (ex.alpha > 0.85) {
+        const flashT = (ex.alpha - 0.85) / 0.15;
+        ctx.globalAlpha = flashT;
+        ctx.fillStyle = ex.color;
+        ctx.beginPath();
+        ctx.arc(ex.x, ex.y, popR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = flashT;
+        ctx.fillStyle = "#fff";
+        ctx.beginPath();
+        ctx.arc(ex.x, ex.y, popR * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      if (ex.alpha > 0.2 && ex.alpha <= 0.85) {
+        const t = 1 - (ex.alpha - 0.2) / 0.65;
+        const emberR = r * 0.15 * (1 - t);
+        ctx.globalAlpha = (1 - t) * 0.8;
+        ctx.fillStyle = ex.color;
+        ctx.beginPath();
+        ctx.arc(ex.x, ex.y, emberR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else {
+      // All other explosions — gradient fireball
+      ctx.globalAlpha = ex.alpha;
+      const grad = ctx.createRadialGradient(ex.x, ex.y, 0, ex.x, ex.y, r);
+      grad.addColorStop(0, "#fff");
+      grad.addColorStop(0.15, "#ffeeaa");
+      grad.addColorStop(0.4, ex.color);
+      grad.addColorStop(0.75, "rgba(0,0,0,0)");
+      grad.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = grad;
       ctx.beginPath();
-      ctx.arc(ex.x, ex.y, ex.ringRadius * effectScale, 0, Math.PI * 2);
+      ctx.arc(ex.x, ex.y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Shockwave ring
+    if (ex.ringAlpha > 0) {
+      const ringR = ex.ringRadius * effectScale;
+      ctx.globalAlpha = ex.ringAlpha * ex.alpha;
+      ctx.strokeStyle = ex.color;
+      ctx.lineWidth = Math.max(1, 3 * effectScale * ex.ringAlpha);
+      ctx.beginPath();
+      ctx.arc(ex.x, ex.y, ringR, 0, Math.PI * 2);
       ctx.stroke();
     }
   });
@@ -1153,8 +1193,8 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
       ctx.translate(p.x, p.y);
       ctx.rotate(p.angle);
       ctx.fillStyle = p.color;
-      const w = p.w * effectScale;
-      const h = p.h * effectScale;
+      const w = p.w * effectScale * 1.5;
+      const h = p.h * effectScale * 1.5;
       ctx.beginPath();
       ctx.moveTo(-w / 2, -h / 2);
       ctx.lineTo(w / 2, 0);
@@ -1163,16 +1203,17 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
       ctx.fill();
       ctx.restore();
     } else if (p.type === "spark") {
-      // Bright dot with velocity trail
+      // Bright streak with longer velocity trail
       ctx.strokeStyle = p.color;
-      ctx.lineWidth = p.size * effectScale;
+      ctx.lineWidth = p.size * effectScale * 1.2;
+      ctx.lineCap = "round";
       ctx.beginPath();
-      ctx.moveTo(p.x - p.vx * 3, p.y - p.vy * 3);
+      ctx.moveTo(p.x - p.vx * 5, p.y - p.vy * 5);
       ctx.lineTo(p.x, p.y);
       ctx.stroke();
       ctx.fillStyle = "#fff";
       ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size * 0.5 * effectScale, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, p.size * 0.7 * effectScale, 0, Math.PI * 2);
       ctx.fill();
     } else {
       ctx.fillStyle = p.color;
@@ -1187,47 +1228,108 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
   LAUNCHERS.forEach((l, i) => {
     withAnchorScale(ctx, l.x, l.y, layout.launcherScale, () => {
       if (game.launcherHP[i] <= 0) {
+        // Destroyed — broken rubble
         ctx.fillStyle = "#333";
-        ctx.fillRect(l.x - 10, l.y - 3, 20, 6);
+        ctx.beginPath();
+        ctx.moveTo(l.x - 10, l.y + 3);
+        ctx.lineTo(l.x - 8, l.y - 2);
+        ctx.lineTo(l.x - 2, l.y - 3);
+        ctx.lineTo(l.x + 3, l.y - 1);
+        ctx.lineTo(l.x + 9, l.y - 2);
+        ctx.lineTo(l.x + 10, l.y + 3);
+        ctx.closePath();
+        ctx.fill();
         ctx.fillStyle = "#2a2a2a";
-        ctx.fillRect(l.x - 5, l.y - 5, 8, 4);
-        ctx.fillRect(l.x + 2, l.y - 4, 5, 3);
+        ctx.beginPath();
+        ctx.arc(l.x - 3, l.y - 1, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(l.x + 4, l.y, 2, 0, Math.PI * 2);
+        ctx.fill();
         return;
       }
       const launcherMaxHP = game.upgrades.launcherKit >= 2 ? 2 : 1;
-      if (launcherMaxHP === 2 && game.launcherHP[i] === 1) {
-        ctx.fillStyle = "#3a2020";
-        ctx.fillRect(l.x - 12, l.y - 8, 24, 12);
-        ctx.fillStyle = "#4a3030";
-        ctx.fillRect(l.x - 8, l.y - 12, 16, 8);
-      } else {
-        ctx.fillStyle = "#2a3a50";
-        ctx.fillRect(l.x - 12, l.y - 8, 24, 12);
-        ctx.fillStyle = "#3a4a60";
-        ctx.fillRect(l.x - 8, l.y - 12, 16, 8);
-      }
+      const damaged = launcherMaxHP === 2 && game.launcherHP[i] === 1;
+
+      // Base platform — rounded trapezoid
+      ctx.fillStyle = damaged ? "#3a2020" : "#2a3a50";
+      ctx.beginPath();
+      ctx.moveTo(l.x - 14, l.y + 4);
+      ctx.lineTo(l.x - 10, l.y - 6);
+      ctx.quadraticCurveTo(l.x, l.y - 9, l.x + 10, l.y - 6);
+      ctx.lineTo(l.x + 14, l.y + 4);
+      ctx.quadraticCurveTo(l.x, l.y + 6, l.x - 14, l.y + 4);
+      ctx.fill();
+
+      // Upper turret housing — rounded dome
+      ctx.fillStyle = damaged ? "#4a3030" : "#3a4a60";
+      ctx.beginPath();
+      ctx.arc(l.x, l.y - 6, 9, Math.PI, 0);
+      ctx.lineTo(l.x + 7, l.y - 4);
+      ctx.lineTo(l.x - 7, l.y - 4);
+      ctx.closePath();
+      ctx.fill();
+
+      // Highlight edge
+      ctx.strokeStyle = damaged ? "#5a4040" : "#5a6a80";
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.arc(l.x, l.y - 6, 9, Math.PI + 0.2, -0.2);
+      ctx.stroke();
+
+      // Ammo bar — rounded
       ctx.fillStyle = "rgba(0,0,0,0.5)";
-      ctx.fillRect(l.x - 15, l.y + 8, 30, 5);
+      ctx.beginPath();
+      ctx.arc(l.x - 12, l.y + 10.5, 2.5, 0, Math.PI * 2);
+      ctx.arc(l.x + 12, l.y + 10.5, 2.5, 0, Math.PI * 2);
+      ctx.fillRect(l.x - 12, l.y + 8, 24, 5);
+      ctx.fill();
       const ammoMax = getAmmoCapacity(game.wave, game.upgrades.launcherKit);
       const ammoRatio = game.ammo[i] / ammoMax;
       ctx.fillStyle = ammoRatio > 0.3 ? COL.hud : COL.warning;
-      ctx.fillRect(l.x - 15, l.y + 8, 30 * ammoRatio, 5);
+      const barW = 24 * ammoRatio;
+      ctx.beginPath();
+      ctx.fillRect(l.x - 12, l.y + 8, barW, 5);
+      ctx.fill();
+
+      // Ammo count
       ctx.font = "bold 10px monospace";
       ctx.textAlign = "center";
       ctx.fillStyle = ammoRatio > 0.3 ? COL.hud : COL.warning;
       ctx.fillText(game.ammo[i], l.x, l.y + 25);
+
+      // HP pips
       const maxHP = game.upgrades.launcherKit >= 2 ? 2 : 1;
       for (let h = 0; h < maxHP; h++) {
         ctx.fillStyle = h < game.launcherHP[i] ? "#44ff88" : "#333";
-        ctx.fillRect(l.x - 5 + h * 6, l.y + 15, 4, 3);
+        ctx.beginPath();
+        ctx.arc(l.x - 3 + h * 6, l.y + 16.5, 2, 0, Math.PI * 2);
+        ctx.fill();
       }
+
+      // Barrel — tapered with rounded tip
       const angle = Math.atan2(game.crosshairY - l.y, game.crosshairX - l.x);
       ctx.save();
       ctx.translate(l.x, l.y - 8);
       const barrelAngle = Math.min(-0.2, Math.max(angle, -Math.PI + 0.2));
       ctx.rotate(barrelAngle);
-      ctx.fillStyle = launcherMaxHP === 2 && game.launcherHP[i] === 1 ? "#5a3a3a" : "#4a5a70";
-      ctx.fillRect(0, -2, 18, 4);
+      ctx.fillStyle = damaged ? "#5a3a3a" : "#4a5a70";
+      ctx.beginPath();
+      ctx.moveTo(0, -2.5);
+      ctx.lineTo(16, -1.5);
+      ctx.quadraticCurveTo(19, 0, 16, 1.5);
+      ctx.lineTo(0, 2.5);
+      ctx.closePath();
+      ctx.fill();
+      // Barrel highlight
+      ctx.strokeStyle = damaged ? "#6a4a4a" : "#6a7a90";
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(1, -2.2);
+      ctx.lineTo(15, -1.3);
+      ctx.stroke();
+
+      // Muzzle flash
       const fireTick = game.launcherFireTick ? game.launcherFireTick[i] : 0;
       const tickNow = game._replayTick || 0;
       const fireAge = tickNow - fireTick;
