@@ -184,7 +184,7 @@ export function initGame() {
   const wave1 = generateWaveSchedule(1, commander);
 
   const g = {
-    _debugMode: true, // TODO: remove after tuning
+    _debugMode: false,
     state: "playing",
     score: 0,
     wave: 1,
@@ -1142,13 +1142,13 @@ function updateMissiles(g, dt, onEvent) {
       if (onEvent) onEvent("sfx", { name: "mirvSplit" });
       return;
     }
-    // Burj collision
+    // Burj collision — use generous hitbox (2x silhouette width, min 20px)
     if (
       g.burjAlive &&
       m.alive &&
       m.y >= GROUND_Y - BURJ_H - 30 &&
       m.y <= GROUND_Y &&
-      Math.abs(m.x - BURJ_X) < burjHalfW(m.y)
+      Math.abs(m.x - BURJ_X) < Math.max(25, burjHalfW(m.y) * 3)
     ) {
       m.alive = false;
       boom(g, m.x, m.y, 55, "#ff4400", false, onEvent, 30);
@@ -1302,6 +1302,28 @@ function updateDrones(g, _rng, dt, onEvent) {
       }
     }
     if (d.x < -60 || d.x > CANVAS_W + 60 || d.y > CANVAS_H + 20) d.alive = false;
+    // Burj body collision — per-tick check so drones can't fly through
+    // Use 3x silhouette width (min 25) to match the visually rendered tower
+    if (
+      d.alive &&
+      g.burjAlive &&
+      d.y >= GROUND_Y - BURJ_H - 30 &&
+      d.y <= GROUND_Y &&
+      Math.abs(d.x - BURJ_X) < Math.max(25, burjHalfW(d.y) * 3)
+    ) {
+      d.alive = false;
+      boom(g, d.x, d.y, 70, "#ff6600", false, onEvent, 40);
+      g.shakeTimer = 15;
+      g.shakeIntensity = 6;
+      if (!g._debugMode) {
+        g.burjHealth--;
+        if (onEvent) onEvent("sfx", { name: "burjHit" });
+        if (g.burjHealth <= 0) {
+          g.burjAlive = false;
+          boom(g, BURJ_X, CITY_Y - BURJ_H / 2, 90, "#ff2200", false, onEvent, 50);
+        }
+      }
+    }
     // Shahed impact
     if (d.diveTarget && d.alive) {
       const hitTarget = dist(d.x, d.y, d.diveTarget.x, d.diveTarget.y) < 20;
@@ -1323,22 +1345,17 @@ function updateDrones(g, _rng, dt, onEvent) {
           }
         });
         LAUNCHERS.forEach((l, i) => {
-          if (g.launcherHP[i] > 0 && Math.abs(d.x - l.x) < 30 && !g._debugMode) {
-            g.launcherHP[i]--;
-            if (g.launcherHP[i] <= 0) {
-              g.ammo[i] = 0;
-              if (onEvent) onEvent("sfx", { name: "launcherDestroyed" });
+          if (g.launcherHP[i] > 0 && Math.abs(d.x - l.x) < 30) {
+            if (!g._debugMode) {
+              g.launcherHP[i]--;
+              if (g.launcherHP[i] <= 0) {
+                g.ammo[i] = 0;
+                if (onEvent) onEvent("sfx", { name: "launcherDestroyed" });
+              }
             }
           }
         });
-        if (g.burjAlive && Math.abs(d.x - BURJ_X) < 50 && !g._debugMode) {
-          g.burjHealth--;
-          if (onEvent) onEvent("sfx", { name: "burjHit" });
-          if (g.burjHealth <= 0) {
-            g.burjAlive = false;
-            boom(g, BURJ_X, CITY_Y - BURJ_H / 2, 60, "#ff2200", false, onEvent);
-          }
-        }
+        // Burj damage handled by per-tick body collision above
       }
     }
   });
