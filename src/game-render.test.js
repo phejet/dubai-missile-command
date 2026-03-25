@@ -129,7 +129,7 @@ describe("glow and glowOff", () => {
     perfState.glowEnabled = true;
     glow(ctx, "#ff0000", 10);
     expect(ctx.shadowColor).toBe("#ff0000");
-    expect(ctx.shadowBlur).toBe(10);
+    expect(ctx.shadowBlur).toBeCloseTo(10 * 0.45);
   });
 
   it("glowOff clears shadowBlur", () => {

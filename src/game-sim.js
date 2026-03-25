@@ -1405,6 +1405,10 @@ function updateExplosions(g, dt, onEvent) {
       ex.radius += (ex.chain ? 4 : 2) * dt;
       if (ex.radius >= ex.maxRadius) ex.growing = false;
     } else ex.alpha -= 0.03 * dt;
+    if (ex.ringAlpha > 0) {
+      ex.ringRadius += 6 * dt;
+      ex.ringAlpha -= 0.06 * dt;
+    }
     if (ex.alpha > 0.2 && !ex.harmless) {
       if (!ex.kills) ex.kills = 0;
       g.missiles.forEach((m) => {
@@ -1654,9 +1658,14 @@ export function update(g, dt, onEvent) {
   updatePlanes(g, dt, allThreats, onEvent);
 
   g.particles.forEach((p) => {
+    if (p.drag) {
+      p.vx *= p.drag;
+      p.vy *= p.drag;
+    }
     p.x += p.vx * dt;
     p.y += p.vy * dt;
-    p.vy += 0.05 * dt;
+    p.vy += (p.gravity ?? 0.05) * dt;
+    if (p.angle !== undefined) p.angle += p.spin * dt;
     p.life -= dt;
   });
 

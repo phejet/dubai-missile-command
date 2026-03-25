@@ -167,9 +167,13 @@ export function createExplosion(g, x, y, radius, color, playerCaused, initialRad
     playerCaused: !!playerCaused,
     harmless: !!options.harmless,
     chain: !!options.chain,
+    ringRadius: 0,
+    ringAlpha: 1,
   });
-  const particleBudget = Math.min(12, MAX_PARTICLES - g.particles.length);
-  for (let i = 0; i < particleBudget; i++) {
+  let budget = MAX_PARTICLES - g.particles.length;
+  // Dot particles (smoke puffs)
+  const dotCount = Math.min(6, budget);
+  for (let i = 0; i < dotCount; i++) {
     const angle = rand(0, Math.PI * 2);
     const sp = rand(1, 4);
     g.particles.push({
@@ -181,6 +185,49 @@ export function createExplosion(g, x, y, radius, color, playerCaused, initialRad
       maxLife: 50,
       color: _rng() > 0.5 ? "#ffcc00" : "#ff6600",
       size: rand(1, 3),
+    });
+  }
+  budget -= dotCount;
+  // Debris shards — spinning triangular fragments
+  const debrisCount = Math.min(5, budget);
+  for (let i = 0; i < debrisCount; i++) {
+    const angle = rand(0, Math.PI * 2);
+    const sp = rand(2, 5);
+    g.particles.push({
+      x,
+      y,
+      vx: Math.cos(angle) * sp,
+      vy: Math.sin(angle) * sp - rand(0.5, 2),
+      life: rand(40, 70),
+      maxLife: 70,
+      color: _rng() > 0.5 ? "#888" : "#555",
+      size: rand(2, 5),
+      type: "debris",
+      angle: rand(0, Math.PI * 2),
+      spin: rand(-0.15, 0.15),
+      gravity: 0.08,
+      w: rand(2, 4),
+      h: rand(3, 6),
+    });
+  }
+  budget -= debrisCount;
+  // Sparks — fast bright particles with drag
+  const sparkCount = Math.min(8, budget);
+  for (let i = 0; i < sparkCount; i++) {
+    const angle = rand(0, Math.PI * 2);
+    const sp = rand(4, 8);
+    g.particles.push({
+      x,
+      y,
+      vx: Math.cos(angle) * sp,
+      vy: Math.sin(angle) * sp,
+      life: rand(10, 25),
+      maxLife: 25,
+      color: _rng() > 0.5 ? "#fff" : "#ffee88",
+      size: rand(0.5, 1.5),
+      type: "spark",
+      drag: 0.93,
+      gravity: 0.02,
     });
   }
   g.shakeTimer = 8;

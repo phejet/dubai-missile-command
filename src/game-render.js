@@ -1132,16 +1132,54 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     ctx.beginPath();
     ctx.arc(ex.x, ex.y, explosionRadius, 0, Math.PI * 2);
     ctx.fill();
+    // Flash ring — fast-expanding shockwave outline
+    if (ex.ringAlpha > 0) {
+      ctx.globalAlpha = ex.ringAlpha;
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 2 * effectScale;
+      ctx.beginPath();
+      ctx.arc(ex.x, ex.y, ex.ringRadius * effectScale, 0, Math.PI * 2);
+      ctx.stroke();
+    }
   });
   ctx.globalAlpha = 1;
 
   // Particles
   game.particles.forEach((p) => {
-    ctx.globalAlpha = p.life / p.maxLife;
-    ctx.fillStyle = p.color;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size * effectScale, 0, Math.PI * 2);
-    ctx.fill();
+    const alpha = p.life / p.maxLife;
+    ctx.globalAlpha = alpha;
+    if (p.type === "debris") {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.angle);
+      ctx.fillStyle = p.color;
+      const w = p.w * effectScale;
+      const h = p.h * effectScale;
+      ctx.beginPath();
+      ctx.moveTo(-w / 2, -h / 2);
+      ctx.lineTo(w / 2, 0);
+      ctx.lineTo(-w / 2, h / 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    } else if (p.type === "spark") {
+      // Bright dot with velocity trail
+      ctx.strokeStyle = p.color;
+      ctx.lineWidth = p.size * effectScale;
+      ctx.beginPath();
+      ctx.moveTo(p.x - p.vx * 3, p.y - p.vy * 3);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+      ctx.fillStyle = "#fff";
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * 0.5 * effectScale, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * effectScale, 0, Math.PI * 2);
+      ctx.fill();
+    }
   });
   ctx.globalAlpha = 1;
 
