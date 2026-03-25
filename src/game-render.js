@@ -122,31 +122,35 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     ctx.scale(layout.cameraFrame.scale, layout.cameraFrame.scale);
     ctx.translate(-layout.cameraFrame.left, -layout.cameraFrame.top);
   }
-  // Sky — nebula texture or fallback gradient
+  // Sky — base gradient always drawn, nebula layered on top at low opacity
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, renderHeight);
+  skyGrad.addColorStop(0, COL.sky1);
+  skyGrad.addColorStop(0.4, COL.sky2);
+  skyGrad.addColorStop(0.7, COL.sky3);
+  skyGrad.addColorStop(1, COL.ground);
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, CANVAS_W, renderHeight);
+
+  // Nebula overlay — subtle texture, not dominant
   const skyImg = getSkyImage();
   if (skyImg) {
+    ctx.globalAlpha = 0.4;
     ctx.drawImage(skyImg, 0, 0, CANVAS_W, renderHeight);
-  } else {
-    const skyGrad = ctx.createLinearGradient(0, 0, 0, renderHeight);
-    skyGrad.addColorStop(0, COL.sky1);
-    skyGrad.addColorStop(0.4, COL.sky2);
-    skyGrad.addColorStop(0.7, COL.sky3);
-    skyGrad.addColorStop(1, COL.ground);
-    ctx.fillStyle = skyGrad;
-    ctx.fillRect(0, 0, CANVAS_W, renderHeight);
+    ctx.globalAlpha = 1;
   }
 
-  // Twinkling stars overlay (subtle, on top of nebula)
+  // Animated twinkling stars
   game.stars.forEach((s) => {
-    const twinkle = 0.2 + 0.8 * Math.sin(game.time * 0.02 + s.twinkle);
-    if (twinkle < 0.4) return; // only draw when bright enough
+    const twinkle = 0.35 + 0.65 * Math.sin(game.time * 0.02 + s.twinkle);
     const drawStar = (y) => {
       if (y < 0 || y > renderHeight) return;
-      ctx.globalAlpha = twinkle * 0.6;
+      ctx.globalAlpha = twinkle;
+      glow(ctx, "#ffffff", 3 + s.size * 3);
       ctx.fillStyle = "#fff";
       ctx.beginPath();
-      ctx.arc(s.x, y, s.size * 0.8, 0, Math.PI * 2);
+      ctx.arc(s.x, y, s.size, 0, Math.PI * 2);
       ctx.fill();
+      glowOff(ctx);
     };
     drawStar(s.y);
     if (worldOffsetY > 0) drawStar(s.y + worldOffsetY);
@@ -401,8 +405,8 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
       // === TOWER BODY ===
       // Warm golden gradient — looks lit up at night
       const burjGrad = ctx.createLinearGradient(bx, by, bx, by - bh);
-      burjGrad.addColorStop(0, "#c8a878"); // warm golden base
-      burjGrad.addColorStop(0.2, "#b8a080");
+      burjGrad.addColorStop(0, "#a89878"); // warm base, dialed down
+      burjGrad.addColorStop(0.2, "#a89888");
       burjGrad.addColorStop(0.4, "#b0a898");
       burjGrad.addColorStop(0.65, "#c0c0c8");
       burjGrad.addColorStop(0.85, "#d0d0d8");
@@ -434,8 +438,8 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
 
       // Warm uplight on lower half
       const uplightGrad = ctx.createLinearGradient(bx, by, bx, by - bh * 0.5);
-      uplightGrad.addColorStop(0, "rgba(255,180,80,0.2)");
-      uplightGrad.addColorStop(0.5, "rgba(255,160,60,0.06)");
+      uplightGrad.addColorStop(0, "rgba(255,180,80,0.08)");
+      uplightGrad.addColorStop(0.5, "rgba(255,160,60,0.03)");
       uplightGrad.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = uplightGrad;
       ctx.fillRect(bx - 16, by - bh * 0.5, 32, bh * 0.5);
@@ -512,9 +516,9 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
 
       // Warm ground pool — light spilling onto ground from tower
       const poolGrad = ctx.createRadialGradient(bx, by + 5, 5, bx, by + 5, 150);
-      poolGrad.addColorStop(0, "rgba(255,180,100,0.2)");
-      poolGrad.addColorStop(0.3, "rgba(255,160,80,0.1)");
-      poolGrad.addColorStop(0.6, "rgba(200,120,50,0.04)");
+      poolGrad.addColorStop(0, "rgba(255,180,100,0.08)");
+      poolGrad.addColorStop(0.3, "rgba(255,160,80,0.04)");
+      poolGrad.addColorStop(0.6, "rgba(200,120,50,0.015)");
       poolGrad.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = poolGrad;
       ctx.fillRect(bx - 150, by - 20, 300, 60);
