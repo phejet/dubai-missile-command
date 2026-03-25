@@ -7,6 +7,7 @@ import {
   BURJ_X,
   BURJ_H,
   LAUNCHERS,
+  burjHalfW,
   getAmmoCapacity,
   getPhalanxTurrets,
 } from "./game-logic.js";
@@ -1841,6 +1842,11 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     glowOff(ctx);
   }
 
+  // Debug collision overlay — drawn inside camera transform
+  if (game._showColliders) {
+    drawCollisionOverlay(ctx, game);
+  }
+
   ctx.restore();
   ctx.restore();
 
@@ -2076,6 +2082,96 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     ctx.textAlign = "left";
     ctx.restore();
   }
+}
+
+function drawCollisionOverlay(ctx, game) {
+  ctx.save();
+  ctx.globalAlpha = 0.7;
+  ctx.lineWidth = 1.5;
+
+  // Burj — tapered polygon matching hitbox: max(25, burjHalfW(y) * 3)
+  if (game.burjAlive) {
+    ctx.strokeStyle = "cyan";
+    ctx.beginPath();
+    const yTop = GROUND_Y - BURJ_H - 30;
+    const yBot = GROUND_Y;
+    const steps = 30;
+    for (let i = 0; i <= steps; i++) {
+      const y = yTop + (i / steps) * (yBot - yTop);
+      const hw = Math.max(25, burjHalfW(y) * 3);
+      if (i === 0) ctx.moveTo(BURJ_X + hw, y);
+      else ctx.lineTo(BURJ_X + hw, y);
+    }
+    for (let i = steps; i >= 0; i--) {
+      const y = yTop + (i / steps) * (yBot - yTop);
+      const hw = Math.max(25, burjHalfW(y) * 3);
+      ctx.lineTo(BURJ_X - hw, y);
+    }
+    ctx.closePath();
+    ctx.stroke();
+  }
+
+  // Launchers
+  ctx.strokeStyle = "lime";
+  LAUNCHERS.forEach((l, i) => {
+    if (game.launcherHP[i] > 0) {
+      ctx.strokeRect(l.x - 15, l.y - 12, 30, 12);
+    }
+  });
+
+  // Buildings
+  ctx.strokeStyle = "yellow";
+  game.buildings.forEach((b) => {
+    if (b.alive) {
+      ctx.strokeRect(b.x, GROUND_Y - b.h, b.w, b.h);
+    }
+  });
+
+  // Defense sites
+  ctx.strokeStyle = "magenta";
+  game.defenseSites.forEach((site) => {
+    if (site.alive) {
+      ctx.strokeRect(site.x - site.hw, site.y - site.hh, site.hw * 2, site.hh * 2);
+    }
+  });
+
+  // Missiles & bombs
+  ctx.strokeStyle = "red";
+  game.missiles.forEach((m) => {
+    if (!m.alive) return;
+    ctx.beginPath();
+    ctx.arc(m.x, m.y, 4, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+
+  // Drones
+  ctx.strokeStyle = "orange";
+  game.drones.forEach((d) => {
+    if (!d.alive) return;
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, 12, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+
+  // Interceptors — proximity fuse radius
+  ctx.strokeStyle = "#44ffaa";
+  game.interceptors.forEach((ic) => {
+    if (!ic.alive) return;
+    ctx.beginPath();
+    ctx.arc(ic.x, ic.y, 18, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+
+  // Explosions — current radius
+  ctx.strokeStyle = "white";
+  game.explosions.forEach((ex) => {
+    if (ex.alpha < 0.05) return;
+    ctx.beginPath();
+    ctx.arc(ex.x, ex.y, ex.radius, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+
+  ctx.restore();
 }
 
 export function drawTitle(ctx, { layoutProfile = {} } = {}) {

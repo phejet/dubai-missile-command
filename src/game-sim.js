@@ -185,6 +185,7 @@ export function initGame() {
 
   const g = {
     _debugMode: false,
+    _showColliders: false,
     state: "playing",
     score: 0,
     wave: 1,

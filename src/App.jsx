@@ -824,6 +824,19 @@ export default function DubaiMissileCommand() {
               >
                 {muted ? "\uD83D\uDD07" : "\uD83D\uDD0A"}
               </button>
+              <button
+                type="button"
+                className="mute-button mute-button--mobile mute-button--hud"
+                style={{ opacity: 0.5, fontSize: "12px" }}
+                aria-label="Toggle collision debug"
+                onClick={() => {
+                  if (gameRef.current) {
+                    gameRef.current._showColliders = !gameRef.current._showColliders;
+                  }
+                }}
+              >
+                DBG
+              </button>
             </div>
           </header>
         )}
@@ -867,18 +880,33 @@ export default function DubaiMissileCommand() {
             />
 
             {!isPhonePortrait && (
-              <button
-                type="button"
-                className="mute-button"
-                aria-label={muted ? "Unmute audio" : "Mute audio"}
-                onClick={() => {
-                  SFX.init();
-                  SFX.mute();
-                  setMuted(SFX.isMuted());
-                }}
-              >
-                {muted ? "\uD83D\uDD07" : "\uD83D\uDD0A"}
-              </button>
+              <>
+                <button
+                  type="button"
+                  className="mute-button"
+                  aria-label={muted ? "Unmute audio" : "Mute audio"}
+                  onClick={() => {
+                    SFX.init();
+                    SFX.mute();
+                    setMuted(SFX.isMuted());
+                  }}
+                >
+                  {muted ? "\uD83D\uDD07" : "\uD83D\uDD0A"}
+                </button>
+                <button
+                  type="button"
+                  className="mute-button"
+                  style={{ opacity: 0.5, fontSize: "12px", top: "40px" }}
+                  aria-label="Toggle collision debug"
+                  onClick={() => {
+                    if (gameRef.current) {
+                      gameRef.current._showColliders = !gameRef.current._showColliders;
+                    }
+                  }}
+                >
+                  DBG
+                </button>
+              </>
             )}
 
             {!isPhonePortrait && screen === "gameover" && (
