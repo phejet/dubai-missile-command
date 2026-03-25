@@ -317,7 +317,7 @@ export function spawnMirv(g, onEvent) {
 export function spawnPlane(g, onEvent) {
   const _rng = getRng();
   const goRight = _rng() > 0.5;
-  const [planeMinY, planeMaxY] = shiftSpawnRangeForRender(g, [120, 280]);
+  const [planeMinY, planeMaxY] = shiftSpawnRangeForRender(g, [80, 200]);
   const speedScale = getEnemySpeedScale(g);
   g.planes.push({
     x: goRight ? -60 : CANVAS_W + 60,
@@ -326,7 +326,7 @@ export function spawnPlane(g, onEvent) {
     vy: 0,
     blinkTimer: 0,
     alive: true,
-    fireTimer: 0,
+    fireTimer: 20,
     fireInterval: 25,
     evadeTimer: 0,
   });
@@ -1494,11 +1494,12 @@ function updatePlanes(g, dt, allThreats, onEvent) {
     }
 
     p.x += p.vx * dt;
-    p.y = Math.max(60, Math.min(320, p.y + p.vy * dt));
+    const offsetY = getRenderWorldOffsetY(g);
+    p.y = Math.max(60 - offsetY, Math.min(220 - offsetY, p.y + p.vy * dt));
     p.fireTimer += dt;
     if (p.fireTimer >= p.fireInterval) {
       let closest = null,
-        closestD = 200;
+        closestD = 350;
       allThreats.forEach((t) => {
         const d2 = dist(p.x, p.y, t.x, t.y);
         if (d2 < closestD) {

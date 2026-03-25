@@ -63,10 +63,11 @@ function withAnchorScale(ctx, anchorX, anchorY, scale, draw) {
   ctx.restore();
 }
 
+const GLOW_SCALE = 0.45;
 export function glow(ctx, color, radius) {
   if (!perfState.glowEnabled) return;
   ctx.shadowColor = color;
-  ctx.shadowBlur = radius;
+  ctx.shadowBlur = radius * GLOW_SCALE;
 }
 
 export function glowOff(ctx) {
@@ -903,9 +904,9 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     // Blinking nav light
     if (Math.sin(game.time * 0.15) > 0) {
       ctx.fillStyle = d.subtype === "shahed238" ? "#ff2200" : "#ff4400";
-      glow(ctx, ctx.fillStyle, 6 * effectScale);
+      glow(ctx, ctx.fillStyle, 2 * effectScale);
       ctx.beginPath();
-      ctx.arc(0, 0, 1.5 * effectScale, 0, Math.PI * 2);
+      ctx.arc(0, 0, 0.75 * effectScale, 0, Math.PI * 2);
       ctx.fill();
       glowOff(ctx);
     }
