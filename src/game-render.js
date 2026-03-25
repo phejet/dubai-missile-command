@@ -15,6 +15,22 @@ import { UPGRADES } from "./game-sim.js";
 // FPS probe: measure first 60 frames, disable shadowBlur if avg FPS < 45
 export const perfState = { frameCount: 0, startTime: 0, glowEnabled: true, probed: false };
 
+// Sky nebula background — loaded once, drawn every frame
+let _skyImg = null;
+let _skyLoading = false;
+function getSkyImage() {
+  if (_skyImg) return _skyImg;
+  if (_skyLoading) return null;
+  if (typeof Image === "undefined") return null; // headless/test env
+  _skyLoading = true;
+  const img = new Image();
+  img.src = new URL("../public/sky-nebula.png", import.meta.url).href;
+  img.onload = () => {
+    _skyImg = img;
+  };
+  return null;
+}
+
 const DEFAULT_LAYOUT_PROFILE = {
   showTopHud: true,
   showSystemLabels: true,
@@ -106,41 +122,45 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     ctx.scale(layout.cameraFrame.scale, layout.cameraFrame.scale);
     ctx.translate(-layout.cameraFrame.left, -layout.cameraFrame.top);
   }
-  // Sky
-  const skyGrad = ctx.createLinearGradient(0, 0, 0, renderHeight);
-  skyGrad.addColorStop(0, COL.sky1);
-  skyGrad.addColorStop(0.4, COL.sky2);
-  skyGrad.addColorStop(0.7, COL.sky3);
-  skyGrad.addColorStop(1, COL.ground);
-  ctx.fillStyle = skyGrad;
-  ctx.fillRect(0, 0, CANVAS_W, renderHeight);
+  // Sky — nebula texture or fallback gradient
+  const skyImg = getSkyImage();
+  if (skyImg) {
+    ctx.drawImage(skyImg, 0, 0, CANVAS_W, renderHeight);
+  } else {
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, renderHeight);
+    skyGrad.addColorStop(0, COL.sky1);
+    skyGrad.addColorStop(0.4, COL.sky2);
+    skyGrad.addColorStop(0.7, COL.sky3);
+    skyGrad.addColorStop(1, COL.ground);
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, CANVAS_W, renderHeight);
+  }
 
-  // Stars fill the extra portrait headroom as well as the original playfield sky.
+  // Twinkling stars overlay (subtle, on top of nebula)
   game.stars.forEach((s) => {
-    const twinkle = 0.35 + 0.65 * Math.sin(game.time * 0.02 + s.twinkle);
+    const twinkle = 0.2 + 0.8 * Math.sin(game.time * 0.02 + s.twinkle);
+    if (twinkle < 0.4) return; // only draw when bright enough
     const drawStar = (y) => {
       if (y < 0 || y > renderHeight) return;
-      ctx.globalAlpha = twinkle;
-      glow(ctx, "#ffffff", 3 + s.size * 3);
+      ctx.globalAlpha = twinkle * 0.6;
       ctx.fillStyle = "#fff";
       ctx.beginPath();
-      ctx.arc(s.x, y, s.size, 0, Math.PI * 2);
+      ctx.arc(s.x, y, s.size * 0.8, 0, Math.PI * 2);
       ctx.fill();
-      glowOff(ctx);
     };
     drawStar(s.y);
     if (worldOffsetY > 0) drawStar(s.y + worldOffsetY);
   });
   ctx.globalAlpha = 1;
 
-  // Moon stays in the upper sky band so the added height feels intentional.
+  // Moon — crescent with warm glow
   glow(ctx, "#ffe8b0", 24);
   ctx.fillStyle = "#ffe8b0";
   ctx.beginPath();
   ctx.arc(780, 60, 25, 0, Math.PI * 2);
   ctx.fill();
   glowOff(ctx);
-  ctx.fillStyle = COL.sky1;
+  ctx.fillStyle = skyImg ? "#0a0e1a" : COL.sky1;
   ctx.beginPath();
   ctx.arc(788, 55, 22, 0, Math.PI * 2);
   ctx.fill();
@@ -244,19 +264,38 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
         return;
       }
       const bTop = CITY_Y - b.h;
+      // Main face — subtle left-right gradient for 3D
       const bGrad = ctx.createLinearGradient(b.x, bTop, b.x + b.w, CITY_Y);
-      bGrad.addColorStop(0, "#1a2545");
-      bGrad.addColorStop(1, "#0d1525");
+      bGrad.addColorStop(0, "#1e2a48");
+      bGrad.addColorStop(0.4, "#151e35");
+      bGrad.addColorStop(1, "#0c1320");
       ctx.fillStyle = bGrad;
       ctx.fillRect(b.x, bTop, b.w, b.h);
-      const edgeGlow = ctx.createLinearGradient(b.x, bTop, b.x, CITY_Y);
-      edgeGlow.addColorStop(0, "rgba(160,200,255,0.08)");
+
+      // Rooftop cap
+      ctx.fillStyle = "#2a3555";
+      ctx.fillRect(b.x - 1, bTop, b.w + 2, 3);
+
+      // Left edge highlight
+      const edgeGlow = ctx.createLinearGradient(b.x, bTop, b.x + 8, bTop);
+      edgeGlow.addColorStop(0, "rgba(180,210,255,0.1)");
       edgeGlow.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = edgeGlow;
-      ctx.fillRect(b.x, bTop, 6, b.h);
-      ctx.strokeStyle = "rgba(80,120,200,0.15)";
-      ctx.lineWidth = 1;
+      ctx.fillRect(b.x, bTop, 8, b.h);
+
+      // Right edge shadow
+      const edgeDark = ctx.createLinearGradient(b.x + b.w - 6, bTop, b.x + b.w, bTop);
+      edgeDark.addColorStop(0, "rgba(0,0,0,0)");
+      edgeDark.addColorStop(1, "rgba(0,0,0,0.15)");
+      ctx.fillStyle = edgeDark;
+      ctx.fillRect(b.x + b.w - 6, bTop, 6, b.h);
+
+      // Subtle outline
+      ctx.strokeStyle = "rgba(80,120,200,0.1)";
+      ctx.lineWidth = 0.5;
       ctx.strokeRect(b.x, bTop, b.w, b.h);
+
+      // Windows — warm glow
       const winW = 4,
         winH = 5,
         gap = 8,
@@ -267,9 +306,21 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
           const seed = hash01(b.x, row, col);
           const lit = Math.sin(game.time * (0.006 + seed * 0.01) + b.x * 0.03 + row * 0.8 + col * 2.4) > -0.35;
           const brightness = 0.55 + 0.45 * Math.sin(game.time * (0.01 + seed * 0.02) + row + col * 2 + seed * 4);
-          ctx.fillStyle = lit ? COL.buildingLit : "#0a0a15";
-          ctx.globalAlpha = lit ? 0.45 + brightness * 0.35 : 0.22;
-          ctx.fillRect(startX + col * (winW + gap), bTop + 10 + row * 15, winW, winH);
+          if (lit) {
+            // Warm window with slight glow spill
+            const wx = startX + col * (winW + gap);
+            const wy = bTop + 10 + row * 15;
+            ctx.globalAlpha = 0.08 + brightness * 0.06;
+            ctx.fillStyle = "#ffcc66";
+            ctx.fillRect(wx - 1, wy - 1, winW + 2, winH + 2);
+            ctx.globalAlpha = 0.5 + brightness * 0.35;
+            ctx.fillStyle = COL.buildingLit;
+            ctx.fillRect(wx, wy, winW, winH);
+          } else {
+            ctx.globalAlpha = 0.18;
+            ctx.fillStyle = "#080c18";
+            ctx.fillRect(startX + col * (winW + gap), bTop + 10 + row * 15, winW, winH);
+          }
         }
       }
       ctx.globalAlpha = 1;
@@ -283,44 +334,102 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
       bh = BURJ_H;
     withAnchorScale(ctx, bx, by, layout.burjScale, () => {
       ctx.save();
-      const burjGrad = ctx.createLinearGradient(bx - 11, by - bh, bx + 11, by);
-      burjGrad.addColorStop(0, "#d0d8e8");
-      burjGrad.addColorStop(0.5, "#a0a8c0");
+
+      // Tower silhouette path (reused for fill, stroke, clip)
+      function burjPath() {
+        ctx.beginPath();
+        ctx.moveTo(bx, by - bh - 30); // spire tip
+        ctx.lineTo(bx - 1.5, by - bh - 15);
+        ctx.lineTo(bx - 3, by - bh);
+        ctx.quadraticCurveTo(bx - 5, by - bh * 0.85, bx - 7, by - bh * 0.7);
+        ctx.quadraticCurveTo(bx - 9, by - bh * 0.55, bx - 11, by - bh * 0.4);
+        ctx.quadraticCurveTo(bx - 12, by - bh * 0.28, bx - 13, by - bh * 0.15);
+        ctx.quadraticCurveTo(bx - 14, by - bh * 0.08, bx - 15, by);
+        ctx.lineTo(bx + 15, by);
+        ctx.quadraticCurveTo(bx + 14, by - bh * 0.08, bx + 13, by - bh * 0.15);
+        ctx.quadraticCurveTo(bx + 12, by - bh * 0.28, bx + 11, by - bh * 0.4);
+        ctx.quadraticCurveTo(bx + 9, by - bh * 0.55, bx + 7, by - bh * 0.7);
+        ctx.quadraticCurveTo(bx + 5, by - bh * 0.85, bx + 3, by - bh);
+        ctx.lineTo(bx + 1.5, by - bh - 15);
+        ctx.closePath();
+      }
+
+      // Main body — left-to-right gradient for 3D depth
+      const burjGrad = ctx.createLinearGradient(bx - 15, by - bh, bx + 15, by);
+      burjGrad.addColorStop(0, "#909ab0");
+      burjGrad.addColorStop(0.3, "#c0c8d8");
+      burjGrad.addColorStop(0.5, "#d8dde8");
+      burjGrad.addColorStop(0.7, "#b0b8c8");
       burjGrad.addColorStop(1, "#707888");
       ctx.fillStyle = burjGrad;
-      ctx.beginPath();
-      ctx.moveTo(bx, by - bh - 30);
-      ctx.lineTo(bx - 3, by - bh);
-      ctx.lineTo(bx - 7, by - bh * 0.7);
-      ctx.lineTo(bx - 11, by - bh * 0.4);
-      ctx.lineTo(bx - 13, by - bh * 0.15);
-      ctx.lineTo(bx - 15, by);
-      ctx.lineTo(bx + 15, by);
-      ctx.lineTo(bx + 13, by - bh * 0.15);
-      ctx.lineTo(bx + 11, by - bh * 0.4);
-      ctx.lineTo(bx + 7, by - bh * 0.7);
-      ctx.lineTo(bx + 3, by - bh);
-      ctx.closePath();
+      burjPath();
       ctx.fill();
-      glow(ctx, COL.burjGlow, 20 + Math.sin(game.time * 0.03) * 8);
-      ctx.strokeStyle = "rgba(68,136,255,0.4)";
+
+      // Left edge highlight (moonlight)
+      ctx.save();
+      burjPath();
+      ctx.clip();
+      const edgeLight = ctx.createLinearGradient(bx - 15, 0, bx - 5, 0);
+      edgeLight.addColorStop(0, "rgba(255,255,255,0.15)");
+      edgeLight.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = edgeLight;
+      ctx.fillRect(bx - 15, by - bh - 30, 12, bh + 30);
+
+      // Right edge shadow
+      const edgeShadow = ctx.createLinearGradient(bx + 5, 0, bx + 15, 0);
+      edgeShadow.addColorStop(0, "rgba(0,0,0,0)");
+      edgeShadow.addColorStop(1, "rgba(0,0,0,0.2)");
+      ctx.fillStyle = edgeShadow;
+      ctx.fillRect(bx + 5, by - bh - 30, 12, bh + 30);
+
+      // Horizontal floor lines — architectural detail
+      for (let i = 0; i < 25; i++) {
+        const ly = by - bh * 0.05 - bh * 0.85 * (i / 25);
+        const t = i / 25;
+        const hw = 15 - t * 12; // narrows toward top
+        ctx.fillStyle = `rgba(0,0,0,${0.08 + t * 0.04})`;
+        ctx.fillRect(bx - hw, ly, hw * 2, 1);
+      }
+      ctx.restore();
+
+      // Outline glow
+      glow(ctx, COL.burjGlow, 16 + Math.sin(game.time * 0.03) * 6);
+      ctx.strokeStyle = "rgba(68,136,255,0.3)";
       ctx.lineWidth = 1;
+      burjPath();
       ctx.stroke();
       glowOff(ctx);
+
+      // Central spine — bright white line up the center
       const spineGlow = ctx.createLinearGradient(bx, by - bh - 30, bx, by);
-      spineGlow.addColorStop(0, "rgba(255,255,255,0.45)");
-      spineGlow.addColorStop(0.25, "rgba(160,220,255,0.26)");
+      spineGlow.addColorStop(0, "rgba(255,255,255,0.5)");
+      spineGlow.addColorStop(0.15, "rgba(200,220,255,0.3)");
+      spineGlow.addColorStop(0.5, "rgba(160,200,255,0.15)");
       spineGlow.addColorStop(1, "rgba(255,255,255,0)");
       ctx.fillStyle = spineGlow;
-      ctx.fillRect(bx - 1, by - bh - 25, 2, bh + 20);
-      for (let i = 0; i < 15; i++) {
-        const ly = by - bh * 0.1 - bh * 0.8 * (i / 15);
-        const lw = 8 * (1 - i / 20);
-        if (Math.sin(game.time * 0.05 + i * 0.5) > 0) {
-          ctx.fillStyle = `rgba(68,136,255,${0.3 + Math.sin(game.time * 0.05 + i) * 0.2})`;
-          ctx.fillRect(bx - lw, ly, lw * 2, 2);
+      ctx.fillRect(bx - 0.5, by - bh - 25, 1, bh + 20);
+
+      // Window/light bands — blue horizontal strips
+      for (let i = 0; i < 18; i++) {
+        const ly = by - bh * 0.08 - bh * 0.82 * (i / 18);
+        const t = i / 18;
+        const lw = (8 - t * 5) * (1 + 0.1 * Math.sin(game.time * 0.05 + i * 0.5));
+        const lit = Math.sin(game.time * 0.05 + i * 0.5) > -0.2;
+        if (lit) {
+          ctx.fillStyle = `rgba(68,136,255,${0.2 + 0.15 * Math.sin(game.time * 0.05 + i)})`;
+          ctx.fillRect(bx - lw, ly, lw * 2, 1.5);
         }
       }
+
+      // Warm base glow — city light reflecting up
+      const baseGlow = ctx.createRadialGradient(bx, by, 5, bx, by, 80);
+      baseGlow.addColorStop(0, "rgba(255, 180, 100, 0.12)");
+      baseGlow.addColorStop(0.5, "rgba(255, 150, 80, 0.05)");
+      baseGlow.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = baseGlow;
+      ctx.fillRect(bx - 80, by - 80, 160, 80);
+
+      // Aviation warning light at spire tip
       if (Math.sin(game.time * 0.1) > 0.5) {
         ctx.fillStyle = "#f00";
         glow(ctx, "#f00", 15);
@@ -1223,6 +1332,29 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     }
   });
   ctx.globalAlpha = 1;
+
+  // Explosion light casting — warm glow illuminates surroundings
+  if (game.explosions.length > 0) {
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    game.explosions.forEach((ex) => {
+      if (ex.alpha < 0.15) return;
+      const r = ex.radius * effectScale;
+      if (r < 5) return;
+      const intensity = ex.alpha * 0.12;
+      const lightR = r * 4;
+      const grad = ctx.createRadialGradient(ex.x, ex.y, 0, ex.x, ex.y, lightR);
+      // Parse explosion color for tinting, fallback to warm orange
+      grad.addColorStop(0, `rgba(255, 180, 100, ${intensity})`);
+      grad.addColorStop(0.3, `rgba(255, 140, 60, ${intensity * 0.5})`);
+      grad.addColorStop(0.7, `rgba(200, 80, 30, ${intensity * 0.15})`);
+      grad.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(ex.x - lightR, ex.y - lightR, lightR * 2, lightR * 2);
+    });
+    ctx.globalCompositeOperation = "source-over";
+    ctx.restore();
+  }
 
   // Launchers
   LAUNCHERS.forEach((l, i) => {
