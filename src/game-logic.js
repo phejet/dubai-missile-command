@@ -122,7 +122,7 @@ export function fireInterceptor(g, targetX, targetY) {
     }
   }
   if (bestIdx === -1) return false;
-  g.ammo[bestIdx]--;
+  if (!g._debugMode) g.ammo[bestIdx]--;
   g.stats.shotsFired++;
   if (!g.launcherFireTick) g.launcherFireTick = [0, 0, 0];
   g.launcherFireTick[bestIdx] = g._replayTick || 0;
@@ -166,6 +166,7 @@ export function createExplosion(g, x, y, radius, color, playerCaused, initialRad
     color: color || COL.explosion,
     playerCaused: !!playerCaused,
     harmless: !!options.harmless,
+    chain: !!options.chain,
   });
   const particleBudget = Math.min(12, MAX_PARTICLES - g.particles.length);
   for (let i = 0; i < particleBudget; i++) {

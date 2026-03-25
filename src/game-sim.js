@@ -184,6 +184,7 @@ export function initGame() {
   const wave1 = generateWaveSchedule(1, commander);
 
   const g = {
+    _debugMode: true, // TODO: remove after tuning
     state: "playing",
     score: 0,
     wave: 1,
@@ -1153,11 +1154,13 @@ function updateMissiles(g, dt, onEvent) {
       boom(g, m.x, m.y, 30, "#ff4400", false, onEvent);
       g.shakeTimer = 10;
       g.shakeIntensity = 4;
-      g.burjHealth--;
-      if (onEvent) onEvent("sfx", { name: "burjHit" });
-      if (g.burjHealth <= 0) {
-        g.burjAlive = false;
-        boom(g, BURJ_X, CITY_Y - BURJ_H / 2, 60, "#ff2200", false, onEvent);
+      if (!g._debugMode) {
+        g.burjHealth--;
+        if (onEvent) onEvent("sfx", { name: "burjHit" });
+        if (g.burjHealth <= 0) {
+          g.burjAlive = false;
+          boom(g, BURJ_X, CITY_Y - BURJ_H / 2, 60, "#ff2200", false, onEvent);
+        }
       }
     }
     // Building collisions
@@ -1187,13 +1190,15 @@ function updateMissiles(g, dt, onEvent) {
       LAUNCHERS.forEach((l, i) => {
         if (g.launcherHP[i] > 0 && m.alive && Math.abs(m.x - l.x) < 15 && m.y >= l.y - 12) {
           m.alive = false;
-          g.launcherHP[i]--;
           boom(g, m.x, m.y, 25, "#ff4400", false, onEvent);
           g.shakeTimer = 10;
           g.shakeIntensity = 4;
-          if (g.launcherHP[i] <= 0) {
-            g.ammo[i] = 0;
-            if (onEvent) onEvent("sfx", { name: "launcherDestroyed" });
+          if (!g._debugMode) {
+            g.launcherHP[i]--;
+            if (g.launcherHP[i] <= 0) {
+              g.ammo[i] = 0;
+              if (onEvent) onEvent("sfx", { name: "launcherDestroyed" });
+            }
           }
         }
       });
@@ -1318,7 +1323,7 @@ function updateDrones(g, _rng, dt, onEvent) {
           }
         });
         LAUNCHERS.forEach((l, i) => {
-          if (g.launcherHP[i] > 0 && Math.abs(d.x - l.x) < 30) {
+          if (g.launcherHP[i] > 0 && Math.abs(d.x - l.x) < 30 && !g._debugMode) {
             g.launcherHP[i]--;
             if (g.launcherHP[i] <= 0) {
               g.ammo[i] = 0;
@@ -1326,7 +1331,7 @@ function updateDrones(g, _rng, dt, onEvent) {
             }
           }
         });
-        if (g.burjAlive && Math.abs(d.x - BURJ_X) < 50) {
+        if (g.burjAlive && Math.abs(d.x - BURJ_X) < 50 && !g._debugMode) {
           g.burjHealth--;
           if (onEvent) onEvent("sfx", { name: "burjHit" });
           if (g.burjHealth <= 0) {
@@ -1340,6 +1345,7 @@ function updateDrones(g, _rng, dt, onEvent) {
 }
 
 function updateInterceptors(g, dt, onEvent) {
+  const speedScale = getInterceptorSpeedScale(g);
   g.interceptors.forEach((ic) => {
     if (!ic.alive) return;
     ic.trail.push({ x: ic.x, y: ic.y });
@@ -1347,7 +1353,7 @@ function updateInterceptors(g, dt, onEvent) {
     if (!ic.fromF15 && typeof ic.heading === "number") {
       const desiredHeading = Math.atan2(ic.targetY - ic.y, ic.targetX - ic.x);
       const headingDelta = wrapAngle(desiredHeading - ic.heading);
-      const maxTurn = (ic.turnRate || 0.055) * dt;
+      const maxTurn = (ic.turnRate || 0.055) * speedScale * dt;
       ic.heading += Math.max(-maxTurn, Math.min(maxTurn, headingDelta));
       if (ic.accel) {
         ic.speed = Math.min(ic.maxSpeed || ic.speed, ic.speed * ic.accel ** dt);
@@ -1358,12 +1364,14 @@ function updateInterceptors(g, dt, onEvent) {
     ic.x += ic.vx * dt;
     ic.y += ic.vy * dt;
     let detonate = false;
-    if (dist(ic.x, ic.y, ic.targetX, ic.targetY) < 16) {
+    // Scale proximity thresholds with speed so fast interceptors don't skip past targets
+    const detonateRadius = 16 * speedScale;
+    if (dist(ic.x, ic.y, ic.targetX, ic.targetY) < detonateRadius) {
       detonate = true;
     }
     // Proximity fuse: detonate early if passing close to any threat
     if (!detonate && !ic.fromF15) {
-      const fuseRadius = 18;
+      const fuseRadius = 18 * speedScale;
       for (const m of g.missiles) {
         if (m.alive && dist(ic.x, ic.y, m.x, m.y) < fuseRadius) {
           detonate = true;
@@ -1384,7 +1392,7 @@ function updateInterceptors(g, dt, onEvent) {
       if (ic.fromF15) {
         boom(g, ic.x, ic.y, 30, "#aaccff", false, onEvent);
       } else {
-        boom(g, ic.x, ic.y, 74, COL.interceptor, true, onEvent);
+        boom(g, ic.x, ic.y, 74, COL.interceptor, true, onEvent, 74);
       }
     }
     if (ic.fromF15 && (ic.x < -50 || ic.x > CANVAS_W + 50 || ic.y < -50 || ic.y > CANVAS_H + 50)) ic.alive = false;
@@ -1394,7 +1402,7 @@ function updateInterceptors(g, dt, onEvent) {
 function updateExplosions(g, dt, onEvent) {
   g.explosions.forEach((ex) => {
     if (ex.growing) {
-      ex.radius += 2 * dt;
+      ex.radius += (ex.chain ? 4 : 2) * dt;
       if (ex.radius >= ex.maxRadius) ex.growing = false;
     } else ex.alpha -= 0.03 * dt;
     if (ex.alpha > 0.2 && !ex.harmless) {
@@ -1411,7 +1419,7 @@ function updateExplosions(g, dt, onEvent) {
               g.score += getKillReward(m);
               g.stats.missileKills++;
               ex.kills++;
-              boom(g, m.x, m.y, 90, COL.mirv, ex.playerCaused, onEvent);
+              boom(g, m.x, m.y, 45, COL.mirv, ex.playerCaused, onEvent, 45, { chain: true });
             }
           }
         } else if (dist(m.x, m.y, ex.x, ex.y) < ex.radius) {
@@ -1419,7 +1427,7 @@ function updateExplosions(g, dt, onEvent) {
           g.score += getKillReward(m);
           g.stats.missileKills++;
           ex.kills++;
-          boom(g, m.x, m.y, 45, "#ffcc00", ex.playerCaused, onEvent);
+          boom(g, m.x, m.y, 45, "#ffcc00", ex.playerCaused, onEvent, 45, { chain: true });
         }
       });
       g.drones.forEach((d) => {
@@ -1433,7 +1441,7 @@ function updateExplosions(g, dt, onEvent) {
             g.score += getKillReward(d);
             g.stats.droneKills++;
             ex.kills++;
-            boom(g, d.x, d.y, 90, "#ff8800", ex.playerCaused, onEvent);
+            boom(g, d.x, d.y, 45, "#ff8800", ex.playerCaused, onEvent, 45, { chain: true });
           }
         }
       });
@@ -1595,6 +1603,16 @@ export function update(g, dt, onEvent) {
 
   // Check wave complete
   if (g.burjAlive && isWaveFullySpawned(g) && g.missiles.length === 0 && g.drones.length === 0) {
+    if (g._debugMode) {
+      // Loop wave 1 indefinitely — reset spawn schedule
+      const wave1 = generateWaveSchedule(1, g.commander);
+      g.schedule = wave1.schedule;
+      g.scheduleIdx = 0;
+      g.waveTick = 0;
+      g.concurrentCap = wave1.concurrentCap;
+      g.waveTactics = wave1.tactics;
+      return;
+    }
     g.waveComplete = true;
     g.shopOpened = false;
     g.waveClearedTimer = 120;

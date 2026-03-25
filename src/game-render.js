@@ -94,7 +94,7 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
   const planeScale = layout.planeScale ?? 1;
   let sx = 0,
     sy = 0;
-  if (game.shakeTimer > 0) {
+  if (game.shakeTimer > 0 && !game._debugMode) {
     sx = (Math.random() - 0.5) * game.shakeIntensity * 2;
     sy = (Math.random() - 0.5) * game.shakeIntensity * 2;
   }
