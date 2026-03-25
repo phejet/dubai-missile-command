@@ -335,99 +335,182 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     withAnchorScale(ctx, bx, by, layout.burjScale, () => {
       ctx.save();
 
-      // Tower silhouette path (reused for fill, stroke, clip)
+      // Setback tiers — the real Burj has Y-shaped cross section with visible steps
+      // Each tier: [heightFraction, halfWidth] — top to bottom
+      const tiers = [
+        [1.0, 3], // top of tower
+        [0.88, 4], // first setback
+        [0.73, 6], // second setback
+        [0.58, 8.5], // third setback
+        [0.42, 10.5], // fourth — observation deck area
+        [0.38, 12], // observation deck bulge
+        [0.35, 10.5], // below deck, steps back in
+        [0.22, 12], // fifth setback
+        [0.1, 14], // base widening
+        [0.0, 16], // ground level
+      ];
+
+      // Build tower silhouette from tiers
       function burjPath() {
         ctx.beginPath();
         ctx.moveTo(bx, by - bh - 30); // spire tip
-        ctx.lineTo(bx - 1.5, by - bh - 15);
-        ctx.lineTo(bx - 3, by - bh);
-        ctx.quadraticCurveTo(bx - 5, by - bh * 0.85, bx - 7, by - bh * 0.7);
-        ctx.quadraticCurveTo(bx - 9, by - bh * 0.55, bx - 11, by - bh * 0.4);
-        ctx.quadraticCurveTo(bx - 12, by - bh * 0.28, bx - 13, by - bh * 0.15);
-        ctx.quadraticCurveTo(bx - 14, by - bh * 0.08, bx - 15, by);
-        ctx.lineTo(bx + 15, by);
-        ctx.quadraticCurveTo(bx + 14, by - bh * 0.08, bx + 13, by - bh * 0.15);
-        ctx.quadraticCurveTo(bx + 12, by - bh * 0.28, bx + 11, by - bh * 0.4);
-        ctx.quadraticCurveTo(bx + 9, by - bh * 0.55, bx + 7, by - bh * 0.7);
-        ctx.quadraticCurveTo(bx + 5, by - bh * 0.85, bx + 3, by - bh);
-        ctx.lineTo(bx + 1.5, by - bh - 15);
+        ctx.lineTo(bx - 1.5, by - bh - 12);
+        // Left side — top to bottom
+        for (const [hf, hw] of tiers) {
+          ctx.lineTo(bx - hw, by - bh * hf);
+        }
+        // Right side — bottom to top
+        for (let i = tiers.length - 1; i >= 0; i--) {
+          ctx.lineTo(bx + tiers[i][1], by - bh * tiers[i][0]);
+        }
+        ctx.lineTo(bx + 1.5, by - bh - 12);
         ctx.closePath();
       }
 
-      // Main body — left-to-right gradient for 3D depth
-      const burjGrad = ctx.createLinearGradient(bx - 15, by - bh, bx + 15, by);
-      burjGrad.addColorStop(0, "#909ab0");
-      burjGrad.addColorStop(0.3, "#c0c8d8");
-      burjGrad.addColorStop(0.5, "#d8dde8");
-      burjGrad.addColorStop(0.7, "#b0b8c8");
-      burjGrad.addColorStop(1, "#707888");
+      // Main body — warm-to-cool vertical gradient (city light below, moonlight above)
+      const burjGrad = ctx.createLinearGradient(bx, by, bx, by - bh);
+      burjGrad.addColorStop(0, "#a08870"); // warm base (city light)
+      burjGrad.addColorStop(0.15, "#9a9088");
+      burjGrad.addColorStop(0.35, "#a0a8b8");
+      burjGrad.addColorStop(0.6, "#b8c0d0");
+      burjGrad.addColorStop(0.8, "#c8cedd");
+      burjGrad.addColorStop(1, "#d0d4e0"); // cool moonlit top
       ctx.fillStyle = burjGrad;
       burjPath();
       ctx.fill();
 
-      // Left edge highlight (moonlight)
+      // 3D shading — clip inside tower silhouette
       ctx.save();
       burjPath();
       ctx.clip();
-      const edgeLight = ctx.createLinearGradient(bx - 15, 0, bx - 5, 0);
-      edgeLight.addColorStop(0, "rgba(255,255,255,0.15)");
-      edgeLight.addColorStop(1, "rgba(255,255,255,0)");
-      ctx.fillStyle = edgeLight;
-      ctx.fillRect(bx - 15, by - bh - 30, 12, bh + 30);
 
-      // Right edge shadow
-      const edgeShadow = ctx.createLinearGradient(bx + 5, 0, bx + 15, 0);
-      edgeShadow.addColorStop(0, "rgba(0,0,0,0)");
-      edgeShadow.addColorStop(1, "rgba(0,0,0,0.2)");
-      ctx.fillStyle = edgeShadow;
-      ctx.fillRect(bx + 5, by - bh - 30, 12, bh + 30);
+      // Left face highlight (moonlight from upper left)
+      const moonHL = ctx.createLinearGradient(bx - 16, 0, bx - 2, 0);
+      moonHL.addColorStop(0, "rgba(220,230,255,0.2)");
+      moonHL.addColorStop(0.5, "rgba(200,215,240,0.08)");
+      moonHL.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = moonHL;
+      ctx.fillRect(bx - 16, by - bh - 30, 16, bh + 30);
 
-      // Horizontal floor lines — architectural detail
-      for (let i = 0; i < 25; i++) {
-        const ly = by - bh * 0.05 - bh * 0.85 * (i / 25);
-        const t = i / 25;
-        const hw = 15 - t * 12; // narrows toward top
-        ctx.fillStyle = `rgba(0,0,0,${0.08 + t * 0.04})`;
-        ctx.fillRect(bx - hw, ly, hw * 2, 1);
+      // Right face shadow
+      const rightShade = ctx.createLinearGradient(bx + 2, 0, bx + 16, 0);
+      rightShade.addColorStop(0, "rgba(0,0,0,0)");
+      rightShade.addColorStop(0.5, "rgba(0,0,0,0.08)");
+      rightShade.addColorStop(1, "rgba(0,0,0,0.22)");
+      ctx.fillStyle = rightShade;
+      ctx.fillRect(bx + 2, by - bh - 30, 16, bh + 30);
+
+      // Setback shadows — dark horizontal lines at each tier step
+      for (let i = 1; i < tiers.length; i++) {
+        const [hf, hw] = tiers[i];
+        const [, prevHw] = tiers[i - 1];
+        if (hw > prevHw) {
+          // Step out — draw shadow below the overhang
+          const ly = by - bh * hf;
+          ctx.fillStyle = "rgba(0,0,0,0.15)";
+          ctx.fillRect(bx - hw, ly, hw * 2, 3);
+          // Light catch on the top edge of the wider section
+          ctx.fillStyle = "rgba(255,255,255,0.06)";
+          ctx.fillRect(bx - hw, ly - 1, hw * 2, 1);
+        } else if (hw < prevHw) {
+          // Step in — subtle shadow line
+          const ly = by - bh * hf;
+          ctx.fillStyle = "rgba(0,0,0,0.08)";
+          ctx.fillRect(bx - prevHw, ly, prevHw * 2, 2);
+        }
       }
-      ctx.restore();
 
-      // Outline glow
-      glow(ctx, COL.burjGlow, 16 + Math.sin(game.time * 0.03) * 6);
-      ctx.strokeStyle = "rgba(68,136,255,0.3)";
-      ctx.lineWidth = 1;
+      // Floor lines — architectural horizontal details
+      for (let i = 0; i < 40; i++) {
+        const t = i / 40;
+        const ly = by - bh * 0.03 - bh * 0.94 * t;
+        // Find width at this height
+        let hw = 16;
+        for (let j = 0; j < tiers.length - 1; j++) {
+          if (t >= tiers[j + 1][0] && t <= tiers[j][0]) {
+            const frac = (t - tiers[j + 1][0]) / (tiers[j][0] - tiers[j + 1][0]);
+            hw = tiers[j + 1][1] + (tiers[j][1] - tiers[j + 1][1]) * frac;
+            break;
+          }
+        }
+        ctx.fillStyle = `rgba(0,0,0,${0.04 + t * 0.03})`;
+        ctx.fillRect(bx - hw + 1, ly, (hw - 1) * 2, 0.5);
+      }
+
+      // Panel sections — vertical dividers creating Y-shape impression
+      for (const [hf, hw] of tiers) {
+        if (hw < 5) continue;
+        const ly = by - bh * hf;
+        // Three vertical panel lines (Y-shape: center + two angled)
+        ctx.fillStyle = "rgba(0,0,0,0.06)";
+        ctx.fillRect(bx - 0.5, ly, 1, 12);
+        ctx.fillRect(bx - hw * 0.45, ly, 0.5, 12);
+        ctx.fillRect(bx + hw * 0.45, ly, 0.5, 12);
+      }
+
+      // Observation deck highlight — the wider bulge gets extra treatment
+      const deckY = by - bh * 0.4;
+      const deckGlow = ctx.createLinearGradient(bx - 12, deckY - 8, bx - 12, deckY + 16);
+      deckGlow.addColorStop(0, "rgba(255,220,160,0)");
+      deckGlow.addColorStop(0.4, "rgba(255,220,160,0.08)");
+      deckGlow.addColorStop(0.6, "rgba(255,220,160,0.08)");
+      deckGlow.addColorStop(1, "rgba(255,220,160,0)");
+      ctx.fillStyle = deckGlow;
+      ctx.fillRect(bx - 13, deckY - 8, 26, 24);
+
+      ctx.restore(); // end clip
+
+      // Outline — subtle blue glow
+      glow(ctx, COL.burjGlow, 12 + Math.sin(game.time * 0.03) * 5);
+      ctx.strokeStyle = "rgba(68,136,255,0.2)";
+      ctx.lineWidth = 0.8;
       burjPath();
       ctx.stroke();
       glowOff(ctx);
 
-      // Central spine — bright white line up the center
-      const spineGlow = ctx.createLinearGradient(bx, by - bh - 30, bx, by);
-      spineGlow.addColorStop(0, "rgba(255,255,255,0.5)");
-      spineGlow.addColorStop(0.15, "rgba(200,220,255,0.3)");
-      spineGlow.addColorStop(0.5, "rgba(160,200,255,0.15)");
-      spineGlow.addColorStop(1, "rgba(255,255,255,0)");
+      // Central spine — bright line running up the tower
+      const spineGlow = ctx.createLinearGradient(bx, by, bx, by - bh - 25);
+      spineGlow.addColorStop(0, "rgba(255,200,140,0.1)");
+      spineGlow.addColorStop(0.3, "rgba(220,230,255,0.25)");
+      spineGlow.addColorStop(0.6, "rgba(200,220,255,0.35)");
+      spineGlow.addColorStop(1, "rgba(255,255,255,0.5)");
       ctx.fillStyle = spineGlow;
-      ctx.fillRect(bx - 0.5, by - bh - 25, 1, bh + 20);
+      ctx.fillRect(bx - 0.4, by - bh - 25, 0.8, bh + 20);
 
-      // Window/light bands — blue horizontal strips
-      for (let i = 0; i < 18; i++) {
-        const ly = by - bh * 0.08 - bh * 0.82 * (i / 18);
-        const t = i / 18;
-        const lw = (8 - t * 5) * (1 + 0.1 * Math.sin(game.time * 0.05 + i * 0.5));
-        const lit = Math.sin(game.time * 0.05 + i * 0.5) > -0.2;
+      // Window/light bands — warm at base, blue at top
+      for (let i = 0; i < 22; i++) {
+        const t = i / 22;
+        const ly = by - bh * 0.05 - bh * 0.85 * t;
+        // Find width at this height
+        let lw = 8;
+        for (let j = 0; j < tiers.length - 1; j++) {
+          const ht = 0.05 + 0.85 * t;
+          if (ht >= tiers[j + 1][0] && ht <= tiers[j][0]) {
+            const frac = (ht - tiers[j + 1][0]) / (tiers[j][0] - tiers[j + 1][0]);
+            lw = (tiers[j + 1][1] + (tiers[j][1] - tiers[j + 1][1]) * frac) * 0.7;
+            break;
+          }
+        }
+        const lit = Math.sin(game.time * 0.05 + i * 0.5) > -0.3;
         if (lit) {
-          ctx.fillStyle = `rgba(68,136,255,${0.2 + 0.15 * Math.sin(game.time * 0.05 + i)})`;
+          // Warm at bottom, cool blue at top
+          const warmth = 1 - t;
+          const r = Math.floor(68 + warmth * 180);
+          const g = Math.floor(136 + warmth * 80);
+          const b = Math.floor(255 - warmth * 80);
+          const a = 0.15 + 0.12 * Math.sin(game.time * 0.05 + i);
+          ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
           ctx.fillRect(bx - lw, ly, lw * 2, 1.5);
         }
       }
 
-      // Warm base glow — city light reflecting up
-      const baseGlow = ctx.createRadialGradient(bx, by, 5, bx, by, 80);
-      baseGlow.addColorStop(0, "rgba(255, 180, 100, 0.12)");
-      baseGlow.addColorStop(0.5, "rgba(255, 150, 80, 0.05)");
+      // Warm base glow — city light reflecting up onto tower base
+      const baseGlow = ctx.createRadialGradient(bx, by, 5, bx, by, 100);
+      baseGlow.addColorStop(0, "rgba(255, 180, 100, 0.15)");
+      baseGlow.addColorStop(0.4, "rgba(255, 150, 80, 0.06)");
       baseGlow.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = baseGlow;
-      ctx.fillRect(bx - 80, by - 80, 160, 80);
+      ctx.fillRect(bx - 100, by - 100, 200, 100);
 
       // Aviation warning light at spire tip
       if (Math.sin(game.time * 0.1) > 0.5) {
