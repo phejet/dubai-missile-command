@@ -420,43 +420,105 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
         }
       }
 
-      // Floor lines — architectural horizontal details
-      for (let i = 0; i < 40; i++) {
-        const t = i / 40;
-        const ly = by - bh * 0.03 - bh * 0.94 * t;
-        // Find width at this height
-        let hw = 16;
+      // Cladding pattern — vertical glass strips between concrete panels
+      // Helper: get half-width at a given height fraction
+      function hwAt(ht) {
         for (let j = 0; j < tiers.length - 1; j++) {
-          if (t >= tiers[j + 1][0] && t <= tiers[j][0]) {
-            const frac = (t - tiers[j + 1][0]) / (tiers[j][0] - tiers[j + 1][0]);
-            hw = tiers[j + 1][1] + (tiers[j][1] - tiers[j + 1][1]) * frac;
-            break;
+          if (ht >= tiers[j + 1][0] && ht <= tiers[j][0]) {
+            const frac = (ht - tiers[j + 1][0]) / (tiers[j][0] - tiers[j + 1][0]);
+            return tiers[j + 1][1] + (tiers[j][1] - tiers[j + 1][1]) * frac;
           }
         }
-        ctx.fillStyle = `rgba(0,0,0,${0.04 + t * 0.03})`;
+        return 16;
+      }
+
+      // Vertical panel strips — three Y-wing sections running full height
+      for (let y = by - bh * 0.95; y < by; y += 3) {
+        const ht = (by - y) / bh;
+        const hw = hwAt(ht);
+        if (hw < 4) continue;
+        // Center panel divider
+        ctx.fillStyle = "rgba(0,0,0,0.05)";
+        ctx.fillRect(bx - 0.3, y, 0.6, 3);
+        // Wing panel dividers (Y-shape arms)
+        const wingX = hw * 0.4;
+        ctx.fillRect(bx - wingX - 0.3, y, 0.5, 3);
+        ctx.fillRect(bx + wingX, y, 0.5, 3);
+        // Glass strip highlights between panels (subtle bright vertical lines)
+        if (Math.floor(y) % 6 < 3) {
+          ctx.fillStyle = "rgba(180,210,255,0.04)";
+          ctx.fillRect(bx - wingX * 0.5, y, 0.4, 3);
+          ctx.fillRect(bx + wingX * 0.5, y, 0.4, 3);
+        }
+      }
+
+      // Floor lines — horizontal architectural details
+      for (let i = 0; i < 50; i++) {
+        const t = i / 50;
+        const ly = by - bh * 0.02 - bh * 0.95 * t;
+        const hw = hwAt(t);
+        // Alternating: thin dark line + thinner bright line (floor slab + glass)
+        ctx.fillStyle = `rgba(0,0,0,${0.04 + t * 0.02})`;
         ctx.fillRect(bx - hw + 1, ly, (hw - 1) * 2, 0.5);
+        if (i % 3 === 0) {
+          ctx.fillStyle = `rgba(200,220,255,${0.02 + t * 0.01})`;
+          ctx.fillRect(bx - hw + 1, ly + 0.5, (hw - 1) * 2, 0.3);
+        }
       }
 
-      // Panel sections — vertical dividers creating Y-shape impression
-      for (const [hf, hw] of tiers) {
-        if (hw < 5) continue;
-        const ly = by - bh * hf;
-        // Three vertical panel lines (Y-shape: center + two angled)
-        ctx.fillStyle = "rgba(0,0,0,0.06)";
-        ctx.fillRect(bx - 0.5, ly, 1, 12);
-        ctx.fillRect(bx - hw * 0.45, ly, 0.5, 12);
-        ctx.fillRect(bx + hw * 0.45, ly, 0.5, 12);
-      }
-
-      // Observation deck highlight — the wider bulge gets extra treatment
+      // Observation deck — the wider bulge at ~40% height
       const deckY = by - bh * 0.4;
-      const deckGlow = ctx.createLinearGradient(bx - 12, deckY - 8, bx - 12, deckY + 16);
-      deckGlow.addColorStop(0, "rgba(255,220,160,0)");
-      deckGlow.addColorStop(0.4, "rgba(255,220,160,0.08)");
-      deckGlow.addColorStop(0.6, "rgba(255,220,160,0.08)");
-      deckGlow.addColorStop(1, "rgba(255,220,160,0)");
+      // Deck platform edge
+      ctx.fillStyle = "rgba(255,255,255,0.08)";
+      ctx.fillRect(bx - 12, deckY - 1, 24, 1);
+      ctx.fillRect(bx - 12, deckY + 10, 24, 1);
+      // Warm interior glow (observation deck lit up at night)
+      const deckGlow = ctx.createLinearGradient(bx - 12, deckY, bx - 12, deckY + 10);
+      deckGlow.addColorStop(0, "rgba(255,220,160,0.1)");
+      deckGlow.addColorStop(0.5, "rgba(255,200,120,0.12)");
+      deckGlow.addColorStop(1, "rgba(255,220,160,0.06)");
       ctx.fillStyle = deckGlow;
-      ctx.fillRect(bx - 13, deckY - 8, 26, 24);
+      ctx.fillRect(bx - 11, deckY, 22, 10);
+      // Small observation windows
+      for (let w = -10; w <= 8; w += 4) {
+        ctx.fillStyle = "rgba(255,220,140,0.2)";
+        ctx.fillRect(bx + w, deckY + 2, 2.5, 5);
+      }
+
+      // Spire lattice detail — above the main tower body
+      const spireBase = by - bh;
+      const spireTip = by - bh - 30;
+      // Lattice cross-members
+      for (let i = 0; i < 5; i++) {
+        const sy = spireBase - i * 5;
+        const sw = 2.5 - i * 0.4;
+        ctx.strokeStyle = `rgba(180,190,210,${0.15 - i * 0.02})`;
+        ctx.lineWidth = 0.3;
+        ctx.beginPath();
+        ctx.moveTo(bx - sw, sy);
+        ctx.lineTo(bx + sw, sy);
+        ctx.stroke();
+      }
+      // Guide wires from spire
+      ctx.strokeStyle = "rgba(180,200,220,0.06)";
+      ctx.lineWidth = 0.3;
+      ctx.beginPath();
+      ctx.moveTo(bx, spireTip + 5);
+      ctx.lineTo(bx - 8, spireBase + 15);
+      ctx.moveTo(bx, spireTip + 5);
+      ctx.lineTo(bx + 8, spireBase + 15);
+      ctx.stroke();
+
+      // Base podium — wider structure at ground level
+      ctx.fillStyle = "rgba(80,70,60,0.6)";
+      ctx.fillRect(bx - 22, by - 8, 44, 8);
+      ctx.fillStyle = "rgba(100,90,75,0.4)";
+      ctx.fillRect(bx - 20, by - 6, 40, 4);
+      // Podium windows
+      for (let w = -18; w <= 16; w += 5) {
+        ctx.fillStyle = "rgba(255,200,120,0.15)";
+        ctx.fillRect(bx + w, by - 5, 3, 3);
+      }
 
       ctx.restore(); // end clip
 
@@ -478,22 +540,14 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
       ctx.fillRect(bx - 0.4, by - bh - 25, 0.8, bh + 20);
 
       // Window/light bands — warm at base, blue at top
-      for (let i = 0; i < 22; i++) {
-        const t = i / 22;
-        const ly = by - bh * 0.05 - bh * 0.85 * t;
-        // Find width at this height
-        let lw = 8;
-        for (let j = 0; j < tiers.length - 1; j++) {
-          const ht = 0.05 + 0.85 * t;
-          if (ht >= tiers[j + 1][0] && ht <= tiers[j][0]) {
-            const frac = (ht - tiers[j + 1][0]) / (tiers[j][0] - tiers[j + 1][0]);
-            lw = (tiers[j + 1][1] + (tiers[j][1] - tiers[j + 1][1]) * frac) * 0.7;
-            break;
-          }
-        }
+      for (let i = 0; i < 28; i++) {
+        const t = i / 28;
+        const ht = 0.04 + 0.9 * t;
+        const ly = by - bh * ht;
+        const lw = hwAt(ht) * 0.7;
+        if (lw < 2) continue;
         const lit = Math.sin(game.time * 0.05 + i * 0.5) > -0.3;
         if (lit) {
-          // Warm at bottom, cool blue at top
           const warmth = 1 - t;
           const r = Math.floor(68 + warmth * 180);
           const g = Math.floor(136 + warmth * 80);
@@ -502,6 +556,17 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
           ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
           ctx.fillRect(bx - lw, ly, lw * 2, 1.5);
         }
+      }
+
+      // Glass reflections — a few bright spots on the left face (moonlight catching)
+      for (let i = 0; i < 6; i++) {
+        const seed = hash01(17, i, 42);
+        const ht = 0.15 + seed * 0.7;
+        const hw = hwAt(ht);
+        const rx = bx - hw * 0.6 + seed * hw * 0.3;
+        const ry = by - bh * ht;
+        ctx.fillStyle = `rgba(255,255,255,${0.06 + seed * 0.06})`;
+        ctx.fillRect(rx, ry, 1.5, 2);
       }
 
       // Warm base glow — city light reflecting up onto tower base
