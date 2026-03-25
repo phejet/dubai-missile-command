@@ -367,60 +367,6 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
         ctx.closePath();
       }
 
-      // Main body — warm-to-cool vertical gradient (city light below, moonlight above)
-      const burjGrad = ctx.createLinearGradient(bx, by, bx, by - bh);
-      burjGrad.addColorStop(0, "#a08870"); // warm base (city light)
-      burjGrad.addColorStop(0.15, "#9a9088");
-      burjGrad.addColorStop(0.35, "#a0a8b8");
-      burjGrad.addColorStop(0.6, "#b8c0d0");
-      burjGrad.addColorStop(0.8, "#c8cedd");
-      burjGrad.addColorStop(1, "#d0d4e0"); // cool moonlit top
-      ctx.fillStyle = burjGrad;
-      burjPath();
-      ctx.fill();
-
-      // 3D shading — clip inside tower silhouette
-      ctx.save();
-      burjPath();
-      ctx.clip();
-
-      // Left face highlight (moonlight from upper left)
-      const moonHL = ctx.createLinearGradient(bx - 16, 0, bx - 2, 0);
-      moonHL.addColorStop(0, "rgba(220,230,255,0.2)");
-      moonHL.addColorStop(0.5, "rgba(200,215,240,0.08)");
-      moonHL.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = moonHL;
-      ctx.fillRect(bx - 16, by - bh - 30, 16, bh + 30);
-
-      // Right face shadow
-      const rightShade = ctx.createLinearGradient(bx + 2, 0, bx + 16, 0);
-      rightShade.addColorStop(0, "rgba(0,0,0,0)");
-      rightShade.addColorStop(0.5, "rgba(0,0,0,0.08)");
-      rightShade.addColorStop(1, "rgba(0,0,0,0.22)");
-      ctx.fillStyle = rightShade;
-      ctx.fillRect(bx + 2, by - bh - 30, 16, bh + 30);
-
-      // Setback shadows — dark horizontal lines at each tier step
-      for (let i = 1; i < tiers.length; i++) {
-        const [hf, hw] = tiers[i];
-        const [, prevHw] = tiers[i - 1];
-        if (hw > prevHw) {
-          // Step out — draw shadow below the overhang
-          const ly = by - bh * hf;
-          ctx.fillStyle = "rgba(0,0,0,0.15)";
-          ctx.fillRect(bx - hw, ly, hw * 2, 3);
-          // Light catch on the top edge of the wider section
-          ctx.fillStyle = "rgba(255,255,255,0.06)";
-          ctx.fillRect(bx - hw, ly - 1, hw * 2, 1);
-        } else if (hw < prevHw) {
-          // Step in — subtle shadow line
-          const ly = by - bh * hf;
-          ctx.fillStyle = "rgba(0,0,0,0.08)";
-          ctx.fillRect(bx - prevHw, ly, prevHw * 2, 2);
-        }
-      }
-
-      // Cladding pattern — vertical glass strips between concrete panels
       // Helper: get half-width at a given height fraction
       function hwAt(ht) {
         for (let j = 0; j < tiers.length - 1; j++) {
@@ -432,158 +378,167 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
         return 16;
       }
 
-      // Vertical panel strips — three Y-wing sections running full height
-      for (let y = by - bh * 0.95; y < by; y += 3) {
-        const ht = (by - y) / bh;
-        const hw = hwAt(ht);
-        if (hw < 4) continue;
-        // Center panel divider
-        ctx.fillStyle = "rgba(0,0,0,0.05)";
-        ctx.fillRect(bx - 0.3, y, 0.6, 3);
-        // Wing panel dividers (Y-shape arms)
-        const wingX = hw * 0.4;
-        ctx.fillRect(bx - wingX - 0.3, y, 0.5, 3);
-        ctx.fillRect(bx + wingX, y, 0.5, 3);
-        // Glass strip highlights between panels (subtle bright vertical lines)
-        if (Math.floor(y) % 6 < 3) {
-          ctx.fillStyle = "rgba(180,210,255,0.04)";
-          ctx.fillRect(bx - wingX * 0.5, y, 0.4, 3);
-          ctx.fillRect(bx + wingX * 0.5, y, 0.4, 3);
+      // === DRAMATIC GLOW AURA — drawn BEFORE the tower body ===
+      // Large warm corona radiating from the tower
+      const auraGrad = ctx.createRadialGradient(bx, by - bh * 0.3, 10, bx, by - bh * 0.3, 180);
+      auraGrad.addColorStop(0, "rgba(255,200,120,0.1)");
+      auraGrad.addColorStop(0.3, "rgba(255,170,80,0.05)");
+      auraGrad.addColorStop(0.6, "rgba(200,140,60,0.02)");
+      auraGrad.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = auraGrad;
+      ctx.fillRect(bx - 180, by - bh - 30, 360, bh + 60);
+
+      // Vertical light beam behind tower (uplight effect)
+      const beamGrad = ctx.createLinearGradient(bx - 30, by, bx + 30, by);
+      beamGrad.addColorStop(0, "rgba(0,0,0,0)");
+      beamGrad.addColorStop(0.3, "rgba(255,200,140,0.04)");
+      beamGrad.addColorStop(0.5, "rgba(255,220,160,0.06)");
+      beamGrad.addColorStop(0.7, "rgba(255,200,140,0.04)");
+      beamGrad.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = beamGrad;
+      ctx.fillRect(bx - 30, by - bh - 40, 60, bh + 50);
+
+      // === TOWER BODY ===
+      // Warm golden gradient — looks lit up at night
+      const burjGrad = ctx.createLinearGradient(bx, by, bx, by - bh);
+      burjGrad.addColorStop(0, "#c8a878"); // warm golden base
+      burjGrad.addColorStop(0.2, "#b8a080");
+      burjGrad.addColorStop(0.4, "#b0a898");
+      burjGrad.addColorStop(0.65, "#c0c0c8");
+      burjGrad.addColorStop(0.85, "#d0d0d8");
+      burjGrad.addColorStop(1, "#dde0e8"); // bright moonlit top
+      ctx.fillStyle = burjGrad;
+      burjPath();
+      ctx.fill();
+
+      // Clip for interior details
+      ctx.save();
+      burjPath();
+      ctx.clip();
+
+      // Strong left highlight — bright moonlight edge
+      const moonHL = ctx.createLinearGradient(bx - 16, 0, bx, 0);
+      moonHL.addColorStop(0, "rgba(255,255,255,0.3)");
+      moonHL.addColorStop(0.4, "rgba(220,230,255,0.12)");
+      moonHL.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = moonHL;
+      ctx.fillRect(bx - 16, by - bh - 30, 18, bh + 30);
+
+      // Deep right shadow
+      const rightShade = ctx.createLinearGradient(bx, 0, bx + 16, 0);
+      rightShade.addColorStop(0, "rgba(0,0,0,0)");
+      rightShade.addColorStop(0.4, "rgba(0,0,0,0.1)");
+      rightShade.addColorStop(1, "rgba(0,0,0,0.3)");
+      ctx.fillStyle = rightShade;
+      ctx.fillRect(bx, by - bh - 30, 18, bh + 30);
+
+      // Warm uplight on lower half
+      const uplightGrad = ctx.createLinearGradient(bx, by, bx, by - bh * 0.5);
+      uplightGrad.addColorStop(0, "rgba(255,180,80,0.2)");
+      uplightGrad.addColorStop(0.5, "rgba(255,160,60,0.06)");
+      uplightGrad.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = uplightGrad;
+      ctx.fillRect(bx - 16, by - bh * 0.5, 32, bh * 0.5);
+
+      // Setback tier shadows
+      for (let i = 1; i < tiers.length; i++) {
+        const [hf, hw] = tiers[i];
+        const [, prevHw] = tiers[i - 1];
+        if (hw > prevHw) {
+          const ly = by - bh * hf;
+          ctx.fillStyle = "rgba(0,0,0,0.18)";
+          ctx.fillRect(bx - hw, ly, hw * 2, 3);
+          ctx.fillStyle = "rgba(255,240,200,0.1)";
+          ctx.fillRect(bx - hw, ly - 1, hw * 2, 1);
         }
       }
 
-      // Floor lines — horizontal architectural details
-      for (let i = 0; i < 50; i++) {
-        const t = i / 50;
-        const ly = by - bh * 0.02 - bh * 0.95 * t;
-        const hw = hwAt(t);
-        // Alternating: thin dark line + thinner bright line (floor slab + glass)
-        ctx.fillStyle = `rgba(0,0,0,${0.04 + t * 0.02})`;
-        ctx.fillRect(bx - hw + 1, ly, (hw - 1) * 2, 0.5);
-        if (i % 3 === 0) {
-          ctx.fillStyle = `rgba(200,220,255,${0.02 + t * 0.01})`;
-          ctx.fillRect(bx - hw + 1, ly + 0.5, (hw - 1) * 2, 0.3);
+      // Window bands — bright warm strips, more visible
+      for (let i = 0; i < 30; i++) {
+        const t = i / 30;
+        const ht = 0.03 + 0.92 * t;
+        const ly = by - bh * ht;
+        const lw = hwAt(ht) * 0.75;
+        if (lw < 2) continue;
+        const lit = Math.sin(game.time * 0.05 + i * 0.5) > -0.4;
+        if (lit) {
+          const warmth = 1 - t;
+          const r = Math.floor(200 + warmth * 55);
+          const g = Math.floor(160 + warmth * 60);
+          const b = Math.floor(80 + (1 - warmth) * 140);
+          const a = 0.12 + 0.1 * Math.sin(game.time * 0.05 + i);
+          ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
+          ctx.fillRect(bx - lw, ly, lw * 2, 2);
         }
       }
 
-      // Observation deck — the wider bulge at ~40% height
+      // Observation deck — bright warm glow band
       const deckY = by - bh * 0.4;
-      // Deck platform edge
-      ctx.fillStyle = "rgba(255,255,255,0.08)";
-      ctx.fillRect(bx - 12, deckY - 1, 24, 1);
-      ctx.fillRect(bx - 12, deckY + 10, 24, 1);
-      // Warm interior glow (observation deck lit up at night)
-      const deckGlow = ctx.createLinearGradient(bx - 12, deckY, bx - 12, deckY + 10);
-      deckGlow.addColorStop(0, "rgba(255,220,160,0.1)");
-      deckGlow.addColorStop(0.5, "rgba(255,200,120,0.12)");
-      deckGlow.addColorStop(1, "rgba(255,220,160,0.06)");
-      ctx.fillStyle = deckGlow;
-      ctx.fillRect(bx - 11, deckY, 22, 10);
-      // Small observation windows
-      for (let w = -10; w <= 8; w += 4) {
-        ctx.fillStyle = "rgba(255,220,140,0.2)";
-        ctx.fillRect(bx + w, deckY + 2, 2.5, 5);
-      }
-
-      // Spire lattice detail — above the main tower body
-      const spireBase = by - bh;
-      const spireTip = by - bh - 30;
-      // Lattice cross-members
-      for (let i = 0; i < 5; i++) {
-        const sy = spireBase - i * 5;
-        const sw = 2.5 - i * 0.4;
-        ctx.strokeStyle = `rgba(180,190,210,${0.15 - i * 0.02})`;
-        ctx.lineWidth = 0.3;
-        ctx.beginPath();
-        ctx.moveTo(bx - sw, sy);
-        ctx.lineTo(bx + sw, sy);
-        ctx.stroke();
-      }
-      // Guide wires from spire
-      ctx.strokeStyle = "rgba(180,200,220,0.06)";
-      ctx.lineWidth = 0.3;
-      ctx.beginPath();
-      ctx.moveTo(bx, spireTip + 5);
-      ctx.lineTo(bx - 8, spireBase + 15);
-      ctx.moveTo(bx, spireTip + 5);
-      ctx.lineTo(bx + 8, spireBase + 15);
-      ctx.stroke();
-
-      // Base podium — wider structure at ground level
-      ctx.fillStyle = "rgba(80,70,60,0.6)";
-      ctx.fillRect(bx - 22, by - 8, 44, 8);
-      ctx.fillStyle = "rgba(100,90,75,0.4)";
-      ctx.fillRect(bx - 20, by - 6, 40, 4);
-      // Podium windows
-      for (let w = -18; w <= 16; w += 5) {
-        ctx.fillStyle = "rgba(255,200,120,0.15)";
-        ctx.fillRect(bx + w, by - 5, 3, 3);
+      ctx.fillStyle = "rgba(255,220,140,0.25)";
+      ctx.fillRect(bx - 12, deckY, 24, 12);
+      ctx.fillStyle = "rgba(255,255,220,0.15)";
+      ctx.fillRect(bx - 11, deckY + 2, 22, 8);
+      for (let w = -9; w <= 8; w += 3) {
+        ctx.fillStyle = "rgba(255,240,180,0.3)";
+        ctx.fillRect(bx + w, deckY + 3, 2, 5);
       }
 
       ctx.restore(); // end clip
 
-      // Outline — subtle blue glow
-      glow(ctx, COL.burjGlow, 12 + Math.sin(game.time * 0.03) * 5);
-      ctx.strokeStyle = "rgba(68,136,255,0.2)";
-      ctx.lineWidth = 0.8;
+      // Bright outline glow — the tower glows against the dark sky
+      glow(ctx, "#ffcc66", 25 + Math.sin(game.time * 0.03) * 8);
+      ctx.strokeStyle = "rgba(255,200,120,0.25)";
+      ctx.lineWidth = 1.2;
       burjPath();
       ctx.stroke();
       glowOff(ctx);
 
-      // Central spine — bright line running up the tower
+      // Secondary cool blue edge glow
+      glow(ctx, COL.burjGlow, 10);
+      ctx.strokeStyle = "rgba(100,160,255,0.15)";
+      ctx.lineWidth = 0.6;
+      burjPath();
+      ctx.stroke();
+      glowOff(ctx);
+
+      // Central spine — bright bright white
       const spineGlow = ctx.createLinearGradient(bx, by, bx, by - bh - 25);
-      spineGlow.addColorStop(0, "rgba(255,200,140,0.1)");
-      spineGlow.addColorStop(0.3, "rgba(220,230,255,0.25)");
-      spineGlow.addColorStop(0.6, "rgba(200,220,255,0.35)");
-      spineGlow.addColorStop(1, "rgba(255,255,255,0.5)");
+      spineGlow.addColorStop(0, "rgba(255,220,160,0.2)");
+      spineGlow.addColorStop(0.3, "rgba(255,240,200,0.35)");
+      spineGlow.addColorStop(0.7, "rgba(255,255,255,0.45)");
+      spineGlow.addColorStop(1, "rgba(255,255,255,0.6)");
       ctx.fillStyle = spineGlow;
-      ctx.fillRect(bx - 0.4, by - bh - 25, 0.8, bh + 20);
+      ctx.fillRect(bx - 0.5, by - bh - 25, 1, bh + 20);
 
-      // Window/light bands — warm at base, blue at top
-      for (let i = 0; i < 28; i++) {
-        const t = i / 28;
-        const ht = 0.04 + 0.9 * t;
-        const ly = by - bh * ht;
-        const lw = hwAt(ht) * 0.7;
-        if (lw < 2) continue;
-        const lit = Math.sin(game.time * 0.05 + i * 0.5) > -0.3;
-        if (lit) {
-          const warmth = 1 - t;
-          const r = Math.floor(68 + warmth * 180);
-          const g = Math.floor(136 + warmth * 80);
-          const b = Math.floor(255 - warmth * 80);
-          const a = 0.15 + 0.12 * Math.sin(game.time * 0.05 + i);
-          ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
-          ctx.fillRect(bx - lw, ly, lw * 2, 1.5);
-        }
-      }
+      // Warm ground pool — light spilling onto ground from tower
+      const poolGrad = ctx.createRadialGradient(bx, by + 5, 5, bx, by + 5, 150);
+      poolGrad.addColorStop(0, "rgba(255,180,100,0.2)");
+      poolGrad.addColorStop(0.3, "rgba(255,160,80,0.1)");
+      poolGrad.addColorStop(0.6, "rgba(200,120,50,0.04)");
+      poolGrad.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = poolGrad;
+      ctx.fillRect(bx - 150, by - 20, 300, 60);
 
-      // Glass reflections — a few bright spots on the left face (moonlight catching)
-      for (let i = 0; i < 6; i++) {
-        const seed = hash01(17, i, 42);
-        const ht = 0.15 + seed * 0.7;
-        const hw = hwAt(ht);
-        const rx = bx - hw * 0.6 + seed * hw * 0.3;
-        const ry = by - bh * ht;
-        ctx.fillStyle = `rgba(255,255,255,${0.06 + seed * 0.06})`;
-        ctx.fillRect(rx, ry, 1.5, 2);
-      }
+      // Base podium — wide, warmly lit
+      ctx.fillStyle = "#5a4a38";
+      ctx.fillRect(bx - 24, by - 6, 48, 6);
+      const podGrad = ctx.createLinearGradient(bx - 24, by - 6, bx - 24, by);
+      podGrad.addColorStop(0, "rgba(255,200,120,0.15)");
+      podGrad.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = podGrad;
+      ctx.fillRect(bx - 24, by - 6, 48, 6);
 
-      // Warm base glow — city light reflecting up onto tower base
-      const baseGlow = ctx.createRadialGradient(bx, by, 5, bx, by, 100);
-      baseGlow.addColorStop(0, "rgba(255, 180, 100, 0.15)");
-      baseGlow.addColorStop(0.4, "rgba(255, 150, 80, 0.06)");
-      baseGlow.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = baseGlow;
-      ctx.fillRect(bx - 100, by - 100, 200, 100);
-
-      // Aviation warning light at spire tip
-      if (Math.sin(game.time * 0.1) > 0.5) {
-        ctx.fillStyle = "#f00";
-        glow(ctx, "#f00", 15);
+      // Aviation warning light — dramatic red pulse
+      const redPulse = Math.sin(game.time * 0.1);
+      if (redPulse > 0.3) {
+        const redAlpha = (redPulse - 0.3) / 0.7;
+        ctx.fillStyle = "#ff0000";
+        glow(ctx, "#ff0000", 20 + redAlpha * 15);
+        ctx.globalAlpha = 0.5 + redAlpha * 0.5;
         ctx.beginPath();
         ctx.arc(bx, by - bh - 30, 3, 0, Math.PI * 2);
         ctx.fill();
+        ctx.globalAlpha = 1;
         glowOff(ctx);
       }
       if (game.upgrades.ironBeam > 0) {
