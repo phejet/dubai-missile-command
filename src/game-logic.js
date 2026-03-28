@@ -153,6 +153,12 @@ export function fireInterceptor(g, targetX, targetY) {
   return true;
 }
 
+// Editor override helper (duplicated from game-render.js to avoid circular import)
+function ov(key, fallback) {
+  const o = typeof window !== "undefined" && window.__editorOverrides;
+  return o && key in o ? o[key] : fallback;
+}
+
 let _explosionId = 0;
 export function createExplosion(g, x, y, radius, color, playerCaused, initialRadius = 0, options = {}) {
   g.explosions.push({
@@ -173,7 +179,7 @@ export function createExplosion(g, x, y, radius, color, playerCaused, initialRad
   let budget = MAX_PARTICLES - g.particles.length;
   const heavy = !playerCaused; // threat explosions get more/bigger particles
   // Dot particles (smoke puffs)
-  const dotCount = Math.min(heavy ? 10 : 6, budget);
+  const dotCount = Math.min(heavy ? ov("particle.dotCountHeavy", 10) : ov("particle.dotCountLight", 6), budget);
   for (let i = 0; i < dotCount; i++) {
     const angle = rand(0, Math.PI * 2);
     const sp = rand(1, heavy ? 6 : 4);
@@ -190,7 +196,7 @@ export function createExplosion(g, x, y, radius, color, playerCaused, initialRad
   }
   budget -= dotCount;
   // Debris shards — spinning triangular fragments (skip for interceptor detonation)
-  const debrisCount = playerCaused && !options.chain ? 0 : Math.min(16, budget);
+  const debrisCount = playerCaused && !options.chain ? 0 : Math.min(ov("particle.debrisCount", 16), budget);
   for (let i = 0; i < debrisCount; i++) {
     const angle = rand(0, Math.PI * 2);
     const sp = rand(1.5, 4);
@@ -207,15 +213,15 @@ export function createExplosion(g, x, y, radius, color, playerCaused, initialRad
       type: "debris",
       angle: rand(0, Math.PI * 2),
       spin: rand(-0.25, 0.25),
-      gravity: 0.15,
+      gravity: ov("particle.debrisGravity", 0.15),
       w: rand(2, 4),
       h: rand(2, 5),
-      drag: 0.96,
+      drag: ov("particle.debrisDrag", 0.96),
     });
   }
   budget -= debrisCount;
   // Sparks — fast bright particles with drag
-  const sparkCount = Math.min(heavy ? 14 : 8, budget);
+  const sparkCount = Math.min(heavy ? ov("particle.sparkCountHeavy", 14) : ov("particle.sparkCountLight", 8), budget);
   for (let i = 0; i < sparkCount; i++) {
     const angle = rand(0, Math.PI * 2);
     const sp = rand(4, heavy ? 12 : 8);
@@ -229,7 +235,7 @@ export function createExplosion(g, x, y, radius, color, playerCaused, initialRad
       color: _rng() > 0.5 ? "#fff" : "#ffee88",
       size: rand(0.5, heavy ? 2.5 : 1.5),
       type: "spark",
-      drag: 0.93,
+      drag: ov("particle.sparkDrag", 0.93),
       gravity: 0.02,
     });
   }

@@ -10,6 +10,7 @@
 .editor-canvas-wrap {
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   background: #000;
@@ -67,6 +68,22 @@
 .editor-actions button:hover {
   background: #223050;
   color: #aabbcc;
+}
+
+.play-btn {
+  background: #2a1a40 !important;
+  border-color: #4a2a66 !important;
+  color: #cc88ff !important;
+}
+
+.play-btn:hover {
+  background: #3a2a55 !important;
+}
+
+.play-btn--active {
+  background: #3a1a30 !important;
+  border-color: #5a2a44 !important;
+  color: #ff6688 !important;
 }
 
 .export-btn {
@@ -156,4 +173,29 @@
 
 .reset-btn:hover {
   color: #f44;
+}
+
+.editor-timeline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #0d0d1a;
+  border-top: 1px solid #1a2a44;
+  width: 100%;
+}
+
+.timeline-slider {
+  flex: 1;
+  height: 4px;
+  accent-color: #cc88ff;
+  cursor: pointer;
+}
+
+.timeline-tick {
+  font-size: 10px;
+  color: #556;
+  font-family: monospace;
+  min-width: 30px;
+  text-align: center;
 }

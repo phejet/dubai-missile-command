@@ -1385,9 +1385,9 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
       ctx.globalAlpha = ex.alpha;
       const grad = ctx.createRadialGradient(ex.x, ex.y, 0, ex.x, ex.y, r);
       grad.addColorStop(0, "#fff");
-      grad.addColorStop(0.15, "#ffeeaa");
-      grad.addColorStop(0.4, ex.color);
-      grad.addColorStop(0.75, "rgba(0,0,0,0)");
+      grad.addColorStop(ov("explosion.fireballWarmStop", 0.15), "#ffeeaa");
+      grad.addColorStop(ov("explosion.fireballColorStop", 0.4), ex.color);
+      grad.addColorStop(ov("explosion.fireballFadeStop", 0.75), "rgba(0,0,0,0)");
       grad.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = grad;
       ctx.beginPath();
@@ -1400,7 +1400,7 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
       const ringR = ex.ringRadius * effectScale;
       ctx.globalAlpha = ex.ringAlpha * ex.alpha;
       ctx.strokeStyle = ex.color;
-      ctx.lineWidth = Math.max(1, 3 * effectScale * ex.ringAlpha);
+      ctx.lineWidth = Math.max(1, ov("explosion.ringWidth", 3) * effectScale * ex.ringAlpha);
       ctx.beginPath();
       ctx.arc(ex.x, ex.y, ringR, 0, Math.PI * 2);
       ctx.stroke();

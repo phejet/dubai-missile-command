@@ -115,7 +115,7 @@ export function createEditorScene() {
         ringRadius: 20,
         ringAlpha: 0.6,
       },
-      // Interceptor detonation
+      // Interceptor detonation (fresh)
       {
         id: 2,
         x: 700,
@@ -123,13 +123,13 @@ export function createEditorScene() {
         radius: 74,
         maxRadius: 74,
         growing: false,
-        alpha: 0.7,
-        color: COL.explosion,
+        alpha: 1.0,
+        color: "#44ffaa",
         playerCaused: true,
         harmless: false,
         chain: false,
-        ringRadius: 40,
-        ringAlpha: 0.3,
+        ringRadius: 0,
+        ringAlpha: 1,
       },
       // Chain explosion (fading)
       {
