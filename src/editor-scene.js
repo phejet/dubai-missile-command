@@ -42,14 +42,15 @@ export function createEditorScene() {
     ammo: [8, 11, 5],
     launcherHP: [1, 1, 1],
     missiles: [
-      { x: 300, y: 180, vx: 0.5, vy: 1.8, alive: true, trail: [] },
-      { x: 650, y: 250, vx: -0.3, vy: 2.0, alive: true, trail: [] },
-      { x: 150, y: 120, vx: 0.8, vy: 1.5, alive: true, trail: [], type: "mirv", health: 3 },
+      { x: 300, y: -400, vx: 0.5, vy: 1.8, alive: true, trail: [] },
+      { x: 650, y: -200, vx: -0.3, vy: 2.0, alive: true, trail: [] },
+      { x: 150, y: -550, vx: 0.8, vy: 1.5, alive: true, trail: [], type: "mirv", health: 3 },
+      { x: 480, y: -100, vx: -0.2, vy: 1.6, alive: true, trail: [] },
     ],
     drones: [
       {
         x: 100,
-        y: 200,
+        y: -300,
         vx: 1.5,
         vy: 0.3,
         alive: true,
@@ -62,7 +63,7 @@ export function createEditorScene() {
       },
       {
         x: 750,
-        y: 160,
+        y: -500,
         vx: -1.2,
         vy: 0.5,
         alive: true,
@@ -73,37 +74,50 @@ export function createEditorScene() {
         pathIndex: 0,
         waypoints: [],
       },
+      {
+        x: 450,
+        y: 50,
+        vx: 1.0,
+        vy: 0.4,
+        alive: true,
+        subtype: "shahed136",
+        health: 2,
+        heading: 0.1,
+        trail: [],
+        pathIndex: 0,
+        waypoints: [],
+      },
     ],
     interceptors: [
       {
         x: 200,
-        y: 350,
+        y: 150,
         vx: 1,
         vy: -2.5,
         alive: true,
         heading: -1.2,
-        trail: Array.from({ length: 15 }, (_, i) => ({ x: 200 - i * 0.7, y: 350 + i * 1.8 })),
+        trail: Array.from({ length: 15 }, (_, i) => ({ x: 200 - i * 0.7, y: 150 + i * 1.8 })),
         targetX: 300,
-        targetY: 180,
+        targetY: -400,
       },
       {
         x: 600,
-        y: 400,
+        y: 200,
         vx: -0.5,
         vy: -3,
         alive: true,
         heading: -1.7,
-        trail: Array.from({ length: 12 }, (_, i) => ({ x: 600 + i * 0.4, y: 400 + i * 2.2 })),
+        trail: Array.from({ length: 12 }, (_, i) => ({ x: 600 + i * 0.4, y: 200 + i * 2.2 })),
         targetX: 650,
-        targetY: 250,
+        targetY: -200,
       },
     ],
     explosions: [
-      // Threat explosion (growing)
+      // Threat explosion (growing) — upper area
       {
         id: 1,
-        x: 400,
-        y: 300,
+        x: 350,
+        y: -200,
         radius: 35,
         maxRadius: 55,
         growing: true,
@@ -115,11 +129,11 @@ export function createEditorScene() {
         ringRadius: 20,
         ringAlpha: 0.6,
       },
-      // Interceptor detonation (fresh)
+      // Interceptor detonation (fresh) — mid area
       {
         id: 2,
         x: 700,
-        y: 350,
+        y: 100,
         radius: 74,
         maxRadius: 74,
         growing: false,
@@ -131,11 +145,11 @@ export function createEditorScene() {
         ringRadius: 0,
         ringAlpha: 1,
       },
-      // Chain explosion (fading)
+      // Chain explosion (fading) — between upper and mid
       {
         id: 3,
-        x: 500,
-        y: 200,
+        x: 200,
+        y: -50,
         radius: 40,
         maxRadius: 45,
         growing: false,
@@ -149,10 +163,10 @@ export function createEditorScene() {
       },
     ],
     particles: [
-      // Dots
+      // Dots (around threat explosion)
       ...Array.from({ length: 8 }, () => ({
-        x: 400 + (Math.random() - 0.5) * 60,
-        y: 300 + (Math.random() - 0.5) * 60,
+        x: 350 + (Math.random() - 0.5) * 60,
+        y: -200 + (Math.random() - 0.5) * 60,
         vx: (Math.random() - 0.5) * 4,
         vy: (Math.random() - 0.5) * 4,
         life: 20 + Math.random() * 30,
@@ -160,10 +174,10 @@ export function createEditorScene() {
         color: Math.random() > 0.5 ? "#ffcc00" : "#ff6600",
         size: 1 + Math.random() * 3,
       })),
-      // Debris
+      // Debris (around chain explosion)
       ...Array.from({ length: 6 }, () => ({
-        x: 500 + (Math.random() - 0.5) * 80,
-        y: 200 + (Math.random() - 0.5) * 60,
+        x: 200 + (Math.random() - 0.5) * 80,
+        y: -50 + (Math.random() - 0.5) * 60,
         vx: (Math.random() - 0.5) * 3,
         vy: -1 + Math.random() * 2,
         life: 30 + Math.random() * 30,
@@ -178,10 +192,10 @@ export function createEditorScene() {
         h: 2 + Math.random() * 3,
         drag: 0.96,
       })),
-      // Sparks
+      // Sparks (around interceptor explosion)
       ...Array.from({ length: 8 }, () => ({
         x: 700 + (Math.random() - 0.5) * 40,
-        y: 350 + (Math.random() - 0.5) * 40,
+        y: 100 + (Math.random() - 0.5) * 40,
         vx: (Math.random() - 0.5) * 8,
         vy: (Math.random() - 0.5) * 8,
         life: 10 + Math.random() * 15,

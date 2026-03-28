@@ -5,6 +5,25 @@ import { createEditorScene } from "./editor-scene.js";
 import { PARAM_GROUPS, getDefaults } from "./editor-params.js";
 import "./EditorApp.css";
 
+// Portrait canvas dimensions (9:16 aspect)
+const PORTRAIT_H = Math.round((CANVAS_W * 16) / 9);
+const WORLD_OFFSET_Y = PORTRAIT_H - CANVAS_H;
+const PORTRAIT_LAYOUT = {
+  showTopHud: false,
+  showSystemLabels: false,
+  externalTitle: true,
+  externalGameOver: true,
+  renderHeight: PORTRAIT_H,
+  worldOffsetY: WORLD_OFFSET_Y,
+  buildingScale: 2,
+  burjScale: 2,
+  launcherScale: 3,
+  enemyScale: 3,
+  projectileScale: 2,
+  effectScale: 2,
+  planeScale: 3,
+};
+
 // Expose overrides globally for game-render.js to pick up
 window.__editorOverrides = null;
 
@@ -29,9 +48,9 @@ function createPlayScene() {
   const scene = createEditorScene();
   scene.explosions = [];
   scene.particles = [];
-  createExplosion(scene, 400, 300, 55, COL.explosion, false); // threat
-  createExplosion(scene, 700, 350, 74, COL.interceptor, true, 0); // interceptor
-  createExplosion(scene, 500, 200, 45, "#ff4400", false, 0, { chain: true }); // chain
+  createExplosion(scene, 350, -200, 55, COL.explosion, false); // threat
+  createExplosion(scene, 700, 100, 74, COL.interceptor, true, 0); // interceptor
+  createExplosion(scene, 200, -50, 45, "#ff4400", false, 0, { chain: true }); // chain
   scene.shakeTimer = 0;
   scene.shakeIntensity = 0;
   return scene;
@@ -134,7 +153,7 @@ export default function EditorApp() {
           setTick(tickRef.current);
         }
       }
-      drawGame(ctx, sceneRef.current, { showShop: false, layoutProfile: {} });
+      drawGame(ctx, sceneRef.current, { showShop: false, layoutProfile: PORTRAIT_LAYOUT });
       rafRef.current = requestAnimationFrame(loop);
     }
     rafRef.current = requestAnimationFrame(loop);
@@ -223,7 +242,7 @@ export default function EditorApp() {
   return (
     <div className="editor-root">
       <div className="editor-canvas-wrap">
-        <canvas ref={canvasRef} width={CANVAS_W} height={CANVAS_H} className="editor-canvas" />
+        <canvas ref={canvasRef} width={CANVAS_W} height={PORTRAIT_H} className="editor-canvas" />
         {hasPlayed && (
           <div className="editor-timeline">
             <span className="timeline-tick">{tick}</span>
