@@ -197,10 +197,10 @@ describe("createExplosion", () => {
     expect(ex.playerCaused).toBe(true);
   });
 
-  it("creates 19 particles (6 dots + 5 debris + 8 sparks)", () => {
+  it("creates 40 particles (10 dots + 16 debris + 14 sparks) for threat explosion", () => {
     const g = makeGameState();
     createExplosion(g, 100, 200, 30, "#ff0000");
-    expect(g.particles).toHaveLength(19);
+    expect(g.particles).toHaveLength(40);
   });
 });
 

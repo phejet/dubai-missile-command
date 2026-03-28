@@ -1232,6 +1232,10 @@ function updateDrones(g, _rng, dt, onEvent) {
     d.wobble += 0.05 * dt;
     if (d.subtype === "shahed238") {
       // Follow precomputed Bezier trajectory
+      if (!d.waypoints || d.waypoints.length < 2) {
+        d.alive = false;
+        return;
+      }
       const prevX = d.x;
       const prevY = d.y;
       d.pathIndex = Math.min(d.pathIndex + dt * dSlow, d.waypoints.length - 1);

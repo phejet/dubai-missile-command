@@ -10,6 +10,7 @@ import {
   burjHalfW,
   getAmmoCapacity,
   getPhalanxTurrets,
+  ov,
 } from "./game-logic.js";
 import { UPGRADES } from "./game-sim.js";
 
@@ -28,6 +29,9 @@ function getSkyImage() {
   img.src = new URL("../public/sky-nebula.png", import.meta.url).href;
   img.onload = () => {
     _skyImg = img;
+  };
+  img.onerror = () => {
+    _skyLoading = false; // allow retry on next call
   };
   return null;
 }
@@ -82,12 +86,6 @@ function withAnchorScale(ctx, anchorX, anchorY, scale, draw) {
 
 const GLOW_SCALE = 0.45;
 
-// Editor override helper — returns override value if editor is active, otherwise fallback
-export function ov(key, fallback) {
-  const o = typeof window !== "undefined" && window.__editorOverrides;
-  return o && key in o ? o[key] : fallback;
-}
-
 export function glow(ctx, color, radius) {
   if (!ov("glow.enabled", perfState.glowEnabled)) return;
   ctx.shadowColor = color;
@@ -95,7 +93,7 @@ export function glow(ctx, color, radius) {
 }
 
 export function glowOff(ctx) {
-  if (!perfState.glowEnabled) return;
+  if (!ov("glow.enabled", perfState.glowEnabled)) return;
   ctx.shadowBlur = 0;
 }
 

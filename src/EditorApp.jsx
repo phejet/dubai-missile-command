@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from "react";
-import { CANVAS_W, CANVAS_H, COL, createExplosion } from "./game-logic.js";
-import { drawGame, ov } from "./game-render.js";
+import { CANVAS_W, CANVAS_H, COL, createExplosion, ov } from "./game-logic.js";
+import { drawGame } from "./game-render.js";
 import { createEditorScene } from "./editor-scene.js";
 import { PARAM_GROUPS, getDefaults } from "./editor-params.js";
 import "./EditorApp.css";
@@ -77,9 +77,9 @@ function simTick(scene, dt) {
       ex.ringAlpha -= ringFade * dt;
     }
   });
+  const dragByType = { debris: debrisDrag, spark: sparkDrag };
   scene.particles.forEach((p) => {
-    // Use live override values based on particle type
-    const drag = p.type === "debris" ? debrisDrag : p.type === "spark" ? sparkDrag : 1;
+    const drag = dragByType[p.type] ?? 1;
     const gravity = p.type === "debris" ? debrisGravity : (p.gravity ?? 0.05);
     if (drag < 1) {
       p.vx *= drag;
@@ -161,7 +161,7 @@ export default function EditorApp() {
   }, []);
 
   const handleChange = useCallback((key, raw, paramDef) => {
-    const val = paramDef.type === "checkbox" ? raw : Number(raw);
+    const val = paramDef.type === "checkbox" ? raw : paramDef.type === "color" ? raw : Number(raw);
     setValues((prev) => ({ ...prev, [key]: val }));
   }, []);
 
@@ -184,8 +184,16 @@ export default function EditorApp() {
     console.log("=== EDITOR EXPORT ===");
     console.log(JSON.stringify(output, null, 2));
     // Also copy to clipboard
-    navigator.clipboard?.writeText(JSON.stringify(output, null, 2));
-    alert(`Exported ${Object.keys(output).length} values to console (and clipboard)`);
+    const json = JSON.stringify(output, null, 2);
+    const n = Object.keys(output).length;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(json).then(
+        () => alert(`Exported ${n} values to console and clipboard`),
+        () => alert(`Exported ${n} values to console (clipboard copy failed)`),
+      );
+    } else {
+      alert(`Exported ${n} values to console`);
+    }
   }, [values]);
 
   const toggleGroup = useCallback((name) => {
@@ -227,7 +235,7 @@ export default function EditorApp() {
     }
   }, []);
 
-  // Spacebar hotkey for play
+  // "A" key hotkey for play/pause
   useEffect(() => {
     function onKeyDown(e) {
       if (e.code === "KeyA" && e.target.tagName !== "INPUT") {
@@ -238,6 +246,18 @@ export default function EditorApp() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [playExplosions]);
+
+  const startScrub = useCallback(() => {
+    scrubbingRef.current = true;
+    if (playingRef.current) {
+      playingRef.current = false;
+      setPlaying(false);
+    }
+  }, []);
+
+  const stopScrub = useCallback(() => {
+    scrubbingRef.current = false;
+  }, []);
 
   return (
     <div className="editor-root">
@@ -253,26 +273,10 @@ export default function EditorApp() {
               min={0}
               max={maxTick}
               value={tick}
-              onMouseDown={() => {
-                scrubbingRef.current = true;
-                if (playingRef.current) {
-                  playingRef.current = false;
-                  setPlaying(false);
-                }
-              }}
-              onMouseUp={() => {
-                scrubbingRef.current = false;
-              }}
-              onTouchStart={() => {
-                scrubbingRef.current = true;
-                if (playingRef.current) {
-                  playingRef.current = false;
-                  setPlaying(false);
-                }
-              }}
-              onTouchEnd={() => {
-                scrubbingRef.current = false;
-              }}
+              onMouseDown={startScrub}
+              onMouseUp={stopScrub}
+              onTouchStart={startScrub}
+              onTouchEnd={stopScrub}
               onChange={(e) => scrubToTick(Number(e.target.value))}
             />
             <span className="timeline-tick">{maxTick}</span>

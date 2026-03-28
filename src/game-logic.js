@@ -153,8 +153,8 @@ export function fireInterceptor(g, targetX, targetY) {
   return true;
 }
 
-// Editor override helper (duplicated from game-render.js to avoid circular import)
-function ov(key, fallback) {
+// Editor override helper — returns override value if editor is active, otherwise fallback
+export function ov(key, fallback) {
   const o = typeof window !== "undefined" && window.__editorOverrides;
   return o && key in o ? o[key] : fallback;
 }
