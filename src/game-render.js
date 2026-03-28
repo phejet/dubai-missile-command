@@ -81,10 +81,17 @@ function withAnchorScale(ctx, anchorX, anchorY, scale, draw) {
 }
 
 const GLOW_SCALE = 0.45;
+
+// Editor override helper — returns override value if editor is active, otherwise fallback
+export function ov(key, fallback) {
+  const o = typeof window !== "undefined" && window.__editorOverrides;
+  return o && key in o ? o[key] : fallback;
+}
+
 export function glow(ctx, color, radius) {
-  if (!perfState.glowEnabled) return;
+  if (!ov("glow.enabled", perfState.glowEnabled)) return;
   ctx.shadowColor = color;
-  ctx.shadowBlur = radius * GLOW_SCALE;
+  ctx.shadowBlur = radius * ov("glow.scale", GLOW_SCALE);
 }
 
 export function glowOff(ctx) {
@@ -135,14 +142,14 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
   // Nebula overlay — subtle texture, not dominant
   const skyImg = getSkyImage();
   if (skyImg) {
-    ctx.globalAlpha = 0.4;
+    ctx.globalAlpha = ov("sky.nebulaOpacity", 0.4);
     ctx.drawImage(skyImg, 0, 0, CANVAS_W, renderHeight);
     ctx.globalAlpha = 1;
   }
 
   // Animated twinkling stars
   game.stars.forEach((s) => {
-    const twinkle = 0.35 + 0.65 * Math.sin(game.time * 0.02 + s.twinkle);
+    const twinkle = 0.35 + 0.65 * Math.sin(game.time * ov("sky.starTwinkleSpeed", 0.02) + s.twinkle);
     const drawStar = (y) => {
       if (y < 0 || y > renderHeight) return;
       ctx.globalAlpha = twinkle;
@@ -386,7 +393,7 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
       // === DRAMATIC GLOW AURA — drawn BEFORE the tower body ===
       // Large warm corona radiating from the tower
       const auraGrad = ctx.createRadialGradient(bx, by - bh * 0.3, 10, bx, by - bh * 0.3, 180);
-      auraGrad.addColorStop(0, "rgba(255,200,120,0.1)");
+      auraGrad.addColorStop(0, `rgba(255,200,120,${ov("burj.coronaAlpha", 0.1)})`);
       auraGrad.addColorStop(0.3, "rgba(255,170,80,0.05)");
       auraGrad.addColorStop(0.6, "rgba(200,140,60,0.02)");
       auraGrad.addColorStop(1, "rgba(0,0,0,0)");
@@ -439,7 +446,7 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
 
       // Warm uplight on lower half
       const uplightGrad = ctx.createLinearGradient(bx, by, bx, by - bh * 0.5);
-      uplightGrad.addColorStop(0, "rgba(255,180,80,0.08)");
+      uplightGrad.addColorStop(0, `rgba(255,180,80,${ov("burj.uplightAlpha", 0.08)})`);
       uplightGrad.addColorStop(0.5, "rgba(255,160,60,0.03)");
       uplightGrad.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = uplightGrad;
@@ -491,7 +498,7 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
       ctx.restore(); // end clip
 
       // Bright outline glow — the tower glows against the dark sky
-      glow(ctx, "#ffcc66", 25 + Math.sin(game.time * 0.03) * 8);
+      glow(ctx, "#ffcc66", ov("burj.outlineGlowRadius", 25) + Math.sin(game.time * 0.03) * 8);
       ctx.strokeStyle = "rgba(255,200,120,0.25)";
       ctx.lineWidth = 1.2;
       burjPath();
@@ -516,8 +523,8 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
       ctx.fillRect(bx - 0.5, by - bh - 25, 1, bh + 20);
 
       // Warm ground pool — light spilling onto ground from tower
-      const poolGrad = ctx.createRadialGradient(bx, by + 5, 5, bx, by + 5, 150);
-      poolGrad.addColorStop(0, "rgba(255,180,100,0.08)");
+      const poolGrad = ctx.createRadialGradient(bx, by + 5, 5, bx, by + 5, ov("burj.basePoolRadius", 150));
+      poolGrad.addColorStop(0, `rgba(255,180,100,${ov("burj.basePoolAlpha", 0.08)})`);
       poolGrad.addColorStop(0.3, "rgba(255,160,80,0.04)");
       poolGrad.addColorStop(0.6, "rgba(200,120,50,0.015)");
       poolGrad.addColorStop(1, "rgba(0,0,0,0)");
@@ -1351,7 +1358,7 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     if (isInterceptorBlast) {
       // Interceptor detonation — punchy flash + particles, no blob
       const popR = r * 0.35;
-      if (ex.alpha > 0.85) {
+      if (ex.alpha > ov("explosion.flashThreshold", 0.85)) {
         const flashT = (ex.alpha - 0.85) / 0.15;
         ctx.globalAlpha = flashT;
         ctx.fillStyle = ex.color;
@@ -1449,8 +1456,8 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
       if (ex.alpha < 0.15) return;
       const r = ex.radius * effectScale;
       if (r < 5) return;
-      const intensity = ex.alpha * 0.12;
-      const lightR = r * 4;
+      const intensity = ex.alpha * ov("explosion.lightIntensity", 0.12);
+      const lightR = r * ov("explosion.lightRadiusMul", 4);
       const grad = ctx.createRadialGradient(ex.x, ex.y, 0, ex.x, ex.y, lightR);
       // Parse explosion color for tinting, fallback to warm orange
       grad.addColorStop(0, `rgba(255, 180, 100, ${intensity})`);
@@ -1861,7 +1868,7 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
   );
   vignette.addColorStop(0, "rgba(0,0,0,0)");
   vignette.addColorStop(0.68, "rgba(0,0,0,0.08)");
-  vignette.addColorStop(1, "rgba(2,4,12,0.42)");
+  vignette.addColorStop(1, `rgba(2,4,12,${ov("sky.vignetteAlpha", 0.42)})`);
   ctx.fillStyle = vignette;
   ctx.fillRect(0, 0, CANVAS_W, renderHeight);
   ctx.fillStyle = "rgba(140, 220, 255, 0.035)";

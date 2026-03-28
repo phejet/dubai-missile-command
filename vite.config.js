@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+import { resolve } from "path";
 import react from "@vitejs/plugin-react";
 import replayPlugin from "./vite-replay-plugin.js";
 
@@ -6,6 +7,14 @@ import replayPlugin from "./vite-replay-plugin.js";
 export default defineConfig({
   plugins: [react(), replayPlugin()],
   base: "/dubai-missile-command/",
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, "index.html"),
+        editor: resolve(__dirname, "editor.html"),
+      },
+    },
+  },
   test: {
     exclude: ["e2e/**", "node_modules/**"],
     coverage: {

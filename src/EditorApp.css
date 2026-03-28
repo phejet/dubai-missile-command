@@ -1,0 +1,159 @@
+.editor-root {
+  display: flex;
+  height: 100vh;
+  background: #0a0a14;
+  color: #ccd;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+}
+
+.editor-canvas-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  min-width: 0;
+}
+
+.editor-canvas {
+  max-width: 100%;
+  max-height: 100vh;
+  object-fit: contain;
+}
+
+.editor-panel {
+  width: 320px;
+  min-width: 280px;
+  overflow-y: auto;
+  background: #111622;
+  border-left: 1px solid #1a2a44;
+  padding: 0;
+}
+
+.editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid #1a2a44;
+  position: sticky;
+  top: 0;
+  background: #111622;
+  z-index: 10;
+}
+
+.editor-header h2 {
+  margin: 0;
+  font-size: 15px;
+  color: #00ffcc;
+}
+
+.editor-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.editor-actions button {
+  padding: 4px 10px;
+  border: 1px solid #2a3a55;
+  background: #1a2540;
+  color: #8899aa;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.editor-actions button:hover {
+  background: #223050;
+  color: #aabbcc;
+}
+
+.export-btn {
+  background: #1a3530 !important;
+  border-color: #2a5545 !important;
+  color: #00ffcc !important;
+}
+
+.editor-group {
+  border-bottom: 1px solid #1a2a44;
+}
+
+.editor-group-header {
+  padding: 8px 14px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #778;
+  user-select: none;
+}
+
+.editor-group-header:hover {
+  background: #161e30;
+  color: #99a;
+}
+
+.editor-group-body {
+  padding: 0 14px 10px;
+}
+
+.editor-param {
+  margin-bottom: 8px;
+}
+
+.editor-label {
+  display: block;
+  font-size: 11px;
+  color: #889;
+  margin-bottom: 3px;
+}
+
+.editor-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.editor-control input[type="range"] {
+  flex: 1;
+  height: 4px;
+  accent-color: #00ffcc;
+}
+
+.editor-control input[type="checkbox"] {
+  accent-color: #00ffcc;
+  width: 16px;
+  height: 16px;
+}
+
+.editor-control input[type="color"] {
+  width: 40px;
+  height: 24px;
+  border: 1px solid #2a3a55;
+  background: transparent;
+  cursor: pointer;
+}
+
+.editor-value {
+  min-width: 42px;
+  text-align: right;
+  font-size: 11px;
+  color: #66ccaa;
+  font-family: monospace;
+}
+
+.reset-btn {
+  background: none;
+  border: none;
+  color: #556;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.reset-btn:hover {
+  color: #f44;
+}
