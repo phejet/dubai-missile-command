@@ -257,43 +257,22 @@ export function initGame() {
   return g;
 }
 
-function getRenderWorldOffsetY(g) {
-  return Math.max(0, g?._renderWorldOffsetY || 0);
-}
-
-function getEnemySpeedScale(g) {
-  return Math.max(1, g?._enemySpeedScale || 1);
-}
-
-function getInterceptorSpeedScale(g) {
-  return Math.max(1, g?._interceptorSpeedScale || 1);
-}
-
 function wrapAngle(angle) {
   while (angle > Math.PI) angle -= Math.PI * 2;
   while (angle < -Math.PI) angle += Math.PI * 2;
   return angle;
 }
 
-function shiftSpawnYForRender(g, y) {
-  return y - getRenderWorldOffsetY(g);
-}
-
-function shiftSpawnRangeForRender(g, [min, max]) {
-  const offsetY = getRenderWorldOffsetY(g);
-  return [min - offsetY, max - offsetY];
-}
-
 export function spawnMirv(g, onEvent) {
   const startX = rand(100, CANVAS_W - 100);
   const target = pickTarget(g, startX);
   if (!target) return;
-  const startY = shiftSpawnYForRender(g, -20);
+  const startY = -20;
   const dx = target.x - startX;
   const dy = target.y - startY;
   const len = Math.sqrt(dx * dx + dy * dy);
   if (len < 1) return;
-  const speed = (rand(0.6, 0.9) + g.wave * 0.05) * getEnemySpeedScale(g);
+  const speed = (rand(0.6, 0.9) + g.wave * 0.05) * 2;
   const hp = 3 + Math.floor(g.wave / 4);
   g.missiles.push({
     x: startX,
@@ -306,7 +285,7 @@ export function spawnMirv(g, onEvent) {
     type: "mirv",
     health: hp,
     maxHealth: hp,
-    splitY: shiftSpawnYForRender(g, rand(120, 200)),
+    splitY: rand(120, 200),
     warheadCount: 5 + Math.min(3, Math.max(0, Math.floor((g.wave - 8) / 3))),
     splitTriggered: false,
     empSlowTimer: 0,
@@ -318,12 +297,10 @@ export function spawnMirv(g, onEvent) {
 export function spawnPlane(g, onEvent) {
   const _rng = getRng();
   const goRight = _rng() > 0.5;
-  const [planeMinY, planeMaxY] = shiftSpawnRangeForRender(g, [80, 200]);
-  const speedScale = getEnemySpeedScale(g);
   g.planes.push({
     x: goRight ? -60 : CANVAS_W + 60,
-    y: rand(planeMinY, planeMaxY),
-    vx: (goRight ? rand(2.8, 4.0) : rand(-4.0, -2.8)) * speedScale,
+    y: rand(80, 200),
+    vx: goRight ? rand(5.6, 8.0) : rand(-8.0, -5.6),
     vy: 0,
     blinkTimer: 0,
     alive: true,
@@ -336,9 +313,10 @@ export function spawnPlane(g, onEvent) {
 
 export function spawnMissile(g, overrides) {
   const _rng = getRng();
-  const speed = (rand(0.5, 1.0) + g.wave * 0.08) * getEnemySpeedScale(g);
-  const [sideMinY, sideMaxY] = shiftSpawnRangeForRender(g, [20, 200]);
-  const topSpawnY = shiftSpawnYForRender(g, -10);
+  const speed = (rand(0.5, 1.0) + g.wave * 0.08) * 2;
+  const sideMinY = 20,
+    sideMaxY = 200;
+  const topSpawnY = -10;
   let startX, startY;
   const side = overrides?.side;
   if (side === "left") {
@@ -385,13 +363,13 @@ export function spawnDroneOfType(g, subtype, overrides) {
   const _rng = getRng();
   const isJet = subtype === "shahed238";
   const side = overrides?.side;
-  const yRange = shiftSpawnRangeForRender(g, overrides?.yRange || [80, 250]);
+  const yRange = overrides?.yRange || [80, 250];
   let goingRight;
   if (side === "left") goingRight = true;
   else if (side === "right") goingRight = false;
   else goingRight = _rng() > 0.5;
   const baseSpeed = isJet ? rand(2.5, 3.9) : rand(0.6, 1.2);
-  const speed = (baseSpeed + g.wave * 0.05) * getEnemySpeedScale(g);
+  const speed = (baseSpeed + g.wave * 0.05) * 2;
   const health = isJet ? 1 : 1 + Math.floor(g.wave / 3);
   const spawnX = goingRight ? -20 : CANVAS_W + 20;
   const spawnY = rand(yRange[0], yRange[1]);
@@ -652,8 +630,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
   g.hornets.forEach((h) => {
     if (!h.alive) return;
     h.life -= dt;
-    const woY = getRenderWorldOffsetY(g);
-    if (h.life <= 0 || h.x < -60 || h.x > CANVAS_W + 60 || h.y < -(woY + 60) || h.y > CANVAS_H + 20) {
+    if (h.life <= 0 || h.x < -60 || h.x > CANVAS_W + 60 || h.y < -60 || h.y > CANVAS_H + 20) {
       h.alive = false;
       boom(g, h.x, h.y, h.blastRadius * 0.5, COL.hornet, false, onEvent, h.blastRadius * 0.2);
       return;
@@ -997,8 +974,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
   g.patriotMissiles.forEach((p) => {
     if (!p.alive) return;
     p.life -= dt;
-    const pWoY = getRenderWorldOffsetY(g);
-    if (p.life <= 0 || p.x < -60 || p.x > CANVAS_W + 60 || p.y < -(pWoY + 60) || p.y > CANVAS_H + 20) {
+    if (p.life <= 0 || p.x < -60 || p.x > CANVAS_W + 60 || p.y < -60 || p.y > CANVAS_H + 20) {
       p.alive = false;
       boom(g, p.x, p.y, p.blastRadius * 0.5, COL.patriot, false, onEvent, p.blastRadius * 0.2);
       return;
@@ -1102,7 +1078,6 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
 }
 
 function updateMissiles(g, dt, onEvent) {
-  const enemySpeedScale = getEnemySpeedScale(g);
   g.missiles.forEach((m) => {
     if (!m.alive) return;
     m.trail.push({ x: m.x, y: m.y });
@@ -1150,7 +1125,7 @@ function updateMissiles(g, dt, onEvent) {
         const dx = t.x - m.x;
         const dy = t.y - m.y;
         const len = Math.sqrt(dx * dx + dy * dy);
-        const spd = (rand(0.8, 1.2) + g.wave * 0.06) * enemySpeedScale;
+        const spd = (rand(0.8, 1.2) + g.wave * 0.06) * 2;
         g.missiles.push({
           x: m.x + rand(-10, 10),
           y: m.y + rand(-5, 5),
@@ -1239,7 +1214,6 @@ function updateMissiles(g, dt, onEvent) {
 }
 
 function updateDrones(g, _rng, dt, onEvent) {
-  const enemySpeedScale = getEnemySpeedScale(g);
   g.drones.forEach((d) => {
     if (!d.alive) return;
     // Lured drones self-destruct after guidance scramble
@@ -1279,8 +1253,8 @@ function updateDrones(g, _rng, dt, onEvent) {
           g.missiles.push({
             x: d.x,
             y: d.y,
-            vx: (bombT.x - d.x) * 0.002 * enemySpeedScale,
-            vy: rand(1.2, 2.0) * enemySpeedScale,
+            vx: (bombT.x - d.x) * 0.004,
+            vy: rand(2.4, 4.0),
             trail: [],
             alive: true,
             type: "bomb",
@@ -1303,8 +1277,8 @@ function updateDrones(g, _rng, dt, onEvent) {
               g.missiles.push({
                 x: d.x,
                 y: d.y,
-                vx: (tx - d.x) * 0.002 * enemySpeedScale,
-                vy: rand(1.2, 2.0) * enemySpeedScale,
+                vx: (tx - d.x) * 0.004,
+                vy: rand(2.4, 4.0),
                 trail: [],
                 alive: true,
                 type: "bomb",
@@ -1392,7 +1366,6 @@ function updateDrones(g, _rng, dt, onEvent) {
 }
 
 function updateInterceptors(g, dt, onEvent) {
-  const speedScale = getInterceptorSpeedScale(g);
   g.interceptors.forEach((ic) => {
     if (!ic.alive) return;
     ic.trail.push({ x: ic.x, y: ic.y });
@@ -1400,7 +1373,7 @@ function updateInterceptors(g, dt, onEvent) {
     if (!ic.fromF15 && typeof ic.heading === "number") {
       const desiredHeading = Math.atan2(ic.targetY - ic.y, ic.targetX - ic.x);
       const headingDelta = wrapAngle(desiredHeading - ic.heading);
-      const maxTurn = (ic.turnRate || 0.055) * speedScale * dt;
+      const maxTurn = (ic.turnRate || 0.22) * dt;
       ic.heading += Math.max(-maxTurn, Math.min(maxTurn, headingDelta));
       if (ic.accel) {
         ic.speed = Math.min(ic.maxSpeed || ic.speed, ic.speed * ic.accel ** dt);
@@ -1412,13 +1385,13 @@ function updateInterceptors(g, dt, onEvent) {
     ic.y += ic.vy * dt;
     let detonate = false;
     // Scale proximity thresholds with speed so fast interceptors don't skip past targets
-    const detonateRadius = 16 * speedScale;
+    const detonateRadius = 64;
     if (dist(ic.x, ic.y, ic.targetX, ic.targetY) < detonateRadius) {
       detonate = true;
     }
     // Proximity fuse: detonate early if passing close to any threat
     if (!detonate && !ic.fromF15) {
-      const fuseRadius = 18 * speedScale;
+      const fuseRadius = 72;
       for (const m of g.missiles) {
         if (m.alive && dist(ic.x, ic.y, m.x, m.y) < fuseRadius) {
           detonate = true;
@@ -1522,8 +1495,6 @@ function updateExplosions(g, dt, onEvent) {
 }
 
 function updatePlanes(g, dt, allThreats, onEvent) {
-  const enemySpeedScale = getEnemySpeedScale(g);
-  const interceptorSpeedScale = getInterceptorSpeedScale(g);
   g.planes.forEach((p) => {
     if (!p.alive) return;
     p.blinkTimer += dt;
@@ -1538,15 +1509,14 @@ function updatePlanes(g, dt, allThreats, onEvent) {
     } else {
       g.explosions.forEach((ex) => {
         if (ex.playerCaused && ex.growing && p.alive && dist(p.x, p.y, ex.x, ex.y) < 120) {
-          p.vy = (ex.y > p.y ? -3 : 3) * enemySpeedScale;
+          p.vy = ex.y > p.y ? -6 : 6;
           p.evadeTimer = 30;
         }
       });
     }
 
     p.x += p.vx * dt;
-    const offsetY = getRenderWorldOffsetY(g);
-    p.y = Math.max(60 - offsetY, Math.min(220 - offsetY, p.y + p.vy * dt));
+    p.y = Math.max(60, Math.min(220, p.y + p.vy * dt));
     p.fireTimer += dt;
     if (p.fireTimer >= p.fireInterval) {
       let closest = null,
@@ -1560,7 +1530,7 @@ function updatePlanes(g, dt, allThreats, onEvent) {
       });
       if (closest) {
         p.fireTimer = 0;
-        const spd = 11 * interceptorSpeedScale;
+        const spd = 44;
         let aimX = closest.x,
           aimY = closest.y;
         const accelFactor = closest.accel ? closest.accel ** 8 : 1;
@@ -1698,8 +1668,7 @@ export function update(g, dt, onEvent) {
 
   const allThreats = [...g.missiles.filter((m) => m.alive), ...g.drones.filter((d) => d.alive)];
   // Auto-defense systems only target threats visible on screen
-  const woY = getRenderWorldOffsetY(g);
-  const visibleThreats = allThreats.filter((t) => t.y >= -woY);
+  const visibleThreats = allThreats.filter((t) => t.y >= 0);
   updateAutoSystems(g, dt, visibleThreats, onEvent);
   updateMissiles(g, dt, onEvent);
   updateDrones(g, _rng, dt, onEvent);

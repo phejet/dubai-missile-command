@@ -1,6 +1,6 @@
 export const CANVAS_W = 900;
-export const CANVAS_H = 640;
-export const GROUND_Y = 570;
+export const CANVAS_H = 1600;
+export const GROUND_Y = 1530;
 export const CITY_Y = GROUND_Y;
 
 export const COL = {
@@ -127,10 +127,9 @@ export function fireInterceptor(g, targetX, targetY) {
   if (!g.launcherFireTick) g.launcherFireTick = [0, 0, 0];
   g.launcherFireTick[bestIdx] = g._replayTick || 0;
   const l = LAUNCHERS[bestIdx];
-  const speedScale = Math.max(1, g?._interceptorSpeedScale || 1);
   const targetAngle = Math.atan2(targetY - l.y, targetX - l.x);
   const launchAngle = -Math.PI / 2 + (targetAngle + Math.PI / 2) * 0.32;
-  const speed = 2.72 * speedScale;
+  const speed = 10.88;
   const dx = targetX - l.x;
   const dy = targetY - l.y;
   const len = Math.sqrt(dx * dx + dy * dy);
@@ -145,8 +144,8 @@ export function fireInterceptor(g, targetX, targetY) {
     heading: launchAngle,
     speed,
     accel: 1.03,
-    maxSpeed: 4.64 * speedScale,
-    turnRate: 0.055,
+    maxSpeed: 18.56,
+    turnRate: 0.22,
     trail: [],
     alive: true,
   });

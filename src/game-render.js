@@ -57,7 +57,6 @@ const DEFAULT_LAYOUT_PROFILE = {
   multiKillBonusSize: 16,
   cameraFrame: null,
   renderHeight: CANVAS_H,
-  worldOffsetY: 0,
   buildingScale: 1,
   burjScale: 1,
   launcherScale: 1,
@@ -110,7 +109,6 @@ export function pulse(time, speed, phase = 0, min = 0, max = 1) {
 export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {}) {
   const layout = resolveLayoutProfile(layoutProfile);
   const renderHeight = layout.renderHeight ?? CANVAS_H;
-  const worldOffsetY = layout.worldOffsetY ?? 0;
   const enemyScale = layout.enemyScale ?? 1;
   const projectileScale = layout.projectileScale ?? 1;
   const effectScale = layout.effectScale ?? 1;
@@ -159,7 +157,6 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
       glowOff(ctx);
     };
     drawStar(s.y);
-    if (worldOffsetY > 0) drawStar(s.y + worldOffsetY);
   });
   ctx.globalAlpha = 1;
 
@@ -174,8 +171,6 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
   ctx.beginPath();
   ctx.arc(788, 55, 22, 0, Math.PI * 2);
   ctx.fill();
-
-  ctx.translate(0, worldOffsetY);
 
   // Atmospheric bloom over the skyline
   const skylineGlow = ctx.createRadialGradient(BURJ_X, GROUND_Y - 60, 40, BURJ_X, GROUND_Y - 60, 420);

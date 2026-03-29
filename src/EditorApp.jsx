@@ -5,16 +5,11 @@ import { createEditorScene } from "./editor-scene.js";
 import { PARAM_GROUPS, getDefaults } from "./editor-params.js";
 import "./EditorApp.css";
 
-// Portrait canvas dimensions (9:16 aspect)
-const PORTRAIT_H = Math.round((CANVAS_W * 16) / 9);
-const WORLD_OFFSET_Y = PORTRAIT_H - CANVAS_H;
-const PORTRAIT_LAYOUT = {
+const EDITOR_LAYOUT = {
   showTopHud: false,
   showSystemLabels: false,
   externalTitle: true,
   externalGameOver: true,
-  renderHeight: PORTRAIT_H,
-  worldOffsetY: WORLD_OFFSET_Y,
   buildingScale: 2,
   burjScale: 2,
   launcherScale: 3,
@@ -154,7 +149,7 @@ export default function EditorApp() {
           setTick(tickRef.current);
         }
       }
-      drawGame(ctx, sceneRef.current, { showShop: false, layoutProfile: PORTRAIT_LAYOUT });
+      drawGame(ctx, sceneRef.current, { showShop: false, layoutProfile: EDITOR_LAYOUT });
       rafRef.current = requestAnimationFrame(loop);
     }
     rafRef.current = requestAnimationFrame(loop);
@@ -263,7 +258,7 @@ export default function EditorApp() {
   return (
     <div className="editor-root">
       <div className="editor-canvas-wrap">
-        <canvas ref={canvasRef} width={CANVAS_W} height={PORTRAIT_H} className="editor-canvas" />
+        <canvas ref={canvasRef} width={CANVAS_W} height={CANVAS_H} className="editor-canvas" />
         {hasPlayed && (
           <div className="editor-timeline">
             <span className="timeline-tick">{tick}</span>

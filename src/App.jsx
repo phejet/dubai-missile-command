@@ -63,9 +63,16 @@ const LAYOUT_PROFILES = {
     purchaseToastY: CANVAS_H * 0.38,
     lowAmmoFontSize: 34,
     lowAmmoY: CANVAS_H * 0.42,
-    waveClearedY: 336,
+    waveClearedY: CANVAS_H * 0.5,
     multiKillLabelSize: 28,
     multiKillBonusSize: 20,
+    buildingScale: 2,
+    burjScale: 2,
+    launcherScale: 3,
+    enemyScale: 3,
+    projectileScale: 2,
+    effectScale: 2,
+    planeScale: 3,
   },
   phoneLandscape: {
     key: "phoneLandscape",
@@ -232,18 +239,13 @@ export default function DubaiMissileCommand() {
   const [draftMode, setDraftMode] = useState(true);
   const [viewport, setViewport] = useState(getViewportSnapshot);
   const [hudSnapshot, setHudSnapshot] = useState(EMPTY_HUD);
-  const [battlefieldRect, setBattlefieldRect] = useState({ width: 0, height: 0 });
+  const [, setBattlefieldRect] = useState({ width: 0, height: 0 });
 
   const uiMode = getUiMode(viewport);
   const layoutProfile = getLayoutProfile(uiMode);
   const isPhonePortrait = uiMode === "phonePortrait";
   const isCompactPortrait = isPhonePortrait && viewport.height <= 760;
   const combatCamera = getPortraitCombatCamera(uiMode, screen);
-  const renderCanvasHeight =
-    isPhonePortrait && screen === "playing" && battlefieldRect.width > 0 && battlefieldRect.height > 0
-      ? Math.max(CANVAS_H, Math.round((battlefieldRect.height / battlefieldRect.width) * CANVAS_W))
-      : CANVAS_H;
-  const worldOffsetY = renderCanvasHeight - CANVAS_H;
 
   const syncHudSnapshot = useCallback((game, { force = false } = {}) => {
     const now = typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -266,14 +268,11 @@ export default function DubaiMissileCommand() {
     gameRef.current._replayCheckpoints = [];
     gameRef.current._replayCheckpointLastTick = -Infinity;
     gameRef.current._replayCheckpointLastHash = null;
-    gameRef.current._renderWorldOffsetY = 0;
-    gameRef.current._enemySpeedScale = isPhonePortrait ? 2 : 1;
-    gameRef.current._interceptorSpeedScale = isPhonePortrait ? 4 : 1;
     maybeRecordReplayCheckpoint(gameRef.current, { force: true, reason: "start" });
     shopBoughtRef.current = [];
     window.__gameRef = gameRef;
     syncHudSnapshot(gameRef.current, { force: true });
-  }, [draftMode, isPhonePortrait, syncHudSnapshot]);
+  }, [draftMode, syncHudSnapshot]);
 
   const handleSimEvent = useCallback(
     function handleSimEvent(type, data) {
@@ -437,24 +436,9 @@ export default function DubaiMissileCommand() {
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
-    const activeLayoutProfile =
-      isPhonePortrait && screen === "playing"
-        ? {
-            ...getLayoutProfile(uiMode),
-            cameraFrame: combatCamera,
-            renderHeight: renderCanvasHeight,
-            worldOffsetY,
-            buildingScale: 2,
-            burjScale: 2,
-            launcherScale: 3,
-            enemyScale: 3,
-            projectileScale: 2,
-            effectScale: 2,
-            planeScale: 3,
-          }
-        : combatCamera
-          ? { ...getLayoutProfile(uiMode), cameraFrame: combatCamera }
-          : getLayoutProfile(uiMode);
+    const activeLayoutProfile = combatCamera
+      ? { ...getLayoutProfile(uiMode), cameraFrame: combatCamera }
+      : getLayoutProfile(uiMode);
 
     function loop(timestamp) {
       if (!perfState.probed && screen === "playing" && gameRef.current) {
@@ -473,9 +457,6 @@ export default function DubaiMissileCommand() {
         const elapsed = timestamp - lastTimeRef.current;
         lastTimeRef.current = timestamp;
         const game = gameRef.current;
-        game._renderWorldOffsetY = isPhonePortrait && screen === "playing" ? worldOffsetY : 0;
-        game._enemySpeedScale = isPhonePortrait && screen === "playing" ? 2 : 1;
-        game._interceptorSpeedScale = isPhonePortrait && screen === "playing" ? 4 : 1;
         game._fpsFrames = (game._fpsFrames || 0) + 1;
         game._fpsAccum = (game._fpsAccum || 0) + elapsed;
         if (game._fpsAccum >= 500) {
@@ -570,12 +551,10 @@ export default function DubaiMissileCommand() {
     finalWave,
     handleSimEvent,
     isPhonePortrait,
-    renderCanvasHeight,
     screen,
     showShop,
     syncHudSnapshot,
     uiMode,
-    worldOffsetY,
   ]);
 
   useEffect(() => {
@@ -609,18 +588,13 @@ export default function DubaiMissileCommand() {
     if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
     const canvasX = (clientX - rect.left) * (CANVAS_W / rect.width);
-    const canvasY = (clientY - rect.top) * (renderCanvasHeight / rect.height);
-    if (!combatCamera && worldOffsetY <= 0) {
-      return {
-        x: canvasX,
-        y: canvasY,
-      };
+    const canvasY = (clientY - rect.top) * (CANVAS_H / rect.height);
+    if (!combatCamera) {
+      return { x: canvasX, y: canvasY };
     }
     return {
-      x: combatCamera ? clamp(combatCamera.left + canvasX / combatCamera.scale, 0, CANVAS_W) : canvasX,
-      y: combatCamera
-        ? clamp(combatCamera.top + canvasY / combatCamera.scale, -worldOffsetY, CANVAS_H)
-        : clamp(canvasY - worldOffsetY, -worldOffsetY, CANVAS_H),
+      x: clamp(combatCamera.left + canvasX / combatCamera.scale, 0, CANVAS_W),
+      y: clamp(combatCamera.top + canvasY / combatCamera.scale, 0, CANVAS_H),
     };
   }
 
@@ -874,7 +848,7 @@ export default function DubaiMissileCommand() {
             <canvas
               ref={canvasRef}
               width={CANVAS_W}
-              height={renderCanvasHeight}
+              height={CANVAS_H}
               onPointerDown={handleCanvasPointerDown}
               onPointerMove={handleCanvasPointerMove}
               onPointerLeave={handleCanvasPointerLeave}

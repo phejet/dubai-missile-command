@@ -204,7 +204,7 @@ describe("Decoy flares", () => {
     sim.updateAutoSystems(g, 1, [droneOnly]);
     expect(g.flares).toHaveLength(0);
 
-    const missile = makeBallisticMissile({ x: BURJ_X + 30, y: 260 });
+    const missile = makeBallisticMissile({ x: BURJ_X + 30, y: GROUND_Y - 200 });
     g.missiles.push(missile);
     sim.updateAutoSystems(g, 1, [missile]);
     expect(g.flares.length).toBeGreaterThan(0);
