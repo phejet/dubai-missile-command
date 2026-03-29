@@ -211,9 +211,9 @@ export function createEditorScene() {
     buildings: allBuildings,
     burjAlive: true,
     burjHealth: 5,
-    stars: Array.from({ length: 120 }, () => ({
+    stars: Array.from({ length: 200 }, () => ({
       x: Math.random() * CANVAS_W,
-      y: Math.random() * CANVAS_H * 0.6,
+      y: -CANVAS_H * 1.2 + Math.random() * CANVAS_H * 1.8,
       size: 0.5 + Math.random() * 1.5,
       twinkle: Math.random() * Math.PI * 2,
     })),

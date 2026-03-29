@@ -1382,10 +1382,13 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
       // All other explosions — gradient fireball
       ctx.globalAlpha = ex.alpha;
       const grad = ctx.createRadialGradient(ex.x, ex.y, 0, ex.x, ex.y, r);
+      const warmStop = ov("explosion.fireballWarmStop", 0.15);
+      const colorStop = Math.max(warmStop, ov("explosion.fireballColorStop", 0.4));
+      const fadeStop = Math.max(colorStop, ov("explosion.fireballFadeStop", 0.75));
       grad.addColorStop(0, "#fff");
-      grad.addColorStop(ov("explosion.fireballWarmStop", 0.15), "#ffeeaa");
-      grad.addColorStop(ov("explosion.fireballColorStop", 0.4), ex.color);
-      grad.addColorStop(ov("explosion.fireballFadeStop", 0.75), "rgba(0,0,0,0)");
+      grad.addColorStop(warmStop, "#ffeeaa");
+      grad.addColorStop(colorStop, ex.color);
+      grad.addColorStop(fadeStop, "rgba(0,0,0,0)");
       grad.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = grad;
       ctx.beginPath();
