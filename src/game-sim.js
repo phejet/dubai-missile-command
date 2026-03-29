@@ -449,7 +449,11 @@ function pickHornetTarget(allThreats, activeHornets, lvl) {
     }
   });
 
-  const scored = aliveThreats.map((t) => {
+  // Prefer unassigned threats — only double up if every threat already has a hornet
+  const unassigned = aliveThreats.filter((t) => !assignmentCounts.has(t));
+  const pool = unassigned.length > 0 ? unassigned : aliveThreats;
+
+  const scored = pool.map((t) => {
     let priority = 0;
     if (t.type === "bomb") priority = 400;
     else if (t.type === "drone") priority = 300;
@@ -1838,7 +1842,7 @@ export function fireEmp(g, onEvent) {
   g.empReady = false;
   g.empRings.push({
     x: BURJ_X,
-    y: GROUND_Y - BURJ_H * 0.5,
+    y: GROUND_Y - BURJ_H * 0.67,
     radius: 0,
     maxRadius: [250, 400, 550][lvl - 1],
     damage: lvl,

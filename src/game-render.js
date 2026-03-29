@@ -1670,7 +1670,7 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
 
   // EMP emitter — mounted at center of Burj
   if (game.upgrades.emp > 0) {
-    const empY = GROUND_Y - BURJ_H * 0.5;
+    const empY = GROUND_Y - BURJ_H * 0.67;
     const lvl = game.upgrades.emp;
     // Mounting ring on Burj
     ctx.strokeStyle = "#7a5a9a";

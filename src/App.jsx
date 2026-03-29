@@ -256,6 +256,9 @@ export default function DubaiMissileCommand() {
     const seed = (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0;
     setRng(mulberry32(seed));
     gameRef.current = simInitGame();
+    // Starting upgrades
+    simBuyUpgrade(gameRef.current, "wildHornets");
+    simBuyUpgrade(gameRef.current, "emp");
     gameRef.current._gameSeed = seed;
     gameRef.current._draftMode = draftMode;
     gameRef.current._actionLog = [];
