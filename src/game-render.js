@@ -1634,62 +1634,94 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     }
   }
 
-  // Flare launcher
+  // Flare launcher — pods mounted near top of Burj
   if (game.upgrades.flare > 0) {
-    ctx.fillStyle = "#4a3a28";
-    ctx.fillRect(BURJ_X - 27, GROUND_Y - 14, 10, 14);
+    const flareY = GROUND_Y - BURJ_H * 0.9;
+    const lvl = game.upgrades.flare;
+    // Left pod
     ctx.fillStyle = "#5a4a38";
-    ctx.fillRect(BURJ_X - 26, GROUND_Y - 20, 8, 8);
-    // Tubes
+    ctx.fillRect(BURJ_X - 10, flareY - 3, 6, 6);
     ctx.fillStyle = "#3a2a18";
-    for (let i = 0; i < game.upgrades.flare; i++) {
-      ctx.fillRect(BURJ_X - 25 + i * 3, GROUND_Y - 24, 2, 6);
+    for (let i = 0; i < Math.min(lvl, 2); i++) {
+      ctx.fillRect(BURJ_X - 10 + i * 3, flareY - 6, 2, 4);
+    }
+    // Right pod (at level 2+)
+    if (lvl >= 2) {
+      ctx.fillStyle = "#5a4a38";
+      ctx.fillRect(BURJ_X + 4, flareY - 3, 6, 6);
+      ctx.fillStyle = "#3a2a18";
+      for (let i = 0; i < lvl - 1; i++) {
+        ctx.fillRect(BURJ_X + 4 + i * 3, flareY - 6, 2, 4);
+      }
+    }
+    // Warm glow when flares are active
+    if (game.flares.some((f) => f.alive && f.life > f.maxLife - 10)) {
+      ctx.fillStyle = "rgba(255,160,60,0.3)";
+      ctx.beginPath();
+      ctx.arc(BURJ_X, flareY, 8, 0, Math.PI * 2);
+      ctx.fill();
     }
     if (layout.showSystemLabels) {
       ctx.fillStyle = "rgba(255,136,51,0.6)";
       ctx.font = "7px monospace";
-      ctx.fillText("FLARE", BURJ_X - 35, GROUND_Y + 10);
+      ctx.fillText("FLARE", BURJ_X - 15, flareY + 14);
     }
   }
 
-  // Tesla coils (EMP)
+  // EMP emitter — mounted at center of Burj
   if (game.upgrades.emp > 0) {
-    const tcX = BURJ_X + 25;
-    // Poles
-    ctx.fillStyle = "#5a4a6a";
-    ctx.fillRect(tcX - 8, GROUND_Y - 22, 3, 22);
-    ctx.fillRect(tcX + 5, GROUND_Y - 22, 3, 22);
-    // Spheres
+    const empY = GROUND_Y - BURJ_H * 0.5;
+    const lvl = game.upgrades.emp;
+    // Mounting ring on Burj
+    ctx.strokeStyle = "#7a5a9a";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(BURJ_X, empY, 7, 0, Math.PI * 2);
+    ctx.stroke();
+    // Coil nodes (more at higher levels)
+    const nodeCount = lvl + 1;
     ctx.fillStyle = "#8866aa";
+    for (let i = 0; i < nodeCount; i++) {
+      const angle = (i / nodeCount) * Math.PI * 2 - Math.PI / 2;
+      const nx = BURJ_X + Math.cos(angle) * 7;
+      const ny = empY + Math.sin(angle) * 7;
+      ctx.beginPath();
+      ctx.arc(nx, ny, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Center core
+    ctx.fillStyle = "#6644aa";
     ctx.beginPath();
-    ctx.arc(tcX - 6.5, GROUND_Y - 24, 4, 0, Math.PI * 2);
+    ctx.arc(BURJ_X, empY, 3, 0, Math.PI * 2);
     ctx.fill();
-    ctx.beginPath();
-    ctx.arc(tcX + 6.5, GROUND_Y - 24, 4, 0, Math.PI * 2);
-    ctx.fill();
-    // Arc between coils when charged
-    if (game.empCharge > 0) {
+    // Charging arcs between nodes
+    if (game.empCharge > 0 && game.empChargeMax > 0) {
       const chargeRatio = game.empCharge / game.empChargeMax;
       ctx.strokeStyle = COL.emp;
-      ctx.globalAlpha = chargeRatio * 0.8;
-      glow(ctx, COL.emp, 8);
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(tcX - 3, GROUND_Y - 24);
-      const midY = GROUND_Y - 24 - Math.sin(game.time * 0.3) * 6 * chargeRatio;
-      ctx.quadraticCurveTo(tcX, midY, tcX + 3, GROUND_Y - 24);
-      ctx.stroke();
+      ctx.globalAlpha = chargeRatio * 0.7;
+      glow(ctx, COL.emp, 6 * chargeRatio);
+      ctx.lineWidth = 0.8;
+      for (let i = 0; i < nodeCount; i++) {
+        const angle = (i / nodeCount) * Math.PI * 2 - Math.PI / 2;
+        const nx = BURJ_X + Math.cos(angle) * 7;
+        const ny = empY + Math.sin(angle) * 7;
+        ctx.beginPath();
+        ctx.moveTo(nx, ny);
+        const wobble = Math.sin(game.time * 0.4 + i * 2) * 3 * chargeRatio;
+        ctx.quadraticCurveTo(BURJ_X + wobble, empY - wobble, BURJ_X, empY);
+        ctx.stroke();
+      }
       glowOff(ctx);
       ctx.globalAlpha = 1;
     }
-    // Ready glow
+    // Ready pulse
     if (game.empReady) {
-      const pulse = 0.4 + 0.4 * Math.sin(game.time * 0.2);
+      const pulse = 0.3 + 0.5 * Math.sin(game.time * 0.2);
       ctx.fillStyle = COL.emp;
-      glow(ctx, COL.emp, 15);
+      glow(ctx, COL.emp, 18);
       ctx.globalAlpha = pulse;
       ctx.beginPath();
-      ctx.arc(tcX, GROUND_Y - 24, 10, 0, Math.PI * 2);
+      ctx.arc(BURJ_X, empY, 12, 0, Math.PI * 2);
       ctx.fill();
       glowOff(ctx);
       ctx.globalAlpha = 1;
@@ -1697,7 +1729,7 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     if (layout.showSystemLabels) {
       ctx.fillStyle = "rgba(204,68,255,0.6)";
       ctx.font = "7px monospace";
-      ctx.fillText("EMP", tcX - 8, GROUND_Y + 10);
+      ctx.fillText("EMP", BURJ_X - 8, empY + 20);
     }
   }
 

@@ -130,7 +130,7 @@ export function fireInterceptor(g, targetX, targetY) {
   const speedScale = Math.max(1, g?._interceptorSpeedScale || 1);
   const targetAngle = Math.atan2(targetY - l.y, targetX - l.x);
   const launchAngle = -Math.PI / 2 + (targetAngle + Math.PI / 2) * 0.32;
-  const speed = 3.4 * speedScale;
+  const speed = 2.72 * speedScale;
   const dx = targetX - l.x;
   const dy = targetY - l.y;
   const len = Math.sqrt(dx * dx + dy * dy);
@@ -145,7 +145,7 @@ export function fireInterceptor(g, targetX, targetY) {
     heading: launchAngle,
     speed,
     accel: 1.03,
-    maxSpeed: 5.8 * speedScale,
+    maxSpeed: 4.64 * speedScale,
     turnRate: 0.055,
     trail: [],
     alive: true,

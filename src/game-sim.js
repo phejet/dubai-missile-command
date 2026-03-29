@@ -471,27 +471,30 @@ function pickHornetTarget(allThreats, activeHornets, lvl) {
 }
 
 function pickHornetRetargetTarget(h, allThreats, activeHornets, lvl) {
+  const alive = allThreats.filter((t) => t.alive);
+  if (alive.length === 0) return null;
+
+  // Prefer targets in the forward cone first
   const lastTrail = h.trail[h.trail.length - 1];
-  if (!lastTrail) return null;
+  if (lastTrail) {
+    const dirX = h.x - lastTrail.x;
+    const dirY = h.y - lastTrail.y;
+    const dirLen = Math.sqrt(dirX * dirX + dirY * dirY);
+    if (dirLen > 0.001) {
+      const reach = h.speed * 120;
+      const forward = alive.filter((t) => {
+        const toX = t.x - h.x;
+        const toY = t.y - h.y;
+        const d = Math.sqrt(toX * toX + toY * toY);
+        if (d > reach) return false;
+        return (dirX * toX + dirY * toY) / (dirLen * d) >= 0.5;
+      });
+      if (forward.length > 0) return pickHornetTarget(forward, activeHornets, lvl);
+    }
+  }
 
-  const dirX = h.x - lastTrail.x;
-  const dirY = h.y - lastTrail.y;
-  const dirLen = Math.sqrt(dirX * dirX + dirY * dirY);
-  if (dirLen < 0.001) return null;
-
-  const reach = h.speed * 60; // one second of flight
-  const candidates = allThreats.filter((t) => {
-    if (!t.alive) return false;
-    const toX = t.x - h.x;
-    const toY = t.y - h.y;
-    const distToTarget = Math.sqrt(toX * toX + toY * toY);
-    if (distToTarget > reach) return false;
-    const dot = (dirX * toX + dirY * toY) / (dirLen * distToTarget);
-    return dot >= 0.88;
-  });
-
-  if (candidates.length === 0) return null;
-  return pickHornetTarget(candidates, activeHornets, lvl);
+  // Fallback: pick nearest alive threat regardless of direction
+  return pickHornetTarget(alive, activeHornets, lvl);
 }
 
 function roadrunnerThreatScore(t) {
@@ -586,7 +589,7 @@ function launchFlareBurst(g, lvl, missileThreats) {
   const count = [4, 6, 8][lvl - 1];
   const threatCenterX = missileThreats.reduce((sum, m) => sum + m.x, 0) / Math.max(1, missileThreats.length);
   const spreadCenterX = Math.max(BURJ_X - 140, Math.min(BURJ_X + 140, threatCenterX));
-  const originY = GROUND_Y - BURJ_H * 0.42;
+  const originY = GROUND_Y - BURJ_H * 0.9;
 
   for (let i = 0; i < count; i++) {
     const lane = count === 1 ? 0 : i / (count - 1) - 0.5;
@@ -645,7 +648,8 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
   g.hornets.forEach((h) => {
     if (!h.alive) return;
     h.life -= dt;
-    if (h.life <= 0 || h.x < -60 || h.x > CANVAS_W + 60 || h.y < -60 || h.y > CANVAS_H + 20) {
+    const woY = getRenderWorldOffsetY(g);
+    if (h.life <= 0 || h.x < -60 || h.x > CANVAS_W + 60 || h.y < -(woY + 60) || h.y > CANVAS_H + 20) {
       h.alive = false;
       boom(g, h.x, h.y, h.blastRadius * 0.5, COL.hornet, false, onEvent, h.blastRadius * 0.2);
       return;
@@ -658,12 +662,17 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
         g.hornets.filter((other) => other !== h),
         g.upgrades.wildHornets,
       );
-      if (!newT) {
-        h.alive = false;
-        boom(g, h.x, h.y, h.blastRadius * 0.75, COL.hornet, false, onEvent, h.blastRadius * 0.25);
+      if (newT) {
+        h.targetRef = newT;
+      } else {
+        // No targets — drift forward, life timer will eventually expire
+        h.wobble += 0.15 * dt;
+        h.trail.push({ x: h.x, y: h.y });
+        if (h.trail.length > 12) h.trail.shift();
+        h.y -= h.speed * 0.5 * dt;
+        h.x += Math.sin(h.wobble) * 0.8 * dt;
         return;
       }
-      h.targetRef = newT;
     }
     h.wobble += 0.15 * dt;
     const dx = h.targetRef.x - h.x;
@@ -984,14 +993,15 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
   g.patriotMissiles.forEach((p) => {
     if (!p.alive) return;
     p.life -= dt;
-    if (p.life <= 0 || p.x < -60 || p.x > CANVAS_W + 60 || p.y < -60 || p.y > CANVAS_H + 20) {
+    const pWoY = getRenderWorldOffsetY(g);
+    if (p.life <= 0 || p.x < -60 || p.x > CANVAS_W + 60 || p.y < -(pWoY + 60) || p.y > CANVAS_H + 20) {
       p.alive = false;
       boom(g, p.x, p.y, p.blastRadius * 0.5, COL.patriot, false, onEvent, p.blastRadius * 0.2);
       return;
     }
     const t = p.targetRef;
     if (!t || !t.alive) {
-      // Only retarget to threats nearly on current flight path (within ~25°)
+      // Prefer threats on current flight path, fall back to any alive threat
       const candidates = pickPatriotTargets(allThreats, 5);
       let best = null;
       const pdx = p.targetRef ? p.targetRef.x - p.x : 0;
@@ -1004,15 +1014,19 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
         const cdy = c.y - p.y;
         const cMag = Math.sqrt(cdx * cdx + cdy * cdy) || 1;
         const dot = (cdx / cMag) * pnx + (cdy / cMag) * pny;
-        if (dot > 0.9) {
+        if (dot > 0.5) {
           best = c;
           break;
-        } // ~25° cone
+        }
       }
-      if (best) p.targetRef = best;
-      else {
-        p.alive = false;
-        boom(g, p.x, p.y, p.blastRadius * 0.5, COL.patriot, false, onEvent, p.blastRadius * 0.2);
+      if (!best && candidates.length > 0) best = candidates[0];
+      if (best) {
+        p.targetRef = best;
+      } else {
+        // No threats — drift upward, life timer will expire naturally
+        p.trail.push({ x: p.x, y: p.y });
+        if (p.trail.length > 18) p.trail.shift();
+        p.y -= p.speed * 0.5 * dt;
         return;
       }
     }
