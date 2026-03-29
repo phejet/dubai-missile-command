@@ -631,12 +631,12 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
           x: rand(100, CANVAS_W - 100),
           y: GROUND_Y - 20,
           targetRef: target,
-          speed: rand(2.73, 4.1),
+          speed: rand(4.1, 6.15),
           trail: [],
           alive: true,
           blastRadius: blastR,
           wobble: rand(0, Math.PI * 2),
-          life: 300,
+          life: 600,
         });
       }
     }
@@ -692,7 +692,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
     const lvl = g.upgrades.roadrunner;
     const interval = [300, 240, 180][lvl - 1];
     const count = [1, 2, 3][lvl - 1];
-    const rrSpeed = [5.6, 7.7, 9.8][lvl - 1];
+    const rrSpeed = [8.4, 11.55, 14.7][lvl - 1];
     const rrBlastR = [27, 27, 28][lvl - 1];
     const rrTurnRate = [0.08, 0.11, 0.14][lvl - 1];
     g.roadrunnerTimer += dt;
@@ -712,6 +712,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
           heading: -Math.PI / 2,
           blastRadius: rrBlastR,
           turnRate: rrTurnRate,
+          life: 600,
         });
       }
     }
@@ -719,6 +720,12 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
   // Roadrunner in-flight update — always runs so missiles don't freeze when site is destroyed
   g.roadrunners.forEach((r) => {
     if (!r.alive) return;
+    r.life -= dt;
+    if (r.life <= 0) {
+      r.alive = false;
+      boom(g, r.x, r.y, r.blastRadius, COL.roadrunner, false, onEvent, 15);
+      return;
+    }
     r.trail.push({ x: r.x, y: r.y });
     if (r.trail.length > 20) r.trail.shift();
     if (r.phase === "launch") {
@@ -1672,7 +1679,10 @@ export function update(g, dt, onEvent) {
   }
 
   const allThreats = [...g.missiles.filter((m) => m.alive), ...g.drones.filter((d) => d.alive)];
-  updateAutoSystems(g, dt, allThreats, onEvent);
+  // Auto-defense systems only target threats visible on screen
+  const woY = getRenderWorldOffsetY(g);
+  const visibleThreats = allThreats.filter((t) => t.y >= -woY);
+  updateAutoSystems(g, dt, visibleThreats, onEvent);
   updateMissiles(g, dt, onEvent);
   updateDrones(g, _rng, dt, onEvent);
   updateInterceptors(g, dt, onEvent);
