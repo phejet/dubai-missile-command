@@ -1431,6 +1431,9 @@ function updateExplosions(g, dt, onEvent) {
     }
     if (ex.alpha > 0.2 && !ex.harmless) {
       if (!ex.kills) ex.kills = 0;
+      // For chain explosions, find the root explosion to aggregate kills
+      const rootEx = ex.rootExplosionId != null ? g.explosions.find((e) => e.id === ex.rootExplosionId) || ex : ex;
+      const chainOpts = { chain: true, rootExplosionId: rootEx.id };
       g.missiles.forEach((m) => {
         if (!m.alive) return;
         if (m.type === "mirv") {
@@ -1442,16 +1445,16 @@ function updateExplosions(g, dt, onEvent) {
               m.alive = false;
               g.score += getKillReward(m);
               g.stats.missileKills++;
-              ex.kills++;
-              boom(g, m.x, m.y, 45, COL.mirv, ex.playerCaused, onEvent, 45, { chain: true });
+              rootEx.kills++;
+              boom(g, m.x, m.y, 45, COL.mirv, ex.playerCaused, onEvent, 45, chainOpts);
             }
           }
         } else if (dist(m.x, m.y, ex.x, ex.y) < ex.radius) {
           m.alive = false;
           g.score += getKillReward(m);
           g.stats.missileKills++;
-          ex.kills++;
-          boom(g, m.x, m.y, 45, "#ffcc00", ex.playerCaused, onEvent, 45, { chain: true });
+          rootEx.kills++;
+          boom(g, m.x, m.y, 45, "#ffcc00", ex.playerCaused, onEvent, 45, chainOpts);
         }
       });
       g.drones.forEach((d) => {
@@ -1464,13 +1467,13 @@ function updateExplosions(g, dt, onEvent) {
             d.alive = false;
             g.score += getKillReward(d);
             g.stats.droneKills++;
-            ex.kills++;
-            boom(g, d.x, d.y, 45, "#ff8800", ex.playerCaused, onEvent, 45, { chain: true });
+            rootEx.kills++;
+            boom(g, d.x, d.y, 45, "#ff8800", ex.playerCaused, onEvent, 45, chainOpts);
           }
         }
       });
-      // Multi-kill bonus
-      if (ex.kills >= 2 && !ex.bonusAwarded) {
+      // Multi-kill bonus (only check on root explosions)
+      if (rootEx === ex && ex.kills >= 2 && !ex.bonusAwarded) {
         ex.bonusAwarded = true;
         const bonus = getMultiKillBonus(ex.kills);
         const label = ex.kills === 2 ? "DOUBLE KILL" : ex.kills === 3 ? "TRIPLE KILL" : "MEGA KILL";

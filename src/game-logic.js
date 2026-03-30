@@ -160,8 +160,9 @@ export function ov(key, fallback) {
 
 let _explosionId = 0;
 export function createExplosion(g, x, y, radius, color, playerCaused, initialRadius = 0, options = {}) {
+  const id = _explosionId++;
   g.explosions.push({
-    id: _explosionId++,
+    id,
     x,
     y,
     radius: initialRadius,
@@ -172,6 +173,7 @@ export function createExplosion(g, x, y, radius, color, playerCaused, initialRad
     playerCaused: !!playerCaused,
     harmless: !!options.harmless,
     chain: !!options.chain,
+    rootExplosionId: options.rootExplosionId ?? null,
     ringRadius: 0,
     ringAlpha: 1,
   });
