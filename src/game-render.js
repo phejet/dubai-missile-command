@@ -2103,18 +2103,24 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
   // Wave cleared banner
   if (game.waveComplete && game.waveClearedTimer > 0) {
     const alpha = Math.min(1, game.waveClearedTimer / 20);
+    const bannerCX = CANVAS_W / 2;
+    const bannerCY = layout.waveClearedY - 14;
+    const bannerW = 420;
+    const bannerH = 70;
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.fillStyle = "rgba(0,20,10,0.6)";
-    ctx.fillRect(CANVAS_W / 2 - 160, 280, 320, 50);
+    ctx.fillStyle = "rgba(0,20,10,0.65)";
+    ctx.fillRect(bannerCX - bannerW / 2, bannerCY - bannerH / 2, bannerW, bannerH);
     ctx.strokeStyle = COL.hud;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(CANVAS_W / 2 - 160, 280, 320, 50);
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(bannerCX - bannerW / 2, bannerCY - bannerH / 2, bannerW, bannerH);
     ctx.textAlign = "center";
-    ctx.font = "bold 22px 'Courier New', monospace";
+    ctx.textBaseline = "middle";
+    ctx.font = "bold 32px 'Courier New', monospace";
     ctx.fillStyle = COL.hud;
-    ctx.fillText(`WAVE ${game.wave} CLEARED`, CANVAS_W / 2, layout.waveClearedY);
+    ctx.fillText(`WAVE ${game.wave} CLEARED`, bannerCX, bannerCY);
     ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
     ctx.restore();
   }
 }
