@@ -48,63 +48,40 @@ async function main() {
         continue;
       }
 
-      if (buttonCount > 1) {
-        console.log(`Shop detected (${buttonCount} buttons)`);
-        // Buy upgrades in priority order
+      // Detect shop via card-selection UI (articles with data-shop-card)
+      const shopCards = page.locator("[data-shop-card]:not([data-disabled])");
+      const shopCardCount = await shopCards.count();
+      if (shopCardCount > 0) {
+        console.log(`Shop detected (${shopCardCount} selectable cards)`);
+        // Select upgrades in priority order by clicking cards
         const buyOrder = [
-          "Launcher Upgrade",
-          "Phalanx",
-          "Wild Hornets",
-          "Patriot",
-          "Iron Beam",
-          "Roadrunner",
-          "Decoy",
-          "Burj Repair",
+          "launcherKit",
+          "phalanx",
+          "wildHornets",
+          "patriot",
+          "ironBeam",
+          "roadrunner",
+          "flare",
+          "burjRepair",
         ];
-        let bought = true;
-        while (bought) {
-          bought = false;
-          const upgradeBtns = page.locator("button:not([disabled])");
-          const count = await upgradeBtns.count();
-          // Collect all available upgrades
-          const available = [];
-          for (let i = 0; i < count; i++) {
-            const btn = upgradeBtns.nth(i);
-            const text = await btn.textContent().catch(() => "");
-            if (text.includes("UPGRADE") || text.includes("HEAL") || text.includes("REPAIR"))
-              available.push({ btn, text: text.trim() });
-          }
-          // Buy in priority order
-          for (const pref of buyOrder) {
-            const match = available.find((a) => {
-              // Check parent card for upgrade name
-              return true; // buy first available in DOM order as fallback
-            });
-            if (match) {
-              await match.btn.click();
-              console.log(`  Bought: ${match.text}`);
-              bought = true;
-              await sleep(150);
-              break;
-            }
-          }
-          if (!bought && available.length > 0) {
-            await available[0].btn.click();
-            console.log(`  Bought: ${available[0].text}`);
-            bought = true;
-            await sleep(150);
+        for (const key of buyOrder) {
+          const card = page.locator(`[data-shop-card="${key}"]:not([data-disabled])`);
+          if ((await card.count()) > 0) {
+            await card.click();
+            console.log(`  Selected: ${key}`);
+            await sleep(100);
           }
         }
-        // Click deploy
+        // Click confirm & deploy
         await sleep(200);
-        const deployBtn = page.locator("button:not([disabled])");
+        const deployBtn = page.locator("button");
         const dcount = await deployBtn.count();
         for (let i = 0; i < dcount; i++) {
           const btn = deployBtn.nth(i);
           const text = await btn.textContent().catch(() => "");
-          if (text.includes("DEPLOY")) {
+          if (text.includes("Deploy") || text.includes("DEPLOY")) {
             await btn.click();
-            console.log(`Deployed next wave!`);
+            console.log(`Confirmed & deployed next wave!`);
             break;
           }
         }

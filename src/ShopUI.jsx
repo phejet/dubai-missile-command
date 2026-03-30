@@ -1,3 +1,4 @@
+import { useState, useMemo } from "react";
 import { COL } from "./game-logic.js";
 import { UPGRADES } from "./game-sim.js";
 import "./ShopUI.css";
@@ -7,25 +8,39 @@ function getEntries(shopData) {
   return shopData.draftMode ? allEntries.filter(([key]) => shopData.draftOffers?.includes(key)) : allEntries;
 }
 
-function getButtonLabel({ maxed, isBurjRepair, burjFull, isDraft, draftPicked, canAfford, cost }) {
-  if ((maxed && !isBurjRepair) || burjFull) return "\u2713 MAXED";
-  if (isDraft) {
-    if (draftPicked) return "\u2014";
-    return isBurjRepair ? "HEAL - FREE" : "UPGRADE - FREE";
-  }
-  if (canAfford) return isBurjRepair ? `HEAL - $${cost}` : `UPGRADE - $${cost}`;
-  return `$${cost} NEEDED`;
-}
-
 export default function ShopUI({ shopData, onBuyUpgrade, onClose, mode = "desktop" }) {
   const entries = getEntries(shopData);
   const isDraftMode = !!shopData.draftMode;
   const isPhonePortrait = mode === "phonePortrait";
+  const [selected, setSelected] = useState([]);
 
-  function handleUpgradeClick(key, disabled) {
-    if (disabled) return;
-    onBuyUpgrade(key);
-    if (isDraftMode) onClose();
+  const selectedCost = useMemo(() => {
+    return selected.reduce((sum, key) => {
+      const def = UPGRADES[key];
+      if (!def) return sum;
+      const level = shopData.upgrades[key];
+      return sum + (isDraftMode ? 0 : (def.costs[level] || 0));
+    }, 0);
+  }, [selected, shopData, isDraftMode]);
+
+  const remainingBudget = shopData.score - selectedCost;
+
+  function toggleSelect(key) {
+    if (isDraftMode) {
+      setSelected((prev) => (prev.includes(key) ? [] : [key]));
+    } else {
+      setSelected((prev) => {
+        if (prev.includes(key)) return prev.filter((k) => k !== key);
+        return [...prev, key];
+      });
+    }
+  }
+
+  function handleConfirm() {
+    for (const key of selected) {
+      onBuyUpgrade(key);
+    }
+    onClose();
   }
 
   return (
@@ -38,17 +53,17 @@ export default function ShopUI({ shopData, onBuyUpgrade, onClose, mode = "deskto
             <h2 className="shop-modal__title">Wave {shopData.wave} Complete</h2>
             {!(isDraftMode && isPhonePortrait) && (
               <p className="shop-modal__subtitle">
-                {isDraftMode ? "Pick one free upgrade and redeploy." : "Reinforce the skyline before the next strike."}
+                {isDraftMode ? "Pick one free upgrade and confirm." : "Select upgrades, then confirm to deploy."}
               </p>
             )}
           </div>
           <div className="shop-modal__budget">
             {isDraftMode ? (
-              <strong className="shop-modal__budget-value">{shopData.draftPicked ? "Selected" : "Choose 1"}</strong>
+              <strong className="shop-modal__budget-value">{selected.length > 0 ? "1 Selected" : "Choose 1"}</strong>
             ) : (
               <>
                 <span className="shop-modal__budget-label">Budget</span>
-                <strong className="shop-modal__budget-value">$ {shopData.score}</strong>
+                <strong className="shop-modal__budget-value">$ {remainingBudget}</strong>
               </>
             )}
           </div>
@@ -59,20 +74,29 @@ export default function ShopUI({ shopData, onBuyUpgrade, onClose, mode = "deskto
             {entries.map(([key, def]) => {
               const level = shopData.upgrades[key];
               const maxed = level >= def.maxLevel;
-              const isDraft = shopData.draftMode;
-              const cost = maxed ? null : isDraft ? 0 : def.costs[level];
-              const canAfford = cost !== null && (isDraft ? !shopData.draftPicked : shopData.score >= cost);
+              const cost = maxed ? null : isDraftMode ? 0 : def.costs[level];
               const isBurjRepair = key === "burjRepair";
               const burjFull = isBurjRepair && shopData.burjHealth >= 5;
               if (isBurjRepair && maxed && burjFull) return null;
 
-              const disabled = (maxed && !isBurjRepair) || burjFull || !canAfford;
+              const isSelected = selected.includes(key);
+              const canAfford = cost !== null && (isDraftMode || remainingBudget >= cost || isSelected);
+              const isMaxedOut = (maxed && !isBurjRepair) || burjFull;
+              const draftLocked = isDraftMode && selected.length > 0 && !isSelected;
+              const disabled = isMaxedOut || (!canAfford && !isSelected) || draftLocked;
 
               return (
                 <article
                   key={key}
-                  className={`shop-card ${disabled ? "shop-card--disabled" : ""} ${isDraft ? "shop-card--draft" : ""}`}
+                  className={`shop-card${disabled ? " shop-card--disabled" : ""}${isDraftMode ? " shop-card--draft" : ""}${isSelected ? " shop-card--selected" : ""}`}
                   style={{ "--shop-accent": def.color, "--shop-panel": COL.panelBg }}
+                  onClick={() => !disabled && toggleSelect(key)}
+                  onKeyDown={(e) => { if (!disabled && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); toggleSelect(key); } }}
+                  role="button"
+                  tabIndex={disabled ? -1 : 0}
+                  data-shop-card={key}
+                  data-selected={isSelected || undefined}
+                  data-disabled={disabled || undefined}
                 >
                   <div className="shop-card__topline">
                     <span className="shop-card__icon" aria-hidden="true">
@@ -92,46 +116,36 @@ export default function ShopUI({ shopData, onBuyUpgrade, onClose, mode = "deskto
                         ))}
                       </div>
                     </div>
+                    {!isDraftMode && cost !== null && (
+                      <span className="shop-card__cost">{isBurjRepair ? `HEAL $${cost}` : `$${cost}`}</span>
+                    )}
                   </div>
 
                   <p className="shop-card__description">{def.desc}</p>
 
-                  {!maxed && !isDraft && (
+                  {!maxed && !isDraftMode && def.statLines[level] && (
                     <div className="shop-card__statline">
                       <span className="shop-card__statline-label">Next</span>
                       <span>{def.statLines[level]}</span>
                     </div>
                   )}
 
-                  <button
-                    type="button"
-                    className={`shop-card__button ${disabled ? "shop-card__button--disabled" : ""}`}
-                    disabled={disabled}
-                    onClick={() => handleUpgradeClick(key, disabled)}
-                  >
-                    {getButtonLabel({
-                      maxed,
-                      isBurjRepair,
-                      burjFull,
-                      isDraft,
-                      draftPicked: shopData.draftPicked,
-                      canAfford,
-                      cost,
-                    })}
-                  </button>
+                  {isMaxedOut && <div className="shop-card__status">{"\u2713"} MAXED</div>}
+                  {isSelected && <div className="shop-card__check">{"\u2713"}</div>}
                 </article>
               );
             })}
           </div>
         </div>
 
-        {!isDraftMode && (
-          <footer className="shop-modal__footer">
-            <button type="button" className="shop-modal__deploy" onClick={onClose}>
-              Deploy Wave {shopData.wave + 1}
-            </button>
-          </footer>
-        )}
+        <footer className="shop-modal__footer">
+          <button type="button" className="shop-modal__deploy" onClick={handleConfirm}>
+            {selected.length > 0
+              ? (isDraftMode ? "Confirm & Deploy" : `Confirm (${selected.length}) & Deploy Wave ${shopData.wave + 1}`)
+              : (isDraftMode ? "Skip & Deploy" : `Deploy Wave ${shopData.wave + 1}`)
+            }
+          </button>
+        </footer>
       </div>
     </div>
   );
