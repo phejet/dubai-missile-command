@@ -1629,37 +1629,43 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     }
   }
 
-  // Flare launcher — pods mounted near top of Burj
+  // Flare launcher — integrated dispensers near top of Burj
   if (game.upgrades.flare > 0) {
-    const flareY = GROUND_Y - BURJ_H * 0.9;
+    const flareY = GROUND_Y - BURJ_H * 0.97;
     const lvl = game.upgrades.flare;
-    // Left pod
-    ctx.fillStyle = "#5a4a38";
-    ctx.fillRect(BURJ_X - 10, flareY - 3, 6, 6);
-    ctx.fillStyle = "#3a2a18";
-    for (let i = 0; i < Math.min(lvl, 2); i++) {
-      ctx.fillRect(BURJ_X - 10 + i * 3, flareY - 6, 2, 4);
+    const towerHW = 3.5; // approximate half-width at this height
+
+    // Flush-mounted dispenser panels on both sides of the tower
+    // Left dispenser
+    ctx.fillStyle = "#8a7a68";
+    ctx.fillRect(BURJ_X - towerHW - 4, flareY - 4, 4, 8);
+    // Dispenser tubes (count by level)
+    ctx.fillStyle = "#ff9944";
+    const leftTubes = Math.min(lvl, 2);
+    for (let i = 0; i < leftTubes; i++) {
+      ctx.fillRect(BURJ_X - towerHW - 3.5, flareY - 3 + i * 4, 3, 2);
     }
-    // Right pod (at level 2+)
-    if (lvl >= 2) {
-      ctx.fillStyle = "#5a4a38";
-      ctx.fillRect(BURJ_X + 4, flareY - 3, 6, 6);
-      ctx.fillStyle = "#3a2a18";
-      for (let i = 0; i < lvl - 1; i++) {
-        ctx.fillRect(BURJ_X + 4 + i * 3, flareY - 6, 2, 4);
-      }
+
+    // Right dispenser
+    ctx.fillStyle = "#8a7a68";
+    ctx.fillRect(BURJ_X + towerHW, flareY - 4, 4, 8);
+    ctx.fillStyle = "#ff9944";
+    const rightTubes = lvl >= 2 ? lvl - 1 : 0;
+    for (let i = 0; i < rightTubes; i++) {
+      ctx.fillRect(BURJ_X + towerHW + 0.5, flareY - 3 + i * 4, 3, 2);
     }
-    // Warm glow when flares are active
+
+    // Warm glow when flares are launching
     if (game.flares.some((f) => f.alive && f.life > f.maxLife - 10)) {
-      ctx.fillStyle = "rgba(255,160,60,0.3)";
+      ctx.fillStyle = "rgba(255,160,60,0.35)";
       ctx.beginPath();
-      ctx.arc(BURJ_X, flareY, 8, 0, Math.PI * 2);
+      ctx.arc(BURJ_X, flareY, 7, 0, Math.PI * 2);
       ctx.fill();
     }
     if (layout.showSystemLabels) {
       ctx.fillStyle = "rgba(255,136,51,0.6)";
       ctx.font = "7px monospace";
-      ctx.fillText("FLARE", BURJ_X - 15, flareY + 14);
+      ctx.fillText("FLARE", BURJ_X - 15, flareY + 16);
     }
   }
 

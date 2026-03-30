@@ -571,7 +571,7 @@ function launchFlareBurst(g, lvl, missileThreats) {
   const count = [4, 6, 8][lvl - 1];
   const threatCenterX = missileThreats.reduce((sum, m) => sum + m.x, 0) / Math.max(1, missileThreats.length);
   const spreadCenterX = Math.max(BURJ_X - 140, Math.min(BURJ_X + 140, threatCenterX));
-  const originY = GROUND_Y - BURJ_H * 0.9;
+  const originY = GROUND_Y - BURJ_H * 0.97;
 
   for (let i = 0; i < count; i++) {
     const lane = count === 1 ? 0 : i / (count - 1) - 0.5;
@@ -1729,7 +1729,7 @@ export function buyUpgrade(g, key) {
   } else {
     const siteDefs = {
       patriot: { x: 50, y: GROUND_Y - 15, hw: 25, hh: 15 },
-      flare: { x: 380, y: GROUND_Y - 18, hw: 12, hh: 20 },
+      flare: { x: BURJ_X, y: GROUND_Y - BURJ_H * 0.97, hw: 8, hh: 10 },
       ironBeam: { x: 320, y: GROUND_Y - 15, hw: 10, hh: 15 },
       wildHornets: { x: 150, y: GROUND_Y - 15, hw: 20, hh: 15 },
       roadrunner: { x: 620, y: GROUND_Y - 15, hw: 20, hh: 15 },
