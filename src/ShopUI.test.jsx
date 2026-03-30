@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import ShopUI from "./ShopUI.jsx";
 
 function makeShopData(overrides = {}) {
@@ -39,29 +39,35 @@ describe("ShopUI", () => {
     expect(screen.getByText(/9999/)).toBeTruthy();
   });
 
-  it("renders upgrade cards", () => {
+  it("renders upgrade cards as clickable articles", () => {
     const { container } = render(<ShopUI shopData={makeShopData()} onBuyUpgrade={noop} onClose={noop} />);
-    const buttons = container.querySelectorAll("button");
-    expect(buttons.length).toBeGreaterThanOrEqual(2);
+    const cards = container.querySelectorAll("[data-shop-card]");
+    expect(cards.length).toBeGreaterThanOrEqual(2);
   });
 
-  it("calls onBuyUpgrade when buy button is clicked", () => {
+  it("selects a card on click and confirms to buy", () => {
     const onBuy = vi.fn();
+    const onClose = vi.fn();
     const { container } = render(
-      <ShopUI shopData={makeShopData({ score: 100000 })} onBuyUpgrade={onBuy} onClose={noop} />,
+      <ShopUI shopData={makeShopData({ score: 100000 })} onBuyUpgrade={onBuy} onClose={onClose} />,
     );
-    const upgradeBtn = [...container.querySelectorAll("button")].find((b) => b.textContent.includes("UPGRADE"));
-    expect(upgradeBtn).toBeTruthy();
-    fireEvent.click(upgradeBtn);
-    expect(onBuy).toHaveBeenCalledTimes(1);
+    const card = container.querySelector("[data-shop-card]");
+    fireEvent.click(card);
+    expect(card.dataset.selected).toBeTruthy();
+    const deployBtn = container.querySelector(".shop-modal__deploy");
+    expect(deployBtn.disabled).toBe(false);
+    fireEvent.click(deployBtn);
+    expect(onBuy).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
   });
 
-  it("calls onClose when deploy button is clicked", () => {
+  it("deploy button is disabled when nothing selected", () => {
     const onClose = vi.fn();
     const { container } = render(<ShopUI shopData={makeShopData()} onBuyUpgrade={noop} onClose={onClose} />);
-    const deployBtn = [...container.querySelectorAll("button")].find((b) => /deploy wave/i.test(b.textContent));
+    const deployBtn = container.querySelector(".shop-modal__deploy");
+    expect(deployBtn.disabled).toBe(true);
     fireEvent.click(deployBtn);
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("shows MAXED for max-level upgrades", () => {
@@ -79,59 +85,41 @@ describe("ShopUI", () => {
       },
     });
     const { container } = render(<ShopUI shopData={data} onBuyUpgrade={noop} onClose={noop} />);
-    const maxedBtn = [...container.querySelectorAll("button")].find((b) => b.textContent.includes("MAXED"));
-    expect(maxedBtn).toBeTruthy();
+    expect(container.textContent).toMatch(/MAXED/);
   });
 
-  it("shows draft mode UI with 3 offered items", () => {
+  it("shows draft mode UI with 3 offered cards", () => {
     const data = makeShopData({
       draftMode: true,
       draftOffers: ["wildHornets", "ironBeam", "phalanx"],
-      draftPicked: false,
     });
     const { container } = render(<ShopUI shopData={data} onBuyUpgrade={noop} onClose={noop} />);
     expect(container.textContent).toMatch(/choose 1/i);
-    const freeButtons = [...container.querySelectorAll("button")].filter((b) => b.textContent.includes("FREE"));
-    expect(freeButtons.length).toBe(3);
+    const cards = container.querySelectorAll("[data-shop-card]");
+    expect(cards.length).toBe(3);
   });
 
-  it("omits next stat details in draft mode", () => {
-    const data = makeShopData({
-      draftMode: true,
-      draftOffers: ["wildHornets", "ironBeam", "phalanx"],
-      draftPicked: false,
-    });
-    const { container } = render(<ShopUI shopData={data} onBuyUpgrade={noop} onClose={noop} mode="phonePortrait" />);
-    expect(container.querySelector(".shop-card__statline")).toBeNull();
-    expect(container.querySelector(".shop-modal__deploy")).toBeNull();
-  });
-
-  it("treats draft pick as deploy action", () => {
+  it("allows changing draft selection before confirming", () => {
     const onBuy = vi.fn();
     const onClose = vi.fn();
     const data = makeShopData({
       draftMode: true,
       draftOffers: ["wildHornets", "ironBeam", "phalanx"],
-      draftPicked: false,
     });
-    const { container } = render(
-      <ShopUI shopData={data} onBuyUpgrade={onBuy} onClose={onClose} mode="phonePortrait" />,
-    );
-    fireEvent.click(within(container).getAllByRole("button", { name: /free/i })[0]);
-    expect(onBuy).toHaveBeenCalledTimes(1);
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
-
-  it("disables draft buttons after picking", () => {
-    const data = makeShopData({
-      draftMode: true,
-      draftOffers: ["wildHornets", "ironBeam", "phalanx"],
-      draftPicked: true,
-    });
-    const { container } = render(<ShopUI shopData={data} onBuyUpgrade={noop} onClose={noop} />);
-    expect(container.textContent).toMatch(/selected/i);
-    const dashButtons = [...container.querySelectorAll("button")].filter((b) => b.textContent.trim() === "—");
-    expect(dashButtons.length).toBe(3);
+    const { container } = render(<ShopUI shopData={data} onBuyUpgrade={onBuy} onClose={onClose} />);
+    const cards = container.querySelectorAll("[data-shop-card]");
+    // Select first card
+    fireEvent.click(cards[0]);
+    expect(cards[0].dataset.selected).toBeTruthy();
+    // Change to second card
+    fireEvent.click(cards[1]);
+    expect(cards[1].dataset.selected).toBeTruthy();
+    expect(cards[0].dataset.selected).toBeFalsy();
+    // Confirm
+    const deployBtn = container.querySelector(".shop-modal__deploy");
+    fireEvent.click(deployBtn);
+    expect(onBuy).toHaveBeenCalledWith("ironBeam");
+    expect(onClose).toHaveBeenCalled();
   });
 
   it("switches to a one-column portrait layout when requested", () => {

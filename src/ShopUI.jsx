@@ -19,7 +19,7 @@ export default function ShopUI({ shopData, onBuyUpgrade, onClose, mode = "deskto
       const def = UPGRADES[key];
       if (!def) return sum;
       const level = shopData.upgrades[key];
-      return sum + (isDraftMode ? 0 : (def.costs[level] || 0));
+      return sum + (isDraftMode ? 0 : def.costs[level] || 0);
     }, 0);
   }, [selected, shopData, isDraftMode]);
 
@@ -82,8 +82,7 @@ export default function ShopUI({ shopData, onBuyUpgrade, onClose, mode = "deskto
               const isSelected = selected.includes(key);
               const canAfford = cost !== null && (isDraftMode || remainingBudget >= cost || isSelected);
               const isMaxedOut = (maxed && !isBurjRepair) || burjFull;
-              const draftLocked = isDraftMode && selected.length > 0 && !isSelected;
-              const disabled = isMaxedOut || (!canAfford && !isSelected) || draftLocked;
+              const disabled = isMaxedOut || (!canAfford && !isSelected);
 
               return (
                 <article
@@ -91,7 +90,12 @@ export default function ShopUI({ shopData, onBuyUpgrade, onClose, mode = "deskto
                   className={`shop-card${disabled ? " shop-card--disabled" : ""}${isDraftMode ? " shop-card--draft" : ""}${isSelected ? " shop-card--selected" : ""}`}
                   style={{ "--shop-accent": def.color, "--shop-panel": COL.panelBg }}
                   onClick={() => !disabled && toggleSelect(key)}
-                  onKeyDown={(e) => { if (!disabled && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); toggleSelect(key); } }}
+                  onKeyDown={(e) => {
+                    if (!disabled && (e.key === "Enter" || e.key === " ")) {
+                      e.preventDefault();
+                      toggleSelect(key);
+                    }
+                  }}
                   role="button"
                   tabIndex={disabled ? -1 : 0}
                   data-shop-card={key}
@@ -139,11 +143,17 @@ export default function ShopUI({ shopData, onBuyUpgrade, onClose, mode = "deskto
         </div>
 
         <footer className="shop-modal__footer">
-          <button type="button" className="shop-modal__deploy" onClick={handleConfirm}>
-            {selected.length > 0
-              ? (isDraftMode ? "Confirm & Deploy" : `Confirm (${selected.length}) & Deploy Wave ${shopData.wave + 1}`)
-              : (isDraftMode ? "Skip & Deploy" : `Deploy Wave ${shopData.wave + 1}`)
-            }
+          <button
+            type="button"
+            className={`shop-modal__deploy${selected.length === 0 ? " shop-modal__deploy--disabled" : ""}`}
+            onClick={selected.length > 0 ? handleConfirm : undefined}
+            disabled={selected.length === 0}
+          >
+            {isDraftMode
+              ? "Confirm & Deploy"
+              : selected.length > 0
+                ? `Confirm (${selected.length}) & Deploy Wave ${shopData.wave + 1}`
+                : `Confirm & Deploy Wave ${shopData.wave + 1}`}
           </button>
         </footer>
       </div>

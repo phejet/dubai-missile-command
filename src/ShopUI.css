@@ -144,7 +144,10 @@
   flex-direction: column;
   gap: 12px;
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    border-color 0.12s ease;
   user-select: none;
   outline: none;
 }
@@ -323,12 +326,22 @@
   text-transform: uppercase;
   letter-spacing: 0.16em;
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
 }
 
-.shop-modal__deploy:hover {
+.shop-modal__deploy:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
+}
+
+.shop-modal__deploy--disabled,
+.shop-modal__deploy:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 @media (max-width: 720px) {
