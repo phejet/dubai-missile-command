@@ -571,7 +571,7 @@ function launchFlareBurst(g, lvl, missileThreats) {
   const count = [4, 6, 8][lvl - 1];
   const threatCenterX = missileThreats.reduce((sum, m) => sum + m.x, 0) / Math.max(1, missileThreats.length);
   const spreadCenterX = Math.max(BURJ_X - 140, Math.min(BURJ_X + 140, threatCenterX));
-  const originY = GROUND_Y - BURJ_H * 0.97;
+  const originY = 837;
 
   for (let i = 0; i < count; i++) {
     const lane = count === 1 ? 0 : i / (count - 1) - 0.5;
@@ -871,13 +871,13 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
     g.ironBeamTimer += dt;
     if (g.ironBeamTimer >= chargeTime) {
       const inRange = allThreats
-        .filter((t) => t.alive && dist(t.x, t.y, BURJ_X, GROUND_Y - BURJ_H * 0.6) < range)
+        .filter((t) => t.alive && dist(t.x, t.y, BURJ_X, 959) < range)
         .sort((a, b) => b.y - a.y);
       for (let i = 0; i < Math.min(beamCount, inRange.length); i++) {
         const t = inRange[i];
         g.laserBeams.push({
           x1: BURJ_X,
-          y1: GROUND_Y - BURJ_H * 0.6,
+          y1: 959,
           x2: t.x,
           y2: t.y,
           life: 20,
@@ -957,8 +957,8 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
       const targets = pickPatriotTargets(allThreats, count);
       for (let i = 0; i < targets.length; i++) {
         g.patriotMissiles.push({
-          x: 50 + rand(-10, 10),
-          y: GROUND_Y - 20,
+          x: 334 + rand(-10, 10),
+          y: 1511,
           targetRef: targets[i],
           speed: rand(14, 17),
           trail: [],
@@ -1728,18 +1728,18 @@ export function buyUpgrade(g, key) {
     existingSite.savedLevel = g.upgrades[key];
   } else {
     const siteDefs = {
-      patriot: { x: 50, y: GROUND_Y - 15, hw: 25, hh: 15 },
-      flare: { x: BURJ_X, y: GROUND_Y - BURJ_H * 0.97, hw: 8, hh: 10 },
-      ironBeam: { x: 320, y: GROUND_Y - 15, hw: 10, hh: 15 },
-      wildHornets: { x: 150, y: GROUND_Y - 15, hw: 20, hh: 15 },
-      roadrunner: { x: 620, y: GROUND_Y - 15, hw: 20, hh: 15 },
-      launcherKit: { x: 770, y: GROUND_Y - 15, hw: 20, hh: 15 },
+      patriot: { x: 334, y: 1511, hw: 25, hh: 15 },
+      flare: { x: BURJ_X, y: 837, hw: 8, hh: 10 },
+      ironBeam: { x: BURJ_X, y: 959, hw: 10, hh: 15 },
+      wildHornets: { x: 206, y: 1511, hw: 20, hh: 15 },
+      roadrunner: { x: 678, y: GROUND_Y - 15, hw: 20, hh: 15 },
+      launcherKit: { x: 772, y: 1513, hw: 20, hh: 15 },
     };
     if (key === "phalanx") {
       g.defenseSites.push({
         key: "phalanx",
-        x: 720,
-        y: GROUND_Y - 30,
+        x: 553,
+        y: 1498,
         alive: true,
         hw: 10,
         hh: 15,
@@ -1813,8 +1813,8 @@ export function fireEmp(g, onEvent) {
   g.empCharge = 0;
   g.empReady = false;
   g.empRings.push({
-    x: BURJ_X,
-    y: GROUND_Y - BURJ_H * 0.67,
+    x: 462,
+    y: 1047,
     radius: 0,
     maxRadius: [250, 400, 550][lvl - 1],
     damage: lvl,

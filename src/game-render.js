@@ -1617,15 +1617,73 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
 
   // Patriot launcher
   if (game.upgrades.patriot > 0) {
+    const patX = 334;
     ctx.fillStyle = "#3a4a30";
-    ctx.fillRect(30, GROUND_Y - 15, 40, 15);
+    ctx.fillRect(patX - 20, GROUND_Y - 15, 40, 15);
     ctx.fillStyle = "#5a6a50";
-    ctx.fillRect(35, GROUND_Y - 25, 10, 12);
-    ctx.fillRect(50, GROUND_Y - 22, 10, 10);
+    ctx.fillRect(patX - 15, GROUND_Y - 25, 10, 12);
+    ctx.fillRect(patX, GROUND_Y - 22, 10, 10);
     if (layout.showSystemLabels) {
       ctx.fillStyle = "rgba(136,255,68,0.6)";
       ctx.font = "7px monospace";
-      ctx.fillText("PAC-3", 30, GROUND_Y + 10);
+      ctx.fillText("PAC-3", patX - 20, GROUND_Y + 10);
+    }
+  }
+
+  // Wild Hornets — hex hive launcher
+  if (game.upgrades.wildHornets > 0) {
+    const hx = 206,
+      hy = GROUND_Y;
+    ctx.save();
+    ctx.translate(hx, hy);
+    ctx.scale(1.3, 1.3);
+    const cellR = 5;
+    const cells = [
+      { x: 0, y: -8 },
+      { x: -6, y: -4.5 },
+      { x: 6, y: -4.5 },
+      { x: -3, y: -1 },
+      { x: 3, y: -1 },
+    ];
+    // Base platform
+    ctx.fillStyle = "#2a2a20";
+    ctx.fillRect(-14, -1, 28, 4);
+    const lvl = game.upgrades.wildHornets;
+    const filledCells = [2, 3, 5][lvl - 1];
+    cells.forEach((c, i) => {
+      ctx.strokeStyle = "#6a6a40";
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      for (let a = 0; a < 6; a++) {
+        const angle = (Math.PI / 3) * a - Math.PI / 6;
+        const px = c.x + cellR * Math.cos(angle);
+        const py = c.y + cellR * Math.sin(angle);
+        if (a === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fillStyle = i < filledCells ? "#1a1a10" : "#222218";
+      ctx.fill();
+      ctx.stroke();
+      // Drone inside filled cells
+      if (i < filledCells) {
+        ctx.fillStyle = COL.hornet;
+        glow(ctx, COL.hornet, 3);
+        ctx.beginPath();
+        ctx.moveTo(c.x, c.y - 2.5);
+        ctx.lineTo(c.x + 2, c.y + 1.5);
+        ctx.lineTo(c.x, c.y + 0.5);
+        ctx.lineTo(c.x - 2, c.y + 1.5);
+        ctx.closePath();
+        ctx.fill();
+        glowOff(ctx);
+      }
+    });
+    ctx.restore();
+    if (layout.showSystemLabels) {
+      ctx.fillStyle = "rgba(255,204,0,0.6)";
+      ctx.font = "7px monospace";
+      ctx.fillText("HORNETS", hx - 18, hy + 12);
     }
   }
 
@@ -1888,6 +1946,11 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     drawCollisionOverlay(ctx, game);
   }
 
+  // Upgrade range overlay — editor mode
+  if (game._showUpgradeRanges) {
+    drawUpgradeRangeOverlay(ctx, game);
+  }
+
   ctx.restore();
   ctx.restore();
 
@@ -2129,6 +2192,158 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     ctx.textBaseline = "alphabetic";
     ctx.restore();
   }
+}
+
+function drawUpgradeRangeOverlay(ctx) {
+  ctx.save();
+
+  const phalanxRange = ov("upgrade.phalanxRange", 160);
+  const systems = [
+    {
+      key: "upgrade.ironBeam",
+      name: "IRON BEAM",
+      x: ov("upgrade.ironBeam.x", BURJ_X),
+      y: ov("upgrade.ironBeam.y", 959),
+      color: "#ff2200",
+      range: ov("upgrade.ironBeamRange", 294),
+    },
+    {
+      key: "upgrade.phalanx1",
+      name: "PHALANX",
+      x: ov("upgrade.phalanx1.x", 553),
+      y: ov("upgrade.phalanx1.y", 1498),
+      color: "#ff8844",
+      range: phalanxRange,
+    },
+    {
+      key: "upgrade.phalanx2",
+      name: "PHALANX",
+      x: ov("upgrade.phalanx2.x", 860),
+      y: ov("upgrade.phalanx2.y", 1504),
+      color: "#ff8844",
+      range: phalanxRange,
+    },
+    {
+      key: "upgrade.phalanx3",
+      name: "PHALANX",
+      x: ov("upgrade.phalanx3.x", 59),
+      y: ov("upgrade.phalanx3.y", GROUND_Y - 30),
+      color: "#ff8844",
+      range: phalanxRange,
+    },
+    {
+      key: "upgrade.patriot",
+      name: "PATRIOT",
+      x: ov("upgrade.patriot.x", 334),
+      y: ov("upgrade.patriot.y", 1511),
+      color: "#88ff44",
+    },
+    {
+      key: "upgrade.emp",
+      name: "EMP",
+      x: ov("upgrade.emp.x", 462),
+      y: ov("upgrade.emp.y", 1047),
+      color: "#cc44ff",
+      range: ov("upgrade.empRange", 550),
+    },
+    {
+      key: "upgrade.flares",
+      name: "FLARES",
+      x: ov("upgrade.flares.x", BURJ_X),
+      y: ov("upgrade.flares.y", 837),
+      color: "#ff8833",
+      range: ov("upgrade.flareDetectRange", 320),
+      rangeY: GROUND_Y - BURJ_H * 0.35,
+    },
+    {
+      key: "upgrade.hornets",
+      name: "HORNETS",
+      x: ov("upgrade.hornets.x", 206),
+      y: ov("upgrade.hornets.y", 1511),
+      color: "#ffcc00",
+    },
+    {
+      key: "upgrade.roadrunner",
+      name: "ROADRUNNER",
+      x: ov("upgrade.roadrunner.x", 678),
+      y: ov("upgrade.roadrunner.y", GROUND_Y - 15),
+      color: "#44aaff",
+    },
+    {
+      key: "upgrade.launcherKit",
+      name: "LAUNCHER KIT",
+      x: ov("upgrade.launcherKit.x", 772),
+      y: ov("upgrade.launcherKit.y", 1513),
+      color: "#66aaff",
+    },
+  ];
+
+  for (const sys of systems) {
+    // Range area
+    if (sys.range) {
+      const ry = sys.rangeY ?? sys.y;
+      ctx.fillStyle = sys.color;
+      ctx.globalAlpha = 0.06;
+      ctx.beginPath();
+      ctx.arc(sys.x, ry, sys.range, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = sys.color;
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.45;
+      ctx.setLineDash([10, 8]);
+      ctx.beginPath();
+      ctx.arc(sys.x, ry, sys.range, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Position marker
+    ctx.strokeStyle = sys.color;
+    ctx.lineWidth = 3;
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    ctx.arc(sys.x, sys.y, 20, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.fillStyle = sys.color;
+    ctx.globalAlpha = 0.8;
+    ctx.beginPath();
+    ctx.arc(sys.x, sys.y, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Label
+    ctx.globalAlpha = 1;
+    ctx.font = "bold 16px monospace";
+    const tx = sys.x + 26;
+    const ty = sys.y + 6;
+    const tw = ctx.measureText(sys.name).width;
+    ctx.fillStyle = "rgba(0,0,0,0.7)";
+    ctx.fillRect(tx - 3, ty - 15, tw + 6, 20);
+    ctx.fillStyle = sys.color;
+    ctx.fillText(sys.name, tx, ty);
+  }
+
+  // Launchers
+  const launchers = [
+    { x: 60, y: GROUND_Y - 5 },
+    { x: 550, y: GROUND_Y - 5 },
+    { x: 860, y: GROUND_Y - 5 },
+  ];
+  launchers.forEach((l, i) => {
+    ctx.strokeStyle = "#00ffcc";
+    ctx.lineWidth = 3;
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    ctx.arc(l.x, l.y, 20, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.font = "bold 14px monospace";
+    ctx.fillStyle = "rgba(0,0,0,0.7)";
+    ctx.fillRect(l.x + 22, l.y - 11, 32, 20);
+    ctx.fillStyle = "#00ffcc";
+    ctx.fillText(`L${i + 1}`, l.x + 25, l.y + 6);
+  });
+
+  ctx.restore();
 }
 
 function drawCollisionOverlay(ctx, game) {

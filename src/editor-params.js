@@ -215,6 +215,31 @@ export const PARAM_GROUPS = [
       { key: "glow.enabled", label: "Glow Enabled", type: "checkbox", default: true },
     ],
   },
+  {
+    name: "Upgrade Ranges",
+    params: [
+      {
+        key: "upgrade.ironBeamRange",
+        label: "Iron Beam Range",
+        type: "range",
+        min: 50,
+        max: 600,
+        step: 5,
+        default: 294,
+      },
+      { key: "upgrade.phalanxRange", label: "Phalanx Range", type: "range", min: 30, max: 400, step: 5, default: 160 },
+      { key: "upgrade.empRange", label: "EMP Radius", type: "range", min: 100, max: 900, step: 10, default: 550 },
+      {
+        key: "upgrade.flareDetectRange",
+        label: "Flare Detect Range",
+        type: "range",
+        min: 50,
+        max: 600,
+        step: 5,
+        default: 320,
+      },
+    ],
+  },
 ];
 
 // Build a flat map of defaults

@@ -250,9 +250,9 @@ export function destroyDefenseSite(g, site) {
 }
 
 export function getPhalanxTurrets(level) {
-  const turrets = [{ x: BURJ_X, y: GROUND_Y - 30 }];
-  if (level >= 2) turrets.push({ x: 800, y: GROUND_Y - 30 });
-  if (level >= 3) turrets.push({ x: 200, y: GROUND_Y - 30 });
+  const turrets = [{ x: 553, y: 1498 }];
+  if (level >= 2) turrets.push({ x: 860, y: 1504 });
+  if (level >= 3) turrets.push({ x: 59, y: GROUND_Y - 30 });
   return turrets;
 }
 

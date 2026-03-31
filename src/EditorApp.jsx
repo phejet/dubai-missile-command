@@ -1,9 +1,39 @@
 import { useRef, useEffect, useState, useCallback } from "react";
-import { CANVAS_W, CANVAS_H, COL, createExplosion, ov } from "./game-logic.js";
+import { CANVAS_W, CANVAS_H, GROUND_Y, BURJ_X, BURJ_H, COL, createExplosion, ov } from "./game-logic.js";
 import { drawGame } from "./game-render.js";
 import { createEditorScene } from "./editor-scene.js";
 import { PARAM_GROUPS, getDefaults } from "./editor-params.js";
 import "./EditorApp.css";
+
+const UPGRADE_POSITIONS = {
+  "upgrade.ironBeam": { x: BURJ_X, y: 959 },
+  "upgrade.phalanx1": { x: 553, y: 1498 },
+  "upgrade.phalanx2": { x: 860, y: 1504 },
+  "upgrade.phalanx3": { x: 59, y: GROUND_Y - 30 },
+  "upgrade.patriot": { x: 334, y: 1511 },
+  "upgrade.emp": { x: 462, y: 1047 },
+  "upgrade.flares": { x: BURJ_X, y: 837 },
+  "upgrade.hornets": { x: 206, y: 1511 },
+  "upgrade.roadrunner": { x: 678, y: GROUND_Y - 15 },
+  "upgrade.launcherKit": { x: 772, y: 1513 },
+};
+
+function getPositionDefaults() {
+  const defaults = {};
+  for (const [key, pos] of Object.entries(UPGRADE_POSITIONS)) {
+    defaults[`${key}.x`] = pos.x;
+    defaults[`${key}.y`] = pos.y;
+  }
+  return defaults;
+}
+
+function canvasToGame(canvas, clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: ((clientX - rect.left) * CANVAS_W) / rect.width,
+    y: ((clientY - rect.top) * CANVAS_H) / rect.height,
+  };
+}
 
 const EDITOR_LAYOUT = {
   showTopHud: false,
@@ -106,11 +136,15 @@ export default function EditorApp() {
   const [tick, setTick] = useState(0);
   const [maxTick, setMaxTick] = useState(600);
   const [hasPlayed, setHasPlayed] = useState(true);
+  const [showUpgrades, setShowUpgrades] = useState(false);
+  const [positionOverrides, setPositionOverrides] = useState(getPositionDefaults);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef(null);
 
   // Sync overrides to window
   useEffect(() => {
-    window.__editorOverrides = values;
-  }, [values]);
+    window.__editorOverrides = { ...values, ...positionOverrides };
+  }, [values, positionOverrides]);
 
   // Create scene once, with snapshot for timeline scrubbing
   useEffect(() => {
@@ -172,11 +206,14 @@ export default function EditorApp() {
 
   const exportValues = useCallback(() => {
     const defaults = getDefaults();
+    const posDefaults = getPositionDefaults();
+    const allValues = { ...values, ...positionOverrides };
+    const allDefaults = { ...defaults, ...posDefaults };
     const changed = {};
-    for (const [k, v] of Object.entries(values)) {
-      if (v !== defaults[k]) changed[k] = v;
+    for (const [k, v] of Object.entries(allValues)) {
+      if (v !== allDefaults[k]) changed[k] = v;
     }
-    const output = Object.keys(changed).length > 0 ? changed : values;
+    const output = Object.keys(changed).length > 0 ? changed : allValues;
     console.log("=== EDITOR EXPORT ===");
     console.log(JSON.stringify(output, null, 2));
     // Also copy to clipboard
@@ -190,7 +227,7 @@ export default function EditorApp() {
     } else {
       alert(`Exported ${n} values to console`);
     }
-  }, [values]);
+  }, [values, positionOverrides]);
 
   const toggleGroup = useCallback((name) => {
     setCollapsed((prev) => ({ ...prev, [name]: !prev[name] }));
@@ -231,6 +268,99 @@ export default function EditorApp() {
     }
   }, []);
 
+  const toggleUpgrades = useCallback(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    const next = !showUpgrades;
+    setShowUpgrades(next);
+    scene._showUpgradeRanges = next;
+    if (next) {
+      // Max all upgrades so their visuals render
+      const keys = ["wildHornets", "roadrunner", "flare", "ironBeam", "phalanx", "patriot", "launcherKit", "emp"];
+      for (const k of keys) scene.upgrades[k] = 3;
+      // Add defense sites so upgrade renderers activate
+      const siteDefs = {
+        patriot: { x: 334, y: 1511, hw: 25, hh: 15 },
+        flare: { x: BURJ_X, y: 837, hw: 8, hh: 10 },
+        ironBeam: { x: BURJ_X, y: 959, hw: 10, hh: 15 },
+        wildHornets: { x: 206, y: 1511, hw: 20, hh: 15 },
+        roadrunner: { x: 678, y: GROUND_Y - 15, hw: 20, hh: 15 },
+        launcherKit: { x: 772, y: 1513, hw: 20, hh: 15 },
+      };
+      scene.defenseSites = [];
+      for (const [key, def] of Object.entries(siteDefs)) {
+        scene.defenseSites.push({ key, ...def, alive: true, savedLevel: 3 });
+      }
+      for (const pos of [
+        { x: 553, y: 1498 },
+        { x: 860, y: 1504 },
+      ]) {
+        scene.defenseSites.push({ key: "phalanx", ...pos, alive: true, hw: 10, hh: 15, savedLevel: 3 });
+      }
+      scene.empChargeMax = 720;
+      scene.empCharge = 720;
+      scene.empReady = true;
+      scene.launcherHP = [2, 2, 2];
+    } else {
+      // Reset upgrades
+      const keys = ["wildHornets", "roadrunner", "flare", "ironBeam", "phalanx", "patriot", "launcherKit", "emp"];
+      for (const k of keys) scene.upgrades[k] = 0;
+      scene.defenseSites = [];
+      scene.empChargeMax = 0;
+      scene.empCharge = 0;
+      scene.empReady = false;
+      scene.launcherHP = [1, 1, 1];
+    }
+  }, [showUpgrades]);
+
+  const onCanvasMouseDown = useCallback(
+    (e) => {
+      if (!showUpgrades) return;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const gp = canvasToGame(canvas, e.clientX, e.clientY);
+      let closest = null;
+      let closestDist = 30; // max pick distance in game coords
+      for (const [key, _def] of Object.entries(UPGRADE_POSITIONS)) {
+        const sx = positionOverrides[`${key}.x`];
+        const sy = positionOverrides[`${key}.y`];
+        const d = Math.hypot(gp.x - sx, gp.y - sy);
+        if (d < closestDist) {
+          closestDist = d;
+          closest = key;
+        }
+      }
+      if (closest) {
+        dragRef.current = {
+          key: closest,
+          offsetX: positionOverrides[`${closest}.x`] - gp.x,
+          offsetY: positionOverrides[`${closest}.y`] - gp.y,
+        };
+        setIsDragging(true);
+      }
+    },
+    [showUpgrades, positionOverrides],
+  );
+
+  const onCanvasMouseMove = useCallback((e) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    if (dragRef.current) {
+      const gp = canvasToGame(canvas, e.clientX, e.clientY);
+      const { key, offsetX, offsetY } = dragRef.current;
+      setPositionOverrides((prev) => ({
+        ...prev,
+        [`${key}.x`]: Math.round(gp.x + offsetX),
+        [`${key}.y`]: Math.round(gp.y + offsetY),
+      }));
+    }
+  }, []);
+
+  const onCanvasMouseUp = useCallback(() => {
+    dragRef.current = null;
+    setIsDragging(false);
+  }, []);
+
   // "A" key hotkey for play/pause
   useEffect(() => {
     function onKeyDown(e) {
@@ -258,7 +388,16 @@ export default function EditorApp() {
   return (
     <div className="editor-root">
       <div className="editor-canvas-wrap">
-        <canvas ref={canvasRef} width={CANVAS_W} height={CANVAS_H} className="editor-canvas" />
+        <canvas
+          ref={canvasRef}
+          width={CANVAS_W}
+          height={CANVAS_H}
+          className={`editor-canvas${showUpgrades ? (isDragging ? " editor-canvas--grabbing" : " editor-canvas--grab") : ""}`}
+          onMouseDown={onCanvasMouseDown}
+          onMouseMove={onCanvasMouseMove}
+          onMouseUp={onCanvasMouseUp}
+          onMouseLeave={onCanvasMouseUp}
+        />
         {hasPlayed && (
           <div className="editor-timeline">
             <span className="timeline-tick">{tick}</span>
@@ -285,6 +424,9 @@ export default function EditorApp() {
           <div className="editor-actions">
             <button onClick={playExplosions} className={playing ? "play-btn play-btn--active" : "play-btn"}>
               {playing ? "\u25A0 Pause" : "\u25B6 Play"}
+            </button>
+            <button onClick={toggleUpgrades} className={showUpgrades ? "play-btn play-btn--active" : "play-btn"}>
+              {showUpgrades ? "Hide Upgrades" : "Show Upgrades"}
             </button>
             <button onClick={resetAll}>Reset All</button>
             <button onClick={exportValues} className="export-btn">

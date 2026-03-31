@@ -23,6 +23,14 @@
   object-fit: contain;
 }
 
+.editor-canvas--grab {
+  cursor: grab;
+}
+
+.editor-canvas--grabbing {
+  cursor: grabbing;
+}
+
 .editor-panel {
   width: 320px;
   min-width: 280px;
