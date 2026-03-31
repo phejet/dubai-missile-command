@@ -1615,14 +1615,52 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     });
   }
 
-  // Patriot launcher
+  // Patriot launcher — TEL vehicle with SAM arm
   if (game.upgrades.patriot > 0) {
     const patX = 334;
+    ctx.save();
+    ctx.translate(patX, GROUND_Y);
+    ctx.scale(1.3, 1.3);
+    // Truck body
     ctx.fillStyle = "#3a4a30";
-    ctx.fillRect(patX - 20, GROUND_Y - 15, 40, 15);
-    ctx.fillStyle = "#5a6a50";
-    ctx.fillRect(patX - 15, GROUND_Y - 25, 10, 12);
-    ctx.fillRect(patX, GROUND_Y - 22, 10, 10);
+    ctx.fillRect(-16, -5, 32, 7);
+    // Cab
+    ctx.fillStyle = "#4a5a40";
+    ctx.fillRect(-16, -9, 8, 5);
+    ctx.fillStyle = "#6a8a60";
+    ctx.fillRect(-15, -8, 4, 2);
+    // Angled launcher arm
+    ctx.save();
+    ctx.translate(4, -5);
+    ctx.rotate(-0.45);
+    ctx.fillStyle = "#4a5a3a";
+    ctx.fillRect(-3, -16, 6, 14);
+    // Missile tubes
+    ctx.fillStyle = "#3a4830";
+    ctx.fillRect(-2, -16, 2, 6);
+    ctx.fillRect(0.5, -16, 2, 6);
+    // Missile tips
+    ctx.fillStyle = "#88ff44";
+    glow(ctx, "#88ff44", 2);
+    ctx.fillRect(-1.5, -17, 1.5, 1.5);
+    ctx.fillRect(1, -17, 1.5, 1.5);
+    glowOff(ctx);
+    ctx.restore();
+    // Wheels
+    ctx.fillStyle = "#222";
+    ctx.beginPath();
+    ctx.arc(-12, 1, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(-6, 1, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(8, 1, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(14, 1, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
     if (layout.showSystemLabels) {
       ctx.fillStyle = "rgba(136,255,68,0.6)";
       ctx.font = "7px monospace";
@@ -1684,6 +1722,53 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
       ctx.fillStyle = "rgba(255,204,0,0.6)";
       ctx.font = "7px monospace";
       ctx.fillText("HORNETS", hx - 18, hy + 12);
+    }
+  }
+
+  // Roadrunner launcher — open container with missiles
+  if (game.upgrades.roadrunner > 0) {
+    const rrX = 678;
+    ctx.save();
+    ctx.translate(rrX, GROUND_Y);
+    ctx.scale(1.3, 1.3);
+    // Container walls (3 walls, no top)
+    ctx.fillStyle = "#1e2e3e";
+    ctx.fillRect(-14, -10, 2, 12); // left wall
+    ctx.fillRect(12, -10, 2, 12); // right wall
+    ctx.fillRect(-14, 0, 28, 2); // bottom
+    // Back wall
+    ctx.fillStyle = "#162636";
+    ctx.fillRect(-12, -10, 24, 2);
+    // Missiles inside (count by level)
+    const rrCount = Math.min(game.upgrades.roadrunner, 3);
+    for (let i = 0; i < rrCount; i++) {
+      ctx.fillStyle = "#2c4760";
+      ctx.fillRect(-9 + i * 8, -9, 4, 9);
+      // Nose cone
+      ctx.fillStyle = "#44aaff";
+      glow(ctx, "#44aaff", 2);
+      ctx.beginPath();
+      ctx.moveTo(-7 + i * 8, -12);
+      ctx.lineTo(-9 + i * 8, -9);
+      ctx.lineTo(-5 + i * 8, -9);
+      ctx.closePath();
+      ctx.fill();
+      glowOff(ctx);
+    }
+    // Blue accent stripe
+    ctx.fillStyle = "#44aaff";
+    ctx.globalAlpha = 0.3;
+    ctx.fillRect(-14, -1, 28, 1.5);
+    ctx.globalAlpha = 1;
+    // Base legs
+    ctx.fillStyle = "#2a3a4a";
+    ctx.fillRect(-12, 1, 4, 2);
+    ctx.fillRect(8, 1, 4, 2);
+    ctx.restore();
+    if (layout.showSystemLabels) {
+      ctx.fillStyle = "rgba(68,170,255,0.6)";
+      ctx.font = "7px monospace";
+      ctx.fillText("ROADRUNNER", rrX - 25, GROUND_Y + 12);
     }
   }
 
