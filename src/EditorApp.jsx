@@ -280,12 +280,12 @@ export default function EditorApp() {
       for (const k of keys) scene.upgrades[k] = 3;
       // Add defense sites so upgrade renderers activate
       const siteDefs = {
-        patriot: { x: 334, y: 1511, hw: 25, hh: 15 },
+        patriot: { x: 334, y: 1511, hw: 38, hh: 24 },
         flare: { x: BURJ_X, y: 837, hw: 8, hh: 10 },
         ironBeam: { x: BURJ_X, y: 959, hw: 10, hh: 15 },
-        wildHornets: { x: 206, y: 1511, hw: 20, hh: 15 },
-        roadrunner: { x: 678, y: GROUND_Y - 15, hw: 20, hh: 15 },
-        launcherKit: { x: 772, y: 1513, hw: 20, hh: 15 },
+        wildHornets: { x: 206, y: 1511, hw: 30, hh: 24 },
+        roadrunner: { x: 678, y: GROUND_Y - 15, hw: 30, hh: 24 },
+        launcherKit: { x: 772, y: 1513, hw: 30, hh: 24 },
       };
       scene.defenseSites = [];
       for (const [key, def] of Object.entries(siteDefs)) {
@@ -428,6 +428,7 @@ export default function EditorApp() {
             <button onClick={toggleUpgrades} className={showUpgrades ? "play-btn play-btn--active" : "play-btn"}>
               {showUpgrades ? "Hide Upgrades" : "Show Upgrades"}
             </button>
+            <button onClick={() => window.open("sprites.html", "_blank")}>Sprite Catalog</button>
             <button onClick={resetAll}>Reset All</button>
             <button onClick={exportValues} className="export-btn">
               Export

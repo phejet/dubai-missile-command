@@ -12,6 +12,7 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, "index.html"),
         editor: resolve(__dirname, "editor.html"),
+        sprites: resolve(__dirname, "sprites.html"),
       },
     },
   },

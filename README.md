@@ -5,7 +5,7 @@
 
 A retro-inspired missile defense game set in Dubai. Defend Burj Khalifa from waves of ballistic missiles and Shahed drones. Built with React + Canvas.
 
-**[Play Now](https://phejet.github.io/dubai-missile-command/)**
+**[Play Now](https://phejet.github.io/dubai-missile-command/)** · **[Editor](https://phejet.github.io/dubai-missile-command/editor.html)**
 
 ## Gameplay
 

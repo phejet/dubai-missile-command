@@ -1620,7 +1620,7 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     const patX = 334;
     ctx.save();
     ctx.translate(patX, GROUND_Y);
-    ctx.scale(1.3, 1.3);
+    ctx.scale(2, 2);
     // Truck body
     ctx.fillStyle = "#3a4a30";
     ctx.fillRect(-16, -5, 32, 7);
@@ -1674,7 +1674,7 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
       hy = GROUND_Y;
     ctx.save();
     ctx.translate(hx, hy);
-    ctx.scale(1.3, 1.3);
+    ctx.scale(2, 2);
     const cellR = 5;
     const cells = [
       { x: 0, y: -8 },
@@ -1730,7 +1730,7 @@ export function drawGame(ctx, game, { showShop = false, layoutProfile = {} } = {
     const rrX = 678;
     ctx.save();
     ctx.translate(rrX, GROUND_Y);
-    ctx.scale(1.3, 1.3);
+    ctx.scale(2, 2);
     // Container walls (3 walls, no top)
     ctx.fillStyle = "#1e2e3e";
     ctx.fillRect(-14, -10, 2, 12); // left wall

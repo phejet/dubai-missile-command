@@ -1,0 +1,963 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Sprite Catalog — Dubai Missile Command</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #0a0e1a;
+        color: #ccc;
+        font-family: monospace;
+        padding: 24px;
+      }
+      h1 {
+        color: #44ffaa;
+        font-size: 18px;
+        margin-bottom: 4px;
+      }
+      .subtitle {
+        color: #556;
+        font-size: 11px;
+        margin-bottom: 16px;
+      }
+      h2 {
+        color: #888;
+        font-size: 13px;
+        margin: 20px 0 10px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+      }
+      .scale-controls {
+        margin-bottom: 16px;
+        color: #6a8aaa;
+        font-size: 12px;
+      }
+      .scale-controls button {
+        background: #1a3060;
+        color: #aac;
+        border: 1px solid #2a4070;
+        border-radius: 4px;
+        padding: 4px 10px;
+        cursor: pointer;
+        margin: 0 4px;
+      }
+      .scale-controls button.active {
+        background: #2a5080;
+        border-color: #44aaff;
+        color: #fff;
+      }
+      .grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: end;
+      }
+      .card {
+        background: #111a30;
+        border: 1px solid #1a3060;
+        border-radius: 6px;
+        padding: 6px;
+        text-align: center;
+      }
+      .card canvas {
+        display: block;
+        margin: 0 auto 4px;
+      }
+      .card .label {
+        font-size: 10px;
+        color: #6a8aaa;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Sprite Catalog</h1>
+    <div class="subtitle">
+      All sprites at exact in-game canvas-pixel proportions. Same canvas size per row = true relative sizes.
+    </div>
+    <div class="scale-controls">
+      Display scale:
+      <button onclick="setScale(0.48)" id="s048">0.48× (phone)</button>
+      <button onclick="setScale(1)" id="s1" class="active">1× (canvas px)</button>
+      <button onclick="setScale(2)" id="s2">2×</button>
+      <button onclick="setScale(4)" id="s4">4×</button>
+    </div>
+
+    <h2>Ground Structures (same 100×70 canvas)</h2>
+    <div class="grid" id="structures"></div>
+
+    <h2>Enemies (same 80×50 canvas)</h2>
+    <div class="grid" id="enemies"></div>
+
+    <h2>Projectiles — Player &amp; Upgrades (same 30×40 canvas)</h2>
+    <div class="grid" id="projectiles"></div>
+
+    <h2>Friendlies</h2>
+    <div class="grid" id="friendlies"></div>
+
+    <h2>Effects</h2>
+    <div class="grid" id="effects"></div>
+
+    <script>
+      const COL = {
+        missile: "#ff3333",
+        drone: "#ff6600",
+        interceptor: "#44ffaa",
+        explosion: "#ffaa00",
+        plane: "#ffffff",
+        laser: "#ff2200",
+        flare: "#ff8833",
+        hornet: "#ffcc00",
+        roadrunner: "#44aaff",
+        phalanx: "#ff8844",
+        patriot: "#88ff44",
+        emp: "#cc44ff",
+        mirv: "#dd4422",
+        hud: "#00ffcc",
+        warning: "#ff4444",
+      };
+      function glow(ctx, color, r) {
+        ctx.shadowColor = color;
+        ctx.shadowBlur = r;
+      }
+      function glowOff(ctx) {
+        ctx.shadowColor = "transparent";
+        ctx.shadowBlur = 0;
+      }
+      function pulse(t, s, p = 0, mn = 0, mx = 1) {
+        return mn + (mx - mn) * (0.5 + 0.5 * Math.sin(t * s + p));
+      }
+
+      let currentScale = 1;
+      const allCards = [];
+
+      function setScale(s) {
+        currentScale = s;
+        document.querySelectorAll(".scale-controls button").forEach((b) => b.classList.remove("active"));
+        const id = "s" + String(s).replace(".", "");
+        const el = document.getElementById(id);
+        if (el) el.classList.add("active");
+        allCards.forEach(({ canvas, w, h }) => {
+          canvas.style.width = w * currentScale + "px";
+          canvas.style.height = h * currentScale + "px";
+        });
+      }
+
+      function makeCard(container, w, h, label, drawFn) {
+        const card = document.createElement("div");
+        card.className = "card";
+        const c = document.createElement("canvas");
+        c.width = w;
+        c.height = h;
+        c.style.width = w * currentScale + "px";
+        c.style.height = h * currentScale + "px";
+        const lbl = document.createElement("div");
+        lbl.className = "label";
+        lbl.textContent = label;
+        card.appendChild(c);
+        card.appendChild(lbl);
+        container.appendChild(card);
+        allCards.push({ canvas: c, w, h });
+        const ctx = c.getContext("2d");
+        ctx.fillStyle = "#0a0e1a";
+        ctx.fillRect(0, 0, w, h);
+        drawFn(ctx, w, h);
+      }
+
+      // ========================
+      // GROUND STRUCTURES — all on 100×70 canvas, anchor at (50, 55)
+      // ========================
+      const structures = document.getElementById("structures");
+      const SW = 100,
+        SH = 70,
+        SX = 50,
+        SY = 55;
+
+      // Interceptor Launcher (the big one: dome + barrel + ammo bar)
+      makeCard(structures, SW, SH, "Launcher", (ctx) => {
+        const lx = SX,
+          ly = SY - 10;
+        // Base trapezoid
+        ctx.fillStyle = "#2a3a50";
+        ctx.beginPath();
+        ctx.moveTo(lx - 14, ly + 4);
+        ctx.lineTo(lx - 10, ly - 6);
+        ctx.quadraticCurveTo(lx, ly - 9, lx + 10, ly - 6);
+        ctx.lineTo(lx + 14, ly + 4);
+        ctx.quadraticCurveTo(lx, ly + 6, lx - 14, ly + 4);
+        ctx.fill();
+        // Dome
+        ctx.fillStyle = "#3a4a60";
+        ctx.beginPath();
+        ctx.arc(lx, ly - 6, 9, Math.PI, 0);
+        ctx.lineTo(lx + 7, ly - 4);
+        ctx.lineTo(lx - 7, ly - 4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = "#5a6a80";
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.arc(lx, ly - 6, 9, Math.PI + 0.2, -0.2);
+        ctx.stroke();
+        // Barrel (pointing up-left at ~-1.2 rad)
+        ctx.save();
+        ctx.translate(lx, ly - 8);
+        ctx.rotate(-1.2);
+        ctx.fillStyle = "#4a5a70";
+        ctx.beginPath();
+        ctx.moveTo(0, -2.5);
+        ctx.lineTo(16, -1.5);
+        ctx.quadraticCurveTo(19, 0, 16, 1.5);
+        ctx.lineTo(0, 2.5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = "#6a7a90";
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(1, -2.2);
+        ctx.lineTo(15, -1.3);
+        ctx.stroke();
+        ctx.fillStyle = "#88ffcc";
+        glow(ctx, "#44ffaa", 4);
+        ctx.beginPath();
+        ctx.arc(18, 0, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        glowOff(ctx);
+        ctx.restore();
+        // Ammo bar
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.fillRect(lx - 12, ly + 8, 24, 5);
+        ctx.fillStyle = COL.hud;
+        ctx.fillRect(lx - 12, ly + 8, 18, 5);
+        // Ammo count
+        ctx.font = "bold 10px monospace";
+        ctx.textAlign = "center";
+        ctx.fillStyle = COL.hud;
+        ctx.fillText("16", lx, ly + 25);
+      });
+
+      // Patriot TEL+SAM at 1.3x
+      makeCard(structures, SW, SH, "Patriot TEL", (ctx) => {
+        ctx.save();
+        ctx.translate(SX, SY);
+        ctx.scale(2, 2);
+        ctx.fillStyle = "#3a4a30";
+        ctx.fillRect(-16, -5, 32, 7);
+        ctx.fillStyle = "#4a5a40";
+        ctx.fillRect(-16, -9, 8, 5);
+        ctx.fillStyle = "#6a8a60";
+        ctx.fillRect(-15, -8, 4, 2);
+        ctx.save();
+        ctx.translate(4, -5);
+        ctx.rotate(-0.45);
+        ctx.fillStyle = "#4a5a3a";
+        ctx.fillRect(-3, -16, 6, 14);
+        ctx.fillStyle = "#3a4830";
+        ctx.fillRect(-2, -16, 2, 6);
+        ctx.fillRect(0.5, -16, 2, 6);
+        ctx.fillStyle = "#88ff44";
+        glow(ctx, "#88ff44", 2);
+        ctx.fillRect(-1.5, -17, 1.5, 1.5);
+        ctx.fillRect(1, -17, 1.5, 1.5);
+        glowOff(ctx);
+        ctx.restore();
+        ctx.fillStyle = "#222";
+        ctx.beginPath();
+        ctx.arc(-12, 1, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(-6, 1, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(8, 1, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(14, 1, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+
+      // Hornets Hive at 1.3x
+      makeCard(structures, SW, SH, "Hornets Hive", (ctx) => {
+        ctx.save();
+        ctx.translate(SX, SY);
+        ctx.scale(2, 2);
+        const cellR = 5;
+        const cells = [
+          { x: 0, y: -8 },
+          { x: -6, y: -4.5 },
+          { x: 6, y: -4.5 },
+          { x: -3, y: -1 },
+          { x: 3, y: -1 },
+        ];
+        ctx.fillStyle = "#2a2a20";
+        ctx.fillRect(-14, -1, 28, 4);
+        cells.forEach((c, i) => {
+          ctx.strokeStyle = "#6a6a40";
+          ctx.lineWidth = 0.8;
+          ctx.beginPath();
+          for (let a = 0; a < 6; a++) {
+            const angle = (Math.PI / 3) * a - Math.PI / 6;
+            const px = c.x + cellR * Math.cos(angle),
+              py = c.y + cellR * Math.sin(angle);
+            if (a === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.closePath();
+          ctx.fillStyle = i < 3 ? "#1a1a10" : "#222218";
+          ctx.fill();
+          ctx.stroke();
+          if (i < 3) {
+            ctx.fillStyle = COL.hornet;
+            glow(ctx, COL.hornet, 3);
+            ctx.beginPath();
+            ctx.moveTo(c.x, c.y - 2.5);
+            ctx.lineTo(c.x + 2, c.y + 1.5);
+            ctx.lineTo(c.x, c.y + 0.5);
+            ctx.lineTo(c.x - 2, c.y + 1.5);
+            ctx.closePath();
+            ctx.fill();
+            glowOff(ctx);
+          }
+        });
+        ctx.restore();
+      });
+
+      // Roadrunner Container at 1.3x
+      makeCard(structures, SW, SH, "Roadrunner", (ctx) => {
+        ctx.save();
+        ctx.translate(SX, SY);
+        ctx.scale(2, 2);
+        ctx.fillStyle = "#1e2e3e";
+        ctx.fillRect(-14, -10, 2, 12);
+        ctx.fillRect(12, -10, 2, 12);
+        ctx.fillRect(-14, 0, 28, 2);
+        ctx.fillStyle = "#162636";
+        ctx.fillRect(-12, -10, 24, 2);
+        for (let i = 0; i < 3; i++) {
+          ctx.fillStyle = "#2c4760";
+          ctx.fillRect(-9 + i * 8, -9, 4, 9);
+          ctx.fillStyle = "#44aaff";
+          glow(ctx, "#44aaff", 2);
+          ctx.beginPath();
+          ctx.moveTo(-7 + i * 8, -12);
+          ctx.lineTo(-9 + i * 8, -9);
+          ctx.lineTo(-5 + i * 8, -9);
+          ctx.closePath();
+          ctx.fill();
+          glowOff(ctx);
+        }
+        ctx.fillStyle = "#44aaff";
+        ctx.globalAlpha = 0.3;
+        ctx.fillRect(-14, -1, 28, 1.5);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = "#2a3a4a";
+        ctx.fillRect(-12, 1, 4, 2);
+        ctx.fillRect(8, 1, 4, 2);
+        ctx.restore();
+      });
+
+      // Phalanx CIWS
+      makeCard(structures, SW, SH, "Phalanx CIWS", (ctx) => {
+        ctx.save();
+        ctx.translate(SX, SY);
+        ctx.fillStyle = "#3a3020";
+        ctx.fillRect(-8, -2, 16, 5);
+        ctx.fillStyle = "#4a4030";
+        ctx.beginPath();
+        ctx.arc(0, -4, 7, Math.PI, 0);
+        ctx.fill();
+        ctx.fillStyle = "#5a5040";
+        ctx.fillRect(-1, -14, 2, 10);
+        glow(ctx, COL.phalanx, 3);
+        ctx.fillStyle = COL.phalanx;
+        ctx.beginPath();
+        ctx.arc(0, -14, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        glowOff(ctx);
+        ctx.restore();
+      });
+
+      // Flare Dispensers (on Burj)
+      makeCard(structures, SW, SH, "Flare Dispenser", (ctx) => {
+        ctx.save();
+        ctx.translate(SX, SY - 10);
+        // Tower segment
+        ctx.fillStyle = "#8a8a9a";
+        ctx.fillRect(-2, -12, 4, 24);
+        ctx.fillStyle = "#8a7a68";
+        ctx.fillRect(-6, -4, 4, 8);
+        ctx.fillStyle = "#ff9944";
+        ctx.fillRect(-5.5, -3, 3, 2);
+        ctx.fillRect(-5.5, 1, 3, 2);
+        ctx.fillStyle = "#8a7a68";
+        ctx.fillRect(2, -4, 4, 8);
+        ctx.fillStyle = "#ff9944";
+        ctx.fillRect(2.5, -3, 3, 2);
+        ctx.fillRect(2.5, 1, 3, 2);
+        ctx.restore();
+      });
+
+      // EMP Emitter
+      makeCard(structures, SW, SH, "EMP Emitter", (ctx) => {
+        ctx.save();
+        ctx.translate(SX, SY - 10);
+        ctx.fillStyle = "#8a8a9a";
+        ctx.fillRect(-2, -12, 4, 24);
+        ctx.strokeStyle = "#7a5a9a";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, 7, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = "#8866aa";
+        for (let i = 0; i < 4; i++) {
+          const a = (i / 4) * Math.PI * 2 - Math.PI / 2;
+          ctx.beginPath();
+          ctx.arc(Math.cos(a) * 7, Math.sin(a) * 7, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.fillStyle = "#6644aa";
+        ctx.beginPath();
+        ctx.arc(0, 0, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+
+      // Iron Beam Emitter
+      makeCard(structures, SW, SH, "Iron Beam", (ctx) => {
+        ctx.save();
+        ctx.translate(SX, SY - 10);
+        ctx.fillStyle = "#8a8a9a";
+        ctx.fillRect(-2, -12, 4, 24);
+        ctx.fillStyle = "#4a3030";
+        ctx.fillRect(-5, -3, 10, 6);
+        glow(ctx, COL.laser, 6);
+        ctx.fillStyle = COL.laser;
+        ctx.beginPath();
+        ctx.arc(0, 0, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#fff";
+        ctx.beginPath();
+        ctx.arc(0, 0, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+        glowOff(ctx);
+        ctx.restore();
+      });
+
+      // ========================
+      // ENEMIES — all on 80×50 canvas
+      // ========================
+      const enemies = document.getElementById("enemies");
+      const EW = 80,
+        EH = 50;
+
+      // Ballistic Missile
+      makeCard(enemies, EW, EH, "Missile", (ctx) => {
+        ctx.save();
+        ctx.translate(EW / 2, EH / 2);
+        ctx.rotate(Math.PI / 2 + 0.3);
+        for (let i = 0; i < 8; i++) {
+          ctx.fillStyle = `rgba(255,100,50,${(i / 8) * 0.5})`;
+          ctx.beginPath();
+          ctx.arc(-i * 2.5, 0, 1.5 + (1 - i / 8) * 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        glow(ctx, "#ff3333", 8);
+        ctx.fillStyle = "#884444";
+        ctx.beginPath();
+        ctx.moveTo(8, 0);
+        ctx.lineTo(4, -3);
+        ctx.lineTo(-8, -2.5);
+        ctx.lineTo(-8, 2.5);
+        ctx.lineTo(4, 3);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = COL.missile;
+        ctx.beginPath();
+        ctx.moveTo(12, 0);
+        ctx.lineTo(8, -3);
+        ctx.lineTo(8, 3);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#663333";
+        ctx.fillRect(-8, -5, 3, 2);
+        ctx.fillRect(-8, 3, 3, 2);
+        glowOff(ctx);
+        ctx.restore();
+      });
+
+      // MIRV
+      makeCard(enemies, EW, EH, "MIRV", (ctx) => {
+        ctx.save();
+        ctx.translate(EW / 2, EH / 2);
+        ctx.rotate(Math.PI / 2 + 0.3);
+        for (let i = 0; i < 6; i++) {
+          ctx.fillStyle = `rgba(200,160,120,${(i / 6) * 0.5})`;
+          ctx.beginPath();
+          ctx.arc(-i * 3.5, 0, 3 + (1 - i / 6) * 5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        glow(ctx, "#ff2200", 15);
+        ctx.fillStyle = "#445060";
+        ctx.beginPath();
+        ctx.moveTo(14, 0);
+        ctx.lineTo(8, -4.5);
+        ctx.lineTo(-14, -4.5);
+        ctx.lineTo(-14, 4.5);
+        ctx.lineTo(8, 4.5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#cc2200";
+        ctx.beginPath();
+        ctx.moveTo(20, 0);
+        ctx.lineTo(14, -4.5);
+        ctx.lineTo(14, 4.5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#aa3300";
+        ctx.fillRect(5, -4.5, 3, 9);
+        ctx.fillStyle = "#334450";
+        ctx.beginPath();
+        ctx.moveTo(-12, -4.5);
+        ctx.lineTo(-16, -10);
+        ctx.lineTo(-14, -4.5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(-12, 4.5);
+        ctx.lineTo(-16, 10);
+        ctx.lineTo(-14, 4.5);
+        ctx.closePath();
+        ctx.fill();
+        glowOff(ctx);
+        ctx.restore();
+      });
+
+      // Shahed-136
+      makeCard(enemies, EW, EH, "Shahed-136", (ctx) => {
+        ctx.save();
+        ctx.translate(EW / 2, EH / 2);
+        ctx.fillStyle = "#5a5a6a";
+        ctx.beginPath();
+        ctx.moveTo(12, 0);
+        ctx.lineTo(-6, -2.5);
+        ctx.lineTo(-10, 0);
+        ctx.lineTo(-6, 2.5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#4a4a5a";
+        ctx.beginPath();
+        ctx.moveTo(2, -2);
+        ctx.lineTo(-6, -10);
+        ctx.lineTo(-10, -2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(2, 2);
+        ctx.lineTo(-6, 10);
+        ctx.lineTo(-10, 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#999";
+        ctx.fillRect(-12, -1, 2, 2);
+        glow(ctx, COL.drone, 6);
+        ctx.fillStyle = COL.drone;
+        ctx.beginPath();
+        ctx.arc(12, 0, 2, 0, Math.PI * 2);
+        ctx.fill();
+        glowOff(ctx);
+        ctx.restore();
+      });
+
+      // Shahed-238
+      makeCard(enemies, EW, EH, "Shahed-238", (ctx) => {
+        ctx.save();
+        ctx.translate(EW / 2, EH / 2);
+        ctx.fillStyle = "#4a4a5a";
+        ctx.beginPath();
+        ctx.moveTo(16, 0);
+        ctx.lineTo(-10, -3);
+        ctx.lineTo(-14, 0);
+        ctx.lineTo(-10, 3);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#3a3a4a";
+        ctx.beginPath();
+        ctx.moveTo(4, -2);
+        ctx.lineTo(-8, -14);
+        ctx.lineTo(-12, -2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(4, 2);
+        ctx.lineTo(-8, 14);
+        ctx.lineTo(-12, 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#ff6600";
+        glow(ctx, "#ff4400", 12);
+        ctx.beginPath();
+        ctx.moveTo(-14, -2);
+        ctx.lineTo(-22, 0);
+        ctx.lineTo(-14, 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#ffcc44";
+        glowOff(ctx);
+        ctx.beginPath();
+        ctx.moveTo(-14, -1);
+        ctx.lineTo(-19, 0);
+        ctx.lineTo(-14, 1);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      });
+
+      // ========================
+      // PROJECTILES — all on 30×40 canvas
+      // ========================
+      const proj = document.getElementById("projectiles");
+      const PW = 30,
+        PH = 40;
+
+      // Player interceptor
+      makeCard(proj, PW, PH, "Interceptor", (ctx) => {
+        ctx.save();
+        ctx.translate(PW / 2, PH * 0.55);
+        for (let i = 0; i < 10; i++) {
+          ctx.fillStyle = `rgba(120,255,210,${(i / 10) * 0.42})`;
+          ctx.beginPath();
+          ctx.arc(0, i * 2, 1.3 + (i / 10) * 2.6, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        glow(ctx, COL.interceptor, 10);
+        ctx.fillStyle = "rgba(68,255,170,0.32)";
+        ctx.beginPath();
+        ctx.moveTo(-2.6, 8);
+        ctx.lineTo(0, 14);
+        ctx.lineTo(2.6, 8);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#1a3a30";
+        ctx.beginPath();
+        ctx.moveTo(-3, 7);
+        ctx.lineTo(-3.5, -3);
+        ctx.lineTo(0, -8);
+        ctx.lineTo(3.5, -3);
+        ctx.lineTo(3, 7);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = COL.interceptor;
+        ctx.fillRect(-1.5, -5, 3, 8);
+        ctx.fillStyle = "#88ffcc";
+        ctx.beginPath();
+        ctx.arc(0, -8, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+        glowOff(ctx);
+        ctx.restore();
+      });
+
+      // Hornet FPV
+      makeCard(proj, PW, PH, "Hornet FPV", (ctx) => {
+        ctx.save();
+        ctx.translate(PW / 2, PH / 2);
+        ctx.fillStyle = COL.hornet;
+        glow(ctx, COL.hornet, 8);
+        ctx.beginPath();
+        ctx.moveTo(0, -5);
+        ctx.lineTo(3.5, 4);
+        ctx.lineTo(0, 2);
+        ctx.lineTo(-3.5, 4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "rgba(255,244,160,0.85)";
+        ctx.fillRect(-0.8, -4, 1.6, 5);
+        ctx.fillStyle = "rgba(255,204,0,0.45)";
+        ctx.fillRect(-6, 0, 4, 1.6);
+        ctx.fillRect(2, 0, 4, 1.6);
+        glowOff(ctx);
+        ctx.restore();
+      });
+
+      // Roadrunner missile
+      makeCard(proj, PW, PH, "Roadrunner", (ctx) => {
+        ctx.save();
+        ctx.translate(PW / 2, PH / 2);
+        glow(ctx, COL.roadrunner, 10);
+        ctx.fillStyle = "#2c4760";
+        ctx.beginPath();
+        ctx.moveTo(0, -10);
+        ctx.lineTo(5, 5);
+        ctx.lineTo(0, 2);
+        ctx.lineTo(-5, 5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#7fd5ff";
+        ctx.fillRect(-1.5, -8, 3, 5);
+        ctx.fillStyle = "rgba(255,255,255,0.85)";
+        ctx.fillRect(-0.7, -5, 1.4, 2);
+        glowOff(ctx);
+        ctx.restore();
+      });
+
+      // Patriot SAM
+      makeCard(proj, PW, PH, "Patriot SAM", (ctx) => {
+        ctx.save();
+        ctx.translate(PW / 2, PH / 2);
+        glow(ctx, COL.patriot, 12);
+        ctx.fillStyle = "#2a5a2a";
+        ctx.fillRect(-3, -8, 6, 16);
+        ctx.fillStyle = COL.patriot;
+        ctx.beginPath();
+        ctx.moveTo(-3, -8);
+        ctx.lineTo(0, -13);
+        ctx.lineTo(3, -8);
+        ctx.fill();
+        ctx.fillStyle = "#1a4a1a";
+        ctx.fillRect(-5, 5, 2, 4);
+        ctx.fillRect(3, 5, 2, 4);
+        ctx.fillStyle = "#ffaa22";
+        ctx.beginPath();
+        ctx.moveTo(-2, 8);
+        ctx.lineTo(0, 15);
+        ctx.lineTo(2, 8);
+        ctx.fill();
+        glowOff(ctx);
+        ctx.restore();
+      });
+
+      // Phalanx bullet
+      makeCard(proj, PW, PH, "Phalanx", (ctx) => {
+        ctx.save();
+        ctx.translate(PW / 2, PH / 2);
+        ctx.fillStyle = COL.phalanx;
+        ctx.fillRect(-1, -1, 2, 2);
+        ctx.strokeStyle = "rgba(255,136,68,0.4)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, 8);
+        ctx.lineTo(0, -1);
+        ctx.stroke();
+        ctx.restore();
+      });
+
+      // Iron Beam
+      makeCard(proj, 60, PH, "Iron Beam", (ctx) => {
+        ctx.strokeStyle = COL.laser;
+        glow(ctx, COL.laser, 15);
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(5, PH / 2 + 3);
+        ctx.lineTo(55, PH / 2 - 5);
+        ctx.stroke();
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(5, PH / 2 + 3);
+        ctx.lineTo(55, PH / 2 - 5);
+        ctx.stroke();
+        glowOff(ctx);
+      });
+
+      // Flare
+      makeCard(proj, PW, PH, "Flare", (ctx) => {
+        ctx.save();
+        ctx.translate(PW / 2, PH / 2);
+        ctx.fillStyle = COL.flare;
+        glow(ctx, COL.flare, 16);
+        ctx.beginPath();
+        ctx.arc(0, 0, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,230,180,0.65)";
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(0, 0, 8, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = "#fff4d0";
+        ctx.beginPath();
+        ctx.arc(0, 0, 2.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,245,220,0.75)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(-6, 0);
+        ctx.lineTo(6, 0);
+        ctx.moveTo(0, -6);
+        ctx.lineTo(0, 6);
+        ctx.stroke();
+        glowOff(ctx);
+        ctx.restore();
+      });
+
+      // F-15 shot
+      makeCard(proj, PW, PH, "F-15 Shot", (ctx) => {
+        ctx.save();
+        ctx.translate(PW / 2, PH / 2);
+        for (let i = 0; i < 8; i++) {
+          ctx.strokeStyle = `rgba(150,200,255,${(i / 8) * 0.6})`;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(0, i * 2);
+          ctx.lineTo(0, i * 2 + 2);
+          ctx.stroke();
+        }
+        ctx.fillStyle = "#aaccff";
+        glow(ctx, "#6699ff", 6);
+        ctx.beginPath();
+        ctx.arc(0, 0, 2, 0, Math.PI * 2);
+        ctx.fill();
+        glowOff(ctx);
+        ctx.restore();
+      });
+
+      // ========================
+      // FRIENDLIES
+      // ========================
+      const friendlies = document.getElementById("friendlies");
+
+      makeCard(friendlies, 80, 50, "F-15 Eagle", (ctx) => {
+        ctx.save();
+        ctx.translate(40, 25);
+        ctx.fillStyle = "#7888a0";
+        ctx.beginPath();
+        ctx.moveTo(22, 0);
+        ctx.lineTo(10, -3);
+        ctx.lineTo(-18, -3.5);
+        ctx.lineTo(-22, -2);
+        ctx.lineTo(-22, 2);
+        ctx.lineTo(-18, 3.5);
+        ctx.lineTo(10, 3);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#5a6a80";
+        ctx.beginPath();
+        ctx.moveTo(22, 0);
+        ctx.lineTo(30, 0);
+        ctx.lineTo(22, -1.5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(22, 0);
+        ctx.lineTo(30, 0);
+        ctx.lineTo(22, 1.5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#687890";
+        ctx.beginPath();
+        ctx.moveTo(2, -3);
+        ctx.lineTo(-8, -16);
+        ctx.lineTo(-14, -14);
+        ctx.lineTo(-6, -3);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(2, 3);
+        ctx.lineTo(-8, 16);
+        ctx.lineTo(-14, 14);
+        ctx.lineTo(-6, 3);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#5a6878";
+        ctx.beginPath();
+        ctx.moveTo(-18, -3);
+        ctx.lineTo(-22, -10);
+        ctx.lineTo(-22, -3);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(-18, 3);
+        ctx.lineTo(-22, 10);
+        ctx.lineTo(-22, 3);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#ff6622";
+        glow(ctx, "#ff4400", 8);
+        ctx.beginPath();
+        ctx.moveTo(-22, -1.5);
+        ctx.lineTo(-28, 0);
+        ctx.lineTo(-22, 1.5);
+        ctx.closePath();
+        ctx.fill();
+        glowOff(ctx);
+        ctx.fillStyle = "rgba(120,200,255,0.5)";
+        ctx.beginPath();
+        ctx.ellipse(12, -1, 5, 1.8, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+
+      // ========================
+      // EFFECTS
+      // ========================
+      const effects = document.getElementById("effects");
+
+      makeCard(effects, 70, 70, "Threat Explosion", (ctx) => {
+        ctx.save();
+        ctx.translate(35, 35);
+        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 25);
+        g.addColorStop(0, "rgba(255,200,50,0.9)");
+        g.addColorStop(0.5, "rgba(255,120,20,0.5)");
+        g.addColorStop(1, "rgba(255,80,0,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(0, 0, 25, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,170,0,0.6)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, 28, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      });
+
+      makeCard(effects, 70, 70, "Interceptor Pop", (ctx) => {
+        ctx.save();
+        ctx.translate(35, 35);
+        glow(ctx, COL.interceptor, 15);
+        ctx.fillStyle = COL.interceptor;
+        ctx.globalAlpha = 0.7;
+        ctx.beginPath();
+        ctx.arc(0, 0, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = "#fff";
+        ctx.beginPath();
+        ctx.arc(0, 0, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(68,255,170,0.5)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, 25, 0, Math.PI * 2);
+        ctx.stroke();
+        glowOff(ctx);
+        ctx.restore();
+      });
+
+      makeCard(effects, 70, 70, "EMP Shockwave", (ctx) => {
+        ctx.save();
+        ctx.translate(35, 35);
+        glow(ctx, COL.emp, 10);
+        ctx.strokeStyle = COL.emp;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, 25, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = "rgba(204,68,255,0.4)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(0, 0, 30, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = "#6644aa";
+        ctx.beginPath();
+        ctx.arc(0, 0, 3, 0, Math.PI * 2);
+        ctx.fill();
+        glowOff(ctx);
+        ctx.restore();
+      });
+    </script>
+  </body>
+</html>

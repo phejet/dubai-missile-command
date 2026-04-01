@@ -1728,12 +1728,12 @@ export function buyUpgrade(g, key) {
     existingSite.savedLevel = g.upgrades[key];
   } else {
     const siteDefs = {
-      patriot: { x: 334, y: 1511, hw: 25, hh: 15 },
+      patriot: { x: 334, y: 1511, hw: 38, hh: 24 },
       flare: { x: BURJ_X, y: 837, hw: 8, hh: 10 },
       ironBeam: { x: BURJ_X, y: 959, hw: 10, hh: 15 },
-      wildHornets: { x: 206, y: 1511, hw: 20, hh: 15 },
-      roadrunner: { x: 678, y: GROUND_Y - 15, hw: 20, hh: 15 },
-      launcherKit: { x: 772, y: 1513, hw: 20, hh: 15 },
+      wildHornets: { x: 206, y: 1511, hw: 30, hh: 24 },
+      roadrunner: { x: 678, y: GROUND_Y - 15, hw: 30, hh: 24 },
+      launcherKit: { x: 772, y: 1513, hw: 30, hh: 24 },
     };
     if (key === "phalanx") {
       g.defenseSites.push({
