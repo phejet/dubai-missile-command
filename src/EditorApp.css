@@ -32,8 +32,8 @@
 }
 
 .editor-panel {
-  width: 320px;
-  min-width: 280px;
+  width: 420px;
+  min-width: 340px;
   overflow-y: auto;
   background: #111622;
   border-left: 1px solid #1a2a44;

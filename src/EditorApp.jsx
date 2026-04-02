@@ -73,9 +73,9 @@ function createPlayScene() {
   const scene = createEditorScene();
   scene.explosions = [];
   scene.particles = [];
-  createExplosion(scene, 350, -200, 55, COL.explosion, false); // threat
-  createExplosion(scene, 700, 100, 74, COL.interceptor, true, 0); // interceptor
-  createExplosion(scene, 200, -50, 45, "#ff4400", false, 0, { chain: true }); // chain
+  createExplosion(scene, 350, 350, 55, COL.explosion, false); // threat
+  createExplosion(scene, 700, 550, 74, COL.interceptor, true, 0); // interceptor
+  createExplosion(scene, 200, 200, 45, "#ff4400", false, 0, { chain: true }); // chain
   scene.shakeTimer = 0;
   scene.shakeIntensity = 0;
   return scene;
@@ -427,6 +427,16 @@ export default function EditorApp() {
             </button>
             <button onClick={toggleUpgrades} className={showUpgrades ? "play-btn play-btn--active" : "play-btn"}>
               {showUpgrades ? "Hide Upgrades" : "Show Upgrades"}
+            </button>
+            <button
+              onClick={() => {
+                const scene = sceneRef.current;
+                if (!scene) return;
+                scene._showColliders = !scene._showColliders;
+              }}
+              className="play-btn"
+            >
+              Colliders
             </button>
             <button onClick={() => window.open("sprites.html", "_blank")}>Sprite Catalog</button>
             <button onClick={resetAll}>Reset All</button>
