@@ -39,11 +39,6 @@
   overflow: hidden;
 }
 
-.game-shell--desktop .game-shell__content,
-.game-shell--phoneLandscape .game-shell__content {
-  justify-content: center;
-}
-
 .game-shell--phonePortrait .game-shell__content {
   gap: 12px;
   padding-bottom: max(12px, calc(env(safe-area-inset-bottom) + 10px));
@@ -280,12 +275,6 @@
   justify-content: center;
   padding-bottom: 48px;
   pointer-events: none;
-}
-
-.desktop-gameover-actions {
-  pointer-events: auto;
-  display: flex;
-  gap: 18px;
 }
 
 .portrait-panel {
@@ -777,15 +766,6 @@
 .game-shell--compactPortrait .portrait-panel__subtle,
 .game-shell--compactPortrait .portrait-tip {
   font-size: 11px;
-}
-
-.game-shell--desktop .battlefield-card,
-.game-shell--phoneLandscape .battlefield-card {
-  max-width: 900px;
-}
-
-.game-shell--phoneLandscape .game-shell__content {
-  gap: 12px;
 }
 
 @media (max-width: 640px) {

@@ -22,79 +22,33 @@ import { createReplayRunner } from "./replay.js";
 
 const REPLAY_CHECKPOINT_INTERVAL = 60;
 const HUD_REFRESH_MS = 120;
-const PHONE_BREAKPOINT = 900;
-const LANDSCAPE_BREAKPOINT = 1100;
-const LAYOUT_PROFILES = {
-  desktop: {
-    key: "desktop",
-    showTopHud: true,
-    showSystemLabels: true,
-    externalTitle: false,
-    externalGameOver: false,
-    crosshairFillRadius: 18,
-    crosshairOuterRadius: 18,
-    crosshairInnerRadius: 12,
-    crosshairGap: 6,
-    crosshairArmLength: 18,
-    mirvWarningFontSize: 18,
-    mirvWarningY: 56,
-    purchaseToastFontSize: 22,
-    purchaseToastY: CANVAS_H / 3,
-    lowAmmoFontSize: 28,
-    lowAmmoY: CANVAS_H / 2 - 40,
-    waveClearedY: 312,
-    multiKillLabelSize: 22,
-    multiKillBonusSize: 16,
-  },
-  phonePortrait: {
-    key: "phonePortrait",
-    showTopHud: false,
-    showSystemLabels: false,
-    externalTitle: true,
-    externalGameOver: true,
-    crosshairFillRadius: 22,
-    crosshairOuterRadius: 16,
-    crosshairInnerRadius: 18,
-    crosshairGap: 9,
-    crosshairArmLength: 24,
-    mirvWarningFontSize: 24,
-    mirvWarningY: 86,
-    purchaseToastFontSize: 28,
-    purchaseToastY: CANVAS_H * 0.38,
-    lowAmmoFontSize: 34,
-    lowAmmoY: CANVAS_H * 0.42,
-    waveClearedY: CANVAS_H * 0.5,
-    multiKillLabelSize: 28,
-    multiKillBonusSize: 20,
-    buildingScale: 2,
-    burjScale: 2,
-    launcherScale: 3,
-    enemyScale: 3,
-    projectileScale: 2,
-    effectScale: 2,
-    planeScale: 3,
-  },
-  phoneLandscape: {
-    key: "phoneLandscape",
-    showTopHud: true,
-    showSystemLabels: true,
-    externalTitle: false,
-    externalGameOver: false,
-    crosshairFillRadius: 20,
-    crosshairOuterRadius: 14,
-    crosshairInnerRadius: 12,
-    crosshairGap: 7,
-    crosshairArmLength: 20,
-    mirvWarningFontSize: 20,
-    mirvWarningY: 64,
-    purchaseToastFontSize: 24,
-    purchaseToastY: CANVAS_H / 3,
-    lowAmmoFontSize: 30,
-    lowAmmoY: CANVAS_H / 2 - 48,
-    waveClearedY: 320,
-    multiKillLabelSize: 24,
-    multiKillBonusSize: 18,
-  },
+const LAYOUT_PROFILE = {
+  key: "phonePortrait",
+  showTopHud: false,
+  showSystemLabels: false,
+  externalTitle: true,
+  externalGameOver: true,
+  crosshairFillRadius: 22,
+  crosshairOuterRadius: 16,
+  crosshairInnerRadius: 18,
+  crosshairGap: 9,
+  crosshairArmLength: 24,
+  mirvWarningFontSize: 24,
+  mirvWarningY: 86,
+  purchaseToastFontSize: 28,
+  purchaseToastY: CANVAS_H * 0.38,
+  lowAmmoFontSize: 34,
+  lowAmmoY: CANVAS_H * 0.42,
+  waveClearedY: CANVAS_H * 0.5,
+  multiKillLabelSize: 28,
+  multiKillBonusSize: 20,
+  buildingScale: 2,
+  burjScale: 2,
+  launcherScale: 3,
+  enemyScale: 3,
+  projectileScale: 2,
+  effectScale: 2,
+  planeScale: 3,
 };
 
 const EMPTY_HUD = {
@@ -136,25 +90,6 @@ function getViewportSnapshot() {
     width: window.innerWidth,
     height: window.innerHeight,
   };
-}
-
-function getUiMode({ width, height }) {
-  if (width <= PHONE_BREAKPOINT && height > width) return "phonePortrait";
-  if (width <= LANDSCAPE_BREAKPOINT && width > height) return "phoneLandscape";
-  return "phonePortrait";
-}
-
-function getLayoutProfile(uiMode) {
-  return LAYOUT_PROFILES[uiMode] ?? LAYOUT_PROFILES.desktop;
-}
-
-function clamp(value, min, max) {
-  return Math.min(Math.max(value, min), max);
-}
-
-function getPortraitCombatCamera(uiMode, screen) {
-  if (uiMode !== "phonePortrait" || screen !== "playing") return null;
-  return null;
 }
 
 function buildHudSnapshot(game) {
@@ -241,11 +176,7 @@ export default function DubaiMissileCommand() {
   const [hudSnapshot, setHudSnapshot] = useState(EMPTY_HUD);
   const [, setBattlefieldRect] = useState({ width: 0, height: 0 });
 
-  const uiMode = getUiMode(viewport);
-  const layoutProfile = getLayoutProfile(uiMode);
-  const isPhonePortrait = uiMode === "phonePortrait";
-  const isCompactPortrait = isPhonePortrait && viewport.height <= 760;
-  const combatCamera = getPortraitCombatCamera(uiMode, screen);
+  const isCompactPortrait = viewport.height <= 760;
 
   const syncHudSnapshot = useCallback((game, { force = false } = {}) => {
     const now = typeof performance !== "undefined" ? performance.now() : Date.now();
@@ -431,14 +362,12 @@ export default function DubaiMissileCommand() {
     const observer = new ResizeObserver(updateRect);
     observer.observe(card);
     return () => observer.disconnect();
-  }, [screen, uiMode]);
+  }, [screen]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
-    const activeLayoutProfile = combatCamera
-      ? { ...getLayoutProfile(uiMode), cameraFrame: combatCamera }
-      : getLayoutProfile(uiMode);
+    const activeLayoutProfile = LAYOUT_PROFILE;
 
     function loop(timestamp) {
       if (!perfState.probed && screen === "playing" && gameRef.current) {
@@ -543,19 +472,7 @@ export default function DubaiMissileCommand() {
 
     rafRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [
-    combatCamera,
-    draftMode,
-    finalScore,
-    finalStats,
-    finalWave,
-    handleSimEvent,
-    isPhonePortrait,
-    screen,
-    showShop,
-    syncHudSnapshot,
-    uiMode,
-  ]);
+  }, [draftMode, finalScore, finalStats, finalWave, handleSimEvent, screen, showShop, syncHudSnapshot]);
 
   useEffect(() => {
     function handleKeyDown(event) {
@@ -589,26 +506,7 @@ export default function DubaiMissileCommand() {
     const rect = canvas.getBoundingClientRect();
     const canvasX = (clientX - rect.left) * (CANVAS_W / rect.width);
     const canvasY = (clientY - rect.top) * (CANVAS_H / rect.height);
-    if (!combatCamera) {
-      return { x: canvasX, y: canvasY };
-    }
-    return {
-      x: clamp(combatCamera.left + canvasX / combatCamera.scale, 0, CANVAS_W),
-      y: clamp(combatCamera.top + canvasY / combatCamera.scale, 0, CANVAS_H),
-    };
-  }
-
-  function handleTitleModeHit(x, y) {
-    if (y < 478 || y > 506) return false;
-    if (x >= CANVAS_W / 2 - 135 && x <= CANVAS_W / 2 - 45) {
-      setDraftMode(false);
-      return true;
-    }
-    if (x >= CANVAS_W / 2 + 45 && x <= CANVAS_W / 2 + 135) {
-      setDraftMode(true);
-      return true;
-    }
-    return false;
+    return { x: canvasX, y: canvasY };
   }
 
   function fireAt(game, x, y) {
@@ -628,7 +526,6 @@ export default function DubaiMissileCommand() {
     event.preventDefault();
 
     if (screen === "title") {
-      if (!layoutProfile.externalTitle && handleTitleModeHit(point.x, point.y)) return;
       startGame();
       return;
     }
@@ -652,22 +549,7 @@ export default function DubaiMissileCommand() {
     const point = getCanvasCoords(event.clientX, event.clientY);
     if (!point) return;
 
-    if (screen === "title") {
-      if (!layoutProfile.externalTitle) {
-        if (point.y >= 478 && point.y <= 506) {
-          if (point.x >= CANVAS_W / 2 - 135 && point.x <= CANVAS_W / 2 - 45) {
-            titleHoverRef.current = "normal";
-            return;
-          }
-          if (point.x >= CANVAS_W / 2 + 45 && point.x <= CANVAS_W / 2 + 135) {
-            titleHoverRef.current = "draft";
-            return;
-          }
-        }
-        titleHoverRef.current = null;
-      }
-      return;
-    }
+    if (screen === "title") return;
 
     if (screen !== "playing") return;
     const game = gameRef.current;
@@ -727,17 +609,15 @@ export default function DubaiMissileCommand() {
 
   const hitRatio = getHitRatio(finalStats);
   const empProgress = getEmpProgress(hudSnapshot);
-  const footerText = "Dubai Missile Command v2.0 - Integrated Air Defense Network";
 
   return (
     <div
-      className={`game-shell game-shell--${uiMode} ${isCompactPortrait ? "game-shell--compactPortrait" : ""}`}
-      data-ui-mode={uiMode}
+      className={`game-shell game-shell--phonePortrait ${isCompactPortrait ? "game-shell--compactPortrait" : ""}`}
       data-screen={screen}
     >
       <div className="game-shell__ambient" aria-hidden="true" />
       <div className="game-shell__content">
-        {isPhonePortrait && screen === "title" && (
+        {screen === "title" && (
           <section className="portrait-hero" data-testid="portrait-title">
             <div className="portrait-hero__eyebrow">Integrated Air Defense Network</div>
             <h1 className="portrait-hero__title">Dubai Missile Command</h1>
@@ -749,7 +629,7 @@ export default function DubaiMissileCommand() {
           </section>
         )}
 
-        {isPhonePortrait && screen === "playing" && (
+        {screen === "playing" && (
           <header className="portrait-hud" data-testid="portrait-hud">
             <div className="portrait-hud__cluster">
               <div className="hud-chip hud-chip--gold">
@@ -822,7 +702,7 @@ export default function DubaiMissileCommand() {
           <div
             ref={battlefieldCardRef}
             className={`battlefield-card ${showShop ? "battlefield-card--blurred" : ""} ${
-              isPhonePortrait && screen === "playing" ? "battlefield-card--portraitSky" : ""
+              screen === "playing" ? "battlefield-card--portraitSky" : ""
             }`}
             onDragOver={(event) => event.preventDefault()}
             onDrop={(event) => {
@@ -855,62 +735,10 @@ export default function DubaiMissileCommand() {
               onPointerUp={handleCanvasPointerUp}
               className={`game-canvas ${screen === "playing" && !showShop ? "game-canvas--active" : ""}`}
             />
-
-            {!isPhonePortrait && (
-              <>
-                <button
-                  type="button"
-                  className="mute-button"
-                  aria-label={muted ? "Unmute audio" : "Mute audio"}
-                  onClick={() => {
-                    SFX.init();
-                    SFX.mute();
-                    setMuted(SFX.isMuted());
-                  }}
-                >
-                  {muted ? "\uD83D\uDD07" : "\uD83D\uDD0A"}
-                </button>
-                <button
-                  type="button"
-                  className="mute-button"
-                  style={{ opacity: 0.5, fontSize: "12px", top: "40px" }}
-                  aria-label="Toggle collision debug"
-                  onClick={() => {
-                    if (gameRef.current) {
-                      gameRef.current._showColliders = !gameRef.current._showColliders;
-                    }
-                  }}
-                >
-                  DBG
-                </button>
-              </>
-            )}
-
-            {!isPhonePortrait && screen === "gameover" && (
-              <div className="battlefield-overlay battlefield-overlay--desktop">
-                <div className="desktop-gameover-actions">
-                  <button type="button" className="action-button action-button--danger" onClick={startGame}>
-                    Retry
-                  </button>
-                  {lastReplay && (
-                    <button
-                      type="button"
-                      className="action-button action-button--info"
-                      onClick={() => {
-                        setReplayActive(false);
-                        startReplay(lastReplay);
-                      }}
-                    >
-                      Watch Replay
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
-        {isPhonePortrait && screen === "title" && (
+        {screen === "title" && (
           <section className="portrait-panel portrait-panel--title">
             <div className="portrait-panel__header">
               <span className="portrait-panel__kicker">Launch Profile</span>
@@ -954,7 +782,7 @@ export default function DubaiMissileCommand() {
           </section>
         )}
 
-        {isPhonePortrait && screen === "gameover" && (
+        {screen === "gameover" && (
           <section className="portrait-panel portrait-panel--gameover">
             <div className="portrait-panel__header">
               <span className="portrait-panel__kicker">After Action Report</span>
@@ -1003,10 +831,8 @@ export default function DubaiMissileCommand() {
         )}
 
         {showShop && shopData && (
-          <ShopUI shopData={shopData} onBuyUpgrade={buyUpgrade} onClose={closeShop} mode={uiMode} />
+          <ShopUI shopData={shopData} onBuyUpgrade={buyUpgrade} onClose={closeShop} mode="phonePortrait" />
         )}
-
-        {!isPhonePortrait && <footer className="game-footer">{footerText}</footer>}
       </div>
     </div>
   );

@@ -8,7 +8,7 @@ function getEntries(shopData) {
   return shopData.draftMode ? allEntries.filter(([key]) => shopData.draftOffers?.includes(key)) : allEntries;
 }
 
-export default function ShopUI({ shopData, onBuyUpgrade, onClose, mode = "desktop" }) {
+export default function ShopUI({ shopData, onBuyUpgrade, onClose, mode = "phonePortrait" }) {
   const entries = getEntries(shopData);
   const isDraftMode = !!shopData.draftMode;
   const isPhonePortrait = mode === "phonePortrait";

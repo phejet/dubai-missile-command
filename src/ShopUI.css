@@ -118,14 +118,6 @@
   gap: 12px;
 }
 
-.shop-grid--desktop {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.shop-grid--phoneLandscape {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
 .shop-grid--phonePortrait {
   grid-template-columns: 1fr;
 }
