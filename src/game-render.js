@@ -2654,7 +2654,8 @@ export function drawGameOver(ctx, finalScore, finalWave, finalStats, { layoutPro
   const layout = resolveLayoutProfile(layoutProfile);
   const t = performance.now() / 1000;
   const cx = CANVAS_W / 2;
-  const s = CANVAS_H / 640; // scale factor relative to original 640px design
+  // externalGameOver card clips to ~640px tall; non-external is unused in portrait but scales for full canvas
+  const s = layout.externalGameOver ? 1 : CANVAS_H / 640;
   ctx.fillStyle = "#080008";
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
   // Animated embers / ash

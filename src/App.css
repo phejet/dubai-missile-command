@@ -684,6 +684,10 @@
   width: min(100%, 430px);
 }
 
+.game-shell--phonePortrait[data-screen="gameover"] .battlefield-card {
+  aspect-ratio: 900 / 480;
+}
+
 .game-shell--phonePortrait[data-screen="playing"] .battlefield-shell {
   width: min(100%, 430px);
   flex: 1;
