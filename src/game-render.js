@@ -2483,14 +2483,14 @@ function drawCollisionOverlay(ctx, game) {
     for (let i = 0; i <= steps; i++) {
       const y = yTop + (i / steps) * (yBot - yTop);
       const uy = (y - GROUND_Y) / 2 + GROUND_Y;
-      const hw = Math.max(50, burjHalfW(uy) * 6);
+      const hw = Math.max(34, burjHalfW(uy) * 2);
       if (i === 0) ctx.moveTo(BURJ_X + hw, y);
       else ctx.lineTo(BURJ_X + hw, y);
     }
     for (let i = steps; i >= 0; i--) {
       const y = yTop + (i / steps) * (yBot - yTop);
       const uy = (y - GROUND_Y) / 2 + GROUND_Y;
-      const hw = Math.max(50, burjHalfW(uy) * 6);
+      const hw = Math.max(34, burjHalfW(uy) * 2);
       ctx.lineTo(BURJ_X - hw, y);
     }
     ctx.closePath();
