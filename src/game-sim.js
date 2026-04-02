@@ -1143,13 +1143,13 @@ function updateMissiles(g, dt, onEvent) {
       if (onEvent) onEvent("sfx", { name: "mirvSplit" });
       return;
     }
-    // Burj collision — use generous hitbox (2x silhouette width, min 20px)
+    // Burj collision — hitbox matches 2x scaled visual (burjScale: 2, anchor at GROUND_Y)
     if (
       g.burjAlive &&
       m.alive &&
-      m.y >= GROUND_Y - BURJ_H - 30 &&
+      m.y >= GROUND_Y - BURJ_H * 2 - 60 &&
       m.y <= GROUND_Y &&
-      Math.abs(m.x - BURJ_X) < Math.max(25, burjHalfW(m.y) * 3)
+      Math.abs(m.x - BURJ_X) < Math.max(50, burjHalfW((m.y - GROUND_Y) / 2 + GROUND_Y) * 6)
     ) {
       m.alive = false;
       boom(g, m.x, m.y, 55, "#ff4400", false, onEvent, 30);
@@ -1164,10 +1164,10 @@ function updateMissiles(g, dt, onEvent) {
         }
       }
     }
-    // Building collisions
+    // Building collisions — buildings rendered at buildingScale 2x, anchor bottom-center
     if (m.alive) {
       g.buildings.forEach((b) => {
-        if (b.alive && m.alive && m.x >= b.x && m.x <= b.x + b.w && m.y >= GROUND_Y - b.h) {
+        if (b.alive && m.alive && m.x >= b.x - b.w / 2 && m.x <= b.x + b.w * 1.5 && m.y >= GROUND_Y - b.h * 2) {
           m.alive = false;
           boom(g, m.x, m.y, 40, "#ff4400", false, onEvent, 20);
           b.alive = false;
@@ -1186,10 +1186,10 @@ function updateMissiles(g, dt, onEvent) {
         }
       });
     }
-    // Launcher collision
+    // Launcher collision — launchers rendered at launcherScale 3x
     if (m.alive) {
       LAUNCHERS.forEach((l, i) => {
-        if (g.launcherHP[i] > 0 && m.alive && Math.abs(m.x - l.x) < 15 && m.y >= l.y - 12) {
+        if (g.launcherHP[i] > 0 && m.alive && Math.abs(m.x - l.x) < 45 && m.y >= l.y - 36) {
           m.alive = false;
           boom(g, m.x, m.y, 50, "#ff4400", false, onEvent, 25);
           g.shakeTimer = 10;
@@ -1306,14 +1306,13 @@ function updateDrones(g, _rng, dt, onEvent) {
       }
     }
     if (d.x < -60 || d.x > CANVAS_W + 60 || d.y > CANVAS_H + 20) d.alive = false;
-    // Burj body collision — per-tick check so drones can't fly through
-    // Use 3x silhouette width (min 25) to match the visually rendered tower
+    // Burj body collision — hitbox matches 2x scaled visual
     if (
       d.alive &&
       g.burjAlive &&
-      d.y >= GROUND_Y - BURJ_H - 30 &&
+      d.y >= GROUND_Y - BURJ_H * 2 - 60 &&
       d.y <= GROUND_Y &&
-      Math.abs(d.x - BURJ_X) < Math.max(25, burjHalfW(d.y) * 3)
+      Math.abs(d.x - BURJ_X) < Math.max(50, burjHalfW((d.y - GROUND_Y) / 2 + GROUND_Y) * 6)
     ) {
       d.alive = false;
       boom(g, d.x, d.y, 70, "#ff6600", false, onEvent, 40);
@@ -1349,7 +1348,7 @@ function updateDrones(g, _rng, dt, onEvent) {
           }
         });
         LAUNCHERS.forEach((l, i) => {
-          if (g.launcherHP[i] > 0 && Math.abs(d.x - l.x) < 30) {
+          if (g.launcherHP[i] > 0 && Math.abs(d.x - l.x) < 90) {
             if (!g._debugMode) {
               g.launcherHP[i]--;
               if (g.launcherHP[i] <= 0) {

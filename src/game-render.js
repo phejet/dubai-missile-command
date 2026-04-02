@@ -2473,41 +2473,43 @@ function drawCollisionOverlay(ctx, game) {
   ctx.globalAlpha = 0.7;
   ctx.lineWidth = 1.5;
 
-  // Burj — tapered polygon matching hitbox: max(25, burjHalfW(y) * 3)
+  // Burj — tapered polygon matching 2x scaled visual (burjScale: 2, anchor at GROUND_Y)
   if (game.burjAlive) {
     ctx.strokeStyle = "cyan";
     ctx.beginPath();
-    const yTop = GROUND_Y - BURJ_H - 30;
+    const yTop = GROUND_Y - BURJ_H * 2 - 60;
     const yBot = GROUND_Y;
     const steps = 30;
     for (let i = 0; i <= steps; i++) {
       const y = yTop + (i / steps) * (yBot - yTop);
-      const hw = Math.max(25, burjHalfW(y) * 3);
+      const uy = (y - GROUND_Y) / 2 + GROUND_Y;
+      const hw = Math.max(50, burjHalfW(uy) * 6);
       if (i === 0) ctx.moveTo(BURJ_X + hw, y);
       else ctx.lineTo(BURJ_X + hw, y);
     }
     for (let i = steps; i >= 0; i--) {
       const y = yTop + (i / steps) * (yBot - yTop);
-      const hw = Math.max(25, burjHalfW(y) * 3);
+      const uy = (y - GROUND_Y) / 2 + GROUND_Y;
+      const hw = Math.max(50, burjHalfW(uy) * 6);
       ctx.lineTo(BURJ_X - hw, y);
     }
     ctx.closePath();
     ctx.stroke();
   }
 
-  // Launchers
+  // Launchers — rendered at launcherScale 3x
   ctx.strokeStyle = "lime";
   LAUNCHERS.forEach((l, i) => {
     if (game.launcherHP[i] > 0) {
-      ctx.strokeRect(l.x - 15, l.y - 12, 30, 12);
+      ctx.strokeRect(l.x - 45, l.y - 36, 90, 36);
     }
   });
 
-  // Buildings
+  // Buildings — rendered at buildingScale 2x, anchor bottom-center
   ctx.strokeStyle = "yellow";
   game.buildings.forEach((b) => {
     if (b.alive) {
-      ctx.strokeRect(b.x, GROUND_Y - b.h, b.w, b.h);
+      ctx.strokeRect(b.x - b.w / 2, GROUND_Y - b.h * 2, b.w * 2, b.h * 2);
     }
   });
 
