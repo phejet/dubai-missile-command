@@ -21,6 +21,7 @@ import {
   getMultiKillBonus,
   getRng,
   computeShahed238Path,
+  ov,
 } from "./game-logic.js";
 import { createCommander, generateWaveSchedule, advanceSpawnSchedule, isWaveFullySpawned } from "./wave-spawner.js";
 
@@ -767,8 +768,11 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
     const lvl = g.upgrades.flare;
     const interval = [240, 180, 120][lvl - 1];
     const lureRange = [145, 165, 185][lvl - 1];
-    const responseY = GROUND_Y - BURJ_H * 0.35;
-    const missileThreats = g.missiles.filter((m) => isFlareMissileTarget(m) && dist(m.x, m.y, BURJ_X, responseY) < 320);
+    const flareY = 837;
+    const activationRange = ov("upgrade.flareActivationRange", 320);
+    const missileThreats = g.missiles.filter(
+      (m) => isFlareMissileTarget(m) && dist(m.x, m.y, BURJ_X, flareY) < activationRange,
+    );
     g.flareTimer += dt;
     if (g.flareTimer >= interval && missileThreats.length > 0) {
       g.flareTimer = 0;

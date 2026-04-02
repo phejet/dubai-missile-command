@@ -2373,8 +2373,7 @@ function drawUpgradeRangeOverlay(ctx) {
       x: ov("upgrade.flares.x", BURJ_X),
       y: ov("upgrade.flares.y", 837),
       color: "#ff8833",
-      range: ov("upgrade.flareDetectRange", 320),
-      rangeY: GROUND_Y - BURJ_H * 0.35,
+      range: ov("upgrade.flareActivationRange", 320),
     },
     {
       key: "upgrade.hornets",
