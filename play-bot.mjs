@@ -1,6 +1,6 @@
 import { chromium } from "playwright";
 
-const GAME_URL = "http://localhost:5179/dubai-missile-command/";
+const GAME_URL = process.env.GAME_URL || "http://localhost:5178/dubai-missile-command/";
 const TICK_MS = 100;
 const GROUND_Y = 570;
 const INTERCEPTOR_SPEED = 5;

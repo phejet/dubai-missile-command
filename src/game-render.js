@@ -1397,7 +1397,7 @@ function drawExplosionsAndParticles(ctx, game, layout) {
       const ringR = ex.ringRadius * layout.effectScale;
       ctx.globalAlpha = ex.ringAlpha * ex.alpha;
       ctx.strokeStyle = ex.color;
-      ctx.lineWidth = Math.max(1, ov("explosion.ringWidth", 3) * layout.layout.effectScale * ex.ringAlpha);
+      ctx.lineWidth = Math.max(1, ov("explosion.ringWidth", 3) * layout.effectScale * ex.ringAlpha);
       ctx.beginPath();
       ctx.arc(ex.x, ex.y, ringR, 0, Math.PI * 2);
       ctx.stroke();
@@ -1414,8 +1414,8 @@ function drawExplosionsAndParticles(ctx, game, layout) {
       ctx.translate(p.x, p.y);
       ctx.rotate(p.angle);
       ctx.fillStyle = p.color;
-      const w = p.w * layout.layout.effectScale * 1.5;
-      const h = p.h * layout.layout.effectScale * 1.5;
+      const w = p.w * layout.effectScale * 1.5;
+      const h = p.h * layout.effectScale * 1.5;
       ctx.beginPath();
       ctx.moveTo(-w / 2, -h / 2);
       ctx.lineTo(w / 2, 0);
@@ -1426,7 +1426,7 @@ function drawExplosionsAndParticles(ctx, game, layout) {
     } else if (p.type === "spark") {
       // Bright streak with longer velocity trail
       ctx.strokeStyle = p.color;
-      ctx.lineWidth = p.size * layout.layout.effectScale * 1.2;
+      ctx.lineWidth = p.size * layout.effectScale * 1.2;
       ctx.lineCap = "round";
       ctx.beginPath();
       ctx.moveTo(p.x - p.vx * 5, p.y - p.vy * 5);
