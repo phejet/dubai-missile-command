@@ -7,7 +7,6 @@ import {
   BURJ_X,
   BURJ_H,
   LAUNCHERS,
-  burjHalfW,
   getAmmoCapacity,
   getPhalanxTurrets,
   ov,
@@ -2473,26 +2472,13 @@ function drawCollisionOverlay(ctx, game) {
   ctx.globalAlpha = 0.7;
   ctx.lineWidth = 1.5;
 
-  // Burj — tapered polygon matching 2x scaled visual (burjScale: 2, anchor at GROUND_Y)
+  // Burj — triangle matching linear collision (tip at top, base 64px wide at ground)
   if (game.burjAlive) {
     ctx.strokeStyle = "cyan";
     ctx.beginPath();
-    const yTop = GROUND_Y - BURJ_H * 2 - 60;
-    const yBot = GROUND_Y;
-    const steps = 30;
-    for (let i = 0; i <= steps; i++) {
-      const y = yTop + (i / steps) * (yBot - yTop);
-      const uy = (y - GROUND_Y) / 2 + GROUND_Y;
-      const hw = Math.max(34, burjHalfW(uy) * 2);
-      if (i === 0) ctx.moveTo(BURJ_X + hw, y);
-      else ctx.lineTo(BURJ_X + hw, y);
-    }
-    for (let i = steps; i >= 0; i--) {
-      const y = yTop + (i / steps) * (yBot - yTop);
-      const uy = (y - GROUND_Y) / 2 + GROUND_Y;
-      const hw = Math.max(34, burjHalfW(uy) * 2);
-      ctx.lineTo(BURJ_X - hw, y);
-    }
+    ctx.moveTo(BURJ_X, GROUND_Y - BURJ_H * 2 - 60);
+    ctx.lineTo(BURJ_X + 32, GROUND_Y);
+    ctx.lineTo(BURJ_X - 32, GROUND_Y);
     ctx.closePath();
     ctx.stroke();
   }

@@ -8,7 +8,6 @@ import {
   BURJ_H,
   MAX_PARTICLES,
   LAUNCHERS,
-  burjHalfW,
   dist,
   rand,
   randInt,
@@ -1149,7 +1148,7 @@ function updateMissiles(g, dt, onEvent) {
       m.alive &&
       m.y >= GROUND_Y - BURJ_H * 2 - 60 &&
       m.y <= GROUND_Y &&
-      Math.abs(m.x - BURJ_X) < Math.max(34, burjHalfW((m.y - GROUND_Y) / 2 + GROUND_Y) * 2)
+      Math.abs(m.x - BURJ_X) < ((m.y - (GROUND_Y - BURJ_H * 2 - 60)) / (BURJ_H * 2 + 60)) * 32
     ) {
       m.alive = false;
       boom(g, m.x, m.y, 55, "#ff4400", false, onEvent, 30);
@@ -1312,7 +1311,7 @@ function updateDrones(g, _rng, dt, onEvent) {
       g.burjAlive &&
       d.y >= GROUND_Y - BURJ_H * 2 - 60 &&
       d.y <= GROUND_Y &&
-      Math.abs(d.x - BURJ_X) < Math.max(34, burjHalfW((d.y - GROUND_Y) / 2 + GROUND_Y) * 2)
+      Math.abs(d.x - BURJ_X) < ((d.y - (GROUND_Y - BURJ_H * 2 - 60)) / (BURJ_H * 2 + 60)) * 32
     ) {
       d.alive = false;
       boom(g, d.x, d.y, 70, "#ff6600", false, onEvent, 40);
