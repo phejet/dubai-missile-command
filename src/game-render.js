@@ -2653,6 +2653,8 @@ export function drawTitleModeToggle(ctx, draftMode, hoverMode) {
 export function drawGameOver(ctx, finalScore, finalWave, finalStats, { layoutProfile = {} } = {}) {
   const layout = resolveLayoutProfile(layoutProfile);
   const t = performance.now() / 1000;
+  const cx = CANVAS_W / 2;
+  const s = CANVAS_H / 640; // scale factor relative to original 640px design
   ctx.fillStyle = "#080008";
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
   // Animated embers / ash
@@ -2665,24 +2667,24 @@ export function drawGameOver(ctx, finalScore, finalWave, finalStats, { layoutPro
   // Ruined Burj silhouette
   ctx.fillStyle = "rgba(60,20,10,0.4)";
   ctx.beginPath();
-  ctx.moveTo(CANVAS_W / 2 - 12, 500);
-  ctx.lineTo(CANVAS_W / 2 - 8, 400);
-  ctx.lineTo(CANVAS_W / 2 - 5, 360);
-  ctx.lineTo(CANVAS_W / 2 - 3, 340);
-  ctx.lineTo(CANVAS_W / 2 + 2, 350);
-  ctx.lineTo(CANVAS_W / 2 + 6, 380);
-  ctx.lineTo(CANVAS_W / 2 + 10, 420);
-  ctx.lineTo(CANVAS_W / 2 + 12, 500);
+  ctx.moveTo(cx - 12 * s, 500 * s);
+  ctx.lineTo(cx - 8 * s, 400 * s);
+  ctx.lineTo(cx - 5 * s, 360 * s);
+  ctx.lineTo(cx - 3 * s, 340 * s);
+  ctx.lineTo(cx + 2 * s, 350 * s);
+  ctx.lineTo(cx + 6 * s, 380 * s);
+  ctx.lineTo(cx + 10 * s, 420 * s);
+  ctx.lineTo(cx + 12 * s, 500 * s);
   ctx.closePath();
   ctx.fill();
   // Smoke wisps
   for (let i = 0; i < 5; i++) {
-    const sx = CANVAS_W / 2 + Math.sin(t + i * 1.3) * 15;
-    const sy = 330 - i * 20 - ((t * 8) % 40);
+    const sx = cx + Math.sin(t + i * 1.3) * 15 * s;
+    const sy = 330 * s - i * 20 * s - ((t * 8 * s) % (40 * s));
     ctx.globalAlpha = 0.1 - i * 0.015;
     ctx.fillStyle = "#442222";
     ctx.beginPath();
-    ctx.arc(sx, sy, 8 + i * 3, 0, Math.PI * 2);
+    ctx.arc(sx, sy, (8 + i * 3) * s, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.globalAlpha = 1;
@@ -2690,19 +2692,19 @@ export function drawGameOver(ctx, finalScore, finalWave, finalStats, { layoutPro
   ctx.textAlign = "center";
   ctx.fillStyle = COL.warning;
   glow(ctx, "#ff0000", 30);
-  ctx.font = "bold 48px 'Courier New', monospace";
-  ctx.fillText("CITY FALLEN", CANVAS_W / 2, 140);
+  ctx.font = `bold ${Math.round(48 * s)}px 'Courier New', monospace`;
+  ctx.fillText("CITY FALLEN", cx, 140 * s);
   glowOff(ctx);
   if (layout.externalGameOver) {
     ctx.strokeStyle = "rgba(255,60,60,0.18)";
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(CANVAS_W / 2 - 190, 170);
-    ctx.lineTo(CANVAS_W / 2 + 190, 170);
+    ctx.moveTo(cx - 190, 170 * s);
+    ctx.lineTo(cx + 190, 170 * s);
     ctx.stroke();
     ctx.fillStyle = "#7d6670";
-    ctx.font = "bold 18px 'Courier New', monospace";
-    ctx.fillText("THE DEFENSE NET HAS COLLAPSED", CANVAS_W / 2, 214);
+    ctx.font = `bold ${Math.round(18 * s)}px 'Courier New', monospace`;
+    ctx.fillText("THE DEFENSE NET HAS COLLAPSED", cx, 214 * s);
     ctx.textAlign = "left";
     return;
   }
@@ -2715,14 +2717,14 @@ export function drawGameOver(ctx, finalScore, finalWave, finalStats, { layoutPro
   ctx.stroke();
   // Stats
   ctx.fillStyle = "#887766";
-  ctx.font = "13px 'Courier New', monospace";
-  ctx.fillText("AFTER ACTION REPORT", CANVAS_W / 2, 195);
+  ctx.font = `${Math.round(13 * s)}px 'Courier New', monospace`;
+  ctx.fillText("AFTER ACTION REPORT", cx, 195 * s);
   ctx.fillStyle = "#ccbbaa";
-  ctx.font = "20px 'Courier New', monospace";
-  ctx.fillText(`SCORE: ${finalScore}`, CANVAS_W / 2, 240);
+  ctx.font = `${Math.round(20 * s)}px 'Courier New', monospace`;
+  ctx.fillText(`SCORE: ${finalScore}`, cx, 240 * s);
   ctx.fillStyle = "#aa9988";
-  ctx.font = "16px 'Courier New', monospace";
-  ctx.fillText(`WAVES SURVIVED: ${finalWave}`, CANVAS_W / 2, 275);
+  ctx.font = `${Math.round(16 * s)}px 'Courier New', monospace`;
+  ctx.fillText(`WAVES SURVIVED: ${finalWave}`, cx, 275 * s);
   // Rating
   let rating, ratingColor;
   if (finalWave >= 10) {
@@ -2739,27 +2741,27 @@ export function drawGameOver(ctx, finalScore, finalWave, finalStats, { layoutPro
     ratingColor = "#886655";
   }
   ctx.fillStyle = ratingColor;
-  ctx.font = "bold 14px 'Courier New', monospace";
-  ctx.fillText(rating, CANVAS_W / 2, 310);
+  ctx.font = `bold ${Math.round(14 * s)}px 'Courier New', monospace`;
+  ctx.fillText(rating, cx, 310 * s);
   // Combat stats
   ctx.strokeStyle = "rgba(255,60,60,0.15)";
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(CANVAS_W / 2 - 120, 330);
-  ctx.lineTo(CANVAS_W / 2 + 120, 330);
+  ctx.moveTo(cx - 120, 330 * s);
+  ctx.lineTo(cx + 120, 330 * s);
   ctx.stroke();
   ctx.fillStyle = "#887766";
-  ctx.font = "11px 'Courier New', monospace";
-  ctx.fillText("COMBAT RECORD", CANVAS_W / 2, 352);
+  ctx.font = `${Math.round(11 * s)}px 'Courier New', monospace`;
+  ctx.fillText("COMBAT RECORD", cx, 352 * s);
   ctx.fillStyle = "#aa9988";
-  ctx.font = "14px 'Courier New', monospace";
-  ctx.fillText(`MISSILES DESTROYED: ${finalStats.missileKills}`, CANVAS_W / 2, 378);
-  ctx.fillText(`DRONES KILLED: ${finalStats.droneKills}`, CANVAS_W / 2, 400);
-  ctx.fillText(`SHOTS FIRED: ${finalStats.shotsFired}`, CANVAS_W / 2, 422);
+  ctx.font = `${Math.round(14 * s)}px 'Courier New', monospace`;
+  ctx.fillText(`MISSILES DESTROYED: ${finalStats.missileKills}`, cx, 378 * s);
+  ctx.fillText(`DRONES KILLED: ${finalStats.droneKills}`, cx, 400 * s);
+  ctx.fillText(`SHOTS FIRED: ${finalStats.shotsFired}`, cx, 422 * s);
   const totalKills = finalStats.missileKills + finalStats.droneKills;
   const hitRatio = finalStats.shotsFired > 0 ? Math.round((totalKills / finalStats.shotsFired) * 100) : 0;
   ctx.fillStyle = hitRatio >= 50 ? "#44ff88" : hitRatio >= 25 ? "#ffaa44" : "#ff4444";
-  ctx.font = "bold 14px 'Courier New', monospace";
-  ctx.fillText(`HIT RATIO: ${hitRatio}%`, CANVAS_W / 2, 448);
+  ctx.font = `bold ${Math.round(14 * s)}px 'Courier New', monospace`;
+  ctx.fillText(`HIT RATIO: ${hitRatio}%`, cx, 448 * s);
   ctx.textAlign = "left";
 }
