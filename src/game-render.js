@@ -157,30 +157,38 @@ function sampleTitlePath(path, progress) {
   };
 }
 
+function titleFadeAlpha(y) {
+  const fadeStart = CANVAS_H * 0.34;
+  const fadeEnd = CANVAS_H * 0.5;
+  if (y <= fadeStart) return 1;
+  if (y >= fadeEnd) return 0;
+  return (fadeEnd - y) / (fadeEnd - fadeStart);
+}
+
 function makeTitleMotionPaths() {
   const missileTracks = [
     {
       start: { x: -74, y: 118 },
-      end: { x: 322, y: 300 },
+      end: { x: 338, y: 848 },
       phase: 0.02,
-      speed: 0.078,
-      scale: 1.6,
+      speed: 0.19,
+      scale: 3,
       glow: "rgba(255, 170, 80, 0.08)",
     },
     {
       start: { x: 950, y: 132 },
-      end: { x: 548, y: 312 },
+      end: { x: 542, y: 872 },
       phase: 0.28,
-      speed: 0.074,
-      scale: 1.7,
+      speed: 0.18,
+      scale: 3,
       glow: "rgba(255, 170, 80, 0.08)",
     },
     {
       start: { x: -42, y: 208 },
-      end: { x: 452, y: 340 },
+      end: { x: 468, y: 900 },
       phase: 0.52,
-      speed: 0.068,
-      scale: 1.78,
+      speed: 0.17,
+      scale: 3,
       glow: "rgba(255, 170, 80, 0.06)",
     },
   ];
@@ -189,16 +197,16 @@ function makeTitleMotionPaths() {
     {
       subtype: "shahed238",
       phase: 0.14,
-      speed: 0.048,
-      scale: 1.12,
+      speed: 0.11,
+      scale: 3,
       path: sampleCubicBezierPath(
         { x: 944, y: 56 },
-        { x: 790, y: 62 },
-        { x: 680, y: 82 },
-        { x: 594, y: 112 },
-        7,
+        { x: 812, y: 64 },
+        { x: 706, y: 108 },
+        { x: 620, y: 154 },
+        6,
       ).concat(
-        sampleCubicBezierPath({ x: 594, y: 112 }, { x: 700, y: 150 }, { x: 620, y: 258 }, { x: 492, y: 334 }, 7).slice(
+        sampleCubicBezierPath({ x: 620, y: 154 }, { x: 692, y: 220 }, { x: 614, y: 498 }, { x: 492, y: 868 }, 6).slice(
           1,
         ),
       ),
@@ -206,16 +214,16 @@ function makeTitleMotionPaths() {
     {
       subtype: "shahed136",
       phase: 0.37,
-      speed: 0.052,
-      scale: 1.08,
+      speed: 0.12,
+      scale: 3,
       path: sampleCubicBezierPath(
         { x: -46, y: 76 },
-        { x: 132, y: 78 },
-        { x: 258, y: 94 },
-        { x: 388, y: 112 },
-        7,
+        { x: 128, y: 82 },
+        { x: 258, y: 110 },
+        { x: 388, y: 140 },
+        6,
       ).concat(
-        sampleCubicBezierPath({ x: 388, y: 112 }, { x: 442, y: 132 }, { x: 418, y: 214 }, { x: 326, y: 304 }, 7).slice(
+        sampleCubicBezierPath({ x: 388, y: 140 }, { x: 446, y: 182 }, { x: 426, y: 454 }, { x: 326, y: 860 }, 6).slice(
           1,
         ),
       ),
@@ -223,10 +231,10 @@ function makeTitleMotionPaths() {
     {
       subtype: "shahed136",
       phase: 0.61,
-      speed: 0.05,
-      scale: 1.12,
-      path: sampleCubicBezierPath({ x: 136, y: 42 }, { x: 304, y: 46 }, { x: 490, y: 58 }, { x: 692, y: 80 }, 7).concat(
-        sampleCubicBezierPath({ x: 692, y: 80 }, { x: 760, y: 112 }, { x: 706, y: 210 }, { x: 578, y: 296 }, 7).slice(
+      speed: 0.115,
+      scale: 3,
+      path: sampleCubicBezierPath({ x: 136, y: 42 }, { x: 312, y: 48 }, { x: 498, y: 68 }, { x: 692, y: 96 }, 6).concat(
+        sampleCubicBezierPath({ x: 692, y: 96 }, { x: 772, y: 138 }, { x: 724, y: 432 }, { x: 578, y: 842 }, 6).slice(
           1,
         ),
       ),
@@ -2821,11 +2829,12 @@ export function drawTitle(ctx, { layoutProfile = {} } = {}) {
     ctx.fill();
   });
 
-  function drawTitleMissileSilhouette(ctx, x, y, angle, scale = 1) {
+  function drawTitleMissileSilhouette(ctx, x, y, angle, scale = 1, alpha = 1) {
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(angle);
     ctx.scale(scale, scale);
+    ctx.globalAlpha = alpha;
     ctx.fillStyle = "#889098";
     ctx.beginPath();
     ctx.moveTo(8, 0);
@@ -2858,11 +2867,12 @@ export function drawTitle(ctx, { layoutProfile = {} } = {}) {
     ctx.restore();
   }
 
-  function drawTitleDroneSilhouette(ctx, x, y, angle, subtype = "shahed136", scale = 1) {
+  function drawTitleDroneSilhouette(ctx, x, y, angle, subtype = "shahed136", scale = 1, alpha = 1) {
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(angle);
     ctx.scale(scale, scale);
+    ctx.globalAlpha = alpha;
     if (subtype === "shahed238") {
       ctx.fillStyle = "#4a4a5a";
       ctx.beginPath();
@@ -2925,31 +2935,38 @@ export function drawTitle(ctx, { layoutProfile = {} } = {}) {
     const ease = 1 - (1 - p) ** 2.8;
     const x = m.start.x + (m.end.x - m.start.x) * ease;
     const y = m.start.y + (m.end.y - m.start.y) * ease;
+    const fade = titleFadeAlpha(y);
+    if (fade <= 0) return;
     const angle = Math.atan2(m.end.y - m.start.y, m.end.x - m.start.x);
-    drawTitleMissileSilhouette(ctx, x, y, angle, m.scale);
+    ctx.save();
+    drawTitleMissileSilhouette(ctx, x, y, angle, m.scale, fade);
+    ctx.globalAlpha = fade * 0.8;
     ctx.fillStyle = m.glow;
     ctx.beginPath();
     ctx.arc(x, y, 10 + index * 3, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
   });
 
   dronePaths.forEach((d, index) => {
     const sample = sampleTitlePath(d.path, t * d.speed + d.phase);
     const wobble = Math.sin(t * 0.9 + index) * 0.8;
-    const altitude = index === 0 ? 0 : index === 1 ? 0.9 : 1.2;
-    drawTitleDroneSilhouette(ctx, sample.x, sample.y + wobble, sample.angle, d.subtype, d.scale);
+    const fade = titleFadeAlpha(sample.y);
+    if (fade <= 0) return;
+    ctx.save();
+    drawTitleDroneSilhouette(ctx, sample.x, sample.y + wobble, sample.angle, d.subtype, d.scale, fade);
+    ctx.globalAlpha = fade * 0.5;
     ctx.fillStyle = index === 0 ? "rgba(255, 180, 80, 0.06)" : "rgba(140, 160, 220, 0.06)";
     ctx.beginPath();
     ctx.arc(sample.x, sample.y, 14 + index * 2, 0, Math.PI * 2);
     ctx.fill();
-    ctx.globalAlpha = 0.9 - altitude * 0.08;
     ctx.strokeStyle = d.subtype === "shahed238" ? "rgba(255, 180, 80, 0.22)" : "rgba(140, 160, 220, 0.18)";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(sample.x - Math.cos(sample.angle) * 18, sample.y - Math.sin(sample.angle) * 18);
     ctx.lineTo(sample.x, sample.y);
     ctx.stroke();
-    ctx.globalAlpha = 1;
+    ctx.restore();
   });
 
   // Title copy
