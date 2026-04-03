@@ -165,6 +165,12 @@
   justify-content: center;
 }
 
+.game-shell[data-screen="title"] .battlefield-shell {
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+}
+
 .battlefield-card {
   position: relative;
   width: min(100%, 920px);
@@ -190,6 +196,12 @@
     linear-gradient(130deg, rgba(255, 255, 255, 0.08), transparent 28%),
     radial-gradient(circle at 50% 0%, rgba(0, 255, 200, 0.14), transparent 36%);
   mix-blend-mode: screen;
+}
+
+.game-shell[data-screen="title"] .battlefield-card {
+  width: min(100%, 920px);
+  height: 100%;
+  aspect-ratio: auto;
 }
 
 .battlefield-card--portraitSky {
@@ -223,6 +235,14 @@
 
 .game-shell--phonePortrait .game-canvas--active {
   cursor: crosshair;
+}
+
+.game-shell--phonePortrait[data-screen="title"] .battlefield-shell {
+  width: min(100%, 430px);
+}
+
+.game-shell--phonePortrait[data-screen="title"] .battlefield-card {
+  width: 100%;
 }
 
 .mute-button {

@@ -26,7 +26,7 @@ const LAYOUT_PROFILE = {
   key: "phonePortrait",
   showTopHud: false,
   showSystemLabels: false,
-  externalTitle: true,
+  externalTitle: false,
   externalGameOver: true,
   crosshairFillRadius: 22,
   crosshairOuterRadius: 16,
@@ -618,18 +618,6 @@ export default function DubaiMissileCommand() {
     >
       <div className="game-shell__ambient" aria-hidden="true" />
       <div className="game-shell__content">
-        {screen === "title" && (
-          <section className="portrait-hero" data-testid="portrait-title">
-            <div className="portrait-hero__eyebrow">Integrated Air Defense Network</div>
-            <h1 className="portrait-hero__title">Dubai Missile Command</h1>
-            {!isCompactPortrait && (
-              <p className="portrait-hero__copy">
-                Defend the skyline, intercept incoming strikes, and build a layered shield around the Burj.
-              </p>
-            )}
-          </section>
-        )}
-
         {screen === "playing" && (
           <header className="portrait-hud" data-testid="portrait-hud">
             <div className="portrait-hud__cluster">
@@ -767,22 +755,6 @@ export default function DubaiMissileCommand() {
             )}
           </div>
         </div>
-
-        {screen === "title" && (
-          <section className="portrait-panel portrait-panel--title">
-            <p className="portrait-panel__copy">Pick one free upgrade each wave from three rotating options.</p>
-            <button
-              type="button"
-              className="action-button action-button--primary action-button--wide"
-              onClick={startGame}
-            >
-              Start Defense
-            </button>
-            {!isCompactPortrait && (
-              <div className="portrait-tip">Tap the battlefield at any time to start and fire.</div>
-            )}
-          </section>
-        )}
 
         {screen === "gameover" && (
           <section className="portrait-panel portrait-panel--gameover">

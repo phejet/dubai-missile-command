@@ -95,6 +95,153 @@ export function glowOff(ctx) {
   ctx.shadowBlur = 0;
 }
 
+function cubicBezierPoint(p0, p1, p2, p3, t) {
+  const u = 1 - t;
+  const uu = u * u;
+  const tt = t * t;
+  return {
+    x: uu * u * p0.x + 3 * uu * t * p1.x + 3 * u * tt * p2.x + tt * t * p3.x,
+    y: uu * u * p0.y + 3 * uu * t * p1.y + 3 * u * tt * p2.y + tt * t * p3.y,
+  };
+}
+
+function sampleCubicBezierPath(p0, p1, p2, p3, stepSize) {
+  const N = 180;
+  const fine = [];
+  for (let i = 0; i <= N; i++) fine.push(cubicBezierPoint(p0, p1, p2, p3, i / N));
+  const arcLen = [0];
+  for (let i = 1; i < fine.length; i++) {
+    const dx = fine[i].x - fine[i - 1].x;
+    const dy = fine[i].y - fine[i - 1].y;
+    arcLen.push(arcLen[i - 1] + Math.sqrt(dx * dx + dy * dy));
+  }
+  const totalLen = arcLen[arcLen.length - 1];
+  const waypoints = [{ x: fine[0].x, y: fine[0].y }];
+  let nextDist = stepSize;
+  for (let i = 1; i < fine.length; i++) {
+    while (nextDist <= arcLen[i] && nextDist <= totalLen) {
+      const segStart = arcLen[i - 1];
+      const segEnd = arcLen[i];
+      const frac = segEnd > segStart ? (nextDist - segStart) / (segEnd - segStart) : 0;
+      waypoints.push({
+        x: fine[i - 1].x + (fine[i].x - fine[i - 1].x) * frac,
+        y: fine[i - 1].y + (fine[i].y - fine[i - 1].y) * frac,
+      });
+      nextDist += stepSize;
+    }
+  }
+  const last = fine[fine.length - 1];
+  const wLast = waypoints[waypoints.length - 1];
+  if (Math.abs(wLast.x - last.x) > 0.5 || Math.abs(wLast.y - last.y) > 0.5) {
+    waypoints.push({ x: last.x, y: last.y });
+  }
+  return waypoints;
+}
+
+function sampleTitlePath(path, progress) {
+  if (!path.length) return { x: 0, y: 0, angle: 0 };
+  const p = progress - Math.floor(progress);
+  const idx = p * (path.length - 1);
+  const i0 = Math.floor(idx);
+  const i1 = Math.min(i0 + 1, path.length - 1);
+  const frac = idx - i0;
+  const a = path[i0];
+  const b = path[i1];
+  const x = a.x + (b.x - a.x) * frac;
+  const y = a.y + (b.y - a.y) * frac;
+  const next = path[Math.min(i1 + 1, path.length - 1)];
+  return {
+    x,
+    y,
+    angle: Math.atan2(next.y - a.y, next.x - a.x),
+  };
+}
+
+function makeTitleMotionPaths() {
+  const missileTracks = [
+    {
+      start: { x: -74, y: 118 },
+      end: { x: 322, y: 300 },
+      phase: 0.02,
+      speed: 0.078,
+      scale: 1.6,
+      glow: "rgba(255, 170, 80, 0.08)",
+    },
+    {
+      start: { x: 950, y: 132 },
+      end: { x: 548, y: 312 },
+      phase: 0.28,
+      speed: 0.074,
+      scale: 1.7,
+      glow: "rgba(255, 170, 80, 0.08)",
+    },
+    {
+      start: { x: -42, y: 208 },
+      end: { x: 452, y: 340 },
+      phase: 0.52,
+      speed: 0.068,
+      scale: 1.78,
+      glow: "rgba(255, 170, 80, 0.06)",
+    },
+  ];
+
+  const dronePaths = [
+    {
+      subtype: "shahed238",
+      phase: 0.14,
+      speed: 0.048,
+      scale: 1.12,
+      path: sampleCubicBezierPath(
+        { x: 944, y: 56 },
+        { x: 790, y: 62 },
+        { x: 680, y: 82 },
+        { x: 594, y: 112 },
+        7,
+      ).concat(
+        sampleCubicBezierPath({ x: 594, y: 112 }, { x: 700, y: 150 }, { x: 620, y: 258 }, { x: 492, y: 334 }, 7).slice(
+          1,
+        ),
+      ),
+    },
+    {
+      subtype: "shahed136",
+      phase: 0.37,
+      speed: 0.052,
+      scale: 1.08,
+      path: sampleCubicBezierPath(
+        { x: -46, y: 76 },
+        { x: 132, y: 78 },
+        { x: 258, y: 94 },
+        { x: 388, y: 112 },
+        7,
+      ).concat(
+        sampleCubicBezierPath({ x: 388, y: 112 }, { x: 442, y: 132 }, { x: 418, y: 214 }, { x: 326, y: 304 }, 7).slice(
+          1,
+        ),
+      ),
+    },
+    {
+      subtype: "shahed136",
+      phase: 0.61,
+      speed: 0.05,
+      scale: 1.12,
+      path: sampleCubicBezierPath({ x: 136, y: 42 }, { x: 304, y: 46 }, { x: 490, y: 58 }, { x: 692, y: 80 }, 7).concat(
+        sampleCubicBezierPath({ x: 692, y: 80 }, { x: 760, y: 112 }, { x: 706, y: 210 }, { x: 578, y: 296 }, 7).slice(
+          1,
+        ),
+      ),
+    },
+  ];
+
+  return { missileTracks, dronePaths };
+}
+
+let _titleMotionPaths = null;
+function getTitleMotionPaths() {
+  if (!_titleMotionPaths) _titleMotionPaths = makeTitleMotionPaths();
+  return _titleMotionPaths;
+}
+
 export function hash01(a, b = 0, c = 0) {
   const value = Math.sin(a * 12.9898 + b * 78.233 + c * 37.719) * 43758.5453123;
   return value - Math.floor(value);
@@ -2548,65 +2695,290 @@ function drawCollisionOverlay(ctx, game) {
 export function drawTitle(ctx, { layoutProfile = {} } = {}) {
   const layout = resolveLayoutProfile(layoutProfile);
   const t = performance.now() / 1000;
+  const cx = CANVAS_W / 2;
+  const horizonY = GROUND_Y - 8;
   const skyGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
   skyGrad.addColorStop(0, "#050810");
   skyGrad.addColorStop(0.5, "#0a1030");
   skyGrad.addColorStop(1, "#151030");
   ctx.fillStyle = skyGrad;
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-  ctx.fillStyle = "rgba(0,255,200,0.02)";
-  for (let y = 0; y < CANVAS_H; y += 3) ctx.fillRect(0, y + ((t * 20) % 3), CANVAS_W, 1);
+  ctx.save();
+  ctx.fillStyle = "rgba(0,255,200,0.03)";
+  for (let y = 0; y < CANVAS_H; y += 3) {
+    ctx.fillRect(0, y + ((t * 20) % 3), CANVAS_W, 1);
+  }
+  ctx.fillStyle = "rgba(125, 180, 255, 0.04)";
+  for (let i = 0; i < 7; i++) {
+    const y = 108 + i * 54;
+    ctx.fillRect(0, y, CANVAS_W, 1);
+  }
+  ctx.strokeStyle = "rgba(0,255,200,0.06)";
+  ctx.lineWidth = 1;
+  for (let x = 120; x < CANVAS_W; x += 120) {
+    ctx.beginPath();
+    ctx.moveTo(x, 120);
+    ctx.lineTo(x, GROUND_Y + 24);
+    ctx.stroke();
+  }
+  ctx.restore();
   ctx.textAlign = "center";
-  // Burj silhouette
-  ctx.fillStyle = "rgba(0,255,200,0.08)";
-  ctx.beginPath();
-  ctx.moveTo(CANVAS_W / 2, 280);
-  ctx.lineTo(CANVAS_W / 2 - 3, 320);
-  ctx.lineTo(CANVAS_W / 2 - 8, 380);
-  ctx.lineTo(CANVAS_W / 2 - 12, 480);
-  ctx.lineTo(CANVAS_W / 2 + 12, 480);
-  ctx.lineTo(CANVAS_W / 2 + 8, 380);
-  ctx.lineTo(CANVAS_W / 2 + 3, 320);
-  ctx.closePath();
-  ctx.fill();
 
+  // Skyline haze
+  const skylineGlow = ctx.createRadialGradient(cx, GROUND_Y - 70, 40, cx, GROUND_Y - 70, 440);
+  skylineGlow.addColorStop(0, "rgba(0, 255, 200, 0.14)");
+  skylineGlow.addColorStop(0.45, "rgba(40, 120, 220, 0.08)");
+  skylineGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = skylineGlow;
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+  // Reduced skyline using the same building proportions as the game
+  const titleBuildings = [
+    [40, 35, 80],
+    [125, 40, 95],
+    [210, 45, 110],
+    [530, 38, 90],
+    [700, 40, 100],
+    [790, 42, 120],
+  ];
+  titleBuildings.forEach(([x, w, h]) => {
+    ctx.save();
+    ctx.translate(x + w / 2, horizonY);
+    ctx.scale(2, 2);
+    ctx.translate(-(x + w / 2), -horizonY);
+    const bTop = horizonY - h;
+    ctx.fillStyle = "rgba(3, 6, 10, 0.98)";
+    ctx.fillRect(x, bTop, w, h);
+    ctx.fillStyle = "rgba(6, 10, 16, 0.95)";
+    ctx.fillRect(x - 1, bTop, w + 2, 3);
+    ctx.fillStyle = "rgba(255,255,255,0.02)";
+    ctx.fillRect(x, bTop, 3, h);
+    ctx.fillStyle = "rgba(0,0,0,0.42)";
+    ctx.fillRect(x + w - 5, bTop, 5, h);
+    ctx.restore();
+  });
+  ctx.globalAlpha = 1;
+
+  // Burj silhouette with the same proportions and scale as the in-game tower
+  const burjX = cx;
+  const burjBaseY = horizonY;
+  const burjHeight = BURJ_H;
+  const burjTiers = [
+    [1.0, 3],
+    [0.88, 4],
+    [0.73, 6],
+    [0.58, 8.5],
+    [0.42, 10.5],
+    [0.38, 12],
+    [0.35, 10.5],
+    [0.22, 12],
+    [0.1, 14],
+    [0.0, 16],
+  ];
+
+  function titleBurjPath() {
+    ctx.beginPath();
+    ctx.moveTo(burjX, burjBaseY - burjHeight - 30);
+    ctx.lineTo(burjX - 1.5, burjBaseY - burjHeight - 12);
+    for (const [hf, hw] of burjTiers) {
+      ctx.lineTo(burjX - hw, burjBaseY - burjHeight * hf);
+    }
+    for (let i = burjTiers.length - 1; i >= 0; i--) {
+      ctx.lineTo(burjX + burjTiers[i][1], burjBaseY - burjHeight * burjTiers[i][0]);
+    }
+    ctx.lineTo(burjX + 1.5, burjBaseY - burjHeight - 12);
+    ctx.closePath();
+  }
+
+  ctx.save();
+  ctx.translate(burjX, burjBaseY);
+  ctx.scale(2, 2);
+  ctx.translate(-burjX, -burjBaseY);
+  ctx.fillStyle = "rgba(2, 4, 7, 0.98)";
+  titleBurjPath();
+  ctx.fill();
+  ctx.restore();
+
+  // Front-line defense silhouettes with the same proportions as the game, but fewer of them
+  const sites = [
+    { x: 92, w: 44, h: 24, roof: 16 },
+    { x: 184, w: 46, h: 32, roof: 18 },
+    { x: 304, w: 38, h: 22, roof: 14 },
+    { x: 604, w: 38, h: 22, roof: 14 },
+    { x: 708, w: 46, h: 30, roof: 18 },
+    { x: 808, w: 40, h: 26, roof: 16 },
+  ];
+  sites.forEach((site, index) => {
+    const bob = Math.sin(t * 1.5 + index) * 1.5;
+    const baseY = horizonY - site.roof + bob;
+    ctx.fillStyle = "rgba(4, 10, 18, 0.96)";
+    ctx.fillRect(site.x - site.w / 2, baseY - site.h, site.w, site.h);
+    ctx.beginPath();
+    ctx.moveTo(site.x - site.w / 2 - 6, baseY - site.h + 2);
+    ctx.lineTo(site.x, baseY - site.h - 14);
+    ctx.lineTo(site.x + site.w / 2 + 6, baseY - site.h + 2);
+    ctx.closePath();
+    ctx.fill();
+  });
+
+  function drawTitleMissileSilhouette(ctx, x, y, angle, scale = 1) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.scale(scale, scale);
+    ctx.fillStyle = "#889098";
+    ctx.beginPath();
+    ctx.moveTo(8, 0);
+    ctx.lineTo(4, -2.5);
+    ctx.lineTo(-6, -2.5);
+    ctx.lineTo(-6, 2.5);
+    ctx.lineTo(4, 2.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#556070";
+    ctx.beginPath();
+    ctx.moveTo(8, 0);
+    ctx.lineTo(4, -2.5);
+    ctx.lineTo(4, 2.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#667078";
+    ctx.beginPath();
+    ctx.moveTo(-6, -2.5);
+    ctx.lineTo(-9, -6);
+    ctx.lineTo(-4, -2.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-6, 2.5);
+    ctx.lineTo(-9, 6);
+    ctx.lineTo(-4, 2.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawTitleDroneSilhouette(ctx, x, y, angle, subtype = "shahed136", scale = 1) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.scale(scale, scale);
+    if (subtype === "shahed238") {
+      ctx.fillStyle = "#4a4a5a";
+      ctx.beginPath();
+      ctx.moveTo(16, 0);
+      ctx.lineTo(-10, -3);
+      ctx.lineTo(-14, 0);
+      ctx.lineTo(-10, 3);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#3a3a4a";
+      ctx.beginPath();
+      ctx.moveTo(4, -2);
+      ctx.lineTo(-8, -14);
+      ctx.lineTo(-12, -2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(4, 2);
+      ctx.lineTo(-8, 14);
+      ctx.lineTo(-12, 2);
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      ctx.fillStyle = "#555566";
+      ctx.beginPath();
+      ctx.moveTo(12, 0);
+      ctx.lineTo(-8, -2.5);
+      ctx.lineTo(-10, 0);
+      ctx.lineTo(-8, 2.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#444455";
+      ctx.beginPath();
+      ctx.moveTo(2, -2);
+      ctx.lineTo(-6, -10);
+      ctx.lineTo(-8, -2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(2, 2);
+      ctx.lineTo(-6, 10);
+      ctx.lineTo(-8, 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(-10, -3);
+      ctx.lineTo(-13, 0);
+      ctx.lineTo(-10, 3);
+      ctx.lineTo(-7, 0);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // Incoming missiles and drones, clustered toward the top of the screen
+  const { missileTracks, dronePaths } = getTitleMotionPaths();
+  missileTracks.forEach((m, index) => {
+    const p = (t * m.speed + m.phase) % 1;
+    const ease = 1 - (1 - p) ** 2.8;
+    const x = m.start.x + (m.end.x - m.start.x) * ease;
+    const y = m.start.y + (m.end.y - m.start.y) * ease;
+    const angle = Math.atan2(m.end.y - m.start.y, m.end.x - m.start.x);
+    drawTitleMissileSilhouette(ctx, x, y, angle, m.scale);
+    ctx.fillStyle = m.glow;
+    ctx.beginPath();
+    ctx.arc(x, y, 10 + index * 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  dronePaths.forEach((d, index) => {
+    const sample = sampleTitlePath(d.path, t * d.speed + d.phase);
+    const wobble = Math.sin(t * 0.9 + index) * 0.8;
+    const altitude = index === 0 ? 0 : index === 1 ? 0.9 : 1.2;
+    drawTitleDroneSilhouette(ctx, sample.x, sample.y + wobble, sample.angle, d.subtype, d.scale);
+    ctx.fillStyle = index === 0 ? "rgba(255, 180, 80, 0.06)" : "rgba(140, 160, 220, 0.06)";
+    ctx.beginPath();
+    ctx.arc(sample.x, sample.y, 14 + index * 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 0.9 - altitude * 0.08;
+    ctx.strokeStyle = d.subtype === "shahed238" ? "rgba(255, 180, 80, 0.22)" : "rgba(140, 160, 220, 0.18)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(sample.x - Math.cos(sample.angle) * 18, sample.y - Math.sin(sample.angle) * 18);
+    ctx.lineTo(sample.x, sample.y);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  });
+
+  // Title copy
   if (!layout.externalTitle) {
     ctx.fillStyle = COL.hud;
-    glow(ctx, COL.hud, 20);
-    ctx.font = "bold 48px 'Courier New', monospace";
-    ctx.fillText("DUBAI", CANVAS_W / 2, 160);
-    ctx.font = "bold 36px 'Courier New', monospace";
-    ctx.fillText("MISSILE COMMAND", CANVAS_W / 2, 210);
+    glow(ctx, COL.hud, 24);
+    ctx.font = "bold 84px 'Courier New', monospace";
+    ctx.fillText("DUBAI", cx, 126);
+    ctx.font = "bold 56px 'Courier New', monospace";
+    ctx.fillText("MISSILE COMMAND", cx, 188);
     glowOff(ctx);
-    ctx.fillStyle = "#ff6644";
-    ctx.font = "14px 'Courier New', monospace";
-    ctx.fillText("DEFEND THE CITY  ★  PROTECT THE SKIES", CANVAS_W / 2, 250);
-    ctx.fillStyle = "#8899aa";
-    ctx.font = "13px 'Courier New', monospace";
-    ctx.fillText("CLICK TO LAUNCH INTERCEPTORS", CANVAS_W / 2, 360);
-    ctx.fillText("DESTROY MISSILES & DRONES", CANVAS_W / 2, 380);
-    ctx.fillText("EARN SCORE TO BUY AUTOMATED DEFENSES", CANVAS_W / 2, 400);
-    ctx.fillText("PROTECT BURJ KHALIFA", CANVAS_W / 2, 420);
-    ctx.fillStyle = "#556677";
-    ctx.font = "11px 'Courier New', monospace";
-    ctx.fillText(
-      "🐝 Hornets 🦅 Roadrunner 🎆 Flares ⚡ Beam 🔫 Phalanx 🚀 Patriot 🛡️ Launcher 🔧 Repair 🌀 EMP",
-      CANVAS_W / 2,
-      460,
-    );
+
+    ctx.fillStyle = "#ff6e52";
+    ctx.font = "bold 30px 'Courier New', monospace";
+    ctx.fillText("DEFEND THE CITY  -  PROTECT THE SKIES", cx, 260);
+
     const pulse = 0.5 + 0.5 * Math.sin(t * 3);
     ctx.fillStyle = `rgba(0,255,200,${pulse})`;
-    ctx.font = "bold 18px 'Courier New', monospace";
-    ctx.fillText("[ CLICK TO START ]", CANVAS_W / 2, 520);
+    ctx.font = "bold 30px 'Courier New', monospace";
+    ctx.fillText("[ CLICK TO START ]", cx, 656);
   } else {
     const pulse = 0.3 + 0.2 * Math.sin(t * 2.4);
     ctx.fillStyle = `rgba(0,255,200,${pulse})`;
     ctx.beginPath();
-    ctx.arc(CANVAS_W / 2, 500, 72, 0, Math.PI * 2);
+    ctx.arc(cx, 500, 72, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = "rgba(255,255,255,0.08)";
     ctx.font = "bold 18px 'Courier New', monospace";
-    ctx.fillText("TACTICAL FEED", CANVAS_W / 2, 560);
+    ctx.fillText("TACTICAL FEED", cx, 560);
   }
   ctx.textAlign = "left";
 }
