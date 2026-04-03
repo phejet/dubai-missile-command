@@ -1042,7 +1042,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
   if (g.empRings.length > 0) {
     // Update active rings
     g.empRings.forEach((ring) => {
-      ring.radius += 5 * dt;
+      ring.radius += 10 * dt;
       if (ring.radius > ring.maxRadius) {
         ring.alive = false;
         return;
@@ -1863,7 +1863,7 @@ export function fireEmp(g, onEvent) {
     x: 462,
     y: 1047,
     radius: 0,
-    maxRadius: [250, 400, 550][lvl - 1],
+    maxRadius: [325, 520, 715][lvl - 1],
     damage: lvl,
     applySlow: lvl >= 3,
     hitSet: new Set(),
