@@ -1839,8 +1839,8 @@ export function closeShop(g) {
   g.patriotTimer = 480;
   g.flareTimer = 240;
   g.ironBeamTimer = 360;
-  g.empCharge = 0;
-  g.empReady = false;
+  g.empCharge = g.empChargeMax;
+  g.empReady = g.upgrades.emp > 0;
 
   g.wave++;
   const waveData = generateWaveSchedule(g.wave, g.commander);
