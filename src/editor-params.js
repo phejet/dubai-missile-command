@@ -225,7 +225,7 @@ export const PARAM_GROUPS = [
         min: 50,
         max: 600,
         step: 5,
-        default: 294,
+        default: 368,
       },
       { key: "upgrade.phalanxRange", label: "Phalanx Range", type: "range", min: 30, max: 400, step: 5, default: 160 },
       { key: "upgrade.empRange", label: "EMP Radius", type: "range", min: 100, max: 900, step: 10, default: 550 },

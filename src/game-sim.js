@@ -873,7 +873,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
   if (g.upgrades.ironBeam > 0 && isSiteAlive(g, "ironBeam")) {
     const lvl = g.upgrades.ironBeam;
     const beamCount = lvl;
-    const range = [175, 224, 294][lvl - 1];
+    const range = [219, 280, 368][lvl - 1];
     const chargeTime = [360, 240, 180][lvl - 1];
     g.ironBeamTimer += dt;
     if (g.ironBeamTimer >= chargeTime) {

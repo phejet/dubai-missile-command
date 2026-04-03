@@ -2326,7 +2326,7 @@ function drawUpgradeRangeOverlay(ctx) {
       x: ov("upgrade.ironBeam.x", BURJ_X),
       y: ov("upgrade.ironBeam.y", 959),
       color: "#ff2200",
-      range: ov("upgrade.ironBeamRange", 294),
+      range: ov("upgrade.ironBeamRange", 368),
     },
     {
       key: "upgrade.phalanx1",
