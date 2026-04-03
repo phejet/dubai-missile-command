@@ -568,18 +568,22 @@ function detonateFlare(g, flare, onEvent) {
 
 function launchFlareBurst(g, lvl) {
   const originY = 837;
-  // 2 flares to each side — wider spread
-  const offsets = [140, 300];
+  // Near flare: low angle, stays lower; Far flare: ~45 degrees, climbs higher
+  const slots = [
+    { offset: 110, vyFn: () => -rand(1.0, 1.6) }, // near — shallow arc
+    { offset: 230, vyFn: (vx) => -(Math.abs(vx) * rand(0.9, 1.1)) }, // far — ~45 degrees
+  ];
   for (const side of [-1, 1]) {
-    for (const offset of offsets) {
-      const anchorX = BURJ_X + side * (offset + rand(-20, 20));
+    for (const { offset, vyFn } of slots) {
+      const anchorX = BURJ_X + side * (offset + rand(-15, 15));
       const originX = BURJ_X + side * rand(8, 18);
+      const vx = (anchorX - originX) * 0.028;
       g.flares.push({
         id: g.nextFlareId++,
         x: originX,
         y: originY + rand(-8, 8),
-        vx: (anchorX - originX) * 0.028,
-        vy: -rand(1.2, 2.2),
+        vx,
+        vy: vyFn(vx),
         anchorX,
         drag: 0.988,
         life: 220,
