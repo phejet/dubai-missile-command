@@ -762,20 +762,24 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
   g.roadrunners = g.roadrunners.filter((r) => r.alive);
 
   // ── DECOY FLARES ──
-  if (g.upgrades.flare > 0 && isSiteAlive(g, "flare")) {
+  if (g.upgrades.flare > 0) {
     const lvl = g.upgrades.flare;
-    const interval = [240, 180, 120][lvl - 1];
     const lureRange = [145, 165, 185][lvl - 1];
-    const flareY = 837;
-    const activationRange = ov("upgrade.flareActivationRange", 320);
-    const hasThreats =
-      g.missiles.some((m) => isFlareMissileTarget(m) && dist(m.x, m.y, BURJ_X, flareY) < activationRange) ||
-      g.drones.some((d) => d.alive && !d.luredByFlare && dist(d.x, d.y, BURJ_X, flareY) < activationRange);
-    g.flareTimer += dt;
-    if (g.flareTimer >= interval && hasThreats) {
-      g.flareTimer = 0;
-      launchFlareBurst(g, lvl);
+    // Launch new burst only while site is alive
+    if (isSiteAlive(g, "flare")) {
+      const interval = [240, 180, 120][lvl - 1];
+      const flareY = 837;
+      const activationRange = ov("upgrade.flareActivationRange", 320);
+      const hasThreats =
+        g.missiles.some((m) => isFlareMissileTarget(m) && dist(m.x, m.y, BURJ_X, flareY) < activationRange) ||
+        g.drones.some((d) => d.alive && !d.luredByFlare && dist(d.x, d.y, BURJ_X, flareY) < activationRange);
+      g.flareTimer += dt;
+      if (g.flareTimer >= interval && hasThreats) {
+        g.flareTimer = 0;
+        launchFlareBurst(g, lvl);
+      }
     }
+    // Update and expire in-flight flares regardless of site status
     g.flares.forEach((f) => {
       if (!f.alive) return;
       f.trail.push({ x: f.x, y: f.y });
