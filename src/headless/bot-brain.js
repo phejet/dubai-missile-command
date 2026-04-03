@@ -141,10 +141,9 @@ function prepareHumanAim(state, human, point, tick, rng) {
 
   if (needsNewPlan) {
     scheduleHumanAim(state, human, point, desiredAim, tick, rng);
-    if (tick < state.pendingReadyTick) return null;
   }
 
-  if (tick < state.pendingReadyTick || tick < state.clickReadyTick || tick < state.burstCooldownUntil) {
+  if (tick < state.clickReadyTick || tick < state.burstCooldownUntil) {
     return null;
   }
 
@@ -158,22 +157,27 @@ function prepareHumanAim(state, human, point, tick, rng) {
     state.burstCooldownUntil = tick + randIntRange(rng, human.burstRecoveryMin, human.burstRecoveryMax);
   }
 
-  state.cursorX = state.pendingAimX;
-  state.cursorY = state.pendingAimY;
-  state.moveFromX = state.cursorX;
-  state.moveFromY = state.cursorY;
-  state.moveTargetX = state.cursorX;
-  state.moveTargetY = state.cursorY;
-  state.moveStartTick = tick;
-  state.moveEndTick = tick;
-  state.clickReadyTick = tick + human.minClickInterval;
   state.lastClickTick = tick;
   state.lastTargetRef = point.targetRef;
   state.lastLane = getLaneForX(state.pendingAimX);
+  const moveThrottleMultiplier = human.movementFireThrottleMultiplier ?? 0.35;
+  const moveThrottleTicks = Math.round(Math.max(0, state.moveEndTick - tick) * moveThrottleMultiplier);
+  state.clickReadyTick = tick + human.minClickInterval + moveThrottleTicks;
+
+  const totalMoveDistance = Math.sqrt(
+    (state.moveTargetX - state.moveFromX) ** 2 + (state.moveTargetY - state.moveFromY) ** 2,
+  );
+  const remainingDistance = Math.sqrt(
+    (state.pendingAimX - state.cursorX) ** 2 + (state.pendingAimY - state.cursorY) ** 2,
+  );
+  const travelRatio = totalMoveDistance > 0 ? clamp(1 - remainingDistance / totalMoveDistance, 0, 1) : 1;
+  const aimBlend = 0.2 + travelRatio * 0.65;
+  const aimX = state.cursorX + (state.pendingAimX - state.cursorX) * aimBlend;
+  const aimY = state.cursorY + (state.pendingAimY - state.cursorY) * aimBlend;
 
   return {
-    x: clamp(state.pendingAimX, 20, 880),
-    y: clamp(state.pendingAimY, 20, GROUND_Y - 25),
+    x: clamp(aimX, 20, 880),
+    y: clamp(aimY, 20, GROUND_Y - 25),
   };
 }
 
@@ -223,6 +227,19 @@ function humanizeThreats(g, threats, human, tick) {
 
     const priorityPenalty = !inFocus && !highSalience ? 1 : 0;
     perceived.push({ ...threat, inFocus, priority: Math.min(threat.priority + priorityPenalty, 3) });
+  }
+
+  if (perceived.length === 0) {
+    const fallback = [...threats]
+      .filter((threat) => threat.targetRef?.alive)
+      .sort((a, b) => a.priority - b.priority || b.rawY - a.rawY)[0];
+    if (fallback) {
+      perceived.push({
+        ...fallback,
+        inFocus: false,
+        priority: Math.min(fallback.priority + 2, 3),
+      });
+    }
   }
 
   return { state, perceived };

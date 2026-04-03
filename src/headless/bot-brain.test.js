@@ -44,6 +44,7 @@ function makeHumanInstant(human) {
   human.burstRecoveryMax = 0;
   human.cursorSpeedPxPerTick = 1_000_000;
   human.cursorTrackSpeedPxPerTick = 1_000_000;
+  human.movementFireThrottleMultiplier = 0;
   human.attentionShiftMin = 0;
   human.attentionShiftMax = 0;
   human.laneSwitchPenalty = 0;
@@ -66,7 +67,7 @@ describe("resolveBotConfig", () => {
 });
 
 describe("botDecideAction humanized presets", () => {
-  it("waits for reaction delay before taking a shot", () => {
+  it("keeps firing under reaction delay instead of going silent", () => {
     const config = resolveBotConfig(defaultConfig, "average");
     config.humanization.startWave = 1;
     makeHumanInstant(config.humanization);
@@ -75,8 +76,7 @@ describe("botDecideAction humanized presets", () => {
 
     const g = makeGame();
 
-    expect(botDecideAction(g, config, -Infinity, 0)).toBeNull();
-    const action = botDecideAction(g, config, -Infinity, 1);
+    const action = botDecideAction(g, config, -Infinity, 0);
     expect(action).not.toBeNull();
     expect(action.x).toBeGreaterThanOrEqual(20);
     expect(action.y).toBeGreaterThanOrEqual(20);
@@ -101,12 +101,13 @@ describe("botDecideAction humanized presets", () => {
     expect(third).not.toBeNull();
   });
 
-  it("waits for cursor travel before firing across the screen", () => {
+  it("throttles cursor travel instead of hard-stopping fire", () => {
     const config = resolveBotConfig(defaultConfig, "average");
     config.humanization.startWave = 1;
     makeHumanInstant(config.humanization);
     config.humanization.cursorSpeedPxPerTick = 10;
     config.humanization.cursorTrackSpeedPxPerTick = 10;
+    config.humanization.movementFireThrottleMultiplier = 0.4;
     config.targeting.cooldownNormal = 0;
     config.targeting.cooldownHighThreat = 0;
     config.targeting.cooldownLowAmmo = 0;
@@ -124,9 +125,10 @@ describe("botDecideAction humanized presets", () => {
       },
     ];
 
-    expect(botDecideAction(g, config, -Infinity, 0)).toBeNull();
-    expect(botDecideAction(g, config, -Infinity, 30)).toBeNull();
-    const action = botDecideAction(g, config, -Infinity, 90);
+    const first = botDecideAction(g, config, -Infinity, 0);
+    expect(first).not.toBeNull();
+    expect(botDecideAction(g, config, 0, 20)).toBeNull();
+    const action = botDecideAction(g, config, 0, 40);
     expect(action).not.toBeNull();
   });
 });

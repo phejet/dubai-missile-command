@@ -1,187 +1,180 @@
 {
   "perfect": {
     "preset": "perfect",
-    "elapsed": "37.7",
+    "elapsed": "10.7",
     "score": {
-      "mean": 73995.22666666667,
-      "median": 72178,
-      "p10": 24618,
-      "p90": 130788
+      "mean": 31503.513333333332,
+      "median": 25948,
+      "p10": 13784,
+      "p90": 63552
     },
     "wave": {
-      "mean": 9.873333333333333,
-      "median": 10,
-      "p10": 7,
-      "p90": 13
+      "mean": 6.266666666666667,
+      "median": 6,
+      "p10": 5,
+      "p90": 9
     },
-    "kills": 514.7833333333333,
-    "shots": 486.24,
-    "efficiency": 1.0114742235591268,
+    "kills": 243.35,
+    "shots": 241.61666666666667,
+    "efficiency": 0.9538007576251682,
     "deathCauses": {
       "destroyed": 300
     },
     "waveDist": {
-      "4": 1,
-      "5": 1,
-      "6": 17,
-      "7": 36,
-      "8": 36,
-      "9": 28,
-      "10": 44,
-      "11": 62,
-      "12": 45,
-      "13": 23,
-      "14": 7
+      "3": 1,
+      "4": 25,
+      "5": 67,
+      "6": 108,
+      "7": 49,
+      "8": 18,
+      "9": 18,
+      "10": 10,
+      "11": 3,
+      "12": 1
     },
     "pickFreq": {
-      "wildHornets": 630,
-      "roadrunner": 388,
-      "ironBeam": 684,
-      "launcherKit": 557,
-      "flare": 122,
-      "phalanx": 234,
-      "burjRepair": 22,
-      "patriot": 25
+      "ironBeam": 194,
+      "wildHornets": 370,
+      "patriot": 524,
+      "launcherKit": 292,
+      "roadrunner": 112,
+      "phalanx": 66,
+      "flare": 22
     },
-    "totalPicks": 2662
+    "totalPicks": 1580
   },
   "good": {
     "preset": "good",
-    "elapsed": "30.1",
+    "elapsed": "5.7",
     "score": {
-      "mean": 46755.78,
-      "median": 39684,
-      "p10": 16466,
-      "p90": 86238
+      "mean": 10488.32,
+      "median": 7968,
+      "p10": 2900,
+      "p90": 20812
     },
     "wave": {
-      "mean": 8.4,
-      "median": 8,
-      "p10": 6,
-      "p90": 11
+      "mean": 4.086666666666667,
+      "median": 4,
+      "p10": 3,
+      "p90": 6
     },
-    "kills": 361.82,
-    "shots": 387.00666666666666,
-    "efficiency": 0.8865080357524572,
+    "kills": 101.48333333333333,
+    "shots": 156.26666666666668,
+    "efficiency": 0.5991119310564037,
     "deathCauses": {
       "destroyed": 300
     },
     "waveDist": {
-      "4": 6,
-      "5": 15,
-      "6": 38,
-      "7": 50,
-      "8": 53,
-      "9": 35,
-      "10": 50,
-      "11": 36,
-      "12": 13,
-      "13": 4
+      "1": 2,
+      "2": 5,
+      "3": 103,
+      "4": 94,
+      "5": 64,
+      "6": 23,
+      "7": 6,
+      "8": 1,
+      "10": 1,
+      "11": 1
     },
     "pickFreq": {
-      "ironBeam": 631,
-      "launcherKit": 445,
-      "wildHornets": 518,
-      "roadrunner": 294,
-      "flare": 102,
-      "phalanx": 180,
-      "patriot": 28,
-      "burjRepair": 22
+      "wildHornets": 287,
+      "patriot": 8,
+      "ironBeam": 240,
+      "phalanx": 63,
+      "roadrunner": 169,
+      "launcherKit": 122,
+      "flare": 37
     },
-    "totalPicks": 2220
+    "totalPicks": 926
   },
   "average": {
     "preset": "average",
-    "elapsed": "27.8",
+    "elapsed": "6.5",
     "score": {
-      "mean": 39469.62666666666,
-      "median": 32404,
-      "p10": 11182,
-      "p90": 84086
+      "mean": 13304.533333333333,
+      "median": 10142,
+      "p10": 3820,
+      "p90": 26904
     },
     "wave": {
-      "mean": 7.783333333333333,
-      "median": 8,
-      "p10": 5,
-      "p90": 11
+      "mean": 4.383333333333334,
+      "median": 4,
+      "p10": 3,
+      "p90": 6
     },
-    "kills": 313.51,
-    "shots": 348.44,
-    "efficiency": 0.8367796169914576,
+    "kills": 119.86,
+    "shots": 167.63,
+    "efficiency": 0.6509148741035798,
     "deathCauses": {
       "destroyed": 300
     },
     "waveDist": {
-      "3": 6,
-      "4": 6,
-      "5": 29,
-      "6": 58,
-      "7": 45,
-      "8": 54,
-      "9": 31,
-      "10": 26,
-      "11": 30,
-      "12": 11,
-      "13": 4
+      "1": 1,
+      "2": 8,
+      "3": 73,
+      "4": 94,
+      "5": 73,
+      "6": 32,
+      "7": 12,
+      "8": 3,
+      "9": 2,
+      "10": 2
     },
     "pickFreq": {
-      "launcherKit": 403,
-      "ironBeam": 573,
-      "flare": 89,
-      "phalanx": 167,
-      "wildHornets": 521,
-      "roadrunner": 259,
-      "patriot": 7,
-      "burjRepair": 16
+      "phalanx": 195,
+      "launcherKit": 354,
+      "wildHornets": 221,
+      "ironBeam": 120,
+      "flare": 76,
+      "emp": 16,
+      "roadrunner": 33
     },
-    "totalPicks": 2035
+    "totalPicks": 1015
   },
   "novice": {
     "preset": "novice",
-    "elapsed": "24.6",
+    "elapsed": "8.8",
     "score": {
-      "mean": 31534.666666666668,
-      "median": 23720,
-      "p10": 4912,
-      "p90": 73018
+      "mean": 20696.86,
+      "median": 16040,
+      "p10": 5176,
+      "p90": 43626
     },
     "wave": {
-      "mean": 7.076666666666667,
-      "median": 7,
-      "p10": 4,
-      "p90": 11
+      "mean": 5.18,
+      "median": 5,
+      "p10": 3,
+      "p90": 8
     },
-    "kills": 264.35,
-    "shots": 308.57,
-    "efficiency": 0.7680711304784132,
+    "kills": 172.77,
+    "shots": 170.53333333333333,
+    "efficiency": 0.902971993201354,
     "deathCauses": {
       "destroyed": 300
     },
     "waveDist": {
-      "2": 8,
-      "3": 15,
-      "4": 15,
-      "5": 43,
-      "6": 43,
-      "7": 54,
-      "8": 47,
-      "9": 27,
-      "10": 18,
-      "11": 14,
-      "12": 11,
-      "13": 4,
-      "14": 1
+      "2": 3,
+      "3": 39,
+      "4": 85,
+      "5": 61,
+      "6": 58,
+      "7": 24,
+      "8": 13,
+      "9": 11,
+      "10": 2,
+      "11": 1,
+      "12": 3
     },
     "pickFreq": {
-      "wildHornets": 445,
-      "launcherKit": 351,
-      "ironBeam": 522,
-      "phalanx": 151,
-      "flare": 80,
-      "roadrunner": 251,
-      "burjRepair": 18,
-      "patriot": 5
+      "emp": 149,
+      "flare": 157,
+      "ironBeam": 160,
+      "launcherKit": 157,
+      "patriot": 181,
+      "wildHornets": 147,
+      "roadrunner": 131,
+      "phalanx": 172
     },
-    "totalPicks": 1823
+    "totalPicks": 1254
   }
 }
