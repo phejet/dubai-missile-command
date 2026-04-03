@@ -614,7 +614,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
         const target = pickHornetTarget(allThreats, g.hornets, lvl);
         if (!target) continue;
         g.hornets.push({
-          x: rand(100, CANVAS_W - 100),
+          x: 206 + rand(-12, 12),
           y: GROUND_Y - 20,
           targetRef: target,
           speed: rand(4.1, 6.15),
@@ -692,7 +692,7 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
       const targets = pickRoadrunnerTargets(allThreats, g.roadrunners, count);
       for (let i = 0; i < targets.length; i++) {
         g.roadrunners.push({
-          x: BURJ_X + rand(-30, 30),
+          x: 678 + rand(-15, 15),
           y: GROUND_Y - 10,
           targetRef: targets[i],
           speed: rrSpeed,
