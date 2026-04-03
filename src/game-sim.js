@@ -285,7 +285,7 @@ export function spawnMirv(g, onEvent) {
     type: "mirv",
     health: hp,
     maxHealth: hp,
-    splitY: rand(120, 200),
+    splitY: rand(180, 300),
     warheadCount: 5 + Math.min(3, Math.max(0, Math.floor((g.wave - 8) / 3))),
     splitTriggered: false,
     empSlowTimer: 0,
