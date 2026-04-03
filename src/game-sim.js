@@ -561,33 +561,32 @@ function steerTowardPoint(entity, tx, ty, dt, turnRate) {
   return len;
 }
 
-function detonateFlareLuredMissile(g, m, onEvent) {
-  m.alive = false;
-  boom(g, m.x, m.y, 20, COL.flare, false, onEvent, 0, { harmless: true });
-  g.stats.missileKills = (g.stats.missileKills || 0) + 1;
+function detonateFlare(g, flare, onEvent) {
+  flare.alive = false;
+  boom(g, flare.x, flare.y, 65, COL.flare, true, onEvent, 15);
 }
 
 function launchFlareBurst(g, lvl) {
   const originY = 837;
-  // 2 flares to each side of the Burj — near and far anchors
-  const offsets = [90, 190];
+  // 2 flares to each side — wider spread
+  const offsets = [140, 300];
   for (const side of [-1, 1]) {
     for (const offset of offsets) {
-      const anchorX = BURJ_X + side * (offset + rand(-15, 15));
+      const anchorX = BURJ_X + side * (offset + rand(-20, 20));
       const originX = BURJ_X + side * rand(8, 18);
       g.flares.push({
         id: g.nextFlareId++,
         x: originX,
         y: originY + rand(-8, 8),
         vx: (anchorX - originX) * 0.028,
-        vy: -rand(0.9, 1.7),
+        vy: -rand(1.2, 2.2),
         anchorX,
         drag: 0.988,
-        life: 180,
-        maxLife: 180,
+        life: 220,
+        maxLife: 220,
         alive: true,
         luresLeft: lvl,
-        hotRadius: 18 + rand(-2, 4),
+        hotRadius: 22 + rand(-2, 4),
         trail: [],
       });
     }
@@ -816,8 +815,6 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
         nearFlare.luresLeft--;
         m.luredByFlare = true;
         m.flareTargetId = nearFlare.id;
-        m.lureDeathTimer = 180;
-        m.accel = 1;
         steerTowardPoint(m, nearFlare.x, nearFlare.y, 8, 0.5);
         for (let i = 0; i < 5; i++) {
           g.particles.push({
@@ -842,8 +839,9 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
       if (nearFlare) {
         nearFlare.luresLeft--;
         d.luredByFlare = true;
-        d.lureDeathTimer = 150;
-        // Redirect drone toward flare
+        d.flareTargetId = nearFlare.id;
+        d.lureDeathTimer = 200;
+        // Initial redirect toward flare
         const dx = nearFlare.x - d.x,
           dy = nearFlare.y - d.y;
         const len = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -1096,11 +1094,18 @@ function updateMissiles(g, dt, onEvent) {
       if (flareTarget) {
         const lureDist = steerTowardPoint(m, flareTarget.x, flareTarget.y, dt, 0.2);
         if (lureDist <= flareTarget.hotRadius) {
-          detonateFlareLuredMissile(g, m, onEvent);
+          m.alive = false;
+          g.stats.missileKills = (g.stats.missileKills || 0) + 1;
+          detonateFlare(g, flareTarget, onEvent);
           return;
         }
+      } else {
+        // Flare already exploded — missile lost guidance, harmless self-destruct
+        m.alive = false;
+        g.stats.missileKills = (g.stats.missileKills || 0) + 1;
+        boom(g, m.x, m.y, 15, COL.flare, false, onEvent, 0, { harmless: true });
+        return;
       }
-      m.accel = 1;
     }
     const mSlow = m.empSlowTimer > 0 ? ((m.empSlowTimer -= dt), 0.4) : 1;
     m.x += m.vx * dt * mSlow;
@@ -1108,15 +1113,9 @@ function updateMissiles(g, dt, onEvent) {
     if (m.luredByFlare) {
       const flareTarget = getLiveFlare(g, m.flareTargetId);
       if (flareTarget && dist(m.x, m.y, flareTarget.x, flareTarget.y) <= flareTarget.hotRadius) {
-        detonateFlareLuredMissile(g, m, onEvent);
-        return;
-      }
-    }
-    // Lured missiles self-destruct after guidance scramble
-    if (m.lureDeathTimer > 0) {
-      m.lureDeathTimer -= dt;
-      if (m.lureDeathTimer <= 0) {
-        detonateFlareLuredMissile(g, m, onEvent);
+        m.alive = false;
+        g.stats.missileKills = (g.stats.missileKills || 0) + 1;
+        detonateFlare(g, flareTarget, onEvent);
         return;
       }
     }
@@ -1221,14 +1220,32 @@ function updateMissiles(g, dt, onEvent) {
 function updateDrones(g, _rng, dt, onEvent) {
   g.drones.forEach((d) => {
     if (!d.alive) return;
-    // Lured drones self-destruct after guidance scramble
-    if (d.lureDeathTimer > 0) {
-      d.lureDeathTimer -= dt;
-      if (d.lureDeathTimer <= 0) {
+    // Lured drones steer toward flare and detonate it on contact
+    if (d.luredByFlare) {
+      const flareTarget = getLiveFlare(g, d.flareTargetId);
+      if (flareTarget) {
+        steerTowardPoint(d, flareTarget.x, flareTarget.y, dt, 0.15);
+        if (dist(d.x, d.y, flareTarget.x, flareTarget.y) <= flareTarget.hotRadius) {
+          d.alive = false;
+          g.stats.droneKills = (g.stats.droneKills || 0) + 1;
+          detonateFlare(g, flareTarget, onEvent);
+          return;
+        }
+      } else {
+        // Flare already exploded — lost guidance, harmless self-destruct
         d.alive = false;
-        boom(g, d.x, d.y, 20, COL.flare, false, onEvent, 0, { harmless: true });
         g.stats.droneKills = (g.stats.droneKills || 0) + 1;
+        boom(g, d.x, d.y, 15, COL.flare, false, onEvent, 0, { harmless: true });
         return;
+      }
+      if (d.lureDeathTimer > 0) {
+        d.lureDeathTimer -= dt;
+        if (d.lureDeathTimer <= 0) {
+          d.alive = false;
+          g.stats.droneKills = (g.stats.droneKills || 0) + 1;
+          boom(g, d.x, d.y, 15, COL.flare, false, onEvent, 0, { harmless: true });
+          return;
+        }
       }
     }
     if (d.empSlowTimer > 0) d.empSlowTimer -= dt;
