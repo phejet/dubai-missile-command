@@ -56,14 +56,14 @@ export const UPGRADES = {
   flare: {
     name: "Decoy Flares",
     icon: "\uD83C\uDF86",
-    desc: "Burj launches IR decoys that scramble guidance systems. Lured threats self-destruct.",
+    desc: "Burj launches IR decoys that scramble guidance systems. Lures missiles, bombs, and drones to self-destruct.",
     maxLevel: 3,
     costs: [707, 2219, 5544],
     color: COL.flare,
     statLines: [
-      "4 flares / 4s \u00B7 lures 1 each",
-      "6 flares / 3s \u00B7 lures 1 each",
-      "8 flares / 2s \u00B7 lures 1 each",
+      "4 flares / 4s \u00B7 lures 1 per flare",
+      "4 flares / 3s \u00B7 lures 2 per flare",
+      "4 flares / 2s \u00B7 lures 3 per flare",
     ],
   },
   ironBeam: {
@@ -536,7 +536,7 @@ function normalizeAngle(angle) {
 }
 
 function isFlareMissileTarget(m) {
-  return m.alive && !m.luredByFlare && m.type !== "bomb";
+  return m.alive && !m.luredByFlare;
 }
 
 function getLiveFlare(g, flareId) {
@@ -567,32 +567,30 @@ function detonateFlareLuredMissile(g, m, onEvent) {
   g.stats.missileKills = (g.stats.missileKills || 0) + 1;
 }
 
-function launchFlareBurst(g, lvl, missileThreats) {
-  const count = [4, 6, 8][lvl - 1];
-  const threatCenterX = missileThreats.reduce((sum, m) => sum + m.x, 0) / Math.max(1, missileThreats.length);
-  const spreadCenterX = Math.max(BURJ_X - 140, Math.min(BURJ_X + 140, threatCenterX));
+function launchFlareBurst(g, lvl) {
   const originY = 837;
-
-  for (let i = 0; i < count; i++) {
-    const lane = count === 1 ? 0 : i / (count - 1) - 0.5;
-    const bias = lane === 0 ? (i % 2 === 0 ? -1 : 1) : Math.sign(lane);
-    const anchorX = Math.max(BURJ_X - 170, Math.min(BURJ_X + 170, spreadCenterX + lane * 120 + rand(-14, 14)));
-    const originX = BURJ_X + bias * rand(8, 18);
-    g.flares.push({
-      id: g.nextFlareId++,
-      x: originX,
-      y: originY + rand(-8, 8),
-      vx: (anchorX - originX) * 0.028,
-      vy: -rand(0.9, 1.7),
-      anchorX,
-      drag: 0.988,
-      life: 180,
-      maxLife: 180,
-      alive: true,
-      luresLeft: 1,
-      hotRadius: 18 + rand(-2, 4),
-      trail: [],
-    });
+  // 2 flares to each side of the Burj — near and far anchors
+  const offsets = [90, 190];
+  for (const side of [-1, 1]) {
+    for (const offset of offsets) {
+      const anchorX = BURJ_X + side * (offset + rand(-15, 15));
+      const originX = BURJ_X + side * rand(8, 18);
+      g.flares.push({
+        id: g.nextFlareId++,
+        x: originX,
+        y: originY + rand(-8, 8),
+        vx: (anchorX - originX) * 0.028,
+        vy: -rand(0.9, 1.7),
+        anchorX,
+        drag: 0.988,
+        life: 180,
+        maxLife: 180,
+        alive: true,
+        luresLeft: lvl,
+        hotRadius: 18 + rand(-2, 4),
+        trail: [],
+      });
+    }
   }
 }
 
@@ -770,13 +768,13 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
     const lureRange = [145, 165, 185][lvl - 1];
     const flareY = 837;
     const activationRange = ov("upgrade.flareActivationRange", 320);
-    const missileThreats = g.missiles.filter(
-      (m) => isFlareMissileTarget(m) && dist(m.x, m.y, BURJ_X, flareY) < activationRange,
-    );
+    const hasThreats =
+      g.missiles.some((m) => isFlareMissileTarget(m) && dist(m.x, m.y, BURJ_X, flareY) < activationRange) ||
+      g.drones.some((d) => d.alive && !d.luredByFlare && dist(d.x, d.y, BURJ_X, flareY) < activationRange);
     g.flareTimer += dt;
-    if (g.flareTimer >= interval && missileThreats.length > 0) {
+    if (g.flareTimer >= interval && hasThreats) {
       g.flareTimer = 0;
-      launchFlareBurst(g, lvl, missileThreats);
+      launchFlareBurst(g, lvl);
     }
     g.flares.forEach((f) => {
       if (!f.alive) return;
@@ -1233,9 +1231,14 @@ function updateDrones(g, _rng, dt, onEvent) {
     const dSlow = d.empSlowTimer > 0 ? 0.4 : 1;
     d.wobble += 0.05 * dt;
     if (d.subtype === "shahed238") {
-      // Follow precomputed Bezier trajectory
+      // Follow precomputed Bezier trajectory (skip when lured by flare)
       if (!d.waypoints || d.waypoints.length < 2) {
         d.alive = false;
+        return;
+      }
+      if (d.luredByFlare) {
+        d.x += d.vx * dt * dSlow;
+        d.y += d.vy * dt * dSlow;
         return;
       }
       const prevX = d.x;
