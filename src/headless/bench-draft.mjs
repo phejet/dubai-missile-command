@@ -68,7 +68,10 @@ function runGameDraft(botConfig, seed, preset) {
   const draftLog = []; // per-wave draft picks
 
   for (let tick = 0; tick < MAX_TICKS; tick++) {
-    if (g.state === "gameover") { deathCause = "destroyed"; break; }
+    if (g.state === "gameover") {
+      deathCause = "destroyed";
+      break;
+    }
 
     if (g.state === "shop") {
       const waveDraft = { wave: g.wave + 1, offered: [], picked: null };
@@ -97,7 +100,7 @@ function runGameDraft(botConfig, seed, preset) {
 
     // EMP
     if (g.empReady) {
-      const threats = g.missiles.filter(m => m.alive).length + g.drones.filter(d => d.alive).length;
+      const threats = g.missiles.filter((m) => m.alive).length + g.drones.filter((d) => d.alive).length;
       if (threats >= (config.emp?.minThreatsToFire || 4)) fireEmp(g, null);
     }
 
@@ -130,7 +133,9 @@ function pct(arr, p) {
   const sorted = [...arr].sort((a, b) => a - b);
   return sorted[Math.floor(sorted.length * p)];
 }
-function avg(arr) { return arr.reduce((s, v) => s + v, 0) / arr.length; }
+function avg(arr) {
+  return arr.reduce((s, v) => s + v, 0) / arr.length;
+}
 
 console.log(`\n=== DRAFT MODE Balance Sweep: ${NUM_GAMES} games × ${PRESETS.length} presets ===\n`);
 
@@ -141,17 +146,23 @@ for (const preset of PRESETS) {
   const results = SEEDS.map((seed) => runGameDraft(defaultConfig, seed, preset));
   const elapsed = performance.now() - t0;
 
-  const scores  = results.map(r => r.score);
-  const waves   = results.map(r => r.wave);
-  const kills   = results.map(r => r.stats.missileKills + r.stats.droneKills);
-  const shots   = results.map(r => r.stats.shotsFired);
-  const eff     = results.map(r => r.stats.shotsFired > 0 ? (r.stats.missileKills + r.stats.droneKills) / r.stats.shotsFired : 0);
+  const scores = results.map((r) => r.score);
+  const waves = results.map((r) => r.wave);
+  const kills = results.map((r) => r.stats.missileKills + r.stats.droneKills);
+  const shots = results.map((r) => r.stats.shotsFired);
+  const eff = results.map((r) =>
+    r.stats.shotsFired > 0 ? (r.stats.missileKills + r.stats.droneKills) / r.stats.shotsFired : 0,
+  );
 
   const deathCauses = {};
-  results.forEach(r => { deathCauses[r.deathCause] = (deathCauses[r.deathCause] || 0) + 1; });
+  results.forEach((r) => {
+    deathCauses[r.deathCause] = (deathCauses[r.deathCause] || 0) + 1;
+  });
 
   const waveDist = {};
-  waves.forEach(w => { waveDist[w] = (waveDist[w] || 0) + 1; });
+  waves.forEach((w) => {
+    waveDist[w] = (waveDist[w] || 0) + 1;
+  });
 
   // Draft pick frequency (which upgrade was picked most often across all waves)
   const pickFreq = {};
@@ -178,18 +189,24 @@ for (const preset of PRESETS) {
   allResults[preset] = summary;
 
   console.log(`── ${preset.toUpperCase()} (${elapsed.toFixed(0)}ms) ──`);
-  console.log(`  Score: mean=${avg(scores).toFixed(0)} median=${pct(scores,0.5)} p10=${pct(scores,0.1)} p90=${pct(scores,0.9)}`);
-  console.log(`  Waves: mean=${avg(waves).toFixed(1)} median=${pct(waves,0.5)} p10=${pct(waves,0.1)} p90=${pct(waves,0.9)}`);
+  console.log(
+    `  Score: mean=${avg(scores).toFixed(0)} median=${pct(scores, 0.5)} p10=${pct(scores, 0.1)} p90=${pct(scores, 0.9)}`,
+  );
+  console.log(
+    `  Waves: mean=${avg(waves).toFixed(1)} median=${pct(waves, 0.5)} p10=${pct(waves, 0.1)} p90=${pct(waves, 0.9)}`,
+  );
   console.log(`  Efficiency: ${avg(eff).toFixed(3)} kills/shot`);
   console.log(`  Deaths: ${JSON.stringify(deathCauses)}`);
 
-  const topWaves = Object.keys(waveDist).sort((a,b) => waveDist[b] - waveDist[a]).slice(0, 5);
-  console.log(`  Top waves: ${topWaves.map(w => `${w}(${waveDist[w]})`).join(", ")}`);
+  const topWaves = Object.keys(waveDist)
+    .sort((a, b) => waveDist[b] - waveDist[a])
+    .slice(0, 5);
+  console.log(`  Top waves: ${topWaves.map((w) => `${w}(${waveDist[w]})`).join(", ")}`);
 
   const topPicks = Object.keys(pickFreq)
-    .sort((a,b) => pickFreq[b] - pickFreq[a])
+    .sort((a, b) => pickFreq[b] - pickFreq[a])
     .slice(0, 5)
-    .map(k => `${k}=${((pickFreq[k]/totalPicks)*100).toFixed(1)}%`);
+    .map((k) => `${k}=${((pickFreq[k] / totalPicks) * 100).toFixed(1)}%`);
   console.log(`  Draft picks: ${topPicks.join(", ")}`);
   console.log();
 }

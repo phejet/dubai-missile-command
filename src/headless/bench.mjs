@@ -51,36 +51,50 @@ function pct(arr, p) {
   const sorted = [...arr].sort((a, b) => a - b);
   return sorted[Math.floor(sorted.length * p)];
 }
-function avg(arr) { return arr.reduce((s, v) => s + v, 0) / arr.length; }
+function avg(arr) {
+  return arr.reduce((s, v) => s + v, 0) / arr.length;
+}
 
 const t0 = performance.now();
 const results = await runBatch(NUM_GAMES);
 const elapsed = performance.now() - t0;
 
-const scores = results.map(r => r.score);
-const waves = results.map(r => r.wave);
-const kills = results.map(r => r.stats.missileKills + r.stats.droneKills);
-const shots = results.map(r => r.stats.shotsFired);
-const eff = results.map(r => r.stats.shotsFired > 0 ? (r.stats.missileKills + r.stats.droneKills) / r.stats.shotsFired : 0);
+const scores = results.map((r) => r.score);
+const waves = results.map((r) => r.wave);
+const kills = results.map((r) => r.stats.missileKills + r.stats.droneKills);
+const shots = results.map((r) => r.stats.shotsFired);
+const eff = results.map((r) =>
+  r.stats.shotsFired > 0 ? (r.stats.missileKills + r.stats.droneKills) / r.stats.shotsFired : 0,
+);
 
-console.log(`=== POST-SPAWN-COMMANDER Benchmark: ${NUM_GAMES} games in ${(elapsed/1000).toFixed(1)}s ===`);
-console.log(`Score:  mean=${avg(scores).toFixed(0)} median=${pct(scores, 0.5)} p10=${pct(scores, 0.1)} p90=${pct(scores, 0.9)}`);
-console.log(`Waves:  mean=${avg(waves).toFixed(1)} median=${pct(waves, 0.5)} p10=${pct(waves, 0.1)} p90=${pct(waves, 0.9)}`);
+console.log(`=== POST-SPAWN-COMMANDER Benchmark: ${NUM_GAMES} games in ${(elapsed / 1000).toFixed(1)}s ===`);
+console.log(
+  `Score:  mean=${avg(scores).toFixed(0)} median=${pct(scores, 0.5)} p10=${pct(scores, 0.1)} p90=${pct(scores, 0.9)}`,
+);
+console.log(
+  `Waves:  mean=${avg(waves).toFixed(1)} median=${pct(waves, 0.5)} p10=${pct(waves, 0.1)} p90=${pct(waves, 0.9)}`,
+);
 console.log(`Kills:  mean=${avg(kills).toFixed(0)} per game`);
 console.log(`Shots:  mean=${avg(shots).toFixed(0)} per game`);
 console.log(`Efficiency: ${avg(eff).toFixed(3)} (kills/shot)`);
 
 const deathCauses = {};
-results.forEach(r => { deathCauses[r.deathCause] = (deathCauses[r.deathCause] || 0) + 1; });
+results.forEach((r) => {
+  deathCauses[r.deathCause] = (deathCauses[r.deathCause] || 0) + 1;
+});
 console.log(`Deaths: ${JSON.stringify(deathCauses)}`);
 
 const waveDist = {};
-waves.forEach(w => { waveDist[w] = (waveDist[w] || 0) + 1; });
-console.log(`\nWave distribution:`);
-Object.keys(waveDist).sort((a,b) => +a - +b).forEach(w => {
-  const bar = "█".repeat(Math.round(waveDist[w] / NUM_GAMES * 40));
-  console.log(`  Wave ${String(w).padStart(2)}: ${String(waveDist[w]).padStart(3)} games ${bar}`);
+waves.forEach((w) => {
+  waveDist[w] = (waveDist[w] || 0) + 1;
 });
+console.log(`\nWave distribution:`);
+Object.keys(waveDist)
+  .sort((a, b) => +a - +b)
+  .forEach((w) => {
+    const bar = "█".repeat(Math.round((waveDist[w] / NUM_GAMES) * 40));
+    console.log(`  Wave ${String(w).padStart(2)}: ${String(waveDist[w]).padStart(3)} games ${bar}`);
+  });
 
 import { writeFileSync } from "fs";
 const output = {

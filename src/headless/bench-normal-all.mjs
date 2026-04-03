@@ -22,7 +22,10 @@ function runGame(seed, preset) {
   let deathCause = "timeout";
 
   for (let tick = 0; tick < MAX_TICKS; tick++) {
-    if (g.state === "gameover") { deathCause = "destroyed"; break; }
+    if (g.state === "gameover") {
+      deathCause = "destroyed";
+      break;
+    }
     if (g.state === "shop") {
       const { repairs, priority } = botDecideUpgrades(g, config);
       for (const r of repairs) {
@@ -32,17 +35,20 @@ function runGame(seed, preset) {
       let boughtAny = true;
       while (boughtAny) {
         boughtAny = false;
-        for (const key of priority) { if (buyUpgrade(g, key)) boughtAny = true; }
+        for (const key of priority) {
+          if (buyUpgrade(g, key)) boughtAny = true;
+        }
       }
       closeShop(g);
     }
     if (g.empReady) {
-      const threats = g.missiles.filter(m => m.alive).length + g.drones.filter(d => d.alive).length;
+      const threats = g.missiles.filter((m) => m.alive).length + g.drones.filter((d) => d.alive).length;
       if (threats >= (config.emp?.minThreatsToFire || 4)) fireEmp(g, null);
     }
     const action = botDecideAction(g, config, lastFireTick, tick);
     if (action) {
-      g.crosshairX = action.x; g.crosshairY = action.y;
+      g.crosshairX = action.x;
+      g.crosshairY = action.y;
       fireInterceptor(g, action.x, action.y);
       lastFireTick = tick;
     }
@@ -52,43 +58,62 @@ function runGame(seed, preset) {
   return { score: g.score, wave: g.wave, stats: { ...g.stats }, deathCause };
 }
 
-function pct(arr, p) { return [...arr].sort((a,b)=>a-b)[Math.floor(arr.length*p)]; }
-function avg(arr) { return arr.reduce((s,v)=>s+v,0)/arr.length; }
+function pct(arr, p) {
+  return [...arr].sort((a, b) => a - b)[Math.floor(arr.length * p)];
+}
+function avg(arr) {
+  return arr.reduce((s, v) => s + v, 0) / arr.length;
+}
 
 console.log(`\n=== NORMAL MODE Baseline: ${NUM_GAMES} games × ${PRESETS.length} presets ===\n`);
 const allResults = {};
 
 for (const preset of PRESETS) {
   const t0 = performance.now();
-  const results = SEEDS.map(seed => runGame(seed, preset));
+  const results = SEEDS.map((seed) => runGame(seed, preset));
   const elapsed = performance.now() - t0;
 
-  const scores = results.map(r => r.score);
-  const waves  = results.map(r => r.wave);
-  const kills  = results.map(r => r.stats.missileKills + r.stats.droneKills);
-  const shots  = results.map(r => r.stats.shotsFired);
-  const eff    = results.map(r => r.stats.shotsFired > 0 ? (r.stats.missileKills + r.stats.droneKills) / r.stats.shotsFired : 0);
+  const scores = results.map((r) => r.score);
+  const waves = results.map((r) => r.wave);
+  const kills = results.map((r) => r.stats.missileKills + r.stats.droneKills);
+  const shots = results.map((r) => r.stats.shotsFired);
+  const eff = results.map((r) =>
+    r.stats.shotsFired > 0 ? (r.stats.missileKills + r.stats.droneKills) / r.stats.shotsFired : 0,
+  );
 
   const deathCauses = {};
-  results.forEach(r => { deathCauses[r.deathCause] = (deathCauses[r.deathCause] || 0) + 1; });
+  results.forEach((r) => {
+    deathCauses[r.deathCause] = (deathCauses[r.deathCause] || 0) + 1;
+  });
   const waveDist = {};
-  waves.forEach(w => { waveDist[w] = (waveDist[w] || 0) + 1; });
+  waves.forEach((w) => {
+    waveDist[w] = (waveDist[w] || 0) + 1;
+  });
 
   const summary = {
     preset,
-    score: { mean: avg(scores), median: pct(scores,0.5), p10: pct(scores,0.1), p90: pct(scores,0.9) },
-    wave: { mean: avg(waves), median: pct(waves,0.5), p10: pct(waves,0.1), p90: pct(waves,0.9) },
-    kills: avg(kills), shots: avg(shots), efficiency: avg(eff),
-    deathCauses, waveDist,
+    score: { mean: avg(scores), median: pct(scores, 0.5), p10: pct(scores, 0.1), p90: pct(scores, 0.9) },
+    wave: { mean: avg(waves), median: pct(waves, 0.5), p10: pct(waves, 0.1), p90: pct(waves, 0.9) },
+    kills: avg(kills),
+    shots: avg(shots),
+    efficiency: avg(eff),
+    deathCauses,
+    waveDist,
   };
   allResults[preset] = summary;
 
-  console.log(`── ${preset.toUpperCase()} (${(elapsed/1000).toFixed(1)}s) ──`);
-  console.log(`  Score: mean=${avg(scores).toFixed(0)} median=${pct(scores,0.5)} p10=${pct(scores,0.1)} p90=${pct(scores,0.9)}`);
-  console.log(`  Waves: mean=${avg(waves).toFixed(1)} median=${pct(waves,0.5)} p10=${pct(waves,0.1)} p90=${pct(waves,0.9)}`);
+  console.log(`── ${preset.toUpperCase()} (${(elapsed / 1000).toFixed(1)}s) ──`);
+  console.log(
+    `  Score: mean=${avg(scores).toFixed(0)} median=${pct(scores, 0.5)} p10=${pct(scores, 0.1)} p90=${pct(scores, 0.9)}`,
+  );
+  console.log(
+    `  Waves: mean=${avg(waves).toFixed(1)} median=${pct(waves, 0.5)} p10=${pct(waves, 0.1)} p90=${pct(waves, 0.9)}`,
+  );
   console.log(`  Efficiency: ${avg(eff).toFixed(3)} kills/shot`);
-  const topWaves = Object.keys(waveDist).sort((a,b)=>waveDist[b]-waveDist[a]).slice(0,5);
-  console.log(`  Top waves: ${topWaves.map(w=>`${w}(${waveDist[w]})`).join(", ")}`);
+  const topWaves = Object.keys(waveDist)
+    .sort((a, b) => waveDist[b] - waveDist[a])
+    .slice(0, 5);
+  console.log(`  Top waves: ${topWaves.map((w) => `${w}(${waveDist[w]})`).join(", ")}`);
   console.log();
 }
 
