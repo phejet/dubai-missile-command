@@ -308,8 +308,6 @@ export function generateWaveSchedule(wave, commander) {
   const lateFloor = Math.max(0, wave - 10) * 2; // shrinks floors on late waves
   const missileInterval = Math.max(Math.max(3, 7 - lateFloor), 63 - wave * 5);
   const droneInterval = Math.max(Math.max(4, 10 - lateFloor), 84 - wave * 8);
-  const mirvInterval = Math.max(Math.max(21, 42 - lateFloor * 2), 280 - (wave - 5) * 28);
-
   function spacedTicks(count, interval, jitterFrac, offset) {
     const ticks = [];
     const jitter = Math.floor(interval * jitterFrac);
@@ -345,12 +343,16 @@ export function generateWaveSchedule(wave, commander) {
     entries.push({ tick: d238Ticks[i], type: "drone238", _typeIndex: i });
   }
 
-  // MIRVs
+  // MIRVs — distributed evenly across the same span as other threats
   if (counts.mirv > 0) {
-    const mOffset = hasMirvStrike ? 40 : 200; // early if MIRV_STRIKE
-    const mirvTicks = spacedTicks(counts.mirv, mirvInterval, 0.1, mOffset);
-    for (let i = 0; i < mirvTicks.length; i++) {
-      entries.push({ tick: mirvTicks[i], type: "mirv", _typeIndex: i });
+    const nonMirvMax = entries.length > 0 ? Math.max(...entries.map((e) => e.tick)) : 400;
+    const startTick = hasMirvStrike ? 40 : 80;
+    const endTick = Math.max(nonMirvMax - 40, startTick + counts.mirv * 60);
+    for (let i = 0; i < counts.mirv; i++) {
+      const base =
+        counts.mirv === 1 ? startTick : Math.round(startTick + (i / (counts.mirv - 1)) * (endTick - startTick));
+      const jitter = Math.round((endTick - startTick) * 0.05);
+      entries.push({ tick: Math.max(0, base + randInt(-jitter, jitter)), type: "mirv", _typeIndex: i });
     }
   }
 
