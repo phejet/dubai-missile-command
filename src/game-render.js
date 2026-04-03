@@ -2611,44 +2611,6 @@ export function drawTitle(ctx, { layoutProfile = {} } = {}) {
   ctx.textAlign = "left";
 }
 
-export function drawTitleModeToggle(ctx, draftMode, hoverMode) {
-  const y = 490;
-  const normalX = CANVAS_W / 2 - 90;
-  const draftX = CANVAS_W / 2 + 90;
-
-  ctx.textAlign = "center";
-  ctx.font = "bold 11px 'Courier New', monospace";
-
-  // NORMAL button
-  const normalActive = !draftMode;
-  ctx.fillStyle = normalActive ? COL.hud : hoverMode === "normal" ? "rgba(0,255,200,0.5)" : "#556677";
-  ctx.fillText("[ NORMAL ]", normalX, y);
-  if (normalActive) {
-    ctx.fillStyle = "rgba(0,255,200,0.15)";
-    ctx.fillRect(normalX - 45, y - 12, 90, 16);
-  }
-
-  // DRAFT button
-  const draftActive = draftMode;
-  ctx.fillStyle = draftActive ? "#ff8844" : hoverMode === "draft" ? "rgba(255,136,68,0.5)" : "#556677";
-  ctx.fillText("[ DRAFT ]", draftX, y);
-  if (draftActive) {
-    ctx.fillStyle = "rgba(255,136,68,0.15)";
-    ctx.fillRect(draftX - 45, y - 12, 90, 16);
-  }
-
-  // Description
-  ctx.font = "10px 'Courier New', monospace";
-  ctx.fillStyle = "#445566";
-  if (draftMode) {
-    ctx.fillText("3 random upgrades offered — pick 1 free each wave", CANVAS_W / 2, y + 16);
-  } else {
-    ctx.fillText("Buy any upgrade with earned score", CANVAS_W / 2, y + 16);
-  }
-
-  ctx.textAlign = "left";
-}
-
 export function drawGameOver(ctx, finalScore, finalWave, finalStats, { layoutProfile = {} } = {}) {
   const layout = resolveLayoutProfile(layoutProfile);
   const t = performance.now() / 1000;

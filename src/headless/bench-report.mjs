@@ -28,7 +28,7 @@ const args = Object.fromEntries(
 
 const NUM_GAMES = parseInt(args.games || "500");
 const PRESET = args.preset || null;
-const DRAFT_MODE = !args.preset;
+const DRAFT_MODE = true;
 const NUM_WORKERS = Math.min(8, os.cpus().length);
 const MAX_TICKS = 100000;
 const CONFIG = JSON.parse(readFileSync(join(__dirname, "bot-config.json"), "utf-8"));

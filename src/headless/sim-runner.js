@@ -9,7 +9,7 @@ export function runGame(botConfig, options = {}) {
   const seed = options.seed ?? Date.now();
   const maxTicks = options.maxTicks ?? 100000;
   const record = options.record ?? false;
-  const draftMode = options.draftMode ?? false;
+  const draftMode = options.draftMode ?? true;
   const dt = 1; // fixed timestep per tick
 
   const rng = mulberry32(seed);

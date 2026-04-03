@@ -12,7 +12,11 @@ import {
 import { mulberry32 } from "./headless/rng.js";
 
 export function createReplayRunner(replayData, onEvent = null) {
-  const { seed, actions, draftMode } = replayData;
+  const { seed, actions } = replayData;
+  const draftMode =
+    replayData.draftMode !== undefined
+      ? replayData.draftMode
+      : !actions?.some((action) => action.type === "shop" && (action.bought?.length ?? 0) > 1);
   let actionIdx = 0;
   let tick = 0;
   let g = null;

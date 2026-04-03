@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import SFX from "./sound.js";
 import "./App.css";
 import { CANVAS_W, CANVAS_H, GROUND_Y, COL, fireInterceptor, getAmmoCapacity, setRng } from "./game-logic.js";
-import { drawGame, drawTitle, drawTitleModeToggle, drawGameOver, perfState } from "./game-render.js";
+import { drawGame, drawTitle, drawGameOver, perfState } from "./game-render.js";
 import ShopUI from "./ShopUI.jsx";
 import { mulberry32 } from "./headless/rng.js";
 import { buildReplayCheckpoint } from "./replay-debug.js";
@@ -57,6 +57,10 @@ const EMPTY_HUD = {
   burjHealth: 5,
   burjAlive: true,
   fps: 0,
+  rafFps: 0,
+  rafFrameMs: 0,
+  perfGlowEnabled: true,
+  perfProbed: false,
   ammo: [0, 0, 0],
   ammoMax: 0,
   launcherHP: [0, 0, 0],
@@ -113,6 +117,10 @@ function buildHudSnapshot(game) {
     burjHealth: game.burjHealth,
     burjAlive: game.burjAlive,
     fps: game._fpsDisplay || 0,
+    rafFps: game._rafFps || 0,
+    rafFrameMs: game._rafDeltaMs || 0,
+    perfGlowEnabled: perfState.glowEnabled,
+    perfProbed: perfState.probed,
     ammo: [...game.ammo],
     ammoMax,
     launcherHP: [...game.launcherHP],
@@ -157,7 +165,6 @@ export default function DubaiMissileCommand() {
   const rafRef = useRef(null);
   const lastTimeRef = useRef(null);
   const replayRef = useRef(null);
-  const titleHoverRef = useRef(null);
   const shopBoughtRef = useRef([]);
   const pointerIdRef = useRef(null);
   const hudRefreshRef = useRef(0);
@@ -171,10 +178,11 @@ export default function DubaiMissileCommand() {
   const [muted, setMuted] = useState(false);
   const [replayActive, setReplayActive] = useState(false);
   const [lastReplay, setLastReplay] = useState(null);
-  const [draftMode, setDraftMode] = useState(true);
+  const [showPerfOverlay, setShowPerfOverlay] = useState(false);
   const [viewport, setViewport] = useState(getViewportSnapshot);
   const [hudSnapshot, setHudSnapshot] = useState(EMPTY_HUD);
   const [, setBattlefieldRect] = useState({ width: 0, height: 0 });
+  const draftMode = true;
 
   const isCompactPortrait = viewport.height <= 760;
 
@@ -247,7 +255,7 @@ export default function DubaiMissileCommand() {
             checkpoints: game._replayCheckpoints || [],
             finalTick: game._replayTick + 1,
             isHuman: true,
-            draftMode: game._draftMode || false,
+            draftMode: game._draftMode !== false,
           };
           setLastReplay(replay);
           fetch("/api/save-replay", {
@@ -386,6 +394,8 @@ export default function DubaiMissileCommand() {
         const elapsed = timestamp - lastTimeRef.current;
         lastTimeRef.current = timestamp;
         const game = gameRef.current;
+        game._rafDeltaMs = elapsed;
+        game._rafFps = elapsed > 0 ? 1000 / elapsed : 0;
         game._fpsFrames = (game._fpsFrames || 0) + 1;
         game._fpsAccum = (game._fpsAccum || 0) + elapsed;
         if (game._fpsAccum >= 500) {
@@ -459,9 +469,6 @@ export default function DubaiMissileCommand() {
         lastTimeRef.current = null;
         if (screen === "title") {
           drawTitle(ctx, { layoutProfile: activeLayoutProfile });
-          if (!activeLayoutProfile.externalTitle) {
-            drawTitleModeToggle(ctx, draftMode, titleHoverRef.current);
-          }
         } else if (screen === "gameover") {
           drawGameOver(ctx, finalScore, finalWave, finalStats, { layoutProfile: activeLayoutProfile });
         }
@@ -472,7 +479,7 @@ export default function DubaiMissileCommand() {
 
     rafRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [draftMode, finalScore, finalStats, finalWave, handleSimEvent, screen, showShop, syncHudSnapshot]);
+  }, [finalScore, finalStats, finalWave, handleSimEvent, screen, showShop, syncHudSnapshot]);
 
   useEffect(() => {
     function handleKeyDown(event) {
@@ -558,12 +565,6 @@ export default function DubaiMissileCommand() {
 
     game.crosshairX = point.x;
     game.crosshairY = point.y;
-  }
-
-  function handleCanvasPointerLeave() {
-    if (screen === "title") {
-      titleHoverRef.current = null;
-    }
   }
 
   function handleCanvasPointerUp(event) {
@@ -694,6 +695,15 @@ export default function DubaiMissileCommand() {
               >
                 DBG
               </button>
+              <button
+                type="button"
+                className="mute-button mute-button--mobile mute-button--hud"
+                style={{ opacity: 0.5, fontSize: "12px" }}
+                aria-label="Toggle performance debug"
+                onClick={() => setShowPerfOverlay((value) => !value)}
+              >
+                PERF
+              </button>
             </div>
           </header>
         )}
@@ -731,44 +741,36 @@ export default function DubaiMissileCommand() {
               height={CANVAS_H}
               onPointerDown={handleCanvasPointerDown}
               onPointerMove={handleCanvasPointerMove}
-              onPointerLeave={handleCanvasPointerLeave}
               onPointerUp={handleCanvasPointerUp}
               className={`game-canvas ${screen === "playing" && !showShop ? "game-canvas--active" : ""}`}
             />
+            {screen === "playing" && showPerfOverlay && (
+              <div className="battlefield-debug-overlay" aria-hidden="true">
+                <div className="battlefield-debug-overlay__title">Render Probe</div>
+                <div className="battlefield-debug-overlay__row">
+                  <span>RAF</span>
+                  <strong>{hudSnapshot.rafFps ? `${hudSnapshot.rafFps.toFixed(1)} fps` : "--"}</strong>
+                </div>
+                <div className="battlefield-debug-overlay__row">
+                  <span>Frame</span>
+                  <strong>{hudSnapshot.rafFrameMs ? `${hudSnapshot.rafFrameMs.toFixed(1)} ms` : "--"}</strong>
+                </div>
+                <div className="battlefield-debug-overlay__row">
+                  <span>HUD FPS</span>
+                  <strong>{hudSnapshot.fps ? `${hudSnapshot.fps} fps` : "--"}</strong>
+                </div>
+                <div className="battlefield-debug-overlay__row">
+                  <span>Glow</span>
+                  <strong>{hudSnapshot.perfProbed ? (hudSnapshot.perfGlowEnabled ? "on" : "off") : "probing"}</strong>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         {screen === "title" && (
           <section className="portrait-panel portrait-panel--title">
-            <div className="portrait-panel__header">
-              <span className="portrait-panel__kicker">Launch Profile</span>
-              <span className="portrait-panel__subtle">
-                {isCompactPortrait ? "Phone command deck" : "Portrait-first command deck"}
-              </span>
-            </div>
-            <div className="mode-toggle" role="group" aria-label="Game mode">
-              <button
-                type="button"
-                className={`mode-toggle__button ${!draftMode ? "mode-toggle__button--active" : ""}`}
-                onClick={() => setDraftMode(false)}
-              >
-                Normal
-              </button>
-              <button
-                type="button"
-                className={`mode-toggle__button ${draftMode ? "mode-toggle__button--draft" : ""}`}
-                onClick={() => setDraftMode(true)}
-              >
-                Draft
-              </button>
-            </div>
-            {!isCompactPortrait && (
-              <p className="portrait-panel__copy">
-                {draftMode
-                  ? "Pick one free upgrade each wave from three rotating options."
-                  : "Earn score, buy systems, and build your own defense network."}
-              </p>
-            )}
+            <p className="portrait-panel__copy">Pick one free upgrade each wave from three rotating options.</p>
             <button
               type="button"
               className="action-button action-button--primary action-button--wide"

@@ -248,7 +248,6 @@
 
 .mute-button,
 .action-button,
-.mode-toggle__button,
 .emp-button {
   font: inherit;
   cursor: pointer;
@@ -261,7 +260,6 @@
 
 .mute-button:hover,
 .action-button:hover,
-.mode-toggle__button:hover,
 .emp-button:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.22);
@@ -275,6 +273,52 @@
   justify-content: center;
   padding-bottom: 48px;
   pointer-events: none;
+}
+
+.battlefield-debug-overlay {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  min-width: 170px;
+  padding: 10px 12px;
+  border: 1px solid rgba(109, 217, 255, 0.24);
+  border-radius: 14px;
+  background: rgba(6, 10, 18, 0.78);
+  backdrop-filter: blur(8px);
+  box-shadow:
+    0 18px 34px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  color: #d7f7ff;
+  pointer-events: none;
+  font:
+    12px/1.2 "Courier New",
+    monospace;
+}
+
+.battlefield-debug-overlay__title {
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 10px;
+  color: #6dd9ff;
+}
+
+.battlefield-debug-overlay__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.battlefield-debug-overlay__row span {
+  color: #8ea8b8;
+}
+
+.battlefield-debug-overlay__row strong {
+  color: #effcff;
+  font-weight: 700;
 }
 
 .portrait-panel {
@@ -343,13 +387,6 @@
   color: #7e98a9;
 }
 
-.mode-toggle {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.mode-toggle__button,
 .action-button {
   border-radius: 16px;
   border: 1px solid rgba(109, 217, 255, 0.24);
@@ -359,16 +396,6 @@
   padding: 12px 18px;
   text-transform: uppercase;
   letter-spacing: 0.18em;
-}
-
-.mode-toggle__button--active {
-  border-color: rgba(0, 255, 200, 0.42);
-  background: rgba(0, 255, 200, 0.1);
-}
-
-.mode-toggle__button--draft {
-  border-color: rgba(255, 136, 68, 0.42);
-  background: rgba(255, 136, 68, 0.1);
 }
 
 .action-button--primary {
