@@ -2739,6 +2739,12 @@ export function drawTitle(ctx, { layoutProfile = {} } = {}) {
   skylineGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
   ctx.fillStyle = skylineGlow;
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+  const titleParallax = Math.sin(t * 0.12) * 6;
+  const titleFlicker = 0.92 + 0.04 * Math.sin(t * 17.5) + 0.02 * Math.sin(t * 53.1 + 0.8);
+  const titleFlickerSoft = 0.95 + 0.025 * Math.sin(t * 12.3 + 1.4) + 0.01 * Math.sin(t * 37.7);
+  const farDrift = titleParallax * 0.12;
+  const midDrift = titleParallax * 0.18;
+  const nearDrift = titleParallax * 0.24;
 
   // Large skyline silhouettes
   const titleBuildings = [
@@ -2751,7 +2757,7 @@ export function drawTitle(ctx, { layoutProfile = {} } = {}) {
   ];
   titleBuildings.forEach((b) => {
     ctx.save();
-    ctx.translate(b.x + b.w / 2, horizonY);
+    ctx.translate(b.x + b.w / 2 + farDrift, horizonY);
     ctx.scale(2, 2);
     ctx.translate(-(b.x + b.w / 2), -horizonY);
     const bTop = horizonY - b.h;
@@ -2799,13 +2805,132 @@ export function drawTitle(ctx, { layoutProfile = {} } = {}) {
   }
 
   ctx.save();
-  ctx.translate(burjX, burjBaseY);
+  ctx.translate(burjX + midDrift, burjBaseY);
   ctx.scale(2, 2);
   ctx.translate(-burjX, -burjBaseY);
   ctx.fillStyle = "rgba(2, 4, 7, 0.98)";
   titleBurjPath();
   ctx.fill();
   ctx.restore();
+
+  function drawTitleLauncherSilhouette(ctx, x, y, damaged = false, mirrored = false, upward = false) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(3, 3);
+    ctx.globalAlpha = 0.76;
+    // Shadow footprint keeps the launcher visually separated from the skyline.
+    ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
+    ctx.save();
+    ctx.translate(0, 6.5);
+    ctx.scale(1, 0.27);
+    ctx.beginPath();
+    ctx.arc(0, 0, 10.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.fillStyle = damaged ? "rgba(52, 34, 34, 0.9)" : "rgba(28, 38, 54, 0.9)";
+    ctx.beginPath();
+    ctx.moveTo(-14, 4);
+    ctx.lineTo(-10, -6);
+    ctx.quadraticCurveTo(0, -9, 10, -6);
+    ctx.lineTo(14, 4);
+    ctx.quadraticCurveTo(0, 6, -14, 4);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = damaged ? "rgba(72, 50, 50, 0.88)" : "rgba(60, 74, 94, 0.88)";
+    ctx.beginPath();
+    ctx.arc(0, -6, 9, Math.PI, 0);
+    ctx.lineTo(7, -4);
+    ctx.lineTo(-7, -4);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = damaged ? "rgba(120, 84, 84, 0.28)" : "rgba(120, 170, 205, 0.22)";
+    ctx.lineWidth = 0.55;
+    ctx.beginPath();
+    ctx.arc(0, -6, 9, Math.PI + 0.2, -0.2);
+    ctx.stroke();
+
+    ctx.save();
+    ctx.translate(mirrored ? -2 : 2, -8);
+    ctx.scale(mirrored ? -1 : 1, 1);
+    ctx.rotate(upward ? -1.5 : -0.78);
+    ctx.fillStyle = damaged ? "rgba(84, 58, 58, 0.88)" : "rgba(78, 92, 112, 0.88)";
+    ctx.beginPath();
+    ctx.moveTo(0, -2.5);
+    ctx.lineTo(upward ? 12 : 18, -1.5);
+    ctx.quadraticCurveTo(upward ? 14 : 21, 0, upward ? 12 : 18, 1.5);
+    ctx.lineTo(0, 2.5);
+    ctx.closePath();
+    ctx.fill();
+
+    // Thin highlight to keep the launcher legible against the city silhouette.
+    ctx.strokeStyle = damaged ? "rgba(160, 110, 110, 0.18)" : "rgba(160, 205, 230, 0.16)";
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(0, -2.1);
+    ctx.lineTo(upward ? 11 : 17, -1.4);
+    ctx.stroke();
+    ctx.restore();
+    ctx.restore();
+  }
+
+  // Patriot TEL silhouette at the same scale as the in-game launcher
+  const titlePatriotX = 334;
+  ctx.save();
+  ctx.translate(titlePatriotX + nearDrift, GROUND_Y);
+  ctx.scale(3, 3);
+  ctx.globalAlpha = 0.74;
+  ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
+  ctx.save();
+  ctx.translate(0, 6.5);
+  ctx.scale(1, 0.27);
+  ctx.beginPath();
+  ctx.arc(0, 0, 11, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  ctx.fillStyle = "rgba(10, 14, 10, 0.88)";
+  ctx.fillRect(-16, -5, 32, 7);
+  ctx.fillStyle = "rgba(16, 20, 14, 0.88)";
+  ctx.fillRect(-16, -9, 8, 5);
+  ctx.fillStyle = "rgba(24, 30, 20, 0.88)";
+  ctx.fillRect(-15, -8, 4, 2);
+  ctx.save();
+  ctx.translate(4, -5);
+  ctx.rotate(-0.45);
+  ctx.fillStyle = "rgba(14, 18, 12, 0.88)";
+  ctx.fillRect(-3, -16, 6, 14);
+  ctx.fillStyle = "rgba(10, 14, 10, 0.88)";
+  ctx.fillRect(-2, -16, 2, 6);
+  ctx.fillRect(0.5, -16, 2, 6);
+  ctx.restore();
+  ctx.fillStyle = "rgba(8, 10, 8, 0.84)";
+  ctx.beginPath();
+  ctx.arc(-12, 1, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(-6, 1, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(8, 1, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(14, 1, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(160, 205, 150, 0.16)";
+  ctx.lineWidth = 0.6;
+  ctx.beginPath();
+  ctx.moveTo(-15, -5);
+  ctx.lineTo(12, -5);
+  ctx.stroke();
+  ctx.restore();
+
+  // Three launcher silhouettes at the same in-game scale
+  const titleLaunchers = [60, 550, 860];
+  titleLaunchers.forEach((x, i) => {
+    drawTitleLauncherSilhouette(ctx, x + nearDrift * 0.65, GROUND_Y - 5, false, i === 2, i === 1);
+  });
 
   function drawTitleMissileSilhouette(ctx, x, y, angle, scale = 1, alpha = 1) {
     ctx.save();
@@ -2949,22 +3074,45 @@ export function drawTitle(ctx, { layoutProfile = {} } = {}) {
 
   // Title copy
   if (!layout.externalTitle) {
+    ctx.save();
+    ctx.strokeStyle = `rgba(0, 255, 200, ${0.08 + (titleFlickerSoft - 0.95) * 1.3})`;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(130, 66, CANVAS_W - 260, 170);
+    ctx.restore();
+
     ctx.fillStyle = COL.hud;
     glow(ctx, COL.hud, 24);
+    ctx.save();
+    ctx.translate(Math.sin(t * 31.7) * 0.5, 0);
+    ctx.globalAlpha = titleFlicker;
     ctx.font = "bold 84px 'Courier New', monospace";
     ctx.fillText("DUBAI", cx, 126);
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(Math.sin(t * 29.4 + 0.5) * 0.35, 0);
+    ctx.globalAlpha = titleFlickerSoft;
     ctx.font = "bold 56px 'Courier New', monospace";
     ctx.fillText("MISSILE COMMAND", cx, 188);
+    ctx.restore();
     glowOff(ctx);
 
     ctx.fillStyle = "#ff6e52";
+    ctx.save();
+    ctx.translate(Math.sin(t * 23.1 + 1.2) * 0.25, 0);
+    ctx.globalAlpha = 0.92 + 0.04 * Math.sin(t * 8.9 + 0.3);
     ctx.font = "bold 30px 'Courier New', monospace";
     ctx.fillText("DEFEND THE CITY  -  PROTECT THE SKIES", cx, 260);
+    ctx.restore();
 
     const pulse = 0.5 + 0.5 * Math.sin(t * 3);
     ctx.fillStyle = `rgba(0,255,200,${pulse})`;
+    ctx.save();
+    ctx.translate(Math.sin(t * 21.7 + 2.4) * 0.25, 0);
+    ctx.globalAlpha = pulse * (0.9 + 0.06 * Math.sin(t * 19.5));
     ctx.font = "bold 30px 'Courier New', monospace";
     ctx.fillText("[ CLICK TO START ]", cx, 656);
+    ctx.restore();
   } else {
     const pulse = 0.3 + 0.2 * Math.sin(t * 2.4);
     ctx.fillStyle = `rgba(0,255,200,${pulse})`;
