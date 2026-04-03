@@ -1825,6 +1825,14 @@ export function closeShop(g) {
     if (!site.alive) site.alive = true;
   }
 
+  // Clear all in-flight defense projectiles and friendly units at wave boundary
+  g.interceptors = [];
+  g.hornets = [];
+  g.roadrunners = [];
+  g.patriotMissiles = [];
+  g.flares = [];
+  g.planes = [];
+
   g.wave++;
   const waveData = generateWaveSchedule(g.wave, g.commander);
   g.schedule = waveData.schedule;
