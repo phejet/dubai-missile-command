@@ -2740,29 +2740,29 @@ export function drawTitle(ctx, { layoutProfile = {} } = {}) {
   ctx.fillStyle = skylineGlow;
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
-  // Reduced skyline using the same building proportions as the game
+  // Large skyline silhouettes
   const titleBuildings = [
-    [40, 35, 80],
-    [125, 40, 95],
-    [210, 45, 110],
-    [530, 38, 90],
-    [700, 40, 100],
-    [790, 42, 120],
+    { x: 40, w: 35, h: 80 },
+    { x: 125, w: 40, h: 95 },
+    { x: 210, w: 45, h: 110 },
+    { x: 530, w: 38, h: 90 },
+    { x: 700, w: 40, h: 100 },
+    { x: 790, w: 42, h: 120 },
   ];
-  titleBuildings.forEach(([x, w, h]) => {
+  titleBuildings.forEach((b) => {
     ctx.save();
-    ctx.translate(x + w / 2, horizonY);
+    ctx.translate(b.x + b.w / 2, horizonY);
     ctx.scale(2, 2);
-    ctx.translate(-(x + w / 2), -horizonY);
-    const bTop = horizonY - h;
+    ctx.translate(-(b.x + b.w / 2), -horizonY);
+    const bTop = horizonY - b.h;
     ctx.fillStyle = "rgba(3, 6, 10, 0.98)";
-    ctx.fillRect(x, bTop, w, h);
+    ctx.fillRect(b.x, bTop, b.w, b.h);
     ctx.fillStyle = "rgba(6, 10, 16, 0.95)";
-    ctx.fillRect(x - 1, bTop, w + 2, 3);
+    ctx.fillRect(b.x - 1, bTop, b.w + 2, 3);
     ctx.fillStyle = "rgba(255,255,255,0.02)";
-    ctx.fillRect(x, bTop, 3, h);
+    ctx.fillRect(b.x, bTop, 3, b.h);
     ctx.fillStyle = "rgba(0,0,0,0.42)";
-    ctx.fillRect(x + w - 5, bTop, 5, h);
+    ctx.fillRect(b.x + b.w - 5, bTop, 5, b.h);
     ctx.restore();
   });
   ctx.globalAlpha = 1;
@@ -2806,28 +2806,6 @@ export function drawTitle(ctx, { layoutProfile = {} } = {}) {
   titleBurjPath();
   ctx.fill();
   ctx.restore();
-
-  // Front-line defense silhouettes with the same proportions as the game, but fewer of them
-  const sites = [
-    { x: 92, w: 44, h: 24, roof: 16 },
-    { x: 184, w: 46, h: 32, roof: 18 },
-    { x: 304, w: 38, h: 22, roof: 14 },
-    { x: 604, w: 38, h: 22, roof: 14 },
-    { x: 708, w: 46, h: 30, roof: 18 },
-    { x: 808, w: 40, h: 26, roof: 16 },
-  ];
-  sites.forEach((site, index) => {
-    const bob = Math.sin(t * 1.5 + index) * 1.5;
-    const baseY = horizonY - site.roof + bob;
-    ctx.fillStyle = "rgba(4, 10, 18, 0.96)";
-    ctx.fillRect(site.x - site.w / 2, baseY - site.h, site.w, site.h);
-    ctx.beginPath();
-    ctx.moveTo(site.x - site.w / 2 - 6, baseY - site.h + 2);
-    ctx.lineTo(site.x, baseY - site.h - 14);
-    ctx.lineTo(site.x + site.w / 2 + 6, baseY - site.h + 2);
-    ctx.closePath();
-    ctx.fill();
-  });
 
   function drawTitleMissileSilhouette(ctx, x, y, angle, scale = 1, alpha = 1) {
     ctx.save();
