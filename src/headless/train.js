@@ -19,7 +19,7 @@ const NUM_ITERATIONS = parseInt(getArg("iterations", "10"));
 const NUM_WORKERS = parseInt(getArg("workers", String(Math.min(8, (await import("os")).cpus().length))));
 const MAX_TICKS = parseInt(getArg("maxTicks", "100000"));
 const PRESET = getArg("preset", null);
-const DRAFT_MODE = args.includes("--draft");
+const DRAFT_MODE = args.includes("--draft") || !args.some((a) => a.startsWith("--preset="));
 
 const CONFIG_PATH = join(__dirname, "bot-config.json");
 const LOG_PATH = join(__dirname, "training-log.jsonl");
@@ -115,7 +115,7 @@ async function main() {
   console.log(`Games per iteration: ${NUM_GAMES}`);
   console.log(`Iterations: ${NUM_ITERATIONS}`);
   console.log(`Workers: ${NUM_WORKERS}`);
-  console.log(`Preset: ${PRESET || "perfect"}`);
+  console.log(`Preset: ${PRESET || "draft"}${DRAFT_MODE ? " (draft)" : ""}`);
   console.log();
 
   // Validate preset early, but pass raw config + preset to workers

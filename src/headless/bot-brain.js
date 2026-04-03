@@ -109,7 +109,7 @@ function applyHumanAim(point, human) {
   const jitterY = randRange(rng, -human.aimJitter, human.aimJitter);
   return {
     x: clamp(point.rawX + (point.x - point.rawX) * leadBlend + jitterX, 20, 880),
-    y: clamp(point.rawY + (point.y - point.rawY) * leadBlend + jitterY, 20, 545),
+    y: clamp(point.rawY + (point.y - point.rawY) * leadBlend + jitterY, 20, GROUND_Y - 25),
   };
 }
 
@@ -151,7 +151,9 @@ export function botDecideAction(g, config, lastFireTick, tick) {
   const cfg = config.targeting;
   const human = config.humanization?.enabled ? config.humanization : null;
   const rng = getRng();
-  const interceptorSpeed = 5;
+  // Interceptors start at 10.88 px/tick, accelerate to 18.56 over ~18 ticks.
+  // Average across a typical 60-80 tick flight is ~16 px/tick.
+  const interceptorSpeed = 16;
 
   // Check if any launcher has ammo
   const hasAmmo = g.ammo.some((a, i) => a > 0 && g.launcherHP[i] > 0);
@@ -204,8 +206,10 @@ export function botDecideAction(g, config, lastFireTick, tick) {
     allThreats.push({ ...led, rawX: m.x, rawY: m.y, priority, targetRef: m });
   }
 
-  // Deprioritize threats that already have interceptors heading toward them
-  const COVERED_RADIUS = 55; // slightly larger than explosion radius (49)
+  // Deprioritize threats that already have interceptors heading toward them.
+  // Actual explosion radius is 74px; proximity fuse is 72px. Scale coverage to account
+  // for lead-shot prediction drift as the threat falls between consecutive shots.
+  const COVERED_RADIUS = 120;
   for (const t of allThreats) {
     t.coveredBy = 0;
     for (const ic of g.interceptors) {
@@ -270,7 +274,7 @@ export function botDecideAction(g, config, lastFireTick, tick) {
     }
     return {
       x: clamp(aimed.x, 20, 880),
-      y: clamp(aimed.y, 20, 545),
+      y: clamp(aimed.y, 20, GROUND_Y - 25),
     };
   }
 
@@ -287,11 +291,12 @@ export function botDecideAction(g, config, lastFireTick, tick) {
     }
   }
 
-  // Urgent fast-path: bypass inFlight cap for priority-0 threats
+  // Urgent fast-path: bypass inFlight cap for priority-0 threats, but still respect cover
   if (hasUrgentThreat && tick - lastFireTick >= cooldown) {
     const urgentThreats = candidateThreats.filter((t) => t.priority === 0);
     urgentThreats.sort((a, b) => b.y - a.y);
     for (const ut of urgentThreats) {
+      if (!ut.isMirv && ut.coveredBy > 0) continue;
       if (isSafeFromPlanes(ut)) {
         return finalizeAim(ut);
       }
