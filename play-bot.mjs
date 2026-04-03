@@ -2,12 +2,13 @@ import { chromium } from "playwright";
 
 const GAME_URL = process.env.GAME_URL || "http://localhost:5178/dubai-missile-command/";
 const TICK_MS = 100;
-const GROUND_Y = 570;
+const GROUND_Y = 1530;
+const CANVAS_H = 1600;
 const INTERCEPTOR_SPEED = 5;
 const LAUNCHERS = [
-  { x: 60, y: 565 },
-  { x: 550, y: 565 },
-  { x: 860, y: 565 },
+  { x: 60, y: 1525 },
+  { x: 550, y: 1525 },
+  { x: 860, y: 1525 },
 ];
 
 async function main() {
@@ -20,8 +21,13 @@ async function main() {
 
   // Start the game
   await sleep(1500);
-  console.log("Clicking to start...");
-  await canvas.click({ position: { x: 450, y: 320 } });
+  console.log("Clicking Start Defense...");
+  const startBtn = page.locator("button", { hasText: "Start Defense" });
+  if ((await startBtn.count()) > 0) {
+    await startBtn.click();
+  } else {
+    await canvas.click({ position: { x: 450, y: 320 } });
+  }
   await sleep(1000);
 
   // Verify game started
@@ -36,13 +42,10 @@ async function main() {
   while (true) {
     tick++;
     try {
-      // Check for shop buttons first (DOM level)
-      const buttonCount = await page.locator("button").count();
-
       // Check for retry button (game over screen)
-      const retryBtn = page.locator("button", { hasText: "RETRY" });
+      const retryBtn = page.locator("button", { hasText: "Retry" });
       if ((await retryBtn.count()) > 0) {
-        console.log("Game over screen — clicking retry");
+        console.log("Game over screen — clicking Retry");
         await retryBtn.click();
         await sleep(1500);
         continue;
@@ -129,8 +132,13 @@ async function main() {
       });
 
       if (!state) {
-        if (tick % 10 === 0) console.log("No game state — clicking to start");
-        await canvas.click({ position: { x: 450, y: 320 } });
+        if (tick % 10 === 0) console.log("No game state — trying to start");
+        const startBtn2 = page.locator("button", { hasText: "Start Defense" });
+        if ((await startBtn2.count()) > 0) {
+          await startBtn2.click();
+        } else {
+          await canvas.click({ position: { x: 450, y: 320 } });
+        }
         await sleep(1000);
         continue;
       }
@@ -143,11 +151,16 @@ async function main() {
         );
       }
 
-      // Game over — click to restart
+      // Game over — click retry to restart
       if (!state.burjAlive) {
         console.log(`GAME OVER! Wave ${state.wave}, Score: ${state.score}`);
         await sleep(2000);
-        await canvas.click({ position: { x: 450, y: 320 } });
+        const retryBtn2 = page.locator("button", { hasText: "Retry" });
+        if ((await retryBtn2.count()) > 0) {
+          await retryBtn2.click();
+        } else {
+          await canvas.click({ position: { x: 450, y: 320 } });
+        }
         await sleep(1000);
         continue;
       }
@@ -168,12 +181,12 @@ async function main() {
       for (const m of state.missiles) {
         if (m.y < 80) continue;
         const led = leadTarget(m.x, m.y, m.vx, m.vy);
-        const priority = m.y > 350 ? 0 : m.y > 200 ? 1 : 2;
+        // Priority based on proximity to ground
+        const priority = m.y > 1100 ? 0 : m.y > 700 ? 1 : 2;
         allThreats.push({ ...led, priority });
       }
 
       const totalAmmo = state.ammo.reduce((s, a) => s + a, 0);
-      const urgentCount = allThreats.filter((t) => t.priority <= 1).length;
       const threatCount = allThreats.length;
       const maxInFlight = threatCount > 4 ? 6 : 3;
       const cooldown = totalAmmo < 10 ? 400 : threatCount > 3 ? 80 : 200;
@@ -211,10 +224,10 @@ async function main() {
 
       if (bestPoint) {
         const clickX = Math.max(20, Math.min(880, bestPoint.x));
-        const clickY = Math.max(20, Math.min(545, bestPoint.y));
+        const clickY = Math.max(20, Math.min(GROUND_Y - 20, bestPoint.y));
         const box = await canvas.boundingBox();
         await canvas.click({
-          position: { x: clickX * (box.width / 900), y: clickY * (box.height / 640) },
+          position: { x: clickX * (box.width / 900), y: clickY * (box.height / CANVAS_H) },
         });
         lastFireTime = now;
       }

@@ -684,13 +684,23 @@
   width: min(100%, 430px);
 }
 
-.game-shell--phonePortrait[data-screen="gameover"] .game-shell__content {
+.game-shell--phonePortrait[data-screen="gameover"] {
   overflow-y: auto;
   height: auto;
+  min-height: 100dvh;
+}
+
+.game-shell--phonePortrait[data-screen="gameover"] .game-shell__content {
+  height: auto;
+  overflow: visible;
 }
 
 .game-shell--phonePortrait[data-screen="gameover"] .battlefield-card {
   aspect-ratio: 900 / 600;
+}
+
+.game-shell--phonePortrait[data-screen="gameover"] .game-canvas {
+  height: auto;
 }
 
 .game-shell--phonePortrait[data-screen="playing"] .battlefield-shell {

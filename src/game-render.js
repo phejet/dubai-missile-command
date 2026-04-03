@@ -1350,9 +1350,9 @@ function drawExplosionsAndParticles(ctx, game, layout) {
     const isInterceptorBlast = ex.playerCaused && !ex.chain;
     if (isInterceptorBlast) {
       // Interceptor detonation — punchy flash + particles, no blob
-      const popR = r * 0.35;
+      const popR = r * 0.2;
       if (ex.alpha > ov("explosion.flashThreshold", 0.85)) {
-        const flashT = (ex.alpha - 0.85) / 0.15;
+        const flashT = (ex.alpha - 0.85) * 0.5;
         ctx.globalAlpha = flashT;
         ctx.fillStyle = ex.color;
         ctx.beginPath();
@@ -1622,7 +1622,7 @@ function drawGroundStructures(ctx, game, layout) {
     const patX = 334;
     ctx.save();
     ctx.translate(patX, GROUND_Y);
-    ctx.scale(2, 2);
+    ctx.scale(3, 3);
     // Truck body
     ctx.fillStyle = "#3a4a30";
     ctx.fillRect(-16, -5, 32, 7);
@@ -1676,7 +1676,7 @@ function drawGroundStructures(ctx, game, layout) {
       hy = GROUND_Y;
     ctx.save();
     ctx.translate(hx, hy);
-    ctx.scale(2, 2);
+    ctx.scale(3, 3);
     const cellR = 5;
     const cells = [
       { x: 0, y: -8 },
@@ -1732,7 +1732,7 @@ function drawGroundStructures(ctx, game, layout) {
     const rrX = 678;
     ctx.save();
     ctx.translate(rrX, GROUND_Y);
-    ctx.scale(2, 2);
+    ctx.scale(3, 3);
     // Container walls (3 walls, no top)
     ctx.fillStyle = "#1e2e3e";
     ctx.fillRect(-14, -10, 2, 12); // left wall
