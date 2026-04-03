@@ -11,20 +11,30 @@ function getArg(name, defaultVal) {
 const seed = getArg("seed", null);
 const tryCount = parseInt(getArg("tries", "1000"));
 const outFile = getArg("out", "replay.json");
+const draftMode = args.includes("--draft");
+
+function buildReplay(seedValue, result) {
+  return {
+    seed: seedValue,
+    actions: result.actions,
+    draftMode: result.draftMode || undefined,
+  };
+}
 
 if (seed !== null) {
-  console.log(`Recording game with seed ${seed}...`);
-  const result = runGame(null, { seed: parseInt(seed), record: true });
-  const replay = { seed: parseInt(seed), actions: result.actions };
+  console.log(`Recording ${draftMode ? "draft-mode " : ""}game with seed ${seed}...`);
+  const parsedSeed = parseInt(seed);
+  const result = runGame(null, { seed: parsedSeed, record: true, draftMode });
+  const replay = buildReplay(parsedSeed, result);
   writeFileSync(outFile, JSON.stringify(replay));
   console.log(`Wave ${result.wave}, score ${result.score}, ${result.actions.length} actions`);
   console.log(`Saved to ${outFile}`);
 } else {
-  console.log(`Finding best game out of ${tryCount}...`);
+  console.log(`Finding best ${draftMode ? "draft-mode " : ""}game out of ${tryCount}...`);
   let best = { wave: 0, score: 0 };
   let bestSeed = 0;
   for (let s = 0; s < tryCount; s++) {
-    const r = runGame(null, { seed: s });
+    const r = runGame(null, { seed: s, draftMode });
     if (r.wave > best.wave || (r.wave === best.wave && r.score > best.score)) {
       best = r;
       bestSeed = s;
@@ -32,8 +42,8 @@ if (seed !== null) {
   }
   console.log(`Best: seed ${bestSeed}, wave ${best.wave}, score ${best.score}`);
   console.log(`Recording...`);
-  const result = runGame(null, { seed: bestSeed, record: true });
-  const replay = { seed: bestSeed, actions: result.actions };
+  const result = runGame(null, { seed: bestSeed, record: true, draftMode });
+  const replay = buildReplay(bestSeed, result);
   writeFileSync(outFile, JSON.stringify(replay));
   console.log(`${result.actions.length} actions, saved to ${outFile}`);
 }

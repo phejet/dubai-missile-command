@@ -1,4 +1,6 @@
 import { CANVAS_W, LAUNCHERS, GROUND_Y, getRng } from "../game-logic.js";
+const HUMAN_CURSOR_START_X = CANVAS_W * 0.5;
+const HUMAN_CURSOR_START_Y = 800;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -46,9 +48,133 @@ function getHumanState(g) {
       seenTicks: new WeakMap(),
       committedTargetRef: null,
       committedUntil: -Infinity,
+      cursorX: HUMAN_CURSOR_START_X,
+      cursorY: HUMAN_CURSOR_START_Y,
+      moveFromX: HUMAN_CURSOR_START_X,
+      moveFromY: HUMAN_CURSOR_START_Y,
+      moveTargetX: HUMAN_CURSOR_START_X,
+      moveTargetY: HUMAN_CURSOR_START_Y,
+      moveStartTick: 0,
+      moveEndTick: 0,
+      pendingTargetRef: null,
+      pendingAimX: HUMAN_CURSOR_START_X,
+      pendingAimY: HUMAN_CURSOR_START_Y,
+      pendingRawX: HUMAN_CURSOR_START_X,
+      pendingRawY: HUMAN_CURSOR_START_Y,
+      pendingReadyTick: -Infinity,
+      clickReadyTick: -Infinity,
+      lastClickTick: -Infinity,
+      burstShots: 0,
+      burstWindowUntil: -Infinity,
+      burstCooldownUntil: -Infinity,
+      lastTargetRef: null,
+      lastLane: 1,
+      lastTick: 0,
     };
   }
   return g._botHumanState;
+}
+
+function getLaneForX(x) {
+  if (x < CANVAS_W / 3) return 0;
+  if (x < (CANVAS_W * 2) / 3) return 1;
+  return 2;
+}
+
+function updateHumanCursorState(state, tick) {
+  if (tick < state.lastTick) return;
+  if (state.moveEndTick > state.moveStartTick && tick < state.moveEndTick) {
+    const t = clamp((tick - state.moveStartTick) / (state.moveEndTick - state.moveStartTick), 0, 1);
+    state.cursorX = state.moveFromX + (state.moveTargetX - state.moveFromX) * t;
+    state.cursorY = state.moveFromY + (state.moveTargetY - state.moveFromY) * t;
+  } else if (tick >= state.moveEndTick) {
+    state.cursorX = state.moveTargetX;
+    state.cursorY = state.moveTargetY;
+  }
+  state.lastTick = tick;
+}
+
+function scheduleHumanAim(state, human, point, desiredAim, tick, rng) {
+  const sameTarget = state.pendingTargetRef === point.targetRef || state.lastTargetRef === point.targetRef;
+  const lane = getLaneForX(desiredAim.x);
+  const prevLane = state.lastLane ?? getLaneForX(state.cursorX);
+  const laneDelta = Math.abs(lane - prevLane);
+  let attentionTicks = randIntRange(rng, human.attentionShiftMin, human.attentionShiftMax);
+  if (sameTarget) {
+    attentionTicks *= human.sameTargetAttentionMultiplier;
+  } else if (lane === prevLane) {
+    attentionTicks *= human.sameLaneAttentionMultiplier;
+  }
+  if (point.priority === 0) {
+    attentionTicks *= human.urgentReactionMultiplier;
+  }
+  attentionTicks += laneDelta * human.laneSwitchPenalty;
+
+  const distance = Math.sqrt((desiredAim.x - state.cursorX) ** 2 + (desiredAim.y - state.cursorY) ** 2);
+  const moveSpeed = sameTarget ? human.cursorTrackSpeedPxPerTick : human.cursorSpeedPxPerTick;
+  let moveTicks = distance / Math.max(1, moveSpeed);
+  if (sameTarget) moveTicks *= human.sameTargetMoveMultiplier;
+  let settleTicks = randIntRange(rng, human.settleTicksMin, human.settleTicksMax);
+  if (sameTarget) settleTicks = Math.max(0, Math.round(settleTicks * human.sameTargetMoveMultiplier));
+
+  state.moveFromX = state.cursorX;
+  state.moveFromY = state.cursorY;
+  state.moveTargetX = desiredAim.x;
+  state.moveTargetY = desiredAim.y;
+  state.moveStartTick = tick;
+  state.moveEndTick = tick + Math.max(0, Math.round(moveTicks + settleTicks));
+  state.pendingTargetRef = point.targetRef;
+  state.pendingAimX = desiredAim.x;
+  state.pendingAimY = desiredAim.y;
+  state.pendingRawX = point.x;
+  state.pendingRawY = point.y;
+  state.pendingReadyTick = Math.max(state.moveEndTick, tick + Math.max(0, Math.round(attentionTicks)));
+}
+
+function prepareHumanAim(state, human, point, tick, rng) {
+  updateHumanCursorState(state, tick);
+  const desiredAim = applyHumanAim(point, human);
+  const retargetThreshold = human.retargetAimThreshold ?? 24;
+  const needsNewPlan =
+    state.pendingTargetRef !== point.targetRef ||
+    Math.sqrt((point.x - state.pendingRawX) ** 2 + (point.y - state.pendingRawY) ** 2) > retargetThreshold;
+
+  if (needsNewPlan) {
+    scheduleHumanAim(state, human, point, desiredAim, tick, rng);
+    if (tick < state.pendingReadyTick) return null;
+  }
+
+  if (tick < state.pendingReadyTick || tick < state.clickReadyTick || tick < state.burstCooldownUntil) {
+    return null;
+  }
+
+  if (tick > state.burstWindowUntil) {
+    state.burstShots = 0;
+  }
+  state.burstShots += 1;
+  state.burstWindowUntil = tick + human.burstWindowTicks;
+  if (state.burstShots >= human.maxBurstShots) {
+    state.burstShots = 0;
+    state.burstCooldownUntil = tick + randIntRange(rng, human.burstRecoveryMin, human.burstRecoveryMax);
+  }
+
+  state.cursorX = state.pendingAimX;
+  state.cursorY = state.pendingAimY;
+  state.moveFromX = state.cursorX;
+  state.moveFromY = state.cursorY;
+  state.moveTargetX = state.cursorX;
+  state.moveTargetY = state.cursorY;
+  state.moveStartTick = tick;
+  state.moveEndTick = tick;
+  state.clickReadyTick = tick + human.minClickInterval;
+  state.lastClickTick = tick;
+  state.lastTargetRef = point.targetRef;
+  state.lastLane = getLaneForX(state.pendingAimX);
+
+  return {
+    x: clamp(state.pendingAimX, 20, 880),
+    y: clamp(state.pendingAimY, 20, GROUND_Y - 25),
+  };
 }
 
 function refreshHumanFocus(state, human, tick, rng, committedTargetRef) {
@@ -117,19 +243,7 @@ export function leadTarget(tx, ty, tvx, tvy, config, interceptorSpeed = 5, g = n
   const iterations = config.leadShot.iterations;
   const timeScale = config.leadShot.timeScaleFactor;
 
-  // Lock the firing launcher — pick closest to original target (matching fireInterceptor)
-  let launcherX = 450,
-    launcherY = GROUND_Y;
-  let bestDist = Infinity;
-  for (let i = 0; i < LAUNCHERS.length; i++) {
-    if (g && (g.ammo[i] <= 0 || g.launcherHP[i] <= 0)) continue;
-    const d = Math.sqrt((tx - LAUNCHERS[i].x) ** 2 + (ty - LAUNCHERS[i].y) ** 2);
-    if (d < bestDist) {
-      bestDist = d;
-      launcherX = LAUNCHERS[i].x;
-      launcherY = LAUNCHERS[i].y;
-    }
-  }
+  const { x: launcherX, y: launcherY } = pickLauncher(tx, ty, g);
 
   // Initial distance estimate for accel factor (computed once, not compounded)
   const initDist = Math.sqrt((tx - launcherX) ** 2 + (ty - launcherY) ** 2);
@@ -147,6 +261,85 @@ export function leadTarget(tx, ty, tvx, tvy, config, interceptorSpeed = 5, g = n
   return { x: aimX, y: aimY };
 }
 
+function pickLauncher(tx, ty, g = null) {
+  let launcherX = 450;
+  let launcherY = GROUND_Y;
+  let bestDist = Infinity;
+  for (let i = 0; i < LAUNCHERS.length; i++) {
+    if (g && (g.ammo[i] <= 0 || g.launcherHP[i] <= 0)) continue;
+    const d = Math.sqrt((tx - LAUNCHERS[i].x) ** 2 + (ty - LAUNCHERS[i].y) ** 2);
+    if (d < bestDist) {
+      bestDist = d;
+      launcherX = LAUNCHERS[i].x;
+      launcherY = LAUNCHERS[i].y;
+    }
+  }
+  return { x: launcherX, y: launcherY, dist: bestDist };
+}
+
+function sampleWaypoints(waypoints, pathIndex) {
+  const clampedIndex = clamp(pathIndex, 0, waypoints.length - 1);
+  const i0 = Math.floor(clampedIndex);
+  const frac = clampedIndex - i0;
+  const i1 = Math.min(i0 + 1, waypoints.length - 1);
+  return {
+    x: waypoints[i0].x + (waypoints[i1].x - waypoints[i0].x) * frac,
+    y: waypoints[i0].y + (waypoints[i1].y - waypoints[i0].y) * frac,
+  };
+}
+
+function leadShahed238Target(drone, config, interceptorSpeed, g) {
+  if (!drone.waypoints?.length || drone.luredByFlare) {
+    return leadTarget(drone.x, drone.y, drone.vx, drone.vy, config, interceptorSpeed, g);
+  }
+
+  const { x: launcherX, y: launcherY } = pickLauncher(drone.x, drone.y, g);
+  const iterations = config.leadShot.iterations;
+  const timeScale = config.leadShot.timeScaleFactor;
+  const pathStepPerTick = drone.empSlowTimer > 0 ? 0.4 : 1;
+
+  let aim = { x: drone.x, y: drone.y };
+  for (let iter = 0; iter < iterations; iter++) {
+    const d = Math.sqrt((aim.x - launcherX) ** 2 + (aim.y - launcherY) ** 2);
+    const frames = (d / interceptorSpeed) * timeScale;
+    const futureIndex = (drone.pathIndex ?? 0) + frames * pathStepPerTick;
+    aim = sampleWaypoints(drone.waypoints, futureIndex);
+  }
+
+  return { x: aim.x, y: Math.min(aim.y, GROUND_Y - 25) };
+}
+
+function leadThreatTarget(targetRef, config, interceptorSpeed, g, accel = 1) {
+  if (targetRef.type === "drone" && targetRef.subtype === "shahed238") {
+    return leadShahed238Target(targetRef, config, interceptorSpeed, g);
+  }
+  return leadTarget(targetRef.x, targetRef.y, targetRef.vx, targetRef.vy, config, interceptorSpeed, g, accel);
+}
+
+function getThreatReservationLimit(threat) {
+  if (threat?.isMirv) return 2;
+  return 1;
+}
+
+function getActiveBotReservations(g, tick) {
+  const active = (g._botTargetReservations || []).filter(
+    (reservation) => reservation.targetRef?.alive && reservation.untilTick > tick,
+  );
+  g._botTargetReservations = active;
+  return active;
+}
+
+export function reserveBotTarget(g, targetRef, untilTick, tick) {
+  if (!targetRef || !Number.isFinite(untilTick) || untilTick <= tick) return;
+  const reservations = getActiveBotReservations(g, tick);
+  const existing = reservations.find((reservation) => reservation.targetRef === targetRef);
+  if (existing) {
+    existing.untilTick = Math.max(existing.untilTick, untilTick);
+    return;
+  }
+  reservations.push({ targetRef, untilTick });
+}
+
 export function botDecideAction(g, config, lastFireTick, tick) {
   const cfg = config.targeting;
   const human = config.humanization?.enabled ? config.humanization : null;
@@ -158,25 +351,32 @@ export function botDecideAction(g, config, lastFireTick, tick) {
   // Check if any launcher has ammo
   const hasAmmo = g.ammo.some((a, i) => a > 0 && g.launcherHP[i] > 0);
   if (!hasAmmo) return null;
+  const humanState = human ? getHumanState(g) : null;
+  if (humanState) {
+    updateHumanCursorState(humanState, tick);
+    g.crosshairX = humanState.cursorX;
+    g.crosshairY = humanState.cursorY;
+  }
 
   const inFlight = g.interceptors.filter((i) => i.alive).length;
+  const reservations = getActiveBotReservations(g, tick);
   const allThreats = [];
 
   // Drones — diving ones are always priority 0, engage non-diving ones early
   for (const d of g.drones) {
     if (!d.alive) continue;
     if (d.diving) {
-      const led = leadTarget(d.x, d.y, d.vx, d.vy, config, interceptorSpeed, g);
+      const led = leadThreatTarget(d, config, interceptorSpeed, g);
       allThreats.push({ ...led, rawX: d.x, rawY: d.y, priority: 0, targetRef: d });
     } else if (d.bombDropped && !d.diving) {
       // Transitional: bomb dropped but not yet diving — still a threat
-      const led = leadTarget(d.x, d.y, d.vx, d.vy, config, interceptorSpeed, g);
+      const led = leadThreatTarget(d, config, interceptorSpeed, g);
       allThreats.push({ ...led, rawX: d.x, rawY: d.y, priority: 1, targetRef: d });
     } else if (d.y > cfg.minThreatY && !d.bombDropped) {
       // Engage horizontal drones before they drop bombs
       const [minX, maxX] = cfg.droneEngageRange;
       if ((d.vx > 0 && d.x > minX) || (d.vx < 0 && d.x < maxX)) {
-        const led = leadTarget(d.x, d.y, d.vx, d.vy, config, interceptorSpeed, g);
+        const led = leadThreatTarget(d, config, interceptorSpeed, g);
         allThreats.push({ ...led, rawX: d.x, rawY: d.y, priority: 1, targetRef: d });
       }
     }
@@ -188,11 +388,11 @@ export function botDecideAction(g, config, lastFireTick, tick) {
     if (m.luredByFlare) continue; // heading to flare, will miss — save ammo
     if (m.type === "mirv") {
       // MIRVs are always top priority — must kill before split
-      const led = leadTarget(m.x, m.y, m.vx, m.vy, config, interceptorSpeed, g, m.accel || 1);
+      const led = leadThreatTarget(m, config, interceptorSpeed, g, m.accel || 1);
       allThreats.push({ ...led, rawX: m.x, rawY: m.y, priority: 0, isMirv: true, targetRef: m });
       continue;
     }
-    const led = leadTarget(m.x, m.y, m.vx, m.vy, config, interceptorSpeed, g, m.accel || 1);
+    const led = leadThreatTarget(m, config, interceptorSpeed, g, m.accel || 1);
     const priority =
       m.type === "bomb"
         ? m.y > cfg.missileYThresholds.urgent
@@ -211,12 +411,19 @@ export function botDecideAction(g, config, lastFireTick, tick) {
   // for lead-shot prediction drift as the threat falls between consecutive shots.
   const COVERED_RADIUS = 120;
   for (const t of allThreats) {
+    t.reservationLimit = getThreatReservationLimit(t);
     t.coveredBy = 0;
     for (const ic of g.interceptors) {
       if (!ic.alive) continue;
       const d = Math.sqrt((ic.targetX - t.x) ** 2 + (ic.targetY - t.y) ** 2);
       if (d < COVERED_RADIUS) t.coveredBy++;
     }
+    t.reservedBy =
+      t.reservationLimit > 0 ? reservations.filter((reservation) => reservation.targetRef === t.targetRef).length : 0;
+    if (t.reservedBy > 0) {
+      t.coveredBy = Math.max(t.coveredBy, t.reservedBy);
+    }
+    t.blocked = t.reservationLimit > 0 && t.reservedBy >= t.reservationLimit;
     // Demote covered threats: each existing interceptor adds 1 to priority (lower = more urgent)
     // MIRVs need multiple hits — never demote them
     if (t.isMirv) continue;
@@ -227,26 +434,23 @@ export function botDecideAction(g, config, lastFireTick, tick) {
   }
 
   let candidateThreats = allThreats;
-  let humanState = null;
   if (human) {
     const humanized = humanizeThreats(g, allThreats, human, tick);
-    humanState = humanized.state;
     candidateThreats = humanized.perceived;
   }
+  candidateThreats = candidateThreats.filter((threat) => !threat.blocked);
 
   const totalAmmo = g.ammo.reduce((s, a) => s + a, 0);
   const threatCount = candidateThreats.length;
   const maxInFlight = threatCount > cfg.highThreatThreshold ? cfg.maxInFlightHigh : cfg.maxInFlightBase;
+  const fireRecoveryTicks = human ? 0 : cfg.fireRecoveryTicks || 0;
   let cooldown =
     totalAmmo < cfg.lowAmmoThreshold
       ? cfg.cooldownLowAmmo
       : threatCount > cfg.highThreatThreshold
         ? cfg.cooldownHighThreat
         : cfg.cooldownNormal;
-
-  // Fire faster when jet drones (multi-HP) are present
-  const hasJetDrone = g.drones.some((d) => d.alive && d.subtype === "shahed238" && d.y > cfg.minThreatY);
-  if (hasJetDrone) cooldown = Math.floor(cooldown * 0.6);
+  if (fireRecoveryTicks > cooldown) cooldown = fireRecoveryTicks;
 
   // Rapid fire when MIRV present — must kill before split
   const hasMirv = candidateThreats.some((t) => t.isMirv);
@@ -267,15 +471,20 @@ export function botDecideAction(g, config, lastFireTick, tick) {
   }
 
   function finalizeAim(point) {
-    const aimed = human ? applyHumanAim(point, human) : point;
     if (human && humanState && point.targetRef) {
       humanState.committedTargetRef = point.targetRef;
       humanState.committedUntil = tick + randIntRange(rng, human.commitmentDurationMin, human.commitmentDurationMax);
     }
-    return {
-      x: clamp(aimed.x, 20, 880),
-      y: clamp(aimed.y, 20, GROUND_Y - 25),
-    };
+    const result = human ? prepareHumanAim(humanState, human, point, tick, rng) : { x: point.x, y: point.y };
+    if (!result) return null;
+    if (point.reservationLimit > 0) {
+      const { dist } = pickLauncher(result.x, result.y, g);
+      const frames = (dist / interceptorSpeed) * config.leadShot.timeScaleFactor;
+      const reserveFraction = point.priority === 0 ? 0.3 : 0.5;
+      result.targetRef = point.targetRef;
+      result.reservationUntil = tick + Math.max(cooldown + 1, Math.ceil(frames * reserveFraction));
+    }
+    return result;
   }
 
   if (human && humanState && humanState.committedTargetRef && tick < humanState.committedUntil) {
@@ -287,7 +496,8 @@ export function botDecideAction(g, config, lastFireTick, tick) {
       rng() < human.commitmentChance &&
       isSafeFromPlanes(committedThreat)
     ) {
-      return finalizeAim(committedThreat);
+      const committedAim = finalizeAim(committedThreat);
+      if (committedAim) return committedAim;
     }
   }
 
@@ -298,7 +508,8 @@ export function botDecideAction(g, config, lastFireTick, tick) {
     for (const ut of urgentThreats) {
       if (!ut.isMirv && ut.coveredBy > 0) continue;
       if (isSafeFromPlanes(ut)) {
-        return finalizeAim(ut);
+        const urgentAim = finalizeAim(ut);
+        if (urgentAim) return urgentAim;
       }
     }
   }
@@ -310,7 +521,8 @@ export function botDecideAction(g, config, lastFireTick, tick) {
   // Fast-exit: solo priority-0 threat — skip cluster scoring
   const p0Threats = candidateThreats.filter((t) => t.priority === 0);
   if (p0Threats.length === 1 && isSafeFromPlanes(p0Threats[0])) {
-    return finalizeAim(p0Threats[0]);
+    const fastAim = finalizeAim(p0Threats[0]);
+    if (fastAim) return fastAim;
   }
 
   candidateThreats.sort((a, b) => a.priority - b.priority);

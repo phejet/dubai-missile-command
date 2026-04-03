@@ -1,5 +1,14 @@
 import { setRng, fireInterceptor } from "./src/game-logic.js";
-import { initGame, update, buyUpgrade, closeShop, repairSite, repairLauncher, fireEmp } from "./src/game-sim.js";
+import {
+  initGame,
+  update,
+  buyUpgrade,
+  buyDraftUpgrade,
+  closeShop,
+  repairSite,
+  repairLauncher,
+  fireEmp,
+} from "./src/game-sim.js";
 import { mulberry32 } from "./src/headless/rng.js";
 import { buildReplayCheckpoint } from "./src/replay-debug.js";
 import { readFileSync } from "fs";
@@ -11,12 +20,13 @@ if (!replayFile) {
 }
 
 const replayData = JSON.parse(readFileSync(replayFile, "utf8"));
-const { seed, actions } = replayData;
+const { seed, actions, draftMode } = replayData;
 const checkpointsByTick = new Map((replayData.checkpoints || []).map((checkpoint) => [checkpoint.tick, checkpoint]));
 
 const rng = mulberry32(seed);
 setRng(rng);
 const g = initGame();
+if (draftMode) g._draftMode = true;
 
 let actionIdx = 0;
 let tick = 0;
@@ -67,6 +77,8 @@ for (let step = 0; step < maxTicks; step++) {
           repairLauncher(g, parseInt(key.split("_")[2]));
         } else if (key.startsWith("repair_")) {
           repairSite(g, key.replace("repair_", ""));
+        } else if (draftMode) {
+          buyDraftUpgrade(g, key);
         } else {
           buyUpgrade(g, key);
         }

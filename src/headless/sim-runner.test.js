@@ -9,8 +9,8 @@ afterEach(() => {
 });
 
 /** Helper: replay a recorded game to completion via createReplayRunner */
-function replayToCompletion(seed, actions) {
-  const rr = createReplayRunner({ seed, actions });
+function replayToCompletion(seed, actions, options = {}) {
+  const rr = createReplayRunner({ seed, actions, ...options });
   rr.init();
   const MAX_STEPS = 200000;
   for (let i = 0; i < MAX_STEPS; i++) {
@@ -132,6 +132,17 @@ describe("replay round-trip", () => {
       expect(g.wave).toBe(original.wave);
     }
   });
+
+  it("replaying a recorded draft-mode game produces identical final score and wave", () => {
+    const original = runGame(null, { seed: 42, record: true, draftMode: true });
+    expect(original.deathCause).toBe("destroyed");
+    expect(original.draftMode).toBe(true);
+
+    const g = replayToCompletion(42, original.actions, { draftMode: true });
+    expect(g.score).toBe(original.score);
+    expect(g.wave).toBe(original.wave);
+    expect(g.stats).toEqual(original.stats);
+  });
 });
 
 // ── Golden-seed canary ──
@@ -140,9 +151,9 @@ describe("golden-seed canary", () => {
   // This test asserts exact values for a known seed. When game balance changes
   // break it, update the expected values below. This is intentional friction
   // to track balance impact.
-  it("seed 42 at 5000 ticks produces expected score and wave", () => {
-    const r = runGame(null, { seed: 42, maxTicks: 5000 });
-    expect(r.score).toBe(622);
+  it("seed 42 at 5000 ticks produces expected draft-mode score and wave", () => {
+    const r = runGame(null, { seed: 42, maxTicks: 5000, draftMode: true });
+    expect(r.score).toBe(22226);
     expect(r.wave).toBe(6);
     expect(r.deathCause).toBe("timeout");
   });

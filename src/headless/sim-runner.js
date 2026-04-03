@@ -1,7 +1,7 @@
 import { setRng, fireInterceptor } from "../game-logic.js";
 import { initGame, update, buyUpgrade, buyDraftUpgrade, closeShop, fireEmp } from "../game-sim.js";
 import { mulberry32 } from "./rng.js";
-import { botDecideAction, botDecideUpgrades, resolveBotConfig } from "./bot-brain.js";
+import { botDecideAction, botDecideUpgrades, resolveBotConfig, reserveBotTarget } from "./bot-brain.js";
 import defaultConfig from "./bot-config.json" with { type: "json" };
 
 export function runGame(botConfig, options = {}) {
@@ -99,9 +99,12 @@ export function runGame(botConfig, options = {}) {
     if (action) {
       g.crosshairX = action.x;
       g.crosshairY = action.y;
-      fireInterceptor(g, action.x, action.y);
-      lastFireTick = tick;
-      if (record) actions.push({ tick, type: "fire", x: action.x, y: action.y });
+      const fired = fireInterceptor(g, action.x, action.y);
+      if (fired) {
+        reserveBotTarget(g, action.targetRef, action.reservationUntil, tick);
+        lastFireTick = tick;
+        if (record) actions.push({ tick, type: "fire", x: action.x, y: action.y });
+      }
     }
     // Record bot cursor position every 3 ticks for replay crosshair
     if (record && tick % 3 === 0) {
