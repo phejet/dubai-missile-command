@@ -1133,10 +1133,10 @@ function updateMissiles(g, dt, onEvent) {
         const dx = t.x - m.x;
         const dy = t.y - m.y;
         const len = Math.sqrt(dx * dx + dy * dy);
-        const spd = (rand(0.8, 1.2) + g.wave * 0.06) * 2;
+        const spd = (rand(0.8, 1.2) + g.wave * 0.06) * 1;
         g.missiles.push({
-          x: m.x + rand(-10, 10),
-          y: m.y + rand(-5, 5),
+          x: m.x + rand(-20, 20),
+          y: m.y + rand(-10, 10),
           vx: (dx / len) * spd,
           vy: (dy / len) * spd,
           accel: 1.012 + g.wave * 0.0024,
