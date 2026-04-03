@@ -1833,6 +1833,15 @@ export function closeShop(g) {
   g.flares = [];
   g.planes = [];
 
+  // Reset defense system cooldowns so each wave starts fresh
+  g.hornetTimer = 360;
+  g.roadrunnerTimer = 480;
+  g.patriotTimer = 480;
+  g.flareTimer = 240;
+  g.ironBeamTimer = 360;
+  g.empCharge = 0;
+  g.empReady = false;
+
   g.wave++;
   const waveData = generateWaveSchedule(g.wave, g.commander);
   g.schedule = waveData.schedule;
