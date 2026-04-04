@@ -771,11 +771,11 @@ export function updateAutoSystems(g, dt, allThreats, onEvent) {
     // Launch new burst only while site is alive
     if (isSiteAlive(g, "flare")) {
       const interval = [240, 180, 120][lvl - 1];
-      const flareY = 837;
+      const flareFocusY = GROUND_Y - BURJ_H - 30;
       const activationRange = ov("upgrade.flareActivationRange", 320);
       const hasThreats =
-        g.missiles.some((m) => isFlareMissileTarget(m) && dist(m.x, m.y, BURJ_X, flareY) < activationRange) ||
-        g.drones.some((d) => d.alive && !d.luredByFlare && dist(d.x, d.y, BURJ_X, flareY) < activationRange);
+        g.missiles.some((m) => isFlareMissileTarget(m) && dist(m.x, m.y, BURJ_X, flareFocusY) < activationRange) ||
+        g.drones.some((d) => d.alive && !d.luredByFlare && dist(d.x, d.y, BURJ_X, flareFocusY) < activationRange);
       g.flareTimer += dt;
       if (g.flareTimer >= interval && hasThreats) {
         g.flareTimer = 0;
