@@ -95,161 +95,6 @@ export function glowOff(ctx) {
   ctx.shadowBlur = 0;
 }
 
-function cubicBezierPoint(p0, p1, p2, p3, t) {
-  const u = 1 - t;
-  const uu = u * u;
-  const tt = t * t;
-  return {
-    x: uu * u * p0.x + 3 * uu * t * p1.x + 3 * u * tt * p2.x + tt * t * p3.x,
-    y: uu * u * p0.y + 3 * uu * t * p1.y + 3 * u * tt * p2.y + tt * t * p3.y,
-  };
-}
-
-function sampleCubicBezierPath(p0, p1, p2, p3, stepSize) {
-  const N = 180;
-  const fine = [];
-  for (let i = 0; i <= N; i++) fine.push(cubicBezierPoint(p0, p1, p2, p3, i / N));
-  const arcLen = [0];
-  for (let i = 1; i < fine.length; i++) {
-    const dx = fine[i].x - fine[i - 1].x;
-    const dy = fine[i].y - fine[i - 1].y;
-    arcLen.push(arcLen[i - 1] + Math.sqrt(dx * dx + dy * dy));
-  }
-  const totalLen = arcLen[arcLen.length - 1];
-  const waypoints = [{ x: fine[0].x, y: fine[0].y }];
-  let nextDist = stepSize;
-  for (let i = 1; i < fine.length; i++) {
-    while (nextDist <= arcLen[i] && nextDist <= totalLen) {
-      const segStart = arcLen[i - 1];
-      const segEnd = arcLen[i];
-      const frac = segEnd > segStart ? (nextDist - segStart) / (segEnd - segStart) : 0;
-      waypoints.push({
-        x: fine[i - 1].x + (fine[i].x - fine[i - 1].x) * frac,
-        y: fine[i - 1].y + (fine[i].y - fine[i - 1].y) * frac,
-      });
-      nextDist += stepSize;
-    }
-  }
-  const last = fine[fine.length - 1];
-  const wLast = waypoints[waypoints.length - 1];
-  if (Math.abs(wLast.x - last.x) > 0.5 || Math.abs(wLast.y - last.y) > 0.5) {
-    waypoints.push({ x: last.x, y: last.y });
-  }
-  return waypoints;
-}
-
-function sampleTitlePath(path, progress) {
-  if (!path.length) return { x: 0, y: 0, angle: 0 };
-  const p = progress - Math.floor(progress);
-  const idx = p * (path.length - 1);
-  const i0 = Math.floor(idx);
-  const i1 = Math.min(i0 + 1, path.length - 1);
-  const frac = idx - i0;
-  const a = path[i0];
-  const b = path[i1];
-  const x = a.x + (b.x - a.x) * frac;
-  const y = a.y + (b.y - a.y) * frac;
-  const next = path[Math.min(i1 + 1, path.length - 1)];
-  return {
-    x,
-    y,
-    angle: Math.atan2(next.y - a.y, next.x - a.x),
-  };
-}
-
-function titleFadeAlpha(y) {
-  const fadeStart = CANVAS_H * 0.34;
-  const fadeEnd = CANVAS_H * 0.5;
-  if (y <= fadeStart) return 1;
-  if (y >= fadeEnd) return 0;
-  return (fadeEnd - y) / (fadeEnd - fadeStart);
-}
-
-function makeTitleMotionPaths() {
-  const missileTracks = [
-    {
-      start: { x: -74, y: 118 },
-      end: { x: 338, y: 848 },
-      phase: 0.02,
-      speed: 0.19,
-      scale: 3,
-      glow: "rgba(255, 170, 80, 0.08)",
-    },
-    {
-      start: { x: 950, y: 132 },
-      end: { x: 542, y: 872 },
-      phase: 0.28,
-      speed: 0.18,
-      scale: 3,
-      glow: "rgba(255, 170, 80, 0.08)",
-    },
-    {
-      start: { x: -42, y: 208 },
-      end: { x: 468, y: 900 },
-      phase: 0.52,
-      speed: 0.17,
-      scale: 3,
-      glow: "rgba(255, 170, 80, 0.06)",
-    },
-  ];
-
-  const dronePaths = [
-    {
-      subtype: "shahed238",
-      phase: 0.14,
-      speed: 0.11,
-      scale: 3,
-      path: sampleCubicBezierPath(
-        { x: 944, y: 56 },
-        { x: 812, y: 64 },
-        { x: 706, y: 108 },
-        { x: 620, y: 154 },
-        6,
-      ).concat(
-        sampleCubicBezierPath({ x: 620, y: 154 }, { x: 692, y: 220 }, { x: 614, y: 498 }, { x: 492, y: 868 }, 6).slice(
-          1,
-        ),
-      ),
-    },
-    {
-      subtype: "shahed136",
-      phase: 0.37,
-      speed: 0.12,
-      scale: 3,
-      path: sampleCubicBezierPath(
-        { x: -46, y: 76 },
-        { x: 128, y: 82 },
-        { x: 258, y: 110 },
-        { x: 388, y: 140 },
-        6,
-      ).concat(
-        sampleCubicBezierPath({ x: 388, y: 140 }, { x: 446, y: 182 }, { x: 426, y: 454 }, { x: 326, y: 860 }, 6).slice(
-          1,
-        ),
-      ),
-    },
-    {
-      subtype: "shahed136",
-      phase: 0.61,
-      speed: 0.115,
-      scale: 3,
-      path: sampleCubicBezierPath({ x: 136, y: 42 }, { x: 312, y: 48 }, { x: 498, y: 68 }, { x: 692, y: 96 }, 6).concat(
-        sampleCubicBezierPath({ x: 692, y: 96 }, { x: 772, y: 138 }, { x: 724, y: 432 }, { x: 578, y: 842 }, 6).slice(
-          1,
-        ),
-      ),
-    },
-  ];
-
-  return { missileTracks, dronePaths };
-}
-
-let _titleMotionPaths = null;
-function getTitleMotionPaths() {
-  if (!_titleMotionPaths) _titleMotionPaths = makeTitleMotionPaths();
-  return _titleMotionPaths;
-}
-
 export function hash01(a, b = 0, c = 0) {
   const value = Math.sin(a * 12.9898 + b * 78.233 + c * 37.719) * 43758.5453123;
   return value - Math.floor(value);
@@ -2704,7 +2549,6 @@ export function drawTitle(ctx, { layoutProfile = {} } = {}) {
   const layout = resolveLayoutProfile(layoutProfile);
   const t = performance.now() / 1000;
   const cx = CANVAS_W / 2;
-  const horizonY = GROUND_Y - 8;
   const skyGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
   skyGrad.addColorStop(0, "#050810");
   skyGrad.addColorStop(0.5, "#0a1030");
@@ -2732,50 +2576,109 @@ export function drawTitle(ctx, { layoutProfile = {} } = {}) {
   ctx.restore();
   ctx.textAlign = "center";
 
-  // Skyline haze
-  const skylineGlow = ctx.createRadialGradient(cx, GROUND_Y - 70, 40, cx, GROUND_Y - 70, 440);
-  skylineGlow.addColorStop(0, "rgba(0, 255, 200, 0.14)");
-  skylineGlow.addColorStop(0.45, "rgba(40, 120, 220, 0.08)");
-  skylineGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
-  ctx.fillStyle = skylineGlow;
+  const skyGlow = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
+  skyGlow.addColorStop(0, "#050812");
+  skyGlow.addColorStop(0.5, "#0a1030");
+  skyGlow.addColorStop(1, "#130f2d");
+  ctx.fillStyle = skyGlow;
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-  const titleParallax = Math.sin(t * 0.12) * 6;
-  const titleFlicker = 0.92 + 0.04 * Math.sin(t * 17.5) + 0.02 * Math.sin(t * 53.1 + 0.8);
-  const titleFlickerSoft = 0.95 + 0.025 * Math.sin(t * 12.3 + 1.4) + 0.01 * Math.sin(t * 37.7);
-  const farDrift = titleParallax * 0.12;
-  const midDrift = titleParallax * 0.18;
-  const nearDrift = titleParallax * 0.24;
 
-  // Large skyline silhouettes
-  const titleBuildings = [
-    { x: 40, w: 35, h: 80 },
-    { x: 125, w: 40, h: 95 },
-    { x: 210, w: 45, h: 110 },
-    { x: 530, w: 38, h: 90 },
-    { x: 700, w: 40, h: 100 },
-    { x: 790, w: 42, h: 120 },
+  const titleDrift = Math.sin(t * 0.08) * 4;
+  const titleFlicker = 0.95 + 0.03 * Math.sin(t * 2.875) + 0.015 * Math.sin(t * 7.925 + 0.5);
+  const titleFlickerSoft = 0.96 + 0.02 * Math.sin(t * 2.425 + 1.4) + 0.01 * Math.sin(t * 6.775);
+
+  // Stars
+  for (let i = 0; i < 500; i++) {
+    const sx = (hash01(i, 2, 7) * CANVAS_W + titleDrift * 0.3) % CANVAS_W;
+    const sy = hash01(i, 5, 11) * 1500 + 8;
+    const tw = 0.55 + 0.45 * Math.sin(t * (0.7 + hash01(i, 1, 9)) + i * 0.9);
+    const size = 0.7 + hash01(i, 3, 1) * 1.6;
+    ctx.fillStyle = `rgba(220, 235, 255, ${0.18 + tw * 0.32})`;
+    ctx.fillRect(sx, sy, size, size);
+  }
+
+  // Moon
+  ctx.save();
+  ctx.translate(764, 56);
+  ctx.fillStyle = "rgba(235, 232, 214, 0.9)";
+  ctx.beginPath();
+  ctx.arc(0, 0, 16, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#070912";
+  ctx.beginPath();
+  ctx.arc(6, -3, 15, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // Title haze / city bloom
+  const bloom = ctx.createRadialGradient(BURJ_X, 410, 20, BURJ_X, 410, 320);
+  bloom.addColorStop(0, "rgba(130, 220, 255, 0.18)");
+  bloom.addColorStop(0.45, "rgba(90, 120, 255, 0.08)");
+  bloom.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = bloom;
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+  // Distant buildings with lit windows
+  const cityBlocks = [
+    { x: 0, w: 30, h: 74, windows: 2 },
+    { x: 34, w: 32, h: 88, windows: 2 },
+    { x: 70, w: 42, h: 104, windows: 3 },
+    { x: 116, w: 36, h: 82, windows: 2 },
+    { x: 156, w: 46, h: 124, windows: 3 },
+    { x: 206, w: 44, h: 94, windows: 3 },
+    { x: 258, w: 40, h: 108, windows: 3 },
+    { x: 300, w: 38, h: 76, windows: 2 },
+    { x: 544, w: 40, h: 96, windows: 3 },
+    { x: 592, w: 44, h: 122, windows: 3 },
+    { x: 644, w: 34, h: 84, windows: 2 },
+    { x: 690, w: 42, h: 100, windows: 3 },
+    { x: 742, w: 40, h: 78, windows: 2 },
+    { x: 786, w: 46, h: 118, windows: 3 },
+    { x: 838, w: 32, h: 92, windows: 2 },
+    { x: 874, w: 26, h: 68, windows: 2 },
   ];
-  titleBuildings.forEach((b) => {
-    ctx.save();
-    ctx.translate(b.x + b.w / 2 + farDrift, horizonY);
-    ctx.scale(2, 2);
-    ctx.translate(-(b.x + b.w / 2), -horizonY);
-    const bTop = horizonY - b.h;
-    ctx.fillStyle = "rgba(3, 6, 10, 0.98)";
-    ctx.fillRect(b.x, bTop, b.w, b.h);
-    ctx.fillStyle = "rgba(6, 10, 16, 0.95)";
-    ctx.fillRect(b.x - 1, bTop, b.w + 2, 3);
-    ctx.fillStyle = "rgba(255,255,255,0.02)";
-    ctx.fillRect(b.x, bTop, 3, b.h);
-    ctx.fillStyle = "rgba(0,0,0,0.42)";
-    ctx.fillRect(b.x + b.w - 5, bTop, 5, b.h);
-    ctx.restore();
-  });
-  ctx.globalAlpha = 1;
 
-  // Burj silhouette with the same proportions and scale as the in-game tower
+  function drawCityBlock(block, offset = 0) {
+    const baseY = GROUND_Y - 6;
+    const top = baseY - block.h;
+    ctx.save();
+    ctx.translate(offset, 0);
+    ctx.fillStyle = "rgba(10, 14, 24, 0.96)";
+    ctx.fillRect(block.x, top, block.w, block.h);
+    ctx.fillStyle = "rgba(20, 24, 34, 0.92)";
+    ctx.fillRect(block.x, top, block.w, 3);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
+    ctx.fillRect(block.x + block.w - 4, top, 4, block.h);
+    const rows = Math.max(2, Math.floor(block.h / 16));
+    const cols = block.windows;
+    const winW = 4;
+    const winH = 5;
+    const gap = 7;
+    const startX = block.x + Math.max(2, (block.w - cols * (winW + gap) + gap) / 2);
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const litSeed = hash01(block.x, row, col);
+        const lit = Math.sin(t * 0.05 + litSeed * 9 + row * 0.7 + col * 1.9) > -0.15;
+        const wx = startX + col * (winW + gap);
+        const wy = top + 10 + row * 14;
+        if (lit) {
+          ctx.fillStyle = `rgba(255, 194, 120, ${0.25 + litSeed * 0.25})`;
+          ctx.fillRect(wx - 1, wy - 1, winW + 2, winH + 2);
+          ctx.fillStyle = `rgba(255, 214, 160, ${0.5 + litSeed * 0.35})`;
+          ctx.fillRect(wx, wy, winW, winH);
+        } else {
+          ctx.fillStyle = "rgba(4, 6, 12, 0.7)";
+          ctx.fillRect(wx, wy, winW, winH);
+        }
+      }
+    }
+    ctx.restore();
+  }
+  cityBlocks.forEach((block, i) => drawCityBlock(block, Math.sin(t * 0.06 + i) * 1.5));
+
+  // Central glowing Burj
   const burjX = cx;
-  const burjBaseY = horizonY;
+  const burjBaseY = GROUND_Y - 6;
   const burjHeight = BURJ_H;
   const burjTiers = [
     [1.0, 3],
@@ -2804,313 +2707,349 @@ export function drawTitle(ctx, { layoutProfile = {} } = {}) {
     ctx.closePath();
   }
 
+  function titleHwAt(ht) {
+    for (let j = 0; j < burjTiers.length - 1; j++) {
+      const [t0, w0] = burjTiers[j];
+      const [t1, w1] = burjTiers[j + 1];
+      if (ht <= t0 && ht >= t1) {
+        const frac = (ht - t1) / (t0 - t1);
+        return w1 + (w0 - w1) * frac;
+      }
+    }
+    return 16;
+  }
+
   ctx.save();
-  ctx.translate(burjX + midDrift, burjBaseY);
+  ctx.globalAlpha = 0.95;
+  ctx.fillStyle = "rgba(120, 200, 255, 0.10)";
+  ctx.beginPath();
+  ctx.arc(burjX, burjBaseY - 150, 110, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(burjX, burjBaseY);
   ctx.scale(2, 2);
   ctx.translate(-burjX, -burjBaseY);
-  ctx.fillStyle = "rgba(2, 4, 7, 0.98)";
+  const burjGrad = ctx.createLinearGradient(burjX, burjBaseY - burjHeight, burjX, burjBaseY);
+  burjGrad.addColorStop(0, "#f7fbff");
+  burjGrad.addColorStop(0.12, "#d7f2ff");
+  burjGrad.addColorStop(0.28, "#7ec1ff");
+  burjGrad.addColorStop(0.48, "#3f7fc8");
+  burjGrad.addColorStop(0.68, "#2b5f9f");
+  burjGrad.addColorStop(0.84, "#214a82");
+  burjGrad.addColorStop(1, "#1c3560");
+  ctx.fillStyle = burjGrad;
   titleBurjPath();
   ctx.fill();
-  ctx.restore();
-
-  function drawTitleLauncherSilhouette(ctx, x, y, damaged = false, mirrored = false, upward = false) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.scale(3, 3);
-    ctx.globalAlpha = 0.76;
-    // Shadow footprint keeps the launcher visually separated from the skyline.
-    ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
-    ctx.save();
-    ctx.translate(0, 6.5);
-    ctx.scale(1, 0.27);
-    ctx.beginPath();
-    ctx.arc(0, 0, 10.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-
-    ctx.fillStyle = damaged ? "rgba(52, 34, 34, 0.9)" : "rgba(28, 38, 54, 0.9)";
-    ctx.beginPath();
-    ctx.moveTo(-14, 4);
-    ctx.lineTo(-10, -6);
-    ctx.quadraticCurveTo(0, -9, 10, -6);
-    ctx.lineTo(14, 4);
-    ctx.quadraticCurveTo(0, 6, -14, 4);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.fillStyle = damaged ? "rgba(72, 50, 50, 0.88)" : "rgba(60, 74, 94, 0.88)";
-    ctx.beginPath();
-    ctx.arc(0, -6, 9, Math.PI, 0);
-    ctx.lineTo(7, -4);
-    ctx.lineTo(-7, -4);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.strokeStyle = damaged ? "rgba(120, 84, 84, 0.28)" : "rgba(120, 170, 205, 0.22)";
-    ctx.lineWidth = 0.55;
-    ctx.beginPath();
-    ctx.arc(0, -6, 9, Math.PI + 0.2, -0.2);
-    ctx.stroke();
-
-    ctx.save();
-    ctx.translate(mirrored ? -2 : 2, -8);
-    ctx.scale(mirrored ? -1 : 1, 1);
-    ctx.rotate(upward ? -1.5 : -0.78);
-    ctx.fillStyle = damaged ? "rgba(84, 58, 58, 0.88)" : "rgba(78, 92, 112, 0.88)";
-    ctx.beginPath();
-    ctx.moveTo(0, -2.5);
-    ctx.lineTo(upward ? 12 : 18, -1.5);
-    ctx.quadraticCurveTo(upward ? 14 : 21, 0, upward ? 12 : 18, 1.5);
-    ctx.lineTo(0, 2.5);
-    ctx.closePath();
-    ctx.fill();
-
-    // Thin highlight to keep the launcher legible against the city silhouette.
-    ctx.strokeStyle = damaged ? "rgba(160, 110, 110, 0.18)" : "rgba(160, 205, 230, 0.16)";
-    ctx.lineWidth = 0.5;
-    ctx.beginPath();
-    ctx.moveTo(0, -2.1);
-    ctx.lineTo(upward ? 11 : 17, -1.4);
-    ctx.stroke();
-    ctx.restore();
-    ctx.restore();
-  }
-
-  // Patriot TEL silhouette at the same scale as the in-game launcher
-  const titlePatriotX = 334;
-  ctx.save();
-  ctx.translate(titlePatriotX + nearDrift, GROUND_Y);
-  ctx.scale(3, 3);
-  ctx.globalAlpha = 0.74;
-  ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
-  ctx.save();
-  ctx.translate(0, 6.5);
-  ctx.scale(1, 0.27);
+  ctx.strokeStyle = "rgba(255,255,255,0.34)";
+  ctx.lineWidth = 0.7;
   ctx.beginPath();
-  ctx.arc(0, 0, 11, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-  ctx.fillStyle = "rgba(10, 14, 10, 0.88)";
-  ctx.fillRect(-16, -5, 32, 7);
-  ctx.fillStyle = "rgba(16, 20, 14, 0.88)";
-  ctx.fillRect(-16, -9, 8, 5);
-  ctx.fillStyle = "rgba(24, 30, 20, 0.88)";
-  ctx.fillRect(-15, -8, 4, 2);
-  ctx.save();
-  ctx.translate(4, -5);
-  ctx.rotate(-0.45);
-  ctx.fillStyle = "rgba(14, 18, 12, 0.88)";
-  ctx.fillRect(-3, -16, 6, 14);
-  ctx.fillStyle = "rgba(10, 14, 10, 0.88)";
-  ctx.fillRect(-2, -16, 2, 6);
-  ctx.fillRect(0.5, -16, 2, 6);
-  ctx.restore();
-  ctx.fillStyle = "rgba(8, 10, 8, 0.84)";
-  ctx.beginPath();
-  ctx.arc(-12, 1, 2.5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(-6, 1, 2.5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(8, 1, 2.5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(14, 1, 2.5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = "rgba(160, 205, 150, 0.16)";
-  ctx.lineWidth = 0.6;
-  ctx.beginPath();
-  ctx.moveTo(-15, -5);
-  ctx.lineTo(12, -5);
+  ctx.moveTo(burjX, burjBaseY - burjHeight - 26);
+  ctx.lineTo(burjX, burjBaseY - 40);
   ctx.stroke();
+  ctx.fillStyle = "rgba(255, 255, 255, 0.62)";
+  ctx.fillRect(burjX - 1, burjBaseY - burjHeight + 30, 2, burjHeight - 26);
+  ctx.fillStyle = "rgba(255, 204, 120, 0.82)";
+  ctx.fillRect(burjX - 4, burjBaseY - burjHeight + 34, 8, 6);
+  ctx.fillStyle = "rgba(232, 246, 255, 0.45)";
+  for (let i = 0; i < 30; i++) {
+    const ht = 0.06 + (i / 29) * 0.88;
+    const ly = burjBaseY - burjHeight * ht;
+    const lw = titleHwAt(ht) * 0.82;
+    if (lw < 2) continue;
+    const lit = Math.sin(t * 0.32 + i * 0.48) > -0.12;
+    if (lit) {
+      ctx.fillStyle = i === 8 || i === 16 || i === 22 ? "rgba(255, 208, 120, 0.50)" : "rgba(225, 241, 255, 0.18)";
+      ctx.fillRect(burjX - lw, ly, lw * 2, 1.25);
+    }
+  }
+  ctx.fillStyle = "rgba(255, 180, 100, 0.55)";
+  ctx.fillRect(burjX - 10, burjBaseY - burjHeight + 118, 20, 7);
+  ctx.fillRect(burjX - 12, burjBaseY - burjHeight + 210, 24, 7);
+  ctx.fillRect(burjX - 14, burjBaseY - burjHeight + 276, 28, 8);
+  ctx.fillStyle = "rgba(255, 196, 120, 0.34)";
+  ctx.fillRect(burjX - 16, burjBaseY - burjHeight + 168, 32, 10);
+  ctx.fillStyle = "rgba(255, 255, 230, 0.42)";
+  ctx.fillRect(burjX - 9, burjBaseY - burjHeight + 210, 18, 8);
+  ctx.fillStyle = "rgba(255, 80, 60, 0.9)";
+  ctx.fillRect(burjX - 1, burjBaseY - burjHeight - 34, 2, 10);
+  ctx.fillStyle = "rgba(255, 90, 70, 0.55)";
+  ctx.fillRect(burjX - 4, burjBaseY - burjHeight - 34, 8, 4);
+
+  ctx.save();
+  titleBurjPath();
+  ctx.clip();
+  const leftGlow = ctx.createLinearGradient(burjX - 18, 0, burjX + 4, 0);
+  leftGlow.addColorStop(0, "rgba(255,255,255,0.35)");
+  leftGlow.addColorStop(0.35, "rgba(190,230,255,0.20)");
+  leftGlow.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = leftGlow;
+  ctx.fillRect(burjX - 18, burjBaseY - burjHeight - 30, 22, burjHeight + 30);
+
+  const rightShade = ctx.createLinearGradient(burjX - 2, 0, burjX + 18, 0);
+  rightShade.addColorStop(0, "rgba(0,0,0,0)");
+  rightShade.addColorStop(0.45, "rgba(0,0,0,0.10)");
+  rightShade.addColorStop(1, "rgba(0,0,0,0.26)");
+  ctx.fillStyle = rightShade;
+  ctx.fillRect(burjX - 2, burjBaseY - burjHeight - 30, 20, burjHeight + 30);
+
+  for (let i = 0; i < 42; i++) {
+    const ht = 0.05 + (i / 41) * 0.9;
+    const ly = burjBaseY - burjHeight * ht;
+    const lw = titleHwAt(ht) * 0.78;
+    if (lw < 2) continue;
+    const lit = Math.sin(t * 0.22 + i * 0.37) > -0.28;
+    if (lit) {
+      const warmBand = i === 8 || i === 18 || i === 27 || i === 34;
+      ctx.fillStyle = warmBand ? "rgba(255, 204, 120, 0.56)" : "rgba(235, 247, 255, 0.20)";
+      ctx.fillRect(burjX - lw, ly, lw * 2, 1.5);
+      if (!warmBand && i % 5 === 0) {
+        ctx.fillStyle = "rgba(120, 200, 255, 0.12)";
+        ctx.fillRect(burjX - lw, ly + 1.4, lw * 2, 0.9);
+      }
+    }
+  }
+
+  const deckY = burjBaseY - burjHeight * 0.43;
+  ctx.fillStyle = "rgba(255, 214, 150, 0.34)";
+  ctx.fillRect(burjX - 14, deckY, 28, 12);
+  ctx.fillStyle = "rgba(255, 248, 230, 0.24)";
+  ctx.fillRect(burjX - 12, deckY + 2, 24, 8);
+  for (let w = -10; w <= 9; w += 3) {
+    ctx.fillStyle = "rgba(255, 240, 205, 0.28)";
+    ctx.fillRect(burjX + w, deckY + 3, 2, 5);
+  }
+  ctx.restore();
   ctx.restore();
 
-  // Three launcher silhouettes at the same in-game scale
-  const titleLaunchers = [60, 550, 860];
-  titleLaunchers.forEach((x, i) => {
-    drawTitleLauncherSilhouette(ctx, x + nearDrift * 0.65, GROUND_Y - 5, false, i === 2, i === 1);
-  });
+  // Base glow/podium
+  ctx.save();
+  const podiumGlow = ctx.createRadialGradient(burjX, GROUND_Y - 20, 0, burjX, GROUND_Y - 20, 140);
+  podiumGlow.addColorStop(0, "rgba(255, 220, 150, 0.34)");
+  podiumGlow.addColorStop(0.45, "rgba(255, 180, 120, 0.18)");
+  podiumGlow.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = podiumGlow;
+  ctx.fillRect(burjX - 140, GROUND_Y - 140, 280, 180);
+  ctx.fillStyle = "rgba(255, 202, 110, 0.72)";
+  ctx.fillRect(burjX - 24, GROUND_Y - 8, 48, 10);
+  ctx.fillStyle = "rgba(255, 238, 220, 0.92)";
+  ctx.fillRect(burjX - 10, GROUND_Y - 16, 20, 8);
+  ctx.restore();
 
-  function drawTitleMissileSilhouette(ctx, x, y, angle, scale = 1, alpha = 1) {
+  function drawTitleShahed(ctx, x, y, angle, scale = 1, alpha = 1) {
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(angle);
     ctx.scale(scale, scale);
     ctx.globalAlpha = alpha;
-    ctx.fillStyle = "#889098";
+    ctx.fillStyle = "#4f4f60";
     ctx.beginPath();
-    ctx.moveTo(8, 0);
-    ctx.lineTo(4, -2.5);
-    ctx.lineTo(-6, -2.5);
-    ctx.lineTo(-6, 2.5);
-    ctx.lineTo(4, 2.5);
+    ctx.moveTo(16, 0);
+    ctx.lineTo(-10, -3);
+    ctx.lineTo(-14, 0);
+    ctx.lineTo(-10, 3);
     ctx.closePath();
     ctx.fill();
-    ctx.fillStyle = "#556070";
+    ctx.fillStyle = "#3e3e4d";
     ctx.beginPath();
-    ctx.moveTo(8, 0);
-    ctx.lineTo(4, -2.5);
-    ctx.lineTo(4, 2.5);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = "#667078";
-    ctx.beginPath();
-    ctx.moveTo(-6, -2.5);
-    ctx.lineTo(-9, -6);
-    ctx.lineTo(-4, -2.5);
+    ctx.moveTo(4, -2);
+    ctx.lineTo(-8, -14);
+    ctx.lineTo(-12, -2);
     ctx.closePath();
     ctx.fill();
     ctx.beginPath();
-    ctx.moveTo(-6, 2.5);
-    ctx.lineTo(-9, 6);
-    ctx.lineTo(-4, 2.5);
+    ctx.moveTo(4, 2);
+    ctx.lineTo(-8, 14);
+    ctx.lineTo(-12, 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#5a5a6b";
+    ctx.beginPath();
+    ctx.moveTo(-14, -2);
+    ctx.lineTo(-14.8, 0);
+    ctx.lineTo(-14, 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#868698";
+    ctx.beginPath();
+    ctx.arc(-14, 0, 1.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#ff6644";
+    ctx.beginPath();
+    ctx.moveTo(-14, -1.2);
+    ctx.lineTo(-18, 0);
+    ctx.lineTo(-14, 1.2);
     ctx.closePath();
     ctx.fill();
     ctx.restore();
   }
 
-  function drawTitleDroneSilhouette(ctx, x, y, angle, subtype = "shahed136", scale = 1, alpha = 1) {
+  function drawTitleMissileStreak(ctx, x, y, angle, scale = 1, alpha = 1, trailLen = 58, trailPulse = 1) {
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(angle);
     ctx.scale(scale, scale);
     ctx.globalAlpha = alpha;
-    if (subtype === "shahed238") {
-      ctx.fillStyle = "#4a4a5a";
-      ctx.beginPath();
-      ctx.moveTo(16, 0);
-      ctx.lineTo(-10, -3);
-      ctx.lineTo(-14, 0);
-      ctx.lineTo(-10, 3);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = "#3a3a4a";
-      ctx.beginPath();
-      ctx.moveTo(4, -2);
-      ctx.lineTo(-8, -14);
-      ctx.lineTo(-12, -2);
-      ctx.closePath();
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(4, 2);
-      ctx.lineTo(-8, 14);
-      ctx.lineTo(-12, 2);
-      ctx.closePath();
-      ctx.fill();
-    } else {
-      ctx.fillStyle = "#555566";
-      ctx.beginPath();
-      ctx.moveTo(12, 0);
-      ctx.lineTo(-8, -2.5);
-      ctx.lineTo(-10, 0);
-      ctx.lineTo(-8, 2.5);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = "#444455";
-      ctx.beginPath();
-      ctx.moveTo(2, -2);
-      ctx.lineTo(-6, -10);
-      ctx.lineTo(-8, -2);
-      ctx.closePath();
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(2, 2);
-      ctx.lineTo(-6, 10);
-      ctx.lineTo(-8, 2);
-      ctx.closePath();
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(-10, -3);
-      ctx.lineTo(-13, 0);
-      ctx.lineTo(-10, 3);
-      ctx.lineTo(-7, 0);
-      ctx.closePath();
-      ctx.fill();
-    }
+    const len = trailLen * (0.84 + 0.16 * trailPulse);
+    const trail = ctx.createLinearGradient(-len, 0, -2, 0);
+    trail.addColorStop(0, "rgba(255, 150, 70, 0)");
+    trail.addColorStop(0.45, "rgba(255, 150, 70, 0.14)");
+    trail.addColorStop(0.82, "rgba(210, 220, 230, 0.28)");
+    trail.addColorStop(1, "rgba(210, 220, 230, 0.05)");
+    ctx.strokeStyle = trail;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(-len, 0);
+    ctx.lineTo(-2, 0);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(255, 204, 140, 0.35)";
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(-len * 0.62, 0);
+    ctx.lineTo(-6, 0);
+    ctx.stroke();
+    ctx.fillStyle = "#d6d9de";
+    ctx.beginPath();
+    ctx.moveTo(10, 0);
+    ctx.lineTo(-2, -3);
+    ctx.lineTo(-2, 3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#8f96a0";
+    ctx.beginPath();
+    ctx.moveTo(-2, -3);
+    ctx.lineTo(-6, -6);
+    ctx.lineTo(-4, -3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-2, 3);
+    ctx.lineTo(-6, 6);
+    ctx.lineTo(-4, 3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#ff8844";
+    ctx.beginPath();
+    ctx.moveTo(-2, -2);
+    ctx.lineTo(-12, 0);
+    ctx.lineTo(-2, 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#ffe7b8";
+    ctx.beginPath();
+    ctx.moveTo(-2, -1);
+    ctx.lineTo(-7, 0);
+    ctx.lineTo(-2, 1);
+    ctx.closePath();
+    ctx.fill();
     ctx.restore();
   }
 
-  // Incoming missiles and drones, clustered toward the top of the screen
-  const { missileTracks, dronePaths } = getTitleMotionPaths();
-  missileTracks.forEach((m, index) => {
-    const p = (t * m.speed + m.phase) % 1;
-    const ease = 1 - (1 - p) ** 2.8;
-    const x = m.start.x + (m.end.x - m.start.x) * ease;
-    const y = m.start.y + (m.end.y - m.start.y) * ease;
-    const fade = titleFadeAlpha(y);
-    if (fade <= 0) return;
-    const angle = Math.atan2(m.end.y - m.start.y, m.end.x - m.start.x);
+  const titleAircraft = [
+    { kind: "shahed", x: 324, y: 520, scale: 4, phase: 0.1 },
+    { kind: "missile", x: 602, y: 486, scale: 4, phase: 0.32 },
+    { kind: "missile", x: 688, y: 836, scale: 4, phase: 0.56 },
+  ];
+  const titleTargetX = BURJ_X;
+  const titleTargetY = burjBaseY - burjHeight + 18;
+  titleAircraft.forEach((obj, index) => {
+    const x = obj.x;
+    const y = obj.y;
+    const aimAngle = Math.atan2(titleTargetY - y, titleTargetX - x);
+    const trailPulse = 0.55 + 0.45 * Math.sin(t * 1.8 + obj.phase * 7 + index * 0.6);
     ctx.save();
-    drawTitleMissileSilhouette(ctx, x, y, angle, m.scale, fade);
-    ctx.globalAlpha = fade * 0.8;
-    ctx.fillStyle = m.glow;
+    ctx.strokeStyle = obj.kind === "shahed" ? "rgba(255, 210, 150, 0.18)" : "rgba(210, 220, 230, 0.16)";
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(x, y, 10 + index * 3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  });
-
-  dronePaths.forEach((d, index) => {
-    const sample = sampleTitlePath(d.path, t * d.speed + d.phase);
-    const wobble = Math.sin(t * 0.9 + index) * 0.8;
-    const fade = titleFadeAlpha(sample.y);
-    if (fade <= 0) return;
-    ctx.save();
-    drawTitleDroneSilhouette(ctx, sample.x, sample.y + wobble, sample.angle, d.subtype, d.scale, fade);
-    ctx.globalAlpha = fade * 0.5;
-    ctx.fillStyle = index === 0 ? "rgba(255, 180, 80, 0.06)" : "rgba(140, 160, 220, 0.06)";
-    ctx.beginPath();
-    ctx.arc(sample.x, sample.y, 14 + index * 2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = d.subtype === "shahed238" ? "rgba(255, 180, 80, 0.22)" : "rgba(140, 160, 220, 0.18)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(sample.x - Math.cos(sample.angle) * 18, sample.y - Math.sin(sample.angle) * 18);
-    ctx.lineTo(sample.x, sample.y);
+    ctx.moveTo(x, y);
+    ctx.lineTo(titleTargetX, titleTargetY);
     ctx.stroke();
     ctx.restore();
+    if (obj.kind === "shahed") {
+      ctx.save();
+      const shahedTrail = 74 + 18 * trailPulse;
+      const shahedTrailFade = 0.18 + 0.08 * trailPulse;
+      const shahedTrailGrad = ctx.createLinearGradient(
+        x - Math.cos(aimAngle) * shahedTrail,
+        y - Math.sin(aimAngle) * shahedTrail,
+        x,
+        y,
+      );
+      shahedTrailGrad.addColorStop(0, "rgba(255, 150, 70, 0)");
+      shahedTrailGrad.addColorStop(0.75, `rgba(255, 150, 70, ${shahedTrailFade})`);
+      shahedTrailGrad.addColorStop(1, "rgba(210, 220, 230, 0.06)");
+      ctx.strokeStyle = shahedTrailGrad;
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(x - Math.cos(aimAngle) * shahedTrail, y - Math.sin(aimAngle) * shahedTrail);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      drawTitleShahed(ctx, x, y, aimAngle + 0.08, obj.scale, 0.88);
+      ctx.restore();
+    } else {
+      ctx.save();
+      ctx.strokeStyle = "rgba(210, 214, 220, 0.18)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x - Math.cos(aimAngle) * 34, y - Math.sin(aimAngle) * 34);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      drawTitleMissileStreak(ctx, x, y, aimAngle + 0.04, obj.scale, 0.9, 80, trailPulse);
+      ctx.restore();
+    }
   });
+
+  // Slow ambient drift for the distant skyline
+  const skylineDrift = Math.sin(t * 0.05) * 1.8;
+  ctx.save();
+  ctx.globalAlpha = 0.12;
+  ctx.fillStyle = "rgba(255,255,255,0.15)";
+  for (let i = 0; i < 9; i++) {
+    ctx.fillRect(40 + i * 100 + skylineDrift, GROUND_Y - 82 - (i % 2) * 6, 2, 10);
+  }
+  ctx.restore();
 
   // Title copy
   if (!layout.externalTitle) {
     ctx.save();
     ctx.strokeStyle = `rgba(0, 255, 200, ${0.08 + (titleFlickerSoft - 0.95) * 1.3})`;
     ctx.lineWidth = 1;
-    ctx.strokeRect(130, 66, CANVAS_W - 260, 170);
+    ctx.strokeRect(120, 54, CANVAS_W - 240, 188);
     ctx.restore();
 
     ctx.fillStyle = COL.hud;
     glow(ctx, COL.hud, 24);
+    ctx.textAlign = "center";
     ctx.save();
-    ctx.translate(Math.sin(t * 31.7) * 0.5, 0);
+    ctx.translate(Math.sin(t * 7.925) * 0.5, 0);
     ctx.globalAlpha = titleFlicker;
-    ctx.font = "bold 84px 'Courier New', monospace";
-    ctx.fillText("DUBAI", cx, 126);
+    ctx.font = "bold 72px 'Courier New', monospace";
+    ctx.fillText("DUBAI", cx, 128);
     ctx.restore();
 
     ctx.save();
-    ctx.translate(Math.sin(t * 29.4 + 0.5) * 0.35, 0);
+    ctx.translate(Math.sin(t * 7.35 + 0.5) * 0.35, 0);
     ctx.globalAlpha = titleFlickerSoft;
-    ctx.font = "bold 56px 'Courier New', monospace";
-    ctx.fillText("MISSILE COMMAND", cx, 188);
+    ctx.font = "bold 82px 'Courier New', monospace";
+    ctx.fillText("MISSILE COMMAND", cx, 200);
     ctx.restore();
     glowOff(ctx);
 
     ctx.fillStyle = "#ff6e52";
     ctx.save();
-    ctx.translate(Math.sin(t * 23.1 + 1.2) * 0.25, 0);
+    ctx.translate(Math.sin(t * 5.775 + 1.2) * 0.25, 0);
     ctx.globalAlpha = 0.92 + 0.04 * Math.sin(t * 8.9 + 0.3);
-    ctx.font = "bold 30px 'Courier New', monospace";
-    ctx.fillText("DEFEND THE CITY  -  PROTECT THE SKIES", cx, 260);
+    ctx.font = "bold 36px 'Courier New', monospace";
+    ctx.fillText("DEFEND THE CITY  -  PROTECT THE SKIES", cx, 264);
     ctx.restore();
 
-    const pulse = 0.5 + 0.5 * Math.sin(t * 3);
+    const pulse = 0.5 + 0.5 * Math.sin(t * 0.75);
     ctx.fillStyle = `rgba(0,255,200,${pulse})`;
     ctx.save();
-    ctx.translate(Math.sin(t * 21.7 + 2.4) * 0.25, 0);
-    ctx.globalAlpha = pulse * (0.9 + 0.06 * Math.sin(t * 19.5));
-    ctx.font = "bold 30px 'Courier New', monospace";
+    ctx.translate(Math.sin(t * 5.425 + 2.4) * 0.25, 0);
+    ctx.globalAlpha = pulse * (0.9 + 0.06 * Math.sin(t * 4.875));
+    ctx.font = "bold 36px 'Courier New', monospace";
     ctx.fillText("[ CLICK TO START ]", cx, 656);
     ctx.restore();
   } else {
