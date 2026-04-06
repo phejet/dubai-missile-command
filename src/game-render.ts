@@ -2666,19 +2666,6 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
   for (let y = 0; y < CANVAS_H; y += 3) {
     ctx.fillRect(0, y + ((t * 20) % 3), CANVAS_W, 1);
   }
-  ctx.fillStyle = "rgba(125, 180, 255, 0.04)";
-  for (let i = 0; i < 7; i++) {
-    const y = 108 + i * 54;
-    ctx.fillRect(0, y, CANVAS_W, 1);
-  }
-  ctx.strokeStyle = "rgba(0,255,200,0.06)";
-  ctx.lineWidth = 1;
-  for (let x = 120; x < CANVAS_W; x += 120) {
-    ctx.beginPath();
-    ctx.moveTo(x, 120);
-    ctx.lineTo(x, GROUND_Y + 24);
-    ctx.stroke();
-  }
   ctx.restore();
   ctx.textAlign = "center";
 
