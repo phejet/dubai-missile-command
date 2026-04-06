@@ -1,9 +1,13 @@
-import type { RNG, GameState, DefenseSite, Threat } from "./types";
+import type { RNG, GameState, DefenseSite, Threat, Building } from "./types";
 
 export const CANVAS_W = 900;
 export const CANVAS_H = 1600;
 export const GROUND_Y = 1530;
 export const CITY_Y = GROUND_Y;
+export const GAMEPLAY_SCENIC_GROUND_Y = GROUND_Y - 120;
+export const GAMEPLAY_SCENIC_BASE_Y = GAMEPLAY_SCENIC_GROUND_Y - 6;
+export const GAMEPLAY_SCENIC_LAUNCHER_Y = GROUND_Y - 138;
+export const GAMEPLAY_SCENIC_THREAT_FLOOR_Y = GAMEPLAY_SCENIC_GROUND_Y + 6;
 
 export const COL = {
   sky1: "#0a0e1a",
@@ -71,6 +75,33 @@ export const LAUNCHERS: { x: number; y: number }[] = [
   { x: 860, y: GROUND_Y - 5 },
 ];
 
+export function getGameplayLauncherPosition(index: number): { x: number; y: number } {
+  return { x: LAUNCHERS[index].x, y: GAMEPLAY_SCENIC_LAUNCHER_Y };
+}
+
+export function getGameplayBuildingBounds(building: Building): {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+} {
+  return {
+    left: building.x,
+    right: building.x + building.w,
+    top: GAMEPLAY_SCENIC_BASE_Y - building.h,
+    bottom: GAMEPLAY_SCENIC_BASE_Y,
+  };
+}
+
+export function getGameplayBurjCollisionTop(artScale = 2): number {
+  return GAMEPLAY_SCENIC_BASE_Y - (BURJ_H + 30) * artScale;
+}
+
+export function getGameplayBurjHalfW(py: number, artScale = 2): number {
+  const canonicalY = GROUND_Y + (py - GAMEPLAY_SCENIC_BASE_Y) / artScale;
+  return burjHalfW(canonicalY) * artScale;
+}
+
 let _rng: RNG = Math.random;
 export function setRng(fn: RNG): void {
   _rng = fn;
@@ -100,8 +131,8 @@ export function pickTarget(g: GameState, fromX: number): { x: number; y: number 
   g.defenseSites.forEach((s) => {
     if (s.alive) all.push({ x: s.x, y: s.y });
   });
-  LAUNCHERS.forEach((l, i) => {
-    if (g.launcherHP[i] > 0) all.push({ x: l.x, y: l.y });
+  LAUNCHERS.forEach((_, i) => {
+    if (g.launcherHP[i] > 0) all.push(getGameplayLauncherPosition(i));
   });
   if (all.length === 0) {
     if (g.burjAlive) return { x: BURJ_X, y: CITY_Y };
@@ -117,7 +148,8 @@ export function fireInterceptor(g: GameState, targetX: number, targetY: number):
     bestDist = Infinity;
   for (let i = 0; i < LAUNCHERS.length; i++) {
     if (g.ammo[i] <= 0 || g.launcherHP[i] <= 0) continue;
-    const d = dist(LAUNCHERS[i].x, LAUNCHERS[i].y, targetX, targetY);
+    const launcher = getGameplayLauncherPosition(i);
+    const d = dist(launcher.x, launcher.y, targetX, targetY);
     if (d < bestDist) {
       bestDist = d;
       bestIdx = i;
@@ -127,7 +159,7 @@ export function fireInterceptor(g: GameState, targetX: number, targetY: number):
   if (!g._debugMode) g.ammo[bestIdx]--;
   g.stats.shotsFired++;
   g.launcherFireTick[bestIdx] = g._replayTick ?? 0;
-  const l = LAUNCHERS[bestIdx];
+  const l = getGameplayLauncherPosition(bestIdx);
   const targetAngle = Math.atan2(targetY - l.y, targetX - l.x);
   const launchAngle = -Math.PI / 2 + (targetAngle + Math.PI / 2) * 0.32;
   const speed = 10.88;

@@ -3,11 +3,16 @@ import {
   CANVAS_H,
   GROUND_Y,
   CITY_Y,
+  GAMEPLAY_SCENIC_THREAT_FLOOR_Y,
   COL,
   BURJ_X,
   BURJ_H,
   MAX_PARTICLES,
   LAUNCHERS,
+  getGameplayBuildingBounds,
+  getGameplayBurjCollisionTop,
+  getGameplayBurjHalfW,
+  getGameplayLauncherPosition,
   dist,
   rand,
   randInt,
@@ -809,9 +814,9 @@ export function updateAutoSystems(
       r.heading = normalizeAngle(r.heading + appliedTurn);
       r.x += Math.cos(r.heading) * r.speed * dt;
       r.y += Math.sin(r.heading) * r.speed * dt;
-      if (r.y >= GROUND_Y - 5) {
+      if (r.y >= GAMEPLAY_SCENIC_THREAT_FLOOR_Y) {
         r.alive = false;
-        boom(g, r.x, GROUND_Y - 5, r.blastRadius, COL.roadrunner, false, onEvent, 15);
+        boom(g, r.x, GAMEPLAY_SCENIC_THREAT_FLOOR_Y, r.blastRadius, COL.roadrunner, false, onEvent, 15);
         return;
       }
     }
@@ -1209,13 +1214,14 @@ function updateMissiles(g: GameState, dt: number, onEvent?: ((type: string, data
       if (onEvent) onEvent("sfx", { name: "mirvSplit" });
       return;
     }
-    // Burj collision — hitbox matches 2x scaled visual (burjScale: 2, anchor at GROUND_Y)
+    const burjTop = getGameplayBurjCollisionTop(2);
+    // Burj collision — hitbox matches the shared scenic Burj placement
     if (
       g.burjAlive &&
       m.alive &&
-      m.y >= GROUND_Y - BURJ_H * 2 - 60 &&
-      m.y <= GROUND_Y &&
-      Math.abs(m.x - BURJ_X) < ((m.y - (GROUND_Y - BURJ_H * 2 - 60)) / (BURJ_H * 2 + 60)) * 32
+      m.y >= burjTop &&
+      m.y <= GAMEPLAY_SCENIC_THREAT_FLOOR_Y &&
+      Math.abs(m.x - BURJ_X) <= getGameplayBurjHalfW(m.y, 2)
     ) {
       m.alive = false;
       boom(g, m.x, m.y, 55, "#ff4400", false, onEvent, 30);
@@ -1230,10 +1236,12 @@ function updateMissiles(g: GameState, dt: number, onEvent?: ((type: string, data
         }
       }
     }
-    // Building collisions — buildings rendered at buildingScale 2x, anchor bottom-center
+    // Building collisions — match the shared title-style tower geometry
     if (m.alive) {
       g.buildings.forEach((b) => {
-        if (b.alive && m.alive && m.x >= b.x - b.w / 2 && m.x <= b.x + b.w * 1.5 && m.y >= GROUND_Y - b.h * 2) {
+        if (!b.alive || !m.alive) return;
+        const bounds = getGameplayBuildingBounds(b);
+        if (m.x >= bounds.left && m.x <= bounds.right && m.y >= bounds.top && m.y <= bounds.bottom) {
           m.alive = false;
           boom(g, m.x, m.y, 40, "#ff4400", false, onEvent, 20);
           b.alive = false;
@@ -1257,9 +1265,10 @@ function updateMissiles(g: GameState, dt: number, onEvent?: ((type: string, data
         }
       });
     }
-    // Launcher collision — launchers rendered at launcherScale 3x
+    // Launcher collision — use the scenic launcher anchor
     if (m.alive) {
-      LAUNCHERS.forEach((l, i) => {
+      LAUNCHERS.forEach((_, i) => {
+        const l = getGameplayLauncherPosition(i);
         if (g.launcherHP[i] > 0 && m.alive && Math.abs(m.x - l.x) < 45 && m.y >= l.y - 36) {
           m.alive = false;
           boom(g, m.x, m.y, 50, "#ff4400", false, onEvent, 25);
@@ -1407,13 +1416,14 @@ function updateDrones(
       }
     }
     if (d.x < -60 || d.x > CANVAS_W + 60 || d.y > CANVAS_H + 20) d.alive = false;
-    // Burj body collision — hitbox matches 2x scaled visual
+    const burjTop = getGameplayBurjCollisionTop(2);
+    // Burj body collision — match the shared scenic Burj placement
     if (
       d.alive &&
       g.burjAlive &&
-      d.y >= GROUND_Y - BURJ_H * 2 - 60 &&
-      d.y <= GROUND_Y &&
-      Math.abs(d.x - BURJ_X) < ((d.y - (GROUND_Y - BURJ_H * 2 - 60)) / (BURJ_H * 2 + 60)) * 32
+      d.y >= burjTop &&
+      d.y <= GAMEPLAY_SCENIC_THREAT_FLOOR_Y &&
+      Math.abs(d.x - BURJ_X) <= getGameplayBurjHalfW(d.y, 2)
     ) {
       d.alive = false;
       boom(g, d.x, d.y, 70, "#ff6600", false, onEvent, 40);
@@ -1431,7 +1441,7 @@ function updateDrones(
     // Shahed impact
     if (d.diveTarget && d.alive) {
       const hitTarget = dist(d.x, d.y, d.diveTarget.x, d.diveTarget.y) < 20;
-      const hitGround = d.y >= GROUND_Y - 5;
+      const hitGround = d.y >= GAMEPLAY_SCENIC_THREAT_FLOOR_Y;
       const pathDone = d.waypoints && (d.pathIndex ?? 0) >= d.waypoints.length - 1;
       if (hitTarget || hitGround || pathDone) {
         d.alive = false;
@@ -1439,7 +1449,8 @@ function updateDrones(
         g.shakeTimer = 15;
         g.shakeIntensity = 6;
         g.buildings.forEach((b) => {
-          if (b.alive && Math.abs(d.x - (b.x + b.w / 2)) < b.w / 2 + 30) {
+          const bounds = getGameplayBuildingBounds(b);
+          if (b.alive && d.x >= bounds.left - 30 && d.x <= bounds.right + 30 && d.y >= bounds.top - 20) {
             b.alive = false;
           }
         });
@@ -1452,7 +1463,8 @@ function updateDrones(
             destroyDefenseSite(g, site);
           }
         });
-        LAUNCHERS.forEach((l, i) => {
+        LAUNCHERS.forEach((_, i) => {
+          const l = getGameplayLauncherPosition(i);
           if (g.launcherHP[i] > 0 && Math.abs(d.x - l.x) < 90) {
             if (!g._debugMode) {
               g.launcherHP[i]--;

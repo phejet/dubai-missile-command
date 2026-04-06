@@ -3,10 +3,17 @@ import {
   CANVAS_H,
   GROUND_Y,
   CITY_Y,
+  GAMEPLAY_SCENIC_GROUND_Y,
+  GAMEPLAY_SCENIC_LAUNCHER_Y,
+  GAMEPLAY_SCENIC_THREAT_FLOOR_Y,
   COL,
   BURJ_X,
   BURJ_H,
   LAUNCHERS,
+  getGameplayBuildingBounds,
+  getGameplayBurjCollisionTop,
+  getGameplayBurjHalfW,
+  getGameplayLauncherPosition,
   getAmmoCapacity,
   getPhalanxTurrets,
   ov,
@@ -578,8 +585,6 @@ function drawGameplayForegroundBuildings(ctx: CanvasRenderingContext2D, game: Ga
       return;
     }
     const tower = mapGameplayBuildingTower(building, index);
-    tower.h *= 0.88;
-    tower.w *= 0.92;
     drawSharedTower(ctx, tower, baseY, t, 0, 0.48);
   });
 }
@@ -2449,7 +2454,7 @@ function drawExplosionsAndParticles(ctx: CanvasRenderingContext2D, game: GameSta
 }
 
 function drawGroundStructures(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutProfile) {
-  const scenicLauncherY = GROUND_Y - 138;
+  const scenicLauncherY = GAMEPLAY_SCENIC_LAUNCHER_Y;
   // Launchers
   LAUNCHERS.forEach((l, i) => {
     const launcherMaxHP = game.upgrades.launcherKit >= 2 ? 2 : 1;
@@ -3155,8 +3160,8 @@ export function drawGame(
 ) {
   const layout = resolveLayoutProfile(layoutProfile);
   const sceneTime = game.time / 60;
-  const scenicGroundY = GROUND_Y - 120;
-  const scenicThreatFloorY = scenicGroundY + 6;
+  const scenicGroundY = GAMEPLAY_SCENIC_GROUND_Y;
+  const scenicThreatFloorY = GAMEPLAY_SCENIC_THREAT_FLOOR_Y;
   let sx = 0,
     sy = 0;
   if (game.shakeTimer > 0 && !game._debugMode) {
@@ -3379,12 +3384,8 @@ function drawUpgradeRangeOverlay(ctx: CanvasRenderingContext2D) {
   }
 
   // Launchers
-  const launchers = [
-    { x: 60, y: GROUND_Y - 5 },
-    { x: 550, y: GROUND_Y - 5 },
-    { x: 860, y: GROUND_Y - 5 },
-  ];
-  launchers.forEach((l, i) => {
+  LAUNCHERS.forEach((_, i) => {
+    const l = getGameplayLauncherPosition(i);
     ctx.strokeStyle = "#00ffcc";
     ctx.lineWidth = 3;
     ctx.globalAlpha = 1;
@@ -3408,28 +3409,35 @@ function drawCollisionOverlay(ctx: CanvasRenderingContext2D, game: GameState) {
 
   // Burj — triangle matching linear collision (tip at top, base 64px wide at ground)
   if (game.burjAlive) {
+    const burjTop = getGameplayBurjCollisionTop(2);
     ctx.strokeStyle = "cyan";
     ctx.beginPath();
-    ctx.moveTo(BURJ_X, GROUND_Y - BURJ_H * 2 - 60);
-    ctx.lineTo(BURJ_X + 32, GROUND_Y);
-    ctx.lineTo(BURJ_X - 32, GROUND_Y);
+    ctx.moveTo(BURJ_X, burjTop);
+    for (let y = burjTop + 8; y <= GAMEPLAY_SCENIC_GROUND_Y - 6; y += 18) {
+      ctx.lineTo(BURJ_X + getGameplayBurjHalfW(y, 2), y);
+    }
+    for (let y = GAMEPLAY_SCENIC_GROUND_Y - 6; y >= burjTop + 8; y -= 18) {
+      ctx.lineTo(BURJ_X - getGameplayBurjHalfW(y, 2), y);
+    }
     ctx.closePath();
     ctx.stroke();
   }
 
-  // Launchers — rendered at launcherScale 3x
+  // Launchers — match the title-style gameplay anchor
   ctx.strokeStyle = "lime";
-  LAUNCHERS.forEach((l, i) => {
+  LAUNCHERS.forEach((_, i) => {
     if (game.launcherHP[i] > 0) {
+      const l = getGameplayLauncherPosition(i);
       ctx.strokeRect(l.x - 45, l.y - 36, 90, 36);
     }
   });
 
-  // Buildings — rendered at buildingScale 2x, anchor bottom-center
+  // Buildings — match the shared title-style tower geometry
   ctx.strokeStyle = "yellow";
   game.buildings.forEach((b) => {
     if (b.alive) {
-      ctx.strokeRect(b.x - b.w / 2, GROUND_Y - b.h * 2, b.w * 2, b.h * 2);
+      const bounds = getGameplayBuildingBounds(b);
+      ctx.strokeRect(bounds.left, bounds.top, bounds.right - bounds.left, bounds.bottom - bounds.top);
     }
   });
 
@@ -3576,6 +3584,7 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
     { x: 680, w: 28, h: 198, windows: 1, roof: "curvedL", glow: 0.09, profile: "bladeTower" },
     { x: 720, w: 34, h: 168, windows: 1, roof: "roundedCrownL", glow: 0.1, profile: "twinSpire" },
     { x: 728, w: 26, h: 126, windows: 1, roof: "tapered" },
+    { x: 780, w: 48, h: 100, windows: 1, roof: "curvedL", glow: 0.09, profile: "bladeTower" },
   ];
 
   function drawTitleTower(tower: TitleTower, offset = 0) {
