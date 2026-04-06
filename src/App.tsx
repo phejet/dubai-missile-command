@@ -4,6 +4,7 @@ import "./App.css";
 import { CANVAS_W, CANVAS_H, GROUND_Y, COL, fireInterceptor, getAmmoCapacity, setRng } from "./game-logic";
 import { drawGame, drawTitle, drawGameOver, perfState } from "./game-render";
 import ShopUI from "./ShopUI";
+import BonusScreen from "./BonusScreen";
 import { mulberry32 } from "./headless/rng";
 import { buildReplayCheckpoint } from "./replay-debug";
 import {
@@ -191,6 +192,13 @@ export default function DubaiMissileCommand() {
   const [finalWave, setFinalWave] = useState(1);
   const [finalStats, setFinalStats] = useState({ missileKills: 0, droneKills: 0, shotsFired: 0 });
   const [showShop, setShowShop] = useState(false);
+  const [bonusData, setBonusData] = useState<{
+    wave: number;
+    buildings: number;
+    savedAmmo: number;
+    missileKills: number;
+    droneKills: number;
+  } | null>(null);
   const [shopData, setShopData] = useState<ReturnType<typeof buildShopDataFromGame> | null>(null);
   const [muted, setMuted] = useState(false);
   const [replayActive, setReplayActive] = useState(false);
@@ -288,6 +296,14 @@ export default function DubaiMissileCommand() {
         }
         setRng(Math.random);
         setScreen("gameover");
+      } else if (type === "waveBonusStart") {
+        setBonusData({
+          wave: data.wave,
+          buildings: data.buildings,
+          savedAmmo: data.savedAmmo,
+          missileKills: data.missileKills,
+          droneKills: data.droneKills,
+        });
       } else if (type === "shopOpen") {
         const shopGame = gameRef.current;
         if (shopGame) {
@@ -657,13 +673,6 @@ export default function DubaiMissileCommand() {
     >
       <div className="game-shell__ambient" aria-hidden="true" />
       <div className="game-shell__content">
-        {screen === "title" && (
-          <div className="portrait-title" data-testid="portrait-title">
-            <button type="button" className="action-button action-button--primary" onClick={startGame}>
-              Start Defense
-            </button>
-          </div>
-        )}
         {screen === "playing" && (
           <header className="portrait-hud" data-testid="portrait-hud">
             <div className="portrait-hud__cluster">
@@ -777,7 +786,27 @@ export default function DubaiMissileCommand() {
               onPointerMove={handleCanvasPointerMove}
               onPointerUp={handleCanvasPointerUp}
               className={`game-canvas ${screen === "playing" && !showShop ? "game-canvas--active" : ""}`}
+              style={bonusData ? { pointerEvents: "none" } : undefined}
             />
+            {bonusData && (
+              <BonusScreen
+                wave={bonusData.wave}
+                buildings={bonusData.buildings}
+                savedAmmo={bonusData.savedAmmo}
+                missileKills={bonusData.missileKills}
+                droneKills={bonusData.droneKills}
+                onScoreAdd={(pts) => {
+                  const game = gameRef.current;
+                  if (game) game.score += pts;
+                  syncHudSnapshot(gameRef.current, { force: true });
+                }}
+                onComplete={() => {
+                  const game = gameRef.current;
+                  if (game) game._bonusScreenDone = true;
+                  setBonusData(null);
+                }}
+              />
+            )}
             {screen === "playing" && showPerfOverlay && (
               <div className="battlefield-debug-overlay" aria-hidden="true">
                 <div className="battlefield-debug-overlay__title">Render Probe</div>

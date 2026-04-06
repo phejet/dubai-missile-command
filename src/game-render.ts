@@ -2841,10 +2841,25 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
   ctx.fillRect(burjX - 16, burjBaseY - burjHeight + 168, 32, 10);
   ctx.fillStyle = "rgba(255, 255, 230, 0.42)";
   ctx.fillRect(burjX - 9, burjBaseY - burjHeight + 210, 18, 8);
-  ctx.fillStyle = "rgba(255, 80, 60, 0.9)";
+  // Aviation beacon — sharp blink ~1.6 Hz
+  const beaconBlink = Math.max(0, Math.sin(t * 5.0));
+  const beaconIntensity = beaconBlink * beaconBlink; // squared for sharper flash
+  ctx.fillStyle = `rgba(255, 60, 40, ${0.25 + 0.75 * beaconIntensity})`;
   ctx.fillRect(burjX - 1, burjBaseY - burjHeight - 34, 2, 10);
-  ctx.fillStyle = "rgba(255, 90, 70, 0.55)";
-  ctx.fillRect(burjX - 4, burjBaseY - burjHeight - 34, 8, 4);
+  if (beaconIntensity > 0.05) {
+    const beaconGlow = ctx.createRadialGradient(
+      burjX,
+      burjBaseY - burjHeight - 30,
+      0,
+      burjX,
+      burjBaseY - burjHeight - 30,
+      14,
+    );
+    beaconGlow.addColorStop(0, `rgba(255, 60, 40, ${0.55 * beaconIntensity})`);
+    beaconGlow.addColorStop(1, "rgba(255, 0, 0, 0)");
+    ctx.fillStyle = beaconGlow;
+    ctx.fillRect(burjX - 14, burjBaseY - burjHeight - 44, 28, 28);
+  }
 
   ctx.save();
   titleBurjPath();
@@ -2906,6 +2921,93 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
   ctx.fillRect(burjX - 10, GROUND_Y - 16, 20, 8);
   ctx.restore();
 
+  // Launcher silhouettes on title screen
+  function drawTitleLauncher(lx: number, ly: number, barrelAngle: number, alpha = 1) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    // Subtle glow under launcher
+    const glow = ctx.createRadialGradient(lx, ly + 4, 0, lx, ly + 4, 38);
+    glow.addColorStop(0, "rgba(0, 200, 255, 0.22)");
+    glow.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(lx - 38, ly - 20, 76, 50);
+
+    // Base platform
+    ctx.fillStyle = "#1e2e42";
+    ctx.beginPath();
+    ctx.moveTo(lx - 18, ly + 5);
+    ctx.lineTo(lx - 13, ly - 8);
+    ctx.quadraticCurveTo(lx, ly - 11, lx + 13, ly - 8);
+    ctx.lineTo(lx + 18, ly + 5);
+    ctx.quadraticCurveTo(lx, ly + 8, lx - 18, ly + 5);
+    ctx.fill();
+    // Base highlight rim
+    ctx.strokeStyle = "rgba(0, 200, 255, 0.28)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(lx - 18, ly + 5);
+    ctx.lineTo(lx - 13, ly - 8);
+    ctx.quadraticCurveTo(lx, ly - 11, lx + 13, ly - 8);
+    ctx.lineTo(lx + 18, ly + 5);
+    ctx.stroke();
+
+    // Turret dome
+    ctx.fillStyle = "#283e58";
+    ctx.beginPath();
+    ctx.arc(lx, ly - 8, 11, Math.PI, 0);
+    ctx.lineTo(lx + 9, ly - 5);
+    ctx.lineTo(lx - 9, ly - 5);
+    ctx.closePath();
+    ctx.fill();
+    // Dome highlight
+    ctx.strokeStyle = "rgba(100, 200, 255, 0.35)";
+    ctx.lineWidth = 0.9;
+    ctx.beginPath();
+    ctx.arc(lx, ly - 8, 11, Math.PI + 0.2, -0.2);
+    ctx.stroke();
+
+    // Barrel
+    ctx.save();
+    ctx.translate(lx, ly - 10);
+    ctx.rotate(barrelAngle);
+    ctx.fillStyle = "#3a5068";
+    ctx.beginPath();
+    ctx.moveTo(0, -3);
+    ctx.lineTo(20, -1.8);
+    ctx.quadraticCurveTo(24, 0, 20, 1.8);
+    ctx.lineTo(0, 3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "rgba(120, 200, 255, 0.3)";
+    ctx.lineWidth = 0.6;
+    ctx.beginPath();
+    ctx.moveTo(1, -2.2);
+    ctx.lineTo(20, -1.3);
+    ctx.stroke();
+
+    // Muzzle glow pulse
+    const muzzleX = Math.cos(barrelAngle) * 24;
+    const muzzleY = Math.sin(barrelAngle) * 24;
+    const pulse = 0.45 + 0.3 * Math.sin(t * 2.4 + lx * 0.02);
+    const mGlow = ctx.createRadialGradient(muzzleX, muzzleY, 0, muzzleX, muzzleY, 8);
+    mGlow.addColorStop(0, `rgba(0, 255, 200, ${pulse})`);
+    mGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = mGlow;
+    ctx.fillRect(muzzleX - 8, muzzleY - 8, 16, 16);
+    ctx.restore();
+
+    ctx.restore();
+  }
+
+  // Barrel base angles: left launcher points up-right, center straight up, right up-left
+  const titleLauncherAngles = [-1.1, -1.57, -2.05];
+  LAUNCHERS.forEach((l, i) => {
+    const sweep = Math.sin(t * 0.45 + i * 1.2) * 0.18;
+    const angle = Math.min(-0.25, Math.max(titleLauncherAngles[i] + sweep, -Math.PI + 0.25));
+    drawTitleLauncher(l.x, l.y - 5, angle, 0.92);
+  });
+
   function drawTitleShahed(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number, scale = 1, alpha = 1) {
     ctx.save();
     ctx.translate(x, y);
@@ -2944,11 +3046,23 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
     ctx.beginPath();
     ctx.arc(-14, 0, 1.1, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "#ff6644";
+    // Animated exhaust — flicker length and brightness
+    const exhaustFlicker = 0.55 + 0.45 * Math.sin(t * 1.8 + x * 0.07);
+    const exhaustLen = 4 + 6 * exhaustFlicker;
+    const exhaustAlpha = 0.55 + 0.45 * exhaustFlicker;
+    ctx.fillStyle = `rgba(255, 100, 40, ${exhaustAlpha})`;
     ctx.beginPath();
     ctx.moveTo(-14, -1.2);
-    ctx.lineTo(-18, 0);
+    ctx.lineTo(-14 - exhaustLen, 0);
     ctx.lineTo(-14, 1.2);
+    ctx.closePath();
+    ctx.fill();
+    // Inner hot core
+    ctx.fillStyle = `rgba(255, 220, 120, ${exhaustAlpha * 0.7})`;
+    ctx.beginPath();
+    ctx.moveTo(-14, -0.5);
+    ctx.lineTo(-14 - exhaustLen * 0.5, 0);
+    ctx.lineTo(-14, 0.5);
     ctx.closePath();
     ctx.fill();
     ctx.restore();

@@ -1722,15 +1722,33 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
       g._laserHandle.stop();
       g._laserHandle = null;
     }
-    if ((g.waveClearedTimer ?? 0) <= 0 && !g.shopOpened) {
-      g.shopOpened = true;
-      if (g.burjAlive) {
-        g.state = "shop";
-        // Draft pick consumes seeded RNG here so replay stays in sync
-        if (g._draftMode) {
-          g._draftOffers = draftPick3(g);
+    if ((g.waveClearedTimer ?? 0) <= 0) {
+      // Emit bonus screen event once, then wait for it to finish before opening shop
+      if (!g._bonusScreenStarted) {
+        g._bonusScreenStarted = true;
+        if (g.burjAlive && onEvent) {
+          const savedAmmo = (g.ammo as number[]).reduce((sum, a, i) => sum + (g.launcherHP[i] > 0 ? a : 0), 0);
+          onEvent("waveBonusStart", {
+            wave: g.wave,
+            buildings: g.buildings.filter((b) => b.alive).length,
+            savedAmmo,
+            missileKills: g.stats.missileKills - (g._waveStartMissileKills ?? 0),
+            droneKills: g.stats.droneKills - (g._waveStartDroneKills ?? 0),
+          });
+        } else {
+          g._bonusScreenDone = true;
         }
-        if (onEvent) onEvent("shopOpen", { score: g.score, wave: g.wave, upgrades: { ...g.upgrades } });
+      }
+      if (!g.shopOpened && g._bonusScreenDone) {
+        g.shopOpened = true;
+        if (g.burjAlive) {
+          g.state = "shop";
+          // Draft pick consumes seeded RNG here so replay stays in sync
+          if (g._draftMode) {
+            g._draftOffers = draftPick3(g);
+          }
+          if (onEvent) onEvent("shopOpen", { score: g.score, wave: g.wave, upgrades: { ...g.upgrades } });
+        }
       }
     }
     return;
@@ -1937,6 +1955,10 @@ export function closeShop(g: GameState) {
   g.ammo = g.ammo.map((_: number, i: number) =>
     g.launcherHP[i] > 0 ? getAmmoCapacity(g.wave, g.upgrades.launcherKit) : 0,
   ) as [number, number, number];
+  g._bonusScreenStarted = false;
+  g._bonusScreenDone = false;
+  g._waveStartMissileKills = g.stats.missileKills;
+  g._waveStartDroneKills = g.stats.droneKills;
   g.waveComplete = false;
   g.state = "playing";
 }

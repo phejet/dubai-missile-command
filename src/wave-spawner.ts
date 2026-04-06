@@ -314,9 +314,10 @@ export function generateWaveSchedule(wave: number, commander: Commander): WaveRe
   const hasMirvStrike = tactics.includes("MIRV_STRIKE");
   const hasMixedAxis = tactics.includes("MIXED_AXIS");
 
+  const WAVE_DURATION_SCALE = 1.5;
   const lateFloor = Math.max(0, wave - 10) * 2; // shrinks floors on late waves
-  const missileInterval = Math.max(Math.max(3, 7 - lateFloor), 63 - wave * 5);
-  const droneInterval = Math.max(Math.max(4, 10 - lateFloor), 84 - wave * 8);
+  const missileInterval = Math.max(Math.max(3, 7 - lateFloor), 63 - wave * 5) * WAVE_DURATION_SCALE;
+  const droneInterval = Math.max(Math.max(4, 10 - lateFloor), 84 - wave * 8) * WAVE_DURATION_SCALE;
   function spacedTicks(count: number, interval: number, jitterFrac: number, offset: number) {
     const ticks = [];
     const jitter = Math.floor(interval * jitterFrac);

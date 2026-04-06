@@ -648,6 +648,46 @@ const SFX = {
     o2.stop(t + 0.15);
     scheduleRelease(0.15);
   },
+
+  // Short electronic blip for bonus screen counting ticks
+  bonusTick() {
+    if (!ensureCtx() || !trackVoice()) return;
+    const t = now();
+    const o = getCtx().createOscillator();
+    o.type = "square";
+    o.frequency.setValueAtTime(880, t);
+    o.frequency.exponentialRampToValueAtTime(660, t + 0.04);
+    const g = getCtx().createGain();
+    g.gain.setValueAtTime(0.06, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+    o.connect(g);
+    g.connect(getMaster());
+    o.start(t);
+    o.stop(t + 0.04);
+    scheduleRelease(0.04);
+  },
+
+  // Fanfare sting for bonus total reveal
+  bonusTotal() {
+    if (!ensureCtx() || !trackVoice()) return;
+    const t = now();
+    const freqs = [523, 659, 784, 1047]; // C5 E5 G5 C6
+    freqs.forEach((freq, i) => {
+      const o = getCtx().createOscillator();
+      o.type = "square";
+      o.frequency.value = freq;
+      const g = getCtx().createGain();
+      const onset = t + i * 0.07;
+      g.gain.setValueAtTime(0, onset);
+      g.gain.linearRampToValueAtTime(0.1, onset + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, onset + 0.25);
+      o.connect(g);
+      g.connect(getMaster());
+      o.start(onset);
+      o.stop(onset + 0.25);
+    });
+    scheduleRelease(0.6);
+  },
 };
 
 export default SFX;

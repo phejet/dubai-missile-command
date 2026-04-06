@@ -435,6 +435,10 @@ export interface GameState {
   shopOpened?: boolean;
   planeWarned?: boolean;
   _draftOffers?: string[];
+  _bonusScreenStarted?: boolean;
+  _bonusScreenDone?: boolean;
+  _waveStartMissileKills?: number;
+  _waveStartDroneKills?: number;
 
   // Replay / recording runtime fields
   _gameSeed?: number;

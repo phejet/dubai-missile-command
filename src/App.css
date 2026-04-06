@@ -914,3 +914,255 @@
     max-width: 390px;
   }
 }
+
+/* ── Bonus Screen ── */
+
+@keyframes bonus-fadein {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes bonus-slideup {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bonus-flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  8% {
+    opacity: 0.82;
+  }
+  15% {
+    opacity: 1;
+  }
+  20% {
+    opacity: 0.35;
+  }
+  22% {
+    opacity: 1;
+  }
+  76% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 0.72;
+  }
+  84% {
+    opacity: 1;
+  }
+}
+
+@keyframes bonus-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.bonus-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 6, 12, 0.88);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity 120ms ease;
+  cursor: pointer;
+}
+
+.bonus-screen--visible {
+  opacity: 1;
+}
+
+/* subtle cyan scanlines matching the game's ambient feel */
+.bonus-screen__scanlines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0, 255, 200, 0.025) 3px,
+    rgba(0, 255, 200, 0.025) 4px
+  );
+}
+
+.bonus-screen__panel {
+  position: relative;
+  z-index: 1;
+  width: min(92%, 420px);
+  border-radius: 24px;
+  border: 1px solid rgba(0, 255, 200, 0.22);
+  background:
+    linear-gradient(180deg, rgba(8, 16, 28, 0.98), rgba(5, 10, 18, 0.96)),
+    radial-gradient(circle at top, rgba(0, 255, 200, 0.08), transparent 34%);
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.5),
+    0 0 40px rgba(0, 255, 200, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  animation: bonus-fadein 220ms ease both;
+}
+
+.bonus-screen__header {
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid rgba(0, 255, 200, 0.12);
+}
+
+.bonus-screen__eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-size: 11px;
+  color: #7a98ab;
+}
+
+.bonus-screen__title {
+  margin: 4px 0 0;
+  font-size: clamp(1.2rem, 5vw, 1.55rem);
+  color: #dffff9;
+  letter-spacing: 0.04em;
+}
+
+.bonus-screen__flicker {
+  animation: bonus-flicker 1.6s ease both;
+}
+
+.bonus-screen__body {
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.bonus-screen__section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: bonus-slideup 200ms ease both;
+}
+
+.bonus-screen__label {
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-size: 11px;
+  color: #7a98ab;
+}
+
+/* kills table */
+.bonus-screen__kills {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bonus-screen__kill-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.bonus-screen__kill-type {
+  font-size: 13px;
+  color: #8ea8b8;
+  letter-spacing: 0.06em;
+}
+
+.bonus-screen__kill-count {
+  font-size: 15px;
+  font-weight: 600;
+  color: #dffff9;
+  text-shadow: 0 0 8px rgba(223, 255, 249, 0.35);
+}
+
+/* bonus rows */
+.bonus-screen__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.bonus-screen__count {
+  font-size: clamp(1.9rem, 8vw, 2.4rem);
+  font-weight: 600;
+  color: #dffff9;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 12px rgba(223, 255, 249, 0.4);
+}
+
+.bonus-screen__pts {
+  font-size: clamp(0.9rem, 3.5vw, 1.05rem);
+  color: #ffe07b;
+  letter-spacing: 0.06em;
+  text-shadow: 0 0 8px rgba(255, 224, 123, 0.45);
+}
+
+.bonus-screen__divider {
+  height: 1px;
+  background: rgba(0, 255, 200, 0.12);
+}
+
+.bonus-screen__total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  transition: opacity 70ms linear;
+}
+
+.bonus-screen__total--hidden {
+  visibility: hidden;
+}
+
+.bonus-screen__total--off {
+  opacity: 0;
+}
+
+.bonus-screen__total-label {
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-size: 11px;
+  color: #7a98ab;
+}
+
+.bonus-screen__total-value {
+  font-size: clamp(1.5rem, 6vw, 1.9rem);
+  font-weight: 600;
+  color: #ffe07b;
+  letter-spacing: 0.04em;
+  text-shadow:
+    0 0 14px rgba(255, 224, 123, 0.7),
+    0 0 30px rgba(255, 224, 123, 0.25);
+}
+
+.bonus-screen__footer {
+  padding: 14px 22px 20px;
+  border-top: 1px solid rgba(0, 255, 200, 0.12);
+  text-align: center;
+}
+
+.bonus-screen__hint {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: #7a98ab;
+  animation: bonus-pulse 1.4s ease-in-out infinite;
+}
