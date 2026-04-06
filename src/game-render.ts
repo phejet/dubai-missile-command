@@ -2692,34 +2692,46 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
     w: number;
     h: number;
     windows: number;
-    roof?: "flat" | "spire" | "crown" | "slantL" | "slantR" | "needle";
+    profile?: "generic" | "leftLandmark" | "twinSpire" | "slantedBlock" | "eggTower" | "bladeTower";
+    roof?:
+      | "flat"
+      | "spire"
+      | "crown"
+      | "slantL"
+      | "slantR"
+      | "needle"
+      | "roundedCrownL"
+      | "twinCrown"
+      | "curvedR"
+      | "curvedL"
+      | "tapered";
     glow?: number;
   };
 
   const titleSkylineTowers: TitleTower[] = [
-    { x: 4, w: 22, h: 58, windows: 1, roof: "flat" },
-    { x: 32, w: 18, h: 84, windows: 1, roof: "flat" },
-    { x: 58, w: 28, h: 74, windows: 2, roof: "flat" },
-    { x: 96, w: 30, h: 188, windows: 2, roof: "crown", glow: 0.1 },
-    { x: 132, w: 14, h: 88, windows: 1, roof: "flat" },
-    { x: 152, w: 30, h: 168, windows: 2, roof: "crown", glow: 0.1 },
-    { x: 188, w: 34, h: 92, windows: 2, roof: "slantR" },
-    { x: 228, w: 24, h: 104, windows: 1, roof: "flat" },
-    { x: 258, w: 18, h: 78, windows: 1, roof: "needle" },
-    { x: 282, w: 24, h: 70, windows: 1, roof: "flat" },
-    { x: 312, w: 18, h: 82, windows: 1, roof: "flat" },
-    { x: 336, w: 24, h: 96, windows: 1, roof: "flat" },
-    { x: 366, w: 34, h: 80, windows: 1, roof: "flat" },
-    { x: 520, w: 20, h: 128, windows: 1, roof: "flat" },
-    { x: 548, w: 42, h: 148, windows: 2, roof: "slantR", glow: 0.1 },
-    { x: 596, w: 12, h: 86, windows: 1, roof: "flat" },
-    { x: 616, w: 24, h: 132, windows: 1, roof: "slantL", glow: 0.08 },
-    { x: 648, w: 22, h: 178, windows: 1, roof: "flat" },
-    { x: 678, w: 22, h: 188, windows: 1, roof: "spire", glow: 0.1 },
-    { x: 708, w: 18, h: 96, windows: 1, roof: "flat" },
-    { x: 734, w: 28, h: 96, windows: 1, roof: "flat" },
-    { x: 770, w: 14, h: 58, windows: 1, roof: "flat" },
-    { x: 804, w: 22, h: 78, windows: 1, roof: "flat" },
+    { x: 6, w: 22, h: 70, windows: 1, roof: "flat" },
+    { x: 36, w: 18, h: 90, windows: 1, roof: "flat" },
+    { x: 60, w: 26, h: 84, windows: 1, roof: "flat" },
+    { x: 92, w: 34, h: 198, windows: 2, roof: "roundedCrownL", glow: 0.12, profile: "leftLandmark" },
+    { x: 132, w: 14, h: 96, windows: 1, roof: "flat" },
+    { x: 150, w: 34, h: 174, windows: 2, roof: "twinCrown", glow: 0.1, profile: "twinSpire" },
+    { x: 190, w: 30, h: 110, windows: 1, roof: "tapered" },
+    { x: 224, w: 22, h: 118, windows: 1, roof: "flat" },
+    { x: 250, w: 18, h: 96, windows: 1, roof: "flat" },
+    { x: 274, w: 16, h: 82, windows: 1, roof: "flat" },
+    { x: 294, w: 18, h: 88, windows: 1, roof: "flat" },
+    { x: 318, w: 20, h: 92, windows: 1, roof: "flat" },
+    { x: 344, w: 22, h: 86, windows: 1, roof: "flat" },
+    { x: 372, w: 28, h: 92, windows: 1, roof: "flat" },
+    { x: 518, w: 18, h: 122, windows: 1, roof: "flat" },
+    { x: 542, w: 46, h: 146, windows: 2, roof: "slantR", glow: 0.08, profile: "slantedBlock" },
+    { x: 594, w: 30, h: 132, windows: 1, roof: "curvedR", glow: 0.08, profile: "eggTower" },
+    { x: 630, w: 26, h: 190, windows: 1, roof: "curvedL", glow: 0.09, profile: "bladeTower" },
+    { x: 664, w: 22, h: 114, windows: 1, roof: "flat" },
+    { x: 692, w: 30, h: 164, windows: 1, roof: "flat" },
+    { x: 728, w: 26, h: 126, windows: 1, roof: "flat" },
+    { x: 760, w: 18, h: 86, windows: 1, roof: "flat" },
+    { x: 804, w: 18, h: 44, windows: 1, roof: "flat" },
   ];
 
   function drawTitleTower(tower: TitleTower, offset = 0) {
@@ -2770,6 +2782,54 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
         ctx.lineTo(right, top + 16);
         ctx.lineTo(right, baseY);
         break;
+      case "roundedCrownL":
+        ctx.moveTo(x, baseY);
+        ctx.lineTo(x, top + 34);
+        ctx.quadraticCurveTo(x + tower.w * 0.06, top + 6, x + tower.w * 0.34, top + 4);
+        ctx.lineTo(x + tower.w * 0.34, top - 18);
+        ctx.lineTo(x + tower.w * 0.43, top - 18);
+        ctx.lineTo(x + tower.w * 0.43, top + 6);
+        ctx.quadraticCurveTo(x + tower.w * 0.68, top + 8, right, top + 24);
+        ctx.lineTo(right, baseY);
+        break;
+      case "twinCrown":
+        ctx.moveTo(x, baseY);
+        ctx.lineTo(x, top + 18);
+        ctx.lineTo(x + tower.w * 0.18, top + 10);
+        ctx.lineTo(x + tower.w * 0.22, top - 16);
+        ctx.lineTo(x + tower.w * 0.3, top - 16);
+        ctx.lineTo(x + tower.w * 0.34, top + 12);
+        ctx.lineTo(x + tower.w * 0.5, top + 16);
+        ctx.lineTo(x + tower.w * 0.66, top + 12);
+        ctx.lineTo(x + tower.w * 0.7, top - 16);
+        ctx.lineTo(x + tower.w * 0.78, top - 16);
+        ctx.lineTo(x + tower.w * 0.82, top + 10);
+        ctx.lineTo(right, top + 18);
+        ctx.lineTo(right, baseY);
+        break;
+      case "curvedR":
+        ctx.moveTo(x, baseY);
+        ctx.lineTo(x, top + 42);
+        ctx.quadraticCurveTo(x + tower.w * 0.12, top + 20, x + tower.w * 0.46, top + 12);
+        ctx.quadraticCurveTo(x + tower.w * 0.9, top + 26, right, top + 46);
+        ctx.lineTo(right, baseY);
+        break;
+      case "curvedL":
+        ctx.moveTo(x, baseY);
+        ctx.lineTo(x, top + 46);
+        ctx.quadraticCurveTo(x + tower.w * 0.18, top + 18, x + tower.w * 0.58, top + 10);
+        ctx.quadraticCurveTo(x + tower.w * 0.88, top + 6, right, top + 24);
+        ctx.lineTo(right, baseY);
+        break;
+      case "tapered":
+        ctx.moveTo(x, baseY);
+        ctx.lineTo(x + tower.w * 0.04, top + 22);
+        ctx.lineTo(mid - 3, top + 10);
+        ctx.lineTo(mid, top - 8);
+        ctx.lineTo(mid + 3, top + 10);
+        ctx.lineTo(right - tower.w * 0.04, top + 22);
+        ctx.lineTo(right, baseY);
+        break;
       case "slantL":
         ctx.moveTo(x, baseY);
         ctx.lineTo(x, top + 4);
@@ -2798,26 +2858,74 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
     ctx.fillStyle = "rgba(0, 0, 0, 0.32)";
     ctx.fillRect(right - 3, top + 8, 3, tower.h - 8);
 
-    const rows = Math.max(2, Math.floor(tower.h / 17));
-    const cols = tower.windows;
-    const winW = cols === 1 ? 3 : 4;
-    const gap = cols === 1 ? 0 : 6;
-    const startX = x + Math.max(2, (tower.w - cols * winW - (cols - 1) * gap) / 2);
-    for (let row = 0; row < rows; row++) {
-      for (let col = 0; col < cols; col++) {
-        const litSeed = hash01(tower.x, row, col);
-        const lit = Math.sin(t * 0.06 + litSeed * 10 + row * 0.65 + col * 2.1) > -0.2;
-        const wx = startX + col * (winW + gap);
-        const wy = top + 10 + row * 14;
-        if (wy > baseY - 8) continue;
-        if (lit) {
-          ctx.fillStyle = `rgba(255, 202, 132, ${0.2 + litSeed * 0.22})`;
-          ctx.fillRect(wx - 1, wy - 1, winW + 2, 5);
-          ctx.fillStyle = `rgba(255, 226, 176, ${0.42 + litSeed * 0.25})`;
-          ctx.fillRect(wx, wy, winW, 3);
-        } else {
-          ctx.fillStyle = "rgba(4, 6, 12, 0.66)";
-          ctx.fillRect(wx, wy, winW, 3);
+    if (tower.profile === "leftLandmark") {
+      ctx.fillStyle = "rgba(245, 246, 250, 0.78)";
+      ctx.fillRect(x + tower.w * 0.28, top + 22, 2.1, tower.h - 42);
+      ctx.fillRect(x + tower.w * 0.39, top + 18, 1.4, tower.h - 52);
+      for (let row = 0; row < 12; row++) {
+        const wy = top + 26 + row * 12;
+        ctx.fillStyle = row % 2 === 0 ? "rgba(250, 240, 212, 0.46)" : "rgba(215, 228, 246, 0.16)";
+        ctx.fillRect(x + 6, wy, tower.w - 12, 1.9);
+      }
+    } else if (tower.profile === "twinSpire") {
+      ctx.fillStyle = "rgba(250, 244, 220, 0.54)";
+      ctx.fillRect(x + tower.w * 0.23, top + 18, 1.6, tower.h - 28);
+      ctx.fillRect(x + tower.w * 0.73, top + 18, 1.6, tower.h - 28);
+      for (let row = 0; row < 11; row++) {
+        const wy = top + 24 + row * 13;
+        ctx.fillStyle = row % 3 === 0 ? "rgba(255, 232, 186, 0.48)" : "rgba(205, 220, 240, 0.1)";
+        ctx.fillRect(x + 5, wy, tower.w - 10, 1.6);
+      }
+    } else if (tower.profile === "slantedBlock") {
+      for (let row = 0; row < 10; row++) {
+        const wy = top + 16 + row * 12;
+        const inset = row * 0.95;
+        ctx.fillStyle = "rgba(224, 236, 250, 0.18)";
+        ctx.fillRect(x + 6 + inset, wy, tower.w - 18 - inset, 1.5);
+      }
+      ctx.fillStyle = "rgba(248, 244, 222, 0.52)";
+      ctx.fillRect(right - 4, top + 9, 2, tower.h - 18);
+    } else if (tower.profile === "eggTower") {
+      for (let row = 0; row < 9; row++) {
+        const wy = top + 22 + row * 11;
+        const shrink = Math.abs(row - 4) * 0.8;
+        ctx.fillStyle = "rgba(224, 238, 252, 0.2)";
+        ctx.fillRect(x + 5 + shrink, wy, tower.w - 10 - shrink * 2, 1.7);
+      }
+      ctx.fillStyle = "rgba(248, 240, 214, 0.4)";
+      ctx.fillRect(x + tower.w * 0.68, top + 18, 1.7, tower.h - 26);
+    } else if (tower.profile === "bladeTower") {
+      ctx.fillStyle = "rgba(236, 244, 255, 0.28)";
+      ctx.fillRect(x + tower.w * 0.16, top + 12, 1.4, tower.h - 18);
+      ctx.fillStyle = "rgba(255, 238, 205, 0.46)";
+      ctx.fillRect(right - 3.2, top + 10, 1.8, tower.h - 16);
+      for (let row = 0; row < 11; row++) {
+        const wy = top + 20 + row * 14;
+        ctx.fillStyle = row % 2 === 0 ? "rgba(215, 232, 248, 0.14)" : "rgba(255, 242, 214, 0.1)";
+        ctx.fillRect(x + 6, wy, tower.w - 12, 1.35);
+      }
+    } else {
+      const rows = Math.max(2, Math.floor(tower.h / 17));
+      const cols = tower.windows;
+      const winW = cols === 1 ? 3 : 4;
+      const gap = cols === 1 ? 0 : 6;
+      const startX = x + Math.max(2, (tower.w - cols * winW - (cols - 1) * gap) / 2);
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          const litSeed = hash01(tower.x, row, col);
+          const lit = Math.sin(t * 0.06 + litSeed * 10 + row * 0.65 + col * 2.1) > -0.2;
+          const wx = startX + col * (winW + gap);
+          const wy = top + 10 + row * 14;
+          if (wy > baseY - 8) continue;
+          if (lit) {
+            ctx.fillStyle = `rgba(255, 202, 132, ${0.2 + litSeed * 0.22})`;
+            ctx.fillRect(wx - 1, wy - 1, winW + 2, 5);
+            ctx.fillStyle = `rgba(255, 226, 176, ${0.42 + litSeed * 0.25})`;
+            ctx.fillRect(wx, wy, winW, 3);
+          } else {
+            ctx.fillStyle = "rgba(4, 6, 12, 0.66)";
+            ctx.fillRect(wx, wy, winW, 3);
+          }
         }
       }
     }
