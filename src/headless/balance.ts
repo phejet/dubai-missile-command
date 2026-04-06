@@ -2,13 +2,14 @@ import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { runGame } from "./sim-runner.js";
+import type { runGame as runGameType } from "./sim-runner.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Parse CLI args
 const args = process.argv.slice(2);
-function getArg(name, defaultVal) {
+function getArg(name: string, defaultVal: string): string {
   const arg = args.find((a) => a.startsWith(`--${name}=`));
   return arg ? arg.split("=")[1] : defaultVal;
 }
@@ -16,8 +17,10 @@ function getArg(name, defaultVal) {
 const DURATION_MS = parseInt(getArg("duration", "10000"));
 const FOCUS = getArg("focus", "all"); // all, enemies, upgrades, mechanics, visual
 
-function benchmark(durationMs) {
-  const results = [];
+type GameResult = ReturnType<typeof runGameType>;
+
+function benchmark(durationMs: number) {
+  const results: GameResult[] = [];
   const t0 = performance.now();
   let seed = 0;
   while (performance.now() - t0 < durationMs) {
@@ -32,16 +35,16 @@ function benchmark(durationMs) {
     const kills = r.stats.missileKills + r.stats.droneKills;
     return r.stats.shotsFired > 0 ? kills / r.stats.shotsFired : 0;
   });
-  const deathCauses = {};
+  const deathCauses: Record<string, number> = {};
   results.forEach((r) => {
     deathCauses[r.deathCause] = (deathCauses[r.deathCause] || 0) + 1;
   });
-  function pct(arr, p) {
+  function pct(arr: number[], p: number) {
     return arr[Math.min(Math.floor(arr.length * p), arr.length - 1)];
   }
 
   // Wave distribution
-  const waveCounts = {};
+  const waveCounts: Record<number, number> = {};
   waves.forEach((w) => {
     waveCounts[w] = (waveCounts[w] || 0) + 1;
   });
@@ -75,7 +78,7 @@ function benchmark(durationMs) {
   };
 }
 
-const FOCUS_PROMPTS = {
+const FOCUS_PROMPTS: Record<string, string> = {
   all: `Provide a comprehensive game balance analysis covering:
 1. **Difficulty curve** — Is the game too easy/hard at each wave range? Where is the sweet spot?
 2. **New enemy types** — What new threats would keep later waves interesting? Use real-world missile defense inspiration.
@@ -115,19 +118,19 @@ Design concrete mechanics with implementation details, not just vague ideas.`,
 4. How should the shop/upgrade UI be improved?
 5. What environmental/atmospheric effects would add polish?
 6. How can the game better communicate danger, urgency, and success?
-Reference specific rendering code you see in App.jsx.`,
+Reference specific rendering code you see in App.tsx.`,
 };
 
-async function analyze(stats) {
+async function analyze(stats: ReturnType<typeof benchmark>) {
   const Anthropic = (await import("@anthropic-ai/sdk")).default;
   const client = new Anthropic();
 
-  const gameSim = readFileSync(join(__dirname, "..", "game-sim.js"), "utf-8");
-  const gameLogic = readFileSync(join(__dirname, "..", "game-logic.js"), "utf-8");
-  const appJsx = readFileSync(join(__dirname, "..", "App.jsx"), "utf-8");
+  const gameSim = readFileSync(join(__dirname, "..", "game-sim.ts"), "utf-8");
+  const gameLogic = readFileSync(join(__dirname, "..", "game-logic.ts"), "utf-8");
+  const appTsx = readFileSync(join(__dirname, "..", "App.tsx"), "utf-8");
   const botConfig = readFileSync(join(__dirname, "bot-config.json"), "utf-8");
 
-  const focusPrompt = FOCUS_PROMPTS[FOCUS] || FOCUS_PROMPTS.all;
+  const focusPrompt = FOCUS_PROMPTS[FOCUS] ?? FOCUS_PROMPTS.all;
 
   const prompt = `You are an expert game designer analyzing "Dubai Missile Command", a canvas-based missile defense game.
 
@@ -137,19 +140,19 @@ ${JSON.stringify(stats, null, 2)}
 ## Current Bot Config
 ${botConfig}
 
-## Game Simulation Code (game-sim.js)
-\`\`\`js
+## Game Simulation Code (game-sim.ts)
+\`\`\`ts
 ${gameSim}
 \`\`\`
 
-## Game Logic & Constants (game-logic.js)
-\`\`\`js
+## Game Logic & Constants (game-logic.ts)
+\`\`\`ts
 ${gameLogic}
 \`\`\`
 
-## Rendering & UI (App.jsx)
-\`\`\`jsx
-${appJsx}
+## Rendering & UI (App.tsx)
+\`\`\`tsx
+${appTsx}
 \`\`\`
 
 ## Key Game Facts
@@ -177,7 +180,7 @@ For each suggestion, explain the player experience impact and rough implementati
     messages: [{ role: "user", content: prompt }],
   });
 
-  return response.content[0].text;
+  return (response.content[0] as { type: string; text: string }).text;
 }
 
 async function main() {
