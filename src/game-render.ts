@@ -202,7 +202,890 @@ export function pulse(time: number, speed: number, phase = 0, min = 0, max = 1) 
   return min + (max - min) * t;
 }
 
-function drawSky(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutProfile) {
+type TitleTower = {
+  x: number;
+  w: number;
+  h: number;
+  windows: number;
+  profile?: "generic" | "leftLandmark" | "twinSpire" | "slantedBlock" | "eggTower" | "bladeTower";
+  roof?:
+    | "flat"
+    | "spire"
+    | "crown"
+    | "slantL"
+    | "slantR"
+    | "needle"
+    | "roundedCrownL"
+    | "twinCrown"
+    | "curvedR"
+    | "curvedL"
+    | "tapered";
+  glow?: number;
+};
+
+const TITLE_SKYLINE_TOWERS: TitleTower[] = [
+  { x: 92, w: 34, h: 198, windows: 2, roof: "roundedCrownL", glow: 0.12, profile: "leftLandmark" },
+  { x: 150, w: 34, h: 174, windows: 2, roof: "twinCrown", glow: 0.1, profile: "twinSpire" },
+  { x: 190, w: 30, h: 110, windows: 1, roof: "tapered", glow: 0.1, profile: "slantedBlock" },
+  { x: 216, w: 24, h: 118, windows: 1, roof: "flat", glow: 0.09, profile: "bladeTower" },
+  { x: 252, w: 34, h: 144, windows: 1, roof: "flat", glow: 0.1, profile: "slantedBlock" },
+  { x: 300, w: 38, h: 152, windows: 1, roof: "flat", glow: 0.08, profile: "eggTower" },
+  { x: 542, w: 72, h: 224, windows: 2, roof: "slantR", glow: 0.08, profile: "slantedBlock" },
+  { x: 622, w: 46, h: 202, windows: 1, roof: "curvedR", glow: 0.08, profile: "eggTower" },
+  { x: 680, w: 28, h: 198, windows: 1, roof: "curvedL", glow: 0.09, profile: "bladeTower" },
+  { x: 720, w: 34, h: 168, windows: 1, roof: "roundedCrownL", glow: 0.1, profile: "twinSpire" },
+  { x: 728, w: 26, h: 126, windows: 1, roof: "tapered" },
+];
+
+const TITLE_LAUNCHER_ANGLES = [-1.1, -1.57, -2.05];
+
+interface SharedSkyOptions {
+  mode: "title" | "game";
+  renderHeight: number;
+  groundY: number;
+  stars?: GameState["stars"];
+}
+
+interface SharedBurjOptions {
+  mode: "title" | "game";
+  groundY: number;
+  alive: boolean;
+  artScale: number;
+  t: number;
+}
+
+interface SharedWaterOptions {
+  groundY: number;
+  renderHeight: number;
+  tintBottomAlpha?: number;
+}
+
+interface SharedLauncherOptions {
+  t: number;
+  scale?: number;
+  alpha?: number;
+  damaged?: boolean;
+  active?: boolean;
+  muzzleFlash?: number;
+  statusLabel?: string | null;
+}
+
+function drawSharedSky(
+  ctx: CanvasRenderingContext2D,
+  { mode, renderHeight, groundY, stars }: SharedSkyOptions,
+  t: number,
+) {
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, renderHeight);
+  skyGrad.addColorStop(0, "#050810");
+  skyGrad.addColorStop(0.5, "#0a1030");
+  skyGrad.addColorStop(1, mode === "title" ? "#151030" : "#120d24");
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, CANVAS_W, renderHeight);
+
+  ctx.save();
+  ctx.fillStyle = mode === "title" ? "rgba(0,255,200,0.03)" : "rgba(0,255,200,0.018)";
+  for (let y = 0; y < renderHeight; y += 3) {
+    ctx.fillRect(0, y + ((t * 20) % 3), CANVAS_W, 1);
+  }
+  ctx.restore();
+
+  const skyGlow = ctx.createLinearGradient(0, 0, 0, renderHeight);
+  skyGlow.addColorStop(0, "#050812");
+  skyGlow.addColorStop(0.5, "#0a1030");
+  skyGlow.addColorStop(1, "#130f2d");
+  ctx.fillStyle = skyGlow;
+  ctx.fillRect(0, 0, CANVAS_W, renderHeight);
+
+  if (stars?.length) {
+    stars.forEach((s) => {
+      const tw = 0.3 + 0.7 * Math.sin(t * 2 + s.twinkle);
+      const alpha = 0.14 + tw * 0.2;
+      ctx.fillStyle = `rgba(220, 235, 255, ${alpha})`;
+      ctx.fillRect(s.x, s.y, s.size * 1.2, s.size * 1.2);
+    });
+  } else {
+    const titleDrift = Math.sin(t * 0.08) * 4;
+    for (let i = 0; i < 500; i++) {
+      const sx = (hash01(i, 2, 7) * CANVAS_W + titleDrift * 0.3) % CANVAS_W;
+      const sy = hash01(i, 5, 11) * 1500 + 8;
+      const tw = 0.55 + 0.45 * Math.sin(t * (0.7 + hash01(i, 1, 9)) + i * 0.9);
+      const size = 0.7 + hash01(i, 3, 1) * 1.6;
+      ctx.fillStyle = `rgba(220, 235, 255, ${0.18 + tw * 0.32})`;
+      ctx.fillRect(sx, sy, size, size);
+    }
+  }
+
+  ctx.save();
+  ctx.translate(764, 56);
+  ctx.fillStyle = "rgba(235, 232, 214, 0.9)";
+  ctx.beginPath();
+  ctx.arc(0, 0, 16, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#070912";
+  ctx.beginPath();
+  ctx.arc(6, -3, 15, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  const bloom = ctx.createRadialGradient(BURJ_X, groundY - 220, 20, BURJ_X, groundY - 220, 320);
+  bloom.addColorStop(0, mode === "title" ? "rgba(130, 220, 255, 0.18)" : "rgba(110, 205, 255, 0.12)");
+  bloom.addColorStop(0.45, "rgba(90, 120, 255, 0.08)");
+  bloom.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = bloom;
+  ctx.fillRect(0, 0, CANVAS_W, renderHeight);
+}
+
+function drawSharedTower(
+  ctx: CanvasRenderingContext2D,
+  tower: TitleTower,
+  baseY: number,
+  t: number,
+  offset = 0,
+  glowScale = 1,
+) {
+  const x = tower.x + offset;
+  const top = baseY - tower.h;
+  const right = x + tower.w;
+  const mid = x + tower.w / 2;
+
+  ctx.save();
+  if (tower.glow) {
+    const glow = ctx.createRadialGradient(mid, top + tower.h * 0.3, 0, mid, top + tower.h * 0.3, tower.w * 1.8);
+    glow.addColorStop(0, `rgba(120, 190, 255, ${tower.glow * glowScale})`);
+    glow.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(x - tower.w, top - tower.w, tower.w * 3, tower.h + tower.w * 2);
+  }
+
+  ctx.beginPath();
+  switch (tower.roof ?? "flat") {
+    case "spire":
+      ctx.moveTo(x, baseY);
+      ctx.lineTo(x, top + 12);
+      ctx.lineTo(mid - 2, top + 12);
+      ctx.lineTo(mid, top - 16);
+      ctx.lineTo(mid + 2, top + 12);
+      ctx.lineTo(right, top + 12);
+      ctx.lineTo(right, baseY);
+      break;
+    case "needle":
+      ctx.moveTo(x, baseY);
+      ctx.lineTo(x, top + 8);
+      ctx.lineTo(mid - 3, top + 8);
+      ctx.lineTo(mid - 1, top - 24);
+      ctx.lineTo(mid + 1, top - 24);
+      ctx.lineTo(mid + 3, top + 8);
+      ctx.lineTo(right, top + 8);
+      ctx.lineTo(right, baseY);
+      break;
+    case "crown":
+      ctx.moveTo(x, baseY);
+      ctx.lineTo(x, top + 16);
+      ctx.lineTo(x + tower.w * 0.22, top + 4);
+      ctx.lineTo(mid - 3, top + 14);
+      ctx.lineTo(mid, top - 12);
+      ctx.lineTo(mid + 3, top + 14);
+      ctx.lineTo(x + tower.w * 0.78, top + 4);
+      ctx.lineTo(right, top + 16);
+      ctx.lineTo(right, baseY);
+      break;
+    case "roundedCrownL":
+      ctx.moveTo(x, baseY);
+      ctx.lineTo(x, top + 34);
+      ctx.quadraticCurveTo(x + tower.w * 0.06, top + 6, x + tower.w * 0.34, top + 4);
+      ctx.lineTo(x + tower.w * 0.34, top - 18);
+      ctx.lineTo(x + tower.w * 0.43, top - 18);
+      ctx.lineTo(x + tower.w * 0.43, top + 6);
+      ctx.quadraticCurveTo(x + tower.w * 0.68, top + 8, right, top + 24);
+      ctx.lineTo(right, baseY);
+      break;
+    case "twinCrown":
+      ctx.moveTo(x, baseY);
+      ctx.lineTo(x, top + 18);
+      ctx.lineTo(x + tower.w * 0.18, top + 10);
+      ctx.lineTo(x + tower.w * 0.22, top - 16);
+      ctx.lineTo(x + tower.w * 0.3, top - 16);
+      ctx.lineTo(x + tower.w * 0.34, top + 12);
+      ctx.lineTo(x + tower.w * 0.5, top + 16);
+      ctx.lineTo(x + tower.w * 0.66, top + 12);
+      ctx.lineTo(x + tower.w * 0.7, top - 16);
+      ctx.lineTo(x + tower.w * 0.78, top - 16);
+      ctx.lineTo(x + tower.w * 0.82, top + 10);
+      ctx.lineTo(right, top + 18);
+      ctx.lineTo(right, baseY);
+      break;
+    case "curvedR":
+      ctx.moveTo(x, baseY);
+      ctx.lineTo(x, top + 42);
+      ctx.quadraticCurveTo(x + tower.w * 0.12, top + 20, x + tower.w * 0.46, top + 12);
+      ctx.quadraticCurveTo(x + tower.w * 0.9, top + 26, right, top + 46);
+      ctx.lineTo(right, baseY);
+      break;
+    case "curvedL":
+      ctx.moveTo(x, baseY);
+      ctx.lineTo(x, top + 46);
+      ctx.quadraticCurveTo(x + tower.w * 0.18, top + 18, x + tower.w * 0.58, top + 10);
+      ctx.quadraticCurveTo(x + tower.w * 0.88, top + 6, right, top + 24);
+      ctx.lineTo(right, baseY);
+      break;
+    case "tapered":
+      ctx.moveTo(x, baseY);
+      ctx.lineTo(x + tower.w * 0.04, top + 22);
+      ctx.lineTo(mid - 3, top + 10);
+      ctx.lineTo(mid, top - 8);
+      ctx.lineTo(mid + 3, top + 10);
+      ctx.lineTo(right - tower.w * 0.04, top + 22);
+      ctx.lineTo(right, baseY);
+      break;
+    case "slantL":
+      ctx.moveTo(x, baseY);
+      ctx.lineTo(x, top + 4);
+      ctx.lineTo(right, top + 18);
+      ctx.lineTo(right, baseY);
+      break;
+    case "slantR":
+      ctx.moveTo(x, baseY);
+      ctx.lineTo(x, top + 18);
+      ctx.lineTo(right, top + 4);
+      ctx.lineTo(right, baseY);
+      break;
+    default:
+      ctx.moveTo(x, baseY);
+      ctx.lineTo(x, top);
+      ctx.lineTo(right, top);
+      ctx.lineTo(right, baseY);
+      break;
+  }
+  ctx.closePath();
+  ctx.fillStyle = "rgba(8, 12, 22, 0.95)";
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(18, 24, 38, 0.94)";
+  ctx.fillRect(x + 1, top + 2, Math.max(0, tower.w - 2), 2);
+  ctx.fillStyle = "rgba(0, 0, 0, 0.32)";
+  ctx.fillRect(right - 3, top + 8, 3, tower.h - 8);
+
+  if (tower.profile === "leftLandmark") {
+    ctx.fillStyle = "rgba(245, 246, 250, 0.78)";
+    ctx.fillRect(x + tower.w * 0.28, top + 22, 2.1, tower.h - 42);
+    ctx.fillRect(x + tower.w * 0.39, top + 18, 1.4, tower.h - 52);
+    for (let row = 0; row < 12; row++) {
+      const wy = top + 26 + row * 12;
+      ctx.fillStyle = row % 2 === 0 ? "rgba(250, 240, 212, 0.46)" : "rgba(215, 228, 246, 0.16)";
+      ctx.fillRect(x + 6, wy, tower.w - 12, 1.9);
+    }
+  } else if (tower.profile === "twinSpire") {
+    ctx.fillStyle = "rgba(250, 244, 220, 0.54)";
+    ctx.fillRect(x + tower.w * 0.23, top + 18, 1.6, tower.h - 28);
+    ctx.fillRect(x + tower.w * 0.73, top + 18, 1.6, tower.h - 28);
+    for (let row = 0; row < 11; row++) {
+      const wy = top + 24 + row * 13;
+      ctx.fillStyle = row % 3 === 0 ? "rgba(255, 232, 186, 0.48)" : "rgba(205, 220, 240, 0.1)";
+      ctx.fillRect(x + 5, wy, tower.w - 10, 1.6);
+    }
+  } else if (tower.profile === "slantedBlock") {
+    for (let row = 0; row < 10; row++) {
+      const wy = top + 16 + row * 12;
+      const inset = row * 0.95;
+      ctx.fillStyle = "rgba(224, 236, 250, 0.18)";
+      ctx.fillRect(x + 6 + inset, wy, tower.w - 18 - inset, 1.5);
+    }
+    ctx.fillStyle = "rgba(248, 244, 222, 0.52)";
+    ctx.fillRect(right - 4, top + 9, 2, tower.h - 18);
+  } else if (tower.profile === "eggTower") {
+    for (let row = 0; row < 9; row++) {
+      const wy = top + 22 + row * 11;
+      const shrink = Math.abs(row - 4) * 0.8;
+      ctx.fillStyle = "rgba(224, 238, 252, 0.2)";
+      ctx.fillRect(x + 5 + shrink, wy, tower.w - 10 - shrink * 2, 1.7);
+    }
+    ctx.fillStyle = "rgba(248, 240, 214, 0.4)";
+    ctx.fillRect(x + tower.w * 0.68, top + 18, 1.7, tower.h - 26);
+  } else if (tower.profile === "bladeTower") {
+    ctx.fillStyle = "rgba(236, 244, 255, 0.28)";
+    ctx.fillRect(x + tower.w * 0.16, top + 12, 1.4, tower.h - 18);
+    ctx.fillStyle = "rgba(255, 238, 205, 0.46)";
+    ctx.fillRect(right - 3.2, top + 10, 1.8, tower.h - 16);
+    for (let row = 0; row < 11; row++) {
+      const wy = top + 20 + row * 14;
+      ctx.fillStyle = row % 2 === 0 ? "rgba(215, 232, 248, 0.14)" : "rgba(255, 242, 214, 0.1)";
+      ctx.fillRect(x + 6, wy, tower.w - 12, 1.35);
+    }
+  } else {
+    const rows = Math.max(2, Math.floor(tower.h / 17));
+    const cols = tower.windows;
+    const winW = cols === 1 ? 3 : 4;
+    const gap = cols === 1 ? 0 : 6;
+    const startX = x + Math.max(2, (tower.w - cols * winW - (cols - 1) * gap) / 2);
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const litSeed = hash01(tower.x, row, col);
+        const lit = Math.sin(t * 0.06 + litSeed * 10 + row * 0.65 + col * 2.1) > -0.2;
+        const wx = startX + col * (winW + gap);
+        const wy = top + 10 + row * 14;
+        if (wy > baseY - 8) continue;
+        if (lit) {
+          ctx.fillStyle = `rgba(255, 202, 132, ${0.2 + litSeed * 0.22})`;
+          ctx.fillRect(wx - 1, wy - 1, winW + 2, 5);
+          ctx.fillStyle = `rgba(255, 226, 176, ${0.42 + litSeed * 0.25})`;
+          ctx.fillRect(wx, wy, winW, 3);
+        } else {
+          ctx.fillStyle = "rgba(4, 6, 12, 0.66)";
+          ctx.fillRect(wx, wy, winW, 3);
+        }
+      }
+    }
+  }
+  ctx.restore();
+}
+
+function drawSharedSkylineCluster(ctx: CanvasRenderingContext2D, t: number, groundY: number, glowScale = 1) {
+  const baseY = groundY - 6;
+  TITLE_SKYLINE_TOWERS.forEach((tower, i) =>
+    drawSharedTower(ctx, tower, baseY, t, Math.sin(t * 0.05 + i * 0.8) * 1.35, glowScale),
+  );
+}
+
+function mapGameplayBuildingTower(building: Building, index: number): TitleTower {
+  const profiles: NonNullable<TitleTower["profile"]>[] = ["slantedBlock", "eggTower", "bladeTower", "generic"];
+  const roofs: NonNullable<TitleTower["roof"]>[] = [
+    "flat",
+    "roundedCrownL",
+    "curvedR",
+    "tapered",
+    "slantR",
+    "twinCrown",
+  ];
+  return {
+    x: building.x,
+    w: building.w,
+    h: building.h,
+    windows: building.windows,
+    profile: profiles[index % profiles.length],
+    roof: roofs[index % roofs.length],
+    glow: 0.04 + (index % 3) * 0.01,
+  };
+}
+
+function drawGameplayForegroundBuildings(ctx: CanvasRenderingContext2D, game: GameState, t: number, groundY: number) {
+  const baseY = groundY - 6;
+  game.buildings.forEach((building, index) => {
+    if (!building.alive) {
+      ctx.fillStyle = "#1b2230";
+      ctx.fillRect(building.x - 2, baseY - 8, building.w + 4, 10);
+      ctx.fillStyle = "rgba(255, 124, 80, 0.12)";
+      ctx.fillRect(building.x, baseY - 10, building.w, 4);
+      return;
+    }
+    const tower = mapGameplayBuildingTower(building, index);
+    tower.h *= 0.88;
+    tower.w *= 0.92;
+    drawSharedTower(ctx, tower, baseY, t, 0, 0.48);
+  });
+}
+
+function drawSharedBurj(ctx: CanvasRenderingContext2D, { mode, groundY, alive, artScale, t }: SharedBurjOptions) {
+  const burjX = BURJ_X;
+  const burjBaseY = groundY - 6;
+  const burjHeight = BURJ_H;
+  const burjLeftSections = [
+    { top: 1.0, bottom: 0.982, w: 0.7 },
+    { top: 0.982, bottom: 0.958, w: 0.9 },
+    { top: 0.958, bottom: 0.928, w: 1.15 },
+    { top: 0.928, bottom: 0.892, w: 1.55 },
+    { top: 0.892, bottom: 0.85, w: 2.0 },
+    { top: 0.85, bottom: 0.802, w: 2.45 },
+    { top: 0.802, bottom: 0.748, w: 3.4 },
+    { top: 0.748, bottom: 0.69, w: 4.1 },
+    { top: 0.69, bottom: 0.626, w: 5.6 },
+    { top: 0.626, bottom: 0.556, w: 7.5 },
+    { top: 0.556, bottom: 0.48, w: 8.6 },
+    { top: 0.48, bottom: 0.398, w: 11.4 },
+    { top: 0.398, bottom: 0.312, w: 13.2 },
+    { top: 0.312, bottom: 0.222, w: 16.8 },
+    { top: 0.222, bottom: 0.12, w: 18.9 },
+    { top: 0.12, bottom: 0.0, w: 22.2 },
+  ];
+  const burjRightSections = [
+    { top: 1.0, bottom: 0.982, w: 0.7 },
+    { top: 0.982, bottom: 0.958, w: 0.98 },
+    { top: 0.958, bottom: 0.928, w: 1.34 },
+    { top: 0.928, bottom: 0.892, w: 1.8 },
+    { top: 0.892, bottom: 0.85, w: 2.35 },
+    { top: 0.85, bottom: 0.802, w: 3.1 },
+    { top: 0.802, bottom: 0.748, w: 4.05 },
+    { top: 0.748, bottom: 0.69, w: 5.3 },
+    { top: 0.69, bottom: 0.626, w: 6.5 },
+    { top: 0.626, bottom: 0.556, w: 7.2 },
+    { top: 0.556, bottom: 0.48, w: 10.2 },
+    { top: 0.48, bottom: 0.398, w: 11.2 },
+    { top: 0.398, bottom: 0.312, w: 15.6 },
+    { top: 0.312, bottom: 0.222, w: 16.5 },
+    { top: 0.222, bottom: 0.12, w: 20.7 },
+    { top: 0.12, bottom: 0.0, w: 21.8 },
+  ];
+
+  function burjPath() {
+    const tipY = burjBaseY - burjHeight - 50;
+    const upperY = burjBaseY - burjHeight - 18;
+    ctx.beginPath();
+    ctx.moveTo(burjX, tipY);
+    ctx.lineTo(burjX - 0.78, upperY);
+    ctx.lineTo(burjX - burjLeftSections[0].w, burjBaseY - burjHeight * burjLeftSections[0].top);
+    for (let i = 0; i < burjLeftSections.length; i++) {
+      const section = burjLeftSections[i];
+      const bottomY = burjBaseY - burjHeight * section.bottom;
+      ctx.lineTo(burjX - section.w, bottomY);
+      const next = burjLeftSections[i + 1];
+      if (next) ctx.lineTo(burjX - next.w, bottomY);
+    }
+    for (let i = burjRightSections.length - 1; i >= 0; i--) {
+      const section = burjRightSections[i];
+      const bottomY = burjBaseY - burjHeight * section.bottom;
+      const topY = burjBaseY - burjHeight * section.top;
+      ctx.lineTo(burjX + section.w, bottomY);
+      ctx.lineTo(burjX + section.w, topY);
+      const prev = burjRightSections[i - 1];
+      if (prev) ctx.lineTo(burjX + prev.w, topY);
+    }
+    ctx.lineTo(burjX + 0.78, upperY);
+    ctx.closePath();
+  }
+
+  function halfWidthsAt(ht: number) {
+    let left = burjLeftSections[burjLeftSections.length - 1].w;
+    let right = burjRightSections[burjRightSections.length - 1].w;
+    for (const section of burjLeftSections) {
+      if (ht <= section.top && ht >= section.bottom) {
+        left = section.w;
+        break;
+      }
+    }
+    for (const section of burjRightSections) {
+      if (ht <= section.top && ht >= section.bottom) {
+        right = section.w;
+        break;
+      }
+    }
+    return { left, right };
+  }
+
+  if (!alive) {
+    ctx.fillStyle = "#1f2432";
+    for (let i = 0; i < 8; i++) {
+      const h1 = ((i * 7 + 3) % 13) / 13;
+      const h2 = ((i * 11 + 5) % 13) / 13;
+      ctx.fillRect(burjX - 18 + i * 5, burjBaseY - 12 - h1 * 24, 6, 12 + h2 * 18);
+    }
+    return;
+  }
+
+  const titleBurjGlowImg = getTitleBurjGlowImage();
+  if (titleBurjGlowImg) {
+    const glowW = 210 * artScale;
+    const glowH = 410 * artScale;
+    ctx.save();
+    ctx.globalAlpha = mode === "title" ? 1 : 0.88;
+    ctx.drawImage(titleBurjGlowImg, burjX - glowW / 2, burjBaseY - burjHeight - 95 * artScale, glowW, glowH);
+    ctx.restore();
+  }
+
+  const podiumGlow = ctx.createRadialGradient(burjX, groundY - 20, 0, burjX, groundY - 20, 140);
+  podiumGlow.addColorStop(0, "rgba(196, 242, 255, 0.32)");
+  podiumGlow.addColorStop(0.32, "rgba(120, 210, 255, 0.22)");
+  podiumGlow.addColorStop(0.62, "rgba(255, 180, 120, 0.12)");
+  podiumGlow.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = podiumGlow;
+  ctx.fillRect(burjX - 140, groundY - 140, 280, 180);
+
+  withAnchorScale(ctx, burjX, burjBaseY, artScale, () => {
+    const burjGrad = ctx.createLinearGradient(burjX, burjBaseY - burjHeight, burjX, burjBaseY);
+    burjGrad.addColorStop(0, "#fbfdff");
+    burjGrad.addColorStop(0.08, "#dcecff");
+    burjGrad.addColorStop(0.2, "#6e88a7");
+    burjGrad.addColorStop(0.42, "#243446");
+    burjGrad.addColorStop(0.7, "#182330");
+    burjGrad.addColorStop(1, "#202a34");
+    ctx.fillStyle = burjGrad;
+    burjPath();
+    ctx.fill();
+    ctx.strokeStyle = "rgba(236,246,255,0.28)";
+    ctx.lineWidth = 0.45;
+    ctx.beginPath();
+    ctx.moveTo(burjX, burjBaseY - burjHeight - 44);
+    ctx.lineTo(burjX, burjBaseY - 28);
+    ctx.stroke();
+    ctx.fillStyle = "rgba(250, 252, 255, 0.46)";
+    ctx.fillRect(burjX - 0.55, burjBaseY - burjHeight + 18, 1.1, burjHeight - 18);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+    ctx.fillRect(burjX - 2.4, burjBaseY - burjHeight + 22, 4.8, 3.6);
+    ctx.fillStyle = "rgba(225, 239, 255, 0.22)";
+    for (let i = 0; i < 42; i++) {
+      const ht = 0.04 + (i / 41) * 0.92;
+      const ly = burjBaseY - burjHeight * ht;
+      const { left, right } = halfWidthsAt(ht);
+      const lw = left * 0.68;
+      const rw = right * 0.68;
+      if (lw < 1.2 && rw < 1.2) continue;
+      const lit = Math.sin(t * 0.32 + i * 0.48) > -0.12;
+      if (lit) {
+        ctx.fillStyle = i === 13 || i === 23 || i === 33 ? "rgba(255, 255, 255, 0.62)" : "rgba(215, 232, 248, 0.11)";
+        ctx.fillRect(burjX - lw, ly, lw + rw, 0.72);
+      }
+    }
+
+    const brightBands = [
+      { ht: 0.11, alpha: 0.96, thickness: 3.1 },
+      { ht: 0.2, alpha: 0.92, thickness: 2.6 },
+      { ht: 0.31, alpha: 0.88, thickness: 2.3 },
+      { ht: 0.44, alpha: 0.82, thickness: 2.1 },
+      { ht: 0.59, alpha: 0.76, thickness: 1.9 },
+      { ht: 0.75, alpha: 0.68, thickness: 1.7 },
+      { ht: 0.88, alpha: 0.6, thickness: 1.45 },
+    ];
+    brightBands.forEach((ht, index) => {
+      const ly = burjBaseY - burjHeight * ht.ht;
+      const { left, right } = halfWidthsAt(ht.ht);
+      ctx.fillStyle = `rgba(252, 253, 255, ${ht.alpha})`;
+      ctx.fillRect(burjX - left * 0.88, ly, left * 0.88 + right * 0.88, ht.thickness);
+      ctx.fillStyle = `rgba(15, 24, 34, ${0.34 - index * 0.03})`;
+      ctx.fillRect(burjX - left * 0.9, ly + ht.thickness, left * 0.9 + right * 0.9, 1.15);
+      ctx.fillStyle = "rgba(130, 200, 255, 0.12)";
+      ctx.fillRect(burjX - left * 0.86, ly - 0.7, left * 0.86 + right * 0.86, 0.55);
+    });
+
+    ctx.fillStyle = "rgba(10, 18, 28, 0.56)";
+    ctx.fillRect(burjX - 8.2, burjBaseY - burjHeight + 158, 16.4, 10);
+    ctx.fillRect(burjX - 11.4, burjBaseY - burjHeight + 224, 22.8, 10);
+    ctx.fillStyle = "rgba(248, 252, 255, 0.82)";
+    ctx.fillRect(burjX - 7.1, burjBaseY - burjHeight + 166, 14.2, 2.6);
+
+    const beaconBlink = Math.max(0, Math.sin(t * 3.0));
+    const beaconIntensity = Math.pow(beaconBlink, 0.3);
+    ctx.fillStyle = `rgba(128, 60, 40, ${0.25 + 0.75 * beaconIntensity})`;
+    ctx.fillRect(burjX - 0.7, burjBaseY - burjHeight - 50, 1.4, 10);
+    if (beaconIntensity > 0.05) {
+      const beaconGlow = ctx.createRadialGradient(
+        burjX,
+        burjBaseY - burjHeight - 46,
+        0,
+        burjX,
+        burjBaseY - burjHeight - 46,
+        8,
+      );
+      beaconGlow.addColorStop(0, `rgba(255, 60, 40, ${0.36 * beaconIntensity})`);
+      beaconGlow.addColorStop(1, "rgba(255, 0, 0, 0)");
+      ctx.fillStyle = beaconGlow;
+      ctx.fillRect(burjX - 8, burjBaseY - burjHeight - 54, 16, 16);
+    }
+
+    ctx.save();
+    burjPath();
+    ctx.clip();
+    const leftGlow = ctx.createLinearGradient(burjX - 20, 0, burjX + 5, 0);
+    leftGlow.addColorStop(0, "rgba(255,255,255,0.26)");
+    leftGlow.addColorStop(0.35, "rgba(170,220,255,0.14)");
+    leftGlow.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = leftGlow;
+    ctx.fillRect(burjX - 18, burjBaseY - burjHeight - 50, 22, burjHeight + 50);
+
+    const rightShade = ctx.createLinearGradient(burjX - 1, 0, burjX + 19, 0);
+    rightShade.addColorStop(0, "rgba(0,0,0,0)");
+    rightShade.addColorStop(0.45, "rgba(10,16,24,0.16)");
+    rightShade.addColorStop(1, "rgba(5,8,15,0.38)");
+    ctx.fillStyle = rightShade;
+    ctx.fillRect(burjX - 1, burjBaseY - burjHeight - 50, 18, burjHeight + 50);
+
+    for (let i = 0; i < 58; i++) {
+      const ht = 0.03 + (i / 57) * 0.94;
+      const ly = burjBaseY - burjHeight * ht;
+      const { left, right } = halfWidthsAt(ht);
+      const lw = left * 0.64;
+      const rw = right * 0.64;
+      if (lw < 0.95 && rw < 0.95) continue;
+      const lit = Math.sin(t * 0.22 + i * 0.37) > -0.28;
+      if (lit) {
+        const warmBand = i === 16 || i === 28 || i === 39 || i === 49;
+        ctx.fillStyle = warmBand ? "rgba(252, 252, 255, 0.9)" : "rgba(230, 244, 255, 0.16)";
+        ctx.fillRect(burjX - lw, ly, lw + rw, 0.72);
+        if (!warmBand && i % 6 === 0) {
+          ctx.fillStyle = "rgba(100, 180, 255, 0.08)";
+          ctx.fillRect(burjX - lw, ly + 0.88, lw + rw, 0.28);
+        }
+      }
+    }
+    ctx.restore();
+  });
+
+  ctx.fillStyle = `rgba(22, 28, 40, ${0.84 + 0.08 * Math.sin(t * 0.32)})`;
+  ctx.beginPath();
+  ctx.moveTo(burjX - 104, burjBaseY + 2);
+  ctx.lineTo(burjX - 88, burjBaseY - 12);
+  ctx.lineTo(burjX - 58, burjBaseY - 15);
+  ctx.lineTo(burjX - 36, burjBaseY - 8);
+  ctx.lineTo(burjX - 16, burjBaseY - 3);
+  ctx.lineTo(burjX + 16, burjBaseY - 3);
+  ctx.lineTo(burjX + 36, burjBaseY - 8);
+  ctx.lineTo(burjX + 58, burjBaseY - 15);
+  ctx.lineTo(burjX + 88, burjBaseY - 12);
+  ctx.lineTo(burjX + 104, burjBaseY + 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "rgba(255, 214, 150, 0.28)";
+  ctx.fillRect(burjX - 58, burjBaseY - 14, 116, 2.5);
+  ctx.fillStyle = "rgba(236, 246, 255, 0.46)";
+  ctx.fillRect(burjX - 28, groundY - 8, 56, 7);
+  ctx.fillStyle = "rgba(180, 220, 255, 0.34)";
+  ctx.fillRect(burjX - 12, groundY - 13, 24, 4);
+}
+
+function drawSharedWater(
+  ctx: CanvasRenderingContext2D,
+  { groundY, renderHeight, tintBottomAlpha = 0.18 }: SharedWaterOptions,
+  t: number,
+) {
+  const waterTop = groundY + 8;
+  const waterBottom = renderHeight;
+  const titleWaterImg = getTitleWaterImage();
+  if (titleWaterImg) {
+    ctx.drawImage(titleWaterImg, 0, waterTop, CANVAS_W + 10, waterBottom - waterTop);
+    const waterGrade = ctx.createLinearGradient(0, waterTop, 0, waterBottom);
+    waterGrade.addColorStop(0, "rgba(22, 34, 60, 0.18)");
+    waterGrade.addColorStop(0.5, "rgba(8, 20, 40, 0.08)");
+    waterGrade.addColorStop(1, `rgba(0, 0, 0, ${tintBottomAlpha})`);
+    ctx.fillStyle = waterGrade;
+    ctx.fillRect(0, waterTop, CANVAS_W, waterBottom - waterTop);
+    return;
+  }
+
+  const waterGrad = ctx.createLinearGradient(0, waterTop, 0, waterBottom);
+  waterGrad.addColorStop(0, "rgba(34, 40, 56, 0.96)");
+  waterGrad.addColorStop(0.28, "rgba(26, 32, 46, 0.96)");
+  waterGrad.addColorStop(0.72, "rgba(18, 24, 36, 0.98)");
+  waterGrad.addColorStop(1, "rgba(12, 16, 26, 1)");
+  ctx.fillStyle = waterGrad;
+  ctx.fillRect(0, waterTop, CANVAS_W, waterBottom - waterTop);
+
+  ctx.fillStyle = "rgba(255, 242, 214, 0.18)";
+  ctx.fillRect(0, waterTop, CANVAS_W, 2);
+  const waterRipple = ctx.createLinearGradient(0, waterTop + 6, 0, waterBottom);
+  waterRipple.addColorStop(0, "rgba(120, 160, 200, 0.06)");
+  waterRipple.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = waterRipple;
+  for (let y = waterTop + 8; y < waterBottom; y += 9) {
+    const inset = 10 + Math.sin(t * 1.8 + y * 0.07) * 8;
+    ctx.fillRect(inset, y, CANVAS_W - inset * 2, 1);
+  }
+}
+
+function drawSharedLauncher(
+  ctx: CanvasRenderingContext2D,
+  lx: number,
+  ly: number,
+  barrelAngle: number,
+  {
+    t,
+    scale = 1,
+    alpha = 1,
+    damaged = false,
+    active = true,
+    muzzleFlash = 0,
+    statusLabel = null,
+  }: SharedLauncherOptions,
+) {
+  if (!active) {
+    ctx.fillStyle = "#333";
+    ctx.beginPath();
+    ctx.moveTo(lx - 10, ly + 3);
+    ctx.lineTo(lx - 8, ly - 2);
+    ctx.lineTo(lx - 2, ly - 3);
+    ctx.lineTo(lx + 3, ly - 1);
+    ctx.lineTo(lx + 9, ly - 2);
+    ctx.lineTo(lx + 10, ly + 3);
+    ctx.closePath();
+    ctx.fill();
+    return;
+  }
+
+  ctx.save();
+  ctx.translate(lx, ly);
+  ctx.scale(scale, scale);
+  ctx.translate(-lx, -ly);
+  ctx.globalAlpha = alpha;
+
+  const shadow = ctx.createRadialGradient(lx, ly + 18, 0, lx, ly + 18, 44);
+  shadow.addColorStop(0, "rgba(4, 8, 16, 0.55)");
+  shadow.addColorStop(0.7, "rgba(4, 8, 16, 0.18)");
+  shadow.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = shadow;
+  ctx.fillRect(lx - 46, ly - 6, 92, 50);
+
+  const haze = ctx.createRadialGradient(lx, ly - 4, 0, lx, ly - 4, 60);
+  haze.addColorStop(0, "rgba(88, 150, 210, 0.12)");
+  haze.addColorStop(0.45, "rgba(56, 104, 168, 0.06)");
+  haze.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = haze;
+  ctx.fillRect(lx - 60, ly - 54, 120, 110);
+
+  const glow = ctx.createRadialGradient(lx, ly + 8, 0, lx, ly + 8, 52);
+  glow.addColorStop(0, damaged ? "rgba(255, 126, 110, 0.22)" : "rgba(0, 210, 255, 0.26)");
+  glow.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = glow;
+  ctx.fillRect(lx - 52, ly - 26, 104, 68);
+
+  ctx.fillStyle = damaged ? "#30222a" : "#182434";
+  ctx.beginPath();
+  ctx.moveTo(lx - 34, ly + 12);
+  ctx.lineTo(lx - 24, ly - 6);
+  ctx.lineTo(lx + 24, ly - 6);
+  ctx.lineTo(lx + 34, ly + 12);
+  ctx.lineTo(lx + 22, ly + 18);
+  ctx.lineTo(lx - 22, ly + 18);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "rgba(4, 10, 18, 0.85)";
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(lx - 34, ly + 12);
+  ctx.lineTo(lx - 24, ly - 6);
+  ctx.lineTo(lx + 24, ly - 6);
+  ctx.lineTo(lx + 34, ly + 12);
+  ctx.stroke();
+  ctx.strokeStyle = damaged ? "rgba(164, 116, 120, 0.24)" : "rgba(58, 116, 164, 0.4)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(lx - 33, ly + 11.5);
+  ctx.lineTo(lx - 24, ly - 5.5);
+  ctx.lineTo(lx + 24, ly - 5.5);
+  ctx.lineTo(lx + 33, ly + 11.5);
+  ctx.stroke();
+
+  ctx.fillStyle = damaged ? "#2b2632" : "#223247";
+  ctx.beginPath();
+  ctx.moveTo(lx - 22, ly + 5);
+  ctx.lineTo(lx - 16, ly - 11);
+  ctx.lineTo(lx - 6, ly - 16);
+  ctx.lineTo(lx + 10, ly - 16);
+  ctx.lineTo(lx + 18, ly - 8);
+  ctx.lineTo(lx + 22, ly + 4);
+  ctx.lineTo(lx + 12, ly + 10);
+  ctx.lineTo(lx - 14, ly + 10);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "rgba(6, 12, 22, 0.88)";
+  ctx.lineWidth = 1.6;
+  ctx.stroke();
+
+  ctx.fillStyle = damaged ? "rgba(255, 120, 110, 0.08)" : "rgba(120, 205, 255, 0.16)";
+  ctx.beginPath();
+  ctx.moveTo(lx - 16, ly - 8);
+  ctx.lineTo(lx - 5, ly - 13);
+  ctx.lineTo(lx + 8, ly - 13);
+  ctx.lineTo(lx + 13, ly - 8);
+  ctx.lineTo(lx + 12, ly - 6);
+  ctx.lineTo(lx - 14, ly - 6);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = damaged ? "#3a2d38" : "#2a3d56";
+  ctx.beginPath();
+  ctx.ellipse(lx, ly - 10, 13, 9, 0, Math.PI, 0);
+  ctx.lineTo(lx + 10, ly - 4);
+  ctx.lineTo(lx - 10, ly - 4);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "rgba(6, 12, 22, 0.82)";
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
+  ctx.strokeStyle = damaged ? "rgba(255, 126, 110, 0.22)" : "rgba(120, 210, 255, 0.42)";
+  ctx.lineWidth = 1.1;
+  ctx.beginPath();
+  ctx.arc(lx, ly - 10, 13, Math.PI + 0.22, -0.12);
+  ctx.stroke();
+
+  const rimDir = lx < BURJ_X ? 1 : -1;
+  ctx.fillStyle = damaged ? "rgba(255, 142, 120, 0.12)" : "rgba(150, 232, 255, 0.2)";
+  ctx.fillRect(lx + rimDir * 11 - 1.5, ly - 14, 3, 20);
+  ctx.fillStyle = damaged ? "rgba(255, 142, 120, 0.08)" : "rgba(150, 232, 255, 0.12)";
+  ctx.fillRect(lx + rimDir * 19 - 1, ly - 4, 2, 10);
+
+  const servoPulse = 0.46 + 0.28 * Math.sin(t * 2.2 + lx * 0.018);
+  ctx.fillStyle = damaged ? `rgba(255, 140, 110, ${servoPulse * 0.5})` : `rgba(120, 235, 255, ${servoPulse})`;
+  ctx.fillRect(lx - 3, ly - 2, 6, 6);
+  const servoGlow = ctx.createRadialGradient(lx, ly + 1, 0, lx, ly + 1, 14);
+  servoGlow.addColorStop(
+    0,
+    damaged ? `rgba(255, 140, 110, ${servoPulse * 0.55})` : `rgba(120, 235, 255, ${servoPulse})`,
+  );
+  servoGlow.addColorStop(
+    0.5,
+    damaged ? `rgba(200, 110, 90, ${servoPulse * 0.25})` : `rgba(86, 196, 255, ${servoPulse * 0.5})`,
+  );
+  servoGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = servoGlow;
+  ctx.fillRect(lx - 14, ly - 13, 28, 28);
+
+  ctx.strokeStyle = damaged ? "rgba(84, 54, 60, 0.95)" : "rgba(50, 70, 94, 0.95)";
+  ctx.lineWidth = 3.2;
+  ctx.beginPath();
+  ctx.moveTo(lx - 7, ly + 8);
+  ctx.lineTo(lx - 16, ly + 18);
+  ctx.stroke();
+
+  ctx.save();
+  ctx.translate(lx + 2, ly - 12);
+  ctx.rotate(barrelAngle);
+  ctx.fillStyle = damaged ? "#5a3a3a" : "#3b526c";
+  ctx.beginPath();
+  ctx.moveTo(-2, -4.2);
+  ctx.lineTo(24, -3.2);
+  ctx.quadraticCurveTo(31, -1.1, 34, 0);
+  ctx.quadraticCurveTo(31, 1.1, 24, 3.2);
+  ctx.lineTo(-2, 4.2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "rgba(8, 14, 24, 0.9)";
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+  ctx.fillStyle = damaged ? "#3a2930" : "#1d2b3d";
+  ctx.fillRect(2, -1.2, 24, 2.4);
+  ctx.strokeStyle = damaged ? "rgba(255, 150, 120, 0.18)" : "rgba(136, 218, 255, 0.34)";
+  ctx.lineWidth = 0.9;
+  ctx.beginPath();
+  ctx.moveTo(0, -3.1);
+  ctx.lineTo(26, -2.1);
+  ctx.stroke();
+  ctx.fillStyle = damaged ? "rgba(255, 150, 120, 0.08)" : "rgba(150, 230, 255, 0.16)";
+  ctx.fillRect(6, -3, 14, 1.3);
+  ctx.fillStyle = damaged ? "#412d36" : "#2a3e56";
+  ctx.fillRect(-4, -5.4, 7, 10.8);
+
+  const pulse = 0.38 + 0.26 * Math.sin(t * 2.4 + lx * 0.02);
+  const flashStrength = Math.max(pulse, muzzleFlash);
+  const muzzleX = Math.cos(barrelAngle) * 34;
+  const muzzleY = Math.sin(barrelAngle) * 34;
+  const mGlow = ctx.createRadialGradient(muzzleX, muzzleY, 0, muzzleX, muzzleY, 10 + muzzleFlash * 6);
+  mGlow.addColorStop(
+    0,
+    damaged ? `rgba(255, 160, 110, ${flashStrength * 0.35})` : `rgba(0, 255, 200, ${flashStrength})`,
+  );
+  mGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = mGlow;
+  ctx.fillRect(muzzleX - 10, muzzleY - 10, 20, 20);
+  ctx.restore();
+
+  if (statusLabel) {
+    ctx.textAlign = "center";
+    ctx.font = "bold 8px 'Courier New', monospace";
+    ctx.fillStyle = damaged ? "rgba(255, 132, 110, 0.72)" : "rgba(128, 236, 255, 0.72)";
+    ctx.fillText(statusLabel, lx, ly + 30);
+    ctx.textAlign = "left";
+  }
+
+  ctx.restore();
+}
+
+function UNUSED_drawSky(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutProfile) {
   // Sky — base gradient always drawn, nebula layered on top at low opacity
   const skyGrad = ctx.createLinearGradient(0, 0, 0, layout.renderHeight);
   skyGrad.addColorStop(0, COL.sky1);
@@ -331,7 +1214,7 @@ function drawDecoyFlares(ctx: CanvasRenderingContext2D, game: GameState, layout:
   });
 }
 
-function drawGroundAndBuildings(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutProfile) {
+function UNUSED_drawGroundAndBuildings(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutProfile) {
   // Ground
   ctx.fillStyle = COL.sand;
   ctx.fillRect(0, GROUND_Y, CANVAS_W, CANVAS_H - GROUND_Y);
@@ -414,7 +1297,7 @@ function drawGroundAndBuildings(ctx: CanvasRenderingContext2D, game: GameState, 
   });
 }
 
-function drawBurjKhalifa(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutProfile) {
+function UNUSED_drawBurjKhalifa(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutProfile) {
   // Burj Khalifa
   if (game.burjAlive) {
     const bx = BURJ_X,
@@ -1566,130 +2449,53 @@ function drawExplosionsAndParticles(ctx: CanvasRenderingContext2D, game: GameSta
 }
 
 function drawGroundStructures(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutProfile) {
+  const scenicLauncherY = GROUND_Y - 138;
   // Launchers
   LAUNCHERS.forEach((l, i) => {
-    withAnchorScale(ctx, l.x, l.y, layout.launcherScale, () => {
-      if (game.launcherHP[i] <= 0) {
-        // Destroyed — broken rubble
-        ctx.fillStyle = "#333";
-        ctx.beginPath();
-        ctx.moveTo(l.x - 10, l.y + 3);
-        ctx.lineTo(l.x - 8, l.y - 2);
-        ctx.lineTo(l.x - 2, l.y - 3);
-        ctx.lineTo(l.x + 3, l.y - 1);
-        ctx.lineTo(l.x + 9, l.y - 2);
-        ctx.lineTo(l.x + 10, l.y + 3);
-        ctx.closePath();
-        ctx.fill();
-        ctx.fillStyle = "#2a2a2a";
-        ctx.beginPath();
-        ctx.arc(l.x - 3, l.y - 1, 3, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(l.x + 4, l.y, 2, 0, Math.PI * 2);
-        ctx.fill();
-        return;
-      }
-      const launcherMaxHP = game.upgrades.launcherKit >= 2 ? 2 : 1;
-      const damaged = launcherMaxHP === 2 && game.launcherHP[i] === 1;
+    const launcherMaxHP = game.upgrades.launcherKit >= 2 ? 2 : 1;
+    const damaged = launcherMaxHP === 2 && game.launcherHP[i] === 1;
+    const ammoMax = getAmmoCapacity(game.wave, game.upgrades.launcherKit);
+    const ammoRatio = game.ammo[i] / ammoMax;
+    const angle = Math.atan2(game.crosshairY - l.y, game.crosshairX - l.x);
+    const barrelAngle = Math.min(-0.2, Math.max(angle, -Math.PI + 0.2));
+    const fireTick = game.launcherFireTick ? game.launcherFireTick[i] : 0;
+    const tickNow = game._replayTick || 0;
+    const fireAge = tickNow - fireTick;
+    const muzzleFlash = fireAge < 6 ? 1 - fireAge / 6 : 0;
 
-      // Base platform — rounded trapezoid
-      ctx.fillStyle = damaged ? "#3a2020" : "#2a3a50";
-      ctx.beginPath();
-      ctx.moveTo(l.x - 14, l.y + 4);
-      ctx.lineTo(l.x - 10, l.y - 6);
-      ctx.quadraticCurveTo(l.x, l.y - 9, l.x + 10, l.y - 6);
-      ctx.lineTo(l.x + 14, l.y + 4);
-      ctx.quadraticCurveTo(l.x, l.y + 6, l.x - 14, l.y + 4);
-      ctx.fill();
-
-      // Upper turret housing — rounded dome
-      ctx.fillStyle = damaged ? "#4a3030" : "#3a4a60";
-      ctx.beginPath();
-      ctx.arc(l.x, l.y - 6, 9, Math.PI, 0);
-      ctx.lineTo(l.x + 7, l.y - 4);
-      ctx.lineTo(l.x - 7, l.y - 4);
-      ctx.closePath();
-      ctx.fill();
-
-      // Highlight edge
-      ctx.strokeStyle = damaged ? "#5a4040" : "#5a6a80";
-      ctx.lineWidth = 0.8;
-      ctx.beginPath();
-      ctx.arc(l.x, l.y - 6, 9, Math.PI + 0.2, -0.2);
-      ctx.stroke();
-
-      // Ammo bar — rounded
-      ctx.fillStyle = "rgba(0,0,0,0.5)";
-      ctx.beginPath();
-      ctx.arc(l.x - 12, l.y + 10.5, 2.5, 0, Math.PI * 2);
-      ctx.arc(l.x + 12, l.y + 10.5, 2.5, 0, Math.PI * 2);
-      ctx.fillRect(l.x - 12, l.y + 8, 24, 5);
-      ctx.fill();
-      const ammoMax = getAmmoCapacity(game.wave, game.upgrades.launcherKit);
-      const ammoRatio = game.ammo[i] / ammoMax;
-      ctx.fillStyle = ammoRatio > 0.3 ? COL.hud : COL.warning;
-      const barW = 24 * ammoRatio;
-      ctx.beginPath();
-      ctx.fillRect(l.x - 12, l.y + 8, barW, 5);
-      ctx.fill();
-
-      // Ammo count
-      ctx.font = "bold 10px monospace";
-      ctx.textAlign = "center";
-      ctx.fillStyle = ammoRatio > 0.3 ? COL.hud : COL.warning;
-      ctx.fillText(String(game.ammo[i]), l.x, l.y + 25);
-
-      // HP pips
-      const maxHP = game.upgrades.launcherKit >= 2 ? 2 : 1;
-      for (let h = 0; h < maxHP; h++) {
-        ctx.fillStyle = h < game.launcherHP[i] ? "#44ff88" : "#333";
-        ctx.beginPath();
-        ctx.arc(l.x - 3 + h * 6, l.y + 16.5, 2, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // Barrel — tapered with rounded tip
-      const angle = Math.atan2(game.crosshairY - l.y, game.crosshairX - l.x);
-      ctx.save();
-      ctx.translate(l.x, l.y - 8);
-      const barrelAngle = Math.min(-0.2, Math.max(angle, -Math.PI + 0.2));
-      ctx.rotate(barrelAngle);
-      ctx.fillStyle = damaged ? "#5a3a3a" : "#4a5a70";
-      ctx.beginPath();
-      ctx.moveTo(0, -2.5);
-      ctx.lineTo(16, -1.5);
-      ctx.quadraticCurveTo(19, 0, 16, 1.5);
-      ctx.lineTo(0, 2.5);
-      ctx.closePath();
-      ctx.fill();
-      // Barrel highlight
-      ctx.strokeStyle = damaged ? "#6a4a4a" : "#6a7a90";
-      ctx.lineWidth = 0.5;
-      ctx.beginPath();
-      ctx.moveTo(1, -2.2);
-      ctx.lineTo(15, -1.3);
-      ctx.stroke();
-
-      // Muzzle flash
-      const fireTick = game.launcherFireTick ? game.launcherFireTick[i] : 0;
-      const tickNow = game._replayTick || 0;
-      const fireAge = tickNow - fireTick;
-      if (fireAge < 6) {
-        const flash = 1 - fireAge / 6;
-        ctx.globalAlpha = flash * 0.9;
-        ctx.fillStyle = "#ffdd44";
-        ctx.beginPath();
-        ctx.arc(20, 0, 5 + flash * 4, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#ffffff";
-        ctx.beginPath();
-        ctx.arc(20, 0, 2 + flash * 2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalAlpha = 1;
-      }
-      ctx.restore();
+    drawSharedLauncher(ctx, l.x, scenicLauncherY, barrelAngle, {
+      t: game.time / 60,
+      scale: 0.8 + layout.launcherScale * 0.06,
+      damaged,
+      active: game.launcherHP[i] > 0,
+      muzzleFlash,
+      statusLabel: null,
     });
+
+    if (game.launcherHP[i] <= 0) return;
+
+    ctx.fillStyle = "rgba(0,0,0,0.55)";
+    ctx.beginPath();
+    ctx.roundRect(l.x - 16, scenicLauncherY + 27, 32, 6, 3);
+    ctx.fill();
+    ctx.fillStyle = ammoRatio > 0.3 ? COL.hud : COL.warning;
+    ctx.beginPath();
+    ctx.roundRect(l.x - 16, scenicLauncherY + 27, 32 * ammoRatio, 6, 3);
+    ctx.fill();
+
+    ctx.font = "bold 10px monospace";
+    ctx.textAlign = "center";
+    ctx.fillStyle = ammoRatio > 0.3 ? COL.hud : COL.warning;
+    ctx.fillText(String(game.ammo[i]), l.x, scenicLauncherY + 48);
+    ctx.textAlign = "left";
+
+    const maxHP = game.upgrades.launcherKit >= 2 ? 2 : 1;
+    for (let h = 0; h < maxHP; h++) {
+      ctx.fillStyle = h < game.launcherHP[i] ? "#44ff88" : "#333";
+      ctx.beginPath();
+      ctx.arc(l.x - 4 + h * 8, scenicLauncherY + 39, 2.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
   });
 
   // Phalanx turrets
@@ -2348,6 +3154,9 @@ export function drawGame(
   { showShop = false, layoutProfile = {} as Partial<LayoutProfile> } = {},
 ) {
   const layout = resolveLayoutProfile(layoutProfile);
+  const sceneTime = game.time / 60;
+  const scenicGroundY = GROUND_Y - 120;
+  const scenicThreatFloorY = scenicGroundY + 6;
   let sx = 0,
     sy = 0;
   if (game.shakeTimer > 0 && !game._debugMode) {
@@ -2362,33 +3171,56 @@ export function drawGame(
     ctx.translate(-(layout.cameraFrame.left ?? 0), -(layout.cameraFrame.top ?? 0));
   }
 
-  drawSky(ctx, game, layout);
+  drawSharedSky(
+    ctx,
+    {
+      mode: "game",
+      renderHeight: layout.renderHeight,
+      groundY: scenicGroundY,
+      stars: game.stars,
+    },
+    sceneTime,
+  );
+  drawSharedSkylineCluster(ctx, sceneTime, scenicGroundY, 0.75);
+  drawSharedBurj(ctx, {
+    mode: "game",
+    groundY: scenicGroundY,
+    alive: game.burjAlive,
+    artScale: 2,
+    t: sceneTime,
+  });
+  drawGameplayForegroundBuildings(ctx, game, sceneTime, scenicGroundY);
+  drawSharedWater(
+    ctx,
+    {
+      groundY: scenicGroundY,
+      renderHeight: layout.renderHeight,
+      tintBottomAlpha: 0.18,
+    },
+    sceneTime,
+  );
   drawDecoyFlares(ctx, game, layout);
-  drawGroundAndBuildings(ctx, game, layout);
-  drawBurjKhalifa(ctx, game, layout);
   drawPlanes(ctx, game, layout);
   drawLasersAndBullets(ctx, game, layout);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, CANVAS_W, scenicThreatFloorY);
+  ctx.clip();
   drawMissiles(ctx, game, layout);
   drawDrones(ctx, game, layout);
   drawInterceptors(ctx, game, layout);
   drawUpgradeProjectiles(ctx, game, layout);
   drawExplosionsAndParticles(ctx, game, layout);
+  ctx.restore();
   drawGroundStructures(ctx, game, layout);
 
   // Crosshair
   if (!showShop) {
     const cx = game.crosshairX,
       cy = game.crosshairY;
-    ctx.fillStyle = "rgba(0,255,200,0.08)";
-    ctx.beginPath();
-    ctx.arc(cx, cy, layout.crosshairFillRadius, 0, Math.PI * 2);
-    ctx.fill();
     ctx.strokeStyle = "rgba(0,255,200,0.7)";
     ctx.lineWidth = 1;
     glow(ctx, COL.hud, 10);
-    ctx.beginPath();
-    ctx.arc(cx, cy, layout.crosshairInnerRadius, 0, Math.PI * 2);
-    ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(cx - layout.crosshairArmLength, cy);
     ctx.lineTo(cx - layout.crosshairGap, cy);

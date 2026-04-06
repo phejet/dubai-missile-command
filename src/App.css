@@ -1086,11 +1086,30 @@
   align-items: stretch;
 }
 
+.game-shell--phonePortrait[data-screen="playing"] .game-shell__content {
+  gap: 6px;
+  padding-bottom: max(2px, env(safe-area-inset-bottom));
+}
+
 .game-shell--phonePortrait[data-screen="playing"] .battlefield-card--portraitSky {
   width: 100%;
   height: 100%;
   max-height: none;
   aspect-ratio: auto;
+}
+
+@media (max-width: 480px) {
+  .game-shell--phonePortrait[data-screen="playing"] .battlefield-shell {
+    width: 100%;
+  }
+
+  .game-shell--phonePortrait[data-screen="playing"] .game-shell__content {
+    gap: 0;
+    padding-left: 0;
+    padding-right: 0;
+    padding-top: max(6px, env(safe-area-inset-top));
+    padding-bottom: 0;
+  }
 }
 
 .battlefield-emp {
