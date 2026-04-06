@@ -11,6 +11,7 @@ import {
   BURJ_H,
   LAUNCHERS,
   SCENIC_BUILDING_LAYOUT,
+  getDefenseSitePlacement,
   getGameplayBuildingBounds,
   getGameplayBurjCollisionTop,
   getGameplayBurjHalfW,
@@ -2501,9 +2502,11 @@ function drawGroundStructures(ctx: CanvasRenderingContext2D, game: GameState, la
 
   // Patriot launcher — TEL vehicle with SAM arm
   if (game.upgrades.patriot > 0) {
-    const patX = 334;
+    const patriotSite = getDefenseSitePlacement("patriot");
+    const patX = patriotSite?.x ?? 334;
+    const patY = patriotSite?.y ?? GROUND_Y;
     ctx.save();
-    ctx.translate(patX, GROUND_Y);
+    ctx.translate(patX, patY);
     ctx.scale(3, 3);
     // Truck body
     ctx.fillStyle = "#3a4a30";
@@ -2548,14 +2551,15 @@ function drawGroundStructures(ctx: CanvasRenderingContext2D, game: GameState, la
     if (layout.showSystemLabels) {
       ctx.fillStyle = "rgba(136,255,68,0.6)";
       ctx.font = "7px monospace";
-      ctx.fillText("PAC-3", patX - 20, GROUND_Y + 10);
+      ctx.fillText("PAC-3", patX - 20, patY + 10);
     }
   }
 
   // Wild Hornets — hex hive launcher
   if (game.upgrades.wildHornets > 0) {
-    const hx = 206,
-      hy = GROUND_Y;
+    const hornetSite = getDefenseSitePlacement("wildHornets");
+    const hx = hornetSite?.x ?? 206;
+    const hy = hornetSite?.y ?? GROUND_Y;
     ctx.save();
     ctx.translate(hx, hy);
     ctx.scale(3, 3);
@@ -2611,9 +2615,11 @@ function drawGroundStructures(ctx: CanvasRenderingContext2D, game: GameState, la
 
   // Roadrunner launcher — open container with missiles
   if (game.upgrades.roadrunner > 0) {
-    const rrX = 678;
+    const roadrunnerSite = getDefenseSitePlacement("roadrunner");
+    const rrX = roadrunnerSite?.x ?? 678;
+    const rrY = roadrunnerSite?.y ?? GROUND_Y;
     ctx.save();
-    ctx.translate(rrX, GROUND_Y);
+    ctx.translate(rrX, rrY);
     ctx.scale(3, 3);
     // Container walls (3 walls, no top)
     ctx.fillStyle = "#1e2e3e";
@@ -2652,7 +2658,7 @@ function drawGroundStructures(ctx: CanvasRenderingContext2D, game: GameState, la
     if (layout.showSystemLabels) {
       ctx.fillStyle = "rgba(68,170,255,0.6)";
       ctx.font = "7px monospace";
-      ctx.fillText("ROADRUNNER", rrX - 25, GROUND_Y + 12);
+      ctx.fillText("ROADRUNNER", rrX - 25, rrY + 12);
     }
   }
 

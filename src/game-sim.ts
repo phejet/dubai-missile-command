@@ -10,6 +10,7 @@ import {
   MAX_PARTICLES,
   LAUNCHERS,
   createScenicBuildings,
+  getDefenseSitePlacement,
   getGameplayBuildingBounds,
   getGameplayBurjCollisionTop,
   getGameplayBurjHalfW,
@@ -641,12 +642,13 @@ export function updateAutoSystems(
     if (g.hornetTimer >= interval && allThreats.length > 0) {
       g.hornetTimer = 0;
       if (onEvent) onEvent("sfx", { name: "hornetBuzz" });
+      const hornetSite = getDefenseSitePlacement("wildHornets");
       for (let i = 0; i < count; i++) {
         const target = pickHornetTarget(allThreats, g.hornets, lvl);
         if (!target) continue;
         g.hornets.push({
-          x: 206 + rand(-12, 12),
-          y: GROUND_Y - 20,
+          x: (hornetSite?.x ?? 206) + rand(-12, 12),
+          y: (hornetSite?.y ?? GROUND_Y) - 20,
           targetRef: target,
           speed: rand(4.1, 6.15),
           trail: [],
@@ -722,16 +724,17 @@ export function updateAutoSystems(
     if (g.roadrunnerTimer >= interval && allThreats.length > 0) {
       g.roadrunnerTimer = 0;
       const targets = pickRoadrunnerTargets(allThreats, g.roadrunners, count);
+      const roadrunnerSite = getDefenseSitePlacement("roadrunner");
       for (let i = 0; i < targets.length; i++) {
         g.roadrunners.push({
-          x: 678 + rand(-15, 15),
-          y: GROUND_Y - 10,
+          x: (roadrunnerSite?.x ?? 678) + rand(-15, 15),
+          y: (roadrunnerSite?.y ?? GROUND_Y) - 10,
           targetRef: targets[i],
           speed: rrSpeed,
           trail: [],
           alive: true,
           phase: "launch",
-          launchY: GROUND_Y - 80 - rand(0, 40),
+          launchY: (roadrunnerSite?.y ?? GROUND_Y) - 70 - rand(0, 40),
           heading: -Math.PI / 2,
           blastRadius: rrBlastR,
           turnRate: rrTurnRate,
@@ -998,10 +1001,11 @@ export function updateAutoSystems(
       g.patriotTimer = 0;
       if (onEvent) onEvent("sfx", { name: "patriotLaunch" });
       const targets = pickPatriotTargets(allThreats, count);
+      const patriotSite = getDefenseSitePlacement("patriot");
       for (let i = 0; i < targets.length; i++) {
         g.patriotMissiles.push({
-          x: 334 + rand(-10, 10),
-          y: 1511,
+          x: (patriotSite?.x ?? 334) + rand(-10, 10),
+          y: (patriotSite?.y ?? GROUND_Y) - 3,
           targetRef: targets[i],
           speed: rand(14, 17),
           trail: [],
@@ -1839,30 +1843,27 @@ export function buyUpgrade(g: GameState, key: UpgradeKey) {
   // Register or revive defense site
   const existingSite = g.defenseSites.find((s) => s.key === key);
   if (existingSite) {
+    const siteDef = getDefenseSitePlacement(key);
+    if (siteDef) {
+      existingSite.x = siteDef.x;
+      existingSite.y = siteDef.y;
+      existingSite.hw = siteDef.hw;
+      existingSite.hh = siteDef.hh;
+    }
     existingSite.alive = true;
     existingSite.savedLevel = g.upgrades[key];
   } else {
-    const siteDefs = {
-      patriot: { x: 334, y: 1511, hw: 38, hh: 24 },
-      flare: { x: BURJ_X, y: 837, hw: 8, hh: 10 },
-      ironBeam: { x: BURJ_X, y: 959, hw: 10, hh: 15 },
-      wildHornets: { x: 206, y: 1511, hw: 30, hh: 24 },
-      roadrunner: { x: 678, y: GROUND_Y - 15, hw: 30, hh: 24 },
-      launcherKit: { x: 772, y: 1513, hw: 30, hh: 24 },
-    };
-    if (key === "phalanx") {
+    const siteDef = getDefenseSitePlacement(key);
+    if (siteDef) {
       g.defenseSites.push({
-        key: "phalanx",
-        x: 553,
-        y: 1498,
+        key,
+        x: siteDef.x,
+        y: siteDef.y,
         alive: true,
-        hw: 10,
-        hh: 15,
+        hw: siteDef.hw,
+        hh: siteDef.hh,
         savedLevel: g.upgrades[key],
       });
-    } else if (siteDefs[key as keyof typeof siteDefs]) {
-      const sd = siteDefs[key as keyof typeof siteDefs];
-      g.defenseSites.push({ key, x: sd.x, y: sd.y, alive: true, hw: sd.hw, hh: sd.hh, savedLevel: g.upgrades[key] });
     }
   }
   // Set EMP charge rate on purchase/upgrade

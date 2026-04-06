@@ -36,6 +36,17 @@ function ensureCtx() {
   }
 }
 
+async function resumeCtx() {
+  if (!ctx || ctx.state === "running") return true;
+  try {
+    await ctx.resume();
+    return ctx.state === "running";
+  } catch {
+    // iPhone/Safari may reject until the next user gesture; we retry on later interactions.
+    return false;
+  }
+}
+
 function now() {
   return ctx ? ctx.currentTime : 0;
 }
@@ -97,8 +108,9 @@ function osc(type: OscillatorType, freq: number, duration: number, volume: numbe
 }
 
 const SFX = {
-  init() {
-    ensureCtx();
+  async init() {
+    if (!ensureCtx()) return false;
+    return resumeCtx();
   },
 
   mute() {

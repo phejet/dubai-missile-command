@@ -341,8 +341,8 @@ export default function DubaiMissileCommand() {
   );
 
   const startReplay = useCallback(
-    (replayData: ReplayData) => {
-      SFX.init();
+    async (replayData: ReplayData) => {
+      await SFX.init();
       const runner = createReplayRunner(replayData, handleSimEvent);
       const replayGameState = runner.init();
       gameRef.current = replayGameState;
@@ -364,8 +364,8 @@ export default function DubaiMissileCommand() {
     [handleSimEvent, syncHudSnapshot],
   );
 
-  const startGame = useCallback(() => {
-    SFX.init();
+  const startGame = useCallback(async () => {
+    await SFX.init();
     initGame();
     setReplayActive(false);
     setShowShop(false);
@@ -599,14 +599,14 @@ export default function DubaiMissileCommand() {
     }
   }
 
-  function handleCanvasPointerDown(event: React.PointerEvent<HTMLCanvasElement>) {
+  async function handleCanvasPointerDown(event: React.PointerEvent<HTMLCanvasElement>) {
     if (showShop || replayActive) return;
     const point = getCanvasCoords(event.clientX, event.clientY);
     if (!point) return;
     event.preventDefault();
 
     if (screen === "title") {
-      startGame();
+      await startGame();
       return;
     }
 
@@ -799,8 +799,8 @@ export default function DubaiMissileCommand() {
                     <button
                       type="button"
                       className={`battlefield-option ${muted ? "battlefield-option--active" : ""}`}
-                      onClick={() => {
-                        SFX.init();
+                      onClick={async () => {
+                        await SFX.init();
                         SFX.mute();
                         setMuted(SFX.isMuted());
                       }}

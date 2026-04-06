@@ -8,6 +8,7 @@ export const GAMEPLAY_SCENIC_GROUND_Y = GROUND_Y - 120;
 export const GAMEPLAY_SCENIC_BASE_Y = GAMEPLAY_SCENIC_GROUND_Y - 6;
 export const GAMEPLAY_SCENIC_LAUNCHER_Y = GROUND_Y - 138;
 export const GAMEPLAY_SCENIC_THREAT_FLOOR_Y = GAMEPLAY_SCENIC_GROUND_Y + 6;
+export const GAMEPLAY_SUPPORT_SITE_Y = GAMEPLAY_SCENIC_GROUND_Y - 2;
 
 export const COL = {
   sky1: "#0a0e1a",
@@ -100,6 +101,27 @@ export const LAUNCHERS: { x: number; y: number }[] = [
 
 export function getGameplayLauncherPosition(index: number): { x: number; y: number } {
   return { x: LAUNCHERS[index].x, y: GAMEPLAY_SCENIC_LAUNCHER_Y };
+}
+
+export function getDefenseSitePlacement(key: string): { x: number; y: number; hw: number; hh: number } | null {
+  switch (key) {
+    case "patriot":
+      return { x: 334, y: GAMEPLAY_SUPPORT_SITE_Y, hw: 38, hh: 24 };
+    case "wildHornets":
+      return { x: 206, y: GAMEPLAY_SUPPORT_SITE_Y, hw: 30, hh: 24 };
+    case "roadrunner":
+      return { x: 678, y: GAMEPLAY_SUPPORT_SITE_Y, hw: 30, hh: 24 };
+    case "phalanx":
+      return { x: 553, y: GAMEPLAY_SUPPORT_SITE_Y - 13, hw: 10, hh: 15 };
+    case "launcherKit":
+      return { x: 772, y: GAMEPLAY_SUPPORT_SITE_Y + 2, hw: 30, hh: 24 };
+    case "flare":
+      return { x: BURJ_X, y: 837, hw: 8, hh: 10 };
+    case "ironBeam":
+      return { x: BURJ_X, y: 959, hw: 10, hh: 15 };
+    default:
+      return null;
+  }
 }
 
 export function getGameplayBuildingBounds(building: Building): {
