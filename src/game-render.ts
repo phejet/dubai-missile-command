@@ -2746,29 +2746,17 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
   };
 
   const titleSkylineTowers: TitleTower[] = [
-    { x: 6, w: 22, h: 70, windows: 1, roof: "flat" },
-    { x: 36, w: 18, h: 90, windows: 1, roof: "flat" },
-    { x: 60, w: 26, h: 84, windows: 1, roof: "flat" },
     { x: 92, w: 34, h: 198, windows: 2, roof: "roundedCrownL", glow: 0.12, profile: "leftLandmark" },
-    { x: 132, w: 14, h: 96, windows: 1, roof: "flat" },
     { x: 150, w: 34, h: 174, windows: 2, roof: "twinCrown", glow: 0.1, profile: "twinSpire" },
-    { x: 190, w: 30, h: 110, windows: 1, roof: "tapered" },
-    { x: 224, w: 22, h: 118, windows: 1, roof: "flat" },
-    { x: 250, w: 18, h: 96, windows: 1, roof: "flat" },
-    { x: 274, w: 16, h: 82, windows: 1, roof: "flat" },
-    { x: 294, w: 18, h: 88, windows: 1, roof: "flat" },
-    { x: 318, w: 20, h: 92, windows: 1, roof: "flat" },
-    { x: 344, w: 22, h: 86, windows: 1, roof: "flat" },
-    { x: 372, w: 28, h: 92, windows: 1, roof: "flat" },
-    { x: 518, w: 18, h: 122, windows: 1, roof: "flat" },
-    { x: 542, w: 46, h: 146, windows: 2, roof: "slantR", glow: 0.08, profile: "slantedBlock" },
-    { x: 594, w: 30, h: 132, windows: 1, roof: "curvedR", glow: 0.08, profile: "eggTower" },
-    { x: 630, w: 26, h: 190, windows: 1, roof: "curvedL", glow: 0.09, profile: "bladeTower" },
-    { x: 664, w: 22, h: 114, windows: 1, roof: "flat" },
-    { x: 692, w: 30, h: 164, windows: 1, roof: "flat" },
-    { x: 728, w: 26, h: 126, windows: 1, roof: "flat" },
-    { x: 760, w: 18, h: 86, windows: 1, roof: "flat" },
-    { x: 804, w: 18, h: 44, windows: 1, roof: "flat" },
+    { x: 190, w: 30, h: 110, windows: 1, roof: "tapered", glow: 0.1, profile: "slantedBlock" },
+    { x: 216, w: 24, h: 118, windows: 1, roof: "flat", glow: 0.09, profile: "bladeTower" },
+    { x: 252, w: 34, h: 144, windows: 1, roof: "flat", glow: 0.1, profile: "slantedBlock" },
+    { x: 300, w: 38, h: 152, windows: 1, roof: "flat", glow: 0.08, profile: "eggTower" },
+    { x: 542, w: 72, h: 224, windows: 2, roof: "slantR", glow: 0.08, profile: "slantedBlock" },
+    { x: 622, w: 46, h: 202, windows: 1, roof: "curvedR", glow: 0.08, profile: "eggTower" },
+    { x: 680, w: 28, h: 198, windows: 1, roof: "curvedL", glow: 0.09, profile: "bladeTower" },
+    { x: 720, w: 34, h: 168, windows: 1, roof: "roundedCrownL", glow: 0.1, profile: "twinSpire" },
+    { x: 728, w: 26, h: 126, windows: 1, roof: "tapered" },
   ];
 
   function drawTitleTower(tower: TitleTower, offset = 0) {
@@ -3731,7 +3719,7 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
     ctx.fillText("PROTECT THE BURJ KHALIFA", cx, 310);
     ctx.restore();
 
-    const pulse = 0.5 + 0.5 * Math.sin(t * 0.75);
+    const pulse = 0.5 + 0.5 * Math.sin(t * 1.5);
     ctx.fillStyle = `rgba(0,255,200,${pulse})`;
     ctx.save();
     ctx.translate(Math.sin(t * 5.425 + 2.4) * 0.25, 0);
