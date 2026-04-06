@@ -3284,7 +3284,7 @@ function drawUpgradeRangeOverlay(ctx: CanvasRenderingContext2D) {
       x: ov("upgrade.emp.x", 462),
       y: ov("upgrade.emp.y", 1047),
       color: "#cc44ff",
-      range: ov("upgrade.empRange", 550),
+      range: ov("upgrade.empRange", 1100),
     },
     {
       key: "upgrade.flares",
