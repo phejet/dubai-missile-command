@@ -3615,7 +3615,7 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
     ctx.translate(Math.sin(t * 5.425 + 2.4) * 0.25, 0);
     ctx.globalAlpha = pulse * (0.9 + 0.06 * Math.sin(t * 4.875));
     ctx.font = "bold 36px 'Courier New', monospace";
-    ctx.fillText("[ CLICK TO START ]", cx, 500);
+    ctx.fillText("PRESS START", cx, 500);
     ctx.restore();
   } else {
     const pulse = 0.3 + 0.2 * Math.sin(t * 2.4);
