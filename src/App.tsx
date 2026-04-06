@@ -653,9 +653,17 @@ export default function DubaiMissileCommand() {
     <div
       className={`game-shell game-shell--phonePortrait ${isCompactPortrait ? "game-shell--compactPortrait" : ""}`}
       data-screen={screen}
+      data-ui-mode="phonePortrait"
     >
       <div className="game-shell__ambient" aria-hidden="true" />
       <div className="game-shell__content">
+        {screen === "title" && (
+          <div className="portrait-title" data-testid="portrait-title">
+            <button type="button" className="action-button action-button--primary" onClick={startGame}>
+              Start Defense
+            </button>
+          </div>
+        )}
         {screen === "playing" && (
           <header className="portrait-hud" data-testid="portrait-hud">
             <div className="portrait-hud__cluster">
