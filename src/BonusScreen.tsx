@@ -63,7 +63,7 @@ export default function BonusScreen({
     } else if (phase >= 7) {
       finish();
     }
-  }, [phase, buildings, buildingCount, savedAmmo, ammoCount, wave, onScoreAdd, finish]);
+  }, [phase, buildings, buildingCount, savedAmmo, ammoCount, wave, finish]);
 
   useEffect(() => {
     if (phase === 0) {
@@ -136,8 +136,6 @@ export default function BonusScreen({
       }, 140);
       return () => clearInterval(iv);
     }
-    // onScoreAdd intentionally omitted — kept in ref to avoid resetting timers on every render
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, buildings, savedAmmo, wave]);
 
   return (
