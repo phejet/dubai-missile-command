@@ -3040,11 +3040,33 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
   }
 
   ctx.save();
-  ctx.globalAlpha = 0.95;
-  ctx.fillStyle = "rgba(95, 170, 255, 0.1)";
-  ctx.beginPath();
-  ctx.arc(burjX, burjBaseY - 182, 116, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.globalAlpha = 0.96;
+  const burjAura = ctx.createRadialGradient(burjX, burjBaseY - 168, 16, burjX, burjBaseY - 168, 168);
+  burjAura.addColorStop(0, "rgba(150, 230, 255, 0.18)");
+  burjAura.addColorStop(0.35, "rgba(108, 186, 255, 0.12)");
+  burjAura.addColorStop(0.72, "rgba(76, 128, 255, 0.06)");
+  burjAura.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = burjAura;
+  ctx.fillRect(burjX - 170, burjBaseY - 340, 340, 340);
+  ctx.restore();
+
+  ctx.save();
+  const skylineBeamCore = ctx.createLinearGradient(burjX, burjBaseY - burjHeight - 240, burjX, burjBaseY + 48);
+  skylineBeamCore.addColorStop(0, "rgba(110, 205, 255, 0)");
+  skylineBeamCore.addColorStop(0.18, "rgba(120, 210, 255, 0.06)");
+  skylineBeamCore.addColorStop(0.52, "rgba(150, 230, 255, 0.14)");
+  skylineBeamCore.addColorStop(0.86, "rgba(116, 206, 255, 0.08)");
+  skylineBeamCore.addColorStop(1, "rgba(90, 180, 255, 0)");
+  ctx.fillStyle = skylineBeamCore;
+  ctx.fillRect(burjX - 18, burjBaseY - burjHeight - 240, 36, burjHeight + 288);
+
+  const skylineBeamSoft = ctx.createRadialGradient(burjX, burjBaseY - 140, 24, burjX, burjBaseY - 140, 150);
+  skylineBeamSoft.addColorStop(0, "rgba(165, 232, 255, 0.14)");
+  skylineBeamSoft.addColorStop(0.28, "rgba(120, 205, 255, 0.1)");
+  skylineBeamSoft.addColorStop(0.62, "rgba(86, 162, 255, 0.05)");
+  skylineBeamSoft.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = skylineBeamSoft;
+  ctx.fillRect(burjX - 150, burjBaseY - burjHeight - 220, 300, burjHeight + 320);
   ctx.restore();
 
   ctx.save();
@@ -3054,13 +3076,14 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
     0,
     burjX,
     burjBaseY - burjHeight - 18,
-    72,
+    94,
   );
-  spireAura.addColorStop(0, "rgba(150, 220, 255, 0.28)");
-  spireAura.addColorStop(0.32, "rgba(80, 160, 255, 0.14)");
+  spireAura.addColorStop(0, "rgba(182, 236, 255, 0.36)");
+  spireAura.addColorStop(0.28, "rgba(118, 198, 255, 0.2)");
+  spireAura.addColorStop(0.62, "rgba(80, 150, 255, 0.1)");
   spireAura.addColorStop(1, "rgba(0, 0, 0, 0)");
   ctx.fillStyle = spireAura;
-  ctx.fillRect(burjX - 72, burjBaseY - burjHeight - 90, 144, 144);
+  ctx.fillRect(burjX - 94, burjBaseY - burjHeight - 112, 188, 188);
   ctx.restore();
 
   const podiumShimmer = 0.78 + 0.08 * Math.sin(t * 0.32);
@@ -3145,10 +3168,10 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
   ctx.fillRect(burjX - 11.4, burjBaseY - burjHeight + 224, 22.8, 10);
   ctx.fillStyle = "rgba(248, 252, 255, 0.82)";
   ctx.fillRect(burjX - 7.1, burjBaseY - burjHeight + 166, 14.2, 2.6);
-  // Aviation beacon — sharp blink ~1.6 Hz
-  const beaconBlink = Math.max(0, Math.sin(t * 5.0));
+  // Aviation beacon — sharp blink
+  const beaconBlink = Math.max(0, Math.sin(t * 3.0));
   const beaconIntensity = beaconBlink * beaconBlink; // squared for sharper flash
-  ctx.fillStyle = `rgba(255, 60, 40, ${0.25 + 0.75 * beaconIntensity})`;
+  ctx.fillStyle = `rgba(128, 60, 40, ${0.25 + 0.75 * beaconIntensity})`;
   ctx.fillRect(burjX - 0.7, burjBaseY - burjHeight - 50, 1.4, 10);
   if (beaconIntensity > 0.05) {
     const beaconGlow = ctx.createRadialGradient(
@@ -3182,12 +3205,27 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
   ctx.fillStyle = rightShade;
   ctx.fillRect(burjX - 1, burjBaseY - burjHeight - 50, 18, burjHeight + 50);
 
-  const upperBeam = ctx.createLinearGradient(burjX, burjBaseY - burjHeight - 56, burjX, burjBaseY - burjHeight + 90);
-  upperBeam.addColorStop(0, "rgba(150, 220, 255, 0.18)");
-  upperBeam.addColorStop(0.55, "rgba(120, 190, 255, 0.08)");
+  const upperBeam = ctx.createLinearGradient(burjX, burjBaseY - burjHeight - 96, burjX, burjBaseY - burjHeight + 140);
+  upperBeam.addColorStop(0, "rgba(150, 220, 255, 0.04)");
+  upperBeam.addColorStop(0.24, "rgba(170, 236, 255, 0.14)");
+  upperBeam.addColorStop(0.58, "rgba(128, 206, 255, 0.07)");
   upperBeam.addColorStop(1, "rgba(0, 0, 0, 0)");
   ctx.fillStyle = upperBeam;
-  ctx.fillRect(burjX - 8, burjBaseY - burjHeight - 56, 16, 146);
+  ctx.fillRect(burjX - 9, burjBaseY - burjHeight - 96, 18, 236);
+
+  const upperBeamSoft = ctx.createRadialGradient(
+    burjX,
+    burjBaseY - burjHeight + 34,
+    10,
+    burjX,
+    burjBaseY - burjHeight + 34,
+    74,
+  );
+  upperBeamSoft.addColorStop(0, "rgba(176, 236, 255, 0.14)");
+  upperBeamSoft.addColorStop(0.45, "rgba(126, 206, 255, 0.08)");
+  upperBeamSoft.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = upperBeamSoft;
+  ctx.fillRect(burjX - 74, burjBaseY - burjHeight - 44, 148, 210);
 
   for (let i = 0; i < 58; i++) {
     const ht = 0.03 + (i / 57) * 0.94;
@@ -3223,11 +3261,19 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
   // Base glow/podium
   ctx.save();
   const podiumGlow = ctx.createRadialGradient(burjX, titleGroundY - 20, 0, burjX, titleGroundY - 20, 140);
-  podiumGlow.addColorStop(0, "rgba(255, 220, 150, 0.34)");
-  podiumGlow.addColorStop(0.45, "rgba(255, 180, 120, 0.18)");
+  podiumGlow.addColorStop(0, "rgba(196, 242, 255, 0.32)");
+  podiumGlow.addColorStop(0.32, "rgba(120, 210, 255, 0.22)");
+  podiumGlow.addColorStop(0.62, "rgba(255, 180, 120, 0.12)");
   podiumGlow.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = podiumGlow;
   ctx.fillRect(burjX - 140, titleGroundY - 140, 280, 180);
+  const podiumBloom = ctx.createRadialGradient(burjX, titleGroundY - 14, 0, burjX, titleGroundY - 14, 96);
+  podiumBloom.addColorStop(0, "rgba(170, 235, 255, 0.18)");
+  podiumBloom.addColorStop(0.28, "rgba(132, 214, 255, 0.12)");
+  podiumBloom.addColorStop(0.62, "rgba(105, 198, 255, 0.06)");
+  podiumBloom.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = podiumBloom;
+  ctx.fillRect(burjX - 96, titleGroundY - 110, 192, 156);
   ctx.fillStyle = "rgba(236, 246, 255, 0.46)";
   ctx.fillRect(burjX - 28, titleGroundY - 8, 56, 7);
   ctx.fillStyle = "rgba(180, 220, 255, 0.34)";
@@ -3526,7 +3572,7 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
     const aimAngle = Math.atan2(titleTargetY - y, titleTargetX - x);
     const trailPulse = 0.55 + 0.45 * Math.sin(t * 1.8 + obj.phase * 7 + index * 0.6);
     ctx.save();
-    ctx.strokeStyle = obj.kind === "shahed" ? "rgba(255, 210, 150, 0.18)" : "rgba(210, 220, 230, 0.16)";
+    ctx.strokeStyle = obj.kind === "shahed" ? "rgba(255, 210, 150, 0.1)" : "rgba(210, 220, 230, 0.1)";
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(x, y);
