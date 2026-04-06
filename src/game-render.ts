@@ -3236,7 +3236,7 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
   ctx.save();
   const titleWaterImg = getTitleWaterImage();
   if (titleWaterImg) {
-    ctx.drawImage(titleWaterImg, 0, waterTop, CANVAS_W, waterBottom - waterTop);
+    ctx.drawImage(titleWaterImg, 0, waterTop, CANVAS_W + 10, waterBottom - waterTop);
 
     // A light cool tint keeps the bitmap aligned with the scene's night palette.
     const waterGrade = ctx.createLinearGradient(0, waterTop, 0, waterBottom);
@@ -3294,75 +3294,180 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
     ctx.save();
     ctx.globalAlpha = alpha;
 
-    // Subtle glow under launcher
-    const glow = ctx.createRadialGradient(lx, ly + 4, 0, lx, ly + 4, 38);
-    glow.addColorStop(0, "rgba(0, 200, 255, 0.22)");
+    // Dark grounding shadow to separate from skyline clutter.
+    const shadow = ctx.createRadialGradient(lx, ly + 18, 0, lx, ly + 18, 44);
+    shadow.addColorStop(0, "rgba(4, 8, 16, 0.55)");
+    shadow.addColorStop(0.7, "rgba(4, 8, 16, 0.18)");
+    shadow.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = shadow;
+    ctx.fillRect(lx - 46, ly - 6, 92, 50);
+
+    // Soft atmospheric veil pushes the launcher forward from the skyline.
+    const haze = ctx.createRadialGradient(lx, ly - 4, 0, lx, ly - 4, 60);
+    haze.addColorStop(0, "rgba(88, 150, 210, 0.12)");
+    haze.addColorStop(0.45, "rgba(56, 104, 168, 0.06)");
+    haze.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = haze;
+    ctx.fillRect(lx - 60, ly - 54, 120, 110);
+
+    // Grounded atmospheric bloom
+    const glow = ctx.createRadialGradient(lx, ly + 8, 0, lx, ly + 8, 52);
+    glow.addColorStop(0, "rgba(0, 210, 255, 0.26)");
     glow.addColorStop(1, "rgba(0, 0, 0, 0)");
     ctx.fillStyle = glow;
-    ctx.fillRect(lx - 38, ly - 20, 76, 50);
+    ctx.fillRect(lx - 52, ly - 26, 104, 68);
 
-    // Base platform
-    ctx.fillStyle = "#1e2e42";
+    // Embedded launch platform
+    ctx.fillStyle = "#182434";
     ctx.beginPath();
-    ctx.moveTo(lx - 18, ly + 5);
-    ctx.lineTo(lx - 13, ly - 8);
-    ctx.quadraticCurveTo(lx, ly - 11, lx + 13, ly - 8);
-    ctx.lineTo(lx + 18, ly + 5);
-    ctx.quadraticCurveTo(lx, ly + 8, lx - 18, ly + 5);
-    ctx.fill();
-    // Base highlight rim
-    ctx.strokeStyle = "rgba(0, 200, 255, 0.28)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(lx - 18, ly + 5);
-    ctx.lineTo(lx - 13, ly - 8);
-    ctx.quadraticCurveTo(lx, ly - 11, lx + 13, ly - 8);
-    ctx.lineTo(lx + 18, ly + 5);
-    ctx.stroke();
-
-    // Turret dome
-    ctx.fillStyle = "#283e58";
-    ctx.beginPath();
-    ctx.arc(lx, ly - 8, 11, Math.PI, 0);
-    ctx.lineTo(lx + 9, ly - 5);
-    ctx.lineTo(lx - 9, ly - 5);
+    ctx.moveTo(lx - 34, ly + 12);
+    ctx.lineTo(lx - 24, ly - 6);
+    ctx.lineTo(lx + 24, ly - 6);
+    ctx.lineTo(lx + 34, ly + 12);
+    ctx.lineTo(lx + 22, ly + 18);
+    ctx.lineTo(lx - 22, ly + 18);
     ctx.closePath();
     ctx.fill();
-    // Dome highlight
-    ctx.strokeStyle = "rgba(100, 200, 255, 0.35)";
-    ctx.lineWidth = 0.9;
+    ctx.strokeStyle = "rgba(58, 116, 164, 0.4)";
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(lx, ly - 8, 11, Math.PI + 0.2, -0.2);
+    ctx.moveTo(lx - 34, ly + 12);
+    ctx.lineTo(lx - 24, ly - 6);
+    ctx.lineTo(lx + 24, ly - 6);
+    ctx.lineTo(lx + 34, ly + 12);
+    ctx.stroke();
+    ctx.fillStyle = "rgba(0, 230, 255, 0.12)";
+    ctx.fillRect(lx - 18, ly + 12, 36, 2);
+
+    // Main carriage
+    ctx.fillStyle = "#223247";
+    ctx.beginPath();
+    ctx.moveTo(lx - 22, ly + 5);
+    ctx.lineTo(lx - 16, ly - 11);
+    ctx.lineTo(lx - 6, ly - 16);
+    ctx.lineTo(lx + 10, ly - 16);
+    ctx.lineTo(lx + 18, ly - 8);
+    ctx.lineTo(lx + 22, ly + 4);
+    ctx.lineTo(lx + 12, ly + 10);
+    ctx.lineTo(lx - 14, ly + 10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "rgba(120, 205, 255, 0.16)";
+    ctx.beginPath();
+    ctx.moveTo(lx - 16, ly - 8);
+    ctx.lineTo(lx - 5, ly - 13);
+    ctx.lineTo(lx + 8, ly - 13);
+    ctx.lineTo(lx + 13, ly - 8);
+    ctx.lineTo(lx + 12, ly - 6);
+    ctx.lineTo(lx - 14, ly - 6);
+    ctx.closePath();
+    ctx.fill();
+
+    // Turret cap
+    ctx.fillStyle = "#2a3d56";
+    ctx.beginPath();
+    ctx.ellipse(lx, ly - 10, 13, 9, 0, Math.PI, 0);
+    ctx.lineTo(lx + 10, ly - 4);
+    ctx.lineTo(lx - 10, ly - 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "rgba(120, 210, 255, 0.42)";
+    ctx.lineWidth = 1.1;
+    ctx.beginPath();
+    ctx.arc(lx, ly - 10, 13, Math.PI + 0.22, -0.12);
+    ctx.stroke();
+
+    // Burj-facing cyan rim light
+    const rimDir = lx < burjX ? 1 : -1;
+    ctx.fillStyle = "rgba(150, 232, 255, 0.2)";
+    ctx.fillRect(lx + rimDir * 11 - 1.5, ly - 14, 3, 20);
+    ctx.fillStyle = "rgba(150, 232, 255, 0.12)";
+    ctx.fillRect(lx + rimDir * 19 - 1, ly - 4, 2, 10);
+
+    // Slow servo indicator light
+    const servoPulse = 0.46 + 0.28 * Math.sin(t * 2.2 + lx * 0.018);
+    ctx.fillStyle = `rgba(120, 235, 255, ${servoPulse})`;
+    ctx.fillRect(lx - 3, ly - 2, 6, 6);
+    const servoGlow = ctx.createRadialGradient(lx, ly + 1, 0, lx, ly + 1, 14);
+    servoGlow.addColorStop(0, `rgba(120, 235, 255, ${servoPulse})`);
+    servoGlow.addColorStop(0.5, `rgba(86, 196, 255, ${servoPulse * 0.5})`);
+    servoGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = servoGlow;
+    ctx.fillRect(lx - 14, ly - 13, 28, 28);
+
+    // Visible status LEDs on the launcher body.
+    const ledPulse = 0.5 + 0.3 * Math.sin(t * 10.8 + lx * 0.027);
+    ctx.fillStyle = `rgba(118, 238, 255, ${0.7 * ledPulse})`;
+    ctx.fillRect(lx - 12, ly - 6, 3, 5);
+    ctx.fillRect(lx - 7, ly - 8, 3, 6);
+    const warnPulse = 0.38 + 0.22 * Math.sin(t * 0.9 + lx * 0.013 + 1.2);
+    ctx.fillStyle = `rgba(255, 188, 112, ${warnPulse})`;
+    ctx.fillRect(lx + 8, ly - 6, 3, 5);
+
+    // Rear support strut for asymmetry
+    ctx.strokeStyle = "rgba(50, 70, 94, 0.95)";
+    ctx.lineWidth = 3.2;
+    ctx.beginPath();
+    ctx.moveTo(lx - 7, ly + 8);
+    ctx.lineTo(lx - 16, ly + 18);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(112, 190, 255, 0.16)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(lx - 7, ly + 7);
+    ctx.lineTo(lx - 14, ly + 15);
     ctx.stroke();
 
     // Barrel
     ctx.save();
-    ctx.translate(lx, ly - 10);
+    ctx.translate(lx + 2, ly - 12);
     ctx.rotate(barrelAngle);
-    ctx.fillStyle = "#3a5068";
+    ctx.fillStyle = "#3b526c";
     ctx.beginPath();
-    ctx.moveTo(0, -3);
-    ctx.lineTo(20, -1.8);
-    ctx.quadraticCurveTo(24, 0, 20, 1.8);
-    ctx.lineTo(0, 3);
+    ctx.moveTo(-2, -4.2);
+    ctx.lineTo(24, -3.2);
+    ctx.quadraticCurveTo(31, -1.1, 34, 0);
+    ctx.quadraticCurveTo(31, 1.1, 24, 3.2);
+    ctx.lineTo(-2, 4.2);
     ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = "rgba(120, 200, 255, 0.3)";
-    ctx.lineWidth = 0.6;
+    ctx.fillStyle = "#1d2b3d";
+    ctx.fillRect(2, -1.2, 24, 2.4);
+    ctx.strokeStyle = "rgba(136, 218, 255, 0.34)";
+    ctx.lineWidth = 0.9;
     ctx.beginPath();
-    ctx.moveTo(1, -2.2);
-    ctx.lineTo(20, -1.3);
+    ctx.moveTo(0, -3.1);
+    ctx.lineTo(26, -2.1);
     ctx.stroke();
+    ctx.fillStyle = "rgba(150, 230, 255, 0.16)";
+    ctx.fillRect(6, -3, 14, 1.3);
+
+    // Barrel collar
+    ctx.fillStyle = "#2a3e56";
+    ctx.fillRect(-4, -5.4, 7, 10.8);
+    ctx.fillStyle = "rgba(132, 214, 255, 0.18)";
+    ctx.fillRect(-2.5, -4.2, 2, 8.4);
 
     // Muzzle glow pulse
-    const muzzleX = Math.cos(barrelAngle) * 24;
-    const muzzleY = Math.sin(barrelAngle) * 24;
-    const pulse = 0.45 + 0.3 * Math.sin(t * 2.4 + lx * 0.02);
-    const mGlow = ctx.createRadialGradient(muzzleX, muzzleY, 0, muzzleX, muzzleY, 8);
+    const muzzleX = Math.cos(barrelAngle) * 34;
+    const muzzleY = Math.sin(barrelAngle) * 34;
+    const pulse = 0.38 + 0.26 * Math.sin(t * 2.4 + lx * 0.02);
+    const mGlow = ctx.createRadialGradient(muzzleX, muzzleY, 0, muzzleX, muzzleY, 10);
     mGlow.addColorStop(0, `rgba(0, 255, 200, ${pulse})`);
     mGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
     ctx.fillStyle = mGlow;
-    ctx.fillRect(muzzleX - 8, muzzleY - 8, 16, 16);
+    ctx.fillRect(muzzleX - 10, muzzleY - 10, 20, 20);
+
+    // Faint charge halo near the barrel root.
+    const chargePulse = 0.16 + 0.16 * Math.sin(t * 1.45 + lx * 0.03 + 0.8);
+    const chargeGlow = ctx.createRadialGradient(4, 0, 0, 4, 0, 14);
+    chargeGlow.addColorStop(0, `rgba(126, 228, 255, ${chargePulse})`);
+    chargeGlow.addColorStop(0.65, `rgba(80, 176, 255, ${chargePulse * 0.5})`);
+    chargeGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = chargeGlow;
+    ctx.fillRect(-10, -14, 28, 28);
+    ctx.fillStyle = `rgba(142, 236, 255, ${0.5 + chargePulse * 0.8})`;
+    ctx.fillRect(1, -1.3, 10, 2.6);
     ctx.restore();
 
     ctx.restore();
