@@ -3575,10 +3575,9 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
   const titleSkylineTowers: TitleTower[] = [
     { x: 92, w: 34, h: 198, windows: 2, roof: "roundedCrownL", glow: 0.12, profile: "leftLandmark" },
     { x: 150, w: 34, h: 174, windows: 2, roof: "twinCrown", glow: 0.1, profile: "twinSpire" },
-    { x: 190, w: 30, h: 110, windows: 1, roof: "tapered", glow: 0.1, profile: "slantedBlock" },
-    { x: 216, w: 24, h: 118, windows: 1, roof: "flat", glow: 0.09, profile: "bladeTower" },
-    { x: 252, w: 34, h: 144, windows: 1, roof: "flat", glow: 0.1, profile: "slantedBlock" },
-    { x: 300, w: 38, h: 152, windows: 1, roof: "flat", glow: 0.08, profile: "eggTower" },
+    { x: 190, w: 60, h: 110, windows: 1, roof: "tapered", glow: 0.1, profile: "slantedBlock" },
+    { x: 262, w: 34, h: 144, windows: 1, roof: "flat", glow: 0.1, profile: "twinSpire" },
+    { x: 320, w: 38, h: 152, windows: 1, roof: "flat", glow: 0.08, profile: "eggTower" },
     { x: 542, w: 72, h: 224, windows: 2, roof: "slantR", glow: 0.08, profile: "slantedBlock" },
     { x: 622, w: 46, h: 202, windows: 1, roof: "curvedR", glow: 0.08, profile: "eggTower" },
     { x: 680, w: 28, h: 198, windows: 1, roof: "curvedL", glow: 0.09, profile: "bladeTower" },
