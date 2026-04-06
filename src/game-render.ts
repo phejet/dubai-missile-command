@@ -10,6 +10,7 @@ import {
   BURJ_X,
   BURJ_H,
   LAUNCHERS,
+  SCENIC_BUILDING_LAYOUT,
   getGameplayBuildingBounds,
   getGameplayBurjCollisionTop,
   getGameplayBurjHalfW,
@@ -230,19 +231,7 @@ type TitleTower = {
   glow?: number;
 };
 
-const TITLE_SKYLINE_TOWERS: TitleTower[] = [
-  { x: 92, w: 34, h: 198, windows: 2, roof: "roundedCrownL", glow: 0.12, profile: "leftLandmark" },
-  { x: 150, w: 34, h: 174, windows: 2, roof: "twinCrown", glow: 0.1, profile: "twinSpire" },
-  { x: 190, w: 30, h: 110, windows: 1, roof: "tapered", glow: 0.1, profile: "slantedBlock" },
-  { x: 216, w: 24, h: 118, windows: 1, roof: "flat", glow: 0.09, profile: "bladeTower" },
-  { x: 252, w: 34, h: 144, windows: 1, roof: "flat", glow: 0.1, profile: "slantedBlock" },
-  { x: 300, w: 38, h: 152, windows: 1, roof: "flat", glow: 0.08, profile: "eggTower" },
-  { x: 542, w: 72, h: 224, windows: 2, roof: "slantR", glow: 0.08, profile: "slantedBlock" },
-  { x: 622, w: 46, h: 202, windows: 1, roof: "curvedR", glow: 0.08, profile: "eggTower" },
-  { x: 680, w: 28, h: 198, windows: 1, roof: "curvedL", glow: 0.09, profile: "bladeTower" },
-  { x: 720, w: 34, h: 168, windows: 1, roof: "roundedCrownL", glow: 0.1, profile: "twinSpire" },
-  { x: 728, w: 26, h: 126, windows: 1, roof: "tapered" },
-];
+const TITLE_SKYLINE_TOWERS: TitleTower[] = [...SCENIC_BUILDING_LAYOUT];
 
 const TITLE_LAUNCHER_ANGLES = [-1.1, -1.57, -2.05];
 
@@ -546,31 +535,16 @@ function drawSharedTower(
   ctx.restore();
 }
 
-function drawSharedSkylineCluster(ctx: CanvasRenderingContext2D, t: number, groundY: number, glowScale = 1) {
-  const baseY = groundY - 6;
-  TITLE_SKYLINE_TOWERS.forEach((tower, i) =>
-    drawSharedTower(ctx, tower, baseY, t, Math.sin(t * 0.05 + i * 0.8) * 1.35, glowScale),
-  );
-}
-
 function mapGameplayBuildingTower(building: Building, index: number): TitleTower {
-  const profiles: NonNullable<TitleTower["profile"]>[] = ["slantedBlock", "eggTower", "bladeTower", "generic"];
-  const roofs: NonNullable<TitleTower["roof"]>[] = [
-    "flat",
-    "roundedCrownL",
-    "curvedR",
-    "tapered",
-    "slantR",
-    "twinCrown",
-  ];
+  const scenicTower = TITLE_SKYLINE_TOWERS[index];
   return {
     x: building.x,
     w: building.w,
     h: building.h,
     windows: building.windows,
-    profile: profiles[index % profiles.length],
-    roof: roofs[index % roofs.length],
-    glow: 0.04 + (index % 3) * 0.01,
+    profile: scenicTower?.profile ?? "generic",
+    roof: scenicTower?.roof ?? "flat",
+    glow: scenicTower?.glow ?? 0.06,
   };
 }
 
@@ -3186,7 +3160,6 @@ export function drawGame(
     },
     sceneTime,
   );
-  drawSharedSkylineCluster(ctx, sceneTime, scenicGroundY, 0.75);
   drawSharedBurj(ctx, {
     mode: "game",
     groundY: scenicGroundY,
@@ -3572,19 +3545,7 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
     glow?: number;
   };
 
-  const titleSkylineTowers: TitleTower[] = [
-    { x: 92, w: 34, h: 198, windows: 2, roof: "roundedCrownL", glow: 0.12, profile: "leftLandmark" },
-    { x: 150, w: 34, h: 174, windows: 2, roof: "twinCrown", glow: 0.1, profile: "twinSpire" },
-    { x: 190, w: 60, h: 110, windows: 1, roof: "tapered", glow: 0.1, profile: "slantedBlock" },
-    { x: 262, w: 34, h: 144, windows: 1, roof: "flat", glow: 0.1, profile: "twinSpire" },
-    { x: 320, w: 38, h: 152, windows: 1, roof: "flat", glow: 0.08, profile: "eggTower" },
-    { x: 542, w: 72, h: 224, windows: 2, roof: "slantR", glow: 0.08, profile: "slantedBlock" },
-    { x: 622, w: 46, h: 202, windows: 1, roof: "curvedR", glow: 0.08, profile: "eggTower" },
-    { x: 680, w: 28, h: 198, windows: 1, roof: "curvedL", glow: 0.09, profile: "bladeTower" },
-    { x: 720, w: 34, h: 168, windows: 1, roof: "roundedCrownL", glow: 0.1, profile: "twinSpire" },
-    { x: 728, w: 26, h: 126, windows: 1, roof: "tapered" },
-    { x: 780, w: 48, h: 100, windows: 1, roof: "curvedL", glow: 0.09, profile: "bladeTower" },
-  ];
+  const titleSkylineTowers: TitleTower[] = TITLE_SKYLINE_TOWERS;
 
   function drawTitleTower(tower: TitleTower, offset = 0) {
     const baseY = titleGroundY - 6;

@@ -43,6 +43,29 @@ export const COL = {
   mirv: "#dd4422",
 };
 
+export const SCENIC_BUILDING_LAYOUT = [
+  { x: 92, w: 34, h: 198, windows: 2, roof: "roundedCrownL", glow: 0.12, profile: "leftLandmark" },
+  { x: 150, w: 34, h: 174, windows: 2, roof: "twinCrown", glow: 0.1, profile: "twinSpire" },
+  { x: 190, w: 60, h: 110, windows: 1, roof: "tapered", glow: 0.1, profile: "slantedBlock" },
+  { x: 262, w: 34, h: 144, windows: 1, roof: "flat", glow: 0.1, profile: "twinSpire" },
+  { x: 320, w: 38, h: 152, windows: 1, roof: "flat", glow: 0.08, profile: "eggTower" },
+  { x: 542, w: 72, h: 224, windows: 2, roof: "slantR", glow: 0.08, profile: "slantedBlock" },
+  { x: 622, w: 46, h: 202, windows: 1, roof: "curvedR", glow: 0.08, profile: "eggTower" },
+  { x: 680, w: 28, h: 198, windows: 1, roof: "curvedL", glow: 0.09, profile: "bladeTower" },
+  { x: 720, w: 34, h: 168, windows: 1, roof: "roundedCrownL", glow: 0.1, profile: "twinSpire" },
+  { x: 780, w: 48, h: 100, windows: 1, roof: "curvedL", glow: 0.09, profile: "bladeTower" },
+] as const;
+
+export function createScenicBuildings(): Building[] {
+  return SCENIC_BUILDING_LAYOUT.map((tower) => ({
+    x: tower.x,
+    w: tower.w,
+    h: tower.h,
+    windows: tower.windows,
+    alive: true,
+  }));
+}
+
 export const BURJ_X = 460;
 export const BURJ_H = 340;
 export const MAX_PARTICLES = 500;

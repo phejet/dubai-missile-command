@@ -9,6 +9,7 @@ import {
   BURJ_H,
   MAX_PARTICLES,
   LAUNCHERS,
+  createScenicBuildings,
   getGameplayBuildingBounds,
   getGameplayBurjCollisionTop,
   getGameplayBurjHalfW,
@@ -163,27 +164,6 @@ export const UPGRADES = {
   },
 };
 
-const BUILDINGS_LEFT = [
-  [40, 35, 80, 3],
-  [85, 30, 120, 3],
-  [125, 40, 95, 4],
-  [175, 28, 140, 3],
-  [210, 45, 110, 4],
-  [265, 32, 70, 3],
-  [305, 38, 130, 3],
-  [350, 42, 100, 4],
-];
-const BUILDINGS_RIGHT = [
-  [530, 38, 90, 3],
-  [575, 32, 110, 3],
-  [615, 45, 75, 4],
-  [665, 30, 130, 3],
-  [700, 40, 100, 4],
-  [745, 35, 85, 3],
-  [790, 42, 120, 3],
-  [840, 28, 95, 3],
-];
-
 function boom(
   g: GameState,
   x: number,
@@ -200,13 +180,7 @@ function boom(
 }
 
 export function initGame(): GameState {
-  const allBuildings = [...BUILDINGS_LEFT, ...BUILDINGS_RIGHT].map(([x, w, h, win]) => ({
-    x,
-    w,
-    h,
-    windows: win,
-    alive: true,
-  }));
+  const allBuildings = createScenicBuildings();
 
   const commander = createCommander("balanced");
   const wave1 = generateWaveSchedule(1, commander);
