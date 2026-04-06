@@ -3307,7 +3307,7 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
     ctx.lineTo(-4, 3);
     ctx.closePath();
     ctx.fill();
-    ctx.fillStyle = "#ff8844";
+    ctx.fillStyle = "#ff884480";
     ctx.beginPath();
     ctx.moveTo(-2, -2);
     ctx.lineTo(-12, 0);
@@ -3325,9 +3325,12 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
   }
 
   const titleAircraft = [
-    { kind: "shahed", x: 324, y: 520, scale: 4, phase: 0.1 },
-    { kind: "missile", x: 602, y: 486, scale: 4, phase: 0.32 },
-    { kind: "missile", x: 688, y: 836, scale: 4, phase: 0.56 },
+    { kind: "shahed", x: 125, y: 520, scale: 2, phase: 0.1 },
+    { kind: "shahed", x: 100, y: 620, scale: 2, phase: 0.1 },
+    { kind: "shahed", x: 150, y: 800, scale: 2, phase: 0.1 },
+    { kind: "missile", x: 752, y: 550, scale: 2, phase: 0.32 },
+    { kind: "missile", x: 702, y: 786, scale: 2, phase: 0.32 },
+    { kind: "missile", x: 758, y: 836, scale: 2, phase: 0.56 },
   ];
   const titleTargetX = BURJ_X;
   const titleTargetY = burjBaseY - burjHeight + 18;
@@ -3367,13 +3370,14 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
       ctx.restore();
     } else {
       ctx.save();
+      const missileTrailFade = 0.08 * trailPulse;
       ctx.strokeStyle = "rgba(210, 214, 220, 0.18)";
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(x - Math.cos(aimAngle) * 34, y - Math.sin(aimAngle) * 34);
       ctx.lineTo(x, y);
       ctx.stroke();
-      drawTitleMissileStreak(ctx, x, y, aimAngle + 0.04, obj.scale, 0.9, 80, trailPulse);
+      drawTitleMissileStreak(ctx, x, y, aimAngle + 0.04, obj.scale, 1, 80, missileTrailFade);
       ctx.restore();
     }
   });
@@ -3419,8 +3423,8 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
     ctx.translate(Math.sin(t * 5.775 + 1.2) * 0.25, 0);
     ctx.globalAlpha = 0.92 + 0.04 * Math.sin(t * 8.9 + 0.3);
     ctx.font = "bold 34px 'Courier New', monospace";
-    ctx.fillText("DEFEND THE CITY", cx, 252);
-    ctx.fillText("PROTECT THE BURJ KHALIFA", cx, 290);
+    ctx.fillText("DEFEND THE CITY", cx, 262);
+    ctx.fillText("PROTECT THE BURJ KHALIFA", cx, 310);
     ctx.restore();
 
     const pulse = 0.5 + 0.5 * Math.sin(t * 0.75);
