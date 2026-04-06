@@ -44,3 +44,4 @@ coverage/
 # Training/learning logs
 src/headless/training-log.jsonl
 src/headless/learning-log.jsonl
+.playwright-mcp/
