@@ -18,13 +18,13 @@ eslint_files=()
 
 for file in "${staged_files[@]}"; do
   case "$file" in
-    *.js|*.jsx|*.mjs|*.json|*.md|*.css|*.html)
+    *.js|*.jsx|*.mjs|*.ts|*.tsx|*.json|*.md|*.css|*.html)
       prettier_files+=("$file")
       ;;
   esac
 
   case "$file" in
-    *.js|*.jsx|*.mjs)
+    *.js|*.jsx|*.mjs|*.ts|*.tsx)
       eslint_files+=("$file")
       ;;
   esac
