@@ -3124,7 +3124,7 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
   ctx.fillRect(burjX - 7.1, burjBaseY - burjHeight + 166, 14.2, 2.6);
   // Aviation beacon — sharp blink
   const beaconBlink = Math.max(0, Math.sin(t * 3.0));
-  const beaconIntensity = beaconBlink * beaconBlink; // squared for sharper flash
+  const beaconIntensity = Math.pow(beaconBlink, 0.3);
   ctx.fillStyle = `rgba(128, 60, 40, ${0.25 + 0.75 * beaconIntensity})`;
   ctx.fillRect(burjX - 0.7, burjBaseY - burjHeight - 50, 1.4, 10);
   if (beaconIntensity > 0.05) {
@@ -3134,12 +3134,12 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
       0,
       burjX,
       burjBaseY - burjHeight - 46,
-      14,
+      8,
     );
-    beaconGlow.addColorStop(0, `rgba(255, 60, 40, ${0.55 * beaconIntensity})`);
+    beaconGlow.addColorStop(0, `rgba(255, 60, 40, ${0.36 * beaconIntensity})`);
     beaconGlow.addColorStop(1, "rgba(255, 0, 0, 0)");
     ctx.fillStyle = beaconGlow;
-    ctx.fillRect(burjX - 14, burjBaseY - burjHeight - 56, 28, 28);
+    ctx.fillRect(burjX - 8, burjBaseY - burjHeight - 54, 16, 16);
   }
 
   ctx.save();
@@ -3706,7 +3706,9 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
     ctx.fillText("PROTECT THE BURJ KHALIFA", cx, 310);
     ctx.restore();
 
-    const pulse = 0.5 + 0.5 * Math.sin(t * 1.5);
+    const beaconBlink = Math.max(0, Math.sin(t * 3.0));
+    const beaconIntensity = Math.pow(beaconBlink, 0.3);
+    const pulse = 0.18 + beaconIntensity * 0.82;
     ctx.fillStyle = `rgba(0,255,200,${pulse})`;
     ctx.save();
     ctx.translate(Math.sin(t * 5.425 + 2.4) * 0.25, 0);
