@@ -3061,7 +3061,7 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
   if (titleBurjGlowImg) {
     ctx.save();
     ctx.globalAlpha = 1;
-    ctx.drawImage(titleBurjGlowImg, burjX - 160, burjBaseY - burjHeight - 170, 320, 780);
+    ctx.drawImage(titleBurjGlowImg, burjX - 210, burjBaseY - burjHeight - 190, 420, 820);
     ctx.restore();
   }
 
