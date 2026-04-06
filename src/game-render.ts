@@ -2636,6 +2636,7 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
   const layout = resolveLayoutProfile(layoutProfile);
   const t = performance.now() / 1000;
   const cx = CANVAS_W / 2;
+  const titleGroundY = GROUND_Y - 100;
   const skyGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
   skyGrad.addColorStop(0, "#050810");
   skyGrad.addColorStop(0.5, "#0a1030");
@@ -2753,7 +2754,7 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
   ];
 
   function drawTitleTower(tower: TitleTower, offset = 0) {
-    const baseY = GROUND_Y - 6;
+    const baseY = titleGroundY - 6;
     const x = tower.x + offset;
     const top = baseY - tower.h;
     const right = x + tower.w;
@@ -2954,7 +2955,7 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
 
   // Central glowing Burj
   const burjX = cx;
-  const burjBaseY = GROUND_Y - 6;
+  const burjBaseY = titleGroundY - 6;
   const burjHeight = BURJ_H;
   const burjLeftSections = [
     { top: 1.0, bottom: 0.982, w: 0.7 },
@@ -3221,21 +3222,21 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
 
   // Base glow/podium
   ctx.save();
-  const podiumGlow = ctx.createRadialGradient(burjX, GROUND_Y - 20, 0, burjX, GROUND_Y - 20, 140);
+  const podiumGlow = ctx.createRadialGradient(burjX, titleGroundY - 20, 0, burjX, titleGroundY - 20, 140);
   podiumGlow.addColorStop(0, "rgba(255, 220, 150, 0.34)");
   podiumGlow.addColorStop(0.45, "rgba(255, 180, 120, 0.18)");
   podiumGlow.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = podiumGlow;
-  ctx.fillRect(burjX - 140, GROUND_Y - 140, 280, 180);
+  ctx.fillRect(burjX - 140, titleGroundY - 140, 280, 180);
   ctx.fillStyle = "rgba(236, 246, 255, 0.46)";
-  ctx.fillRect(burjX - 28, GROUND_Y - 8, 56, 7);
+  ctx.fillRect(burjX - 28, titleGroundY - 8, 56, 7);
   ctx.fillStyle = "rgba(180, 220, 255, 0.34)";
-  ctx.fillRect(burjX - 12, GROUND_Y - 13, 24, 4);
+  ctx.fillRect(burjX - 12, titleGroundY - 13, 24, 4);
   ctx.restore();
 
   // Waterfront strip and reflections
-  const waterTop = GROUND_Y + 8;
-  const waterBottom = Math.min(CANVAS_H, GROUND_Y + 98);
+  const waterTop = titleGroundY + 8;
+  const waterBottom = CANVAS_H;
   ctx.save();
   const titleWaterImg = getTitleWaterImage();
   if (titleWaterImg) {
@@ -3376,7 +3377,7 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
   LAUNCHERS.forEach((l, i) => {
     const sweep = Math.sin(t * 0.45 + i * 1.2) * 0.18;
     const angle = Math.min(-0.25, Math.max(titleLauncherAngles[i] + sweep, -Math.PI + 0.25));
-    drawTitleLauncher(l.x, l.y - 5, angle, 0.92);
+    drawTitleLauncher(l.x, l.y - 105, angle, 0.92);
   });
 
   function drawTitleShahed(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number, scale = 1, alpha = 1) {
@@ -3618,7 +3619,7 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
     ctx.translate(Math.sin(t * 5.425 + 2.4) * 0.25, 0);
     ctx.globalAlpha = pulse * (0.9 + 0.06 * Math.sin(t * 4.875));
     ctx.font = "bold 36px 'Courier New', monospace";
-    ctx.fillText("[ CLICK TO START ]", cx, 656);
+    ctx.fillText("[ CLICK TO START ]", cx, 500);
     ctx.restore();
   } else {
     const pulse = 0.3 + 0.2 * Math.sin(t * 2.4);
