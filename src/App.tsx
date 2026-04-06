@@ -66,6 +66,9 @@ const LAYOUT_PROFILE = {
 const EMPTY_HUD = {
   score: 0,
   wave: 1,
+  waveProgress: 0,
+  waveSpawned: 0,
+  waveSpawnTotal: 0,
   burjHealth: 5,
   burjAlive: true,
   fps: 0,
@@ -114,6 +117,9 @@ function getViewportSnapshot() {
 function buildHudSnapshot(game: GameState | null) {
   if (!game) return EMPTY_HUD;
   const ammoMax = getAmmoCapacity(game.wave, game.upgrades.launcherKit);
+  const waveSpawnTotal = game.schedule?.length ?? 0;
+  const waveSpawned = waveSpawnTotal > 0 ? Math.min(game.scheduleIdx, waveSpawnTotal) : 0;
+  const waveProgress = waveSpawnTotal > 0 ? Math.round((waveSpawned / waveSpawnTotal) * 100) : 0;
   const activeUpgrades = Object.entries(game.upgrades)
     .filter(([, level]) => level > 0)
     .map(([key, level]) => {
@@ -129,6 +135,9 @@ function buildHudSnapshot(game: GameState | null) {
   return {
     score: game.score,
     wave: game.wave,
+    waveProgress,
+    waveSpawned,
+    waveSpawnTotal,
     burjHealth: game.burjHealth,
     burjAlive: game.burjAlive,
     fps: game._fpsDisplay || 0,
@@ -203,6 +212,8 @@ export default function DubaiMissileCommand() {
   const [muted, setMuted] = useState(false);
   const [replayActive, setReplayActive] = useState(false);
   const [lastReplay, setLastReplay] = useState<ReplayData | null>(null);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [showColliders, setShowColliders] = useState(false);
   const [showPerfOverlay, setShowPerfOverlay] = useState(false);
   const [viewport, setViewport] = useState(getViewportSnapshot);
   const [hudSnapshot, setHudSnapshot] = useState(EMPTY_HUD);
@@ -234,6 +245,9 @@ export default function DubaiMissileCommand() {
     gameRef.current._replayCheckpointLastHash = null;
     maybeRecordReplayCheckpoint(gameRef.current, { force: true, reason: "start" });
     shopBoughtRef.current = [];
+    setShowOptionsMenu(false);
+    setShowColliders(false);
+    setShowPerfOverlay(false);
     window.__gameRef = gameRef;
     syncHudSnapshot(gameRef.current, { force: true });
   }, [draftMode, syncHudSnapshot]);
@@ -267,6 +281,9 @@ export default function DubaiMissileCommand() {
         if (fn) fn();
       } else if (type === "gameOver") {
         setShowShop(false);
+        setShowOptionsMenu(false);
+        setShowColliders(false);
+        setShowPerfOverlay(false);
         setFinalScore(data.score);
         setFinalWave(data.wave);
         setFinalStats({ ...data.stats });
@@ -314,6 +331,8 @@ export default function DubaiMissileCommand() {
           });
           setShopData(buildShopDataFromGame(shopGame));
           setShowShop(true);
+          setShowOptionsMenu(false);
+          setShowColliders(false);
           syncHudSnapshot(shopGame, { force: true });
         }
       }
@@ -330,11 +349,15 @@ export default function DubaiMissileCommand() {
       if (replayGameState) {
         replayGameState._replay = true;
         replayGameState._replayIsHuman = !!replayData.isHuman;
+        replayGameState._showColliders = false;
       }
       window.__gameRef = gameRef;
       replayRef.current = runner;
       setReplayActive(true);
       setShowShop(false);
+      setShowOptionsMenu(false);
+      setShowColliders(false);
+      setShowPerfOverlay(false);
       setScreen("playing");
       syncHudSnapshot(gameRef.current, { force: true });
     },
@@ -347,6 +370,9 @@ export default function DubaiMissileCommand() {
     setReplayActive(false);
     setShowShop(false);
     setShopData(null);
+    setShowOptionsMenu(false);
+    setShowColliders(false);
+    setShowPerfOverlay(false);
     setScreen("playing");
     SFX.gameStart();
   }, [initGame]);
@@ -673,84 +699,6 @@ export default function DubaiMissileCommand() {
     >
       <div className="game-shell__ambient" aria-hidden="true" />
       <div className="game-shell__content">
-        {screen === "playing" && (
-          <header className="portrait-hud" data-testid="portrait-hud">
-            <div className="portrait-hud__cluster">
-              <div className="hud-chip hud-chip--gold">
-                <span className="hud-chip__label">Score</span>
-                <strong className="hud-chip__value">$ {hudSnapshot.score}</strong>
-              </div>
-              <div className="hud-chip">
-                <span className="hud-chip__label">Wave</span>
-                <strong className="hud-chip__value">{hudSnapshot.wave}</strong>
-              </div>
-              <div className={`hud-chip ${hudSnapshot.burjAlive ? "hud-chip--good" : "hud-chip--danger"}`}>
-                <span className="hud-chip__label">Burj</span>
-                <strong className="hud-chip__value">
-                  {hudSnapshot.burjAlive ? `${hudSnapshot.burjHealth}/5` : "DOWN"}
-                </strong>
-              </div>
-            </div>
-
-            <div className="portrait-hud__actions">
-              <div
-                className={`hud-chip hud-chip--stat ${hudSnapshot.fps >= 50 ? "hud-chip--good" : hudSnapshot.fps >= 30 ? "" : "hud-chip--danger"}`}
-              >
-                <span className="hud-chip__label">FPS</span>
-                <strong className="hud-chip__value">{hudSnapshot.fps || "--"}</strong>
-              </div>
-
-              <button
-                type="button"
-                className={`header-action header-action--emp ${hudSnapshot.empReady ? "header-action--ready" : ""}`}
-                onClick={fireEmp}
-                disabled={!hudSnapshot.empReady}
-                aria-label={hudSnapshot.empReady ? "Fire EMP" : "EMP unavailable"}
-              >
-                <span className="header-action__label">EMP</span>
-                <span className="header-action__meta">
-                  {hudSnapshot.empChargeMax > 0 ? (hudSnapshot.empReady ? "READY" : `${empProgress}%`) : "LOCK"}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                className="mute-button mute-button--mobile mute-button--hud"
-                aria-label={muted ? "Unmute audio" : "Mute audio"}
-                onClick={() => {
-                  SFX.init();
-                  SFX.mute();
-                  setMuted(SFX.isMuted());
-                }}
-              >
-                {muted ? "\uD83D\uDD07" : "\uD83D\uDD0A"}
-              </button>
-              <button
-                type="button"
-                className="mute-button mute-button--mobile mute-button--hud"
-                style={{ opacity: 0.5, fontSize: "12px" }}
-                aria-label="Toggle collision debug"
-                onClick={() => {
-                  if (gameRef.current) {
-                    gameRef.current._showColliders = !gameRef.current._showColliders;
-                  }
-                }}
-              >
-                DBG
-              </button>
-              <button
-                type="button"
-                className="mute-button mute-button--mobile mute-button--hud"
-                style={{ opacity: 0.5, fontSize: "12px" }}
-                aria-label="Toggle performance debug"
-                onClick={() => setShowPerfOverlay((value) => !value)}
-              >
-                PERF
-              </button>
-            </div>
-          </header>
-        )}
-
         <div className="battlefield-shell">
           <div
             ref={battlefieldCardRef}
@@ -778,56 +726,178 @@ export default function DubaiMissileCommand() {
               reader.readAsText(file);
             }}
           >
-            <canvas
-              ref={canvasRef}
-              width={CANVAS_W}
-              height={CANVAS_H}
-              onPointerDown={handleCanvasPointerDown}
-              onPointerMove={handleCanvasPointerMove}
-              onPointerUp={handleCanvasPointerUp}
-              className={`game-canvas ${screen === "playing" && !showShop ? "game-canvas--active" : ""}`}
-              style={bonusData ? { pointerEvents: "none" } : undefined}
-            />
-            {bonusData && (
-              <BonusScreen
-                wave={bonusData.wave}
-                buildings={bonusData.buildings}
-                savedAmmo={bonusData.savedAmmo}
-                missileKills={bonusData.missileKills}
-                droneKills={bonusData.droneKills}
-                onScoreAdd={(pts) => {
-                  const game = gameRef.current;
-                  if (game) game.score += pts;
-                  syncHudSnapshot(gameRef.current, { force: true });
-                }}
-                onComplete={() => {
-                  const game = gameRef.current;
-                  if (game) game._bonusScreenDone = true;
-                  setBonusData(null);
-                }}
-              />
-            )}
-            {screen === "playing" && showPerfOverlay && (
-              <div className="battlefield-debug-overlay" aria-hidden="true">
-                <div className="battlefield-debug-overlay__title">Render Probe</div>
-                <div className="battlefield-debug-overlay__row">
-                  <span>RAF</span>
-                  <strong>{hudSnapshot.rafFps ? `${hudSnapshot.rafFps.toFixed(1)} fps` : "--"}</strong>
+            {screen === "playing" && (
+              <div className="battlefield-hud" data-testid="battlefield-hud">
+                <div
+                  className="battlefield-hud__progress"
+                  role="progressbar"
+                  aria-label={`Wave ${hudSnapshot.wave} spawn progress`}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={hudSnapshot.waveProgress}
+                >
+                  <span className="battlefield-hud__progress-fill" style={{ width: `${hudSnapshot.waveProgress}%` }} />
                 </div>
-                <div className="battlefield-debug-overlay__row">
-                  <span>Frame</span>
-                  <strong>{hudSnapshot.rafFrameMs ? `${hudSnapshot.rafFrameMs.toFixed(1)} ms` : "--"}</strong>
+
+                <div className="battlefield-hud__summary">
+                  <div className="battlefield-score">
+                    <span className="battlefield-score__label">Score</span>
+                    <strong className="battlefield-score__value">{hudSnapshot.score}</strong>
+                  </div>
+
+                  <div className="battlefield-status">
+                    <div
+                      className={`battlefield-status__item ${hudSnapshot.burjAlive ? "battlefield-status__item--good" : "battlefield-status__item--danger"}`}
+                    >
+                      <span className="battlefield-status__label">Burj</span>
+                      <strong className="battlefield-status__value">
+                        {hudSnapshot.burjAlive ? `${hudSnapshot.burjHealth}/5` : "DOWN"}
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div className="battlefield-ammo" aria-label="Launcher ammo">
+                    <span className="battlefield-ammo__label">
+                      <svg className="battlefield-ammo__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M5 18h14" />
+                        <path d="M7 18l2-7h6l2 7" />
+                        <path d="M10.8 11V5.8l1.2-.8 1.2.8V11" />
+                        <path d="M9 7.2h6" />
+                      </svg>
+                      <span>Ammo</span>
+                    </span>
+                    <div className="battlefield-ammo__grid">
+                      {hudSnapshot.ammo.map((count, idx) => (
+                        <div
+                          key={`ammo-${idx}`}
+                          className={`battlefield-ammo__cell ${hudSnapshot.launcherHP[idx] > 0 ? "" : "battlefield-ammo__cell--down"}`}
+                        >
+                          <span className="battlefield-ammo__slot">L{idx + 1}</span>
+                          <strong className="battlefield-ammo__count">{count}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="battlefield-options-button"
+                    aria-label={showOptionsMenu ? "Close options" : "Open options"}
+                    aria-expanded={showOptionsMenu}
+                    aria-haspopup="menu"
+                    onClick={() => setShowOptionsMenu((value) => !value)}
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" />
+                      <path d="M19.1 13.3a7.8 7.8 0 0 0 .1-2.6l2-1.1-2-3.5-2.2.6a8.4 8.4 0 0 0-2.2-1.3L14.2 3H9.8l-.6 2.4a8.4 8.4 0 0 0-2.2 1.3l-2.2-.6-2 3.5 2 1.1a7.8 7.8 0 0 0 0 2.6l-2 1.1 2 3.5 2.2-.6a8.4 8.4 0 0 0 2.2 1.3l.6 2.4h4.4l.6-2.4a8.4 8.4 0 0 0 2.2-1.3l2.2.6 2-3.5-2-1.1Z" />
+                    </svg>
+                  </button>
                 </div>
-                <div className="battlefield-debug-overlay__row">
-                  <span>HUD FPS</span>
-                  <strong>{hudSnapshot.fps ? `${hudSnapshot.fps} fps` : "--"}</strong>
-                </div>
-                <div className="battlefield-debug-overlay__row">
-                  <span>Glow</span>
-                  <strong>{hudSnapshot.perfProbed ? (hudSnapshot.perfGlowEnabled ? "on" : "off") : "probing"}</strong>
-                </div>
+
+                {showOptionsMenu && (
+                  <div className="battlefield-options-menu" role="menu" aria-label="Game options">
+                    <button
+                      type="button"
+                      className={`battlefield-option ${muted ? "battlefield-option--active" : ""}`}
+                      onClick={() => {
+                        SFX.init();
+                        SFX.mute();
+                        setMuted(SFX.isMuted());
+                      }}
+                    >
+                      <span className="battlefield-option__label">Sound</span>
+                      <span className="battlefield-option__meta">{muted ? "Muted" : "On"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`battlefield-option ${showColliders ? "battlefield-option--active" : ""}`}
+                      onClick={() => {
+                        if (gameRef.current) {
+                          gameRef.current._showColliders = !gameRef.current._showColliders;
+                          setShowColliders(gameRef.current._showColliders);
+                        }
+                      }}
+                    >
+                      <span className="battlefield-option__label">Debug</span>
+                      <span className="battlefield-option__meta">Colliders</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`battlefield-option ${showPerfOverlay ? "battlefield-option--active" : ""}`}
+                      onClick={() => setShowPerfOverlay((value) => !value)}
+                    >
+                      <span className="battlefield-option__label">Perf</span>
+                      <span className="battlefield-option__meta">{showPerfOverlay ? "On" : "Off"}</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
+
+            <div className="battlefield-stage">
+              <canvas
+                ref={canvasRef}
+                width={CANVAS_W}
+                height={CANVAS_H}
+                onPointerDown={handleCanvasPointerDown}
+                onPointerMove={handleCanvasPointerMove}
+                onPointerUp={handleCanvasPointerUp}
+                className={`game-canvas ${screen === "playing" && !showShop ? "game-canvas--active" : ""}`}
+                style={bonusData ? { pointerEvents: "none" } : undefined}
+              />
+              {screen === "playing" && hudSnapshot.empChargeMax > 0 && (
+                <button
+                  type="button"
+                  className={`battlefield-emp ${hudSnapshot.empReady ? "battlefield-emp--ready" : ""}`}
+                  onClick={fireEmp}
+                  aria-label={hudSnapshot.empReady ? "Fire EMP" : "EMP charging"}
+                  disabled={!hudSnapshot.empReady}
+                >
+                  <span className="battlefield-emp__label">EMP</span>
+                  <span className="battlefield-emp__meta">{hudSnapshot.empReady ? "READY" : `${empProgress}%`}</span>
+                </button>
+              )}
+              {bonusData && (
+                <BonusScreen
+                  wave={bonusData.wave}
+                  buildings={bonusData.buildings}
+                  savedAmmo={bonusData.savedAmmo}
+                  missileKills={bonusData.missileKills}
+                  droneKills={bonusData.droneKills}
+                  onScoreAdd={(pts) => {
+                    const game = gameRef.current;
+                    if (game) game.score += pts;
+                    syncHudSnapshot(gameRef.current, { force: true });
+                  }}
+                  onComplete={() => {
+                    const game = gameRef.current;
+                    if (game) game._bonusScreenDone = true;
+                    setBonusData(null);
+                  }}
+                />
+              )}
+              {screen === "playing" && showPerfOverlay && (
+                <div className="battlefield-debug-overlay" aria-hidden="true">
+                  <div className="battlefield-debug-overlay__title">Render Probe</div>
+                  <div className="battlefield-debug-overlay__row">
+                    <span>RAF</span>
+                    <strong>{hudSnapshot.rafFps ? `${hudSnapshot.rafFps.toFixed(1)} fps` : "--"}</strong>
+                  </div>
+                  <div className="battlefield-debug-overlay__row">
+                    <span>Frame</span>
+                    <strong>{hudSnapshot.rafFrameMs ? `${hudSnapshot.rafFrameMs.toFixed(1)} ms` : "--"}</strong>
+                  </div>
+                  <div className="battlefield-debug-overlay__row">
+                    <span>HUD FPS</span>
+                    <strong>{hudSnapshot.fps ? `${hudSnapshot.fps} fps` : "--"}</strong>
+                  </div>
+                  <div className="battlefield-debug-overlay__row">
+                    <span>Glow</span>
+                    <strong>{hudSnapshot.perfProbed ? (hudSnapshot.perfGlowEnabled ? "on" : "off") : "probing"}</strong>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

@@ -93,6 +93,71 @@
   line-height: 1.5;
 }
 
+.wave-progress {
+  width: min(100%, 360px);
+  padding: 8px 10px 9px;
+  border: 1px solid rgba(109, 217, 255, 0.18);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(10, 21, 35, 0.74), rgba(6, 10, 18, 0.58)),
+    radial-gradient(circle at top, rgba(0, 255, 200, 0.08), transparent 42%);
+  box-shadow:
+    0 12px 24px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wave-progress--battlefield {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  z-index: 3;
+  pointer-events: none;
+  transform: translateX(-50%);
+  backdrop-filter: blur(8px);
+}
+
+.wave-progress__topline {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.wave-progress__label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: #6dd9ff;
+}
+
+.wave-progress__meta {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: #8ea8b8;
+}
+
+.wave-progress__track {
+  position: relative;
+  height: 7px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04)), rgba(7, 14, 25, 0.9);
+  border: 1px solid rgba(109, 217, 255, 0.12);
+}
+
+.wave-progress__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #18d0ff 0%, #00ffc8 55%, #44ff88 100%);
+  box-shadow: 0 0 14px rgba(0, 255, 200, 0.16);
+  transition: width 120ms linear;
+}
+
 .portrait-hud {
   display: flex;
   align-items: center;
@@ -206,6 +271,8 @@
 
 .battlefield-card--portraitSky {
   aspect-ratio: 900 / 760;
+  display: flex;
+  flex-direction: column;
 }
 
 .battlefield-card--blurred {
@@ -222,11 +289,246 @@
 }
 
 .battlefield-card--portraitSky .game-canvas {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  inset: auto;
   width: 100%;
   height: 100%;
   aspect-ratio: auto;
+}
+
+.battlefield-hud {
+  position: relative;
+  z-index: 2;
+  padding: 8px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: linear-gradient(180deg, rgba(6, 13, 22, 0.92), rgba(6, 10, 18, 0.78));
+  border-bottom: 1px solid rgba(109, 217, 255, 0.1);
+  backdrop-filter: blur(8px);
+}
+
+.battlefield-hud__progress {
+  height: 5px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(109, 217, 255, 0.12);
+}
+
+.battlefield-hud__progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #18d0ff 0%, #00ffc8 58%, #44ff88 100%);
+  box-shadow: 0 0 12px rgba(0, 255, 200, 0.16);
+  transition: width 120ms linear;
+}
+
+.battlefield-hud__summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.9fr) minmax(0, 1.05fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.battlefield-score,
+.battlefield-status__item,
+.battlefield-ammo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.battlefield-score__label,
+.battlefield-status__label,
+.battlefield-ammo__label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: #6f90a3;
+}
+
+.battlefield-ammo__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.battlefield-ammo__icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  fill: currentColor;
+  color: #6dd9ff;
+  opacity: 0.95;
+}
+
+.battlefield-score__value {
+  font-size: clamp(1.7rem, 6.5vw, 2.35rem);
+  line-height: 0.95;
+  letter-spacing: 0.04em;
+  color: #effcff;
+  text-shadow: 0 0 18px rgba(0, 255, 200, 0.12);
+}
+
+.battlefield-status__item {
+  min-width: 96px;
+  padding: 9px 10px;
+  border-radius: 16px;
+  border: 1px solid rgba(109, 217, 255, 0.12);
+  background: rgba(7, 14, 25, 0.72);
+}
+
+.battlefield-status__item--good {
+  border-color: rgba(68, 255, 136, 0.24);
+}
+
+.battlefield-status__item--danger {
+  border-color: rgba(255, 88, 88, 0.28);
+}
+
+.battlefield-status__value {
+  font-size: 20px;
+  line-height: 1;
+  color: #effcff;
+}
+
+.battlefield-ammo__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.battlefield-ammo__cell {
+  min-width: 0;
+  padding: 8px 8px 7px;
+  border-radius: 14px;
+  border: 1px solid rgba(109, 217, 255, 0.12);
+  background: rgba(7, 14, 25, 0.74);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.battlefield-ammo__cell--down {
+  border-color: rgba(255, 88, 88, 0.22);
+  opacity: 0.68;
+}
+
+.battlefield-ammo__slot {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: #6f90a3;
+}
+
+.battlefield-ammo__count {
+  font-size: 18px;
+  line-height: 1;
+  color: #effcff;
+}
+
+.battlefield-options-button {
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border-radius: 14px;
+  border: 1px solid rgba(109, 217, 255, 0.2);
+  background: rgba(5, 14, 24, 0.82);
+  color: #dffeff;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.22);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.battlefield-options-button svg {
+  width: 23px;
+  height: 23px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.battlefield-options-button:hover {
+  transform: translateY(-1px);
+}
+
+.battlefield-options-menu {
+  position: absolute;
+  top: 72px;
+  right: 10px;
+  z-index: 5;
+  width: min(210px, calc(100% - 20px));
+  padding: 8px;
+  border: 1px solid rgba(109, 217, 255, 0.16);
+  border-radius: 18px;
+  background: rgba(6, 10, 18, 0.92);
+  backdrop-filter: blur(10px);
+  box-shadow:
+    0 20px 40px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.battlefield-option {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(109, 217, 255, 0.12);
+  background: rgba(7, 14, 25, 0.82);
+  color: #dffeff;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.battlefield-option--active {
+  border-color: rgba(0, 255, 200, 0.38);
+  background: linear-gradient(180deg, rgba(0, 255, 200, 0.14), rgba(7, 14, 25, 0.82));
+}
+
+.battlefield-option:hover {
+  transform: translateY(-1px);
+}
+
+.battlefield-option__label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+.battlefield-option__meta {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8ea8b8;
+}
+
+.battlefield-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
 }
 
 .game-canvas--active {
@@ -764,49 +1066,65 @@
   aspect-ratio: auto;
 }
 
-.header-action {
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
-  border: 1px solid rgba(109, 217, 255, 0.2);
-  background: rgba(5, 14, 24, 0.82);
-  color: #dffeff;
+.battlefield-emp {
+  position: absolute;
+  left: 50%;
+  bottom: 72px;
+  transform: translateX(-50%);
+  z-index: 4;
+  min-width: 112px;
+  min-height: 56px;
+  padding: 10px 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(204, 68, 255, 0.28);
+  background: linear-gradient(180deg, rgba(75, 19, 99, 0.36), rgba(20, 8, 30, 0.82));
+  color: #f8e6ff;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 2px;
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.22);
+  font: inherit;
+  cursor: pointer;
+  box-shadow:
+    0 16px 28px rgba(0, 0, 0, 0.24),
+    0 0 28px rgba(204, 68, 255, 0.1);
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease;
 }
 
-.header-action:disabled {
+.battlefield-emp--ready {
+  border-color: rgba(204, 68, 255, 0.5);
+  box-shadow:
+    0 16px 28px rgba(0, 0, 0, 0.24),
+    0 0 32px rgba(204, 68, 255, 0.18);
+}
+
+.battlefield-emp:disabled {
+  opacity: 0.84;
   cursor: not-allowed;
-  opacity: 0.78;
 }
 
-.header-action__label {
-  font-size: 10px;
-  letter-spacing: 0.2em;
+.battlefield-emp:hover:not(:disabled) {
+  transform: translateX(-50%) translateY(-1px);
+  box-shadow:
+    0 18px 32px rgba(0, 0, 0, 0.28),
+    0 0 34px rgba(204, 68, 255, 0.18);
 }
 
-.header-action__meta {
-  font-size: 10px;
-  color: #8ea8b8;
+.battlefield-emp__label {
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
 }
 
-.header-action--ready {
-  border-color: rgba(204, 68, 255, 0.4);
-  color: #f8e6ff;
-  box-shadow: 0 0 28px rgba(204, 68, 255, 0.14);
-}
-
-.header-action--ready .header-action__meta {
+.battlefield-emp__meta {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
   color: #d7b3ff;
-}
-
-.mute-button--hud {
-  width: 46px;
-  height: 46px;
 }
 
 .game-shell--compactPortrait .portrait-hero {
@@ -826,6 +1144,52 @@
 .game-shell--compactPortrait .portrait-panel {
   padding: 12px;
   gap: 10px;
+}
+
+.game-shell--compactPortrait .battlefield-hud {
+  padding: 7px 8px 8px;
+  gap: 7px;
+}
+
+.game-shell--compactPortrait .battlefield-hud__summary {
+  gap: 8px;
+}
+
+.game-shell--compactPortrait .battlefield-score__value {
+  font-size: clamp(1.5rem, 6vw, 2rem);
+}
+
+.game-shell--compactPortrait .battlefield-status__value {
+  font-size: 18px;
+}
+
+.game-shell--compactPortrait .battlefield-ammo__count {
+  font-size: 16px;
+}
+
+.game-shell--compactPortrait .battlefield-options-button {
+  width: 42px;
+  height: 42px;
+}
+
+.game-shell--compactPortrait .battlefield-options-menu {
+  top: 68px;
+  right: 8px;
+}
+
+.game-shell--compactPortrait .battlefield-emp {
+  bottom: 64px;
+  min-width: 100px;
+  min-height: 52px;
+}
+
+.game-shell--compactPortrait .wave-progress__label {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+}
+
+.game-shell--compactPortrait .wave-progress__meta {
+  font-size: 9px;
 }
 
 .game-shell--compactPortrait .portrait-panel__copy,
@@ -878,6 +1242,48 @@
 
   .battlefield-card--portraitSky {
     max-width: 400px;
+  }
+
+  .battlefield-hud {
+    padding: 7px 8px 8px;
+    gap: 7px;
+  }
+
+  .battlefield-hud__summary {
+    gap: 8px;
+  }
+
+  .battlefield-score__value {
+    font-size: clamp(1.45rem, 6vw, 1.9rem);
+  }
+
+  .battlefield-status__item {
+    min-width: 82px;
+    padding: 8px 9px;
+  }
+
+  .battlefield-status__value {
+    font-size: 18px;
+  }
+
+  .battlefield-ammo__count {
+    font-size: 16px;
+  }
+
+  .battlefield-options-button {
+    width: 42px;
+    height: 42px;
+  }
+
+  .battlefield-options-menu {
+    top: 68px;
+    right: 8px;
+  }
+
+  .battlefield-emp {
+    bottom: 62px;
+    min-width: 98px;
+    min-height: 50px;
   }
 
   .portrait-panel--playingCompact {
