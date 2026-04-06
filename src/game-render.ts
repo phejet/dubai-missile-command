@@ -54,6 +54,24 @@ function getSkyImage() {
   return null;
 }
 
+let _titleWaterImg: HTMLImageElement | null = null;
+let _titleWaterLoading = false;
+function getTitleWaterImage() {
+  if (_titleWaterImg) return _titleWaterImg;
+  if (_titleWaterLoading) return null;
+  if (typeof Image === "undefined") return null; // headless/test env
+  _titleWaterLoading = true;
+  const img = new Image();
+  img.src = new URL("./assets/title-water-reflection.png", import.meta.url).href;
+  img.onload = () => {
+    _titleWaterImg = img;
+  };
+  img.onerror = () => {
+    _titleWaterLoading = false; // allow retry on next call
+  };
+  return null;
+}
+
 interface CameraFrame {
   scale: number;
   left: number;
@@ -3213,6 +3231,65 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
   ctx.fillRect(burjX - 28, GROUND_Y - 8, 56, 7);
   ctx.fillStyle = "rgba(180, 220, 255, 0.34)";
   ctx.fillRect(burjX - 12, GROUND_Y - 13, 24, 4);
+  ctx.restore();
+
+  // Waterfront strip and reflections
+  const waterTop = GROUND_Y + 8;
+  const waterBottom = Math.min(CANVAS_H, GROUND_Y + 98);
+  ctx.save();
+  const titleWaterImg = getTitleWaterImage();
+  if (titleWaterImg) {
+    ctx.drawImage(titleWaterImg, 0, waterTop, CANVAS_W, waterBottom - waterTop);
+
+    // A light cool tint keeps the bitmap aligned with the scene's night palette.
+    const waterGrade = ctx.createLinearGradient(0, waterTop, 0, waterBottom);
+    waterGrade.addColorStop(0, "rgba(22, 34, 60, 0.18)");
+    waterGrade.addColorStop(0.5, "rgba(8, 20, 40, 0.08)");
+    waterGrade.addColorStop(1, "rgba(0, 0, 0, 0.18)");
+    ctx.fillStyle = waterGrade;
+    ctx.fillRect(0, waterTop, CANVAS_W, waterBottom - waterTop);
+  } else {
+    const waterGrad = ctx.createLinearGradient(0, waterTop, 0, waterBottom);
+    waterGrad.addColorStop(0, "rgba(34, 40, 56, 0.96)");
+    waterGrad.addColorStop(0.28, "rgba(26, 32, 46, 0.96)");
+    waterGrad.addColorStop(0.72, "rgba(18, 24, 36, 0.98)");
+    waterGrad.addColorStop(1, "rgba(12, 16, 26, 1)");
+    ctx.fillStyle = waterGrad;
+    ctx.fillRect(0, waterTop, CANVAS_W, waterBottom - waterTop);
+
+    ctx.fillStyle = "rgba(255, 242, 214, 0.18)";
+    ctx.fillRect(0, waterTop, CANVAS_W, 2);
+
+    const waterRipple = ctx.createLinearGradient(0, waterTop + 6, 0, waterBottom);
+    waterRipple.addColorStop(0, "rgba(120, 160, 200, 0.06)");
+    waterRipple.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = waterRipple;
+    for (let y = waterTop + 8; y < waterBottom; y += 9) {
+      const inset = 10 + Math.sin(t * 1.8 + y * 0.07) * 8;
+      ctx.fillRect(inset, y, CANVAS_W - inset * 2, 1);
+    }
+
+    const reflectionColumns = [
+      { x: 112, w: 16, alpha: 0.22, color: "255,236,196" },
+      { x: 170, w: 14, alpha: 0.18, color: "255,224,178" },
+      { x: burjX, w: 34, alpha: 0.36, color: "250,248,240" },
+      { x: 562, w: 24, alpha: 0.18, color: "220,234,252" },
+      { x: 610, w: 18, alpha: 0.14, color: "214,230,250" },
+      { x: 644, w: 16, alpha: 0.16, color: "255,228,188" },
+    ];
+    reflectionColumns.forEach((ref, i) => {
+      for (let y = waterTop + 4; y < waterBottom - 4; y += 4) {
+        const drift = Math.sin(t * 2.1 + i * 1.7 + y * 0.11) * 3.2;
+        const segmentW = ref.w * (0.72 + 0.28 * Math.sin(i + y * 0.09) ** 2);
+        const alpha = ref.alpha * (1 - ((y - waterTop) / (waterBottom - waterTop)) * 0.78);
+        ctx.fillStyle = `rgba(${ref.color}, ${alpha})`;
+        ctx.fillRect(ref.x - segmentW / 2 + drift, y, segmentW, 2);
+      }
+    });
+
+    ctx.fillStyle = "rgba(255, 248, 235, 0.12)";
+    ctx.fillRect(burjX - 18, waterTop + 2, 36, 3);
+  }
   ctx.restore();
 
   // Launcher silhouettes on title screen
