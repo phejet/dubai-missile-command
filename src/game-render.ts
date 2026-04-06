@@ -2687,113 +2687,273 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
   ctx.fillStyle = bloom;
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
-  // Distant buildings with lit windows
-  const cityBlocks = [
-    { x: 0, w: 30, h: 74, windows: 2 },
-    { x: 34, w: 32, h: 88, windows: 2 },
-    { x: 70, w: 42, h: 104, windows: 3 },
-    { x: 116, w: 36, h: 82, windows: 2 },
-    { x: 156, w: 46, h: 124, windows: 3 },
-    { x: 206, w: 44, h: 94, windows: 3 },
-    { x: 258, w: 40, h: 108, windows: 3 },
-    { x: 300, w: 38, h: 76, windows: 2 },
-    { x: 544, w: 40, h: 96, windows: 3 },
-    { x: 592, w: 44, h: 122, windows: 3 },
-    { x: 644, w: 34, h: 84, windows: 2 },
-    { x: 690, w: 42, h: 100, windows: 3 },
-    { x: 742, w: 40, h: 78, windows: 2 },
-    { x: 786, w: 46, h: 118, windows: 3 },
-    { x: 838, w: 32, h: 92, windows: 2 },
-    { x: 874, w: 26, h: 68, windows: 2 },
+  type TitleTower = {
+    x: number;
+    w: number;
+    h: number;
+    windows: number;
+    roof?: "flat" | "spire" | "crown" | "slantL" | "slantR" | "needle";
+    glow?: number;
+  };
+
+  const titleSkylineTowers: TitleTower[] = [
+    { x: 4, w: 22, h: 58, windows: 1, roof: "flat" },
+    { x: 32, w: 18, h: 84, windows: 1, roof: "flat" },
+    { x: 58, w: 28, h: 74, windows: 2, roof: "flat" },
+    { x: 96, w: 30, h: 188, windows: 2, roof: "crown", glow: 0.1 },
+    { x: 132, w: 14, h: 88, windows: 1, roof: "flat" },
+    { x: 152, w: 30, h: 168, windows: 2, roof: "crown", glow: 0.1 },
+    { x: 188, w: 34, h: 92, windows: 2, roof: "slantR" },
+    { x: 228, w: 24, h: 104, windows: 1, roof: "flat" },
+    { x: 258, w: 18, h: 78, windows: 1, roof: "needle" },
+    { x: 282, w: 24, h: 70, windows: 1, roof: "flat" },
+    { x: 312, w: 18, h: 82, windows: 1, roof: "flat" },
+    { x: 336, w: 24, h: 96, windows: 1, roof: "flat" },
+    { x: 366, w: 34, h: 80, windows: 1, roof: "flat" },
+    { x: 520, w: 20, h: 128, windows: 1, roof: "flat" },
+    { x: 548, w: 42, h: 148, windows: 2, roof: "slantR", glow: 0.1 },
+    { x: 596, w: 12, h: 86, windows: 1, roof: "flat" },
+    { x: 616, w: 24, h: 132, windows: 1, roof: "slantL", glow: 0.08 },
+    { x: 648, w: 22, h: 178, windows: 1, roof: "flat" },
+    { x: 678, w: 22, h: 188, windows: 1, roof: "spire", glow: 0.1 },
+    { x: 708, w: 18, h: 96, windows: 1, roof: "flat" },
+    { x: 734, w: 28, h: 96, windows: 1, roof: "flat" },
+    { x: 770, w: 14, h: 58, windows: 1, roof: "flat" },
+    { x: 804, w: 22, h: 78, windows: 1, roof: "flat" },
   ];
 
-  function drawCityBlock(block: { x: number; w: number; h: number; windows: number }, offset = 0) {
+  function drawTitleTower(tower: TitleTower, offset = 0) {
     const baseY = GROUND_Y - 6;
-    const top = baseY - block.h;
+    const x = tower.x + offset;
+    const top = baseY - tower.h;
+    const right = x + tower.w;
+    const mid = x + tower.w / 2;
+
     ctx.save();
-    ctx.translate(offset, 0);
-    ctx.fillStyle = "rgba(10, 14, 24, 0.96)";
-    ctx.fillRect(block.x, top, block.w, block.h);
-    ctx.fillStyle = "rgba(20, 24, 34, 0.92)";
-    ctx.fillRect(block.x, top, block.w, 3);
-    ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
-    ctx.fillRect(block.x + block.w - 4, top, 4, block.h);
-    const rows = Math.max(2, Math.floor(block.h / 16));
-    const cols = block.windows;
-    const winW = 4;
-    const winH = 5;
-    const gap = 7;
-    const startX = block.x + Math.max(2, (block.w - cols * (winW + gap) + gap) / 2);
+    if (tower.glow) {
+      const glow = ctx.createRadialGradient(mid, top + tower.h * 0.3, 0, mid, top + tower.h * 0.3, tower.w * 1.8);
+      glow.addColorStop(0, `rgba(120, 190, 255, ${tower.glow})`);
+      glow.addColorStop(1, "rgba(0, 0, 0, 0)");
+      ctx.fillStyle = glow;
+      ctx.fillRect(x - tower.w, top - tower.w, tower.w * 3, tower.h + tower.w * 2);
+    }
+
+    ctx.beginPath();
+    switch (tower.roof ?? "flat") {
+      case "spire":
+        ctx.moveTo(x, baseY);
+        ctx.lineTo(x, top + 12);
+        ctx.lineTo(mid - 2, top + 12);
+        ctx.lineTo(mid, top - 16);
+        ctx.lineTo(mid + 2, top + 12);
+        ctx.lineTo(right, top + 12);
+        ctx.lineTo(right, baseY);
+        break;
+      case "needle":
+        ctx.moveTo(x, baseY);
+        ctx.lineTo(x, top + 8);
+        ctx.lineTo(mid - 3, top + 8);
+        ctx.lineTo(mid - 1, top - 24);
+        ctx.lineTo(mid + 1, top - 24);
+        ctx.lineTo(mid + 3, top + 8);
+        ctx.lineTo(right, top + 8);
+        ctx.lineTo(right, baseY);
+        break;
+      case "crown":
+        ctx.moveTo(x, baseY);
+        ctx.lineTo(x, top + 16);
+        ctx.lineTo(x + tower.w * 0.22, top + 4);
+        ctx.lineTo(mid - 3, top + 14);
+        ctx.lineTo(mid, top - 12);
+        ctx.lineTo(mid + 3, top + 14);
+        ctx.lineTo(x + tower.w * 0.78, top + 4);
+        ctx.lineTo(right, top + 16);
+        ctx.lineTo(right, baseY);
+        break;
+      case "slantL":
+        ctx.moveTo(x, baseY);
+        ctx.lineTo(x, top + 4);
+        ctx.lineTo(right, top + 18);
+        ctx.lineTo(right, baseY);
+        break;
+      case "slantR":
+        ctx.moveTo(x, baseY);
+        ctx.lineTo(x, top + 18);
+        ctx.lineTo(right, top + 4);
+        ctx.lineTo(right, baseY);
+        break;
+      default:
+        ctx.moveTo(x, baseY);
+        ctx.lineTo(x, top);
+        ctx.lineTo(right, top);
+        ctx.lineTo(right, baseY);
+        break;
+    }
+    ctx.closePath();
+    ctx.fillStyle = "rgba(8, 12, 22, 0.95)";
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(18, 24, 38, 0.94)";
+    ctx.fillRect(x + 1, top + 2, Math.max(0, tower.w - 2), 2);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.32)";
+    ctx.fillRect(right - 3, top + 8, 3, tower.h - 8);
+
+    const rows = Math.max(2, Math.floor(tower.h / 17));
+    const cols = tower.windows;
+    const winW = cols === 1 ? 3 : 4;
+    const gap = cols === 1 ? 0 : 6;
+    const startX = x + Math.max(2, (tower.w - cols * winW - (cols - 1) * gap) / 2);
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
-        const litSeed = hash01(block.x, row, col);
-        const lit = Math.sin(t * 0.05 + litSeed * 9 + row * 0.7 + col * 1.9) > -0.15;
+        const litSeed = hash01(tower.x, row, col);
+        const lit = Math.sin(t * 0.06 + litSeed * 10 + row * 0.65 + col * 2.1) > -0.2;
         const wx = startX + col * (winW + gap);
         const wy = top + 10 + row * 14;
+        if (wy > baseY - 8) continue;
         if (lit) {
-          ctx.fillStyle = `rgba(255, 194, 120, ${0.25 + litSeed * 0.25})`;
-          ctx.fillRect(wx - 1, wy - 1, winW + 2, winH + 2);
-          ctx.fillStyle = `rgba(255, 214, 160, ${0.5 + litSeed * 0.35})`;
-          ctx.fillRect(wx, wy, winW, winH);
+          ctx.fillStyle = `rgba(255, 202, 132, ${0.2 + litSeed * 0.22})`;
+          ctx.fillRect(wx - 1, wy - 1, winW + 2, 5);
+          ctx.fillStyle = `rgba(255, 226, 176, ${0.42 + litSeed * 0.25})`;
+          ctx.fillRect(wx, wy, winW, 3);
         } else {
-          ctx.fillStyle = "rgba(4, 6, 12, 0.7)";
-          ctx.fillRect(wx, wy, winW, winH);
+          ctx.fillStyle = "rgba(4, 6, 12, 0.66)";
+          ctx.fillRect(wx, wy, winW, 3);
         }
       }
     }
     ctx.restore();
   }
-  cityBlocks.forEach((block, i) => drawCityBlock(block, Math.sin(t * 0.06 + i) * 1.5));
+
+  titleSkylineTowers.forEach((tower, i) => drawTitleTower(tower, Math.sin(t * 0.05 + i * 0.8) * 1.35));
 
   // Central glowing Burj
   const burjX = cx;
   const burjBaseY = GROUND_Y - 6;
   const burjHeight = BURJ_H;
-  const burjTiers = [
-    [1.0, 3],
-    [0.88, 4],
-    [0.73, 6],
-    [0.58, 8.5],
-    [0.42, 10.5],
-    [0.38, 12],
-    [0.35, 10.5],
-    [0.22, 12],
-    [0.1, 14],
-    [0.0, 16],
+  const burjLeftSections = [
+    { top: 1.0, bottom: 0.982, w: 0.7 },
+    { top: 0.982, bottom: 0.958, w: 0.9 },
+    { top: 0.958, bottom: 0.928, w: 1.15 },
+    { top: 0.928, bottom: 0.892, w: 1.55 },
+    { top: 0.892, bottom: 0.85, w: 2.0 },
+    { top: 0.85, bottom: 0.802, w: 2.45 },
+    { top: 0.802, bottom: 0.748, w: 3.4 },
+    { top: 0.748, bottom: 0.69, w: 4.1 },
+    { top: 0.69, bottom: 0.626, w: 5.6 },
+    { top: 0.626, bottom: 0.556, w: 7.5 },
+    { top: 0.556, bottom: 0.48, w: 8.6 },
+    { top: 0.48, bottom: 0.398, w: 11.4 },
+    { top: 0.398, bottom: 0.312, w: 13.2 },
+    { top: 0.312, bottom: 0.222, w: 16.8 },
+    { top: 0.222, bottom: 0.12, w: 18.9 },
+    { top: 0.12, bottom: 0.0, w: 22.2 },
+  ];
+  const burjRightSections = [
+    { top: 1.0, bottom: 0.982, w: 0.7 },
+    { top: 0.982, bottom: 0.958, w: 0.98 },
+    { top: 0.958, bottom: 0.928, w: 1.34 },
+    { top: 0.928, bottom: 0.892, w: 1.8 },
+    { top: 0.892, bottom: 0.85, w: 2.35 },
+    { top: 0.85, bottom: 0.802, w: 3.1 },
+    { top: 0.802, bottom: 0.748, w: 4.05 },
+    { top: 0.748, bottom: 0.69, w: 5.3 },
+    { top: 0.69, bottom: 0.626, w: 6.5 },
+    { top: 0.626, bottom: 0.556, w: 7.2 },
+    { top: 0.556, bottom: 0.48, w: 10.2 },
+    { top: 0.48, bottom: 0.398, w: 11.2 },
+    { top: 0.398, bottom: 0.312, w: 15.6 },
+    { top: 0.312, bottom: 0.222, w: 16.5 },
+    { top: 0.222, bottom: 0.12, w: 20.7 },
+    { top: 0.12, bottom: 0.0, w: 21.8 },
   ];
 
   function titleBurjPath() {
+    const tipY = burjBaseY - burjHeight - 50;
+    const upperY = burjBaseY - burjHeight - 18;
     ctx.beginPath();
-    ctx.moveTo(burjX, burjBaseY - burjHeight - 30);
-    ctx.lineTo(burjX - 1.5, burjBaseY - burjHeight - 12);
-    for (const [hf, hw] of burjTiers) {
-      ctx.lineTo(burjX - hw, burjBaseY - burjHeight * hf);
+    ctx.moveTo(burjX, tipY);
+    ctx.lineTo(burjX - 0.78, upperY);
+    ctx.lineTo(burjX - burjLeftSections[0].w, burjBaseY - burjHeight * burjLeftSections[0].top);
+    for (let i = 0; i < burjLeftSections.length; i++) {
+      const section = burjLeftSections[i];
+      const bottomY = burjBaseY - burjHeight * section.bottom;
+      ctx.lineTo(burjX - section.w, bottomY);
+      const next = burjLeftSections[i + 1];
+      if (next) ctx.lineTo(burjX - next.w, bottomY);
     }
-    for (let i = burjTiers.length - 1; i >= 0; i--) {
-      ctx.lineTo(burjX + burjTiers[i][1], burjBaseY - burjHeight * burjTiers[i][0]);
+    for (let i = burjRightSections.length - 1; i >= 0; i--) {
+      const section = burjRightSections[i];
+      const bottomY = burjBaseY - burjHeight * section.bottom;
+      const topY = burjBaseY - burjHeight * section.top;
+      ctx.lineTo(burjX + section.w, bottomY);
+      ctx.lineTo(burjX + section.w, topY);
+      const prev = burjRightSections[i - 1];
+      if (prev) ctx.lineTo(burjX + prev.w, topY);
     }
-    ctx.lineTo(burjX + 1.5, burjBaseY - burjHeight - 12);
+    ctx.lineTo(burjX + 0.78, upperY);
     ctx.closePath();
   }
 
-  function titleHwAt(ht: number) {
-    for (let j = 0; j < burjTiers.length - 1; j++) {
-      const [t0, w0] = burjTiers[j];
-      const [t1, w1] = burjTiers[j + 1];
-      if (ht <= t0 && ht >= t1) {
-        const frac = (ht - t1) / (t0 - t1);
-        return w1 + (w0 - w1) * frac;
+  function titleHalfWidthsAt(ht: number) {
+    let left = burjLeftSections[burjLeftSections.length - 1].w;
+    let right = burjRightSections[burjRightSections.length - 1].w;
+    for (const section of burjLeftSections) {
+      if (ht <= section.top && ht >= section.bottom) {
+        left = section.w;
+        break;
       }
     }
-    return 16;
+    for (const section of burjRightSections) {
+      if (ht <= section.top && ht >= section.bottom) {
+        right = section.w;
+        break;
+      }
+    }
+    return { left, right };
   }
 
   ctx.save();
   ctx.globalAlpha = 0.95;
-  ctx.fillStyle = "rgba(120, 200, 255, 0.10)";
+  ctx.fillStyle = "rgba(95, 170, 255, 0.1)";
   ctx.beginPath();
-  ctx.arc(burjX, burjBaseY - 150, 110, 0, Math.PI * 2);
+  ctx.arc(burjX, burjBaseY - 182, 116, 0, Math.PI * 2);
   ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  const spireAura = ctx.createRadialGradient(
+    burjX,
+    burjBaseY - burjHeight - 18,
+    0,
+    burjX,
+    burjBaseY - burjHeight - 18,
+    72,
+  );
+  spireAura.addColorStop(0, "rgba(150, 220, 255, 0.28)");
+  spireAura.addColorStop(0.32, "rgba(80, 160, 255, 0.14)");
+  spireAura.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = spireAura;
+  ctx.fillRect(burjX - 72, burjBaseY - burjHeight - 90, 144, 144);
+  ctx.restore();
+
+  const podiumShimmer = 0.78 + 0.08 * Math.sin(t * 0.32);
+  ctx.save();
+  ctx.fillStyle = `rgba(22, 28, 40, ${0.9 * podiumShimmer})`;
+  ctx.beginPath();
+  ctx.moveTo(burjX - 104, burjBaseY + 2);
+  ctx.lineTo(burjX - 88, burjBaseY - 12);
+  ctx.lineTo(burjX - 58, burjBaseY - 15);
+  ctx.lineTo(burjX - 36, burjBaseY - 8);
+  ctx.lineTo(burjX - 16, burjBaseY - 3);
+  ctx.lineTo(burjX + 16, burjBaseY - 3);
+  ctx.lineTo(burjX + 36, burjBaseY - 8);
+  ctx.lineTo(burjX + 58, burjBaseY - 15);
+  ctx.lineTo(burjX + 88, burjBaseY - 12);
+  ctx.lineTo(burjX + 104, burjBaseY + 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "rgba(255, 214, 150, 0.28)";
+  ctx.fillRect(burjX - 58, burjBaseY - 14, 116, 2.5);
   ctx.restore();
 
   ctx.save();
@@ -2801,108 +2961,134 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
   ctx.scale(2, 2);
   ctx.translate(-burjX, -burjBaseY);
   const burjGrad = ctx.createLinearGradient(burjX, burjBaseY - burjHeight, burjX, burjBaseY);
-  burjGrad.addColorStop(0, "#f7fbff");
-  burjGrad.addColorStop(0.12, "#d7f2ff");
-  burjGrad.addColorStop(0.28, "#7ec1ff");
-  burjGrad.addColorStop(0.48, "#3f7fc8");
-  burjGrad.addColorStop(0.68, "#2b5f9f");
-  burjGrad.addColorStop(0.84, "#214a82");
-  burjGrad.addColorStop(1, "#1c3560");
+  burjGrad.addColorStop(0, "#fbfdff");
+  burjGrad.addColorStop(0.08, "#dcecff");
+  burjGrad.addColorStop(0.2, "#6e88a7");
+  burjGrad.addColorStop(0.42, "#243446");
+  burjGrad.addColorStop(0.7, "#182330");
+  burjGrad.addColorStop(1, "#202a34");
   ctx.fillStyle = burjGrad;
   titleBurjPath();
   ctx.fill();
-  ctx.strokeStyle = "rgba(255,255,255,0.34)";
-  ctx.lineWidth = 0.7;
+  ctx.strokeStyle = "rgba(236,246,255,0.28)";
+  ctx.lineWidth = 0.45;
   ctx.beginPath();
-  ctx.moveTo(burjX, burjBaseY - burjHeight - 26);
-  ctx.lineTo(burjX, burjBaseY - 40);
+  ctx.moveTo(burjX, burjBaseY - burjHeight - 44);
+  ctx.lineTo(burjX, burjBaseY - 28);
   ctx.stroke();
-  ctx.fillStyle = "rgba(255, 255, 255, 0.62)";
-  ctx.fillRect(burjX - 1, burjBaseY - burjHeight + 30, 2, burjHeight - 26);
-  ctx.fillStyle = "rgba(255, 204, 120, 0.82)";
-  ctx.fillRect(burjX - 4, burjBaseY - burjHeight + 34, 8, 6);
-  ctx.fillStyle = "rgba(232, 246, 255, 0.45)";
-  for (let i = 0; i < 30; i++) {
-    const ht = 0.06 + (i / 29) * 0.88;
+  ctx.fillStyle = "rgba(250, 252, 255, 0.46)";
+  ctx.fillRect(burjX - 0.55, burjBaseY - burjHeight + 18, 1.1, burjHeight - 18);
+  ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+  ctx.fillRect(burjX - 2.4, burjBaseY - burjHeight + 22, 4.8, 3.6);
+  ctx.fillStyle = "rgba(225, 239, 255, 0.22)";
+  for (let i = 0; i < 42; i++) {
+    const ht = 0.04 + (i / 41) * 0.92;
     const ly = burjBaseY - burjHeight * ht;
-    const lw = titleHwAt(ht) * 0.82;
-    if (lw < 2) continue;
+    const { left, right } = titleHalfWidthsAt(ht);
+    const lw = left * 0.68;
+    const rw = right * 0.68;
+    if (lw < 1.2 && rw < 1.2) continue;
     const lit = Math.sin(t * 0.32 + i * 0.48) > -0.12;
     if (lit) {
-      ctx.fillStyle = i === 8 || i === 16 || i === 22 ? "rgba(255, 208, 120, 0.50)" : "rgba(225, 241, 255, 0.18)";
-      ctx.fillRect(burjX - lw, ly, lw * 2, 1.25);
+      ctx.fillStyle = i === 13 || i === 23 || i === 33 ? "rgba(255, 255, 255, 0.62)" : "rgba(215, 232, 248, 0.11)";
+      ctx.fillRect(burjX - lw, ly, lw + rw, 0.72);
     }
   }
-  ctx.fillStyle = "rgba(255, 180, 100, 0.55)";
-  ctx.fillRect(burjX - 10, burjBaseY - burjHeight + 118, 20, 7);
-  ctx.fillRect(burjX - 12, burjBaseY - burjHeight + 210, 24, 7);
-  ctx.fillRect(burjX - 14, burjBaseY - burjHeight + 276, 28, 8);
-  ctx.fillStyle = "rgba(255, 196, 120, 0.34)";
-  ctx.fillRect(burjX - 16, burjBaseY - burjHeight + 168, 32, 10);
-  ctx.fillStyle = "rgba(255, 255, 230, 0.42)";
-  ctx.fillRect(burjX - 9, burjBaseY - burjHeight + 210, 18, 8);
+  const brightBands = [
+    { ht: 0.11, alpha: 0.96, thickness: 3.1 },
+    { ht: 0.2, alpha: 0.92, thickness: 2.6 },
+    { ht: 0.31, alpha: 0.88, thickness: 2.3 },
+    { ht: 0.44, alpha: 0.82, thickness: 2.1 },
+    { ht: 0.59, alpha: 0.76, thickness: 1.9 },
+    { ht: 0.75, alpha: 0.68, thickness: 1.7 },
+    { ht: 0.88, alpha: 0.6, thickness: 1.45 },
+  ];
+  brightBands.forEach((ht, index) => {
+    const ly = burjBaseY - burjHeight * ht.ht;
+    const { left, right } = titleHalfWidthsAt(ht.ht);
+    ctx.fillStyle = `rgba(252, 253, 255, ${ht.alpha})`;
+    ctx.fillRect(burjX - left * 0.88, ly, left * 0.88 + right * 0.88, ht.thickness);
+    ctx.fillStyle = `rgba(15, 24, 34, ${0.34 - index * 0.03})`;
+    ctx.fillRect(burjX - left * 0.9, ly + ht.thickness, left * 0.9 + right * 0.9, 1.15);
+    ctx.fillStyle = "rgba(130, 200, 255, 0.12)";
+    ctx.fillRect(burjX - left * 0.86, ly - 0.7, left * 0.86 + right * 0.86, 0.55);
+  });
+  ctx.fillStyle = "rgba(10, 18, 28, 0.56)";
+  ctx.fillRect(burjX - 8.2, burjBaseY - burjHeight + 158, 16.4, 10);
+  ctx.fillRect(burjX - 11.4, burjBaseY - burjHeight + 224, 22.8, 10);
+  ctx.fillStyle = "rgba(248, 252, 255, 0.82)";
+  ctx.fillRect(burjX - 7.1, burjBaseY - burjHeight + 166, 14.2, 2.6);
   // Aviation beacon — sharp blink ~1.6 Hz
   const beaconBlink = Math.max(0, Math.sin(t * 5.0));
   const beaconIntensity = beaconBlink * beaconBlink; // squared for sharper flash
   ctx.fillStyle = `rgba(255, 60, 40, ${0.25 + 0.75 * beaconIntensity})`;
-  ctx.fillRect(burjX - 1, burjBaseY - burjHeight - 34, 2, 10);
+  ctx.fillRect(burjX - 0.7, burjBaseY - burjHeight - 50, 1.4, 10);
   if (beaconIntensity > 0.05) {
     const beaconGlow = ctx.createRadialGradient(
       burjX,
-      burjBaseY - burjHeight - 30,
+      burjBaseY - burjHeight - 46,
       0,
       burjX,
-      burjBaseY - burjHeight - 30,
+      burjBaseY - burjHeight - 46,
       14,
     );
     beaconGlow.addColorStop(0, `rgba(255, 60, 40, ${0.55 * beaconIntensity})`);
     beaconGlow.addColorStop(1, "rgba(255, 0, 0, 0)");
     ctx.fillStyle = beaconGlow;
-    ctx.fillRect(burjX - 14, burjBaseY - burjHeight - 44, 28, 28);
+    ctx.fillRect(burjX - 14, burjBaseY - burjHeight - 56, 28, 28);
   }
 
   ctx.save();
   titleBurjPath();
   ctx.clip();
-  const leftGlow = ctx.createLinearGradient(burjX - 18, 0, burjX + 4, 0);
-  leftGlow.addColorStop(0, "rgba(255,255,255,0.35)");
-  leftGlow.addColorStop(0.35, "rgba(190,230,255,0.20)");
+  const leftGlow = ctx.createLinearGradient(burjX - 20, 0, burjX + 5, 0);
+  leftGlow.addColorStop(0, "rgba(255,255,255,0.26)");
+  leftGlow.addColorStop(0.35, "rgba(170,220,255,0.14)");
   leftGlow.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = leftGlow;
-  ctx.fillRect(burjX - 18, burjBaseY - burjHeight - 30, 22, burjHeight + 30);
+  ctx.fillRect(burjX - 18, burjBaseY - burjHeight - 50, 22, burjHeight + 50);
 
-  const rightShade = ctx.createLinearGradient(burjX - 2, 0, burjX + 18, 0);
+  const rightShade = ctx.createLinearGradient(burjX - 1, 0, burjX + 19, 0);
   rightShade.addColorStop(0, "rgba(0,0,0,0)");
-  rightShade.addColorStop(0.45, "rgba(0,0,0,0.10)");
-  rightShade.addColorStop(1, "rgba(0,0,0,0.26)");
+  rightShade.addColorStop(0.45, "rgba(10,16,24,0.16)");
+  rightShade.addColorStop(1, "rgba(5,8,15,0.38)");
   ctx.fillStyle = rightShade;
-  ctx.fillRect(burjX - 2, burjBaseY - burjHeight - 30, 20, burjHeight + 30);
+  ctx.fillRect(burjX - 1, burjBaseY - burjHeight - 50, 18, burjHeight + 50);
 
-  for (let i = 0; i < 42; i++) {
-    const ht = 0.05 + (i / 41) * 0.9;
+  const upperBeam = ctx.createLinearGradient(burjX, burjBaseY - burjHeight - 56, burjX, burjBaseY - burjHeight + 90);
+  upperBeam.addColorStop(0, "rgba(150, 220, 255, 0.18)");
+  upperBeam.addColorStop(0.55, "rgba(120, 190, 255, 0.08)");
+  upperBeam.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = upperBeam;
+  ctx.fillRect(burjX - 8, burjBaseY - burjHeight - 56, 16, 146);
+
+  for (let i = 0; i < 58; i++) {
+    const ht = 0.03 + (i / 57) * 0.94;
     const ly = burjBaseY - burjHeight * ht;
-    const lw = titleHwAt(ht) * 0.78;
-    if (lw < 2) continue;
+    const { left, right } = titleHalfWidthsAt(ht);
+    const lw = left * 0.64;
+    const rw = right * 0.64;
+    if (lw < 0.95 && rw < 0.95) continue;
     const lit = Math.sin(t * 0.22 + i * 0.37) > -0.28;
     if (lit) {
-      const warmBand = i === 8 || i === 18 || i === 27 || i === 34;
-      ctx.fillStyle = warmBand ? "rgba(255, 204, 120, 0.56)" : "rgba(235, 247, 255, 0.20)";
-      ctx.fillRect(burjX - lw, ly, lw * 2, 1.5);
-      if (!warmBand && i % 5 === 0) {
-        ctx.fillStyle = "rgba(120, 200, 255, 0.12)";
-        ctx.fillRect(burjX - lw, ly + 1.4, lw * 2, 0.9);
+      const warmBand = i === 16 || i === 28 || i === 39 || i === 49;
+      ctx.fillStyle = warmBand ? "rgba(252, 252, 255, 0.9)" : "rgba(230, 244, 255, 0.16)";
+      ctx.fillRect(burjX - lw, ly, lw + rw, 0.72);
+      if (!warmBand && i % 6 === 0) {
+        ctx.fillStyle = "rgba(100, 180, 255, 0.08)";
+        ctx.fillRect(burjX - lw, ly + 0.88, lw + rw, 0.28);
       }
     }
   }
 
-  const deckY = burjBaseY - burjHeight * 0.43;
-  ctx.fillStyle = "rgba(255, 214, 150, 0.34)";
-  ctx.fillRect(burjX - 14, deckY, 28, 12);
-  ctx.fillStyle = "rgba(255, 248, 230, 0.24)";
-  ctx.fillRect(burjX - 12, deckY + 2, 24, 8);
-  for (let w = -10; w <= 9; w += 3) {
-    ctx.fillStyle = "rgba(255, 240, 205, 0.28)";
-    ctx.fillRect(burjX + w, deckY + 3, 2, 5);
+  const deckY = burjBaseY - burjHeight * 0.48;
+  ctx.fillStyle = "rgba(252, 252, 255, 0.62)";
+  ctx.fillRect(burjX - 8.5, deckY, 17, 6);
+  ctx.fillStyle = "rgba(110, 190, 255, 0.18)";
+  ctx.fillRect(burjX - 6.8, deckY + 1.2, 13.6, 3.8);
+  for (let w = -5; w <= 4; w += 2) {
+    ctx.fillStyle = "rgba(255, 240, 205, 0.22)";
+    ctx.fillRect(burjX + w, deckY + 1.8, 1, 2.4);
   }
   ctx.restore();
   ctx.restore();
@@ -2915,10 +3101,10 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
   podiumGlow.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = podiumGlow;
   ctx.fillRect(burjX - 140, GROUND_Y - 140, 280, 180);
-  ctx.fillStyle = "rgba(255, 202, 110, 0.72)";
-  ctx.fillRect(burjX - 24, GROUND_Y - 8, 48, 10);
-  ctx.fillStyle = "rgba(255, 238, 220, 0.92)";
-  ctx.fillRect(burjX - 10, GROUND_Y - 16, 20, 8);
+  ctx.fillStyle = "rgba(236, 246, 255, 0.46)";
+  ctx.fillRect(burjX - 28, GROUND_Y - 8, 56, 7);
+  ctx.fillStyle = "rgba(180, 220, 255, 0.34)";
+  ctx.fillRect(burjX - 12, GROUND_Y - 13, 24, 4);
   ctx.restore();
 
   // Launcher silhouettes on title screen
@@ -3232,8 +3418,9 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
     ctx.save();
     ctx.translate(Math.sin(t * 5.775 + 1.2) * 0.25, 0);
     ctx.globalAlpha = 0.92 + 0.04 * Math.sin(t * 8.9 + 0.3);
-    ctx.font = "bold 36px 'Courier New', monospace";
-    ctx.fillText("DEFEND THE CITY  -  PROTECT THE SKIES", cx, 264);
+    ctx.font = "bold 34px 'Courier New', monospace";
+    ctx.fillText("DEFEND THE CITY", cx, 252);
+    ctx.fillText("PROTECT THE BURJ KHALIFA", cx, 290);
     ctx.restore();
 
     const pulse = 0.5 + 0.5 * Math.sin(t * 0.75);
