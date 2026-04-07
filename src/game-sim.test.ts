@@ -229,6 +229,29 @@ describe("Burj damage presentation", () => {
   });
 });
 
+describe("Building destruction presentation", () => {
+  afterEach(() => setRng(Math.random));
+
+  it("spawns and expires building destroy fx when a missile destroys a building", () => {
+    const { sim, g } = makeCleanGame(5);
+    const targetBuilding = g.buildings.find((b) => b.alive)!;
+    const missile = makeBallisticMissile({
+      x: targetBuilding.x + targetBuilding.w / 2,
+      y: GROUND_Y - targetBuilding.h + 20,
+      vy: 0,
+    });
+    g.missiles.push(missile);
+
+    sim.update(g, 1);
+
+    expect(targetBuilding.alive).toBe(false);
+    expect(g.buildingDestroyFx).toHaveLength(1);
+
+    sim.update(g, 80);
+    expect(g.buildingDestroyFx).toHaveLength(0);
+  });
+});
+
 describe("Decoy flares", () => {
   afterEach(() => setRng(Math.random));
 

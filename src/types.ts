@@ -107,6 +107,17 @@ export interface BurjDamageFx {
   seed: number;
 }
 
+export interface BuildingDestroyFx {
+  id: number;
+  x: number;
+  y: number;
+  life: number;
+  maxLife: number;
+  seed: number;
+  w: number;
+  h: number;
+}
+
 export interface Explosion {
   id: number;
   x: number;
@@ -406,6 +417,7 @@ export interface GameState {
   particles: Particle[];
   planes: Plane[];
   buildings: Building[];
+  buildingDestroyFx: BuildingDestroyFx[];
   stars: Star[];
   defenseSites: DefenseSite[];
 

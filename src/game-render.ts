@@ -138,6 +138,24 @@ function getDroneKillFlashImage() {
   return null;
 }
 
+let _buildingDestroyBurstImg: HTMLImageElement | null = null;
+let _buildingDestroyBurstLoading = false;
+function getBuildingDestroyBurstImage() {
+  if (_buildingDestroyBurstImg) return _buildingDestroyBurstImg;
+  if (_buildingDestroyBurstLoading) return null;
+  if (typeof Image === "undefined") return null;
+  _buildingDestroyBurstLoading = true;
+  const img = new Image();
+  img.src = new URL("./assets/building-destroy-burst.png", import.meta.url).href;
+  img.onload = () => {
+    _buildingDestroyBurstImg = img;
+  };
+  img.onerror = () => {
+    _buildingDestroyBurstLoading = false;
+  };
+  return null;
+}
+
 let _titleBurjGlowImg: HTMLImageElement | null = null;
 let _titleBurjGlowLoading = false;
 function getTitleBurjGlowImage() {
@@ -658,6 +676,7 @@ function mapGameplayBuildingTower(building: Building, index: number): TitleTower
 
 function drawGameplayForegroundBuildings(ctx: CanvasRenderingContext2D, game: GameState, t: number, groundY: number) {
   const baseY = groundY - 6;
+  const burstImg = getBuildingDestroyBurstImage();
   game.buildings.forEach((building, index) => {
     if (!building.alive) {
       ctx.fillStyle = "#1b2230";
@@ -668,6 +687,58 @@ function drawGameplayForegroundBuildings(ctx: CanvasRenderingContext2D, game: Ga
     }
     const tower = mapGameplayBuildingTower(building, index);
     drawSharedTower(ctx, tower, baseY, t, 0, 0.48);
+  });
+  game.buildingDestroyFx.forEach((fx) => {
+    const lifeT = fx.life / fx.maxLife;
+    const flicker = 0.55 + 0.45 * Math.sin(t * 8 + fx.seed);
+    const burstW = Math.max(34, fx.w * 1.8);
+    const burstH = Math.max(34, fx.h * 0.95);
+    const burstY = fx.y + (1 - lifeT) * 8;
+
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = lifeT * (0.72 + flicker * 0.28);
+    const core = ctx.createRadialGradient(fx.x, burstY, 0, fx.x, burstY, Math.max(12, burstW * 0.22));
+    core.addColorStop(0, "rgba(255,252,236,1)");
+    core.addColorStop(0.25, "rgba(255,216,132,0.95)");
+    core.addColorStop(0.62, "rgba(255,128,48,0.42)");
+    core.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = core;
+    ctx.beginPath();
+    ctx.arc(fx.x, burstY, Math.max(12, burstW * 0.22), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    if (burstImg) {
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = lifeT * (0.75 + flicker * 0.25);
+      ctx.drawImage(burstImg, fx.x - burstW / 2, burstY - burstH / 2, burstW, burstH);
+      ctx.restore();
+    }
+
+    ctx.save();
+    ctx.globalAlpha = lifeT * 0.28;
+    ctx.fillStyle = "rgba(34, 20, 18, 0.95)";
+    ctx.beginPath();
+    ctx.ellipse(fx.x, burstY + 6, burstW * 0.34, burstH * 0.18, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    for (let i = 0; i < 6; i++) {
+      const offset = (i - 2.5) * 4.2;
+      const rise = (1 - lifeT) * (5 + i * 1.6);
+      const size = 2.2 + (i % 3) * 0.7;
+      ctx.globalAlpha = lifeT * (0.46 - i * 0.04);
+      ctx.fillStyle = i % 2 === 0 ? "#6f625e" : "#8d765f";
+      ctx.beginPath();
+      ctx.moveTo(fx.x + offset, burstY - rise - size);
+      ctx.lineTo(fx.x + offset + size, burstY - rise);
+      ctx.lineTo(fx.x + offset - size, burstY - rise + size * 0.6);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
   });
 }
 

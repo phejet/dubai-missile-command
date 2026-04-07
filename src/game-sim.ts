@@ -197,6 +197,7 @@ function boom(
 
 let _burjDecalId = 0;
 let _burjDamageFxId = 0;
+let _buildingDestroyFxId = 0;
 
 function addBurjImpactDamage(g: GameState, x: number, y: number, kind: BurjDamageKind) {
   const jitterX = rand(-3, 3);
@@ -222,6 +223,26 @@ function addBurjImpactDamage(g: GameState, x: number, y: number, kind: BurjDamag
 
 function updateBurjDamageFx(): void {}
 
+function addBuildingDestroyFx(g: GameState, building: { x: number; w: number; h: number }) {
+  g.buildingDestroyFx.push({
+    id: _buildingDestroyFxId++,
+    x: building.x + building.w / 2,
+    y: GROUND_Y - 6 - building.h * 0.45,
+    life: 70,
+    maxLife: 70,
+    seed: rand(0, Math.PI * 2),
+    w: building.w,
+    h: building.h,
+  });
+}
+
+function updateBuildingDestroyFx(g: GameState, dt: number): void {
+  g.buildingDestroyFx.forEach((fx) => {
+    fx.life -= dt;
+  });
+  g.buildingDestroyFx = g.buildingDestroyFx.filter((fx) => fx.life > 0);
+}
+
 export function initGame(): GameState {
   const allBuildings = createScenicBuildings();
 
@@ -245,6 +266,7 @@ export function initGame(): GameState {
     particles: [],
     planes: [],
     buildings: allBuildings,
+    buildingDestroyFx: [],
     burjAlive: true,
     burjHealth: 5,
     burjDecals: [],
@@ -1268,6 +1290,7 @@ function updateMissiles(g: GameState, dt: number, onEvent?: ((type: string, data
           m.alive = false;
           boom(g, m.x, m.y, 40, "#ff4400", false, onEvent, 20);
           b.alive = false;
+          addBuildingDestroyFx(g, b);
         }
       });
     }
@@ -1476,6 +1499,7 @@ function updateDrones(
           const bounds = getGameplayBuildingBounds(b);
           if (b.alive && d.x >= bounds.left - 30 && d.x <= bounds.right + 30 && d.y >= bounds.top - 20) {
             b.alive = false;
+            addBuildingDestroyFx(g, b);
           }
         });
         g.defenseSites.forEach((site) => {
@@ -1766,7 +1790,8 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
     }
     if (g.multiKillToast.timer <= 0) g.multiKillToast = null;
   }
-  updateBurjDamageFx(g, dt);
+  updateBurjDamageFx();
+  updateBuildingDestroyFx(g, dt);
 
   // Game over — Burj destroyed
   if (!g.burjAlive && !g.gameOverTimer) {
