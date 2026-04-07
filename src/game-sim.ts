@@ -177,7 +177,21 @@ function boom(
   options: Record<string, unknown> = {},
 ) {
   createExplosion(g, x, y, radius, color, playerCaused, initialRadius, options);
-  if (onEvent) onEvent("sfx", { name: "explosion", size: radius > 45 ? "large" : radius > 25 ? "medium" : "small" });
+  if (onEvent) {
+    const chainLevel = typeof options.chainLevel === "number" ? options.chainLevel : 0;
+    onEvent("sfx", {
+      name: "explosion",
+      size: radius > 45 ? "large" : radius > 25 ? "medium" : "small",
+      chainLevel,
+    });
+    if (chainLevel >= 1) {
+      onEvent("sfx", {
+        name: "chainExplosion",
+        size: radius > 45 ? "large" : radius > 25 ? "medium" : "small",
+        chainLevel,
+      });
+    }
+  }
 }
 
 export function initGame(): GameState {
@@ -1516,18 +1530,19 @@ function updateInterceptors(g: GameState, dt: number, onEvent?: ((type: string, 
 function updateExplosions(g: GameState, dt: number, onEvent?: ((type: string, data?: unknown) => void) | null) {
   g.explosions.forEach((ex) => {
     if (ex.growing) {
-      ex.radius += (ex.chain ? 4 : 2) * dt;
+      ex.radius += (ex.chain ? 4 + (ex.chainLevel ?? 0) * 0.85 : 2) * dt;
       if (ex.radius >= ex.maxRadius) ex.growing = false;
     } else ex.alpha -= 0.05 * dt;
     if (ex.ringAlpha > 0) {
-      ex.ringRadius += 14 * dt;
-      ex.ringAlpha -= 0.25 * dt;
+      ex.ringRadius += (14 + (ex.chainLevel ?? 0) * 2.8 + (ex.heroPulse ?? 0) * 1.8) * dt;
+      ex.ringAlpha -= (0.25 + (ex.chainLevel ?? 0) * 0.02) * dt;
     }
+    if ((ex.heroPulse ?? 0) > 0) ex.heroPulse = Math.max(0, (ex.heroPulse ?? 0) - 0.06 * dt);
+    if ((ex.linkAlpha ?? 0) > 0) ex.linkAlpha = Math.max(0, (ex.linkAlpha ?? 0) - 0.09 * dt);
     if (ex.alpha > 0.2 && !ex.harmless) {
       if (!ex.kills) ex.kills = 0;
       // For chain explosions, find the root explosion to aggregate kills
       const rootEx = ex.rootExplosionId != null ? g.explosions.find((e) => e.id === ex.rootExplosionId) || ex : ex;
-      const chainOpts = { chain: true, rootExplosionId: rootEx.id };
       g.missiles.forEach((m) => {
         if (!m.alive) return;
         if (m.type === "mirv") {
@@ -1540,7 +1555,16 @@ function updateExplosions(g: GameState, dt: number, onEvent?: ((type: string, da
               g.score += getKillReward(m);
               g.stats.missileKills++;
               rootEx.kills = (rootEx.kills ?? 0) + 1;
-              boom(g, m.x, m.y, 45, COL.mirv, ex.playerCaused, onEvent, 45, chainOpts);
+              rootEx.heroPulse = Math.min(1.6, 0.65 + (rootEx.kills ?? 0) * 0.18);
+              boom(g, m.x, m.y, 45, COL.mirv, ex.playerCaused, onEvent, 45, {
+                chain: true,
+                chainLevel: (ex.chainLevel ?? 0) + 1,
+                rootExplosionId: rootEx.id,
+                linkFromX: ex.x,
+                linkFromY: ex.y,
+                linkAlpha: 1,
+                visualType: "missile",
+              });
             }
           }
         } else if (dist(m.x, m.y, ex.x, ex.y) < ex.radius) {
@@ -1548,7 +1572,16 @@ function updateExplosions(g: GameState, dt: number, onEvent?: ((type: string, da
           g.score += getKillReward(m);
           g.stats.missileKills++;
           rootEx.kills = (rootEx.kills ?? 0) + 1;
-          boom(g, m.x, m.y, 45, "#ffcc00", ex.playerCaused, onEvent, 45, chainOpts);
+          rootEx.heroPulse = Math.min(1.6, 0.65 + (rootEx.kills ?? 0) * 0.18);
+          boom(g, m.x, m.y, 45, "#ffcc00", ex.playerCaused, onEvent, 45, {
+            chain: true,
+            chainLevel: (ex.chainLevel ?? 0) + 1,
+            rootExplosionId: rootEx.id,
+            linkFromX: ex.x,
+            linkFromY: ex.y,
+            linkAlpha: 1,
+            visualType: "missile",
+          });
         }
       });
       g.drones.forEach((d) => {
@@ -1562,7 +1595,16 @@ function updateExplosions(g: GameState, dt: number, onEvent?: ((type: string, da
             g.score += getKillReward(d);
             g.stats.droneKills++;
             rootEx.kills = (rootEx.kills ?? 0) + 1;
-            boom(g, d.x, d.y, 45, "#ff8800", ex.playerCaused, onEvent, 45, chainOpts);
+            rootEx.heroPulse = Math.min(1.6, 0.65 + (rootEx.kills ?? 0) * 0.18);
+            boom(g, d.x, d.y, 45, "#ff8800", ex.playerCaused, onEvent, 45, {
+              chain: true,
+              chainLevel: (ex.chainLevel ?? 0) + 1,
+              rootExplosionId: rootEx.id,
+              linkFromX: ex.x,
+              linkFromY: ex.y,
+              linkAlpha: 1,
+              visualType: "drone",
+            });
           }
         }
       });
@@ -1572,7 +1614,10 @@ function updateExplosions(g: GameState, dt: number, onEvent?: ((type: string, da
         const bonus = getMultiKillBonus(ex.kills ?? 0);
         const label = ex.kills === 2 ? "DOUBLE KILL" : ex.kills === 3 ? "TRIPLE KILL" : "MEGA KILL";
         g.score += bonus;
-        g.multiKillToast = { label, bonus, x: ex.x, y: ex.y, timer: 90 };
+        g.multiKillToast = { label, bonus, kills: ex.kills, x: ex.x, y: ex.y, timer: 90, pulse: 1 };
+        ex.heroPulse = Math.max(ex.heroPulse ?? 0, 1.2);
+        g.shakeTimer = Math.max(g.shakeTimer, 10 + (ex.kills ?? 0) * 2);
+        g.shakeIntensity = Math.max(g.shakeIntensity, 4 + (ex.kills ?? 0));
         if (onEvent) onEvent("sfx", { name: "multiKill" });
       }
     }
@@ -1584,7 +1629,11 @@ function updateExplosions(g: GameState, dt: number, onEvent?: ((type: string, da
         const newBonus = getMultiKillBonus(ex.kills ?? 0);
         g.score += newBonus - oldBonus;
         const label = ex.kills === 2 ? "DOUBLE KILL" : ex.kills === 3 ? "TRIPLE KILL" : "MEGA KILL";
-        g.multiKillToast = { label, bonus: newBonus, x: ex.x, y: ex.y, timer: 90 };
+        g.multiKillToast = { label, bonus: newBonus, kills: ex.kills, x: ex.x, y: ex.y, timer: 90, pulse: 1 };
+        ex.heroPulse = Math.max(ex.heroPulse ?? 0, 1.25);
+        g.shakeTimer = Math.max(g.shakeTimer, 10 + (ex.kills ?? 0) * 2);
+        g.shakeIntensity = Math.max(g.shakeIntensity, 4 + (ex.kills ?? 0));
+        if (onEvent) onEvent("sfx", { name: "multiKill" });
       }
     }
     if (ex.kills) ex._lastBonusKills = ex.kills;
@@ -1680,6 +1729,9 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
   if ((g.waveClearedTimer ?? 0) > 0) g.waveClearedTimer = (g.waveClearedTimer ?? 0) - dt;
   if (g.multiKillToast && g.multiKillToast.timer > 0) {
     g.multiKillToast.timer -= dt;
+    if ((g.multiKillToast.pulse ?? 0) > 0) {
+      g.multiKillToast.pulse = Math.max(0, (g.multiKillToast.pulse ?? 0) - 0.08 * dt);
+    }
     if (g.multiKillToast.timer <= 0) g.multiKillToast = null;
   }
 

@@ -85,6 +85,8 @@ export interface Interceptor {
   _oy?: number;
 }
 
+export type ExplosionVisualType = "missile" | "drone";
+
 export interface Explosion {
   id: number;
   x: number;
@@ -97,11 +99,17 @@ export interface Explosion {
   playerCaused: boolean;
   harmless: boolean;
   chain: boolean;
+  visualType?: ExplosionVisualType;
   rootExplosionId: number | null;
   ringRadius: number;
   ringAlpha: number;
   kills?: number;
   bonusAwarded?: boolean;
+  chainLevel?: number;
+  heroPulse?: number;
+  linkFromX?: number;
+  linkFromY?: number;
+  linkAlpha?: number;
   _lastBonusKills?: number;
   _px?: number;
   _py?: number;
@@ -298,6 +306,7 @@ export interface MultiKillToast {
   label?: string;
   x?: number;
   y?: number;
+  pulse?: number;
 }
 
 // ── Wave / commander ──

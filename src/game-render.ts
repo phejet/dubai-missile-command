@@ -99,6 +99,42 @@ function getInterceptorHitFlashImage() {
   return null;
 }
 
+let _missileKillFlashImg: HTMLImageElement | null = null;
+let _missileKillFlashLoading = false;
+function getMissileKillFlashImage() {
+  if (_missileKillFlashImg) return _missileKillFlashImg;
+  if (_missileKillFlashLoading) return null;
+  if (typeof Image === "undefined") return null;
+  _missileKillFlashLoading = true;
+  const img = new Image();
+  img.src = new URL("./assets/explosion-missile-kill.png", import.meta.url).href;
+  img.onload = () => {
+    _missileKillFlashImg = img;
+  };
+  img.onerror = () => {
+    _missileKillFlashLoading = false;
+  };
+  return null;
+}
+
+let _droneKillFlashImg: HTMLImageElement | null = null;
+let _droneKillFlashLoading = false;
+function getDroneKillFlashImage() {
+  if (_droneKillFlashImg) return _droneKillFlashImg;
+  if (_droneKillFlashLoading) return null;
+  if (typeof Image === "undefined") return null;
+  _droneKillFlashLoading = true;
+  const img = new Image();
+  img.src = new URL("./assets/explosion-drone-kill.png", import.meta.url).href;
+  img.onload = () => {
+    _droneKillFlashImg = img;
+  };
+  img.onerror = () => {
+    _droneKillFlashLoading = false;
+  };
+  return null;
+}
+
 let _titleBurjGlowImg: HTMLImageElement | null = null;
 let _titleBurjGlowLoading = false;
 function getTitleBurjGlowImage() {
@@ -2414,10 +2450,50 @@ function drawUpgradeProjectiles(ctx: CanvasRenderingContext2D, game: GameState, 
 }
 
 function drawExplosionsAndParticles(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutProfile) {
+  game.explosions.forEach((ex: Explosion) => {
+    if ((ex.linkAlpha ?? 0) <= 0 || ex.linkFromX == null || ex.linkFromY == null) return;
+    const dx = ex.x - ex.linkFromX;
+    const dy = ex.y - ex.linkFromY;
+    const len = Math.hypot(dx, dy);
+    if (len < 1) return;
+    const nx = -dy / len;
+    const ny = dx / len;
+    const width = (8 + (ex.chainLevel ?? 0) * 2.2) * layout.effectScale;
+    const alpha = Math.min(1, (ex.linkAlpha ?? 0) * ex.alpha);
+
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = alpha * 0.9;
+    const grad = ctx.createLinearGradient(ex.linkFromX, ex.linkFromY, ex.x, ex.y);
+    grad.addColorStop(0, "rgba(255, 248, 210, 0)");
+    grad.addColorStop(0.2, "rgba(255, 220, 128, 0.9)");
+    grad.addColorStop(0.55, "rgba(255, 150, 64, 0.75)");
+    grad.addColorStop(1, "rgba(255, 84, 24, 0)");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(ex.linkFromX + nx * width * 0.25, ex.linkFromY + ny * width * 0.25);
+    ctx.lineTo(ex.x + nx * width * 0.5, ex.y + ny * width * 0.5);
+    ctx.lineTo(ex.x - nx * width * 0.5, ex.y - ny * width * 0.5);
+    ctx.lineTo(ex.linkFromX - nx * width * 0.25, ex.linkFromY - ny * width * 0.25);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,252,240,0.8)";
+    ctx.lineWidth = Math.max(1, width * 0.12);
+    ctx.beginPath();
+    ctx.moveTo(ex.linkFromX, ex.linkFromY);
+    ctx.lineTo(ex.x, ex.y);
+    ctx.stroke();
+    ctx.restore();
+  });
+
   // Explosions
   game.explosions.forEach((ex: Explosion) => {
     const r = ex.radius * layout.effectScale;
     if (r < 1) return;
+    const chainBoost = 1 + (ex.chainLevel ?? 0) * 0.12 + (ex.heroPulse ?? 0) * 0.08;
+    const rootBoost =
+      ex.rootExplosionId == null && (ex.kills ?? 0) >= 2 ? 1 + Math.min(0.45, (ex.kills ?? 0) * 0.08) : 1;
+    const boostedR = r * chainBoost * rootBoost;
 
     const isInterceptorBlast = ex.playerCaused && !ex.chain;
     if (isInterceptorBlast) {
@@ -2471,10 +2547,89 @@ function drawExplosionsAndParticles(ctx: CanvasRenderingContext2D, game: GameSta
           ctx.fill();
         }
       }
+    } else if (ex.visualType === "missile" || ex.visualType === "drone") {
+      const isDroneKill = ex.visualType === "drone";
+      const flashImg = isDroneKill ? getDroneKillFlashImage() : getMissileKillFlashImage();
+      const bloomR = boostedR * (isDroneKill ? 0.92 : 0.82);
+      const spriteSize = boostedR * (isDroneKill ? 1.18 : 1.02);
+
+      const splashR = boostedR * (isDroneKill ? 2.2 : 2.05);
+      const splash = ctx.createRadialGradient(ex.x, ex.y, 0, ex.x, ex.y, splashR);
+      if (isDroneKill) {
+        splash.addColorStop(0, "rgba(255, 220, 184, 0.3)");
+        splash.addColorStop(0.16, "rgba(255, 132, 72, 0.24)");
+        splash.addColorStop(0.38, "rgba(216, 74, 34, 0.14)");
+      } else {
+        splash.addColorStop(0, "rgba(255, 242, 204, 0.32)");
+        splash.addColorStop(0.16, "rgba(255, 190, 96, 0.24)");
+        splash.addColorStop(0.38, "rgba(255, 122, 34, 0.12)");
+      }
+      splash.addColorStop(0.62, "rgba(255, 82, 40, 0.04)");
+      splash.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.globalAlpha = ex.alpha;
+      ctx.fillStyle = splash;
+      ctx.beginPath();
+      ctx.arc(ex.x, ex.y, splashR, 0, Math.PI * 2);
+      ctx.fill();
+
+      const grad = ctx.createRadialGradient(ex.x, ex.y, 0, ex.x, ex.y, boostedR);
+      if (isDroneKill) {
+        grad.addColorStop(0, "#fff6ea");
+        grad.addColorStop(0.14, "#ffd4a0");
+        grad.addColorStop(0.38, "#ff8f3e");
+        grad.addColorStop(0.72, "rgba(116,26,14,0.12)");
+      } else {
+        grad.addColorStop(0, "#fffcee");
+        grad.addColorStop(0.14, "#ffe89f");
+        grad.addColorStop(0.38, "#ffbc3c");
+        grad.addColorStop(0.72, "rgba(255,92,18,0.1)");
+      }
+      grad.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(ex.x, ex.y, r, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.globalAlpha = ex.alpha * (isDroneKill ? 0.92 : 0.88);
+      const bloom = ctx.createRadialGradient(ex.x, ex.y, 0, ex.x, ex.y, bloomR);
+      if (isDroneKill) {
+        bloom.addColorStop(0, "rgba(255,232,196,0.92)");
+        bloom.addColorStop(0.24, "rgba(255,152,68,0.44)");
+        bloom.addColorStop(0.58, "rgba(224,72,30,0.16)");
+      } else {
+        bloom.addColorStop(0, "rgba(255,246,215,0.96)");
+        bloom.addColorStop(0.2, "rgba(255,204,96,0.46)");
+        bloom.addColorStop(0.52, "rgba(255,118,28,0.15)");
+      }
+      bloom.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = bloom;
+      ctx.beginPath();
+      ctx.arc(ex.x, ex.y, bloomR, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (flashImg) {
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        ctx.globalAlpha = Math.min(1, ex.alpha * 1.05);
+        ctx.drawImage(flashImg, ex.x - spriteSize / 2, ex.y - spriteSize / 2, spriteSize, spriteSize);
+        ctx.restore();
+      } else {
+        const coreR = boostedR * (isDroneKill ? 0.34 : 0.3);
+        ctx.globalAlpha = ex.alpha * 0.9;
+        ctx.fillStyle = isDroneKill ? "#ff8833" : "#ffcc55";
+        ctx.beginPath();
+        ctx.arc(ex.x, ex.y, coreR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = ex.alpha * 0.65;
+        ctx.fillStyle = "#fff4cc";
+        ctx.beginPath();
+        ctx.arc(ex.x, ex.y, coreR * 0.55, 0, Math.PI * 2);
+        ctx.fill();
+      }
     } else {
       // All other explosions — gradient fireball
       ctx.globalAlpha = ex.alpha;
-      const splashR = r * 2.05;
+      const splashR = boostedR * 2.05;
       const splash = ctx.createRadialGradient(ex.x, ex.y, 0, ex.x, ex.y, splashR);
       splash.addColorStop(0, "rgba(255, 240, 206, 0.34)");
       splash.addColorStop(0.16, "rgba(255, 184, 120, 0.24)");
@@ -2486,7 +2641,7 @@ function drawExplosionsAndParticles(ctx: CanvasRenderingContext2D, game: GameSta
       ctx.arc(ex.x, ex.y, splashR, 0, Math.PI * 2);
       ctx.fill();
 
-      const grad = ctx.createRadialGradient(ex.x, ex.y, 0, ex.x, ex.y, r);
+      const grad = ctx.createRadialGradient(ex.x, ex.y, 0, ex.x, ex.y, boostedR);
       const warmStop = ov("explosion.fireballWarmStop", 0.15);
       const colorStop = Math.max(warmStop, ov("explosion.fireballColorStop", 0.4));
       const fadeStop = Math.max(colorStop, ov("explosion.fireballFadeStop", 0.75));
@@ -2504,12 +2659,25 @@ function drawExplosionsAndParticles(ctx: CanvasRenderingContext2D, game: GameSta
     // Shockwave ring
     if (ex.ringAlpha > 0) {
       const ringR = ex.ringRadius * layout.effectScale;
-      ctx.globalAlpha = ex.ringAlpha * ex.alpha;
+      ctx.globalAlpha = ex.ringAlpha * ex.alpha * (1 + (ex.heroPulse ?? 0) * 0.18);
       ctx.strokeStyle = ex.color;
-      ctx.lineWidth = Math.max(1, ov("explosion.ringWidth", 3) * layout.effectScale * ex.ringAlpha);
+      ctx.lineWidth = Math.max(
+        1,
+        ov("explosion.ringWidth", 3) *
+          layout.effectScale *
+          ex.ringAlpha *
+          (1 + (ex.chainLevel ?? 0) * 0.18 + (ex.heroPulse ?? 0) * 0.25),
+      );
       ctx.beginPath();
       ctx.arc(ex.x, ex.y, ringR, 0, Math.PI * 2);
       ctx.stroke();
+      if ((ex.heroPulse ?? 0) > 0.12) {
+        ctx.globalAlpha = ex.ringAlpha * ex.alpha * 0.45 * (ex.heroPulse ?? 0);
+        ctx.lineWidth *= 0.65;
+        ctx.beginPath();
+        ctx.arc(ex.x, ex.y, ringR + 10 * layout.effectScale * (ex.heroPulse ?? 0), 0, Math.PI * 2);
+        ctx.stroke();
+      }
     }
   });
   ctx.globalAlpha = 1;
@@ -3242,17 +3410,27 @@ function drawHUD(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutP
     const mk = game.multiKillToast;
     const fadeOut = Math.min(1, mk.timer / 20);
     const rise = (90 - mk.timer) * 0.5;
+    const pulse = 1 + (mk.pulse ?? 0) * 0.28;
     ctx.save();
     ctx.globalAlpha = fadeOut;
     ctx.textAlign = "center";
-    ctx.font = `bold ${layout.multiKillLabelSize}px 'Courier New', monospace`;
+    const toastX = mk.x ?? CANVAS_W / 2;
+    const toastY = mk.y ?? 200;
+    const plateW = 220 + (mk.kills ?? 2) * 18;
+    const plateH = 54;
+    ctx.fillStyle = "rgba(24, 8, 4, 0.48)";
+    ctx.fillRect(toastX - plateW / 2, toastY - 62 - rise, plateW, plateH);
+    ctx.strokeStyle = "rgba(255, 204, 112, 0.65)";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(toastX - plateW / 2, toastY - 62 - rise, plateW, plateH);
+    ctx.font = `bold ${layout.multiKillLabelSize * pulse}px 'Courier New', monospace`;
     const labelColor = mk.label === "MEGA KILL" ? "#ff4444" : mk.label === "TRIPLE KILL" ? "#ffaa00" : "#ffdd00";
     ctx.fillStyle = labelColor;
-    glow(ctx, labelColor, 15);
-    ctx.fillText(mk.label ?? "", mk.x ?? CANVAS_W / 2, (mk.y ?? 200) - 30 - rise);
+    glow(ctx, labelColor, 15 + (mk.pulse ?? 0) * 10);
+    ctx.fillText(mk.label ?? "", toastX, toastY - 30 - rise);
     ctx.font = `bold ${layout.multiKillBonusSize}px 'Courier New', monospace`;
     ctx.fillStyle = "#00ffcc";
-    ctx.fillText(`+${mk.bonus}`, mk.x ?? CANVAS_W / 2, (mk.y ?? 200) - 10 - rise);
+    ctx.fillText(`+${mk.bonus}`, toastX, toastY - 10 - rise);
     glowOff(ctx);
     ctx.textAlign = "left";
     ctx.restore();

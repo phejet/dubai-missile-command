@@ -243,6 +243,59 @@ const SFX = {
     scheduleRelease(p.dur);
   },
 
+  chainExplosion(size: "small" | "medium" | "large", chainLevel = 1) {
+    if (!ensureCtx()) return;
+    const ms = performance.now();
+    if (ms - lastExplosionTime < 80) {
+      explosionCount++;
+      if (explosionCount > 4) return;
+    } else {
+      lastExplosionTime = ms;
+      explosionCount = 1;
+    }
+    if (!trackVoice()) return;
+
+    const level = Math.max(1, Math.min(4, chainLevel));
+    const params = {
+      small: { dur: 0.12, vol: 0.07, freq: 2200, tailFreq: 780 },
+      medium: { dur: 0.14, vol: 0.085, freq: 2000, tailFreq: 700 },
+      large: { dur: 0.16, vol: 0.1, freq: 1800, tailFreq: 620 },
+    };
+    const p = params[size] || params.medium;
+    const t = now();
+
+    const src = getCtx().createBufferSource();
+    src.buffer = noiseBuffer;
+    const bp = getCtx().createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.setValueAtTime(p.freq + level * 140, t);
+    bp.Q.value = 2.2 + level * 0.35;
+    const ng = getCtx().createGain();
+    ng.gain.setValueAtTime(p.vol * (1 + level * 0.08), t);
+    ng.gain.exponentialRampToValueAtTime(0.001, t + p.dur);
+    src.connect(bp);
+    bp.connect(ng);
+    ng.connect(getMaster());
+    src.start(t);
+    src.stop(t + p.dur);
+
+    const sting = getCtx().createOscillator();
+    sting.type = "triangle";
+    const stingStart = t + 0.015;
+    sting.frequency.setValueAtTime(p.tailFreq + level * 70, stingStart);
+    sting.frequency.exponentialRampToValueAtTime(p.tailFreq * 0.7 + level * 30, stingStart + 0.09);
+    const sg = getCtx().createGain();
+    sg.gain.setValueAtTime(0.001, stingStart);
+    sg.gain.linearRampToValueAtTime(0.03 + level * 0.008, stingStart + 0.01);
+    sg.gain.exponentialRampToValueAtTime(0.001, stingStart + 0.09);
+    sting.connect(sg);
+    sg.connect(getMaster());
+    sting.start(stingStart);
+    sting.stop(stingStart + 0.09);
+
+    scheduleRelease(p.dur);
+  },
+
   gameStart() {
     if (!ensureCtx() || !trackVoice()) return;
     const t = now();

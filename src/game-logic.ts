@@ -1,4 +1,4 @@
-import type { RNG, GameState, DefenseSite, Threat, Building } from "./types";
+import type { RNG, GameState, DefenseSite, Threat, Building, ExplosionVisualType } from "./types";
 
 export const CANVAS_W = 900;
 export const CANVAS_H = 1600;
@@ -244,6 +244,7 @@ interface ExplosionOptions {
   harmless?: boolean;
   chain?: boolean;
   rootExplosionId?: number | null;
+  visualType?: ExplosionVisualType;
 }
 
 export function createExplosion(
@@ -269,6 +270,7 @@ export function createExplosion(
     playerCaused: !!playerCaused,
     harmless: !!options.harmless,
     chain: !!options.chain,
+    visualType: options.visualType,
     rootExplosionId: options.rootExplosionId ?? null,
     ringRadius: 0,
     ringAlpha: 1,
@@ -485,7 +487,7 @@ export function damageTarget(
       target.alive = false;
       g.score += getKillReward(target);
       g.stats.droneKills++;
-      if (!noExplosion) createExplosion(g, target.x, target.y, radius, color);
+      if (!noExplosion) createExplosion(g, target.x, target.y, radius, color, false, 0, { visualType: "drone" });
     }
   } else if (target.type === "mirv") {
     (target as { health: number }).health -= damage;
@@ -493,12 +495,12 @@ export function damageTarget(
       target.alive = false;
       g.score += getKillReward(target);
       g.stats.missileKills++;
-      if (!noExplosion) createExplosion(g, target.x, target.y, 60, color);
+      if (!noExplosion) createExplosion(g, target.x, target.y, 60, color, false, 0, { visualType: "missile" });
     }
   } else {
     target.alive = false;
     g.score += getKillReward(target);
     g.stats.missileKills++;
-    if (!noExplosion) createExplosion(g, target.x, target.y, radius, color);
+    if (!noExplosion) createExplosion(g, target.x, target.y, radius, color, false, 0, { visualType: "missile" });
   }
 }

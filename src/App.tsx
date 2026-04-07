@@ -258,6 +258,7 @@ export default function DubaiMissileCommand() {
       if (type === "sfx") {
         const sfxMap = {
           explosion: () => SFX.explosion(data.size),
+          chainExplosion: () => SFX.chainExplosion(data.size, data.chainLevel),
           mirvIncoming: () => SFX.mirvIncoming(),
           mirvSplit: () => SFX.mirvSplit(),
           planeIncoming: () => SFX.planeIncoming(),
