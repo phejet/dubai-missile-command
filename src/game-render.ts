@@ -43,6 +43,9 @@ import type {
 
 // FPS probe: measure first 60 frames, disable shadowBlur if avg FPS < 45
 export const perfState = { frameCount: 0, startTime: 0, glowEnabled: true, probed: false };
+const ARCADE_FONT_FAMILY = "'Courier New', monospace";
+const GAME_TITLE_STARFIELD_BLEND = 1; //0.55;
+const GAME_TITLE_STARFIELD_DENSITY = 260;
 
 // Sky nebula background — loaded once, drawn every frame
 let _skyImg: HTMLImageElement | null = null;
@@ -153,6 +156,42 @@ function getTitleBurjGlowImage() {
   return null;
 }
 
+let _burjMissileDecalImg: HTMLImageElement | null = null;
+let _burjMissileDecalLoading = false;
+function getBurjMissileDecalImage() {
+  if (_burjMissileDecalImg) return _burjMissileDecalImg;
+  if (_burjMissileDecalLoading) return null;
+  if (typeof Image === "undefined") return null;
+  _burjMissileDecalLoading = true;
+  const img = new Image();
+  img.src = new URL("./assets/burj-hit-decal-missile.png", import.meta.url).href;
+  img.onload = () => {
+    _burjMissileDecalImg = img;
+  };
+  img.onerror = () => {
+    _burjMissileDecalLoading = false;
+  };
+  return null;
+}
+
+let _burjDroneDecalImg: HTMLImageElement | null = null;
+let _burjDroneDecalLoading = false;
+function getBurjDroneDecalImage() {
+  if (_burjDroneDecalImg) return _burjDroneDecalImg;
+  if (_burjDroneDecalLoading) return null;
+  if (typeof Image === "undefined") return null;
+  _burjDroneDecalLoading = true;
+  const img = new Image();
+  img.src = new URL("./assets/burj-hit-decal-drone.png", import.meta.url).href;
+  img.onload = () => {
+    _burjDroneDecalImg = img;
+  };
+  img.onerror = () => {
+    _burjDroneDecalLoading = false;
+  };
+  return null;
+}
+
 interface CameraFrame {
   scale: number;
   left: number;
@@ -199,15 +238,15 @@ const DEFAULT_LAYOUT_PROFILE: LayoutProfile = {
   crosshairInnerRadius: 18,
   crosshairGap: 9,
   crosshairArmLength: 24,
-  mirvWarningFontSize: 24,
+  mirvWarningFontSize: 32,
   mirvWarningY: 86,
-  purchaseToastFontSize: 28,
+  purchaseToastFontSize: 34,
   purchaseToastY: CANVAS_H * 0.38,
-  lowAmmoFontSize: 34,
+  lowAmmoFontSize: 42,
   lowAmmoY: CANVAS_H * 0.42,
   waveClearedY: CANVAS_H * 0.5,
-  multiKillLabelSize: 28,
-  multiKillBonusSize: 20,
+  multiKillLabelSize: 34,
+  multiKillBonusSize: 24,
   cameraFrame: null,
   renderHeight: CANVAS_H,
   buildingScale: 2,
@@ -303,6 +342,8 @@ interface SharedBurjOptions {
   alive: boolean;
   artScale: number;
   t: number;
+  burjDecals?: GameState["burjDecals"];
+  burjDamageFx?: GameState["burjDamageFx"];
 }
 
 interface SharedWaterOptions {
@@ -347,10 +388,22 @@ function drawSharedSky(
   ctx.fillStyle = skyGlow;
   ctx.fillRect(0, 0, CANVAS_W, renderHeight);
 
+  if (mode === "game" && GAME_TITLE_STARFIELD_BLEND > 0) {
+    const titleDrift = Math.sin(t * 0.08) * 4;
+    for (let i = 0; i < GAME_TITLE_STARFIELD_DENSITY; i++) {
+      const sx = (hash01(i, 2, 7) * CANVAS_W + titleDrift * 0.3) % CANVAS_W;
+      const sy = hash01(i, 5, 11) * 1500 + 8;
+      const tw = 0.55 + 0.45 * Math.sin(t * (0.7 + hash01(i, 1, 9)) + i * 0.9);
+      const size = (0.7 + hash01(i, 3, 1) * 1.6) * 0.92;
+      ctx.fillStyle = `rgba(220, 235, 255, ${(0.18 + tw * 0.32) * GAME_TITLE_STARFIELD_BLEND})`;
+      ctx.fillRect(sx, sy, size, size);
+    }
+  }
+
   if (stars?.length) {
     stars.forEach((s) => {
       const tw = 0.3 + 0.7 * Math.sin(t * 2 + s.twinkle);
-      const alpha = 0.14 + tw * 0.2;
+      const alpha = mode === "title" ? 0.14 + tw * 0.2 : 0.11 + tw * 0.16;
       ctx.fillStyle = `rgba(220, 235, 255, ${alpha})`;
       ctx.fillRect(s.x, s.y, s.size * 1.2, s.size * 1.2);
     });
@@ -618,7 +671,10 @@ function drawGameplayForegroundBuildings(ctx: CanvasRenderingContext2D, game: Ga
   });
 }
 
-function drawSharedBurj(ctx: CanvasRenderingContext2D, { mode, groundY, alive, artScale, t }: SharedBurjOptions) {
+function drawSharedBurj(
+  ctx: CanvasRenderingContext2D,
+  { mode, groundY, alive, artScale, t, burjDecals = [], burjDamageFx = [] }: SharedBurjOptions,
+) {
   const burjX = BURJ_X;
   const burjBaseY = groundY - 6;
   const burjHeight = BURJ_H;
@@ -733,6 +789,8 @@ function drawSharedBurj(ctx: CanvasRenderingContext2D, { mode, groundY, alive, a
   ctx.fillRect(burjX - 140, groundY - 140, 280, 180);
 
   withAnchorScale(ctx, burjX, burjBaseY, artScale, () => {
+    const missileDecalImg = getBurjMissileDecalImage();
+    const droneDecalImg = getBurjDroneDecalImage();
     const burjGrad = ctx.createLinearGradient(burjX, burjBaseY - burjHeight, burjX, burjBaseY);
     burjGrad.addColorStop(0, "#fbfdff");
     burjGrad.addColorStop(0.08, "#dcecff");
@@ -847,6 +905,75 @@ function drawSharedBurj(ctx: CanvasRenderingContext2D, { mode, groundY, alive, a
           ctx.fillRect(burjX - lw, ly + 0.88, lw + rw, 0.28);
         }
       }
+    }
+    if (mode === "game" && (burjDecals.length > 0 || burjDamageFx.length > 0)) {
+      burjDecals.forEach((decal) => {
+        const decalImg = decal.kind === "drone" ? droneDecalImg : missileDecalImg;
+        const size = 48 * decal.scale;
+        const localX = burjX + (decal.x - burjX) / artScale;
+        const localY = burjBaseY + (decal.y - burjBaseY) / artScale;
+        if (decalImg) {
+          ctx.save();
+          ctx.translate(localX, localY);
+          ctx.rotate(decal.rotation);
+          ctx.globalAlpha = decal.kind === "drone" ? 1 : 0.98;
+          ctx.drawImage(decalImg, -size / 2, -size / 2, size, size);
+          ctx.restore();
+        } else {
+          ctx.save();
+          ctx.translate(localX, localY);
+          ctx.rotate(decal.rotation);
+          ctx.globalAlpha = 0.72;
+          ctx.fillStyle = decal.kind === "drone" ? "rgba(48,26,22,0.9)" : "rgba(60,30,24,0.9)";
+          ctx.beginPath();
+          ctx.ellipse(0, 0, size * 0.38, size * 0.3, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      });
+      burjDamageFx.forEach((fx) => {
+        const localX = burjX + (fx.x - burjX) / artScale;
+        const localY = burjBaseY + (fx.y - burjBaseY) / artScale;
+        const lifeT = 1;
+        const flicker = 0.55 + 0.45 * Math.sin(t * 6 + fx.seed);
+        ctx.globalAlpha = lifeT * 0.88;
+        ctx.fillStyle = "rgba(28,20,18,0.92)";
+        ctx.beginPath();
+        ctx.arc(localX + Math.sin(fx.seed) * 2, localY - 3, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = lifeT * (0.96 + flicker * 0.96);
+        const flame = ctx.createRadialGradient(localX, localY, 0, localX, localY, 20);
+        flame.addColorStop(0, "rgba(255,246,214,1)");
+        flame.addColorStop(0.24, "rgba(255,182,90,1)");
+        flame.addColorStop(0.68, "rgba(255,96,34,0.56)");
+        flame.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = flame;
+        ctx.beginPath();
+        ctx.arc(localX, localY, 20 + flicker * 3.2, 0, Math.PI * 2);
+        ctx.fill();
+        for (let i = 0; i < 3; i++) {
+          const phase = fx.seed + i * 0.9;
+          const flameH = (11 + i * 4.2) * (0.85 + 0.35 * Math.sin(t * 7 + phase));
+          const flameW = 4.2 + i * 1.35;
+          ctx.globalAlpha = lifeT * (1 - i * 0.14);
+          ctx.fillStyle = i === 0 ? "#fff0c8" : i === 1 ? "#ffb458" : "#ff6e2f";
+          ctx.beginPath();
+          ctx.moveTo(localX + Math.sin(phase) * 1.8, localY + 1.5);
+          ctx.quadraticCurveTo(
+            localX - flameW * 0.6 + Math.cos(phase) * 1.4,
+            localY - flameH * 0.45,
+            localX + Math.sin(phase + 0.25) * 0.8,
+            localY - flameH,
+          );
+          ctx.quadraticCurveTo(
+            localX + flameW * 0.6 + Math.sin(phase) * 1.1,
+            localY - flameH * 0.35,
+            localX + Math.sin(phase) * 1.8,
+            localY + 1.5,
+          );
+          ctx.fill();
+        }
+      });
     }
     ctx.restore();
   });
@@ -1110,7 +1237,7 @@ function drawSharedLauncher(
 
   if (statusLabel) {
     ctx.textAlign = "center";
-    ctx.font = "bold 8px 'Courier New', monospace";
+    ctx.font = `bold 8px ${ARCADE_FONT_FAMILY}`;
     ctx.fillStyle = damaged ? "rgba(255, 132, 110, 0.72)" : "rgba(128, 236, 255, 0.72)";
     ctx.fillText(statusLabel, lx, ly + 30);
     ctx.textAlign = "left";
@@ -2781,7 +2908,7 @@ function drawGroundStructures(ctx: CanvasRenderingContext2D, game: GameState, la
     ctx.roundRect(l.x - 16, scenicLauncherY + 27, 32 * ammoRatio, 6, 3);
     ctx.fill();
 
-    ctx.font = "bold 10px monospace";
+    ctx.font = `bold 14px ${ARCADE_FONT_FAMILY}`;
     ctx.textAlign = "center";
     ctx.fillStyle = ammoRatio > 0.3 ? COL.hud : COL.warning;
     ctx.fillText(String(game.ammo[i]), l.x, scenicLauncherY + 48);
@@ -2812,7 +2939,7 @@ function drawGroundStructures(ctx: CanvasRenderingContext2D, game: GameState, la
       ctx.restore();
       if (layout.showSystemLabels) {
         ctx.fillStyle = "rgba(255,136,68,0.6)";
-        ctx.font = "7px monospace";
+        ctx.font = `10px ${ARCADE_FONT_FAMILY}`;
         ctx.fillText("CIWS", t.x - 10, t.y + 18);
       }
     });
@@ -2868,7 +2995,7 @@ function drawGroundStructures(ctx: CanvasRenderingContext2D, game: GameState, la
     ctx.restore();
     if (layout.showSystemLabels) {
       ctx.fillStyle = "rgba(136,255,68,0.6)";
-      ctx.font = "7px monospace";
+      ctx.font = `10px ${ARCADE_FONT_FAMILY}`;
       ctx.fillText("PAC-3", patX - 20, patY + 10);
     }
   }
@@ -2926,7 +3053,7 @@ function drawGroundStructures(ctx: CanvasRenderingContext2D, game: GameState, la
     ctx.restore();
     if (layout.showSystemLabels) {
       ctx.fillStyle = "rgba(255,204,0,0.6)";
-      ctx.font = "7px monospace";
+      ctx.font = `10px ${ARCADE_FONT_FAMILY}`;
       ctx.fillText("HORNETS", hx - 18, hy + 12);
     }
   }
@@ -2975,7 +3102,7 @@ function drawGroundStructures(ctx: CanvasRenderingContext2D, game: GameState, la
     ctx.restore();
     if (layout.showSystemLabels) {
       ctx.fillStyle = "rgba(68,170,255,0.6)";
-      ctx.font = "7px monospace";
+      ctx.font = `10px ${ARCADE_FONT_FAMILY}`;
       ctx.fillText("ROADRUNNER", rrX - 25, rrY + 12);
     }
   }
@@ -3015,7 +3142,7 @@ function drawGroundStructures(ctx: CanvasRenderingContext2D, game: GameState, la
     }
     if (layout.showSystemLabels) {
       ctx.fillStyle = "rgba(255,136,51,0.6)";
-      ctx.font = "7px monospace";
+      ctx.font = `10px ${ARCADE_FONT_FAMILY}`;
       ctx.fillText("FLARE", BURJ_X - 15, flareY + 16);
     }
   }
@@ -3080,7 +3207,7 @@ function drawGroundStructures(ctx: CanvasRenderingContext2D, game: GameState, la
     }
     if (layout.showSystemLabels) {
       ctx.fillStyle = "rgba(204,68,255,0.6)";
-      ctx.font = "7px monospace";
+      ctx.font = `7px ${ARCADE_FONT_FAMILY}`;
       ctx.fillText("EMP", BURJ_X - 8, empY + 20);
     }
   }
@@ -3233,26 +3360,26 @@ function drawHUD(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutP
   // HUD
   if (layout.showTopHud) {
     ctx.fillStyle = "rgba(0,10,20,0.7)";
-    ctx.fillRect(0, 0, CANVAS_W, 36);
+    ctx.fillRect(0, 0, CANVAS_W, 46);
     ctx.strokeStyle = "rgba(0,255,200,0.3)";
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(0, 36);
-    ctx.lineTo(CANVAS_W, 36);
+    ctx.moveTo(0, 46);
+    ctx.lineTo(CANVAS_W, 46);
     ctx.stroke();
-    ctx.font = "bold 12px 'Courier New', monospace";
+    ctx.font = `bold 16px ${ARCADE_FONT_FAMILY}`;
     ctx.fillStyle = COL.gold;
-    ctx.fillText(`$ ${game.score}`, 15, 23);
+    ctx.fillText(`$ ${game.score}`, 16, 29);
     ctx.fillStyle = COL.hud;
-    ctx.fillText(`WAVE ${game.wave}`, 130, 23);
+    ctx.fillText(`WAVE ${game.wave}`, 156, 29);
     ctx.fillStyle = game.burjAlive ? "#44ff88" : "#ff4444";
-    ctx.fillText(`BURJ:${game.burjAlive ? "OK" : "XX"}`, 240, 23);
+    ctx.fillText(`BURJ:${game.burjAlive ? "OK" : "XX"}`, 300, 29);
     ctx.fillStyle = COL.hud;
-    ctx.fillText(`AMMO ${game.ammo[0]}|${game.ammo[1]}|${game.ammo[2]}`, 360, 23);
+    ctx.fillText(`AMMO ${game.ammo[0]}|${game.ammo[1]}|${game.ammo[2]}`, 438, 29);
     if (game.empChargeMax > 0) {
-      const empCx = 530;
-      const empCy = 18;
-      const empR = 8;
+      const empCx = 642;
+      const empCy = 23;
+      const empR = 10;
       const chargeRatio = game.empChargeMax > 0 ? game.empCharge / game.empChargeMax : 0;
       ctx.strokeStyle = "rgba(204,68,255,0.2)";
       ctx.lineWidth = 2;
@@ -3275,25 +3402,25 @@ function drawHUD(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutP
         glowOff(ctx);
         ctx.globalAlpha = 1;
         ctx.fillStyle = "#fff";
-        ctx.font = "bold 7px 'Courier New', monospace";
-        ctx.fillText("SPC", empCx - 8, empCy + 3);
-        ctx.font = "bold 12px 'Courier New', monospace";
+        ctx.font = `bold 9px ${ARCADE_FONT_FAMILY}`;
+        ctx.fillText("SPC", empCx - 10, empCy + 3);
+        ctx.font = `bold 16px ${ARCADE_FONT_FAMILY}`;
       } else {
         ctx.fillStyle = COL.emp;
-        ctx.font = "7px 'Courier New', monospace";
-        ctx.fillText("\uD83C\uDF00", empCx - 5, empCy + 4);
-        ctx.font = "bold 12px 'Courier New', monospace";
+        ctx.font = `9px ${ARCADE_FONT_FAMILY}`;
+        ctx.fillText("\uD83C\uDF00", empCx - 6, empCy + 4);
+        ctx.font = `bold 16px ${ARCADE_FONT_FAMILY}`;
       }
     }
     if (game._replay) {
       ctx.fillStyle = "#ff8844";
-      ctx.fillText("REPLAY", 520, 23);
+      ctx.fillText("REPLAY", 742, 29);
     }
     if (game._fpsDisplay) {
       ctx.fillStyle = game._fpsDisplay >= 50 ? "#556677" : game._fpsDisplay >= 30 ? "#ffaa44" : "#ff4444";
-      ctx.font = "10px 'Courier New', monospace";
-      ctx.fillText(`${game._fpsDisplay} FPS`, CANVAS_W - 60, 23);
-      ctx.font = "bold 12px 'Courier New', monospace";
+      ctx.font = `12px ${ARCADE_FONT_FAMILY}`;
+      ctx.fillText(`${game._fpsDisplay} FPS`, CANVAS_W - 88, 29);
+      ctx.font = `bold 16px ${ARCADE_FONT_FAMILY}`;
     }
   }
 
@@ -3303,7 +3430,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutP
     const pulse = 0.5 + 0.5 * Math.sin(game.time * 0.15);
     ctx.save();
     ctx.globalAlpha = 0.6 + pulse * 0.4;
-    ctx.font = `bold ${layout.mirvWarningFontSize}px 'Courier New', monospace`;
+    ctx.font = `bold ${layout.mirvWarningFontSize}px ${ARCADE_FONT_FAMILY}`;
     ctx.textAlign = "center";
     ctx.fillStyle = "#ff2200";
     glow(ctx, "#ff2200", 8 + pulse * 6);
@@ -3327,7 +3454,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutP
       .join(", ");
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.font = `bold ${layout.purchaseToastFontSize}px 'Courier New', monospace`;
+    ctx.font = `bold ${layout.purchaseToastFontSize}px ${ARCADE_FONT_FAMILY}`;
     ctx.fillStyle = "#44ffaa";
     ctx.textAlign = "center";
     const who = game._replayIsHuman ? "PLAYER" : "BOT";
@@ -3339,10 +3466,10 @@ function drawHUD(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutP
 
   // Wave progress bar
   if (layout.showTopHud) {
-    const wpX = 650,
-      wpW = 120,
-      wpH = 8,
-      wpY = 14;
+    const wpX = 620,
+      wpW = 130,
+      wpH = 10,
+      wpY = 16;
     const scheduleLen = game.schedule ? game.schedule.length : 1;
     const waveProgress = Math.min(game.scheduleIdx / scheduleLen, 1);
     const threatsLeft = game.missiles.length + game.drones.length;
@@ -3353,13 +3480,13 @@ function drawHUD(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutP
     ctx.strokeStyle = "rgba(0,255,200,0.3)";
     ctx.strokeRect(wpX, wpY, wpW, wpH);
     ctx.fillStyle = "#aabbcc";
-    ctx.font = "9px 'Courier New', monospace";
+    ctx.font = `12px ${ARCADE_FONT_FAMILY}`;
     ctx.fillText(
       waveProgress >= 1 ? `CLEAR ${threatsLeft}` : `${game.scheduleIdx}/${scheduleLen}`,
       wpX + wpW + 6,
       wpY + 7,
     );
-    ctx.font = "bold 12px 'Courier New', monospace";
+    ctx.font = `bold 12px ${ARCADE_FONT_FAMILY}`;
 
     const activeUpgrades = Object.entries(game.upgrades).filter(([, value]) => value > 0);
     if (activeUpgrades.length > 0) {
@@ -3368,9 +3495,9 @@ function drawHUD(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutP
         const def = UPGRADES[key as UpgradeKey];
         ctx.fillStyle = def.color;
         ctx.globalAlpha = 0.9;
-        ctx.font = "11px monospace";
+        ctx.font = `14px ${ARCADE_FONT_FAMILY}`;
         ctx.fillText(`${def.icon}${level}`, ux, 23);
-        ux += 38;
+        ux += 44;
       });
       ctx.globalAlpha = 1;
     }
@@ -3396,7 +3523,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutP
     ctx.save();
     ctx.globalAlpha = flash * 0.9 * fadeOut;
     ctx.textAlign = "center";
-    ctx.font = `bold ${layout.lowAmmoFontSize}px 'Courier New', monospace`;
+    ctx.font = `bold ${layout.lowAmmoFontSize}px ${ARCADE_FONT_FAMILY}`;
     ctx.fillStyle = COL.warning;
     glow(ctx, COL.warning, 20);
     ctx.fillText("\u26A0 LOW AMMO \u26A0", CANVAS_W / 2, layout.lowAmmoY);
@@ -3417,18 +3544,18 @@ function drawHUD(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutP
     const toastX = mk.x ?? CANVAS_W / 2;
     const toastY = mk.y ?? 200;
     const plateW = 220 + (mk.kills ?? 2) * 18;
-    const plateH = 54;
+    const plateH = 64;
     ctx.fillStyle = "rgba(24, 8, 4, 0.48)";
     ctx.fillRect(toastX - plateW / 2, toastY - 62 - rise, plateW, plateH);
     ctx.strokeStyle = "rgba(255, 204, 112, 0.65)";
     ctx.lineWidth = 1.5;
     ctx.strokeRect(toastX - plateW / 2, toastY - 62 - rise, plateW, plateH);
-    ctx.font = `bold ${layout.multiKillLabelSize * pulse}px 'Courier New', monospace`;
+    ctx.font = `bold ${layout.multiKillLabelSize * pulse}px ${ARCADE_FONT_FAMILY}`;
     const labelColor = mk.label === "MEGA KILL" ? "#ff4444" : mk.label === "TRIPLE KILL" ? "#ffaa00" : "#ffdd00";
     ctx.fillStyle = labelColor;
     glow(ctx, labelColor, 15 + (mk.pulse ?? 0) * 10);
     ctx.fillText(mk.label ?? "", toastX, toastY - 30 - rise);
-    ctx.font = `bold ${layout.multiKillBonusSize}px 'Courier New', monospace`;
+    ctx.font = `bold ${layout.multiKillBonusSize}px ${ARCADE_FONT_FAMILY}`;
     ctx.fillStyle = "#00ffcc";
     ctx.fillText(`+${mk.bonus}`, toastX, toastY - 10 - rise);
     glowOff(ctx);
@@ -3452,7 +3579,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutP
     ctx.strokeRect(bannerCX - bannerW / 2, bannerCY - bannerH / 2, bannerW, bannerH);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.font = "bold 32px 'Courier New', monospace";
+    ctx.font = `bold 40px ${ARCADE_FONT_FAMILY}`;
     ctx.fillStyle = COL.hud;
     ctx.fillText(`WAVE ${game.wave} CLEARED`, bannerCX, bannerCY);
     ctx.textAlign = "left";
@@ -3500,6 +3627,8 @@ export function drawGame(
     alive: game.burjAlive,
     artScale: 2,
     t: sceneTime,
+    burjDecals: game.burjDecals,
+    burjDamageFx: game.burjDamageFx,
   });
   drawGameplayForegroundBuildings(ctx, game, sceneTime, scenicGroundY);
   drawSharedWater(
@@ -3680,7 +3809,7 @@ function drawUpgradeRangeOverlay(ctx: CanvasRenderingContext2D) {
 
     // Label
     ctx.globalAlpha = 1;
-    ctx.font = "bold 16px monospace";
+    ctx.font = `bold 20px ${ARCADE_FONT_FAMILY}`;
     const tx = sys.x + 26;
     const ty = sys.y + 6;
     const tw = ctx.measureText(sys.name).width;
@@ -3699,7 +3828,7 @@ function drawUpgradeRangeOverlay(ctx: CanvasRenderingContext2D) {
     ctx.beginPath();
     ctx.arc(l.x, l.y, 20, 0, Math.PI * 2);
     ctx.stroke();
-    ctx.font = "bold 14px monospace";
+    ctx.font = `bold 18px ${ARCADE_FONT_FAMILY}`;
     ctx.fillStyle = "rgba(0,0,0,0.7)";
     ctx.fillRect(l.x + 22, l.y - 11, 32, 20);
     ctx.fillStyle = "#00ffcc";
@@ -4820,14 +4949,14 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
     ctx.save();
     ctx.translate(Math.sin(t * 7.925) * 0.5, 0);
     ctx.globalAlpha = titleFlicker;
-    ctx.font = "bold 72px 'Courier New', monospace";
+    ctx.font = `bold 72px ${ARCADE_FONT_FAMILY}`;
     ctx.fillText("DUBAI", cx, 128);
     ctx.restore();
 
     ctx.save();
     ctx.translate(Math.sin(t * 7.35 + 0.5) * 0.35, 0);
     ctx.globalAlpha = titleFlickerSoft;
-    ctx.font = "bold 82px 'Courier New', monospace";
+    ctx.font = `bold 82px ${ARCADE_FONT_FAMILY}`;
     ctx.fillText("MISSILE COMMAND", cx, 200);
     ctx.restore();
     glowOff(ctx);
@@ -4836,7 +4965,7 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
     ctx.save();
     ctx.translate(Math.sin(t * 5.775 + 1.2) * 0.25, 0);
     ctx.globalAlpha = 0.92 + 0.04 * Math.sin(t * 8.9 + 0.3);
-    ctx.font = "bold 34px 'Courier New', monospace";
+    ctx.font = `bold 34px ${ARCADE_FONT_FAMILY}`;
     ctx.fillText("DEFEND THE CITY", cx, 262);
     ctx.fillText("PROTECT THE BURJ KHALIFA", cx, 310);
     ctx.restore();
@@ -4848,7 +4977,7 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
     ctx.save();
     ctx.translate(Math.sin(t * 5.425 + 2.4) * 0.25, 0);
     ctx.globalAlpha = pulse * (0.9 + 0.06 * Math.sin(t * 4.875));
-    ctx.font = "bold 36px 'Courier New', monospace";
+    ctx.font = `bold 36px ${ARCADE_FONT_FAMILY}`;
     ctx.fillText("PRESS START", cx, 500);
     ctx.restore();
   } else {
@@ -4858,7 +4987,7 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
     ctx.arc(cx, 500, 72, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = "rgba(255,255,255,0.08)";
-    ctx.font = "bold 18px 'Courier New', monospace";
+    ctx.font = `bold 18px ${ARCADE_FONT_FAMILY}`;
     ctx.fillText("TACTICAL FEED", cx, 560);
   }
   ctx.textAlign = "left";
@@ -4913,7 +5042,7 @@ export function drawGameOver(
   ctx.textAlign = "center";
   ctx.fillStyle = COL.warning;
   glow(ctx, "#ff0000", 30);
-  ctx.font = `bold ${Math.round(48 * s)}px 'Courier New', monospace`;
+  ctx.font = `bold ${Math.round(48 * s)}px ${ARCADE_FONT_FAMILY}`;
   ctx.fillText("CITY FALLEN", cx, 140 * s);
   glowOff(ctx);
   if (layout.externalGameOver) {
@@ -4924,7 +5053,7 @@ export function drawGameOver(
     ctx.lineTo(cx + 190, 170 * s);
     ctx.stroke();
     ctx.fillStyle = "#7d6670";
-    ctx.font = `bold ${Math.round(18 * s)}px 'Courier New', monospace`;
+    ctx.font = `bold ${Math.round(18 * s)}px ${ARCADE_FONT_FAMILY}`;
     ctx.fillText("THE DEFENSE NET HAS COLLAPSED", cx, 214 * s);
     ctx.textAlign = "left";
     return;
@@ -4938,13 +5067,13 @@ export function drawGameOver(
   ctx.stroke();
   // Stats
   ctx.fillStyle = "#887766";
-  ctx.font = `${Math.round(13 * s)}px 'Courier New', monospace`;
+  ctx.font = `${Math.round(13 * s)}px ${ARCADE_FONT_FAMILY}`;
   ctx.fillText("AFTER ACTION REPORT", cx, 195 * s);
   ctx.fillStyle = "#ccbbaa";
-  ctx.font = `${Math.round(20 * s)}px 'Courier New', monospace`;
+  ctx.font = `${Math.round(20 * s)}px ${ARCADE_FONT_FAMILY}`;
   ctx.fillText(`SCORE: ${finalScore}`, cx, 240 * s);
   ctx.fillStyle = "#aa9988";
-  ctx.font = `${Math.round(16 * s)}px 'Courier New', monospace`;
+  ctx.font = `${Math.round(16 * s)}px ${ARCADE_FONT_FAMILY}`;
   ctx.fillText(`WAVES SURVIVED: ${finalWave}`, cx, 275 * s);
   // Rating
   let rating, ratingColor;
@@ -4962,7 +5091,7 @@ export function drawGameOver(
     ratingColor = "#886655";
   }
   ctx.fillStyle = ratingColor;
-  ctx.font = `bold ${Math.round(14 * s)}px 'Courier New', monospace`;
+  ctx.font = `bold ${Math.round(14 * s)}px ${ARCADE_FONT_FAMILY}`;
   ctx.fillText(rating, cx, 310 * s);
   // Combat stats
   ctx.strokeStyle = "rgba(255,60,60,0.15)";
@@ -4972,17 +5101,17 @@ export function drawGameOver(
   ctx.lineTo(cx + 120, 330 * s);
   ctx.stroke();
   ctx.fillStyle = "#887766";
-  ctx.font = `${Math.round(11 * s)}px 'Courier New', monospace`;
+  ctx.font = `${Math.round(11 * s)}px ${ARCADE_FONT_FAMILY}`;
   ctx.fillText("COMBAT RECORD", cx, 352 * s);
   ctx.fillStyle = "#aa9988";
-  ctx.font = `${Math.round(14 * s)}px 'Courier New', monospace`;
+  ctx.font = `${Math.round(14 * s)}px ${ARCADE_FONT_FAMILY}`;
   ctx.fillText(`MISSILES DESTROYED: ${finalStats.missileKills}`, cx, 378 * s);
   ctx.fillText(`DRONES KILLED: ${finalStats.droneKills}`, cx, 400 * s);
   ctx.fillText(`SHOTS FIRED: ${finalStats.shotsFired}`, cx, 422 * s);
   const totalKills = finalStats.missileKills + finalStats.droneKills;
   const hitRatio = finalStats.shotsFired > 0 ? Math.round((totalKills / finalStats.shotsFired) * 100) : 0;
   ctx.fillStyle = hitRatio >= 50 ? "#44ff88" : hitRatio >= 25 ? "#ffaa44" : "#ff4444";
-  ctx.font = `bold ${Math.round(14 * s)}px 'Courier New', monospace`;
+  ctx.font = `bold ${Math.round(14 * s)}px ${ARCADE_FONT_FAMILY}`;
   ctx.fillText(`HIT RATIO: ${hitRatio}%`, cx, 448 * s);
   ctx.textAlign = "left";
 }

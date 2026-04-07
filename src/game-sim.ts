@@ -36,6 +36,7 @@ import type {
   Threat,
   Missile,
   Drone,
+  BurjDamageKind,
   Interceptor,
   Hornet,
   Roadrunner,
@@ -194,6 +195,33 @@ function boom(
   }
 }
 
+let _burjDecalId = 0;
+let _burjDamageFxId = 0;
+
+function addBurjImpactDamage(g: GameState, x: number, y: number, kind: BurjDamageKind) {
+  const jitterX = rand(-3, 3);
+  const jitterY = rand(-8, 8);
+  g.burjDecals.push({
+    id: _burjDecalId++,
+    x: x + jitterX,
+    y: y + jitterY,
+    kind,
+    rotation: rand(-0.45, 0.45),
+    scale: rand(0.82, 1.14),
+  });
+  g.burjDamageFx.push({
+    id: _burjDamageFxId++,
+    x: x + jitterX * 0.65,
+    y: y + jitterY * 0.65,
+    kind,
+    life: 1,
+    maxLife: 1,
+    seed: rand(0, Math.PI * 2),
+  });
+}
+
+function updateBurjDamageFx(): void {}
+
 export function initGame(): GameState {
   const allBuildings = createScenicBuildings();
 
@@ -219,6 +247,8 @@ export function initGame(): GameState {
     buildings: allBuildings,
     burjAlive: true,
     burjHealth: 5,
+    burjDecals: [],
+    burjDamageFx: [],
     stars: Array.from({ length: 120 }, () => ({
       x: rand(0, CANVAS_W),
       y: rand(0, CANVAS_H * 0.6),
@@ -1220,6 +1250,7 @@ function updateMissiles(g: GameState, dt: number, onEvent?: ((type: string, data
       g.shakeTimer = 10;
       g.shakeIntensity = 4;
       if (!g._debugMode) {
+        addBurjImpactDamage(g, m.x, m.y, "missile");
         g.burjHealth--;
         if (onEvent) onEvent("sfx", { name: "burjHit" });
         if (g.burjHealth <= 0) {
@@ -1422,6 +1453,7 @@ function updateDrones(
       g.shakeTimer = 15;
       g.shakeIntensity = 6;
       if (!g._debugMode) {
+        addBurjImpactDamage(g, d.x, d.y, "drone");
         g.burjHealth--;
         if (onEvent) onEvent("sfx", { name: "burjHit" });
         if (g.burjHealth <= 0) {
@@ -1734,6 +1766,7 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
     }
     if (g.multiKillToast.timer <= 0) g.multiKillToast = null;
   }
+  updateBurjDamageFx(g, dt);
 
   // Game over — Burj destroyed
   if (!g.burjAlive && !g.gameOverTimer) {
@@ -1884,6 +1917,8 @@ export function buyUpgrade(g: GameState, key: UpgradeKey) {
   if (key === "burjRepair") {
     g.burjHealth = Math.min(5, g.burjHealth + 1);
     if (g.burjHealth > 0) g.burjAlive = true;
+    if (g.burjDecals.length > 0) g.burjDecals.shift();
+    if (g.burjDamageFx.length > 0) g.burjDamageFx.shift();
     return true;
   }
   // Reinforced upgrade (launcherKit L2): set alive launchers to 2 HP

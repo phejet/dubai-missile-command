@@ -86,6 +86,26 @@ export interface Interceptor {
 }
 
 export type ExplosionVisualType = "missile" | "drone";
+export type BurjDamageKind = "missile" | "drone";
+
+export interface BurjDecal {
+  id: number;
+  x: number;
+  y: number;
+  kind: BurjDamageKind;
+  rotation: number;
+  scale: number;
+}
+
+export interface BurjDamageFx {
+  id: number;
+  x: number;
+  y: number;
+  kind: BurjDamageKind;
+  life: number;
+  maxLife: number;
+  seed: number;
+}
 
 export interface Explosion {
   id: number;
@@ -399,6 +419,8 @@ export interface GameState {
 
   burjAlive: boolean;
   burjHealth: number;
+  burjDecals: BurjDecal[];
+  burjDamageFx: BurjDamageFx[];
 
   planeTimer: number;
   planeInterval: number;

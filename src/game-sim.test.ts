@@ -189,6 +189,46 @@ describe("Shahed-238 (jet) diving", () => {
   });
 });
 
+describe("Burj damage presentation", () => {
+  afterEach(() => setRng(Math.random));
+
+  it("adds a missile Burj decal and local fire fx on direct Burj hit", () => {
+    const { sim, g } = makeCleanGame(5);
+    const missile = makeBallisticMissile({ x: BURJ_X, y: 1000, vy: 12 });
+    g.missiles.push(missile);
+
+    sim.update(g, 2);
+
+    expect(g.burjHealth).toBe(4);
+    expect(g.burjDecals).toHaveLength(1);
+    expect(g.burjDecals[0].kind).toBe("missile");
+    expect(g.burjDamageFx).toHaveLength(1);
+    expect(g.burjDamageFx[0].kind).toBe("missile");
+  });
+
+  it("adds a drone Burj decal, keeps fire fx persistent, and repair removes oldest damage marks", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.score = 10000;
+    const drone = makePropDrone({ x: BURJ_X, y: 1120, vx: 0, vy: 18, health: 1 });
+    g.drones.push(drone);
+
+    sim.update(g, 2);
+
+    expect(g.burjHealth).toBe(4);
+    expect(g.burjDecals).toHaveLength(1);
+    expect(g.burjDecals[0].kind).toBe("drone");
+    expect(g.burjDamageFx).toHaveLength(1);
+
+    sim.update(g, 400);
+    expect(g.burjDamageFx).toHaveLength(1);
+
+    expect(sim.buyUpgrade(g, "burjRepair")).toBe(true);
+    expect(g.burjHealth).toBe(5);
+    expect(g.burjDecals).toHaveLength(0);
+    expect(g.burjDamageFx).toHaveLength(0);
+  });
+});
+
 describe("Decoy flares", () => {
   afterEach(() => setRng(Math.random));
 
