@@ -694,18 +694,30 @@ function drawGameplayForegroundBuildings(ctx: CanvasRenderingContext2D, game: Ga
     const burstW = Math.max(34, fx.w * 1.8);
     const burstH = Math.max(34, fx.h * 0.95);
     const burstY = fx.y + (1 - lifeT) * 8;
+    const coreR = Math.max(28, burstW * 0.52);
 
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
-    ctx.globalAlpha = lifeT * (0.72 + flicker * 0.28);
-    const core = ctx.createRadialGradient(fx.x, burstY, 0, fx.x, burstY, Math.max(12, burstW * 0.22));
-    core.addColorStop(0, "rgba(255,252,236,1)");
-    core.addColorStop(0.25, "rgba(255,216,132,0.95)");
-    core.addColorStop(0.62, "rgba(255,128,48,0.42)");
+    ctx.globalAlpha = lifeT * (1 + flicker * 0.55);
+    const core = ctx.createRadialGradient(fx.x, burstY, 0, fx.x, burstY, coreR);
+    core.addColorStop(0, "rgba(255,255,244,1)");
+    core.addColorStop(0.18, "rgba(255,232,170,1)");
+    core.addColorStop(0.45, "rgba(255,156,66,0.92)");
+    core.addColorStop(0.72, "rgba(255,96,32,0.5)");
     core.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = core;
     ctx.beginPath();
-    ctx.arc(fx.x, burstY, Math.max(12, burstW * 0.22), 0, Math.PI * 2);
+    ctx.arc(fx.x, burstY, coreR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = lifeT * (0.95 + flicker * 0.35);
+    ctx.fillStyle = "rgba(255,214,120,0.95)";
+    ctx.beginPath();
+    ctx.arc(fx.x, burstY, Math.max(14, burstW * 0.24), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = lifeT * (0.85 + flicker * 0.25);
+    ctx.fillStyle = "rgba(255,248,220,0.95)";
+    ctx.beginPath();
+    ctx.arc(fx.x, burstY, Math.max(7, burstW * 0.11), 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 
