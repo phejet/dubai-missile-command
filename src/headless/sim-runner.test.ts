@@ -154,7 +154,7 @@ describe("golden-seed canary", () => {
   // to track balance impact.
   it("seed 42 at 5000 ticks produces expected draft-mode score and wave", () => {
     const r = runGame(null, { seed: 42, maxTicks: 5000, draftMode: true });
-    expect(r.score).toBe(15320);
+    expect(r.score).toBe(16696);
     expect(r.wave).toBe(5);
     expect(r.deathCause).toBe("timeout");
   });

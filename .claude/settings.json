@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "if jq -r '.tool_input.command' | grep -q '^git commit'; then cd /Users/phejet/projects/dubai-missile-command && npm run format:check && npm run lint && npm run build && npm run test && npm run test:e2e; fi",
+            "command": "if jq -r '.tool_input.command' | grep -q '^git commit'; then cd /home/user/dubai-missile-command && npm run format:check && npm run lint && npm run build && npm run test && npm run test:e2e; fi",
             "timeout": 120,
             "statusMessage": "Running CI checks before commit..."
           }
