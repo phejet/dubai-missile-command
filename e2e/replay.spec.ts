@@ -10,6 +10,18 @@ declare global {
   }
 }
 
+async function clickCanvasAt(page: Page, xRatio = 0.5, yRatio = 0.5) {
+  const canvas = page.locator("canvas");
+  const box = await canvas.boundingBox();
+  expect(box).toBeTruthy();
+  await canvas.click({
+    position: {
+      x: Math.max(1, Math.min(box!.width - 1, box!.width * xRatio)),
+      y: Math.max(1, Math.min(box!.height - 1, box!.height * yRatio)),
+    },
+  });
+}
+
 // Short replay fixture — a few fire actions, enough to exercise the replay runner.
 // No hardcoded expected scores; tests compare two runs of the same replay.
 const SHORT_REPLAY: ReplayData = {
@@ -77,10 +89,9 @@ test.describe("Replay", () => {
 
   test("replay tick does not advance during shop phase", async ({ page }) => {
     await page.goto("/");
-    const canvas = page.locator("canvas");
 
     // Start the game
-    await canvas.click({ position: { x: 450, y: 320 } });
+    await clickCanvasAt(page, 0.5, 0.5);
     await page.waitForFunction(() => {
       const g = window.__gameRef?.current;
       return g && g.state === "playing";
