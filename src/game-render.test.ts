@@ -41,6 +41,8 @@ function mockCanvasContext(): { ctx: MockCtx; callLog: CallEntry[] } {
     "createRadialGradient",
     "setLineDash",
     "getLineDash",
+    "ellipse",
+    "roundRect",
   ];
 
   const raw: Record<string, unknown> = {};

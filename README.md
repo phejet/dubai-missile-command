@@ -1,6 +1,10 @@
 # Dubai Missile Command
 
-[![CI](https://github.com/phejet/dubai-missile-command/actions/workflows/ci.yml/badge.svg)](https://github.com/phejet/dubai-missile-command/actions/workflows/ci.yml)
+[![Build](https://github.com/phejet/dubai-missile-command/actions/workflows/ci-build.yml/badge.svg)](https://github.com/phejet/dubai-missile-command/actions/workflows/ci-build.yml)
+[![Lint](https://github.com/phejet/dubai-missile-command/actions/workflows/ci-lint.yml/badge.svg)](https://github.com/phejet/dubai-missile-command/actions/workflows/ci-lint.yml)
+[![Format](https://github.com/phejet/dubai-missile-command/actions/workflows/ci-format.yml/badge.svg)](https://github.com/phejet/dubai-missile-command/actions/workflows/ci-format.yml)
+[![Tests](https://github.com/phejet/dubai-missile-command/actions/workflows/ci-test.yml/badge.svg)](https://github.com/phejet/dubai-missile-command/actions/workflows/ci-test.yml)
+[![E2E Tests](https://github.com/phejet/dubai-missile-command/actions/workflows/ci-e2e.yml/badge.svg)](https://github.com/phejet/dubai-missile-command/actions/workflows/ci-e2e.yml)
 [![Deploy](https://github.com/phejet/dubai-missile-command/actions/workflows/deploy.yml/badge.svg)](https://github.com/phejet/dubai-missile-command/actions/workflows/deploy.yml)
 
 A retro-inspired missile defense game set in Dubai. Defend Burj Khalifa from waves of ballistic missiles and Shahed drones. Built with React + Canvas.
