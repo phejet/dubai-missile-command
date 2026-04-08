@@ -182,7 +182,7 @@ export default function ShopUI({ shopData, onBuyUpgrade, onClose, mode = "phoneP
             disabled={selected.length === 0}
           >
             {isDraftMode
-              ? "Confirm & Deploy"
+              ? `Confirm & Deploy Wave ${shopData.wave + 1}`
               : selected.length > 0
                 ? `Confirm (${selected.length}) & Deploy Wave ${shopData.wave + 1}`
                 : `Confirm & Deploy Wave ${shopData.wave + 1}`}
