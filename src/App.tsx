@@ -728,7 +728,7 @@ export default function DubaiMissileCommand() {
             }}
           >
             {screen === "playing" && (
-              <div className="battlefield-hud" data-testid="battlefield-hud">
+              <div className="battlefield-hud" data-testid="portrait-hud">
                 <div
                   className="battlefield-hud__progress"
                   role="progressbar"
@@ -782,6 +782,21 @@ export default function DubaiMissileCommand() {
 
                   <button
                     type="button"
+                    className={`battlefield-option ${muted ? "battlefield-option--active" : ""}`}
+                    aria-label="Mute audio"
+                    aria-pressed={muted}
+                    onClick={async () => {
+                      await SFX.init();
+                      SFX.mute();
+                      setMuted(SFX.isMuted());
+                    }}
+                  >
+                    <span className="battlefield-option__label">Sound</span>
+                    <span className="battlefield-option__meta">{muted ? "Muted" : "On"}</span>
+                  </button>
+
+                  <button
+                    type="button"
                     className="battlefield-options-button"
                     aria-label={showOptionsMenu ? "Close options" : "Open options"}
                     aria-expanded={showOptionsMenu}
@@ -797,18 +812,6 @@ export default function DubaiMissileCommand() {
 
                 {showOptionsMenu && (
                   <div className="battlefield-options-menu" role="menu" aria-label="Game options">
-                    <button
-                      type="button"
-                      className={`battlefield-option ${muted ? "battlefield-option--active" : ""}`}
-                      onClick={async () => {
-                        await SFX.init();
-                        SFX.mute();
-                        setMuted(SFX.isMuted());
-                      }}
-                    >
-                      <span className="battlefield-option__label">Sound</span>
-                      <span className="battlefield-option__meta">{muted ? "Muted" : "On"}</span>
-                    </button>
                     <button
                       type="button"
                       className={`battlefield-option ${showColliders ? "battlefield-option--active" : ""}`}
@@ -946,6 +949,20 @@ export default function DubaiMissileCommand() {
                   Watch Replay
                 </button>
               )}
+            </div>
+          </section>
+        )}
+
+        {screen === "title" && (
+          <section data-testid="portrait-title" className="portrait-panel portrait-panel--title">
+            <div className="portrait-panel__actions">
+              <button
+                type="button"
+                className="action-button action-button--primary action-button--wide"
+                onClick={startGame}
+              >
+                Start Defense
+              </button>
             </div>
           </section>
         )}
