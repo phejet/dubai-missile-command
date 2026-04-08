@@ -606,11 +606,6 @@ export default function DubaiMissileCommand() {
     if (!point) return;
     event.preventDefault();
 
-    if (screen === "title") {
-      await startGame();
-      return;
-    }
-
     if (screen === "gameover") return;
 
     const game = gameRef.current;
@@ -697,6 +692,12 @@ export default function DubaiMissileCommand() {
       className={`game-shell game-shell--phonePortrait ${isCompactPortrait ? "game-shell--compactPortrait" : ""}`}
       data-screen={screen}
       data-ui-mode="phonePortrait"
+      onPointerDown={(event) => {
+        if (screen !== "title" || showShop || replayActive) return;
+        const target = event.target as HTMLElement | null;
+        if (target?.closest("button, a, input, select, textarea, [role='button']")) return;
+        void startGame();
+      }}
     >
       <div className="game-shell__ambient" aria-hidden="true" />
       <div className="game-shell__content">
@@ -949,20 +950,6 @@ export default function DubaiMissileCommand() {
                   Watch Replay
                 </button>
               )}
-            </div>
-          </section>
-        )}
-
-        {screen === "title" && (
-          <section data-testid="portrait-title" className="portrait-panel portrait-panel--title">
-            <div className="portrait-panel__actions">
-              <button
-                type="button"
-                className="action-button action-button--primary action-button--wide"
-                onClick={startGame}
-              >
-                Start Defense
-              </button>
             </div>
           </section>
         )}

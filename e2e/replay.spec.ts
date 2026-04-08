@@ -10,14 +10,14 @@ declare global {
   }
 }
 
-async function clickCanvasAt(page: Page, xRatio = 0.5, yRatio = 0.5) {
-  const canvas = page.locator("canvas");
-  const box = await canvas.boundingBox();
+async function startGameFromScreen(page: Page) {
+  const shell = page.locator('[data-ui-mode="phonePortrait"]');
+  const box = await shell.boundingBox();
   expect(box).toBeTruthy();
-  await canvas.click({
+  await shell.click({
     position: {
-      x: Math.max(1, Math.min(box!.width - 1, box!.width * xRatio)),
-      y: Math.max(1, Math.min(box!.height - 1, box!.height * yRatio)),
+      x: Math.max(1, Math.min(box!.width - 1, box!.width * 0.5)),
+      y: Math.max(1, Math.min(box!.height - 1, box!.height * 0.5)),
     },
   });
 }
@@ -91,7 +91,7 @@ test.describe("Replay", () => {
     await page.goto("/");
 
     // Start the game
-    await clickCanvasAt(page, 0.5, 0.5);
+    await startGameFromScreen(page);
     await page.waitForFunction(() => {
       const g = window.__gameRef?.current;
       return g && g.state === "playing";

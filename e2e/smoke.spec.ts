@@ -21,6 +21,18 @@ async function clickCanvasAt(page: import("@playwright/test").Page, xRatio = 0.5
   });
 }
 
+async function startGameFromScreen(page: import("@playwright/test").Page) {
+  const shell = page.locator('[data-ui-mode="phonePortrait"]');
+  const box = await shell.boundingBox();
+  expect(box).toBeTruthy();
+  await shell.click({
+    position: {
+      x: Math.max(1, Math.min(box!.width - 1, box!.width * 0.5)),
+      y: Math.max(1, Math.min(box!.height - 1, box!.height * 0.5)),
+    },
+  });
+}
+
 test.describe("Smoke tests", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
@@ -32,7 +44,7 @@ test.describe("Smoke tests", () => {
   });
 
   test("clicking canvas starts the game", async ({ page }) => {
-    await clickCanvasAt(page, 0.5, 0.5);
+    await startGameFromScreen(page);
 
     // Game should initialize and expose __gameRef
     const hasGameRef = await page.evaluate(() => {
@@ -42,7 +54,7 @@ test.describe("Smoke tests", () => {
   });
 
   test("game state has expected shape after start", async ({ page }) => {
-    await clickCanvasAt(page, 0.5, 0.5);
+    await startGameFromScreen(page);
 
     const state = await page.evaluate(() => {
       const g = window.__gameRef!.current!;
@@ -68,7 +80,7 @@ test.describe("Smoke tests", () => {
 
   test("clicking during gameplay fires an interceptor", async ({ page }) => {
     // Start game
-    await clickCanvasAt(page, 0.5, 0.5);
+    await startGameFromScreen(page);
 
     // Click above ground to fire interceptor
     await clickCanvasAt(page, 0.5, 0.3);
@@ -90,7 +102,7 @@ test.describe("Smoke tests", () => {
   });
 
   test("clicking canvas does not fire while sim is in shop state", async ({ page }) => {
-    await clickCanvasAt(page, 0.5, 0.5);
+    await startGameFromScreen(page);
 
     await page.evaluate(() => {
       const g = window.__gameRef!.current!;
@@ -109,7 +121,7 @@ test.describe("Smoke tests", () => {
   });
 
   test("replay tick does not advance while sim is in shop state", async ({ page }) => {
-    await clickCanvasAt(page, 0.5, 0.5);
+    await startGameFromScreen(page);
 
     const tickBefore = await page.evaluate(() => {
       const g = window.__gameRef!.current!;
@@ -128,7 +140,7 @@ test.describe("Smoke tests", () => {
   });
 
   test("game spawns threats after a few seconds", async ({ page }) => {
-    await clickCanvasAt(page, 0.5, 0.5);
+    await startGameFromScreen(page);
 
     // Wait for missiles or drones to spawn
     await page.waitForFunction(
@@ -161,9 +173,9 @@ test.describe("Portrait iPhone layout", () => {
   });
 
   test("renders a readable portrait HUD and fitted battlefield during play", async ({ page }) => {
-    await clickCanvasAt(page, 0.5, 0.5);
+    await startGameFromScreen(page);
     await expect(page.locator('[data-screen="playing"]')).toBeVisible();
-    await expect(page.getByTestId("battlefield-hud")).toBeVisible();
+    await expect(page.getByTestId("portrait-hud")).toBeVisible();
 
     const canvasBox = await page.locator("canvas").boundingBox();
     expect(canvasBox).toBeTruthy();
@@ -171,7 +183,7 @@ test.describe("Portrait iPhone layout", () => {
   });
 
   test("opens the responsive portrait shop modal", async ({ page }) => {
-    await clickCanvasAt(page, 0.5, 0.5);
+    await startGameFromScreen(page);
     await page.evaluate(() => window.__openShopPreview!());
     await expect(page.locator('[role="dialog"]')).toBeVisible();
     await expect(page.locator('[data-shop-mode="phonePortrait"]')).toBeVisible();
