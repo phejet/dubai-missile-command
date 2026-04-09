@@ -1135,22 +1135,38 @@ function drawSharedBurj(
         const localX = burjX + (burjHitFlashX - burjX) / artScale;
         const localY = burjBaseY + (burjHitFlashY - burjBaseY) / artScale;
         const flashPop = Math.pow(hitFlashT, 0.45);
-        const hitGlow = ctx.createRadialGradient(localX, localY, 0, localX, localY, 34 + 28 * flashPop);
+        const flashFade = 1 - hitFlashT;
+        const hitGlow = ctx.createRadialGradient(localX, localY, 0, localX, localY, 46 + 42 * flashPop);
         hitGlow.addColorStop(0, `rgba(255,252,244,${1 * flashPop})`);
         hitGlow.addColorStop(0.24, `rgba(255,214,142,${0.96 * flashPop})`);
-        hitGlow.addColorStop(0.56, `rgba(255,112,52,${0.58 * flashPop})`);
+        hitGlow.addColorStop(0.56, `rgba(255,112,52,${0.74 * flashPop})`);
+        hitGlow.addColorStop(0.82, `rgba(255,76,34,${0.22 * flashPop})`);
         hitGlow.addColorStop(1, "rgba(0,0,0,0)");
         ctx.globalAlpha = 1;
         ctx.fillStyle = hitGlow;
-        ctx.fillRect(localX - 68, localY - 68, 136, 136);
+        ctx.fillRect(localX - 92, localY - 92, 184, 184);
         ctx.fillStyle = `rgba(255,246,220,${0.98 * flashPop})`;
         ctx.beginPath();
-        ctx.arc(localX, localY, 6 + 7 * flashPop, 0, Math.PI * 2);
+        ctx.arc(localX, localY, 8 + 10 * flashPop, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = `rgba(255,188,104,${0.46 * flashPop})`;
+        ctx.beginPath();
+        ctx.arc(localX, localY, 14 + 16 * flashPop, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = `rgba(255,238,196,${0.7 * flashPop})`;
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.arc(localX, localY, 12 + 18 * flashPop, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = `rgba(255,156,88,${0.5 * (1 - flashFade * 0.55)})`;
         ctx.lineWidth = 1.4;
         ctx.beginPath();
-        ctx.arc(localX, localY, 10 + 12 * flashPop, 0, Math.PI * 2);
+        ctx.arc(localX, localY, 20 + 34 * flashFade, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.strokeStyle = `rgba(255,210,170,${0.34 * flashPop})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(localX, localY, 30 + 46 * flashFade, 0, Math.PI * 2);
         ctx.stroke();
       }
     }
@@ -1376,8 +1392,20 @@ function drawBurjWarningPlate(
   }
 
   if (hitFlashT > 0) {
-    ctx.fillStyle = `rgba(255, 244, 216, ${0.14 + hitFlashT * 0.22})`;
+    const barFlash = Math.pow(hitFlashT, 0.58);
+    const barFlashGlow = ctx.createLinearGradient(0, barY - 6 * artScale, 0, barY + barH + 6 * artScale);
+    barFlashGlow.addColorStop(0, `rgba(255, 232, 172, ${0.04 + barFlash * 0.18})`);
+    barFlashGlow.addColorStop(0.5, `rgba(255, 178, 92, ${0.16 + barFlash * 0.32})`);
+    barFlashGlow.addColorStop(1, `rgba(255, 104, 48, ${0.06 + barFlash * 0.16})`);
+    ctx.fillStyle = barFlashGlow;
+    ctx.fillRect(barX - 8 * artScale, barY - 7 * artScale, barW + 16 * artScale, barH + 14 * artScale);
+    glow(ctx, "rgba(255,176,96,0.92)", 12 * artScale);
+    ctx.fillStyle = `rgba(255, 248, 220, ${0.18 + barFlash * 0.26})`;
     ctx.fillRect(barX, barY, barW, barH);
+    glowOff(ctx);
+    ctx.strokeStyle = `rgba(255, 220, 168, ${0.32 + barFlash * 0.42})`;
+    ctx.lineWidth = 1.2 * artScale;
+    ctx.strokeRect(barX - 3 * artScale, barY - 3 * artScale, barW + 6 * artScale, barH + 6 * artScale);
   }
 
   ctx.textAlign = "center";
