@@ -1262,89 +1262,136 @@ function drawBurjWarningPlate(
     artScale?: number;
   },
 ) {
+  const maxBurjHealth = 5;
   const burjBaseY = groundY - 6;
   const hitFlashT = burjHitFlashMax > 0 ? Math.max(0, Math.min(1, burjHitFlashTimer / burjHitFlashMax)) : 0;
   const burjCritical = burjHealth <= 1;
-  if (hitFlashT <= 0 && !burjCritical) return;
 
   const pulse = 0.5 + 0.5 * Math.sin(t * 0.22);
-  const warningY = burjBaseY + 18 * artScale;
-  const warningW = 118 * artScale;
-  const warningH = 20 * artScale;
+  const flashPulse = 0.55 + 0.45 * Math.sin(t * 0.55);
+  const warningY = burjBaseY + 24 * artScale;
+  const warningW = 102 * artScale;
+  const warningH = burjCritical ? 24 * artScale : 18 * artScale;
   const plateX = BURJ_X - warningW / 2;
   const plateY = warningY - warningH + 2;
+  const plateInset = 11 * artScale;
+  const barX = plateX + plateInset;
+  const barY = plateY + 5 * artScale;
+  const barW = warningW - plateInset * 2;
+  const barH = 7 * artScale;
+  const segmentGap = 2 * artScale;
+  const segmentW = (barW - segmentGap * (maxBurjHealth - 1)) / maxBurjHealth;
+  const readoutY = burjCritical ? plateY + warningH - 4 * artScale : plateY + warningH - 2.5 * artScale;
 
   ctx.save();
-  ctx.textAlign = "center";
-  ctx.font = `bold ${18 * artScale}px ${ARCADE_FONT_FAMILY}`;
   ctx.lineWidth = 1.4 * artScale;
 
-  // Under-mount shadow so the badge feels attached to the Burj podium, not screen-space UI.
   ctx.fillStyle = "rgba(6, 10, 18, 0.42)";
   ctx.beginPath();
-  ctx.moveTo(BURJ_X - warningW * 0.42, plateY + warningH + 5 * artScale);
-  ctx.lineTo(BURJ_X + warningW * 0.42, plateY + warningH + 5 * artScale);
-  ctx.lineTo(BURJ_X + warningW * 0.32, plateY + warningH + 11 * artScale);
-  ctx.lineTo(BURJ_X - warningW * 0.32, plateY + warningH + 11 * artScale);
+  ctx.moveTo(BURJ_X - warningW * 0.32, plateY + warningH + 3 * artScale);
+  ctx.lineTo(BURJ_X + warningW * 0.32, plateY + warningH + 3 * artScale);
+  ctx.lineTo(BURJ_X + warningW * 0.24, plateY + warningH + 7 * artScale);
+  ctx.lineTo(BURJ_X - warningW * 0.24, plateY + warningH + 7 * artScale);
   ctx.closePath();
   ctx.fill();
 
-  // Stylized mount shoulders echo the tower podium geometry.
   ctx.fillStyle = "rgba(28, 34, 48, 0.88)";
   ctx.beginPath();
-  ctx.moveTo(plateX + 8 * artScale, plateY + warningH);
-  ctx.lineTo(plateX + 20 * artScale, plateY - 2 * artScale);
-  ctx.lineTo(plateX + 32 * artScale, plateY - 2 * artScale);
-  ctx.lineTo(plateX + 24 * artScale, plateY + warningH);
+  ctx.moveTo(plateX + 7 * artScale, plateY + warningH);
+  ctx.lineTo(plateX + 13 * artScale, plateY + 1 * artScale);
+  ctx.lineTo(plateX + 20 * artScale, plateY + 1 * artScale);
+  ctx.lineTo(plateX + 16 * artScale, plateY + warningH);
   ctx.closePath();
-  ctx.moveTo(plateX + warningW - 8 * artScale, plateY + warningH);
-  ctx.lineTo(plateX + warningW - 20 * artScale, plateY - 2 * artScale);
-  ctx.lineTo(plateX + warningW - 32 * artScale, plateY - 2 * artScale);
-  ctx.lineTo(plateX + warningW - 24 * artScale, plateY + warningH);
+  ctx.moveTo(plateX + warningW - 7 * artScale, plateY + warningH);
+  ctx.lineTo(plateX + warningW - 13 * artScale, plateY + 1 * artScale);
+  ctx.lineTo(plateX + warningW - 20 * artScale, plateY + 1 * artScale);
+  ctx.lineTo(plateX + warningW - 16 * artScale, plateY + warningH);
   ctx.closePath();
   ctx.fill();
 
   ctx.beginPath();
-  ctx.moveTo(plateX + 10 * artScale, plateY);
-  ctx.lineTo(plateX + warningW - 10 * artScale, plateY);
+  ctx.moveTo(plateX + 10 * artScale, plateY + 2 * artScale);
+  ctx.lineTo(plateX + warningW - 10 * artScale, plateY + 2 * artScale);
   ctx.lineTo(plateX + warningW, plateY + warningH * 0.48);
-  ctx.lineTo(plateX + warningW - 10 * artScale, plateY + warningH);
-  ctx.lineTo(plateX + 10 * artScale, plateY + warningH);
+  ctx.lineTo(plateX + warningW - 8 * artScale, plateY + warningH);
+  ctx.lineTo(plateX + 8 * artScale, plateY + warningH);
   ctx.lineTo(plateX, plateY + warningH * 0.48);
   ctx.closePath();
 
-  if (hitFlashT > 0) {
-    const flashPulse = 0.55 + 0.45 * Math.sin(t * 0.55);
-    const plateGlow = ctx.createLinearGradient(0, plateY, 0, plateY + warningH);
-    plateGlow.addColorStop(0, `rgba(92, 44, 22, ${0.92 + flashPulse * 0.08})`);
-    plateGlow.addColorStop(0.5, `rgba(48, 14, 10, ${0.9 + flashPulse * 0.08})`);
-    plateGlow.addColorStop(1, `rgba(24, 10, 14, ${0.95})`);
-    ctx.fillStyle = plateGlow;
-    ctx.strokeStyle = `rgba(255, 196, 132, ${0.7 + flashPulse * 0.22})`;
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = `rgba(255, 232, 196, ${0.16 + flashPulse * 0.08})`;
-    ctx.fillRect(plateX + 18 * artScale, plateY + 3 * artScale, warningW - 36 * artScale, 2 * artScale);
-    glow(ctx, "rgba(255,184,120,0.95)", 16 * artScale);
-    ctx.font = `bold ${18 * artScale}px ${ARCADE_FONT_FAMILY}`;
-    ctx.fillStyle = `rgba(255, 238, 210, ${0.96 + flashPulse * 0.04})`;
-    ctx.fillText(`${Math.max(0, burjHealth)} HP`, BURJ_X, warningY - 3 * artScale);
-    glowOff(ctx);
-  } else {
+  if (burjCritical) {
     const criticalFill = ctx.createLinearGradient(0, plateY, 0, plateY + warningH);
     criticalFill.addColorStop(0, `rgba(110, 16, 18, ${0.86 + pulse * 0.08})`);
     criticalFill.addColorStop(0.45, `rgba(58, 10, 14, ${0.9})`);
     criticalFill.addColorStop(1, `rgba(28, 8, 12, ${0.96})`);
     ctx.fillStyle = criticalFill;
     ctx.strokeStyle = `rgba(255, 120, 100, ${0.58 + pulse * 0.26})`;
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = `rgba(255, 212, 196, ${0.16 + pulse * 0.08})`;
-    ctx.fillRect(plateX + 18 * artScale, plateY + 3 * artScale, warningW - 36 * artScale, 2 * artScale);
-    glow(ctx, "rgba(255,80,72,0.95)", 14 * artScale);
-    ctx.font = `bold ${15 * artScale}px ${ARCADE_FONT_FAMILY}`;
+  } else {
+    const plateFill = ctx.createLinearGradient(0, plateY, 0, plateY + warningH);
+    plateFill.addColorStop(0, `rgba(44, 58, 82, ${0.9 + hitFlashT * 0.08})`);
+    plateFill.addColorStop(0.48, `rgba(24, 30, 42, ${0.94})`);
+    plateFill.addColorStop(1, `rgba(14, 18, 28, 0.96)`);
+    ctx.fillStyle = plateFill;
+    ctx.strokeStyle = `rgba(132, 170, 220, ${0.36 + hitFlashT * 0.28})`;
+  }
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = burjCritical
+    ? `rgba(255, 212, 196, ${0.16 + pulse * 0.08})`
+    : `rgba(202, 228, 255, ${0.12 + hitFlashT * 0.1})`;
+  ctx.fillRect(plateX + 18 * artScale, plateY + 4 * artScale, warningW - 36 * artScale, 1.5 * artScale);
+
+  ctx.fillStyle = burjCritical ? "rgba(20, 4, 4, 0.82)" : "rgba(8, 12, 18, 0.82)";
+  ctx.fillRect(barX - 2 * artScale, barY - 2 * artScale, barW + 4 * artScale, barH + 4 * artScale);
+
+  for (let i = 0; i < maxBurjHealth; i += 1) {
+    const segX = barX + i * (segmentW + segmentGap);
+    const active = i < burjHealth;
+    const hotSegment = hitFlashT > 0 && i === Math.max(0, burjHealth - 1);
+    if (active) {
+      const segFill = ctx.createLinearGradient(0, barY, 0, barY + barH);
+      if (burjCritical) {
+        segFill.addColorStop(0, `rgba(255, ${110 + pulse * 30}, ${96 + pulse * 16}, 0.96)`);
+        segFill.addColorStop(1, "rgba(164, 24, 28, 0.96)");
+      } else if (hotSegment) {
+        segFill.addColorStop(0, `rgba(255, ${214 + flashPulse * 24}, 168, 0.98)`);
+        segFill.addColorStop(1, "rgba(210, 92, 34, 0.96)");
+      } else {
+        segFill.addColorStop(0, "rgba(124, 220, 255, 0.96)");
+        segFill.addColorStop(1, "rgba(54, 136, 204, 0.96)");
+      }
+      ctx.fillStyle = segFill;
+      ctx.fillRect(segX, barY, segmentW, barH);
+      if (hotSegment || burjCritical) {
+        glow(ctx, burjCritical ? "rgba(255,88,80,0.92)" : "rgba(255,180,124,0.92)", 8 * artScale);
+        ctx.fillRect(segX, barY, segmentW, barH);
+        glowOff(ctx);
+      }
+    } else {
+      ctx.fillStyle = burjCritical ? "rgba(52, 12, 14, 0.84)" : "rgba(24, 32, 44, 0.82)";
+      ctx.fillRect(segX, barY, segmentW, barH);
+    }
+    ctx.strokeStyle = burjCritical ? "rgba(255, 138, 122, 0.44)" : "rgba(154, 196, 244, 0.28)";
+    ctx.strokeRect(segX, barY, segmentW, barH);
+  }
+
+  if (hitFlashT > 0) {
+    ctx.fillStyle = `rgba(255, 244, 216, ${0.14 + hitFlashT * 0.22})`;
+    ctx.fillRect(barX, barY, barW, barH);
+  }
+
+  ctx.textAlign = "center";
+  if (burjCritical) {
+    glow(ctx, "rgba(255,80,72,0.95)", 12 * artScale);
+    ctx.font = `bold ${9 * artScale}px ${ARCADE_FONT_FAMILY}`;
     ctx.fillStyle = `rgba(255, 214, 196, ${0.92 + pulse * 0.08})`;
-    ctx.fillText("CRITICAL", BURJ_X, warningY - 3 * artScale);
+    ctx.fillText("CRITICAL", BURJ_X, readoutY);
+    glowOff(ctx);
+  } else if (hitFlashT > 0) {
+    glow(ctx, "rgba(255,184,120,0.95)", 12 * artScale);
+    ctx.font = `bold ${8.5 * artScale}px ${ARCADE_FONT_FAMILY}`;
+    ctx.fillStyle = `rgba(255, 238, 210, ${0.94 + flashPulse * 0.04})`;
+    ctx.fillText(`${Math.max(0, burjHealth)} HP`, BURJ_X, readoutY);
     glowOff(ctx);
   }
 
