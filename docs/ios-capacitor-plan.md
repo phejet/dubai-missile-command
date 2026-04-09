@@ -2,13 +2,69 @@
 
 ## Executive Summary
 
-Wrap the existing React + Canvas game in Capacitor to produce a native iOS `.ipa` that runs on local iPhones and iPads. iPad uses a scaled-up iPhone view with black letterbox borders. No App Store submission in scope for v1 — just local device deployment via Xcode.
+Wrap the existing Canvas game in Capacitor to produce a native iOS `.ipa` that runs on local iPhones and iPads. iPad uses a scaled-up iPhone view with black letterbox borders. No App Store submission in scope for v1 — just local device deployment via Xcode.
 
 This is the right approach because:
 - The game is pure 2D Canvas with Pointer API input — runs identically in WKWebView
 - Zero native code required; Capacitor gives us a real Xcode project for signing/deploying
 - The codebase already handles touch input, safe areas, and responsive scaling
 - Total effort is configuration, not rewriting
+
+## Design Principle: Model-Friendly Codebase
+
+Development on this project is done entirely with AI (Claude Code, Codex). The codebase should be optimized for AI comprehension and modification:
+
+- **Flat, imperative code over framework abstractions** — `element.textContent = score` is unambiguous; React hook dependency arrays and stale closures are common sources of AI-generated bugs
+- **Fewer files, fewer indirections** — models lose context jumping between component trees with props drilling. A single `ui.ts` that manages all screens is easier to hold in context than 4 React components
+- **No framework lifecycle rules** — React re-render timing, hook ordering constraints, and effect cleanup semantics add cognitive overhead that burns context window tokens for zero gameplay benefit
+- **Plain TypeScript everywhere** — no JSX transform, no virtual DOM diffing, no framework-specific patterns to learn. The game logic (9,470 lines) is already plain TS; the UI layer should match
+- **Smaller dependency surface** — fewer deps = fewer breaking changes to debug, fewer docs to feed the model, less framework-specific knowledge required
+
+This principle drives Phase 0 below: removing React before the Capacitor port.
+
+---
+
+## Phase 0: Remove React Dependency
+
+The game is already a vanilla Canvas app — React is only used as a thin UI shell over it. Removing it simplifies the codebase for AI-driven development and reduces the Capacitor integration surface.
+
+### What React currently does (1,382 lines across 4 files)
+
+| File | Lines | What it does | Vanilla replacement |
+|------|-------|-------------|-------------------|
+| `App.tsx` | 962 | Screen state machine, HUD overlays, canvas mount, event wiring | State variable + show/hide DOM sections |
+| `ShopUI.tsx` | 194 | Upgrade shop cards with buy buttons | Function that builds card HTML + click handlers |
+| `BonusScreen.tsx` | 216 | Animated score tally between waves | `setInterval` + DOM text updates |
+| `main.tsx` | 10 | `ReactDOM.createRoot().render()` | `new Game(document.getElementById('root'))` |
+
+### What doesn't change (9,470 lines — the actual game)
+
+- `game-render.ts` (5,200 lines) — Canvas 2D rendering
+- `game-sim.ts` (2,232 lines) — game loop, spawning, upgrades
+- `game-logic.ts` (506 lines) — physics, collision
+- `sound.ts` (758 lines) — Web Audio API
+- `types.ts` (614 lines) — type definitions
+- `replay.ts` (160 lines) — replay system
+
+### Migration approach
+
+1. **Create `src/ui.ts`** — single module that owns all DOM UI (HUD, shop, game over, bonus screen). Exports functions like `showShop(data)`, `hideShop()`, `updateHud(snapshot)`, `showGameOver(stats)`. Uses `document.getElementById` + `textContent`/`innerHTML` for updates.
+
+2. **Create `src/game.ts`** — replaces `App.tsx`. Owns the canvas, game loop (`requestAnimationFrame`), pointer event handlers, and screen state. Calls into `ui.ts` for DOM updates. All the `useRef` values become plain `let` variables — they're already used imperatively.
+
+3. **Move HTML structure to `index.html`** — the HUD, shop, and game-over markup currently lives as JSX in `App.tsx`. Move it to static HTML in `index.html` with `id` attributes. This makes the DOM structure visible and greppable without running the app.
+
+4. **Remove React dependencies** — delete `react`, `react-dom` from `package.json`. Remove `@vitejs/plugin-react` from Vite config. Rename `.tsx` → `.ts` for non-JSX files.
+
+5. **Update tests** — replace `@testing-library/react` renders with direct DOM setup or focus tests on the pure game logic (which doesn't use React anyway).
+
+### What this buys us
+
+- **~45KB smaller bundle** (React + ReactDOM gzipped) → faster Capacitor app startup
+- **Simpler Vite config** — no React plugin, no JSX transform, no fast refresh
+- **One fewer framework for AI to reason about** — prompts can focus on game logic instead of React patterns
+- **No hook bugs** — eliminates the entire class of stale closure / dependency array issues
+- **Easier onboarding for new AI sessions** — no need to explain React conventions in context
 
 ---
 
@@ -337,15 +393,33 @@ The existing GitHub Actions workflows (lint, test, build, e2e) don't need change
 
 ## File Changes Summary
 
+### Phase 0 (Remove React)
+
 | File | Action | What |
 |------|--------|------|
-| `package.json` | Edit | Add `@capacitor/core`, `@capacitor/ios`, `@capacitor/cli`; add `build:ios`, `cap:sync`, `cap:open`, `ios` scripts |
+| `src/ui.ts` | Create | All DOM UI management (HUD, shop, game over, bonus screen) |
+| `src/game.ts` | Create | Canvas owner, game loop, pointer events, screen state — replaces `App.tsx` |
+| `index.html` | Edit | Move JSX markup to static HTML with `id` attributes |
+| `src/App.tsx` | Delete | Replaced by `game.ts` + `ui.ts` |
+| `src/ShopUI.tsx` | Delete | Merged into `ui.ts` |
+| `src/BonusScreen.tsx` | Delete | Merged into `ui.ts` |
+| `src/main.tsx` | Rewrite | Becomes `src/main.ts` — simple `new Game(root)` |
+| `src/App.css` | Rename | Keep as `src/app.css`, remove React-specific class assumptions if any |
+| `src/ShopUI.css` | Merge | Fold into main CSS or keep as-is (CSS doesn't depend on React) |
+| `package.json` | Edit | Remove `react`, `react-dom`, `@vitejs/plugin-react`, `@testing-library/react`, `@types/react`, `@types/react-dom` |
+| `vite.config.ts` | Edit | Remove React plugin |
+| Tests | Edit | Replace `@testing-library/react` renders with direct DOM or focus on pure game logic |
+
+### Phases 1–6 (Capacitor)
+
+| File | Action | What |
+|------|--------|------|
+| `package.json` | Edit | Add `@capacitor/core`, `@capacitor/ios`, `@capacitor/cli`; add `build:ios`, `ios:dev`, `ios:build`, `ios:sim` scripts |
 | `capacitor.config.ts` | Create | Capacitor configuration |
 | `vite.config.ts` | Edit | Conditional `base` path and single-entry build for Capacitor |
 | `src/index.css` | Edit | Add `position: fixed` to html/body, add `-webkit-touch-callout: none` |
 | `index.html` | Verify | Already has correct viewport and apple-mobile-web-app meta tags |
 | `src/sound.ts` | Verify | `SFX.init()` should be called from user gesture (likely already is) |
-| `src/App.css` | Verify | Safe area insets already handled |
 | `ios/` | Generate | `npx cap add ios` creates the Xcode project |
 | `ios/App/App/Info.plist` | Edit | Status bar hidden, portrait lock, iPhone-only device family |
 | `ios/App/App/LaunchScreen.storyboard` | Edit | Dark background color |
@@ -356,9 +430,10 @@ The existing GitHub Actions workflows (lint, test, build, e2e) don't need change
 
 ## Estimated Effort
 
+- **Phase 0** (Remove React): Mechanical refactor — move JSX to static HTML, replace hooks with plain variables, delete React deps
 - **Phase 1** (Capacitor bootstrap): Mechanical setup — install, configure, verify build works
 - **Phase 2** (iOS fixes): Mostly verification — the codebase already handles most concerns
-- **Phase 3** (iPad): One checkbox in Xcode
+- **Phase 3** (iPad): One setting in Xcode
 - **Phase 4** (Icon/launch): Asset creation
 - **Phase 5** (Deploy): Requires macOS + Xcode, mostly following Xcode's signing flow
 
