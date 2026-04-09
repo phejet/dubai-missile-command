@@ -433,6 +433,10 @@ export interface GameState {
   burjHealth: number;
   burjDecals: BurjDecal[];
   burjDamageFx: BurjDamageFx[];
+  burjHitFlashTimer: number;
+  burjHitFlashMax: number;
+  burjHitFlashX: number;
+  burjHitFlashY: number;
 
   planeTimer: number;
   planeInterval: number;

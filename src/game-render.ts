@@ -358,10 +358,15 @@ interface SharedBurjOptions {
   mode: "title" | "game";
   groundY: number;
   alive: boolean;
+  burjHealth?: number;
   artScale: number;
   t: number;
   burjDecals?: GameState["burjDecals"];
   burjDamageFx?: GameState["burjDamageFx"];
+  burjHitFlashTimer?: number;
+  burjHitFlashMax?: number;
+  burjHitFlashX?: number;
+  burjHitFlashY?: number;
 }
 
 interface SharedWaterOptions {
@@ -756,11 +761,27 @@ function drawGameplayForegroundBuildings(ctx: CanvasRenderingContext2D, game: Ga
 
 function drawSharedBurj(
   ctx: CanvasRenderingContext2D,
-  { mode, groundY, alive, artScale, t, burjDecals = [], burjDamageFx = [] }: SharedBurjOptions,
+  {
+    mode,
+    groundY,
+    alive,
+    burjHealth = 5,
+    artScale,
+    t,
+    burjDecals = [],
+    burjDamageFx = [],
+    burjHitFlashTimer = 0,
+    burjHitFlashMax = 0,
+    burjHitFlashX = BURJ_X,
+    burjHitFlashY = GROUND_Y - BURJ_H * 0.45,
+  }: SharedBurjOptions,
 ) {
   const burjX = BURJ_X;
   const burjBaseY = groundY - 6;
   const burjHeight = BURJ_H;
+  const burjDamageLevel = mode === "game" ? Math.max(0, Math.min(1, (5 - burjHealth) / 4)) : 0;
+  const burjCritical = mode === "game" && burjHealth <= 1;
+  const hitFlashT = burjHitFlashMax > 0 ? Math.max(0, Math.min(1, burjHitFlashTimer / burjHitFlashMax)) : 0;
   const burjLeftSections = [
     { top: 1.0, bottom: 0.982, w: 0.7 },
     { top: 0.982, bottom: 0.958, w: 0.9 },
@@ -884,6 +905,43 @@ function drawSharedBurj(
     ctx.fillStyle = burjGrad;
     burjPath();
     ctx.fill();
+    if (mode === "game" && burjDamageLevel > 0) {
+      ctx.save();
+      burjPath();
+      ctx.clip();
+      const distressShade = ctx.createLinearGradient(burjX, burjBaseY - burjHeight, burjX, burjBaseY);
+      distressShade.addColorStop(0, `rgba(28, 18, 22, ${0.05 + burjDamageLevel * 0.08})`);
+      distressShade.addColorStop(0.55, `rgba(30, 18, 20, ${0.08 + burjDamageLevel * 0.18})`);
+      distressShade.addColorStop(1, `rgba(44, 16, 14, ${0.12 + burjDamageLevel * 0.24})`);
+      ctx.fillStyle = distressShade;
+      ctx.fillRect(burjX - 40, burjBaseY - burjHeight - 60, 80, burjHeight + 84);
+
+      const emberVeil = ctx.createRadialGradient(
+        burjX,
+        burjBaseY - burjHeight * 0.3,
+        0,
+        burjX,
+        burjBaseY - burjHeight * 0.3,
+        60,
+      );
+      emberVeil.addColorStop(0, `rgba(255, 132, 82, ${burjDamageLevel * 0.1})`);
+      emberVeil.addColorStop(0.7, `rgba(160, 62, 42, ${burjDamageLevel * 0.08})`);
+      emberVeil.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = emberVeil;
+      ctx.fillRect(burjX - 64, burjBaseY - burjHeight * 0.7, 128, 220);
+
+      if (burjCritical) {
+        const criticalPulse = 0.52 + 0.48 * Math.sin(t * 0.24);
+        const alarm = ctx.createLinearGradient(burjX - 24, 0, burjX + 24, 0);
+        alarm.addColorStop(0, "rgba(0,0,0,0)");
+        alarm.addColorStop(0.3, `rgba(255, 72, 64, ${0.18 + criticalPulse * 0.2})`);
+        alarm.addColorStop(0.6, `rgba(255, 176, 120, ${0.12 + criticalPulse * 0.12})`);
+        alarm.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = alarm;
+        ctx.fillRect(burjX - 28, burjBaseY - burjHeight - 48, 56, burjHeight + 66);
+      }
+      ctx.restore();
+    }
     ctx.strokeStyle = "rgba(236,246,255,0.28)";
     ctx.lineWidth = 0.45;
     ctx.beginPath();
@@ -1019,12 +1077,13 @@ function drawSharedBurj(
         const localY = burjBaseY + (fx.y - burjBaseY) / artScale;
         const lifeT = 1;
         const flicker = 0.55 + 0.45 * Math.sin(t * 6 + fx.seed);
+        const emberBoost = 1 + burjDamageLevel * 0.9 + (burjCritical ? 0.45 : 0);
         ctx.globalAlpha = lifeT * 0.88;
         ctx.fillStyle = "rgba(28,20,18,0.92)";
         ctx.beginPath();
         ctx.arc(localX + Math.sin(fx.seed) * 2, localY - 3, 8, 0, Math.PI * 2);
         ctx.fill();
-        ctx.globalAlpha = lifeT * (0.96 + flicker * 0.96);
+        ctx.globalAlpha = lifeT * (0.96 + flicker * 0.96) * emberBoost;
         const flame = ctx.createRadialGradient(localX, localY, 0, localX, localY, 20);
         flame.addColorStop(0, "rgba(255,246,214,1)");
         flame.addColorStop(0.24, "rgba(255,182,90,1)");
@@ -1032,11 +1091,11 @@ function drawSharedBurj(
         flame.addColorStop(1, "rgba(0,0,0,0)");
         ctx.fillStyle = flame;
         ctx.beginPath();
-        ctx.arc(localX, localY, 20 + flicker * 3.2, 0, Math.PI * 2);
+        ctx.arc(localX, localY, 20 + flicker * 3.2 + burjDamageLevel * 3, 0, Math.PI * 2);
         ctx.fill();
         for (let i = 0; i < 3; i++) {
           const phase = fx.seed + i * 0.9;
-          const flameH = (11 + i * 4.2) * (0.85 + 0.35 * Math.sin(t * 7 + phase));
+          const flameH = (11 + i * 4.2) * (0.85 + 0.35 * Math.sin(t * 7 + phase) + burjDamageLevel * 0.18);
           const flameW = 4.2 + i * 1.35;
           ctx.globalAlpha = lifeT * (1 - i * 0.14);
           ctx.fillStyle = i === 0 ? "#fff0c8" : i === 1 ? "#ffb458" : "#ff6e2f";
@@ -1056,7 +1115,44 @@ function drawSharedBurj(
           );
           ctx.fill();
         }
+        if (burjDamageLevel >= 0.5) {
+          ctx.globalAlpha = (0.12 + burjDamageLevel * 0.14 + (burjCritical ? 0.08 : 0)) * (0.72 + 0.28 * flicker);
+          ctx.fillStyle = "rgba(34, 26, 28, 0.95)";
+          ctx.beginPath();
+          ctx.ellipse(
+            localX + Math.sin(fx.seed * 1.7 + t * 0.03) * 4,
+            localY - (13 + Math.cos(fx.seed + t * 0.025) * 3),
+            8 + burjDamageLevel * 3,
+            14 + burjDamageLevel * 4,
+            0,
+            0,
+            Math.PI * 2,
+          );
+          ctx.fill();
+        }
       });
+      if (hitFlashT > 0) {
+        const localX = burjX + (burjHitFlashX - burjX) / artScale;
+        const localY = burjBaseY + (burjHitFlashY - burjBaseY) / artScale;
+        const flashPop = Math.pow(hitFlashT, 0.45);
+        const hitGlow = ctx.createRadialGradient(localX, localY, 0, localX, localY, 34 + 28 * flashPop);
+        hitGlow.addColorStop(0, `rgba(255,252,244,${1 * flashPop})`);
+        hitGlow.addColorStop(0.24, `rgba(255,214,142,${0.96 * flashPop})`);
+        hitGlow.addColorStop(0.56, `rgba(255,112,52,${0.58 * flashPop})`);
+        hitGlow.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = hitGlow;
+        ctx.fillRect(localX - 68, localY - 68, 136, 136);
+        ctx.fillStyle = `rgba(255,246,220,${0.98 * flashPop})`;
+        ctx.beginPath();
+        ctx.arc(localX, localY, 6 + 7 * flashPop, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = `rgba(255,238,196,${0.7 * flashPop})`;
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.arc(localX, localY, 10 + 12 * flashPop, 0, Math.PI * 2);
+        ctx.stroke();
+      }
     }
     ctx.restore();
   });
@@ -1081,6 +1177,32 @@ function drawSharedBurj(
   ctx.fillRect(burjX - 28, groundY - 8, 56, 7);
   ctx.fillStyle = "rgba(180, 220, 255, 0.34)";
   ctx.fillRect(burjX - 12, groundY - 13, 24, 4);
+
+  if (mode === "game" && burjCritical) {
+    const criticalPulse = 0.5 + 0.5 * Math.sin(t * 0.22);
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    const alarmRing = ctx.createRadialGradient(
+      burjX,
+      burjBaseY - burjHeight - 32,
+      0,
+      burjX,
+      burjBaseY - burjHeight - 32,
+      28,
+    );
+    alarmRing.addColorStop(0, `rgba(255, 90, 76, ${0.34 + criticalPulse * 0.34})`);
+    alarmRing.addColorStop(0.38, `rgba(255, 170, 110, ${0.18 + criticalPulse * 0.22})`);
+    alarmRing.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = alarmRing;
+    ctx.fillRect(burjX - 28, burjBaseY - burjHeight - 60, 56, 56);
+    ctx.globalAlpha = 0.9;
+    ctx.strokeStyle = `rgba(255, 110, 92, ${0.32 + criticalPulse * 0.3})`;
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.arc(burjX, burjBaseY - burjHeight - 32, 18 + criticalPulse * 7, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
 }
 
 function drawSharedWater(
@@ -1120,6 +1242,114 @@ function drawSharedWater(
     const inset = 10 + Math.sin(t * 1.8 + y * 0.07) * 8;
     ctx.fillRect(inset, y, CANVAS_W - inset * 2, 1);
   }
+}
+
+function drawBurjWarningPlate(
+  ctx: CanvasRenderingContext2D,
+  {
+    groundY,
+    burjHealth,
+    burjHitFlashTimer,
+    burjHitFlashMax,
+    t,
+    artScale = 2,
+  }: {
+    groundY: number;
+    burjHealth: number;
+    burjHitFlashTimer: number;
+    burjHitFlashMax: number;
+    t: number;
+    artScale?: number;
+  },
+) {
+  const burjBaseY = groundY - 6;
+  const hitFlashT = burjHitFlashMax > 0 ? Math.max(0, Math.min(1, burjHitFlashTimer / burjHitFlashMax)) : 0;
+  const burjCritical = burjHealth <= 1;
+  if (hitFlashT <= 0 && !burjCritical) return;
+
+  const pulse = 0.5 + 0.5 * Math.sin(t * 0.22);
+  const warningY = burjBaseY + 18 * artScale;
+  const warningW = 118 * artScale;
+  const warningH = 20 * artScale;
+  const plateX = BURJ_X - warningW / 2;
+  const plateY = warningY - warningH + 2;
+
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.font = `bold ${18 * artScale}px ${ARCADE_FONT_FAMILY}`;
+  ctx.lineWidth = 1.4 * artScale;
+
+  // Under-mount shadow so the badge feels attached to the Burj podium, not screen-space UI.
+  ctx.fillStyle = "rgba(6, 10, 18, 0.42)";
+  ctx.beginPath();
+  ctx.moveTo(BURJ_X - warningW * 0.42, plateY + warningH + 5 * artScale);
+  ctx.lineTo(BURJ_X + warningW * 0.42, plateY + warningH + 5 * artScale);
+  ctx.lineTo(BURJ_X + warningW * 0.32, plateY + warningH + 11 * artScale);
+  ctx.lineTo(BURJ_X - warningW * 0.32, plateY + warningH + 11 * artScale);
+  ctx.closePath();
+  ctx.fill();
+
+  // Stylized mount shoulders echo the tower podium geometry.
+  ctx.fillStyle = "rgba(28, 34, 48, 0.88)";
+  ctx.beginPath();
+  ctx.moveTo(plateX + 8 * artScale, plateY + warningH);
+  ctx.lineTo(plateX + 20 * artScale, plateY - 2 * artScale);
+  ctx.lineTo(plateX + 32 * artScale, plateY - 2 * artScale);
+  ctx.lineTo(plateX + 24 * artScale, plateY + warningH);
+  ctx.closePath();
+  ctx.moveTo(plateX + warningW - 8 * artScale, plateY + warningH);
+  ctx.lineTo(plateX + warningW - 20 * artScale, plateY - 2 * artScale);
+  ctx.lineTo(plateX + warningW - 32 * artScale, plateY - 2 * artScale);
+  ctx.lineTo(plateX + warningW - 24 * artScale, plateY + warningH);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(plateX + 10 * artScale, plateY);
+  ctx.lineTo(plateX + warningW - 10 * artScale, plateY);
+  ctx.lineTo(plateX + warningW, plateY + warningH * 0.48);
+  ctx.lineTo(plateX + warningW - 10 * artScale, plateY + warningH);
+  ctx.lineTo(plateX + 10 * artScale, plateY + warningH);
+  ctx.lineTo(plateX, plateY + warningH * 0.48);
+  ctx.closePath();
+
+  if (hitFlashT > 0) {
+    const flashPulse = 0.55 + 0.45 * Math.sin(t * 0.55);
+    const plateGlow = ctx.createLinearGradient(0, plateY, 0, plateY + warningH);
+    plateGlow.addColorStop(0, `rgba(92, 44, 22, ${0.92 + flashPulse * 0.08})`);
+    plateGlow.addColorStop(0.5, `rgba(48, 14, 10, ${0.9 + flashPulse * 0.08})`);
+    plateGlow.addColorStop(1, `rgba(24, 10, 14, ${0.95})`);
+    ctx.fillStyle = plateGlow;
+    ctx.strokeStyle = `rgba(255, 196, 132, ${0.7 + flashPulse * 0.22})`;
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = `rgba(255, 232, 196, ${0.16 + flashPulse * 0.08})`;
+    ctx.fillRect(plateX + 18 * artScale, plateY + 3 * artScale, warningW - 36 * artScale, 2 * artScale);
+    glow(ctx, "rgba(255,184,120,0.95)", 16 * artScale);
+    ctx.font = `bold ${18 * artScale}px ${ARCADE_FONT_FAMILY}`;
+    ctx.fillStyle = `rgba(255, 238, 210, ${0.96 + flashPulse * 0.04})`;
+    ctx.fillText(`${Math.max(0, burjHealth)} HP`, BURJ_X, warningY - 3 * artScale);
+    glowOff(ctx);
+  } else {
+    const criticalFill = ctx.createLinearGradient(0, plateY, 0, plateY + warningH);
+    criticalFill.addColorStop(0, `rgba(110, 16, 18, ${0.86 + pulse * 0.08})`);
+    criticalFill.addColorStop(0.45, `rgba(58, 10, 14, ${0.9})`);
+    criticalFill.addColorStop(1, `rgba(28, 8, 12, ${0.96})`);
+    ctx.fillStyle = criticalFill;
+    ctx.strokeStyle = `rgba(255, 120, 100, ${0.58 + pulse * 0.26})`;
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = `rgba(255, 212, 196, ${0.16 + pulse * 0.08})`;
+    ctx.fillRect(plateX + 18 * artScale, plateY + 3 * artScale, warningW - 36 * artScale, 2 * artScale);
+    glow(ctx, "rgba(255,80,72,0.95)", 14 * artScale);
+    ctx.font = `bold ${15 * artScale}px ${ARCADE_FONT_FAMILY}`;
+    ctx.fillStyle = `rgba(255, 214, 196, ${0.92 + pulse * 0.08})`;
+    ctx.fillText("CRITICAL", BURJ_X, warningY - 3 * artScale);
+    glowOff(ctx);
+  }
+
+  ctx.textAlign = "left";
+  ctx.restore();
 }
 
 function drawSharedLauncher(
@@ -2982,20 +3212,41 @@ function drawGroundStructures(ctx: CanvasRenderingContext2D, game: GameState, la
 
     if (game.launcherHP[i] <= 0) return;
 
-    ctx.fillStyle = "rgba(0,0,0,0.55)";
-    ctx.beginPath();
-    ctx.roundRect(l.x - 16, scenicLauncherY + 27, 32, 6, 3);
-    ctx.fill();
-    ctx.fillStyle = ammoRatio > 0.3 ? COL.hud : COL.warning;
-    ctx.beginPath();
-    ctx.roundRect(l.x - 16, scenicLauncherY + 27, 32 * ammoRatio, 6, 3);
-    ctx.fill();
-
-    ctx.font = `bold 14px ${ARCADE_FONT_FAMILY}`;
-    ctx.textAlign = "center";
-    ctx.fillStyle = ammoRatio > 0.3 ? COL.hud : COL.warning;
-    ctx.fillText(String(game.ammo[i]), l.x, scenicLauncherY + 48);
-    ctx.textAlign = "left";
+    if (game.ammo[i] <= 0) {
+      ctx.save();
+      ctx.textAlign = "center";
+      ctx.font = `bold 10px ${ARCADE_FONT_FAMILY}`;
+      ctx.fillStyle = "rgba(40, 8, 10, 0.86)";
+      ctx.strokeStyle = "rgba(255, 92, 80, 0.72)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(l.x - 15, scenicLauncherY + 30, 30, 12, 5);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#ffd3ca";
+      ctx.fillText("OUT", l.x, scenicLauncherY + 39);
+      ctx.textAlign = "left";
+      ctx.restore();
+    } else if (ammoRatio <= 0.3) {
+      ctx.save();
+      ctx.translate(l.x, scenicLauncherY + 34);
+      ctx.fillStyle = "rgba(52, 18, 10, 0.88)";
+      ctx.strokeStyle = "rgba(255, 184, 92, 0.8)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, -8);
+      ctx.lineTo(8, 7);
+      ctx.lineTo(-8, 7);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#fff0cf";
+      ctx.font = `bold 10px ${ARCADE_FONT_FAMILY}`;
+      ctx.textAlign = "center";
+      ctx.fillText("!", 0, 4);
+      ctx.textAlign = "left";
+      ctx.restore();
+    }
 
     const maxHP = game.upgrades.launcherKit >= 2 ? 2 : 1;
     for (let h = 0; h < maxHP; h++) {
@@ -3708,10 +3959,15 @@ export function drawGame(
     mode: "game",
     groundY: scenicGroundY,
     alive: game.burjAlive,
+    burjHealth: game.burjHealth,
     artScale: 2,
     t: sceneTime,
     burjDecals: game.burjDecals,
     burjDamageFx: game.burjDamageFx,
+    burjHitFlashTimer: game.burjHitFlashTimer,
+    burjHitFlashMax: game.burjHitFlashMax,
+    burjHitFlashX: game.burjHitFlashX,
+    burjHitFlashY: game.burjHitFlashY,
   });
   drawGameplayForegroundBuildings(ctx, game, sceneTime, scenicGroundY);
   drawSharedWater(
@@ -3737,6 +3993,14 @@ export function drawGame(
   drawExplosionsAndParticles(ctx, game, layout);
   ctx.restore();
   drawGroundStructures(ctx, game, layout);
+  drawBurjWarningPlate(ctx, {
+    groundY: scenicGroundY,
+    burjHealth: game.burjHealth,
+    burjHitFlashTimer: game.burjHitFlashTimer,
+    burjHitFlashMax: game.burjHitFlashMax,
+    t: sceneTime,
+    artScale: 2,
+  });
 
   // Crosshair
   if (!showShop) {

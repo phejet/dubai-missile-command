@@ -743,19 +743,8 @@ export default function DubaiMissileCommand() {
 
                 <div className="battlefield-hud__summary">
                   <div className="battlefield-score">
-                    <span className="battlefield-score__label">Score</span>
+                    <span className="battlefield-score__label">Mission Score</span>
                     <strong className="battlefield-score__value">{hudSnapshot.score}</strong>
-                  </div>
-
-                  <div className="battlefield-status">
-                    <div
-                      className={`battlefield-status__item ${hudSnapshot.burjAlive ? "battlefield-status__item--good" : "battlefield-status__item--danger"}`}
-                    >
-                      <span className="battlefield-status__label">Burj</span>
-                      <strong className="battlefield-status__value">
-                        {hudSnapshot.burjAlive ? `${hudSnapshot.burjHealth}/5` : "DOWN"}
-                      </strong>
-                    </div>
                   </div>
 
                   <div className="battlefield-ammo" aria-label="Launcher ammo">
@@ -774,8 +763,24 @@ export default function DubaiMissileCommand() {
                           key={`ammo-${idx}`}
                           className={`battlefield-ammo__cell ${hudSnapshot.launcherHP[idx] > 0 ? "" : "battlefield-ammo__cell--down"}`}
                         >
-                          <span className="battlefield-ammo__slot">L{idx + 1}</span>
-                          <strong className="battlefield-ammo__count">{count}</strong>
+                          <div className="battlefield-ammo__cell-head">
+                            <span className="battlefield-ammo__slot">L{idx + 1}</span>
+                            <span className="battlefield-ammo__state">
+                              {hudSnapshot.launcherHP[idx] > 0 ? "Online" : "Down"}
+                            </span>
+                          </div>
+                          <div className="battlefield-ammo__readout">
+                            <strong className="battlefield-ammo__count">{count}</strong>
+                            <span className="battlefield-ammo__max">/{hudSnapshot.ammoMax}</span>
+                          </div>
+                          <div className="battlefield-ammo__meter" aria-hidden="true">
+                            <span
+                              className="battlefield-ammo__meter-fill"
+                              style={{
+                                width: `${hudSnapshot.launcherHP[idx] > 0 ? Math.max(0, Math.min(100, (count / Math.max(1, hudSnapshot.ammoMax)) * 100)) : 0}%`,
+                              }}
+                            />
+                          </div>
                         </div>
                       ))}
                     </div>

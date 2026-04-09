@@ -202,6 +202,8 @@ let _buildingDestroyFxId = 0;
 function addBurjImpactDamage(g: GameState, x: number, y: number, kind: BurjDamageKind) {
   const jitterX = rand(-3, 3);
   const jitterY = rand(-8, 8);
+  const hitX = x + jitterX * 0.65;
+  const hitY = y + jitterY * 0.65;
   g.burjDecals.push({
     id: _burjDecalId++,
     x: x + jitterX,
@@ -212,16 +214,22 @@ function addBurjImpactDamage(g: GameState, x: number, y: number, kind: BurjDamag
   });
   g.burjDamageFx.push({
     id: _burjDamageFxId++,
-    x: x + jitterX * 0.65,
-    y: y + jitterY * 0.65,
+    x: hitX,
+    y: hitY,
     kind,
     life: 1,
     maxLife: 1,
     seed: rand(0, Math.PI * 2),
   });
+  g.burjHitFlashTimer = 48;
+  g.burjHitFlashMax = 48;
+  g.burjHitFlashX = hitX;
+  g.burjHitFlashY = hitY;
 }
 
-function updateBurjDamageFx(): void {}
+function updateBurjDamageFx(g: GameState): void {
+  if (g.burjHitFlashTimer > 0) g.burjHitFlashTimer--;
+}
 
 function addBuildingDestroyFx(g: GameState, building: { x: number; w: number; h: number }) {
   g.buildingDestroyFx.push({
@@ -271,6 +279,10 @@ export function initGame(): GameState {
     burjHealth: 5,
     burjDecals: [],
     burjDamageFx: [],
+    burjHitFlashTimer: 0,
+    burjHitFlashMax: 0,
+    burjHitFlashX: BURJ_X,
+    burjHitFlashY: GROUND_Y - BURJ_H * 0.45,
     stars: Array.from({ length: 120 }, () => ({
       x: rand(0, CANVAS_W),
       y: rand(0, CANVAS_H * 0.6),
@@ -1790,7 +1802,7 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
     }
     if (g.multiKillToast.timer <= 0) g.multiKillToast = null;
   }
-  updateBurjDamageFx();
+  updateBurjDamageFx(g);
   updateBuildingDestroyFx(g, dt);
 
   // Game over — Burj destroyed
