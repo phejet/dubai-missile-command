@@ -1135,12 +1135,13 @@ function drawSharedBurj(
         const localX = burjX + (burjHitFlashX - burjX) / artScale;
         const localY = burjBaseY + (burjHitFlashY - burjBaseY) / artScale;
         const flashPop = Math.pow(hitFlashT, 0.45);
+        const orangeTail = Math.pow(hitFlashT, 0.78);
         const flashFade = 1 - hitFlashT;
         const hitGlow = ctx.createRadialGradient(localX, localY, 0, localX, localY, 46 + 42 * flashPop);
         hitGlow.addColorStop(0, `rgba(255,252,244,${1 * flashPop})`);
         hitGlow.addColorStop(0.24, `rgba(255,214,142,${0.96 * flashPop})`);
-        hitGlow.addColorStop(0.56, `rgba(255,112,52,${0.74 * flashPop})`);
-        hitGlow.addColorStop(0.82, `rgba(255,76,34,${0.22 * flashPop})`);
+        hitGlow.addColorStop(0.56, `rgba(255,112,52,${0.74 * orangeTail})`);
+        hitGlow.addColorStop(0.82, `rgba(255,76,34,${0.22 * orangeTail})`);
         hitGlow.addColorStop(1, "rgba(0,0,0,0)");
         ctx.globalAlpha = 1;
         ctx.fillStyle = hitGlow;
@@ -1149,7 +1150,7 @@ function drawSharedBurj(
         ctx.beginPath();
         ctx.arc(localX, localY, 8 + 10 * flashPop, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = `rgba(255,188,104,${0.46 * flashPop})`;
+        ctx.fillStyle = `rgba(255,188,104,${0.46 * orangeTail})`;
         ctx.beginPath();
         ctx.arc(localX, localY, 14 + 16 * flashPop, 0, Math.PI * 2);
         ctx.fill();
@@ -1158,7 +1159,7 @@ function drawSharedBurj(
         ctx.beginPath();
         ctx.arc(localX, localY, 12 + 18 * flashPop, 0, Math.PI * 2);
         ctx.stroke();
-        ctx.strokeStyle = `rgba(255,156,88,${0.5 * (1 - flashFade * 0.55)})`;
+        ctx.strokeStyle = `rgba(255,156,88,${0.38 * orangeTail})`;
         ctx.lineWidth = 1.4;
         ctx.beginPath();
         ctx.arc(localX, localY, 20 + 34 * flashFade, 0, Math.PI * 2);
