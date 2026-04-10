@@ -265,6 +265,16 @@ export class Game {
     this.shell.classList.toggle("game-shell--compactPortrait", compact);
   }
 
+  private clearPointerCapture(): void {
+    if (this.pointerId === null) return;
+    try {
+      this.canvas.releasePointerCapture(this.pointerId);
+    } catch {
+      // Pointer may already be released or no longer active.
+    }
+    this.pointerId = null;
+  }
+
   // ─── Screen Management ──────────────────────────────────────────
 
   private setScreen(s: "title" | "playing" | "gameover"): void {
@@ -310,6 +320,7 @@ export class Game {
 
   private async startGame(): Promise<void> {
     await SFX.init();
+    this.clearPointerCapture();
     this.initGame();
     this.replayActive = false;
     this.shopOpen = false;
@@ -325,6 +336,7 @@ export class Game {
 
   private async startReplay(replayData: ReplayData): Promise<void> {
     await SFX.init();
+    this.clearPointerCapture();
     const runner = createReplayRunner(replayData, (type, data) => this.handleSimEvent(type, data));
     const replayGameState = runner.init();
     this.gameRef.current = replayGameState;
@@ -376,6 +388,7 @@ export class Game {
       };
       sfxMap[data.name]?.();
     } else if (type === "gameOver") {
+      this.clearPointerCapture();
       this.shopOpen = false;
       this.showOptionsMenu = false;
       this.showColliders = false;
