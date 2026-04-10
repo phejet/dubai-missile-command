@@ -7,7 +7,7 @@
 [![E2E Tests](https://github.com/phejet/dubai-missile-command/actions/workflows/ci-e2e.yml/badge.svg)](https://github.com/phejet/dubai-missile-command/actions/workflows/ci-e2e.yml)
 [![Deploy](https://github.com/phejet/dubai-missile-command/actions/workflows/deploy.yml/badge.svg)](https://github.com/phejet/dubai-missile-command/actions/workflows/deploy.yml)
 
-A retro-inspired missile defense game set in Dubai. Defend Burj Khalifa from waves of ballistic missiles and Shahed drones. Built with React + Canvas.
+A retro-inspired missile defense game set in Dubai. Defend Burj Khalifa from waves of ballistic missiles and Shahed drones. Built with TypeScript + Canvas, with a React-based internal editor and a Capacitor iOS wrapper.
 
 **[Play Now](https://phejet.github.io/dubai-missile-command/)** · **[Editor](https://phejet.github.io/dubai-missile-command/editor.html)**
 
@@ -39,9 +39,34 @@ Friendly fighter jets periodically fly across the battlefield, shooting down thr
 npm install
 npm run dev       # start dev server
 npm run build     # production build
+npm run build:ios # iOS/Capacitor-friendly build with relative asset paths
 npm run lint      # run ESLint
 npm run format    # run Prettier (auto-fix)
 ```
+
+### iPhone App
+
+The repo now includes a Capacitor iOS project under `ios/App/`.
+
+```bash
+# Build web assets for Capacitor
+npm run build:ios
+
+# Sync web assets into the native iOS project
+npx cap sync ios
+
+# Open the Xcode project
+npx cap open ios
+```
+
+In Xcode:
+
+- Select a simulator or connected iPhone
+- Enable `Automatically manage signing`
+- Choose your Apple developer team
+- Press Run
+
+The iOS project uses Swift Package Manager. CocoaPods is not required in the current setup.
 
 ### Autoplay Bot
 
@@ -90,8 +115,10 @@ You can also drag-and-drop a `replay.json` file onto the game canvas, or load vi
 
 ## Tech Stack
 
-- React 19 + Vite
+- TypeScript + Vite
 - HTML5 Canvas (all rendering)
+- Capacitor iOS wrapper for local device deployment
+- React 19 for the internal editor tooling only
 - Playwright (autoplay bot + replay viewer)
 - Headless simulation with seeded PRNG for deterministic runs
 - Worker threads for parallel game execution
