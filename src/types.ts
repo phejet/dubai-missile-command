@@ -40,6 +40,7 @@ export interface Drone {
   y: number;
   vx: number;
   vy: number;
+  trail?: TrailPoint[];
   wobble: number;
   alive: boolean;
   type: "drone";

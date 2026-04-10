@@ -2564,9 +2564,50 @@ function drawMissiles(ctx: CanvasRenderingContext2D, game: GameState, layout: La
 function drawDrones(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutProfile) {
   // Drones (Shaheds)
   game.drones.forEach((d: Drone) => {
+    const facing = d.vx > 0 ? 1 : -1;
+    const trail = d.trail ?? [];
+    const trailAngle = trail.length
+      ? Math.atan2(d.y - trail[trail.length - 1].y, d.x - trail[trail.length - 1].x)
+      : Math.atan2(d.vy || 0, d.vx || 1);
+    const dirX = Math.cos(trailAngle);
+    const dirY = Math.sin(trailAngle);
+    if (trail.length > 0 && d.subtype === "shahed238") {
+      ctx.save();
+      const pulseAmt = pulse(game.time, 0.55, d.x * 0.02 + d.y * 0.03);
+      const jetTailX = d.x - dirX * 14 * layout.enemyScale;
+      const jetTailY = d.y - dirY * 14 * layout.enemyScale;
+      const jetTrailLen = (22 + 8 * pulseAmt) * layout.enemyScale;
+      const jetTrail = ctx.createLinearGradient(
+        jetTailX - dirX * jetTrailLen,
+        jetTailY - dirY * jetTrailLen,
+        jetTailX,
+        jetTailY,
+      );
+      jetTrail.addColorStop(0, "rgba(255, 130, 60, 0)");
+      jetTrail.addColorStop(0.45, "rgba(255, 130, 60, 0.16)");
+      jetTrail.addColorStop(0.82, "rgba(210, 220, 230, 0.24)");
+      jetTrail.addColorStop(1, "rgba(255, 205, 120, 0.08)");
+      ctx.strokeStyle = jetTrail;
+      ctx.lineWidth = 3.8 * layout.effectScale * layout.enemyScale;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(jetTailX - dirX * jetTrailLen, jetTailY - dirY * jetTrailLen);
+      ctx.lineTo(jetTailX, jetTailY);
+      ctx.stroke();
+
+      trail.forEach((t, i) => {
+        const alpha = (i / trail.length) * 0.2;
+        const radius = (1.6 + (i / trail.length) * 2.4) * layout.effectScale;
+        ctx.fillStyle = `rgba(255, 150, 82, ${alpha})`;
+        ctx.beginPath();
+        ctx.arc(t.x - dirX * 12 * layout.enemyScale, t.y - dirY * 12 * layout.enemyScale, radius, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.restore();
+    }
+
     ctx.save();
     ctx.translate(d.x, d.y);
-    const facing = d.vx > 0 ? 1 : -1;
     if (d.subtype === "shahed238" || d.diving) {
       const angle = Math.atan2(d.vy, d.vx);
       ctx.rotate(angle);
@@ -2574,6 +2615,27 @@ function drawDrones(ctx: CanvasRenderingContext2D, game: GameState, layout: Layo
       ctx.scale(facing, 1);
     }
     ctx.scale(layout.enemyScale, layout.enemyScale);
+
+    if (d.subtype === "shahed136" && trail.length > 0) {
+      const smokeLen = 9 + Math.min(trail.length, 12) * 0.75;
+      const smokeGrad = ctx.createLinearGradient(-10.8 - smokeLen, 0, -10.3, 0);
+      smokeGrad.addColorStop(0, "rgba(120,128,136,0)");
+      smokeGrad.addColorStop(0.48, "rgba(136,144,152,0.18)");
+      smokeGrad.addColorStop(1, "rgba(190,198,206,0.28)");
+      ctx.strokeStyle = smokeGrad;
+      ctx.lineWidth = 1.25 * layout.effectScale;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(-10.8 - smokeLen, 0);
+      ctx.lineTo(-10.3, 0);
+      ctx.stroke();
+
+      const emberAlpha = 0.14 + Math.min(trail.length, 8) * 0.02;
+      ctx.fillStyle = `rgba(196,170,118,${emberAlpha})`;
+      ctx.beginPath();
+      ctx.arc(-10.6, 0, 0.46 * layout.effectScale, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     if (d.subtype === "shahed238") {
       // Jet Shahed-238 — sleek delta wing, larger

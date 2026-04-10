@@ -464,6 +464,7 @@ export function spawnDroneOfType(
     y: spawnY,
     vx: goingRight ? speed : -speed,
     vy: rand(-0.1, 0.3),
+    trail: [],
     wobble: rand(0, Math.PI * 2),
     alive: true,
     type: "drone",
@@ -1359,6 +1360,9 @@ function updateDrones(
 ) {
   g.drones.forEach((d: Drone) => {
     if (!d.alive) return;
+    d.trail ??= [];
+    d.trail.push({ x: d.x, y: d.y });
+    if (d.trail.length > (d.subtype === "shahed238" ? 18 : 14)) d.trail.shift();
     // Lured drones steer toward flare and detonate it on contact
     if (d.luredByFlare) {
       const flareTarget = getLiveFlare(g, d.flareTargetId);
