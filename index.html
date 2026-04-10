@@ -9,7 +9,196 @@
     <title>dubai-missile-command</title>
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <div id="root">
+      <div
+        class="game-shell game-shell--phonePortrait"
+        id="game-shell"
+        data-screen="title"
+        data-ui-mode="phonePortrait"
+      >
+        <div class="game-shell__ambient" aria-hidden="true"></div>
+        <div class="game-shell__content">
+          <div class="battlefield-shell">
+            <div class="battlefield-card" id="battlefield-card">
+              <!-- HUD (playing screen only) -->
+              <div class="battlefield-hud" id="battlefield-hud" data-testid="portrait-hud" hidden>
+                <div
+                  class="battlefield-hud__progress"
+                  role="progressbar"
+                  aria-label="Wave spawn progress"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-valuenow="0"
+                >
+                  <span class="battlefield-hud__progress-fill" id="hud-progress-fill"></span>
+                </div>
+                <div class="battlefield-hud__summary">
+                  <div class="battlefield-score">
+                    <span class="battlefield-score__label">Mission Score</span>
+                    <strong class="battlefield-score__value" id="hud-score">0</strong>
+                  </div>
+
+                  <div class="battlefield-ammo" aria-label="Launcher ammo">
+                    <span class="battlefield-ammo__label">
+                      <svg class="battlefield-ammo__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M5 18h14" />
+                        <path d="M7 18l2-7h6l2 7" />
+                        <path d="M10.8 11V5.8l1.2-.8 1.2.8V11" />
+                        <path d="M9 7.2h6" />
+                      </svg>
+                      <span>Ammo</span>
+                    </span>
+                    <div class="battlefield-ammo__grid" id="hud-ammo-grid">
+                      <div class="battlefield-ammo__cell" id="hud-ammo-0">
+                        <div class="battlefield-ammo__cell-head">
+                          <span class="battlefield-ammo__slot">L1</span>
+                          <span class="battlefield-ammo__state">Online</span>
+                        </div>
+                        <div class="battlefield-ammo__readout">
+                          <strong class="battlefield-ammo__count">0</strong>
+                          <span class="battlefield-ammo__max">/0</span>
+                        </div>
+                        <div class="battlefield-ammo__meter" aria-hidden="true">
+                          <span class="battlefield-ammo__meter-fill"></span>
+                        </div>
+                      </div>
+                      <div class="battlefield-ammo__cell" id="hud-ammo-1">
+                        <div class="battlefield-ammo__cell-head">
+                          <span class="battlefield-ammo__slot">L2</span>
+                          <span class="battlefield-ammo__state">Online</span>
+                        </div>
+                        <div class="battlefield-ammo__readout">
+                          <strong class="battlefield-ammo__count">0</strong>
+                          <span class="battlefield-ammo__max">/0</span>
+                        </div>
+                        <div class="battlefield-ammo__meter" aria-hidden="true">
+                          <span class="battlefield-ammo__meter-fill"></span>
+                        </div>
+                      </div>
+                      <div class="battlefield-ammo__cell" id="hud-ammo-2">
+                        <div class="battlefield-ammo__cell-head">
+                          <span class="battlefield-ammo__slot">L3</span>
+                          <span class="battlefield-ammo__state">Online</span>
+                        </div>
+                        <div class="battlefield-ammo__readout">
+                          <strong class="battlefield-ammo__count">0</strong>
+                          <span class="battlefield-ammo__max">/0</span>
+                        </div>
+                        <div class="battlefield-ammo__meter" aria-hidden="true">
+                          <span class="battlefield-ammo__meter-fill"></span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    class="battlefield-options-button"
+                    id="options-button"
+                    aria-label="Open options"
+                    aria-expanded="false"
+                    aria-haspopup="menu"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                      <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" />
+                      <path
+                        d="M19.1 13.3a7.8 7.8 0 0 0 .1-2.6l2-1.1-2-3.5-2.2.6a8.4 8.4 0 0 0-2.2-1.3L14.2 3H9.8l-.6 2.4a8.4 8.4 0 0 0-2.2 1.3l-2.2-.6-2 3.5 2 1.1a7.8 7.8 0 0 0 0 2.6l-2 1.1 2 3.5 2.2-.6a8.4 8.4 0 0 0 2.2 1.3l.6 2.4h4.4l.6-2.4a8.4 8.4 0 0 0 2.2-1.3l2.2.6 2-3.5-2-1.1Z"
+                      />
+                    </svg>
+                  </button>
+                </div>
+                <div class="battlefield-options-menu" id="options-menu" role="menu" aria-label="Game options" hidden>
+                  <button type="button" class="battlefield-option" id="option-sound">
+                    <span class="battlefield-option__label">Sound</span>
+                    <span class="battlefield-option__meta" id="option-sound-meta">On</span>
+                  </button>
+                  <button type="button" class="battlefield-option" id="option-debug">
+                    <span class="battlefield-option__label">Debug</span>
+                    <span class="battlefield-option__meta">Colliders</span>
+                  </button>
+                  <button type="button" class="battlefield-option" id="option-perf">
+                    <span class="battlefield-option__label">Perf</span>
+                    <span class="battlefield-option__meta" id="option-perf-meta">Off</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Canvas stage -->
+              <div class="battlefield-stage">
+                <canvas id="game-canvas" class="game-canvas" width="900" height="1600"></canvas>
+                <button type="button" class="battlefield-emp" id="emp-button" hidden>
+                  <span class="battlefield-emp__label">EMP</span>
+                  <span class="battlefield-emp__meta" id="emp-meta">0%</span>
+                </button>
+                <!-- Bonus screen container (populated by ui.ts) -->
+                <div id="bonus-container"></div>
+                <!-- Perf overlay -->
+                <div class="battlefield-debug-overlay" id="perf-overlay" aria-hidden="true" hidden>
+                  <div class="battlefield-debug-overlay__title">Render Probe</div>
+                  <div class="battlefield-debug-overlay__row">
+                    <span>RAF</span>
+                    <strong id="perf-raf">--</strong>
+                  </div>
+                  <div class="battlefield-debug-overlay__row">
+                    <span>Frame</span>
+                    <strong id="perf-frame">--</strong>
+                  </div>
+                  <div class="battlefield-debug-overlay__row">
+                    <span>HUD FPS</span>
+                    <strong id="perf-hud-fps">--</strong>
+                  </div>
+                  <div class="battlefield-debug-overlay__row">
+                    <span>Glow</span>
+                    <strong id="perf-glow">probing</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Game Over panel -->
+          <section class="portrait-panel portrait-panel--gameover" id="gameover-panel" hidden>
+            <div class="portrait-panel__header">
+              <span class="portrait-panel__kicker">After Action Report</span>
+              <span class="portrait-panel__subtle">The skyline has fallen</span>
+            </div>
+            <div class="report-grid">
+              <div class="report-card">
+                <span class="report-card__label">Score</span>
+                <strong class="report-card__value" id="go-score">0</strong>
+              </div>
+              <div class="report-card">
+                <span class="report-card__label">Waves</span>
+                <strong class="report-card__value" id="go-wave">1</strong>
+              </div>
+              <div class="report-card">
+                <span class="report-card__label">Hit Ratio</span>
+                <strong class="report-card__value" id="go-ratio">0%</strong>
+              </div>
+              <div class="report-card">
+                <span class="report-card__label">Missiles</span>
+                <strong class="report-card__value" id="go-missiles">0</strong>
+              </div>
+            </div>
+            <div class="portrait-panel__actions portrait-panel__actions--stacked">
+              <button type="button" class="action-button action-button--danger action-button--wide" id="retry-button">
+                Retry
+              </button>
+              <button
+                type="button"
+                class="action-button action-button--info action-button--wide"
+                id="replay-button"
+                hidden
+              >
+                Watch Replay
+              </button>
+            </div>
+          </section>
+
+          <!-- Shop container (populated by ui.ts) -->
+          <div id="shop-container"></div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

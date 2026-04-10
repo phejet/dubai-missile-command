@@ -7,6 +7,7 @@ import replayPlugin from "./vite-replay-plugin";
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
 // https://vite.dev/config/
+// React plugin kept for editor.html (dev tool) — the game itself is vanilla TS
 export default defineConfig({
   plugins: [react(), replayPlugin()],
   base: "/dubai-missile-command/",
