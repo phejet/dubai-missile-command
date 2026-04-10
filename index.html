@@ -10,15 +10,26 @@
   </head>
   <body>
     <div id="root">
-      <div class="game-shell game-shell--phonePortrait" id="game-shell" data-screen="title" data-ui-mode="phonePortrait">
+      <div
+        class="game-shell game-shell--phonePortrait"
+        id="game-shell"
+        data-screen="title"
+        data-ui-mode="phonePortrait"
+      >
         <div class="game-shell__ambient" aria-hidden="true"></div>
         <div class="game-shell__content">
           <div class="battlefield-shell">
             <div class="battlefield-card" id="battlefield-card">
-
               <!-- HUD (playing screen only) -->
               <div class="battlefield-hud" id="battlefield-hud" data-testid="portrait-hud" hidden>
-                <div class="battlefield-hud__progress" role="progressbar" aria-label="Wave spawn progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div
+                  class="battlefield-hud__progress"
+                  role="progressbar"
+                  aria-label="Wave spawn progress"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-valuenow="0"
+                >
                   <span class="battlefield-hud__progress-fill" id="hud-progress-fill"></span>
                 </div>
                 <div class="battlefield-hud__summary">
@@ -79,10 +90,19 @@
                       </div>
                     </div>
                   </div>
-                  <button type="button" class="battlefield-options-button" id="options-button" aria-label="Open options" aria-expanded="false" aria-haspopup="menu">
+                  <button
+                    type="button"
+                    class="battlefield-options-button"
+                    id="options-button"
+                    aria-label="Open options"
+                    aria-expanded="false"
+                    aria-haspopup="menu"
+                  >
                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                       <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" />
-                      <path d="M19.1 13.3a7.8 7.8 0 0 0 .1-2.6l2-1.1-2-3.5-2.2.6a8.4 8.4 0 0 0-2.2-1.3L14.2 3H9.8l-.6 2.4a8.4 8.4 0 0 0-2.2 1.3l-2.2-.6-2 3.5 2 1.1a7.8 7.8 0 0 0 0 2.6l-2 1.1 2 3.5 2.2-.6a8.4 8.4 0 0 0 2.2 1.3l.6 2.4h4.4l.6-2.4a8.4 8.4 0 0 0 2.2-1.3l2.2.6 2-3.5-2-1.1Z" />
+                      <path
+                        d="M19.1 13.3a7.8 7.8 0 0 0 .1-2.6l2-1.1-2-3.5-2.2.6a8.4 8.4 0 0 0-2.2-1.3L14.2 3H9.8l-.6 2.4a8.4 8.4 0 0 0-2.2 1.3l-2.2-.6-2 3.5 2 1.1a7.8 7.8 0 0 0 0 2.6l-2 1.1 2 3.5 2.2-.6a8.4 8.4 0 0 0 2.2 1.3l.6 2.4h4.4l.6-2.4a8.4 8.4 0 0 0 2.2-1.3l2.2.6 2-3.5-2-1.1Z"
+                      />
                     </svg>
                   </button>
                 </div>
@@ -160,8 +180,17 @@
               </div>
             </div>
             <div class="portrait-panel__actions portrait-panel__actions--stacked">
-              <button type="button" class="action-button action-button--danger action-button--wide" id="retry-button">Retry</button>
-              <button type="button" class="action-button action-button--info action-button--wide" id="replay-button" hidden>Watch Replay</button>
+              <button type="button" class="action-button action-button--danger action-button--wide" id="retry-button">
+                Retry
+              </button>
+              <button
+                type="button"
+                class="action-button action-button--info action-button--wide"
+                id="replay-button"
+                hidden
+              >
+                Watch Replay
+              </button>
             </div>
           </section>
 

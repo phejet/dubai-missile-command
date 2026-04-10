@@ -509,6 +509,12 @@
   gap: 6px;
 }
 
+/* Ensure the `hidden` HTML attribute always hides elements, even when
+   a class applies `display: flex/grid/block`. */
+[hidden] {
+  display: none !important;
+}
+
 .battlefield-option {
   width: 100%;
   padding: 10px 12px;

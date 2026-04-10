@@ -95,10 +95,22 @@ function maybeRecordReplayCheckpoint(
 function buildHudSnapshot(game: GameState | null): HudSnapshot {
   if (!game) {
     return {
-      score: 0, wave: 1, waveProgress: 0, burjHealth: 5, burjAlive: true,
-      fps: 0, rafFps: 0, rafFrameMs: 0, perfGlowEnabled: true, perfProbed: false,
-      ammo: [0, 0, 0], ammoMax: 0, launcherHP: [0, 0, 0],
-      empCharge: 0, empChargeMax: 0, empReady: false,
+      score: 0,
+      wave: 1,
+      waveProgress: 0,
+      burjHealth: 5,
+      burjAlive: true,
+      fps: 0,
+      rafFps: 0,
+      rafFrameMs: 0,
+      perfGlowEnabled: true,
+      perfProbed: false,
+      ammo: [0, 0, 0],
+      ammoMax: 0,
+      launcherHP: [0, 0, 0],
+      empCharge: 0,
+      empChargeMax: 0,
+      empReady: false,
     };
   }
   const ammoMax = getAmmoCapacity(game.wave, game.upgrades.launcherKit);
@@ -106,12 +118,22 @@ function buildHudSnapshot(game: GameState | null): HudSnapshot {
   const waveSpawned = waveSpawnTotal > 0 ? Math.min(game.scheduleIdx, waveSpawnTotal) : 0;
   const waveProgress = waveSpawnTotal > 0 ? Math.round((waveSpawned / waveSpawnTotal) * 100) : 0;
   return {
-    score: game.score, wave: game.wave, waveProgress,
-    burjHealth: game.burjHealth, burjAlive: game.burjAlive,
-    fps: game._fpsDisplay || 0, rafFps: game._rafFps || 0, rafFrameMs: game._rafDeltaMs || 0,
-    perfGlowEnabled: perfState.glowEnabled, perfProbed: perfState.probed,
-    ammo: [...game.ammo], ammoMax, launcherHP: [...game.launcherHP],
-    empCharge: game.empCharge, empChargeMax: game.empChargeMax, empReady: game.empReady,
+    score: game.score,
+    wave: game.wave,
+    waveProgress,
+    burjHealth: game.burjHealth,
+    burjAlive: game.burjAlive,
+    fps: game._fpsDisplay || 0,
+    rafFps: game._rafFps || 0,
+    rafFrameMs: game._rafDeltaMs || 0,
+    perfGlowEnabled: perfState.glowEnabled,
+    perfProbed: perfState.probed,
+    ammo: [...game.ammo],
+    ammoMax,
+    launcherHP: [...game.launcherHP],
+    empCharge: game.empCharge,
+    empChargeMax: game.empChargeMax,
+    empReady: game.empReady,
   };
 }
 
@@ -192,15 +214,7 @@ export class Game {
   // ─── Events ─────────────────────────────────────────────────────
 
   private bindEvents(): void {
-    // Title screen: tap anywhere to start
-    this.shell.addEventListener("pointerdown", (e) => {
-      if (this.screen !== "title" || this.shopOpen || this.replayActive) return;
-      const target = e.target as HTMLElement;
-      if (target.closest("button, a, input, select, textarea, [role='button']")) return;
-      void this.startGame();
-    });
-
-    // Canvas events
+    // Canvas events — canvas pointerdown handles title-screen start + in-game firing
     this.canvas.addEventListener("pointerdown", (e) => this.handlePointerDown(e));
     this.canvas.addEventListener("pointermove", (e) => this.handlePointerMove(e));
     this.canvas.addEventListener("pointerup", (e) => this.handlePointerUp(e));
@@ -499,6 +513,10 @@ export class Game {
     const point = this.getCanvasCoords(e.clientX, e.clientY);
     if (!point) return;
     e.preventDefault();
+    if (this.screen === "title") {
+      await this.startGame();
+      return;
+    }
     if (this.screen === "gameover") return;
     const game = this.gameRef.current;
     if (!game || game.state !== "playing") return;

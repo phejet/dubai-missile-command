@@ -50,11 +50,7 @@ function getEntries(shopData: ShopData): [string, UpgradeDef][] {
   return shopData.draftMode ? allEntries.filter(([key]) => shopData.draftOffers?.includes(key)) : allEntries;
 }
 
-export function showShop(
-  shopData: ShopData,
-  onBuyUpgrade: (key: UpgradeKey) => void,
-  onClose: () => void,
-): void {
+export function showShop(shopData: ShopData, onBuyUpgrade: (key: UpgradeKey) => void, onClose: () => void): void {
   hideShop();
   const container = document.getElementById("shop-container")!;
   const isDraftMode = !!shopData.draftMode;
@@ -87,8 +83,9 @@ export function showShop(
         const isMaxedOut = (maxed && !isBurjRepair) || burjFull;
         const disabled = isMaxedOut || (!canAfford && !isSelected);
 
-        const levelDots = Array.from({ length: def.maxLevel }, (_, i) =>
-          `<span class="shop-card__level-dot ${i < level ? "shop-card__level-dot--filled" : ""}"></span>`,
+        const levelDots = Array.from(
+          { length: def.maxLevel },
+          (_, i) => `<span class="shop-card__level-dot ${i < level ? "shop-card__level-dot--filled" : ""}"></span>`,
         ).join("");
 
         const costHtml =
@@ -127,10 +124,9 @@ export function showShop(
       ? `<strong class="shop-modal__budget-value">${selected.length > 0 ? "1 Selected" : "Choose 1"}</strong>`
       : `<span class="shop-modal__budget-label">Budget</span><strong class="shop-modal__budget-value">$ ${remainingBudget}</strong>`;
 
-    const subtitleHtml =
-      isDraftMode
-        ? `<p class="shop-modal__subtitle">Pick one free upgrade and confirm.</p>`
-        : `<p class="shop-modal__subtitle">Select upgrades, then confirm to deploy.</p>`;
+    const subtitleHtml = isDraftMode
+      ? `<p class="shop-modal__subtitle">Pick one free upgrade and confirm.</p>`
+      : `<p class="shop-modal__subtitle">Select upgrades, then confirm to deploy.</p>`;
 
     const deployLabel = isDraftMode
       ? "Confirm &amp; Deploy"
@@ -274,40 +270,45 @@ export function showBonusScreen(
 
   function render() {
     const visible = phase >= 1 ? " bonus-screen--visible" : "";
-    const killsHtml = phase >= 2
-      ? `<div class="bonus-screen__section bonus-screen__section--kills">
+    const killsHtml =
+      phase >= 2
+        ? `<div class="bonus-screen__section bonus-screen__section--kills">
           <div class="bonus-screen__label">Destroyed this wave</div>
           <div class="bonus-screen__kills">
             <div class="bonus-screen__kill-row"><span class="bonus-screen__kill-type">Missiles</span><span class="bonus-screen__kill-count">${data.missileKills}</span></div>
             <div class="bonus-screen__kill-row"><span class="bonus-screen__kill-type">Drones</span><span class="bonus-screen__kill-count">${data.droneKills}</span></div>
           </div>
         </div><div class="bonus-screen__divider"></div>`
-      : "";
+        : "";
 
-    const buildingHtml = phase >= 3
-      ? `<div class="bonus-screen__section">
+    const buildingHtml =
+      phase >= 3
+        ? `<div class="bonus-screen__section">
           <div class="bonus-screen__label">Buildings survived</div>
           <div class="bonus-screen__row">
             <span class="bonus-screen__count">${phase >= 4 ? buildingCount : 0}</span>
             <span class="bonus-screen__pts">${phase >= 4 && buildingCount > 0 ? `+ ${(buildingCount * BUILDING_PTS_EACH * data.wave).toLocaleString()}` : ""}</span>
           </div>
         </div>`
-      : "";
+        : "";
 
-    const ammoHtml = phase >= 5
-      ? `<div class="bonus-screen__section">
+    const ammoHtml =
+      phase >= 5
+        ? `<div class="bonus-screen__section">
           <div class="bonus-screen__label">Missiles saved</div>
           <div class="bonus-screen__row">
             <span class="bonus-screen__count">${phase >= 6 ? ammoCount : 0}</span>
             <span class="bonus-screen__pts">${phase >= 6 && ammoCount > 0 ? `+ ${(ammoCount * AMMO_PTS_EACH).toLocaleString()}` : ""}</span>
           </div>
         </div>`
-      : "";
+        : "";
 
     const divider2 = phase >= 3 ? `<div class="bonus-screen__divider"></div>` : "";
 
     const totalClass = totalVisible
-      ? flashOn ? "bonus-screen__total--on" : "bonus-screen__total--off"
+      ? flashOn
+        ? "bonus-screen__total--on"
+        : "bonus-screen__total--off"
       : "bonus-screen__total--hidden";
 
     container.innerHTML = `
@@ -336,63 +337,73 @@ export function showBonusScreen(
 
   function runPhases() {
     // Phase 0 → 1
-    timers.push(window.setTimeout(() => {
-      advancePhase(1);
-      // Phase 1 → 2
-      timers.push(window.setTimeout(() => {
-        advancePhase(2);
-        // Phase 2 → 3
-        timers.push(window.setTimeout(() => {
-          advancePhase(3);
-          // Phase 3 → 4
-          timers.push(window.setTimeout(() => {
-            advancePhase(4);
-            // Count buildings
-            if (data.buildings === 0) {
-              timers.push(window.setTimeout(() => startAmmoPhase(), 300));
-            } else {
-              let count = 0;
-              const iv = window.setInterval(() => {
-                count++;
-                buildingCount = count;
-                SFX.bonusTick();
-                onScoreAdd(BUILDING_PTS_EACH * data.wave);
-                render();
-                if (count >= data.buildings) {
-                  clearInterval(iv);
-                  timers.push(window.setTimeout(() => startAmmoPhase(), 500));
-                }
-              }, TICK_MS_BUILDING);
-              timers.push(iv as unknown as number);
-            }
-          }, 100));
-        }, 150));
-      }, 250));
-    }, 50));
+    timers.push(
+      window.setTimeout(() => {
+        advancePhase(1);
+        // Phase 1 → 2
+        timers.push(
+          window.setTimeout(() => {
+            advancePhase(2);
+            // Phase 2 → 3
+            timers.push(
+              window.setTimeout(() => {
+                advancePhase(3);
+                // Phase 3 → 4
+                timers.push(
+                  window.setTimeout(() => {
+                    advancePhase(4);
+                    // Count buildings
+                    if (data.buildings === 0) {
+                      timers.push(window.setTimeout(() => startAmmoPhase(), 300));
+                    } else {
+                      let count = 0;
+                      const iv = window.setInterval(() => {
+                        count++;
+                        buildingCount = count;
+                        SFX.bonusTick();
+                        onScoreAdd(BUILDING_PTS_EACH * data.wave);
+                        render();
+                        if (count >= data.buildings) {
+                          clearInterval(iv);
+                          timers.push(window.setTimeout(() => startAmmoPhase(), 500));
+                        }
+                      }, TICK_MS_BUILDING);
+                      timers.push(iv as unknown as number);
+                    }
+                  }, 100),
+                );
+              }, 150),
+            );
+          }, 250),
+        );
+      }, 50),
+    );
   }
 
   function startAmmoPhase() {
     advancePhase(5);
-    timers.push(window.setTimeout(() => {
-      advancePhase(6);
-      if (data.savedAmmo === 0) {
-        timers.push(window.setTimeout(() => showTotal(), 300));
-      } else {
-        let count = 0;
-        const iv = window.setInterval(() => {
-          count++;
-          ammoCount = count;
-          SFX.bonusTick();
-          onScoreAdd(AMMO_PTS_EACH);
-          render();
-          if (count >= data.savedAmmo) {
-            clearInterval(iv);
-            timers.push(window.setTimeout(() => showTotal(), 500));
-          }
-        }, TICK_MS_AMMO);
-        timers.push(iv as unknown as number);
-      }
-    }, 150));
+    timers.push(
+      window.setTimeout(() => {
+        advancePhase(6);
+        if (data.savedAmmo === 0) {
+          timers.push(window.setTimeout(() => showTotal(), 300));
+        } else {
+          let count = 0;
+          const iv = window.setInterval(() => {
+            count++;
+            ammoCount = count;
+            SFX.bonusTick();
+            onScoreAdd(AMMO_PTS_EACH);
+            render();
+            if (count >= data.savedAmmo) {
+              clearInterval(iv);
+              timers.push(window.setTimeout(() => showTotal(), 500));
+            }
+          }, TICK_MS_AMMO);
+          timers.push(iv as unknown as number);
+        }
+      }, 150),
+    );
   }
 
   function showTotal() {
@@ -494,7 +505,8 @@ export function updateHud(hud: HudSnapshot): void {
     }
   }
   if (h.empMeta) {
-    const pct = hud.empChargeMax > 0 ? Math.max(0, Math.min(100, Math.round((hud.empCharge / hud.empChargeMax) * 100))) : 0;
+    const pct =
+      hud.empChargeMax > 0 ? Math.max(0, Math.min(100, Math.round((hud.empCharge / hud.empChargeMax) * 100))) : 0;
     h.empMeta.textContent = hud.empReady ? "READY" : `${pct}%`;
   }
   // Perf overlay
@@ -506,7 +518,11 @@ export function updateHud(hud: HudSnapshot): void {
 
 // ─── Game Over ──────────────────────────────────────────────────────
 
-export function showGameOver(score: number, wave: number, stats: { missileKills: number; droneKills: number; shotsFired: number }): void {
+export function showGameOver(
+  score: number,
+  wave: number,
+  stats: { missileKills: number; droneKills: number; shotsFired: number },
+): void {
   const totalKills = stats.missileKills + stats.droneKills;
   const hitRatio = stats.shotsFired > 0 ? Math.round((totalKills / stats.shotsFired) * 100) : 0;
   const el = (id: string) => document.getElementById(id);

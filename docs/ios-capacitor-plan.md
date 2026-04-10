@@ -5,6 +5,7 @@
 Wrap the existing Canvas game in Capacitor to produce a native iOS `.ipa` that runs on local iPhones and iPads. iPad uses a scaled-up iPhone view with black letterbox borders. No App Store submission in scope for v1 — just local device deployment via Xcode.
 
 This is the right approach because:
+
 - The game is pure 2D Canvas with Pointer API input — runs identically in WKWebView
 - Zero native code required; Capacitor gives us a real Xcode project for signing/deploying
 - The codebase already handles touch input, safe areas, and responsive scaling
@@ -30,12 +31,12 @@ The game is already a vanilla Canvas app — React is only used as a thin UI she
 
 ### What React currently does (1,382 lines across 4 files)
 
-| File | Lines | What it does | Vanilla replacement |
-|------|-------|-------------|-------------------|
-| `App.tsx` | 962 | Screen state machine, HUD overlays, canvas mount, event wiring | State variable + show/hide DOM sections |
-| `ShopUI.tsx` | 194 | Upgrade shop cards with buy buttons | Function that builds card HTML + click handlers |
-| `BonusScreen.tsx` | 216 | Animated score tally between waves | `setInterval` + DOM text updates |
-| `main.tsx` | 10 | `ReactDOM.createRoot().render()` | `new Game(document.getElementById('root'))` |
+| File              | Lines | What it does                                                   | Vanilla replacement                             |
+| ----------------- | ----- | -------------------------------------------------------------- | ----------------------------------------------- |
+| `App.tsx`         | 962   | Screen state machine, HUD overlays, canvas mount, event wiring | State variable + show/hide DOM sections         |
+| `ShopUI.tsx`      | 194   | Upgrade shop cards with buy buttons                            | Function that builds card HTML + click handlers |
+| `BonusScreen.tsx` | 216   | Animated score tally between waves                             | `setInterval` + DOM text updates                |
+| `main.tsx`        | 10    | `ReactDOM.createRoot().render()`                               | `new Game(document.getElementById('root'))`     |
 
 ### What doesn't change (9,470 lines — the actual game)
 
@@ -178,6 +179,7 @@ npx cap sync ios    # Copies dist/ into the Xcode project + installs plugins
 **What to verify**: Make sure `SFX.init()` is called inside a user gesture handler (pointerdown/touchstart/click). WKWebView on iOS will only allow AudioContext creation/resumption inside a user gesture event handler. If the game currently calls `SFX.init()` on mount or outside a gesture, move it into the first `handleCanvasPointerDown`.
 
 **Current code in `sound.ts:39-48`** already has the right pattern:
+
 ```ts
 async function resumeCtx() {
   if (!ctx || ctx.state === "running") return true;
@@ -211,6 +213,7 @@ The comment even mentions iPhone/Safari — this was already considered. Just ve
 **Current state**: `index.css` already sets `overscroll-behavior: none` on `body`, and the canvas has `touch-action: none`. This should prevent rubber-banding in WKWebView.
 
 **Additional hardening** (add to `capacitor.config.ts`):
+
 ```ts
 ios: {
   scrollEnabled: false,
@@ -218,8 +221,10 @@ ios: {
 ```
 
 Also add to `index.css` for belt-and-suspenders:
+
 ```css
-html, body {
+html,
+body {
   position: fixed;
   overflow: hidden;
   width: 100%;
@@ -232,6 +237,7 @@ html, body {
 For an immersive game, hide the status bar. In the Xcode project:
 
 **`ios/App/App/Info.plist`** — add:
+
 ```xml
 <key>UIStatusBarHidden</key>
 <true/>
@@ -240,9 +246,11 @@ For an immersive game, hide the status bar. In the Xcode project:
 ```
 
 Alternatively, use Capacitor's StatusBar plugin:
+
 ```bash
 npm install @capacitor/status-bar
 ```
+
 ```ts
 import { StatusBar, Style } from "@capacitor/status-bar";
 StatusBar.hide();
@@ -255,6 +263,7 @@ I'd recommend the `Info.plist` approach — simpler, no plugin dependency, and t
 Lock to portrait since the game's 900x1600 canvas is designed for portrait.
 
 **`ios/App/App/Info.plist`**:
+
 ```xml
 <key>UISupportedInterfaceOrientations</key>
 <array>
@@ -295,6 +304,7 @@ However, modern Capacitor creates a universal app by default. To get the letterb
 In Xcode, set the target's "Targeted Device Families" to iPhone only (`1`). When this runs on iPad, iPadOS automatically renders it at iPhone scale with black borders and a 2x button. This is exactly what was requested.
 
 To do this in `ios/App/App.xcodeproj/project.pbxproj`, set:
+
 ```
 TARGETED_DEVICE_FAMILY = 1;
 ```
@@ -357,13 +367,13 @@ npx cap open ios
 
 ### 5.4 Troubleshooting
 
-| Issue | Fix |
-|-------|-----|
-| White screen on launch | Check `webDir` in `capacitor.config.ts` matches Vite's output dir (`dist`) |
-| No audio | Ensure `SFX.init()` is inside a user gesture handler |
-| Rubber-banding | Add `scrollEnabled: false` in Capacitor config + CSS `position: fixed` on html/body |
-| Slow performance | The FPS probe in `game-render.ts` should auto-disable glow. Test on real device, not Simulator (Simulator is much slower for Canvas) |
-| Canvas not filling screen | Verify `base: "./"` is set for Capacitor builds |
+| Issue                     | Fix                                                                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| White screen on launch    | Check `webDir` in `capacitor.config.ts` matches Vite's output dir (`dist`)                                                           |
+| No audio                  | Ensure `SFX.init()` is inside a user gesture handler                                                                                 |
+| Rubber-banding            | Add `scrollEnabled: false` in Capacitor config + CSS `position: fixed` on html/body                                                  |
+| Slow performance          | The FPS probe in `game-render.ts` should auto-disable glow. Test on real device, not Simulator (Simulator is much slower for Canvas) |
+| Canvas not filling screen | Verify `base: "./"` is set for Capacitor builds                                                                                      |
 
 ---
 
@@ -395,36 +405,36 @@ The existing GitHub Actions workflows (lint, test, build, e2e) don't need change
 
 ### Phase 0 (Remove React)
 
-| File | Action | What |
-|------|--------|------|
-| `src/ui.ts` | Create | All DOM UI management (HUD, shop, game over, bonus screen) |
-| `src/game.ts` | Create | Canvas owner, game loop, pointer events, screen state — replaces `App.tsx` |
-| `index.html` | Edit | Move JSX markup to static HTML with `id` attributes |
-| `src/App.tsx` | Delete | Replaced by `game.ts` + `ui.ts` |
-| `src/ShopUI.tsx` | Delete | Merged into `ui.ts` |
-| `src/BonusScreen.tsx` | Delete | Merged into `ui.ts` |
-| `src/main.tsx` | Rewrite | Becomes `src/main.ts` — simple `new Game(root)` |
-| `src/App.css` | Rename | Keep as `src/app.css`, remove React-specific class assumptions if any |
-| `src/ShopUI.css` | Merge | Fold into main CSS or keep as-is (CSS doesn't depend on React) |
-| `package.json` | Edit | Remove `react`, `react-dom`, `@vitejs/plugin-react`, `@testing-library/react`, `@types/react`, `@types/react-dom` |
-| `vite.config.ts` | Edit | Remove React plugin |
-| Tests | Edit | Replace `@testing-library/react` renders with direct DOM or focus on pure game logic |
+| File                  | Action  | What                                                                                                              |
+| --------------------- | ------- | ----------------------------------------------------------------------------------------------------------------- |
+| `src/ui.ts`           | Create  | All DOM UI management (HUD, shop, game over, bonus screen)                                                        |
+| `src/game.ts`         | Create  | Canvas owner, game loop, pointer events, screen state — replaces `App.tsx`                                        |
+| `index.html`          | Edit    | Move JSX markup to static HTML with `id` attributes                                                               |
+| `src/App.tsx`         | Delete  | Replaced by `game.ts` + `ui.ts`                                                                                   |
+| `src/ShopUI.tsx`      | Delete  | Merged into `ui.ts`                                                                                               |
+| `src/BonusScreen.tsx` | Delete  | Merged into `ui.ts`                                                                                               |
+| `src/main.tsx`        | Rewrite | Becomes `src/main.ts` — simple `new Game(root)`                                                                   |
+| `src/App.css`         | Rename  | Keep as `src/app.css`, remove React-specific class assumptions if any                                             |
+| `src/ShopUI.css`      | Merge   | Fold into main CSS or keep as-is (CSS doesn't depend on React)                                                    |
+| `package.json`        | Edit    | Remove `react`, `react-dom`, `@vitejs/plugin-react`, `@testing-library/react`, `@types/react`, `@types/react-dom` |
+| `vite.config.ts`      | Edit    | Remove React plugin                                                                                               |
+| Tests                 | Edit    | Replace `@testing-library/react` renders with direct DOM or focus on pure game logic                              |
 
 ### Phases 1–6 (Capacitor)
 
-| File | Action | What |
-|------|--------|------|
-| `package.json` | Edit | Add `@capacitor/core`, `@capacitor/ios`, `@capacitor/cli`; add `build:ios`, `ios:dev`, `ios:build`, `ios:sim` scripts |
-| `capacitor.config.ts` | Create | Capacitor configuration |
-| `vite.config.ts` | Edit | Conditional `base` path and single-entry build for Capacitor |
-| `src/index.css` | Edit | Add `position: fixed` to html/body, add `-webkit-touch-callout: none` |
-| `index.html` | Verify | Already has correct viewport and apple-mobile-web-app meta tags |
-| `src/sound.ts` | Verify | `SFX.init()` should be called from user gesture (likely already is) |
-| `ios/` | Generate | `npx cap add ios` creates the Xcode project |
-| `ios/App/App/Info.plist` | Edit | Status bar hidden, portrait lock, iPhone-only device family |
-| `ios/App/App/LaunchScreen.storyboard` | Edit | Dark background color |
-| `ios/App/App/Assets.xcassets/` | Edit | App icon |
-| `.gitignore` | Edit | Add iOS build artifacts |
+| File                                  | Action   | What                                                                                                                  |
+| ------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------- |
+| `package.json`                        | Edit     | Add `@capacitor/core`, `@capacitor/ios`, `@capacitor/cli`; add `build:ios`, `ios:dev`, `ios:build`, `ios:sim` scripts |
+| `capacitor.config.ts`                 | Create   | Capacitor configuration                                                                                               |
+| `vite.config.ts`                      | Edit     | Conditional `base` path and single-entry build for Capacitor                                                          |
+| `src/index.css`                       | Edit     | Add `position: fixed` to html/body, add `-webkit-touch-callout: none`                                                 |
+| `index.html`                          | Verify   | Already has correct viewport and apple-mobile-web-app meta tags                                                       |
+| `src/sound.ts`                        | Verify   | `SFX.init()` should be called from user gesture (likely already is)                                                   |
+| `ios/`                                | Generate | `npx cap add ios` creates the Xcode project                                                                           |
+| `ios/App/App/Info.plist`              | Edit     | Status bar hidden, portrait lock, iPhone-only device family                                                           |
+| `ios/App/App/LaunchScreen.storyboard` | Edit     | Dark background color                                                                                                 |
+| `ios/App/App/Assets.xcassets/`        | Edit     | App icon                                                                                                              |
+| `.gitignore`                          | Edit     | Add iOS build artifacts                                                                                               |
 
 ---
 
