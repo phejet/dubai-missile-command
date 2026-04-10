@@ -360,6 +360,8 @@ export function getKillReward(target: Threat): number {
   if (target.type === "mirv") return 100;
   if (target.type === "bomb") return 42;
   if (target.type === "mirv_warhead") return 56;
+  if (target.type === "stack3") return 72;
+  if (target.type === "stack2") return 56;
   return 28;
 }
 

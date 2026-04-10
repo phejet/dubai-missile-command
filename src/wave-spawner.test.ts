@@ -35,7 +35,7 @@ describe("getWaveConfig", () => {
       const cfg = getWaveConfig(w);
       expect(cfg.budget).toBeGreaterThan(0);
       expect(cfg.concurrentCap).toBeGreaterThan(0);
-      for (const type of ["missile", "drone136", "drone238", "mirv"] as SpawnType[]) {
+      for (const type of ["missile", "drone136", "drone238", "mirv", "stack2", "stack3"] as SpawnType[]) {
         expect(cfg.types[type].min).toBeLessThanOrEqual(cfg.types[type].max);
         expect(cfg.types[type].min).toBeGreaterThanOrEqual(0);
       }
@@ -109,7 +109,7 @@ describe("generateWaveSchedule", () => {
     for (let w = 1; w <= 8; w++) {
       const { schedule } = generateWaveSchedule(w, cmdr);
       const cfg = getWaveConfig(w);
-      const counts = { missile: 0, drone136: 0, drone238: 0, mirv: 0 };
+      const counts: Record<SpawnType, number> = { missile: 0, drone136: 0, drone238: 0, mirv: 0, stack2: 0, stack3: 0 };
       for (const entry of schedule) counts[entry.type]++;
       for (const type of Object.keys(counts) as SpawnType[]) {
         expect(counts[type]).toBeGreaterThanOrEqual(cfg.types[type].min);

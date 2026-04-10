@@ -438,6 +438,105 @@ export function spawnMissile(g: GameState, overrides?: SpawnEntry["overrides"]) 
     trail: [],
     alive: true,
     type: "missile",
+    targetX: target.x,
+    targetY: target.y,
+    _hitByExplosions: new Set(),
+  });
+}
+
+function getSplitCandidateTargets(g: GameState): Array<{ x: number; y: number }> {
+  const candidates: Array<{ x: number; y: number }> = [];
+  if (g.burjAlive) candidates.push({ x: BURJ_X, y: CITY_Y - BURJ_H * 0.32 });
+  for (const site of g.defenseSites) {
+    if (site.alive) candidates.push({ x: site.x, y: site.y });
+  }
+  g.launcherHP.forEach((hp, i) => {
+    if (hp > 0) {
+      const pos = getGameplayLauncherPosition(i);
+      candidates.push({ x: pos.x, y: pos.y });
+    }
+  });
+  return candidates;
+}
+
+function pickSplitTargetsWide(
+  g: GameState,
+  extraCount: number,
+  originalTargetX: number,
+): Array<{ x: number; y: number }> {
+  const candidates = getSplitCandidateTargets(g);
+  if (candidates.length === 0 || extraCount <= 0) return [];
+  const unique = candidates.filter((c, idx) => candidates.findIndex((o) => o.x === c.x && o.y === c.y) === idx);
+  const picked: Array<{ x: number; y: number }> = [];
+  const anchors = [originalTargetX];
+
+  while (picked.length < Math.min(extraCount, unique.length)) {
+    let best: { x: number; y: number } | null = null;
+    let bestScore = -Infinity;
+    for (const c of unique) {
+      if (picked.includes(c)) continue;
+      const spacing = Math.min(...anchors.map((x) => Math.abs(c.x - x)));
+      if (spacing > bestScore) {
+        best = c;
+        bestScore = spacing;
+      }
+    }
+    if (!best) break;
+    picked.push(best);
+    anchors.push(best.x);
+  }
+  return picked;
+}
+
+export function spawnStackedMissile(g: GameState, stackCount: 2 | 3, overrides?: SpawnEntry["overrides"]) {
+  const _rng = getRng();
+  const speed = (rand(0.5, 1.0) + g.wave * 0.08) * 2;
+  const sideMinY = 20;
+  const sideMaxY = 200;
+  const topSpawnY = -10;
+  let startX, startY;
+  const side = overrides?.side;
+  if (side === "left") {
+    startX = -10;
+    startY = rand(sideMinY, sideMaxY);
+  } else if (side === "right") {
+    startX = CANVAS_W + 10;
+    startY = rand(sideMinY, sideMaxY);
+  } else if (side === "top") {
+    startX = rand(50, CANVAS_W - 50);
+    startY = topSpawnY;
+  } else if (g.wave >= 2 && _rng() < Math.min(0.4, (g.wave - 1) * 0.1)) {
+    const fromLeft = _rng() > 0.5;
+    startX = fromLeft ? -10 : CANVAS_W + 10;
+    startY = rand(sideMinY, sideMaxY);
+  } else {
+    startX = rand(50, CANVAS_W - 50);
+    startY = topSpawnY;
+  }
+  const target = pickTarget(g, startX);
+  if (!target) return;
+  if (Math.abs(startX - target.x) < 200 && startY < 0) {
+    startX = target.x + (_rng() > 0.5 ? 1 : -1) * rand(300, 500);
+    startX = Math.max(-10, Math.min(CANVAS_W + 10, startX));
+  }
+  const dx = target.x - startX;
+  const dy = target.y - startY;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 1) return;
+  g.missiles.push({
+    x: startX,
+    y: startY,
+    vx: (dx / len) * speed,
+    vy: (dy / len) * speed,
+    accel: 1.003 + g.wave * 0.0006,
+    trail: [],
+    alive: true,
+    type: stackCount === 2 ? "stack2" : "stack3",
+    splitTriggered: false,
+    splitAfterDist: len * 0.2,
+    travelDist: 0,
+    targetX: target.x,
+    targetY: target.y,
     _hitByExplosions: new Set(),
   });
 }
@@ -589,6 +688,8 @@ function pickHornetRetargetTarget(
 function roadrunnerThreatScore(t: Threat): number {
   if (!t.alive) return -Infinity;
   if (t.type === "mirv") return 1000 + t.y * 0.2;
+  if (t.type === "stack3") return 900 + t.y * 0.18;
+  if (t.type === "stack2") return 760 + t.y * 0.18;
   if (t.type === "drone" && t.subtype === "shahed238") return 850 + t.y * 0.15;
   if (t.type === "bomb") return 700 + t.y * 0.25;
   if (t.type === "drone") return 500 + t.y * 0.1;
@@ -622,7 +723,9 @@ function pickRoadrunnerTargets(allThreats: Threat[], activeRoadrunners: Roadrunn
 function patriotTargetPriority(t: Threat): number {
   // MIRVs first (highest priority), then missiles and jet shaheds, then everything else
   if (t.type === "mirv") return 100;
+  if (t.type === "stack3") return 88;
   if (t.type === "mirv_warhead") return 80;
+  if (t.type === "stack2") return 72;
   if (t.type === "missile") return 60;
   if (t.type === "drone" && t.subtype === "shahed238") return 60;
   if (t.type === "bomb") return 50;
@@ -1243,8 +1346,13 @@ function updateMissiles(g: GameState, dt: number, onEvent?: ((type: string, data
       }
     }
     const mSlow = (m.empSlowTimer ?? 0) > 0 ? ((m.empSlowTimer = (m.empSlowTimer ?? 0) - dt), 0.4) : 1;
-    m.x += m.vx * dt * mSlow;
-    m.y += m.vy * dt * mSlow;
+    const stepX = m.vx * dt * mSlow;
+    const stepY = m.vy * dt * mSlow;
+    m.x += stepX;
+    m.y += stepY;
+    if (m.type === "stack2" || m.type === "stack3") {
+      m.travelDist = (m.travelDist ?? 0) + Math.sqrt(stepX * stepX + stepY * stepY);
+    }
     if (m.luredByFlare) {
       const flareTarget = getLiveFlare(g, m.flareTargetId);
       if (flareTarget && dist(m.x, m.y, flareTarget.x, flareTarget.y) <= flareTarget.hotRadius) {
@@ -1281,6 +1389,44 @@ function updateMissiles(g: GameState, dt: number, onEvent?: ((type: string, data
       boom(g, m.x, m.y, 35, COL.mirv, false, onEvent, 0, { harmless: true });
       if (onEvent) onEvent("sfx", { name: "mirvSplit" });
       return;
+    }
+    if (
+      (m.type === "stack2" || m.type === "stack3") &&
+      !m.splitTriggered &&
+      (m.travelDist ?? 0) >= (m.splitAfterDist ?? Infinity)
+    ) {
+      m.splitTriggered = true;
+      const totalCount = m.type === "stack3" ? 3 : 2;
+      const extraTargets = pickSplitTargetsWide(g, totalCount - 1, m.targetX ?? m.x);
+      const baseSpeed = Math.sqrt(m.vx * m.vx + m.vy * m.vy);
+      m.type = "stack_child";
+      m.trail = [];
+      for (let i = 0; i < extraTargets.length; i++) {
+        const t = extraTargets[i];
+        const dx = t.x - m.x;
+        const dy = t.y - m.y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (len < 1) continue;
+        const offsetMag = (i - (extraTargets.length - 1) / 2) * 8;
+        const nx = -dy / len;
+        const ny = dx / len;
+        g.missiles.push({
+          x: m.x + nx * offsetMag,
+          y: m.y + ny * offsetMag,
+          vx: (dx / len) * baseSpeed,
+          vy: (dy / len) * baseSpeed,
+          accel: m.accel,
+          trail: [],
+          alive: true,
+          type: "stack_child",
+          targetX: t.x,
+          targetY: t.y,
+          empSlowTimer: 0,
+          _hitByExplosions: new Set(),
+        });
+      }
+      boom(g, m.x, m.y, 18, "#ffb36b", false, onEvent, 0, { harmless: true });
+      if (onEvent) onEvent("sfx", { name: "mirvSplit" });
     }
     const burjTop = getGameplayBurjCollisionTop(2);
     // Burj collision — hitbox matches the shared scenic Burj placement
@@ -1912,6 +2058,8 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
   advanceSpawnSchedule(g, dt, (gameState, type, overrides) => {
     const gs = gameState as GameState;
     if (type === "missile") spawnMissile(gs, overrides);
+    else if (type === "stack2") spawnStackedMissile(gs, 2, overrides);
+    else if (type === "stack3") spawnStackedMissile(gs, 3, overrides);
     else if (type === "drone136") spawnDroneOfType(gs, "shahed136", overrides);
     else if (type === "drone238") spawnDroneOfType(gs, "shahed238", overrides);
     else if (type === "mirv") spawnMirv(gs, onEvent);

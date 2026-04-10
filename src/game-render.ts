@@ -312,6 +312,93 @@ export function glowOff(ctx: CanvasRenderingContext2D) {
   ctx.shadowBlur = 0;
 }
 
+function drawTitleStyleMissile(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  angle: number,
+  {
+    scale = 1,
+    alpha = 1,
+    trailLen = 58,
+    trailPulse = 1,
+    stackCount = 1,
+    stackIndex = 0,
+  }: {
+    scale?: number;
+    alpha?: number;
+    trailLen?: number;
+    trailPulse?: number;
+    stackCount?: number;
+    stackIndex?: number;
+  } = {},
+) {
+  const lateralSpacing = 8;
+  const offset = (stackIndex - (stackCount - 1) / 2) * lateralSpacing;
+  const sin = Math.sin(angle);
+  const cos = Math.cos(angle);
+  const px = x - sin * offset;
+  const py = y + cos * offset;
+  ctx.save();
+  ctx.translate(px, py);
+  ctx.rotate(angle);
+  ctx.scale(scale, scale);
+  ctx.globalAlpha = alpha;
+  const len = trailLen * (0.84 + 0.16 * trailPulse);
+  const trail = ctx.createLinearGradient(-len, 0, -2, 0);
+  trail.addColorStop(0, "rgba(255, 150, 70, 0)");
+  trail.addColorStop(0.45, "rgba(255, 150, 70, 0.14)");
+  trail.addColorStop(0.82, "rgba(210, 220, 230, 0.28)");
+  trail.addColorStop(1, "rgba(210, 220, 230, 0.05)");
+  ctx.strokeStyle = trail;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(-len, 0);
+  ctx.lineTo(-2, 0);
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(255, 204, 140, 0.35)";
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(-len * 0.62, 0);
+  ctx.lineTo(-6, 0);
+  ctx.stroke();
+  ctx.fillStyle = "#d6d9de";
+  ctx.beginPath();
+  ctx.moveTo(10, 0);
+  ctx.lineTo(-2, -3);
+  ctx.lineTo(-2, 3);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#8f96a0";
+  ctx.beginPath();
+  ctx.moveTo(-2, -3);
+  ctx.lineTo(-6, -6);
+  ctx.lineTo(-4, -3);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(-2, 3);
+  ctx.lineTo(-6, 6);
+  ctx.lineTo(-4, 3);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#ff884480";
+  ctx.beginPath();
+  ctx.moveTo(-2, -2);
+  ctx.lineTo(-12, 0);
+  ctx.lineTo(-2, 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#ffe7b8";
+  ctx.beginPath();
+  ctx.moveTo(-2, -1);
+  ctx.lineTo(-7, 0);
+  ctx.lineTo(-2, 1);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
 export function hash01(a: number, b = 0, c = 0) {
   const value = Math.sin(a * 12.9898 + b * 78.233 + c * 37.719) * 43758.5453123;
   return value - Math.floor(value);
@@ -2438,6 +2525,19 @@ function drawMissiles(ctx: CanvasRenderingContext2D, game: GameState, layout: La
         ctx.fill();
       });
       glowOff(ctx);
+    } else if (m.type === "stack2" || m.type === "stack3" || m.type === "stack_child") {
+      const stackCount = m.type === "stack3" ? 3 : m.type === "stack2" ? 2 : 1;
+      const trailPulse = 0.55 + 0.45 * Math.sin(game.time * 0.9 + m.x * 0.018 + m.y * 0.02);
+      for (let i = 0; i < stackCount; i++) {
+        drawTitleStyleMissile(ctx, m.x, m.y, angle, {
+          scale: layout.enemyScale,
+          alpha: 0.98,
+          trailLen: m.type === "stack_child" ? 34 : 42,
+          trailPulse,
+          stackCount,
+          stackIndex: i,
+        });
+      }
     } else {
       // Ballistic missile — cooler metallic body with title-style hot exhaust
       ctx.save();
@@ -5292,64 +5392,7 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
     trailLen = 58,
     trailPulse = 1,
   ) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(angle);
-    ctx.scale(scale, scale);
-    ctx.globalAlpha = alpha;
-    const len = trailLen * (0.84 + 0.16 * trailPulse);
-    const trail = ctx.createLinearGradient(-len, 0, -2, 0);
-    trail.addColorStop(0, "rgba(255, 150, 70, 0)");
-    trail.addColorStop(0.45, "rgba(255, 150, 70, 0.14)");
-    trail.addColorStop(0.82, "rgba(210, 220, 230, 0.28)");
-    trail.addColorStop(1, "rgba(210, 220, 230, 0.05)");
-    ctx.strokeStyle = trail;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(-len, 0);
-    ctx.lineTo(-2, 0);
-    ctx.stroke();
-    ctx.strokeStyle = "rgba(255, 204, 140, 0.35)";
-    ctx.lineWidth = 1.4;
-    ctx.beginPath();
-    ctx.moveTo(-len * 0.62, 0);
-    ctx.lineTo(-6, 0);
-    ctx.stroke();
-    ctx.fillStyle = "#d6d9de";
-    ctx.beginPath();
-    ctx.moveTo(10, 0);
-    ctx.lineTo(-2, -3);
-    ctx.lineTo(-2, 3);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = "#8f96a0";
-    ctx.beginPath();
-    ctx.moveTo(-2, -3);
-    ctx.lineTo(-6, -6);
-    ctx.lineTo(-4, -3);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(-2, 3);
-    ctx.lineTo(-6, 6);
-    ctx.lineTo(-4, 3);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = "#ff884480";
-    ctx.beginPath();
-    ctx.moveTo(-2, -2);
-    ctx.lineTo(-12, 0);
-    ctx.lineTo(-2, 2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = "#ffe7b8";
-    ctx.beginPath();
-    ctx.moveTo(-2, -1);
-    ctx.lineTo(-7, 0);
-    ctx.lineTo(-2, 1);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
+    drawTitleStyleMissile(ctx, x, y, angle, { scale, alpha, trailLen, trailPulse });
   }
 
   const titleAircraft = [

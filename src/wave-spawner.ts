@@ -8,6 +8,8 @@ export const THREAT_VALUES = {
   drone136: 1,
   drone238: 2.5,
   mirv: 3,
+  stack2: 3,
+  stack3: 4.5,
 };
 
 // ── Tactic definitions ──
@@ -82,14 +84,86 @@ const STYLE_WEIGHTS: Record<CommanderStyle, Record<string, number>> = {
 
 const WAVE_TABLE = [
   null, // index 0 unused (waves start at 1)
-  { budget: 18, cap: 10, missile: [3, 8], drone136: [6, 12], drone238: [0, 0], mirv: [0, 0] },
-  { budget: 26, cap: 14, missile: [5, 11], drone136: [7, 14], drone238: [0, 0], mirv: [0, 0] },
-  { budget: 36, cap: 16, missile: [6, 12], drone136: [7, 15], drone238: [1, 3], mirv: [0, 0] },
-  { budget: 50, cap: 20, missile: [8, 17], drone136: [6, 12], drone238: [3, 8], mirv: [0, 0] },
-  { budget: 65, cap: 24, missile: [10, 21], drone136: [6, 12], drone238: [4, 9], mirv: [1, 3] },
-  { budget: 82, cap: 28, missile: [14, 27], drone136: [5, 11], drone238: [5, 11], mirv: [2, 5] },
-  { budget: 100, cap: 34, missile: [16, 30], drone136: [4, 9], drone238: [6, 12], mirv: [3, 8] },
-  { budget: 125, cap: 40, missile: [20, 36], drone136: [4, 9], drone238: [7, 15], mirv: [4, 9] },
+  {
+    budget: 18,
+    cap: 10,
+    missile: [0, 0],
+    drone136: [6, 12],
+    drone238: [0, 0],
+    mirv: [0, 0],
+    stack2: [3, 8],
+    stack3: [0, 0],
+  },
+  {
+    budget: 26,
+    cap: 14,
+    missile: [5, 11],
+    drone136: [7, 14],
+    drone238: [0, 0],
+    mirv: [0, 0],
+    stack2: [0, 0],
+    stack3: [0, 0],
+  },
+  {
+    budget: 36,
+    cap: 16,
+    missile: [6, 12],
+    drone136: [7, 15],
+    drone238: [1, 3],
+    mirv: [0, 0],
+    stack2: [0, 0],
+    stack3: [0, 0],
+  },
+  {
+    budget: 50,
+    cap: 20,
+    missile: [8, 17],
+    drone136: [6, 12],
+    drone238: [3, 8],
+    mirv: [0, 0],
+    stack2: [0, 0],
+    stack3: [0, 0],
+  },
+  {
+    budget: 65,
+    cap: 24,
+    missile: [10, 21],
+    drone136: [6, 12],
+    drone238: [4, 9],
+    mirv: [1, 3],
+    stack2: [1, 2],
+    stack3: [0, 0],
+  },
+  {
+    budget: 82,
+    cap: 28,
+    missile: [14, 27],
+    drone136: [5, 11],
+    drone238: [5, 11],
+    mirv: [2, 5],
+    stack2: [1, 3],
+    stack3: [0, 0],
+  },
+  {
+    budget: 100,
+    cap: 34,
+    missile: [16, 30],
+    drone136: [4, 9],
+    drone238: [6, 12],
+    mirv: [3, 8],
+    stack2: [1, 3],
+    stack3: [1, 2],
+  },
+  {
+    budget: 125,
+    cap: 40,
+    missile: [20, 36],
+    drone136: [4, 9],
+    drone238: [7, 15],
+    mirv: [4, 9],
+    stack2: [2, 4],
+    stack3: [1, 3],
+  },
 ];
 
 export function getWaveConfig(wave: number) {
@@ -103,6 +177,8 @@ export function getWaveConfig(wave: number) {
         drone136: { min: row.drone136[0], max: row.drone136[1] },
         drone238: { min: row.drone238[0], max: row.drone238[1] },
         mirv: { min: row.mirv[0], max: row.mirv[1] },
+        stack2: { min: row.stack2[0], max: row.stack2[1] },
+        stack3: { min: row.stack3[0], max: row.stack3[1] },
       },
     };
   }
@@ -116,6 +192,8 @@ export function getWaveConfig(wave: number) {
       drone136: { min: 3 + w, max: 8 + w * 2 },
       drone238: { min: 6 + w * 3, max: 12 + w * 5 },
       mirv: { min: 3 + w, max: 6 + w * 2 },
+      stack2: { min: 1 + Math.floor(w * 0.5), max: 3 + w },
+      stack3: { min: Math.floor(w * 0.3), max: 1 + Math.floor(w * 0.7) },
     },
   };
 }
@@ -258,17 +336,30 @@ function buildTacticOverrides(
   for (const id of tacticIds) {
     switch (id) {
       case "LEFT_FLANK":
-        if (entryType.startsWith("drone") || entryType === "missile") overrides.side = "left";
+        if (
+          entryType.startsWith("drone") ||
+          entryType === "missile" ||
+          entryType === "stack2" ||
+          entryType === "stack3"
+        )
+          overrides.side = "left";
         break;
       case "RIGHT_FLANK":
-        if (entryType.startsWith("drone") || entryType === "missile") overrides.side = "right";
+        if (
+          entryType.startsWith("drone") ||
+          entryType === "missile" ||
+          entryType === "stack2" ||
+          entryType === "stack3"
+        )
+          overrides.side = "right";
         break;
       case "PINCER":
         if (entryType.startsWith("drone")) overrides.side = entryIndex % 2 === 0 ? "left" : "right";
-        if (entryType === "missile") overrides.side = entryIndex % 2 === 0 ? "left" : "right";
+        if (entryType === "missile" || entryType === "stack2" || entryType === "stack3")
+          overrides.side = entryIndex % 2 === 0 ? "left" : "right";
         break;
       case "TOP_BARRAGE":
-        if (entryType === "missile") overrides.side = "top";
+        if (entryType === "missile" || entryType === "stack2" || entryType === "stack3") overrides.side = "top";
         break;
       case "LOW_APPROACH":
         if (entryType.startsWith("drone")) overrides.yRange = [200, 320];
@@ -290,9 +381,9 @@ export function generateWaveSchedule(wave: number, commander: Commander): WaveRe
   const tactics = commanderPickTactics(commander, wave);
 
   // Pick counts per type
-  const counts: Record<SpawnType, number> = { mirv: 0, drone238: 0, drone136: 0, missile: 0 };
+  const counts: Record<SpawnType, number> = { mirv: 0, stack3: 0, stack2: 0, drone238: 0, drone136: 0, missile: 0 };
   let totalThreat = 0;
-  const typeOrder: SpawnType[] = ["mirv", "drone238", "drone136", "missile"]; // reduce from highest value first
+  const typeOrder: SpawnType[] = ["stack3", "mirv", "stack2", "drone238", "drone136", "missile"];
 
   for (const type of typeOrder) {
     const range = config.types[type];
@@ -339,6 +430,16 @@ export function generateWaveSchedule(wave: number, commander: Commander): WaveRe
     entries.push({ tick: mTicks[i], type: "missile", _typeIndex: i });
   }
 
+  const stack2Ticks = spacedTicks(counts.stack2, Math.max(26, mInterval * 1.1), 0.12, 48);
+  for (let i = 0; i < stack2Ticks.length; i++) {
+    entries.push({ tick: stack2Ticks[i], type: "stack2", _typeIndex: i });
+  }
+
+  const stack3Ticks = spacedTicks(counts.stack3, Math.max(34, mInterval * 1.25), 0.1, 68);
+  for (let i = 0; i < stack3Ticks.length; i++) {
+    entries.push({ tick: stack3Ticks[i], type: "stack3", _typeIndex: i });
+  }
+
   // Drone136
   const d136Interval = hasDroneSwarm ? Math.max(8, droneInterval * 0.3) : droneInterval;
   const d136Ticks = spacedTicks(counts.drone136, d136Interval, 0.15, 50);
@@ -383,7 +484,7 @@ export function generateWaveSchedule(wave: number, commander: Commander): WaveRe
           ...tactics.filter((t) => t !== "MIXED_AXIS"),
           mixedSide === "left" ? "LEFT_FLANK" : "RIGHT_FLANK",
         ];
-      } else if (e.type === "missile") {
+      } else if (e.type === "missile" || e.type === "stack2" || e.type === "stack3") {
         overrideInput = [...tactics.filter((t) => t !== "MIXED_AXIS"), "TOP_BARRAGE"];
       } else {
         overrideInput = tactics.filter((t) => t !== "MIXED_AXIS");
@@ -413,6 +514,8 @@ export function computeAliveThreatValue(g: Pick<GameState, "missiles" | "drones"
     if (m.alive) {
       if (m.type === "mirv") v += THREAT_VALUES.mirv;
       else if (m.type === "mirv_warhead") v += 1.5;
+      else if (m.type === "stack3") v += THREAT_VALUES.stack3;
+      else if (m.type === "stack2") v += THREAT_VALUES.stack2;
       else v += THREAT_VALUES.missile;
     }
   }

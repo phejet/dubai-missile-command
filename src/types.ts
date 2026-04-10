@@ -21,13 +21,17 @@ export interface Missile {
   accel: number;
   trail: TrailPoint[];
   alive: boolean;
-  type: "missile" | "mirv" | "mirv_warhead" | "bomb";
+  type: "missile" | "mirv" | "mirv_warhead" | "bomb" | "stack2" | "stack3" | "stack_child";
   health?: number;
   maxHealth?: number;
   /** MIRV split altitude */
   splitY?: number;
   warheadCount?: number;
   splitTriggered?: boolean;
+  splitAfterDist?: number;
+  travelDist?: number;
+  targetX?: number;
+  targetY?: number;
   empSlowTimer?: number;
   luredByFlare?: boolean;
   luredFlareId?: number | null;
@@ -363,7 +367,7 @@ export interface Commander {
   history: Array<{ wave: number; tactics: TacticId[] }>;
 }
 
-export type SpawnType = "missile" | "drone136" | "drone238" | "mirv";
+export type SpawnType = "missile" | "drone136" | "drone238" | "mirv" | "stack2" | "stack3";
 
 export interface SpawnEntry {
   type: SpawnType;
