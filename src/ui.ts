@@ -242,6 +242,67 @@ export function showBonusScreen(
   const ammoBonus = data.savedAmmo * AMMO_PTS_EACH;
   const totalBonus = buildingBonus + ammoBonus;
 
+  container.innerHTML = `
+    <div class="bonus-screen" aria-live="polite">
+      <div class="bonus-screen__scanlines" aria-hidden="true"></div>
+      <div class="bonus-screen__panel">
+        <div class="bonus-screen__header">
+          <div class="bonus-screen__eyebrow" hidden>After Action Report</div>
+          <h2 class="bonus-screen__title bonus-screen__flicker" hidden>Wave ${data.wave} Complete</h2>
+        </div>
+        <div class="bonus-screen__body">
+          <div class="bonus-screen__section bonus-screen__section--kills" hidden>
+            <div class="bonus-screen__label">Destroyed this wave</div>
+            <div class="bonus-screen__kills">
+              <div class="bonus-screen__kill-row">
+                <span class="bonus-screen__kill-type">Missiles</span>
+                <span class="bonus-screen__kill-count">${data.missileKills}</span>
+              </div>
+              <div class="bonus-screen__kill-row">
+                <span class="bonus-screen__kill-type">Drones</span>
+                <span class="bonus-screen__kill-count">${data.droneKills}</span>
+              </div>
+            </div>
+          </div>
+          <div class="bonus-screen__divider bonus-screen__divider--kills" hidden></div>
+          <div class="bonus-screen__section bonus-screen__section--buildings" hidden>
+            <div class="bonus-screen__label">Buildings survived</div>
+            <div class="bonus-screen__row">
+              <span class="bonus-screen__count bonus-screen__count--buildings">0</span>
+              <span class="bonus-screen__pts bonus-screen__pts--buildings"></span>
+            </div>
+          </div>
+          <div class="bonus-screen__divider bonus-screen__divider--totals" hidden></div>
+          <div class="bonus-screen__section bonus-screen__section--ammo" hidden>
+            <div class="bonus-screen__label">Missiles saved</div>
+            <div class="bonus-screen__row">
+              <span class="bonus-screen__count bonus-screen__count--ammo">0</span>
+              <span class="bonus-screen__pts bonus-screen__pts--ammo"></span>
+            </div>
+          </div>
+          <div class="bonus-screen__total bonus-screen__total--hidden">
+            <span class="bonus-screen__total-label">Total bonus</span>
+            <span class="bonus-screen__total-value">+ ${totalBonus.toLocaleString()}</span>
+          </div>
+        </div>
+        <div class="bonus-screen__footer"><div class="bonus-screen__hint">Tap to continue</div></div>
+      </div>
+    </div>`;
+
+  const root = container.firstElementChild as HTMLDivElement;
+  const eyebrowEl = container.querySelector(".bonus-screen__eyebrow") as HTMLDivElement;
+  const titleEl = container.querySelector(".bonus-screen__title") as HTMLHeadingElement;
+  const killsSectionEl = container.querySelector(".bonus-screen__section--kills") as HTMLDivElement;
+  const killsDividerEl = container.querySelector(".bonus-screen__divider--kills") as HTMLDivElement;
+  const buildingsSectionEl = container.querySelector(".bonus-screen__section--buildings") as HTMLDivElement;
+  const buildingsCountEl = container.querySelector(".bonus-screen__count--buildings") as HTMLSpanElement;
+  const buildingsPtsEl = container.querySelector(".bonus-screen__pts--buildings") as HTMLSpanElement;
+  const totalsDividerEl = container.querySelector(".bonus-screen__divider--totals") as HTMLDivElement;
+  const ammoSectionEl = container.querySelector(".bonus-screen__section--ammo") as HTMLDivElement;
+  const ammoCountEl = container.querySelector(".bonus-screen__count--ammo") as HTMLSpanElement;
+  const ammoPtsEl = container.querySelector(".bonus-screen__pts--ammo") as HTMLSpanElement;
+  const totalEl = container.querySelector(".bonus-screen__total") as HTMLDivElement;
+
   function clearTimers() {
     for (const t of timers) clearTimeout(t);
     timers.length = 0;
@@ -269,65 +330,27 @@ export function showBonusScreen(
   }
 
   function render() {
-    const visible = phase >= 1 ? " bonus-screen--visible" : "";
-    const killsHtml =
-      phase >= 2
-        ? `<div class="bonus-screen__section bonus-screen__section--kills">
-          <div class="bonus-screen__label">Destroyed this wave</div>
-          <div class="bonus-screen__kills">
-            <div class="bonus-screen__kill-row"><span class="bonus-screen__kill-type">Missiles</span><span class="bonus-screen__kill-count">${data.missileKills}</span></div>
-            <div class="bonus-screen__kill-row"><span class="bonus-screen__kill-type">Drones</span><span class="bonus-screen__kill-count">${data.droneKills}</span></div>
-          </div>
-        </div><div class="bonus-screen__divider"></div>`
-        : "";
+    root.classList.toggle("bonus-screen--visible", phase >= 1);
+    eyebrowEl.hidden = phase < 1;
+    titleEl.hidden = phase < 1;
 
-    const buildingHtml =
-      phase >= 3
-        ? `<div class="bonus-screen__section">
-          <div class="bonus-screen__label">Buildings survived</div>
-          <div class="bonus-screen__row">
-            <span class="bonus-screen__count">${phase >= 4 ? buildingCount : 0}</span>
-            <span class="bonus-screen__pts">${phase >= 4 && buildingCount > 0 ? `+ ${(buildingCount * BUILDING_PTS_EACH * data.wave).toLocaleString()}` : ""}</span>
-          </div>
-        </div>`
-        : "";
+    killsSectionEl.hidden = phase < 2;
+    killsDividerEl.hidden = phase < 2;
 
-    const ammoHtml =
-      phase >= 5
-        ? `<div class="bonus-screen__section">
-          <div class="bonus-screen__label">Missiles saved</div>
-          <div class="bonus-screen__row">
-            <span class="bonus-screen__count">${phase >= 6 ? ammoCount : 0}</span>
-            <span class="bonus-screen__pts">${phase >= 6 && ammoCount > 0 ? `+ ${(ammoCount * AMMO_PTS_EACH).toLocaleString()}` : ""}</span>
-          </div>
-        </div>`
-        : "";
+    buildingsSectionEl.hidden = phase < 3;
+    buildingsCountEl.textContent = String(phase >= 4 ? buildingCount : 0);
+    buildingsPtsEl.textContent =
+      phase >= 4 && buildingCount > 0 ? `+ ${(buildingCount * BUILDING_PTS_EACH * data.wave).toLocaleString()}` : "";
 
-    const divider2 = phase >= 3 ? `<div class="bonus-screen__divider"></div>` : "";
+    totalsDividerEl.hidden = phase < 3;
 
-    const totalClass = totalVisible
-      ? flashOn
-        ? "bonus-screen__total--on"
-        : "bonus-screen__total--off"
-      : "bonus-screen__total--hidden";
+    ammoSectionEl.hidden = phase < 5;
+    ammoCountEl.textContent = String(phase >= 6 ? ammoCount : 0);
+    ammoPtsEl.textContent = phase >= 6 && ammoCount > 0 ? `+ ${(ammoCount * AMMO_PTS_EACH).toLocaleString()}` : "";
 
-    container.innerHTML = `
-      <div class="bonus-screen${visible}" aria-live="polite">
-        <div class="bonus-screen__scanlines" aria-hidden="true"></div>
-        <div class="bonus-screen__panel">
-          <div class="bonus-screen__header">
-            ${phase >= 1 ? `<div class="bonus-screen__eyebrow">After Action Report</div><h2 class="bonus-screen__title bonus-screen__flicker">Wave ${data.wave} Complete</h2>` : ""}
-          </div>
-          <div class="bonus-screen__body">
-            ${killsHtml}${buildingHtml}${ammoHtml}${divider2}
-            <div class="bonus-screen__total ${totalClass}">
-              <span class="bonus-screen__total-label">Total bonus</span>
-              <span class="bonus-screen__total-value">+ ${totalBonus.toLocaleString()}</span>
-            </div>
-          </div>
-          <div class="bonus-screen__footer"><div class="bonus-screen__hint">Tap to continue</div></div>
-        </div>
-      </div>`;
+    totalEl.className = `bonus-screen__total ${
+      totalVisible ? (flashOn ? "bonus-screen__total--on" : "bonus-screen__total--off") : "bonus-screen__total--hidden"
+    }`;
   }
 
   function advancePhase(nextPhase: number) {
@@ -426,12 +449,12 @@ export function showBonusScreen(
   }
 
   render();
-  container.addEventListener("click", handleTap);
+  root.addEventListener("click", handleTap);
   runPhases();
 
   bonusCleanup = () => {
     clearTimers();
-    container.removeEventListener("click", handleTap);
+    root.removeEventListener("click", handleTap);
     container.innerHTML = "";
   };
 }
