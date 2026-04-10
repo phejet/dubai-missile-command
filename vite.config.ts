@@ -5,19 +5,24 @@ import react from "@vitejs/plugin-react";
 import replayPlugin from "./vite-replay-plugin";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
+const isCapacitor = process.env.CAPACITOR === "1";
 
 // https://vite.dev/config/
 // React plugin kept for editor.html (dev tool) — the game itself is vanilla TS
 export default defineConfig({
   plugins: [react(), replayPlugin()],
-  base: "/dubai-missile-command/",
+  base: isCapacitor ? "./" : "/dubai-missile-command/",
   build: {
     rollupOptions: {
-      input: {
-        main: resolve(__dirname, "index.html"),
-        editor: resolve(__dirname, "editor.html"),
-        sprites: resolve(__dirname, "sprites.html"),
-      },
+      input: isCapacitor
+        ? {
+            main: resolve(__dirname, "index.html"),
+          }
+        : {
+            main: resolve(__dirname, "index.html"),
+            editor: resolve(__dirname, "editor.html"),
+            sprites: resolve(__dirname, "sprites.html"),
+          },
     },
   },
   test: {

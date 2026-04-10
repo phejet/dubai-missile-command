@@ -45,3 +45,11 @@ coverage/
 src/headless/training-log.jsonl
 src/headless/learning-log.jsonl
 .playwright-mcp/
+
+# Capacitor / Xcode
+ios/App/Pods/
+ios/App/App/public/
+ios/App/output/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+DerivedData/

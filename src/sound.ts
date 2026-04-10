@@ -37,10 +37,11 @@ function ensureCtx() {
 }
 
 async function resumeCtx() {
-  if (!ctx || ctx.state === "running") return true;
+  const audioCtx = ctx;
+  if (!audioCtx || audioCtx.state === "running") return true;
   try {
-    await ctx.resume();
-    return ctx.state === "running";
+    await audioCtx.resume();
+    return true;
   } catch {
     // iPhone/Safari may reject until the next user gesture; we retry on later interactions.
     return false;
