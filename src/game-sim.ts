@@ -27,6 +27,7 @@ import {
   getAmmoCapacity,
   getMultiKillBonus,
   getRng,
+  computeShahed136Path,
   computeShahed238Path,
   ov,
 } from "./game-logic.js";
@@ -449,7 +450,7 @@ export function spawnDroneOfType(
   const _rng = getRng();
   const isJet = subtype === "shahed238";
   const side = overrides?.side;
-  const yRange = overrides?.yRange || [80, 250];
+  const yRange = overrides?.yRange || (isJet ? [80, 250] : [55, 320]);
   let goingRight;
   if (side === "left") goingRight = true;
   else if (side === "right") goingRight = false;
@@ -476,6 +477,16 @@ export function spawnDroneOfType(
     const estimatedMidX = spawnX + (goingRight ? 1 : -1) * CANVAS_W * 0.4;
     const target = pickTarget(g, estimatedMidX) || { x: BURJ_X, y: CITY_Y };
     const path = computeShahed238Path(spawnX, spawnY, goingRight, speed, target);
+    drone.waypoints = path.waypoints;
+    drone.pathIndex = 0;
+    drone.bombIndices = path.bombIndices;
+    drone.bombsDropped = 0;
+    drone.diveStartIndex = path.diveStartIndex;
+    drone.diveTarget = target;
+  } else {
+    const estimatedMidX = spawnX + (goingRight ? 1 : -1) * CANVAS_W * rand(0.28, 0.42);
+    const target = pickTarget(g, estimatedMidX) || { x: BURJ_X, y: CITY_Y };
+    const path = computeShahed136Path(spawnX, spawnY, goingRight, speed, target);
     drone.waypoints = path.waypoints;
     drone.pathIndex = 0;
     drone.bombIndices = path.bombIndices;
@@ -1394,8 +1405,8 @@ function updateDrones(
     if ((d.empSlowTimer ?? 0) > 0) d.empSlowTimer = (d.empSlowTimer ?? 0) - dt;
     const dSlow = (d.empSlowTimer ?? 0) > 0 ? 0.4 : 1;
     d.wobble += 0.05 * dt;
-    if (d.subtype === "shahed238") {
-      // Follow precomputed Bezier trajectory (skip when lured by flare)
+    if (d.waypoints && d.waypoints.length >= 2) {
+      // Follow precomputed trajectory (skip when lured by flare)
       if (!d.waypoints || d.waypoints.length < 2) {
         d.alive = false;
         return;
@@ -1407,7 +1418,8 @@ function updateDrones(
       }
       const prevX = d.x;
       const prevY = d.y;
-      d.pathIndex = Math.min((d.pathIndex ?? 0) + dt * dSlow, d.waypoints.length - 1);
+      const pathSpeed = d.subtype === "shahed136" && (d.pathIndex ?? 0) >= (d.diveStartIndex ?? Infinity) ? 1.18 : 1;
+      d.pathIndex = Math.min((d.pathIndex ?? 0) + dt * dSlow * pathSpeed, d.waypoints.length - 1);
       const i0 = Math.floor(d.pathIndex);
       const frac = d.pathIndex - i0;
       const i1 = Math.min(i0 + 1, d.waypoints.length - 1);
@@ -1417,7 +1429,10 @@ function updateDrones(
       d.vy = d.y - prevY;
       if (!d.diving && d.pathIndex >= (d.diveStartIndex ?? Infinity)) d.diving = true;
       // Drop bombs at precomputed path positions
-      if ((d.bombsDropped ?? 0) < 2 && d.pathIndex >= (d.bombIndices ?? [])[d.bombsDropped ?? 0]) {
+      if (
+        (d.bombsDropped ?? 0) < (d.bombIndices?.length ?? 0) &&
+        d.pathIndex >= (d.bombIndices ?? [])[d.bombsDropped ?? 0]
+      ) {
         const bombT = pickTarget(g, d.x);
         if (bombT) {
           g.missiles.push({

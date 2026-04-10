@@ -473,6 +473,43 @@ export function computeShahed238Path(
   return { waypoints, diveStartIndex, bombIndices };
 }
 
+export function computeShahed136Path(
+  spawnX: number,
+  spawnY: number,
+  goingRight: boolean,
+  speed: number,
+  target: { x: number; y: number },
+): { waypoints: Point[]; diveStartIndex: number; bombIndices: number[] } {
+  const dir = goingRight ? 1 : -1;
+
+  // Earlier transition than the jet drone so the turn feels decisive, not lazy.
+  const transX = spawnX + dir * CANVAS_W * rand(0.24, 0.36);
+  const transY = spawnY + rand(-10, 24);
+
+  const cruiseWaypoints = sampleCubicBezier(
+    { x: spawnX, y: spawnY },
+    { x: spawnX + dir * CANVAS_W * 0.12, y: spawnY + rand(-18, 12) },
+    { x: transX - dir * rand(55, 95), y: transY + rand(-8, 14) },
+    { x: transX, y: transY },
+    speed * 1.08,
+  );
+
+  const diveStartIndex = cruiseWaypoints.length;
+
+  const diveWaypoints = sampleCubicBezier(
+    { x: transX, y: transY },
+    { x: transX + dir * rand(60, 105), y: transY + rand(72, 120) },
+    { x: target.x + dir * rand(20, 55), y: target.y - rand(70, 115) },
+    { x: target.x, y: target.y },
+    speed * 1.34,
+  );
+
+  const waypoints = cruiseWaypoints.concat(diveWaypoints.slice(1));
+  const bombIndex = Math.max(1, Math.floor(diveStartIndex * rand(0.42, 0.62)));
+
+  return { waypoints, diveStartIndex, bombIndices: [bombIndex] };
+}
+
 export function damageTarget(
   g: GameState,
   target: Threat,
