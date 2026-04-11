@@ -1963,6 +1963,17 @@ function drawSharedBurj(
     ctx.restore();
   });
 
+  // Horizon line — thin glow separating buildings from water
+  const horizonGlow = ctx.createLinearGradient(0, groundY - 6, 0, groundY + 8);
+  horizonGlow.addColorStop(0, "rgba(180, 200, 230, 0.0)");
+  horizonGlow.addColorStop(0.4, "rgba(140, 165, 200, 0.18)");
+  horizonGlow.addColorStop(0.6, "rgba(100, 130, 170, 0.12)");
+  horizonGlow.addColorStop(1, "rgba(60, 90, 130, 0.0)");
+  ctx.fillStyle = horizonGlow;
+  ctx.fillRect(0, groundY - 6, CANVAS_W, 14);
+  ctx.fillStyle = "rgba(200, 220, 255, 0.28)";
+  ctx.fillRect(0, groundY - 1, CANVAS_W, 1);
+
   ctx.fillStyle = `rgba(22, 28, 40, ${0.84 + 0.08 * Math.sin(t * 0.32)})`;
   ctx.beginPath();
   ctx.moveTo(burjX - 104, burjBaseY + 2);
