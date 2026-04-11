@@ -6010,9 +6010,9 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
     { kind: "shahed", x: 125, y: 520, scale: layout.enemyScale, phase: 0.1 },
     { kind: "shahed", x: 100, y: 620, scale: layout.enemyScale, phase: 0.1 },
     { kind: "shahed", x: 150, y: 800, scale: layout.enemyScale, phase: 0.1 },
-    { kind: "missile", x: 752, y: 550, scale: layout.enemyScale, phase: 0.32 },
-    { kind: "missile", x: 702, y: 786, scale: layout.enemyScale, phase: 0.32 },
-    { kind: "missile", x: 758, y: 836, scale: layout.enemyScale, phase: 0.56 },
+    { kind: "missile", x: 775, y: 520, scale: layout.enemyScale, phase: 0.32 },
+    { kind: "missile", x: 800, y: 620, scale: layout.enemyScale, phase: 0.32 },
+    { kind: "missile", x: 750, y: 800, scale: layout.enemyScale, phase: 0.56 },
   ];
   const titleTargetX = BURJ_X;
   const titleTargetY = burjBaseY - burjHeight + 18;
