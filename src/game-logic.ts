@@ -52,11 +52,11 @@ export const SCENIC_BUILDING_LAYOUT = [
   { x: 190, w: 60, h: 110, windows: 1, roof: "tapered", glow: 0.1, profile: "slantedBlock" },
   { x: 262, w: 34, h: 144, windows: 1, roof: "flat", glow: 0.1, profile: "twinSpire" },
   { x: 320, w: 38, h: 152, windows: 1, roof: "flat", glow: 0.08, profile: "eggTower" },
-  { x: 542, w: 72, h: 224, windows: 2, roof: "slantR", glow: 0.08, profile: "slantedBlock" },
-  { x: 622, w: 46, h: 202, windows: 1, roof: "curvedR", glow: 0.08, profile: "eggTower" },
-  { x: 680, w: 28, h: 198, windows: 1, roof: "curvedL", glow: 0.09, profile: "bladeTower" },
-  { x: 720, w: 34, h: 168, windows: 1, roof: "roundedCrownL", glow: 0.1, profile: "twinSpire" },
-  { x: 780, w: 48, h: 100, windows: 1, roof: "curvedL", glow: 0.09, profile: "bladeTower" },
+  { x: 582, w: 72, h: 224, windows: 2, roof: "slantR", glow: 0.08, profile: "slantedBlock" },
+  { x: 660, w: 46, h: 202, windows: 1, roof: "curvedR", glow: 0.08, profile: "eggTower" },
+  { x: 710, w: 28, h: 198, windows: 1, roof: "curvedL", glow: 0.09, profile: "bladeTower" },
+  { x: 740, w: 34, h: 100, windows: 1, roof: "curvedL", glow: 0.09, profile: "bladeTower" },
+  { x: 780, w: 48, h: 168, windows: 1, roof: "roundedCrownL", glow: 0.1, profile: "twinSpire" },
 ] as const;
 
 export function createScenicBuildings(): Building[] {
@@ -97,7 +97,7 @@ export function burjHalfW(py: number): number {
 
 export const LAUNCHERS: { x: number; y: number }[] = [
   { x: 60, y: GROUND_Y - 5 },
-  { x: 550, y: GROUND_Y - 5 },
+  { x: 560, y: GROUND_Y - 5 },
   { x: 860, y: GROUND_Y - 5 },
 ];
 

@@ -1977,37 +1977,7 @@ function drawSharedBurj(
   ctx.lineTo(burjX + 104, burjBaseY + 2);
   ctx.closePath();
   ctx.fill();
-  const podiumBuildings = [
-    { x: burjX - 118, y: burjBaseY - 34, w: 28, h: 38, seed: 131.2, warmBias: 0.78, cols: 2 },
-    { x: burjX - 82, y: burjBaseY - 48, w: 32, h: 52, seed: 133.8, warmBias: 0.7, cols: 2 },
-    { x: burjX - 42, y: burjBaseY - 30, w: 22, h: 34, seed: 136.1, warmBias: 0.64, cols: 1 },
-    { x: burjX + 20, y: burjBaseY - 30, w: 22, h: 34, seed: 139.4, warmBias: 0.64, cols: 1 },
-    { x: burjX + 50, y: burjBaseY - 48, w: 32, h: 52, seed: 142.2, warmBias: 0.7, cols: 2 },
-    { x: burjX + 90, y: burjBaseY - 36, w: 28, h: 40, seed: 145.7, warmBias: 0.78, cols: 2 },
-  ];
-  podiumBuildings.forEach((building) => {
-    ctx.fillStyle = "rgba(14, 20, 30, 0.92)";
-    ctx.fillRect(building.x, building.y, building.w, building.h);
-    ctx.fillStyle = "rgba(24, 30, 42, 0.9)";
-    ctx.fillRect(building.x + 1, building.y + 1, building.w - 2, 2);
-    ctx.fillStyle = "rgba(255, 214, 150, 0.08)";
-    ctx.fillRect(building.x, building.y, building.w, 1.5);
-    drawFlickerWindows(ctx, {
-      x: building.x + 2,
-      y: building.y + 5,
-      w: building.w - 4,
-      h: building.h - 10,
-      rows: Math.max(3, Math.floor((building.h - 10) / 9)),
-      cols: building.cols,
-      time: t,
-      seed: building.seed,
-      warmBias: building.warmBias,
-      paneW: building.cols === 2 ? 4 : 5,
-      paneH: 4,
-      gapX: building.cols === 2 ? 6 : 0,
-      gapY: 6,
-    });
-  });
+
   ctx.fillStyle = "rgba(255, 214, 150, 0.28)";
   ctx.fillRect(burjX - 58, burjBaseY - 14, 116, 2.5);
   ctx.fillStyle = "rgba(236, 246, 255, 0.46)";
