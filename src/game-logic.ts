@@ -209,7 +209,7 @@ export function fireInterceptor(g: GameState, targetX: number, targetY: number):
   const l = getGameplayLauncherPosition(bestIdx);
   const targetAngle = Math.atan2(targetY - l.y, targetX - l.x);
   const launchAngle = -Math.PI / 2 + (targetAngle + Math.PI / 2) * 0.32;
-  const speed = 5.33;
+  const speed = 7.46;
   const dx = targetX - l.x;
   const dy = targetY - l.y;
   const len = Math.sqrt(dx * dx + dy * dy);
@@ -223,8 +223,8 @@ export function fireInterceptor(g: GameState, targetX: number, targetY: number):
     vy: Math.sin(launchAngle) * speed,
     heading: launchAngle,
     speed,
-    accel: 1.03,
-    maxSpeed: 9.09,
+    accel: 1.042,
+    maxSpeed: 12.73,
     turnRate: 0.22,
     trail: [],
     alive: true,

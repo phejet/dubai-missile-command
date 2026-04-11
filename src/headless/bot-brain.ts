@@ -444,9 +444,9 @@ export function botDecideAction(
   const cfg = config.targeting;
   const human = config.humanization?.enabled ? config.humanization : null;
   const rng = getRng();
-  // Interceptors start at 10.88 px/tick, accelerate to 18.56 over ~18 ticks.
-  // Average across a typical 60-80 tick flight is ~16 px/tick.
-  const interceptorSpeed = 16;
+  // Interceptors start at 7.46 px/tick, accelerate to 12.73 over ~18 ticks.
+  // Average across a typical 60-80 tick flight is ~11 px/tick.
+  const interceptorSpeed = 11;
 
   // Check if any launcher has ammo
   const hasAmmo = g.ammo.some((a, i) => a > 0 && g.launcherHP[i] > 0);
