@@ -18,7 +18,6 @@ import {
   getGameplayBurjCollisionTop,
   getGameplayBurjHalfW,
   getGameplayLauncherPosition,
-  getAmmoCapacity,
   getPhalanxTurrets,
   ov,
 } from "./game-logic";
@@ -4865,35 +4864,6 @@ function drawHUD(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutP
       });
       ctx.globalAlpha = 1;
     }
-  }
-
-  // Low ammo warning — flash for 3 seconds then disappear
-  const totalAmmo = game.ammo.reduce((s, a) => s + a, 0);
-  const maxTotalAmmo = game.ammo.reduce(
-    (s, _, i) => s + (game.launcherHP[i] > 0 ? getAmmoCapacity(game.wave, game.upgrades.launcherKit) : 0),
-    0,
-  );
-  const isLowAmmo = maxTotalAmmo > 0 && totalAmmo / maxTotalAmmo < 0.25 && !game.waveComplete;
-  if (isLowAmmo && !game._lowAmmoTimer) {
-    game._lowAmmoTimer = 180; // ~3 seconds at 60fps
-  }
-  if (!isLowAmmo) {
-    game._lowAmmoTimer = 0;
-  }
-  if ((game._lowAmmoTimer ?? 0) > 0) {
-    game._lowAmmoTimer = (game._lowAmmoTimer ?? 0) - 1;
-    const flash = 0.5 + 0.5 * Math.sin(game.time * 0.2);
-    const fadeOut = Math.min(1, (game._lowAmmoTimer ?? 0) / 30);
-    ctx.save();
-    ctx.globalAlpha = flash * 0.9 * fadeOut;
-    ctx.textAlign = "center";
-    ctx.font = `bold ${layout.lowAmmoFontSize}px ${ARCADE_FONT_FAMILY}`;
-    ctx.fillStyle = COL.warning;
-    glow(ctx, COL.warning, 20);
-    ctx.fillText("\u26A0 LOW AMMO \u26A0", CANVAS_W / 2, layout.lowAmmoY);
-    glowOff(ctx);
-    ctx.textAlign = "left";
-    ctx.restore();
   }
 
   // Multi-kill toast
