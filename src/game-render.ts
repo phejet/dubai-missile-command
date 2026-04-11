@@ -1056,13 +1056,13 @@ function drawSharedSky(
     });
   } else {
     const titleDrift = Math.sin(t * 0.08) * 4;
-    for (let i = 0; i < 500; i++) {
+    for (let i = 0; i < 120; i++) {
       const sx = (hash01(i, 2, 7) * CANVAS_W + titleDrift * 0.3) % CANVAS_W;
-      const sy = hash01(i, 5, 11) * 1500 + 8;
+      const sy = hash01(i, 5, 11) * CANVAS_H * 0.6;
       const seed = hash01(i, 1, 9);
       const phase = hash01(i, 7, 3) * 20;
       const { hero, shimmer, flare } = getStarTwinkleProfile(t, phase, seed);
-      const size = 0.7 + hash01(i, 3, 1) * 1.6;
+      const size = 0.5 + hash01(i, 3, 1) * 1.5;
       const sizeMul = 1 + flare * 0.95;
       ctx.fillStyle = `rgba(220, 235, 255, ${0.08 + shimmer * 0.1 + flare * 0.42})`;
       ctx.fillRect(sx, sy, size * 1.2 * sizeMul, size * 1.2 * sizeMul);
