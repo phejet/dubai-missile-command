@@ -3,7 +3,7 @@
 
 import SFX from "./sound";
 import { CANVAS_W, CANVAS_H, GROUND_Y, fireInterceptor, getAmmoCapacity, setRng } from "./game-logic";
-import { drawGame, drawTitle, drawGameOver, perfState } from "./game-render";
+import { drawGame, drawTitle, drawGameOver, perfState, preloadRenderAssets } from "./game-render";
 import { mulberry32 } from "./headless/rng";
 import { buildReplayCheckpoint } from "./replay-debug";
 import {
@@ -208,6 +208,7 @@ export class Game {
     cacheHudElements();
     this.bindEvents();
     this.setupWindowGlobals();
+    preloadRenderAssets();
     this.startRenderLoop();
   }
 
@@ -320,6 +321,7 @@ export class Game {
 
   private async startGame(): Promise<void> {
     await SFX.init();
+    SFX.prewarm();
     this.clearPointerCapture();
     this.initGame();
     this.replayActive = false;
@@ -336,6 +338,7 @@ export class Game {
 
   private async startReplay(replayData: ReplayData): Promise<void> {
     await SFX.init();
+    SFX.prewarm();
     this.clearPointerCapture();
     const runner = createReplayRunner(replayData, (type, data) => this.handleSimEvent(type, data));
     const replayGameState = runner.init();

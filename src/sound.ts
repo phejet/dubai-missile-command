@@ -18,6 +18,7 @@ let lastExplosionTime = 0;
 let explosionCount = 0;
 let lastWarningTime = 0;
 let lastHornetTime = 0;
+let prewarmed = false;
 
 function ensureCtx() {
   if (ctx) return true;
@@ -112,6 +113,43 @@ const SFX = {
   async init() {
     if (!ensureCtx()) return false;
     return resumeCtx();
+  },
+
+  prewarm() {
+    if (prewarmed || !ensureCtx() || !master) return;
+    prewarmed = true;
+
+    const prevMasterGain = master.gain.value;
+    const prevActiveCount = activeCount;
+    const prevLastExplosionTime = lastExplosionTime;
+    const prevExplosionCount = explosionCount;
+    const prevLastWarningTime = lastWarningTime;
+    const prevLastHornetTime = lastHornetTime;
+
+    master.gain.value = 0;
+
+    this.explosion("small");
+    this.chainExplosion("medium", 2);
+    this.mirvIncoming();
+    this.mirvSplit();
+    this.planeIncoming();
+    this.planePass();
+    this.patriotLaunch();
+    this.hornetBuzz();
+    this.burjHit();
+    this.launcherDestroyed();
+    this.empBlast();
+    this.multiKill();
+    this.waveCleared();
+    this.gameOver();
+    this.laserBeam();
+
+    master.gain.value = prevMasterGain;
+    activeCount = prevActiveCount;
+    lastExplosionTime = prevLastExplosionTime;
+    explosionCount = prevExplosionCount;
+    lastWarningTime = prevLastWarningTime;
+    lastHornetTime = prevLastHornetTime;
   },
 
   mute() {

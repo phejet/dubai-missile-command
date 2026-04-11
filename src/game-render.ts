@@ -212,6 +212,18 @@ function getBurjDroneDecalImage() {
   return null;
 }
 
+export function preloadRenderAssets() {
+  getSkyImage();
+  getTitleWaterImage();
+  getInterceptorHitFlashImage();
+  getMissileKillFlashImage();
+  getDroneKillFlashImage();
+  getBuildingDestroyBurstImage();
+  getTitleBurjGlowImage();
+  getBurjMissileDecalImage();
+  getBurjDroneDecalImage();
+}
+
 interface CameraFrame {
   scale: number;
   left: number;
