@@ -1060,15 +1060,17 @@ function drawSharedSky(
       const sx = (hash01(i, 2, 7) * CANVAS_W + titleDrift * 0.3) % CANVAS_W;
       const sy = hash01(i, 5, 11) * 1500 + 8;
       const seed = hash01(i, 1, 9);
-      const { hero, shimmer, flare } = getStarTwinkleProfile(t, i * 0.9, seed);
+      const phase = hash01(i, 7, 3) * 20;
+      const { hero, shimmer, flare } = getStarTwinkleProfile(t, phase, seed);
       const size = 0.7 + hash01(i, 3, 1) * 1.6;
+      const sizeMul = 1 + flare * 0.95;
       ctx.fillStyle = `rgba(220, 235, 255, ${0.08 + shimmer * 0.1 + flare * 0.42})`;
-      ctx.fillRect(sx, sy, size * (1 + flare * 0.95), size * (1 + flare * 0.95));
+      ctx.fillRect(sx, sy, size * 1.2 * sizeMul, size * 1.2 * sizeMul);
       if (hero && flare > 0.12) {
         ctx.fillStyle = `rgba(255,255,255,${0.12 + flare * 0.52})`;
-        const reach = size * (0.7 + flare * 2.2);
-        ctx.fillRect(sx - reach, sy, reach * 2.4, Math.max(1, size * 0.36));
-        ctx.fillRect(sx, sy - reach, Math.max(1, size * 0.36), reach * 2.4);
+        const reach = size * (0.8 + flare * 2.4);
+        ctx.fillRect(sx - reach, sy, reach * 2.4, Math.max(1, size * 0.45));
+        ctx.fillRect(sx, sy - reach, Math.max(1, size * 0.45), reach * 2.4);
       }
     }
   }
