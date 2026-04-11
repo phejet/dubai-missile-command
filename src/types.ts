@@ -345,6 +345,14 @@ export interface MultiKillToast {
   pulse?: number;
 }
 
+export interface ComboToast {
+  multiplier: number;
+  timer: number;
+  x: number;
+  y: number;
+  pulse: number;
+}
+
 // ── Wave / commander ──
 
 export type TacticId =
@@ -467,6 +475,8 @@ export interface GameState {
   empReady: boolean;
 
   multiKillToast: MultiKillToast | null;
+  combo: number;
+  comboToast: ComboToast | null;
 
   commander: Commander;
   schedule: SpawnEntry[];

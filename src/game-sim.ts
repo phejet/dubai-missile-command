@@ -266,7 +266,7 @@ export function initGame(): GameState {
     score: 0,
     wave: 1,
     stats: { missileKills: 0, droneKills: 0, shotsFired: 0 },
-    ammo: [99, 99, 99],
+    ammo: [11, 11, 11],
     launcherHP: [1, 1, 1],
     launcherFireTick: [0, 0, 0],
     missiles: [],
@@ -329,6 +329,8 @@ export function initGame(): GameState {
     empReady: false,
     empRings: [],
     multiKillToast: null,
+    combo: 1,
+    comboToast: null,
     // Spawn commander + schedule
     commander,
     schedule: wave1.schedule,
@@ -1787,7 +1789,7 @@ function updateExplosions(g: GameState, dt: number, onEvent?: ((type: string, da
             m.health = (m.health ?? 1) - 1;
             if ((m.health ?? 0) <= 0) {
               m.alive = false;
-              g.score += getKillReward(m);
+              g.score += getKillReward(m) * g.combo;
               g.stats.missileKills++;
               rootEx.kills = (rootEx.kills ?? 0) + 1;
               rootEx.heroPulse = Math.min(1.6, 0.65 + (rootEx.kills ?? 0) * 0.18);
@@ -1804,7 +1806,7 @@ function updateExplosions(g: GameState, dt: number, onEvent?: ((type: string, da
           }
         } else if (dist(m.x, m.y, ex.x, ex.y) < ex.radius) {
           m.alive = false;
-          g.score += getKillReward(m);
+          g.score += getKillReward(m) * g.combo;
           g.stats.missileKills++;
           rootEx.kills = (rootEx.kills ?? 0) + 1;
           rootEx.heroPulse = Math.min(1.6, 0.65 + (rootEx.kills ?? 0) * 0.18);
@@ -1827,7 +1829,7 @@ function updateExplosions(g: GameState, dt: number, onEvent?: ((type: string, da
           d.health--;
           if (d.health <= 0) {
             d.alive = false;
-            g.score += getKillReward(d);
+            g.score += getKillReward(d) * g.combo;
             g.stats.droneKills++;
             rootEx.kills = (rootEx.kills ?? 0) + 1;
             rootEx.heroPulse = Math.min(1.6, 0.65 + (rootEx.kills ?? 0) * 0.18);
@@ -1969,6 +1971,11 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
     }
     if (g.multiKillToast.timer <= 0) g.multiKillToast = null;
   }
+  if (g.comboToast) {
+    g.comboToast.timer -= dt;
+    g.comboToast.pulse = Math.max(0, g.comboToast.pulse - 0.06 * dt);
+    if (g.comboToast.timer <= 0) g.comboToast = null;
+  }
   updateBurjDamageFx(g);
   updateBuildingDestroyFx(g, dt);
 
@@ -2099,6 +2106,21 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
     p.vy += (p.gravity ?? 0.05) * dt;
     if (p.angle !== undefined) p.angle += (p.spin ?? 0) * dt;
     p.life -= dt;
+  });
+
+  // Combo: check dying player-caused root explosions
+  g.explosions.forEach((ex) => {
+    if (ex.alpha <= 0 && ex.playerCaused && ex.rootExplosionId === null) {
+      if ((ex.kills ?? 0) >= 1) {
+        const next = Math.min(10, g.combo + 1);
+        if (next > g.combo) {
+          g.comboToast = { multiplier: next, timer: 70, x: ex.x, y: ex.y - 20, pulse: 1 };
+        }
+        g.combo = next;
+      } else {
+        g.combo = 1;
+      }
+    }
   });
 
   // Cleanup

@@ -4211,8 +4211,6 @@ function drawGroundStructures(ctx: CanvasRenderingContext2D, game: GameState, la
   LAUNCHERS.forEach((l, i) => {
     const launcherMaxHP = game.upgrades.launcherKit >= 2 ? 2 : 1;
     const damaged = launcherMaxHP === 2 && game.launcherHP[i] === 1;
-    const ammoMax = getAmmoCapacity(game.wave, game.upgrades.launcherKit);
-    const ammoRatio = game.ammo[i] / ammoMax;
     const angle = Math.atan2(game.crosshairY - l.y, game.crosshairX - l.x);
     const barrelAngle = Math.min(-0.2, Math.max(angle, -Math.PI + 0.2));
     const fireTick = game.launcherFireTick ? game.launcherFireTick[i] : 0;
@@ -4230,42 +4228,6 @@ function drawGroundStructures(ctx: CanvasRenderingContext2D, game: GameState, la
     });
 
     if (game.launcherHP[i] <= 0) return;
-
-    if (game.ammo[i] <= 0) {
-      ctx.save();
-      ctx.textAlign = "center";
-      ctx.font = `bold 10px ${ARCADE_FONT_FAMILY}`;
-      ctx.fillStyle = "rgba(40, 8, 10, 0.86)";
-      ctx.strokeStyle = "rgba(255, 92, 80, 0.72)";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.roundRect(l.x - 15, scenicLauncherY + 30, 30, 12, 5);
-      ctx.fill();
-      ctx.stroke();
-      ctx.fillStyle = "#ffd3ca";
-      ctx.fillText("OUT", l.x, scenicLauncherY + 39);
-      ctx.textAlign = "left";
-      ctx.restore();
-    } else if (ammoRatio <= 0.3) {
-      ctx.save();
-      ctx.translate(l.x, scenicLauncherY + 34);
-      ctx.fillStyle = "rgba(52, 18, 10, 0.88)";
-      ctx.strokeStyle = "rgba(255, 184, 92, 0.8)";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(0, -8);
-      ctx.lineTo(8, 7);
-      ctx.lineTo(-8, 7);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      ctx.fillStyle = "#fff0cf";
-      ctx.font = `bold 10px ${ARCADE_FONT_FAMILY}`;
-      ctx.textAlign = "center";
-      ctx.fillText("!", 0, 4);
-      ctx.textAlign = "left";
-      ctx.restore();
-    }
 
     const maxHP = game.upgrades.launcherKit >= 2 ? 2 : 1;
     for (let h = 0; h < maxHP; h++) {
@@ -4727,8 +4689,57 @@ function drawHUD(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutP
     ctx.fillText(`WAVE ${game.wave}`, 156, 29);
     ctx.fillStyle = game.burjAlive ? "#44ff88" : "#ff4444";
     ctx.fillText(`BURJ:${game.burjAlive ? "OK" : "XX"}`, 300, 29);
-    ctx.fillStyle = COL.hud;
-    ctx.fillText(`AMMO ${game.ammo[0]}|${game.ammo[1]}|${game.ammo[2]}`, 438, 29);
+    // Combo HUD box
+    {
+      const comboX = 430;
+      const comboBoxW = 114;
+      const comboBoxH = 36;
+      const comboBoxY = 5;
+      const active = game.combo >= 2;
+      const comboColor = active
+        ? game.combo >= 8
+          ? "#ff3a18"
+          : game.combo >= 5
+            ? "#ff8800"
+            : "#ffdd00"
+        : "rgba(0,255,180,0.18)";
+      const borderAlpha = active ? (game.combo >= 5 ? 0.9 : 0.55) : 0.22;
+      // Box background
+      ctx.fillStyle = active
+        ? game.combo >= 8
+          ? "rgba(80,12,4,0.72)"
+          : game.combo >= 5
+            ? "rgba(60,24,0,0.72)"
+            : "rgba(40,36,0,0.72)"
+        : "rgba(0,10,20,0.4)";
+      ctx.beginPath();
+      ctx.roundRect(comboX, comboBoxY, comboBoxW, comboBoxH, 4);
+      ctx.fill();
+      // Box border
+      if (active && game.combo >= 5) glow(ctx, comboColor, 6 + (game.combo - 5) * 3);
+      ctx.strokeStyle = active ? comboColor : "rgba(0,255,180,0.22)";
+      ctx.globalAlpha = borderAlpha;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(comboX, comboBoxY, comboBoxW, comboBoxH, 4);
+      ctx.stroke();
+      if (active && game.combo >= 5) glowOff(ctx);
+      ctx.globalAlpha = 1;
+      // Label
+      ctx.font = `bold 9px ${ARCADE_FONT_FAMILY}`;
+      ctx.fillStyle = active ? comboColor : "rgba(0,255,180,0.3)";
+      ctx.textAlign = "center";
+      ctx.fillText("COMBO", comboX + comboBoxW / 2, comboBoxY + 11);
+      // Value
+      const valStr = active ? `${game.combo}\u00d7` : "1\u00d7";
+      ctx.font = `bold ${active && game.combo >= 10 ? 18 : 16}px ${ARCADE_FONT_FAMILY}`;
+      ctx.fillStyle = active ? comboColor : "rgba(0,255,180,0.28)";
+      if (active && game.combo >= 5) glow(ctx, comboColor, 8 + (game.combo - 5) * 4);
+      ctx.fillText(valStr, comboX + comboBoxW / 2, comboBoxY + 27);
+      if (active && game.combo >= 5) glowOff(ctx);
+      ctx.textAlign = "left";
+      ctx.font = `bold 16px ${ARCADE_FONT_FAMILY}`;
+    }
     if (game.empChargeMax > 0) {
       const empCx = 642;
       const empCy = 23;
@@ -4914,6 +4925,50 @@ function drawHUD(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutP
     glowOff(ctx);
     ctx.textAlign = "left";
     ctx.restore();
+  }
+
+  // Combo toast popup
+  if (game.comboToast && game.comboToast.timer > 0) {
+    const ct = game.comboToast;
+    const fadeOut = Math.min(1, ct.timer / 15);
+    const rise = (70 - ct.timer) * 0.38;
+    const scale = 1 + ct.pulse * 0.35;
+    const isMax = ct.multiplier >= 10;
+    const comboT = (ct.multiplier - 2) / 8;
+    const toastColor = ct.multiplier >= 8 ? "#ff4422" : ct.multiplier >= 5 ? "#ff8800" : "#ffdd00";
+    const fontSize = isMax ? 38 : Math.round(22 + comboT * 10);
+    ctx.save();
+    ctx.globalAlpha = fadeOut;
+    ctx.textAlign = "center";
+    ctx.font = `bold ${Math.round(fontSize * scale)}px ${ARCADE_FONT_FAMILY}`;
+    ctx.fillStyle = toastColor;
+    const glowSize = 6 + ct.multiplier * 2.5;
+    glow(ctx, toastColor, glowSize);
+    const label = isMax ? "10\u00d7 COMBO!" : `${ct.multiplier}\u00d7`;
+    ctx.fillText(label, ct.x, ct.y - rise);
+    glowOff(ctx);
+    ctx.textAlign = "left";
+    ctx.restore();
+  }
+
+  // Burn vignette at combo 5+
+  if (game.combo >= 5) {
+    const burnT = (game.combo - 5) / 5;
+    const t = game.time / 60;
+    const burnAlpha = 0.05 + burnT * 0.12 + Math.sin(t * 0.22) * 0.015;
+    const burnVig = ctx.createRadialGradient(
+      CANVAS_W / 2,
+      CANVAS_H / 2,
+      CANVAS_H * 0.3,
+      CANVAS_W / 2,
+      CANVAS_H / 2,
+      CANVAS_H * 0.88,
+    );
+    burnVig.addColorStop(0, "rgba(0,0,0,0)");
+    burnVig.addColorStop(0.6, `rgba(180, 40, 0, ${burnAlpha * 0.5})`);
+    burnVig.addColorStop(1, `rgba(220, 60, 10, ${burnAlpha})`);
+    ctx.fillStyle = burnVig;
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
   }
 
   // Wave cleared banner

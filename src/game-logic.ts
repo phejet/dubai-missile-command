@@ -194,7 +194,7 @@ export function fireInterceptor(g: GameState, targetX: number, targetY: number):
   let bestIdx = -1,
     bestDist = Infinity;
   for (let i = 0; i < LAUNCHERS.length; i++) {
-    if (g.ammo[i] <= 0 || g.launcherHP[i] <= 0) continue;
+    if (g.launcherHP[i] <= 0) continue;
     const launcher = getGameplayLauncherPosition(i);
     const d = dist(launcher.x, launcher.y, targetX, targetY);
     if (d < bestDist) {
@@ -203,7 +203,6 @@ export function fireInterceptor(g: GameState, targetX: number, targetY: number):
     }
   }
   if (bestIdx === -1) return false;
-  if (!g._debugMode) g.ammo[bestIdx]--;
   g.stats.shotsFired++;
   g.launcherFireTick[bestIdx] = g._replayTick ?? 0;
   const l = getGameplayLauncherPosition(bestIdx);
@@ -367,9 +366,10 @@ export function getKillReward(target: Threat): number {
   return 28;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function getAmmoCapacity(wave: number, launcherKitLevel: number): number {
-  return 99;
+  const base = 11 + Math.floor(wave / 3);
+  const kitBonus = launcherKitLevel >= 2 ? 6 : 0;
+  return Math.min(base + kitBonus, 24);
 }
 
 export function getMultiKillBonus(kills: number): number {
