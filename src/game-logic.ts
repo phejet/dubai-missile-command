@@ -194,7 +194,7 @@ export function fireInterceptor(g: GameState, targetX: number, targetY: number):
   let bestIdx = -1,
     bestDist = Infinity;
   for (let i = 0; i < LAUNCHERS.length; i++) {
-    if (g.launcherHP[i] <= 0) continue;
+    if (g.launcherHP[i] <= 0 || g.ammo[i] <= 0) continue;
     const launcher = getGameplayLauncherPosition(i);
     const d = dist(launcher.x, launcher.y, targetX, targetY);
     if (d < bestDist) {
@@ -203,8 +203,6 @@ export function fireInterceptor(g: GameState, targetX: number, targetY: number):
     }
   }
   if (bestIdx === -1) return false;
-  g.stats.shotsFired++;
-  g.launcherFireTick[bestIdx] = g._replayTick ?? 0;
   const l = getGameplayLauncherPosition(bestIdx);
   const targetAngle = Math.atan2(targetY - l.y, targetX - l.x);
   const launchAngle = -Math.PI / 2 + (targetAngle + Math.PI / 2) * 0.32;
@@ -213,6 +211,9 @@ export function fireInterceptor(g: GameState, targetX: number, targetY: number):
   const dy = targetY - l.y;
   const len = Math.sqrt(dx * dx + dy * dy);
   if (len < 1) return false;
+  g.ammo[bestIdx]--;
+  g.stats.shotsFired++;
+  g.launcherFireTick[bestIdx] = g._replayTick ?? 0;
   g.interceptors.push({
     x: l.x,
     y: l.y,

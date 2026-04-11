@@ -5,6 +5,14 @@ import SFX from "./sound";
 import { CANVAS_W, CANVAS_H, GROUND_Y, fireInterceptor, getAmmoCapacity, setRng } from "./game-logic";
 import { drawGame, drawTitle, drawGameOver, perfState, preloadRenderAssets } from "./game-render";
 import { mulberry32 } from "./headless/rng";
+import {
+  bufferPlayerFire,
+  consumeBufferedPlayerFire,
+  createPlayerFireLimiterState,
+  isPlayerFireReady,
+  markPlayerFireFired,
+  resetPlayerFireLimiter,
+} from "./player-fire-limiter";
 import { buildReplayCheckpoint } from "./replay-debug";
 import {
   UPGRADES,
@@ -177,6 +185,7 @@ export class Game {
   private pointerId: number | null = null;
   private hudRefreshTime = 0;
   private draftMode = true;
+  private playerFireState = createPlayerFireLimiterState();
 
   // UI state
   private muted = false;
@@ -279,6 +288,10 @@ export class Game {
     this.pointerId = null;
   }
 
+  private resetPlayerFireState(): void {
+    resetPlayerFireLimiter(this.playerFireState);
+  }
+
   // ─── Screen Management ──────────────────────────────────────────
 
   private setScreen(s: "title" | "playing" | "gameover"): void {
@@ -331,6 +344,7 @@ export class Game {
     await SFX.init();
     SFX.prewarm();
     this.clearPointerCapture();
+    this.resetPlayerFireState();
     this.initGame();
     this.replayActive = false;
     this.shopOpen = false;
@@ -348,6 +362,7 @@ export class Game {
     await SFX.init();
     SFX.prewarm();
     this.clearPointerCapture();
+    this.resetPlayerFireState();
     const runner = createReplayRunner(replayData, (type, data) => this.handleSimEvent(type, data));
     const replayGameState = runner.init();
     this.gameRef.current = replayGameState;
@@ -400,6 +415,7 @@ export class Game {
       sfxMap[data.name]?.();
     } else if (type === "gameOver") {
       this.clearPointerCapture();
+      this.resetPlayerFireState();
       this.shopOpen = false;
       this.showOptionsMenu = false;
       this.showColliders = false;
@@ -439,6 +455,7 @@ export class Game {
       setRng(Math.random);
       this.setScreen("gameover");
     } else if (type === "waveBonusStart") {
+      this.resetPlayerFireState();
       this.bonusActive = true;
       this.canvas.style.pointerEvents = "none";
       showBonusScreen(
@@ -473,6 +490,7 @@ export class Game {
 
   private openShop(game: GameState): void {
     const shopData = buildShopDataFromGame(game);
+    this.resetPlayerFireState();
     this.shopOpen = true;
     this.showOptionsMenu = false;
     this.showColliders = false;
@@ -522,14 +540,32 @@ export class Game {
     return { x, y };
   }
 
-  private fireAt(game: GameState, x: number, y: number): void {
-    if (y >= GROUND_Y - 20) return;
-    if (fireInterceptor(game, x, y)) {
-      SFX.fire();
-      if (game._actionLog) game._actionLog.push({ tick: game._replayTick ?? 0, type: "fire", x, y });
-    } else {
-      SFX.emptyClick();
+  private launchPlayerShot(game: GameState, x: number, y: number, silentOnFail = false): boolean {
+    if (y >= GROUND_Y - 20) return false;
+    if (!fireInterceptor(game, x, y)) {
+      if (!silentOnFail) SFX.emptyClick();
+      return false;
     }
+    markPlayerFireFired(this.playerFireState, game._replayTick ?? 0);
+    SFX.fire();
+    if (game._actionLog) game._actionLog.push({ tick: game._replayTick ?? 0, type: "fire", x, y });
+    return true;
+  }
+
+  private requestPlayerFire(game: GameState, x: number, y: number): void {
+    if (y >= GROUND_Y - 20) return;
+    const tick = game._replayTick ?? 0;
+    if (!isPlayerFireReady(this.playerFireState, tick)) {
+      bufferPlayerFire(this.playerFireState, { x, y });
+      return;
+    }
+    this.launchPlayerShot(game, x, y);
+  }
+
+  private releaseBufferedPlayerFire(game: GameState): void {
+    const bufferedShot = consumeBufferedPlayerFire(this.playerFireState, game._replayTick ?? 0);
+    if (!bufferedShot) return;
+    this.launchPlayerShot(game, bufferedShot.x, bufferedShot.y, true);
   }
 
   private async handlePointerDown(e: PointerEvent): Promise<void> {
@@ -551,7 +587,7 @@ export class Game {
       this.pointerId = e.pointerId;
       this.canvas.setPointerCapture(e.pointerId);
     }
-    this.fireAt(game, point.x, point.y);
+    this.requestPlayerFire(game, point.x, point.y);
   }
 
   private handlePointerMove(e: PointerEvent): void {
@@ -582,14 +618,7 @@ export class Game {
       return;
     }
     if (game.crosshairY < GROUND_Y - 20) {
-      if (fireInterceptor(game, game.crosshairX, game.crosshairY)) {
-        SFX.fire();
-        if (game._actionLog) {
-          game._actionLog.push({ tick: game._replayTick ?? 0, type: "fire", x: game.crosshairX, y: game.crosshairY });
-        }
-      } else {
-        SFX.emptyClick();
-      }
+      this.requestPlayerFire(game, game.crosshairX, game.crosshairY);
     }
   }
 
@@ -734,6 +763,7 @@ export class Game {
         } else if (game.state === "playing") {
           while (game._timeAccum >= 1) {
             game._timeAccum -= 1;
+            this.releaseBufferedPlayerFire(game);
             snapshotPositions(game);
             simUpdate(game, 1, (t, d) => this.handleSimEvent(t, d));
             game._replayTick = (game._replayTick ?? 0) + 1;
