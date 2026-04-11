@@ -534,6 +534,114 @@ function drawTitleStyleMissile(
   ctx.restore();
 }
 
+function drawShahed136Exhaust(
+  ctx: CanvasRenderingContext2D,
+  { trailLength = 0, effectScale = 1 }: { trailLength?: number; effectScale?: number } = {},
+) {
+  if (trailLength <= 0) return;
+
+  const smokeLen = 9 + Math.min(trailLength, 12) * 0.75;
+  const smokeGrad = ctx.createLinearGradient(-10.8 - smokeLen, 0, -10.3, 0);
+  smokeGrad.addColorStop(0, "rgba(120,128,136,0)");
+  smokeGrad.addColorStop(0.48, "rgba(136,144,152,0.18)");
+  smokeGrad.addColorStop(1, "rgba(190,198,206,0.28)");
+  ctx.strokeStyle = smokeGrad;
+  ctx.lineWidth = 1.25 * effectScale;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(-10.8 - smokeLen, 0);
+  ctx.lineTo(-10.3, 0);
+  ctx.stroke();
+
+  const emberAlpha = 0.14 + Math.min(trailLength, 8) * 0.02;
+  ctx.fillStyle = `rgba(196,170,118,${emberAlpha})`;
+  ctx.beginPath();
+  ctx.arc(-10.6, 0, 0.46 * effectScale, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawShahed136Body(
+  ctx: CanvasRenderingContext2D,
+  { effectScale = 1, animTime = 0 }: { effectScale?: number; animTime?: number } = {},
+) {
+  const bodyGrad = ctx.createLinearGradient(13, 0, -11, 0);
+  bodyGrad.addColorStop(0, "#b4afbc");
+  bodyGrad.addColorStop(0.34, "#706c7e");
+  bodyGrad.addColorStop(1, "#353b4b");
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath();
+  ctx.moveTo(13, 0);
+  ctx.lineTo(4.4, -1.9);
+  ctx.lineTo(-7.8, -2.4);
+  ctx.lineTo(-10.8, 0);
+  ctx.lineTo(-7.8, 2.4);
+  ctx.lineTo(4.4, 1.9);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "rgba(14,18,28,0.82)";
+  ctx.lineWidth = 0.85;
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(236,242,250,0.4)";
+  ctx.lineWidth = 0.62;
+  ctx.stroke();
+
+  ctx.fillStyle = "#495367";
+  ctx.beginPath();
+  ctx.moveTo(5.8, -1.25);
+  ctx.lineTo(-5.6, -10.2);
+  ctx.lineTo(-8.2, -1.65);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "rgba(236,242,250,0.34)";
+  ctx.lineWidth = 0.56;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(5.8, 1.25);
+  ctx.lineTo(-5.6, 10.2);
+  ctx.lineTo(-8.2, 1.65);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "rgba(236,242,250,0.34)";
+  ctx.lineWidth = 0.56;
+  ctx.stroke();
+
+  ctx.fillStyle = "rgba(222, 236, 255, 0.3)";
+  ctx.fillRect(-0.4, -0.95, 6.5, 0.52);
+
+  ctx.fillStyle = "#5b6980";
+  ctx.beginPath();
+  ctx.moveTo(-6.2, -1.2);
+  ctx.lineTo(-9.8, -4.3);
+  ctx.lineTo(-8.2, -0.9);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(-6.2, 1.2);
+  ctx.lineTo(-9.8, 4.3);
+  ctx.lineTo(-8.2, 0.9);
+  ctx.closePath();
+  ctx.fill();
+
+  const propAngle = Math.cos(animTime * 0.8) * 1.1;
+  ctx.strokeStyle = "rgba(226,232,242,0.82)";
+  ctx.lineWidth = effectScale * 0.68;
+  ctx.beginPath();
+  ctx.moveTo(-11 + propAngle, -3.6);
+  ctx.lineTo(-11 - propAngle, 3.6);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(-11 - propAngle, -2.9);
+  ctx.lineTo(-11 + propAngle, 2.9);
+  ctx.stroke();
+
+  const propGlow = ctx.createRadialGradient(-11, 0, 0, -11, 0, 4.8);
+  propGlow.addColorStop(0, "rgba(255, 136, 76, 0.2)");
+  propGlow.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = propGlow;
+  ctx.fillRect(-16, -5, 10, 10);
+}
+
 function drawStackCarrierMissile(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -718,8 +826,8 @@ function drawStackCarrierMissile(
   ctx.restore();
 }
 
-export function hash01(a: number, b = 0, c = 0) {
-  const value = Math.sin(a * 12.9898 + b * 78.233 + c * 37.719) * 43758.5453123;
+export function hash01(a: number, b = 0, c = 0, d = 0) {
+  const value = Math.sin(a * 12.9898 + b * 78.233 + c * 37.719 + d * 19.173) * 43758.5453123;
   return value - Math.floor(value);
 }
 
@@ -3175,114 +3283,11 @@ function drawMissiles(ctx: CanvasRenderingContext2D, game: GameState, layout: La
         });
       }
     } else {
-      // Ballistic missile — cooler metallic body with title-style hot exhaust
-      ctx.save();
-      // Smoke trail
-      m.trail.forEach((t, i) => {
-        const a = (i / m.trail.length) * 0.24;
-        const r = (1.8 + (1 - i / m.trail.length) * 2.6) * layout.effectScale;
-        ctx.fillStyle = `rgba(112,126,148,${a})`;
-        ctx.beginPath();
-        ctx.arc(t.x, t.y, r, 0, Math.PI * 2);
-        ctx.fill();
+      drawDefaultMissileEntity(ctx, m, {
+        time: game.time,
+        enemyScale: layout.enemyScale,
+        effectScale: layout.effectScale,
       });
-      if (m.trail.length > 1) {
-        ctx.beginPath();
-        m.trail.forEach((t, i) => {
-          if (i === 0) ctx.moveTo(t.x, t.y);
-          else ctx.lineTo(t.x, t.y);
-        });
-        ctx.strokeStyle = "rgba(208,220,232,0.18)";
-        ctx.lineWidth = 2 * layout.effectScale;
-        ctx.stroke();
-      }
-      for (let i = Math.max(0, m.trail.length - 8); i < m.trail.length; i++) {
-        const a = ((i - (m.trail.length - 8)) / 8) * 0.55;
-        ctx.fillStyle = `rgba(255,188,92,${a})`;
-        ctx.beginPath();
-        ctx.arc(m.trail[i].x, m.trail[i].y, 1.25 * layout.effectScale, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      ctx.translate(m.x, m.y);
-      ctx.rotate(angle);
-      ctx.scale(layout.enemyScale, layout.enemyScale);
-
-      const bodyGrad = ctx.createLinearGradient(10, 0, -11, 0);
-      bodyGrad.addColorStop(0, "#fbfdff");
-      bodyGrad.addColorStop(0.18, "#d9e2ec");
-      bodyGrad.addColorStop(0.55, "#8798ac");
-      bodyGrad.addColorStop(1, "#46576d");
-      ctx.fillStyle = bodyGrad;
-      ctx.beginPath();
-      ctx.moveTo(10, 0);
-      ctx.lineTo(4.8, -2.3);
-      ctx.lineTo(-7.6, -2.15);
-      ctx.lineTo(-9.7, -0.9);
-      ctx.lineTo(-9.7, 0.9);
-      ctx.lineTo(-7.6, 2.15);
-      ctx.lineTo(4.8, 2.3);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = "rgba(16, 24, 36, 0.72)";
-      ctx.lineWidth = 0.9;
-      ctx.stroke();
-      ctx.strokeStyle = "rgba(242, 248, 255, 0.56)";
-      ctx.lineWidth = 0.68;
-      ctx.stroke();
-
-      ctx.fillStyle = "#dfe7f1";
-      ctx.beginPath();
-      ctx.moveTo(10, 0);
-      ctx.lineTo(5.1, -1.7);
-      ctx.lineTo(5.1, 1.7);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = "rgba(182, 232, 255, 0.5)";
-      ctx.fillRect(-0.7, -1.42, 5.9, 0.72);
-      ctx.fillStyle = "#41586f";
-      ctx.fillRect(-5.1, -0.48, 7.5, 0.96);
-      ctx.strokeStyle = "rgba(250,252,255,0.72)";
-      ctx.lineWidth = 0.65;
-      ctx.beginPath();
-      ctx.moveTo(-2.7, -2);
-      ctx.lineTo(5.8, -1.42);
-      ctx.stroke();
-
-      ctx.fillStyle = "#a2b3c4";
-      ctx.beginPath();
-      ctx.moveTo(-6, -2.05);
-      ctx.lineTo(-10.8, -5.9);
-      ctx.lineTo(-7.9, -1.3);
-      ctx.closePath();
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(-6, 2.05);
-      ctx.lineTo(-10.8, 5.9);
-      ctx.lineTo(-7.9, 1.3);
-      ctx.closePath();
-      ctx.fill();
-
-      const exhaustFlicker = 0.55 + 0.45 * Math.sin(game.time * 0.9 + m.x * 0.018 + m.y * 0.02);
-      const flameLen = 7 + 10 * exhaustFlicker;
-      glow(ctx, "#ff9850", 11 * layout.effectScale);
-      ctx.fillStyle = `rgba(255, 102, 42, ${0.62 + exhaustFlicker * 0.24})`;
-      ctx.beginPath();
-      ctx.moveTo(-9.3, -1.85);
-      ctx.lineTo(-10.6 - flameLen, 0);
-      ctx.lineTo(-9.3, 1.85);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = `rgba(255, 222, 144, ${0.54 + exhaustFlicker * 0.22})`;
-      ctx.beginPath();
-      ctx.moveTo(-9.1, -0.85);
-      ctx.lineTo(-10.1 - flameLen * 0.56, 0);
-      ctx.lineTo(-9.1, 0.85);
-      ctx.closePath();
-      ctx.fill();
-      glowOff(ctx);
-
-      ctx.restore();
     }
 
     if (m.luredByFlare) {
@@ -3297,221 +3302,256 @@ function drawMissiles(ctx: CanvasRenderingContext2D, game: GameState, layout: La
   });
 }
 
-function drawDrones(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutProfile) {
-  // Drones (Shaheds)
-  game.drones.forEach((d: Drone) => {
-    const facing = d.vx > 0 ? 1 : -1;
-    const trail = d.trail ?? [];
-    const trailAngle = trail.length
-      ? Math.atan2(d.y - trail[trail.length - 1].y, d.x - trail[trail.length - 1].x)
-      : Math.atan2(d.vy || 0, d.vx || 1);
-    const dirX = Math.cos(trailAngle);
-    const dirY = Math.sin(trailAngle);
-    if (trail.length > 0 && d.subtype === "shahed238") {
-      ctx.save();
-      const pulseAmt = pulse(game.time, 0.55, d.x * 0.02 + d.y * 0.03);
-      const jetTailX = d.x - dirX * 14 * layout.enemyScale;
-      const jetTailY = d.y - dirY * 14 * layout.enemyScale;
-      const jetTrailLen = (22 + 8 * pulseAmt) * layout.enemyScale;
-      const jetTrail = ctx.createLinearGradient(
-        jetTailX - dirX * jetTrailLen,
-        jetTailY - dirY * jetTrailLen,
-        jetTailX,
-        jetTailY,
-      );
-      jetTrail.addColorStop(0, "rgba(255, 130, 60, 0)");
-      jetTrail.addColorStop(0.45, "rgba(255, 130, 60, 0.16)");
-      jetTrail.addColorStop(0.82, "rgba(210, 220, 230, 0.24)");
-      jetTrail.addColorStop(1, "rgba(255, 205, 120, 0.08)");
-      ctx.strokeStyle = jetTrail;
-      ctx.lineWidth = 3.8 * layout.effectScale * layout.enemyScale;
-      ctx.lineCap = "round";
-      ctx.beginPath();
-      ctx.moveTo(jetTailX - dirX * jetTrailLen, jetTailY - dirY * jetTrailLen);
-      ctx.lineTo(jetTailX, jetTailY);
-      ctx.stroke();
+function drawDefaultMissileEntity(
+  ctx: CanvasRenderingContext2D,
+  m: Missile,
+  { time, enemyScale, effectScale }: { time: number; enemyScale: number; effectScale: number },
+) {
+  const angle = Math.atan2(m.vy, m.vx);
 
-      trail.forEach((t, i) => {
-        const alpha = (i / trail.length) * 0.2;
-        const radius = (1.6 + (i / trail.length) * 2.4) * layout.effectScale;
-        ctx.fillStyle = `rgba(255, 150, 82, ${alpha})`;
-        ctx.beginPath();
-        ctx.arc(t.x - dirX * 12 * layout.enemyScale, t.y - dirY * 12 * layout.enemyScale, radius, 0, Math.PI * 2);
-        ctx.fill();
-      });
-      ctx.restore();
-    }
+  ctx.save();
+  m.trail.forEach((t, i) => {
+    const a = (i / m.trail.length) * 0.24;
+    const r = (1.8 + (1 - i / m.trail.length) * 2.6) * effectScale;
+    ctx.fillStyle = `rgba(112,126,148,${a})`;
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, r, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  if (m.trail.length > 1) {
+    ctx.beginPath();
+    m.trail.forEach((t, i) => {
+      if (i === 0) ctx.moveTo(t.x, t.y);
+      else ctx.lineTo(t.x, t.y);
+    });
+    ctx.strokeStyle = "rgba(208,220,232,0.18)";
+    ctx.lineWidth = 2 * effectScale;
+    ctx.stroke();
+  }
+  for (let i = Math.max(0, m.trail.length - 8); i < m.trail.length; i++) {
+    const a = ((i - (m.trail.length - 8)) / 8) * 0.55;
+    ctx.fillStyle = `rgba(255,188,92,${a})`;
+    ctx.beginPath();
+    ctx.arc(m.trail[i].x, m.trail[i].y, 1.25 * effectScale, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
+  ctx.translate(m.x, m.y);
+  ctx.rotate(angle);
+  ctx.scale(enemyScale, enemyScale);
+
+  const bodyGrad = ctx.createLinearGradient(10, 0, -11, 0);
+  bodyGrad.addColorStop(0, "#fbfdff");
+  bodyGrad.addColorStop(0.18, "#d9e2ec");
+  bodyGrad.addColorStop(0.55, "#8798ac");
+  bodyGrad.addColorStop(1, "#46576d");
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath();
+  ctx.moveTo(10, 0);
+  ctx.lineTo(4.8, -2.3);
+  ctx.lineTo(-7.6, -2.15);
+  ctx.lineTo(-9.7, -0.9);
+  ctx.lineTo(-9.7, 0.9);
+  ctx.lineTo(-7.6, 2.15);
+  ctx.lineTo(4.8, 2.3);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "rgba(16, 24, 36, 0.72)";
+  ctx.lineWidth = 0.9;
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(242, 248, 255, 0.56)";
+  ctx.lineWidth = 0.68;
+  ctx.stroke();
+
+  ctx.fillStyle = "#dfe7f1";
+  ctx.beginPath();
+  ctx.moveTo(10, 0);
+  ctx.lineTo(5.1, -1.7);
+  ctx.lineTo(5.1, 1.7);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "rgba(182, 232, 255, 0.5)";
+  ctx.fillRect(-0.7, -1.42, 5.9, 0.72);
+  ctx.fillStyle = "#41586f";
+  ctx.fillRect(-5.1, -0.48, 7.5, 0.96);
+  ctx.strokeStyle = "rgba(250,252,255,0.72)";
+  ctx.lineWidth = 0.65;
+  ctx.beginPath();
+  ctx.moveTo(-2.7, -2);
+  ctx.lineTo(5.8, -1.42);
+  ctx.stroke();
+
+  ctx.fillStyle = "#a2b3c4";
+  ctx.beginPath();
+  ctx.moveTo(-6, -2.05);
+  ctx.lineTo(-10.8, -5.9);
+  ctx.lineTo(-7.9, -1.3);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(-6, 2.05);
+  ctx.lineTo(-10.8, 5.9);
+  ctx.lineTo(-7.9, 1.3);
+  ctx.closePath();
+  ctx.fill();
+
+  const exhaustFlicker = 0.55 + 0.45 * Math.sin(time * 0.9 + m.x * 0.018 + m.y * 0.02);
+  const flameLen = 7 + 10 * exhaustFlicker;
+  glow(ctx, "#ff9850", 11 * effectScale);
+  ctx.fillStyle = `rgba(255, 102, 42, ${0.62 + exhaustFlicker * 0.24})`;
+  ctx.beginPath();
+  ctx.moveTo(-9.3, -1.85);
+  ctx.lineTo(-10.6 - flameLen, 0);
+  ctx.lineTo(-9.3, 1.85);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = `rgba(255, 222, 144, ${0.54 + exhaustFlicker * 0.22})`;
+  ctx.beginPath();
+  ctx.moveTo(-9.1, -0.85);
+  ctx.lineTo(-10.1 - flameLen * 0.56, 0);
+  ctx.lineTo(-9.1, 0.85);
+  ctx.closePath();
+  ctx.fill();
+  glowOff(ctx);
+
+  ctx.restore();
+}
+
+function drawDroneEntity(
+  ctx: CanvasRenderingContext2D,
+  d: Drone,
+  { time, enemyScale, effectScale }: { time: number; enemyScale: number; effectScale: number },
+) {
+  const facing = d.vx > 0 ? 1 : -1;
+  const trail = d.trail ?? [];
+  const trailAngle = trail.length
+    ? Math.atan2(d.y - trail[trail.length - 1].y, d.x - trail[trail.length - 1].x)
+    : Math.atan2(d.vy || 0, d.vx || 1);
+  const dirX = Math.cos(trailAngle);
+  const dirY = Math.sin(trailAngle);
+
+  if (trail.length > 0 && d.subtype === "shahed238") {
     ctx.save();
-    ctx.translate(d.x, d.y);
-    if (d.subtype === "shahed238" || d.diving) {
-      const angle = Math.atan2(d.vy, d.vx);
-      ctx.rotate(angle);
-    } else {
-      ctx.scale(facing, 1);
-    }
-    ctx.scale(layout.enemyScale, layout.enemyScale);
+    const pulseAmt = pulse(time, 0.55, d.x * 0.02 + d.y * 0.03);
+    const jetTailX = d.x - dirX * 14 * enemyScale;
+    const jetTailY = d.y - dirY * 14 * enemyScale;
+    const jetTrailLen = (22 + 8 * pulseAmt) * enemyScale;
+    const jetTrail = ctx.createLinearGradient(
+      jetTailX - dirX * jetTrailLen,
+      jetTailY - dirY * jetTrailLen,
+      jetTailX,
+      jetTailY,
+    );
+    jetTrail.addColorStop(0, "rgba(255, 130, 60, 0)");
+    jetTrail.addColorStop(0.45, "rgba(255, 130, 60, 0.16)");
+    jetTrail.addColorStop(0.82, "rgba(210, 220, 230, 0.24)");
+    jetTrail.addColorStop(1, "rgba(255, 205, 120, 0.08)");
+    ctx.strokeStyle = jetTrail;
+    ctx.lineWidth = 3.8 * effectScale * enemyScale;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(jetTailX - dirX * jetTrailLen, jetTailY - dirY * jetTrailLen);
+    ctx.lineTo(jetTailX, jetTailY);
+    ctx.stroke();
 
-    if (d.subtype === "shahed136" && trail.length > 0) {
-      const smokeLen = 9 + Math.min(trail.length, 12) * 0.75;
-      const smokeGrad = ctx.createLinearGradient(-10.8 - smokeLen, 0, -10.3, 0);
-      smokeGrad.addColorStop(0, "rgba(120,128,136,0)");
-      smokeGrad.addColorStop(0.48, "rgba(136,144,152,0.18)");
-      smokeGrad.addColorStop(1, "rgba(190,198,206,0.28)");
-      ctx.strokeStyle = smokeGrad;
-      ctx.lineWidth = 1.25 * layout.effectScale;
-      ctx.lineCap = "round";
+    trail.forEach((t, i) => {
+      const alpha = (i / trail.length) * 0.2;
+      const radius = (1.6 + (i / trail.length) * 2.4) * effectScale;
+      ctx.fillStyle = `rgba(255, 150, 82, ${alpha})`;
       ctx.beginPath();
-      ctx.moveTo(-10.8 - smokeLen, 0);
-      ctx.lineTo(-10.3, 0);
-      ctx.stroke();
-
-      const emberAlpha = 0.14 + Math.min(trail.length, 8) * 0.02;
-      ctx.fillStyle = `rgba(196,170,118,${emberAlpha})`;
-      ctx.beginPath();
-      ctx.arc(-10.6, 0, 0.46 * layout.effectScale, 0, Math.PI * 2);
+      ctx.arc(t.x - dirX * 12 * enemyScale, t.y - dirY * 12 * enemyScale, radius, 0, Math.PI * 2);
       ctx.fill();
-    }
-
-    if (d.subtype === "shahed238") {
-      // Jet Shahed-238 — sleek delta wing, larger
-      ctx.fillStyle = "#4a4a5a";
-      // Fuselage
-      ctx.beginPath();
-      ctx.moveTo(16, 0);
-      ctx.lineTo(-10, -3);
-      ctx.lineTo(-14, 0);
-      ctx.lineTo(-10, 3);
-      ctx.closePath();
-      ctx.fill();
-      // Delta wings
-      ctx.fillStyle = "#3a3a4a";
-      ctx.beginPath();
-      ctx.moveTo(4, -2);
-      ctx.lineTo(-8, -14);
-      ctx.lineTo(-12, -2);
-      ctx.closePath();
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(4, 2);
-      ctx.lineTo(-8, 14);
-      ctx.lineTo(-12, 2);
-      ctx.closePath();
-      ctx.fill();
-      // Jet exhaust
-      const exLen = 7 + 5 * pulse(game.time, 0.55, d.x * 0.02 + d.y * 0.03);
-      ctx.fillStyle = "#ff6600";
-      glow(ctx, "#ff4400", 12 * layout.effectScale);
-      ctx.beginPath();
-      ctx.moveTo(-14, -2);
-      ctx.lineTo(-14 - exLen, 0);
-      ctx.lineTo(-14, 2);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = "#ffcc44";
-      glowOff(ctx);
-      ctx.beginPath();
-      ctx.moveTo(-14, -1);
-      ctx.lineTo(-14 - exLen * 0.5, 0);
-      ctx.lineTo(-14, 1);
-      ctx.closePath();
-      ctx.fill();
-      glowOff(ctx);
-      // Dive warning indicator
-      if (d.diving) {
-        ctx.strokeStyle = "#ff2200";
-        ctx.globalAlpha = 0.5 + Math.sin(game.time * 0.3) * 0.3;
-        ctx.lineWidth = layout.effectScale;
-        ctx.beginPath();
-        ctx.arc(0, 0, 20, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-      }
-    } else {
-      // Prop Shahed-136 — slimmer flying wing with subtle prop bloom
-      const bodyGrad = ctx.createLinearGradient(13, 0, -11, 0);
-      bodyGrad.addColorStop(0, "#b4afbc");
-      bodyGrad.addColorStop(0.34, "#706c7e");
-      bodyGrad.addColorStop(1, "#353b4b");
-      ctx.fillStyle = bodyGrad;
-      ctx.beginPath();
-      ctx.moveTo(13, 0);
-      ctx.lineTo(4.4, -1.9);
-      ctx.lineTo(-7.8, -2.4);
-      ctx.lineTo(-10.8, 0);
-      ctx.lineTo(-7.8, 2.4);
-      ctx.lineTo(4.4, 1.9);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = "rgba(14,18,28,0.82)";
-      ctx.lineWidth = 0.85;
-      ctx.stroke();
-      ctx.strokeStyle = "rgba(236,242,250,0.4)";
-      ctx.lineWidth = 0.62;
-      ctx.stroke();
-      ctx.fillStyle = "#495367";
-      ctx.beginPath();
-      ctx.moveTo(5.8, -1.25);
-      ctx.lineTo(-5.6, -10.2);
-      ctx.lineTo(-8.2, -1.65);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = "rgba(236,242,250,0.34)";
-      ctx.lineWidth = 0.56;
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(5.8, 1.25);
-      ctx.lineTo(-5.6, 10.2);
-      ctx.lineTo(-8.2, 1.65);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = "rgba(236,242,250,0.34)";
-      ctx.lineWidth = 0.56;
-      ctx.stroke();
-      ctx.fillStyle = "rgba(222, 236, 255, 0.3)";
-      ctx.fillRect(-0.4, -0.95, 6.5, 0.52);
-      ctx.fillStyle = "#5b6980";
-      ctx.beginPath();
-      ctx.moveTo(-6.2, -1.2);
-      ctx.lineTo(-9.8, -4.3);
-      ctx.lineTo(-8.2, -0.9);
-      ctx.closePath();
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(-6.2, 1.2);
-      ctx.lineTo(-9.8, 4.3);
-      ctx.lineTo(-8.2, 0.9);
-      ctx.closePath();
-      ctx.fill();
-      const pa = game.time * 0.8;
-      const wobble = Math.cos(pa) * 1.1;
-      ctx.strokeStyle = "rgba(226,232,242,0.82)";
-      ctx.lineWidth = layout.effectScale * 0.68;
-      ctx.beginPath();
-      ctx.moveTo(-11 + wobble, -3.6);
-      ctx.lineTo(-11 - wobble, 3.6);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(-11 - wobble, -2.9);
-      ctx.lineTo(-11 + wobble, 2.9);
-      ctx.stroke();
-      const propGlow = ctx.createRadialGradient(-11, 0, 0, -11, 0, 4.8);
-      propGlow.addColorStop(0, "rgba(255, 136, 76, 0.2)");
-      propGlow.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = propGlow;
-      ctx.fillRect(-16, -5, 10, 10);
-    }
-
-    // Blinking nav light
-    if (Math.sin(game.time * 0.15) > 0) {
-      ctx.fillStyle = d.subtype === "shahed238" ? "#ff2200" : "#ff4400";
-      glow(ctx, ctx.fillStyle, 2 * layout.effectScale);
-      ctx.beginPath();
-      ctx.arc(0, 0, 0.75 * layout.effectScale, 0, Math.PI * 2);
-      ctx.fill();
-      glowOff(ctx);
-    }
+    });
     ctx.restore();
+  }
+
+  ctx.save();
+  ctx.translate(d.x, d.y);
+  if (d.subtype === "shahed238" || d.diving) {
+    const angle = Math.atan2(d.vy, d.vx);
+    ctx.rotate(angle);
+  } else {
+    ctx.scale(facing, 1);
+  }
+  ctx.scale(enemyScale, enemyScale);
+
+  if (d.subtype === "shahed136") drawShahed136Exhaust(ctx, { trailLength: trail.length, effectScale });
+
+  if (d.subtype === "shahed238") {
+    // Jet Shahed-238 — sleek delta wing, larger
+    ctx.fillStyle = "#4a4a5a";
+    ctx.beginPath();
+    ctx.moveTo(16, 0);
+    ctx.lineTo(-10, -3);
+    ctx.lineTo(-14, 0);
+    ctx.lineTo(-10, 3);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = "#3a3a4a";
+    ctx.beginPath();
+    ctx.moveTo(4, -2);
+    ctx.lineTo(-8, -14);
+    ctx.lineTo(-12, -2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(4, 2);
+    ctx.lineTo(-8, 14);
+    ctx.lineTo(-12, 2);
+    ctx.closePath();
+    ctx.fill();
+
+    const exLen = 7 + 5 * pulse(time, 0.55, d.x * 0.02 + d.y * 0.03);
+    ctx.fillStyle = "#ff6600";
+    glow(ctx, "#ff4400", 12 * effectScale);
+    ctx.beginPath();
+    ctx.moveTo(-14, -2);
+    ctx.lineTo(-14 - exLen, 0);
+    ctx.lineTo(-14, 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#ffcc44";
+    glowOff(ctx);
+    ctx.beginPath();
+    ctx.moveTo(-14, -1);
+    ctx.lineTo(-14 - exLen * 0.5, 0);
+    ctx.lineTo(-14, 1);
+    ctx.closePath();
+    ctx.fill();
+    glowOff(ctx);
+
+    if (d.diving) {
+      ctx.strokeStyle = "#ff2200";
+      ctx.globalAlpha = 0.5 + Math.sin(time * 0.3) * 0.3;
+      ctx.lineWidth = effectScale;
+      ctx.beginPath();
+      ctx.arc(0, 0, 20, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  } else {
+    drawShahed136Body(ctx, { effectScale, animTime: time });
+  }
+
+  if (Math.sin(time * 0.15) > 0) {
+    ctx.fillStyle = d.subtype === "shahed238" ? "#ff2200" : "#ff4400";
+    glow(ctx, ctx.fillStyle, 2 * effectScale);
+    ctx.beginPath();
+    ctx.arc(0, 0, 0.75 * effectScale, 0, Math.PI * 2);
+    ctx.fill();
+    glowOff(ctx);
+  }
+  ctx.restore();
+}
+
+function drawDrones(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutProfile) {
+  game.drones.forEach((d: Drone) => {
+    drawDroneEntity(ctx, d, {
+      time: game.time,
+      enemyScale: layout.enemyScale,
+      effectScale: layout.effectScale,
+    });
   });
 }
 
@@ -5966,86 +6006,13 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
     drawTitleLauncher(l.x, l.y - 105, angle, 0.92);
   });
 
-  function drawTitleShahed(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number, scale = 1, alpha = 1) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(angle);
-    ctx.scale(scale, scale);
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle = "#4f4f60";
-    ctx.beginPath();
-    ctx.moveTo(16, 0);
-    ctx.lineTo(-10, -3);
-    ctx.lineTo(-14, 0);
-    ctx.lineTo(-10, 3);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = "#3e3e4d";
-    ctx.beginPath();
-    ctx.moveTo(4, -2);
-    ctx.lineTo(-8, -14);
-    ctx.lineTo(-12, -2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(4, 2);
-    ctx.lineTo(-8, 14);
-    ctx.lineTo(-12, 2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = "#5a5a6b";
-    ctx.beginPath();
-    ctx.moveTo(-14, -2);
-    ctx.lineTo(-14.8, 0);
-    ctx.lineTo(-14, 2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = "#868698";
-    ctx.beginPath();
-    ctx.arc(-14, 0, 1.1, 0, Math.PI * 2);
-    ctx.fill();
-    // Animated exhaust — flicker length and brightness
-    const exhaustFlicker = 0.55 + 0.45 * Math.sin(t * 1.8 + x * 0.07);
-    const exhaustLen = 4 + 6 * exhaustFlicker;
-    const exhaustAlpha = 0.55 + 0.45 * exhaustFlicker;
-    ctx.fillStyle = `rgba(255, 100, 40, ${exhaustAlpha})`;
-    ctx.beginPath();
-    ctx.moveTo(-14, -1.2);
-    ctx.lineTo(-14 - exhaustLen, 0);
-    ctx.lineTo(-14, 1.2);
-    ctx.closePath();
-    ctx.fill();
-    // Inner hot core
-    ctx.fillStyle = `rgba(255, 220, 120, ${exhaustAlpha * 0.7})`;
-    ctx.beginPath();
-    ctx.moveTo(-14, -0.5);
-    ctx.lineTo(-14 - exhaustLen * 0.5, 0);
-    ctx.lineTo(-14, 0.5);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-  }
-
-  function drawTitleMissileStreak(
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    angle: number,
-    scale = 1,
-    alpha = 1,
-    trailLen = 58,
-    trailPulse = 1,
-  ) {
-    drawTitleStyleMissile(ctx, x, y, angle, { scale, alpha, trailLen, trailPulse });
-  }
-
   const titleAircraft = [
-    { kind: "shahed", x: 125, y: 520, scale: 2, phase: 0.1 },
-    { kind: "shahed", x: 100, y: 620, scale: 2, phase: 0.1 },
-    { kind: "shahed", x: 150, y: 800, scale: 2, phase: 0.1 },
-    { kind: "missile", x: 752, y: 550, scale: 2, phase: 0.32 },
-    { kind: "missile", x: 702, y: 786, scale: 2, phase: 0.32 },
-    { kind: "missile", x: 758, y: 836, scale: 2, phase: 0.56 },
+    { kind: "shahed", x: 125, y: 520, scale: layout.enemyScale, phase: 0.1 },
+    { kind: "shahed", x: 100, y: 620, scale: layout.enemyScale, phase: 0.1 },
+    { kind: "shahed", x: 150, y: 800, scale: layout.enemyScale, phase: 0.1 },
+    { kind: "missile", x: 752, y: 550, scale: layout.enemyScale, phase: 0.32 },
+    { kind: "missile", x: 702, y: 786, scale: layout.enemyScale, phase: 0.32 },
+    { kind: "missile", x: 758, y: 836, scale: layout.enemyScale, phase: 0.56 },
   ];
   const titleTargetX = BURJ_X;
   const titleTargetY = burjBaseY - burjHeight + 18;
@@ -6063,37 +6030,52 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
     ctx.stroke();
     ctx.restore();
     if (obj.kind === "shahed") {
-      ctx.save();
-      const shahedTrail = 74 + 18 * trailPulse;
-      const shahedTrailFade = 0.18 + 0.08 * trailPulse;
-      const shahedTrailGrad = ctx.createLinearGradient(
-        x - Math.cos(aimAngle) * shahedTrail,
-        y - Math.sin(aimAngle) * shahedTrail,
+      const shahedAngle = aimAngle + 0.08;
+      const titleTime = t * 60 + index * 7;
+      const travelSpeed = 2.8 + trailPulse * 0.45;
+      const titleDroneTrail = Array.from({ length: 14 }, (_, trailIndex) => ({
+        x: x - Math.cos(shahedAngle) * (trailIndex + 1) * 9,
+        y: y - Math.sin(shahedAngle) * (trailIndex + 1) * 9,
+      }));
+      const titleDrone: Drone = {
         x,
         y,
-      );
-      shahedTrailGrad.addColorStop(0, "rgba(255, 150, 70, 0)");
-      shahedTrailGrad.addColorStop(0.75, `rgba(255, 150, 70, ${shahedTrailFade})`);
-      shahedTrailGrad.addColorStop(1, "rgba(210, 220, 230, 0.06)");
-      ctx.strokeStyle = shahedTrailGrad;
-      ctx.lineWidth = 2.2;
-      ctx.beginPath();
-      ctx.moveTo(x - Math.cos(aimAngle) * shahedTrail, y - Math.sin(aimAngle) * shahedTrail);
-      ctx.lineTo(x, y);
-      ctx.stroke();
-      drawTitleShahed(ctx, x, y, aimAngle + 0.08, obj.scale, 0.88);
-      ctx.restore();
+        vx: Math.cos(shahedAngle) * travelSpeed,
+        vy: Math.sin(shahedAngle) * travelSpeed,
+        trail: titleDroneTrail,
+        wobble: 0,
+        alive: true,
+        type: "drone",
+        subtype: "shahed136",
+        health: 1,
+        diving: true,
+      };
+      drawDroneEntity(ctx, titleDrone, {
+        time: titleTime,
+        enemyScale: obj.scale,
+        effectScale: layout.effectScale,
+      });
     } else {
-      ctx.save();
-      const missileTrailFade = 0.08 * trailPulse;
-      ctx.strokeStyle = "rgba(210, 214, 220, 0.18)";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(x - Math.cos(aimAngle) * 34, y - Math.sin(aimAngle) * 34);
-      ctx.lineTo(x, y);
-      ctx.stroke();
-      drawTitleMissileStreak(ctx, x, y, aimAngle + 0.04, obj.scale, 1, 80, missileTrailFade);
-      ctx.restore();
+      const missileAngle = aimAngle + 0.04;
+      const missileSpeed = 6.8 + trailPulse * 0.8;
+      const titleMissile: Missile = {
+        x,
+        y,
+        vx: Math.cos(missileAngle) * missileSpeed,
+        vy: Math.sin(missileAngle) * missileSpeed,
+        accel: 0,
+        trail: Array.from({ length: 14 }, (_, trailIndex) => ({
+          x: x - Math.cos(missileAngle) * (trailIndex + 1) * 7,
+          y: y - Math.sin(missileAngle) * (trailIndex + 1) * 7,
+        })),
+        alive: true,
+        type: "missile",
+      };
+      drawDefaultMissileEntity(ctx, titleMissile, {
+        time: t * 60 + index * 5,
+        enemyScale: obj.scale,
+        effectScale: layout.effectScale,
+      });
     }
   });
 
