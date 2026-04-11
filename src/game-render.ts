@@ -4,8 +4,10 @@ import {
   GROUND_Y,
   CITY_Y,
   GAMEPLAY_SCENIC_GROUND_Y,
+  GAMEPLAY_WATERLINE_Y,
   GAMEPLAY_SCENIC_LAUNCHER_Y,
   GAMEPLAY_SCENIC_THREAT_FLOOR_Y,
+  WATER_SURFACE_OFFSET,
   COL,
   BURJ_X,
   BURJ_H,
@@ -1488,7 +1490,7 @@ function drawSharedWater(
   { groundY, renderHeight, tintBottomAlpha = 0.18 }: SharedWaterOptions,
   t: number,
 ) {
-  const waterTop = groundY + 8;
+  const waterTop = groundY + WATER_SURFACE_OFFSET;
   const waterBottom = renderHeight;
   const titleWaterImg = getTitleWaterImage();
   if (titleWaterImg) {
@@ -4346,7 +4348,7 @@ export function drawGame(
   const layout = resolveLayoutProfile(layoutProfile);
   const sceneTime = game.time / 60;
   const scenicGroundY = GAMEPLAY_SCENIC_GROUND_Y;
-  const scenicThreatFloorY = GAMEPLAY_SCENIC_THREAT_FLOOR_Y;
+  const gameplayWaterlineY = GAMEPLAY_WATERLINE_Y;
   let sx = 0,
     sy = 0;
   if (game.shakeTimer > 0 && !game._debugMode) {
@@ -4400,7 +4402,7 @@ export function drawGame(
   drawLasersAndBullets(ctx, game, layout);
   ctx.save();
   ctx.beginPath();
-  ctx.rect(0, 0, CANVAS_W, scenicThreatFloorY);
+  ctx.rect(0, 0, CANVAS_W, gameplayWaterlineY);
   ctx.clip();
   drawMissiles(ctx, game, layout);
   drawDrones(ctx, game, layout);
@@ -4649,6 +4651,13 @@ function drawCollisionOverlay(ctx: CanvasRenderingContext2D, game: GameState) {
       ctx.strokeRect(site.x - hw, site.y - hh, hw * 2, hh * 2);
     }
   });
+
+  // Waterline fallback collider
+  ctx.strokeStyle = "#66ccff";
+  ctx.beginPath();
+  ctx.moveTo(0, GAMEPLAY_WATERLINE_Y);
+  ctx.lineTo(CANVAS_W, GAMEPLAY_WATERLINE_Y);
+  ctx.stroke();
 
   // Missiles & bombs
   ctx.strokeStyle = "red";
@@ -5233,7 +5242,7 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
   ctx.restore();
 
   // Waterfront strip and reflections
-  const waterTop = titleGroundY + 8;
+  const waterTop = titleGroundY + WATER_SURFACE_OFFSET;
   const waterBottom = CANVAS_H;
   ctx.save();
   const titleWaterImg = getTitleWaterImage();

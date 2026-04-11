@@ -3,6 +3,7 @@ import {
   CANVAS_H,
   GROUND_Y,
   CITY_Y,
+  GAMEPLAY_WATERLINE_Y,
   GAMEPLAY_SCENIC_THREAT_FLOOR_Y,
   COL,
   BURJ_X,
@@ -984,9 +985,9 @@ export function updateAutoSystems(
       r.heading = normalizeAngle(r.heading + appliedTurn);
       r.x += Math.cos(r.heading) * r.speed * dt;
       r.y += Math.sin(r.heading) * r.speed * dt;
-      if (r.y >= GAMEPLAY_SCENIC_THREAT_FLOOR_Y) {
+      if (r.y >= GAMEPLAY_WATERLINE_Y) {
         r.alive = false;
-        boom(g, r.x, GAMEPLAY_SCENIC_THREAT_FLOOR_Y, r.blastRadius, COL.roadrunner, false, onEvent, 15);
+        boom(g, r.x, GAMEPLAY_WATERLINE_Y, r.blastRadius, COL.roadrunner, false, onEvent, 15);
         return;
       }
     }
@@ -1501,9 +1502,9 @@ function updateMissiles(g: GameState, dt: number, onEvent?: ((type: string, data
       });
     }
     // Ground impact
-    if (m.alive && m.y >= GROUND_Y) {
+    if (m.alive && m.y >= GAMEPLAY_WATERLINE_Y) {
       m.alive = false;
-      boom(g, m.x, GROUND_Y, 50, "#ff4400", false, onEvent, 25);
+      boom(g, m.x, GAMEPLAY_WATERLINE_Y, 50, "#ff4400", false, onEvent, 25);
     }
     if (m.x < -50 || m.x > CANVAS_W + 50 || m.y > CANVAS_H + 50) m.alive = false;
   });
@@ -1665,11 +1666,12 @@ function updateDrones(
     // Shahed impact
     if (d.diveTarget && d.alive) {
       const hitTarget = dist(d.x, d.y, d.diveTarget.x, d.diveTarget.y) < 20;
-      const hitGround = d.y >= GAMEPLAY_SCENIC_THREAT_FLOOR_Y;
+      const hitGround = d.y >= GAMEPLAY_WATERLINE_Y;
       const pathDone = d.waypoints && (d.pathIndex ?? 0) >= d.waypoints.length - 1;
       if (hitTarget || hitGround || pathDone) {
+        const impactY = hitTarget ? d.y : Math.min(d.y, GAMEPLAY_WATERLINE_Y);
         d.alive = false;
-        boom(g, d.x, d.y, 70, "#ff6600", false, onEvent, 40);
+        boom(g, d.x, impactY, 70, "#ff6600", false, onEvent, 40);
         g.shakeTimer = 15;
         g.shakeIntensity = 6;
         g.buildings.forEach((b) => {
