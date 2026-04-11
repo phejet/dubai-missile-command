@@ -2263,192 +2263,304 @@ function drawSharedLauncher(
     statusLabel = null,
   }: SharedLauncherOptions,
 ) {
+  // Destroyed — flat dark wreck silhouette
   if (!active) {
-    ctx.fillStyle = "#333";
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.72;
+    ctx.fillStyle = "#1a1210";
     ctx.beginPath();
-    ctx.moveTo(lx - 10, ly + 3);
-    ctx.lineTo(lx - 8, ly - 2);
-    ctx.lineTo(lx - 2, ly - 3);
-    ctx.lineTo(lx + 3, ly - 1);
-    ctx.lineTo(lx + 9, ly - 2);
-    ctx.lineTo(lx + 10, ly + 3);
+    ctx.moveTo(lx - 28, ly + 4);
+    ctx.lineTo(lx - 18, ly - 6);
+    ctx.lineTo(lx + 14, ly - 6);
+    ctx.lineTo(lx + 26, ly + 4);
+    ctx.lineTo(lx + 24, ly + 12);
+    ctx.lineTo(lx - 24, ly + 12);
     ctx.closePath();
     ctx.fill();
+    ctx.strokeStyle = "rgba(180, 50, 30, 0.35)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
     return;
   }
 
+  // All drawing in local space — translate to launcher centre then scale
   ctx.save();
   ctx.translate(lx, ly);
   ctx.scale(scale, scale);
-  ctx.translate(-lx, -ly);
   ctx.globalAlpha = alpha;
 
-  const shadow = ctx.createRadialGradient(lx, ly + 18, 0, lx, ly + 18, 44);
-  shadow.addColorStop(0, "rgba(4, 8, 16, 0.55)");
-  shadow.addColorStop(0.7, "rgba(4, 8, 16, 0.18)");
-  shadow.addColorStop(1, "rgba(0, 0, 0, 0)");
-  ctx.fillStyle = shadow;
-  ctx.fillRect(lx - 46, ly - 6, 92, 50);
+  const dmg = damaged;
+  // Olive-khaki palette — clearly distinct from the blue-grey water below
+  const c = {
+    base: dmg ? "#261816" : "#1a2014",
+    body: dmg ? "#30201e" : "#243020",
+    turr: dmg ? "#38282a" : "#2e3c26",
+    sk0: "rgba(6, 10, 4, 0.92)",
+    sk1: dmg ? "rgba(220, 140, 120, 0.3)" : "rgba(168, 214, 100, 0.3)",
+    glow: dmg ? "rgba(255, 90, 60, 0.2)" : "rgba(110, 200, 80, 0.2)",
+  };
 
-  const haze = ctx.createRadialGradient(lx, ly - 4, 0, lx, ly - 4, 60);
-  haze.addColorStop(0, "rgba(88, 150, 210, 0.12)");
-  haze.addColorStop(0.45, "rgba(56, 104, 168, 0.06)");
-  haze.addColorStop(1, "rgba(0, 0, 0, 0)");
-  ctx.fillStyle = haze;
-  ctx.fillRect(lx - 60, ly - 54, 120, 110);
+  // Single atmosphere glow under launcher
+  const atmos = ctx.createRadialGradient(0, 8, 0, 0, 8, 48);
+  atmos.addColorStop(0, c.glow);
+  atmos.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = atmos;
+  ctx.fillRect(-50, -28, 100, 72);
 
-  const glow = ctx.createRadialGradient(lx, ly + 8, 0, lx, ly + 8, 52);
-  glow.addColorStop(0, damaged ? "rgba(255, 126, 110, 0.22)" : "rgba(0, 210, 255, 0.26)");
-  glow.addColorStop(1, "rgba(0, 0, 0, 0)");
-  ctx.fillStyle = glow;
-  ctx.fillRect(lx - 52, ly - 26, 104, 68);
-
-  ctx.fillStyle = damaged ? "#30222a" : "#182434";
+  // ── TRACKED BASE ──────────────────────────────────────────────────────────
+  const baseG = ctx.createLinearGradient(-28, 0, 28, 0);
+  baseG.addColorStop(0, "#0e1208");
+  baseG.addColorStop(0.5, c.base);
+  baseG.addColorStop(1, "#0c100a");
+  ctx.fillStyle = baseG;
   ctx.beginPath();
-  ctx.moveTo(lx - 34, ly + 12);
-  ctx.lineTo(lx - 24, ly - 6);
-  ctx.lineTo(lx + 24, ly - 6);
-  ctx.lineTo(lx + 34, ly + 12);
-  ctx.lineTo(lx + 22, ly + 18);
-  ctx.lineTo(lx - 22, ly + 18);
+  ctx.moveTo(-30, 2);
+  ctx.lineTo(-28, -2);
+  ctx.lineTo(28, -2);
+  ctx.lineTo(30, 2);
+  ctx.lineTo(28, 14);
+  ctx.lineTo(-28, 14);
   ctx.closePath();
   ctx.fill();
-  ctx.strokeStyle = "rgba(4, 10, 18, 0.85)";
-  ctx.lineWidth = 1.8;
-  ctx.beginPath();
-  ctx.moveTo(lx - 34, ly + 12);
-  ctx.lineTo(lx - 24, ly - 6);
-  ctx.lineTo(lx + 24, ly - 6);
-  ctx.lineTo(lx + 34, ly + 12);
+  ctx.strokeStyle = c.sk0;
+  ctx.lineWidth = 1.5;
   ctx.stroke();
-  ctx.strokeStyle = damaged ? "rgba(164, 116, 120, 0.24)" : "rgba(58, 116, 164, 0.4)";
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = c.sk1;
+  ctx.lineWidth = 0.75;
   ctx.beginPath();
-  ctx.moveTo(lx - 33, ly + 11.5);
-  ctx.lineTo(lx - 24, ly - 5.5);
-  ctx.lineTo(lx + 24, ly - 5.5);
-  ctx.lineTo(lx + 33, ly + 11.5);
+  ctx.moveTo(-29, 2.5);
+  ctx.lineTo(-27, -1.5);
+  ctx.lineTo(27, -1.5);
+  ctx.lineTo(29, 2.5);
   ctx.stroke();
 
-  ctx.fillStyle = damaged ? "#2b2632" : "#223247";
-  ctx.beginPath();
-  ctx.moveTo(lx - 22, ly + 5);
-  ctx.lineTo(lx - 16, ly - 11);
-  ctx.lineTo(lx - 6, ly - 16);
-  ctx.lineTo(lx + 10, ly - 16);
-  ctx.lineTo(lx + 18, ly - 8);
-  ctx.lineTo(lx + 22, ly + 4);
-  ctx.lineTo(lx + 12, ly + 10);
-  ctx.lineTo(lx - 14, ly + 10);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = "rgba(6, 12, 22, 0.88)";
-  ctx.lineWidth = 1.6;
-  ctx.stroke();
-
-  ctx.fillStyle = damaged ? "rgba(255, 120, 110, 0.08)" : "rgba(120, 205, 255, 0.16)";
-  ctx.beginPath();
-  ctx.moveTo(lx - 16, ly - 8);
-  ctx.lineTo(lx - 5, ly - 13);
-  ctx.lineTo(lx + 8, ly - 13);
-  ctx.lineTo(lx + 13, ly - 8);
-  ctx.lineTo(lx + 12, ly - 6);
-  ctx.lineTo(lx - 14, ly - 6);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.fillStyle = damaged ? "#3a2d38" : "#2a3d56";
-  ctx.beginPath();
-  ctx.ellipse(lx, ly - 10, 13, 9, 0, Math.PI, 0);
-  ctx.lineTo(lx + 10, ly - 4);
-  ctx.lineTo(lx - 10, ly - 4);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = "rgba(6, 12, 22, 0.82)";
-  ctx.lineWidth = 1.4;
-  ctx.stroke();
-  ctx.strokeStyle = damaged ? "rgba(255, 126, 110, 0.22)" : "rgba(120, 210, 255, 0.42)";
-  ctx.lineWidth = 1.1;
-  ctx.beginPath();
-  ctx.arc(lx, ly - 10, 13, Math.PI + 0.22, -0.12);
-  ctx.stroke();
-
-  const rimDir = lx < BURJ_X ? 1 : -1;
-  ctx.fillStyle = damaged ? "rgba(255, 142, 120, 0.12)" : "rgba(150, 232, 255, 0.2)";
-  ctx.fillRect(lx + rimDir * 11 - 1.5, ly - 14, 3, 20);
-  ctx.fillStyle = damaged ? "rgba(255, 142, 120, 0.08)" : "rgba(150, 232, 255, 0.12)";
-  ctx.fillRect(lx + rimDir * 19 - 1, ly - 4, 2, 10);
-
-  const servoPulse = 0.46 + 0.28 * Math.sin(t * 2.2 + lx * 0.018);
-  ctx.fillStyle = damaged ? `rgba(255, 140, 110, ${servoPulse * 0.5})` : `rgba(120, 235, 255, ${servoPulse})`;
-  ctx.fillRect(lx - 3, ly - 2, 6, 6);
-  const servoGlow = ctx.createRadialGradient(lx, ly + 1, 0, lx, ly + 1, 14);
-  servoGlow.addColorStop(
-    0,
-    damaged ? `rgba(255, 140, 110, ${servoPulse * 0.55})` : `rgba(120, 235, 255, ${servoPulse})`,
-  );
-  servoGlow.addColorStop(
-    0.5,
-    damaged ? `rgba(200, 110, 90, ${servoPulse * 0.25})` : `rgba(86, 196, 255, ${servoPulse * 0.5})`,
-  );
-  servoGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
-  ctx.fillStyle = servoGlow;
-  ctx.fillRect(lx - 14, ly - 13, 28, 28);
-
-  ctx.strokeStyle = damaged ? "rgba(84, 54, 60, 0.95)" : "rgba(50, 70, 94, 0.95)";
-  ctx.lineWidth = 3.2;
-  ctx.beginPath();
-  ctx.moveTo(lx - 7, ly + 8);
-  ctx.lineTo(lx - 16, ly + 18);
-  ctx.stroke();
-
-  ctx.save();
-  ctx.translate(lx + 2, ly - 12);
-  ctx.rotate(barrelAngle);
-  ctx.fillStyle = damaged ? "#5a3a3a" : "#3b526c";
-  ctx.beginPath();
-  ctx.moveTo(-2, -4.2);
-  ctx.lineTo(24, -3.2);
-  ctx.quadraticCurveTo(31, -1.1, 34, 0);
-  ctx.quadraticCurveTo(31, 1.1, 24, 3.2);
-  ctx.lineTo(-2, 4.2);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = "rgba(8, 14, 24, 0.9)";
-  ctx.lineWidth = 1.2;
-  ctx.stroke();
-  ctx.fillStyle = damaged ? "#3a2930" : "#1d2b3d";
-  ctx.fillRect(2, -1.2, 24, 2.4);
-  ctx.strokeStyle = damaged ? "rgba(255, 150, 120, 0.18)" : "rgba(136, 218, 255, 0.34)";
+  // Road wheel slots
+  ctx.fillStyle = dmg ? "rgba(50, 24, 20, 0.9)" : "rgba(12, 24, 10, 0.9)";
+  for (let i = 0; i < 7; i++) ctx.fillRect(-25 + i * 8, 5, 5, 7);
+  ctx.strokeStyle = dmg ? "rgba(70, 34, 28, 0.5)" : "rgba(30, 60, 24, 0.5)";
   ctx.lineWidth = 0.9;
   ctx.beginPath();
-  ctx.moveTo(0, -3.1);
-  ctx.lineTo(26, -2.1);
+  ctx.moveTo(-26, 13);
+  ctx.lineTo(26, 13);
   ctx.stroke();
-  ctx.fillStyle = damaged ? "rgba(255, 150, 120, 0.08)" : "rgba(150, 230, 255, 0.16)";
-  ctx.fillRect(6, -3, 14, 1.3);
-  ctx.fillStyle = damaged ? "#412d36" : "#2a3e56";
-  ctx.fillRect(-4, -5.4, 7, 10.8);
 
+  // ── MAIN BODY ─────────────────────────────────────────────────────────────
+  const bodyG = ctx.createLinearGradient(-22, -14, 22, -14);
+  bodyG.addColorStop(0, "#101808");
+  bodyG.addColorStop(0.3, c.body);
+  bodyG.addColorStop(0.75, "#1c2a16");
+  bodyG.addColorStop(1, "#0e1608");
+  ctx.fillStyle = bodyG;
+  ctx.beginPath();
+  ctx.moveTo(-26, 0);
+  ctx.lineTo(-24, -8);
+  ctx.lineTo(-16, -14);
+  ctx.lineTo(16, -14);
+  ctx.lineTo(22, -8);
+  ctx.lineTo(24, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = c.sk0;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.strokeStyle = c.sk1;
+  ctx.lineWidth = 0.72;
+  ctx.beginPath();
+  ctx.moveTo(-25, 0);
+  ctx.lineTo(-23, -7.5);
+  ctx.lineTo(-15.5, -13.5);
+  ctx.lineTo(15.5, -13.5);
+  ctx.lineTo(21.5, -7.5);
+  ctx.stroke();
+
+  // Top panel highlight
+  ctx.fillStyle = dmg ? "rgba(255, 80, 60, 0.07)" : "rgba(180, 230, 100, 0.09)";
+  ctx.beginPath();
+  ctx.moveTo(-10, -12);
+  ctx.lineTo(-6, -15);
+  ctx.lineTo(8, -15);
+  ctx.lineTo(12, -12);
+  ctx.lineTo(10, -10);
+  ctx.lineTo(-8, -10);
+  ctx.closePath();
+  ctx.fill();
+
+  // Horizontal armour crease + vertical panel lines
+  ctx.strokeStyle = dmg ? "rgba(90, 46, 40, 0.45)" : "rgba(50, 90, 34, 0.45)";
+  ctx.lineWidth = 0.65;
+  ctx.beginPath();
+  ctx.moveTo(-20, -4);
+  ctx.lineTo(20, -4);
+  ctx.moveTo(-8, 0);
+  ctx.lineTo(-8, -8);
+  ctx.moveTo(8, 0);
+  ctx.lineTo(8, -8);
+  ctx.stroke();
+
+  // Exhaust vent slots
+  ctx.fillStyle = dmg ? "rgba(44, 18, 14, 0.9)" : "rgba(10, 18, 6, 0.9)";
+  ctx.fillRect(-4, -8, 3, 3);
+  ctx.fillRect(1, -8, 3, 3);
+
+  // Rear support strut
+  ctx.strokeStyle = dmg ? "rgba(70, 36, 30, 0.9)" : "rgba(40, 72, 28, 0.9)";
+  ctx.lineWidth = 3.2;
+  ctx.beginPath();
+  ctx.moveTo(-18, 0);
+  ctx.lineTo(-24, 12);
+  ctx.stroke();
+  ctx.strokeStyle = dmg ? "rgba(200, 90, 70, 0.18)" : "rgba(160, 220, 80, 0.18)";
+  ctx.lineWidth = 0.9;
+  ctx.beginPath();
+  ctx.moveTo(-18, 0);
+  ctx.lineTo(-23, 11);
+  ctx.stroke();
+
+  // ── STATUS LIGHTS ─────────────────────────────────────────────────────────
+  // Fast blue status LEDs
+  const ledA = 0.5 + 0.5 * Math.sin(t * 10.8 + lx * 0.027);
+  ctx.fillStyle = dmg ? `rgba(255, 80, 60, ${0.65 * ledA})` : `rgba(80, 220, 255, ${0.65 * ledA})`;
+  ctx.fillRect(-16, -4, 3, 4);
+  ctx.fillRect(-10, -5, 3, 5);
+
+  // Amber warning light (slow pulse)
+  const warnA = 0.42 + 0.22 * Math.sin(t * 0.9 + lx * 0.013 + 1.2);
+  ctx.fillStyle = `rgba(255, 188, 100, ${warnA})`;
+  ctx.fillRect(10, -4, 3, 4);
+
+  // Green ready indicator (medium pulse)
+  const srvA = 0.46 + 0.28 * Math.sin(t * 2.2 + lx * 0.018);
+  ctx.fillStyle = dmg ? `rgba(255, 130, 110, ${srvA * 0.55})` : `rgba(120, 240, 80, ${srvA})`;
+  ctx.fillRect(-2, -1, 5, 5);
+  const srvGlow = ctx.createRadialGradient(1, 2, 0, 1, 2, 11);
+  srvGlow.addColorStop(0, dmg ? `rgba(255, 130, 110, ${srvA * 0.5})` : `rgba(120, 240, 80, ${srvA})`);
+  srvGlow.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = srvGlow;
+  ctx.fillRect(-12, -10, 28, 26);
+
+  // Burj-facing rim light
+  const rimDir = lx < BURJ_X ? 1 : -1;
+  ctx.fillStyle = dmg ? "rgba(255, 142, 120, 0.18)" : "rgba(160, 230, 100, 0.2)";
+  ctx.fillRect(rimDir * 18 - 1.5, -12, 3, 18);
+
+  // ── ROTATING BARREL GROUP ─────────────────────────────────────────────────
+  ctx.save();
+  ctx.translate(2, -16);
+  ctx.rotate(barrelAngle);
+
+  // Angular turret housing
+  const tG = ctx.createLinearGradient(-10, 0, 22, 0);
+  tG.addColorStop(0, "#0e1608");
+  tG.addColorStop(0.35, c.turr);
+  tG.addColorStop(1, "#18240e");
+  ctx.fillStyle = tG;
+  ctx.beginPath();
+  ctx.moveTo(-10, -6);
+  ctx.lineTo(20, -5);
+  ctx.lineTo(24, -2.5);
+  ctx.lineTo(24, 2.5);
+  ctx.lineTo(20, 5);
+  ctx.lineTo(-10, 6);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = c.sk0;
+  ctx.lineWidth = 1.3;
+  ctx.stroke();
+  ctx.strokeStyle = c.sk1;
+  ctx.lineWidth = 0.7;
+  ctx.beginPath();
+  ctx.moveTo(-9, -5.5);
+  ctx.lineTo(20, -4.5);
+  ctx.lineTo(23, -2);
+  ctx.stroke();
+
+  // Upper launch tube
+  ctx.fillStyle = dmg ? "#302028" : "#243020";
+  ctx.beginPath();
+  ctx.moveTo(20, -6.5);
+  ctx.lineTo(38, -5);
+  ctx.lineTo(38.5, -2.5);
+  ctx.lineTo(20, -2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = c.sk0;
+  ctx.lineWidth = 0.9;
+  ctx.stroke();
+  ctx.strokeStyle = dmg ? "rgba(230, 130, 110, 0.22)" : "rgba(168, 218, 100, 0.26)";
+  ctx.lineWidth = 0.6;
+  ctx.beginPath();
+  ctx.moveTo(20, -6);
+  ctx.lineTo(37, -4.5);
+  ctx.stroke();
+
+  // Lower launch tube
+  ctx.fillStyle = dmg ? "#302028" : "#243020";
+  ctx.beginPath();
+  ctx.moveTo(20, 2);
+  ctx.lineTo(38.5, 2.5);
+  ctx.lineTo(38, 5);
+  ctx.lineTo(20, 6.5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = c.sk0;
+  ctx.lineWidth = 0.9;
+  ctx.stroke();
+  ctx.strokeStyle = dmg ? "rgba(230, 130, 110, 0.14)" : "rgba(168, 218, 100, 0.14)";
+  ctx.lineWidth = 0.6;
+  ctx.beginPath();
+  ctx.moveTo(20, 2.5);
+  ctx.lineTo(37, 3.8);
+  ctx.stroke();
+
+  // Gap between tubes (dark channel)
+  ctx.fillStyle = dmg ? "#1c1018" : "#0e160a";
+  ctx.fillRect(22, -2, 16.5, 4);
+
+  // Barrel root collar
+  const colG = ctx.createLinearGradient(-10, -7, -10, 7);
+  colG.addColorStop(0, dmg ? "#2e2030" : "#2a3c20");
+  colG.addColorStop(1, dmg ? "#1e1624" : "#162010");
+  ctx.fillStyle = colG;
+  ctx.fillRect(-10, -7, 12, 14);
+  ctx.strokeStyle = c.sk0;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(-10, -7, 12, 14);
+  ctx.strokeStyle = c.sk1;
+  ctx.lineWidth = 0.5;
+  ctx.beginPath();
+  ctx.moveTo(-9, -6.5);
+  ctx.lineTo(1, -6.5);
+  ctx.stroke();
+
+  // Charge glow at barrel root
+  const chP = 0.16 + 0.18 * Math.sin(t * 1.45 + lx * 0.03 + 0.8);
+  const chG = ctx.createRadialGradient(4, 0, 0, 4, 0, 13);
+  chG.addColorStop(0, dmg ? `rgba(255, 130, 100, ${chP})` : `rgba(140, 240, 80, ${chP})`);
+  chG.addColorStop(0.6, dmg ? `rgba(200, 90, 70, ${chP * 0.35})` : `rgba(90, 190, 60, ${chP * 0.35})`);
+  chG.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = chG;
+  ctx.fillRect(-8, -14, 26, 28);
+  ctx.fillStyle = dmg ? `rgba(255, 148, 118, ${0.5 + chP})` : `rgba(160, 244, 100, ${0.5 + chP})`;
+  ctx.fillRect(2, -1.3, 10, 2.6);
+
+  // Muzzle tip glow
   const pulse = 0.38 + 0.26 * Math.sin(t * 2.4 + lx * 0.02);
-  const flashStrength = Math.max(pulse, muzzleFlash);
-  const muzzleX = Math.cos(barrelAngle) * 34;
-  const muzzleY = Math.sin(barrelAngle) * 34;
-  const mGlow = ctx.createRadialGradient(muzzleX, muzzleY, 0, muzzleX, muzzleY, 10 + muzzleFlash * 6);
-  mGlow.addColorStop(
-    0,
-    damaged ? `rgba(255, 160, 110, ${flashStrength * 0.35})` : `rgba(0, 255, 200, ${flashStrength})`,
-  );
-  mGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
-  ctx.fillStyle = mGlow;
-  ctx.fillRect(muzzleX - 10, muzzleY - 10, 20, 20);
-  ctx.restore();
+  const fs = Math.max(pulse, muzzleFlash);
+  const mgR = 10 + muzzleFlash * 6;
+  const mgGrad = ctx.createRadialGradient(40, 0, 0, 40, 0, mgR);
+  mgGrad.addColorStop(0, dmg ? `rgba(255, 160, 110, ${fs * 0.38})` : `rgba(0, 255, 200, ${fs})`);
+  mgGrad.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = mgGrad;
+  ctx.fillRect(30, -mgR, mgR * 2, mgR * 2);
+
+  ctx.restore(); // end barrel rotation
 
   if (statusLabel) {
     ctx.textAlign = "center";
     ctx.font = `bold 8px ${ARCADE_FONT_FAMILY}`;
-    ctx.fillStyle = damaged ? "rgba(255, 132, 110, 0.72)" : "rgba(128, 236, 255, 0.72)";
-    ctx.fillText(statusLabel, lx, ly + 30);
+    ctx.fillStyle = dmg ? "rgba(255, 132, 110, 0.72)" : "rgba(128, 236, 255, 0.72)";
+    ctx.fillText(statusLabel, 0, 30);
     ctx.textAlign = "left";
   }
 
@@ -5273,205 +5385,9 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
   }
   ctx.restore();
 
-  // Launcher silhouettes on title screen
+  // Launcher silhouettes — delegate to shared renderer
   function drawTitleLauncher(lx: number, ly: number, barrelAngle: number, alpha = 1) {
-    ctx.save();
-    ctx.globalAlpha = alpha;
-
-    // Dark grounding shadow to separate from skyline clutter.
-    const shadow = ctx.createRadialGradient(lx, ly + 18, 0, lx, ly + 18, 44);
-    shadow.addColorStop(0, "rgba(4, 8, 16, 0.55)");
-    shadow.addColorStop(0.7, "rgba(4, 8, 16, 0.18)");
-    shadow.addColorStop(1, "rgba(0, 0, 0, 0)");
-    ctx.fillStyle = shadow;
-    ctx.fillRect(lx - 46, ly - 6, 92, 50);
-
-    // Soft atmospheric veil pushes the launcher forward from the skyline.
-    const haze = ctx.createRadialGradient(lx, ly - 4, 0, lx, ly - 4, 60);
-    haze.addColorStop(0, "rgba(88, 150, 210, 0.12)");
-    haze.addColorStop(0.45, "rgba(56, 104, 168, 0.06)");
-    haze.addColorStop(1, "rgba(0, 0, 0, 0)");
-    ctx.fillStyle = haze;
-    ctx.fillRect(lx - 60, ly - 54, 120, 110);
-
-    // Grounded atmospheric bloom
-    const glow = ctx.createRadialGradient(lx, ly + 8, 0, lx, ly + 8, 52);
-    glow.addColorStop(0, "rgba(0, 210, 255, 0.26)");
-    glow.addColorStop(1, "rgba(0, 0, 0, 0)");
-    ctx.fillStyle = glow;
-    ctx.fillRect(lx - 52, ly - 26, 104, 68);
-
-    // Embedded launch platform
-    ctx.fillStyle = "#182434";
-    ctx.beginPath();
-    ctx.moveTo(lx - 34, ly + 12);
-    ctx.lineTo(lx - 24, ly - 6);
-    ctx.lineTo(lx + 24, ly - 6);
-    ctx.lineTo(lx + 34, ly + 12);
-    ctx.lineTo(lx + 22, ly + 18);
-    ctx.lineTo(lx - 22, ly + 18);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = "rgba(4, 10, 18, 0.85)";
-    ctx.lineWidth = 1.8;
-    ctx.beginPath();
-    ctx.moveTo(lx - 34, ly + 12);
-    ctx.lineTo(lx - 24, ly - 6);
-    ctx.lineTo(lx + 24, ly - 6);
-    ctx.lineTo(lx + 34, ly + 12);
-    ctx.stroke();
-    ctx.strokeStyle = "rgba(58, 116, 164, 0.4)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(lx - 33, ly + 11.5);
-    ctx.lineTo(lx - 24, ly - 5.5);
-    ctx.lineTo(lx + 24, ly - 5.5);
-    ctx.lineTo(lx + 33, ly + 11.5);
-    ctx.stroke();
-    ctx.fillStyle = "rgba(0, 230, 255, 0.12)";
-    ctx.fillRect(lx - 18, ly + 12, 36, 2);
-
-    // Main carriage
-    ctx.fillStyle = "#223247";
-    ctx.beginPath();
-    ctx.moveTo(lx - 22, ly + 5);
-    ctx.lineTo(lx - 16, ly - 11);
-    ctx.lineTo(lx - 6, ly - 16);
-    ctx.lineTo(lx + 10, ly - 16);
-    ctx.lineTo(lx + 18, ly - 8);
-    ctx.lineTo(lx + 22, ly + 4);
-    ctx.lineTo(lx + 12, ly + 10);
-    ctx.lineTo(lx - 14, ly + 10);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = "rgba(6, 12, 22, 0.88)";
-    ctx.lineWidth = 1.6;
-    ctx.stroke();
-    ctx.fillStyle = "rgba(120, 205, 255, 0.16)";
-    ctx.beginPath();
-    ctx.moveTo(lx - 16, ly - 8);
-    ctx.lineTo(lx - 5, ly - 13);
-    ctx.lineTo(lx + 8, ly - 13);
-    ctx.lineTo(lx + 13, ly - 8);
-    ctx.lineTo(lx + 12, ly - 6);
-    ctx.lineTo(lx - 14, ly - 6);
-    ctx.closePath();
-    ctx.fill();
-
-    // Turret cap
-    ctx.fillStyle = "#2a3d56";
-    ctx.beginPath();
-    ctx.ellipse(lx, ly - 10, 13, 9, 0, Math.PI, 0);
-    ctx.lineTo(lx + 10, ly - 4);
-    ctx.lineTo(lx - 10, ly - 4);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = "rgba(6, 12, 22, 0.82)";
-    ctx.lineWidth = 1.4;
-    ctx.stroke();
-    ctx.strokeStyle = "rgba(120, 210, 255, 0.42)";
-    ctx.lineWidth = 1.1;
-    ctx.beginPath();
-    ctx.arc(lx, ly - 10, 13, Math.PI + 0.22, -0.12);
-    ctx.stroke();
-
-    // Burj-facing cyan rim light
-    const rimDir = lx < BURJ_X ? 1 : -1;
-    ctx.fillStyle = "rgba(150, 232, 255, 0.2)";
-    ctx.fillRect(lx + rimDir * 11 - 1.5, ly - 14, 3, 20);
-    ctx.fillStyle = "rgba(150, 232, 255, 0.12)";
-    ctx.fillRect(lx + rimDir * 19 - 1, ly - 4, 2, 10);
-
-    // Slow servo indicator light
-    const servoPulse = 0.46 + 0.28 * Math.sin(t * 2.2 + lx * 0.018);
-    ctx.fillStyle = `rgba(120, 235, 255, ${servoPulse})`;
-    ctx.fillRect(lx - 3, ly - 2, 6, 6);
-    const servoGlow = ctx.createRadialGradient(lx, ly + 1, 0, lx, ly + 1, 14);
-    servoGlow.addColorStop(0, `rgba(120, 235, 255, ${servoPulse})`);
-    servoGlow.addColorStop(0.5, `rgba(86, 196, 255, ${servoPulse * 0.5})`);
-    servoGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
-    ctx.fillStyle = servoGlow;
-    ctx.fillRect(lx - 14, ly - 13, 28, 28);
-
-    // Visible status LEDs on the launcher body.
-    const ledPulse = 0.5 + 0.3 * Math.sin(t * 10.8 + lx * 0.027);
-    ctx.fillStyle = `rgba(118, 238, 255, ${0.7 * ledPulse})`;
-    ctx.fillRect(lx - 12, ly - 6, 3, 5);
-    ctx.fillRect(lx - 7, ly - 8, 3, 6);
-    const warnPulse = 0.38 + 0.22 * Math.sin(t * 0.9 + lx * 0.013 + 1.2);
-    ctx.fillStyle = `rgba(255, 188, 112, ${warnPulse})`;
-    ctx.fillRect(lx + 8, ly - 6, 3, 5);
-
-    // Rear support strut for asymmetry
-    ctx.strokeStyle = "rgba(50, 70, 94, 0.95)";
-    ctx.lineWidth = 3.2;
-    ctx.beginPath();
-    ctx.moveTo(lx - 7, ly + 8);
-    ctx.lineTo(lx - 16, ly + 18);
-    ctx.stroke();
-    ctx.strokeStyle = "rgba(112, 190, 255, 0.16)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(lx - 7, ly + 7);
-    ctx.lineTo(lx - 14, ly + 15);
-    ctx.stroke();
-
-    // Barrel
-    ctx.save();
-    ctx.translate(lx + 2, ly - 12);
-    ctx.rotate(barrelAngle);
-    ctx.fillStyle = "#3b526c";
-    ctx.beginPath();
-    ctx.moveTo(-2, -4.2);
-    ctx.lineTo(24, -3.2);
-    ctx.quadraticCurveTo(31, -1.1, 34, 0);
-    ctx.quadraticCurveTo(31, 1.1, 24, 3.2);
-    ctx.lineTo(-2, 4.2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = "rgba(8, 14, 24, 0.9)";
-    ctx.lineWidth = 1.2;
-    ctx.stroke();
-    ctx.fillStyle = "#1d2b3d";
-    ctx.fillRect(2, -1.2, 24, 2.4);
-    ctx.strokeStyle = "rgba(136, 218, 255, 0.34)";
-    ctx.lineWidth = 0.9;
-    ctx.beginPath();
-    ctx.moveTo(0, -3.1);
-    ctx.lineTo(26, -2.1);
-    ctx.stroke();
-    ctx.fillStyle = "rgba(150, 230, 255, 0.16)";
-    ctx.fillRect(6, -3, 14, 1.3);
-
-    // Barrel collar
-    ctx.fillStyle = "#2a3e56";
-    ctx.fillRect(-4, -5.4, 7, 10.8);
-    ctx.fillStyle = "rgba(132, 214, 255, 0.18)";
-    ctx.fillRect(-2.5, -4.2, 2, 8.4);
-
-    // Muzzle glow pulse
-    const muzzleX = Math.cos(barrelAngle) * 34;
-    const muzzleY = Math.sin(barrelAngle) * 34;
-    const pulse = 0.38 + 0.26 * Math.sin(t * 2.4 + lx * 0.02);
-    const mGlow = ctx.createRadialGradient(muzzleX, muzzleY, 0, muzzleX, muzzleY, 10);
-    mGlow.addColorStop(0, `rgba(0, 255, 200, ${pulse})`);
-    mGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
-    ctx.fillStyle = mGlow;
-    ctx.fillRect(muzzleX - 10, muzzleY - 10, 20, 20);
-
-    // Faint charge halo near the barrel root.
-    const chargePulse = 0.16 + 0.16 * Math.sin(t * 1.45 + lx * 0.03 + 0.8);
-    const chargeGlow = ctx.createRadialGradient(4, 0, 0, 4, 0, 14);
-    chargeGlow.addColorStop(0, `rgba(126, 228, 255, ${chargePulse})`);
-    chargeGlow.addColorStop(0.65, `rgba(80, 176, 255, ${chargePulse * 0.5})`);
-    chargeGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
-    ctx.fillStyle = chargeGlow;
-    ctx.fillRect(-10, -14, 28, 28);
-    ctx.fillStyle = `rgba(142, 236, 255, ${0.5 + chargePulse * 0.8})`;
-    ctx.fillRect(1, -1.3, 10, 2.6);
-    ctx.restore();
-
-    ctx.restore();
+    drawSharedLauncher(ctx, lx, ly, barrelAngle, { t, scale: 1, alpha, damaged: false, active: true, muzzleFlash: 0 });
   }
 
   // Barrel base angles: left launcher points up-right, center straight up, right up-left
