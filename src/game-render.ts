@@ -4690,8 +4690,8 @@ function drawHUD(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutP
     620,
   );
   vignette.addColorStop(0, "rgba(0,0,0,0)");
-  vignette.addColorStop(0.68, "rgba(0,0,0,0.08)");
-  vignette.addColorStop(1, `rgba(2,4,12,${ov("sky.vignetteAlpha", 0.42)})`);
+  vignette.addColorStop(0.68, "rgba(0,0,0,0.04)");
+  vignette.addColorStop(1, `rgba(2,4,12,${ov("sky.vignetteAlpha", 0.21)})`);
   ctx.fillStyle = vignette;
   ctx.fillRect(0, 0, CANVAS_W, layout.renderHeight);
   ctx.fillStyle = "rgba(140, 220, 255, 0.035)";
