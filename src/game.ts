@@ -211,6 +211,7 @@ export class Game {
     this.bindEvents();
     this.setupWindowGlobals();
     preloadRenderAssets();
+    this.setScreen("title");
     this.startRenderLoop();
   }
 
@@ -288,6 +289,11 @@ export class Game {
     this.hudEl.hidden = s !== "playing";
     this.gameoverPanel.hidden = s !== "gameover";
     this.battlefieldCard.classList.toggle("battlefield-card--portraitSky", s === "playing");
+    if (s === "title") {
+      void SFX.playTitleTheme();
+    } else {
+      SFX.stopTitleTheme();
+    }
 
     if (s === "gameover") {
       uiShowGameOver(this.finalScore, this.finalWave, this.finalStats);

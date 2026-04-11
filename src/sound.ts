@@ -19,6 +19,17 @@ let explosionCount = 0;
 let lastWarningTime = 0;
 let lastHornetTime = 0;
 let prewarmed = false;
+const TITLE_THEME_SRC = new URL("./assets/title-theme.mp3", import.meta.url).href;
+const TITLE_THEME_BASE_VOLUME = 0.42;
+const TITLE_THEME_FADE_IN_MS = 900;
+const TITLE_THEME_FADE_OUT_S = 5.5;
+const TITLE_THEME_LOOP_RESTART_S = 0.015;
+const TITLE_THEME_STOP_FADE_MS = 350;
+let titleTheme: HTMLAudioElement | null = null;
+let titleThemeDesired = false;
+let titleThemeLoopStartedAt = 0;
+let titleThemeStopStartedAt = 0;
+let titleThemeRaf: number | null = null;
 
 function ensureCtx() {
   if (ctx) return true;
@@ -65,6 +76,110 @@ function releaseVoice() {
 
 function scheduleRelease(dur: number) {
   setTimeout(releaseVoice, dur * 1000 + 50);
+}
+
+function cancelTitleThemeRaf() {
+  if (titleThemeRaf !== null) {
+    cancelAnimationFrame(titleThemeRaf);
+    titleThemeRaf = null;
+  }
+}
+
+function getTitleThemeStopFactor(atMs: number) {
+  if (titleThemeStopStartedAt <= 0) return 1;
+  return Math.max(0, 1 - (atMs - titleThemeStopStartedAt) / TITLE_THEME_STOP_FADE_MS);
+}
+
+function getTitleThemeVolumeFactor(atMs: number) {
+  const fadeIn = Math.max(0, Math.min(1, (atMs - titleThemeLoopStartedAt) / TITLE_THEME_FADE_IN_MS));
+  let fadeOut = 1;
+  if (titleTheme && Number.isFinite(titleTheme.duration) && titleTheme.duration > 0) {
+    const remaining = titleTheme.duration - titleTheme.currentTime;
+    if (remaining <= TITLE_THEME_FADE_OUT_S) {
+      fadeOut = Math.max(0, Math.min(1, remaining / TITLE_THEME_FADE_OUT_S));
+    }
+  }
+  return Math.min(fadeIn, fadeOut, getTitleThemeStopFactor(atMs));
+}
+
+function syncTitleThemeVolume() {
+  if (!titleTheme) return;
+  const factor = getTitleThemeVolumeFactor(performance.now());
+  titleTheme.volume = _muted ? 0 : TITLE_THEME_BASE_VOLUME * factor;
+}
+
+function ensureTitleTheme() {
+  if (titleTheme) return titleTheme;
+  const audio = new Audio(TITLE_THEME_SRC);
+  audio.preload = "auto";
+  audio.loop = false;
+  audio.setAttribute("playsinline", "");
+  audio.volume = 0;
+  titleTheme = audio;
+  return audio;
+}
+
+function stepTitleTheme() {
+  if (!titleTheme) {
+    cancelTitleThemeRaf();
+    return;
+  }
+
+  syncTitleThemeVolume();
+
+  if (titleThemeStopStartedAt > 0) {
+    const stopElapsed = performance.now() - titleThemeStopStartedAt;
+    if (stopElapsed >= TITLE_THEME_STOP_FADE_MS) {
+      titleTheme.pause();
+      titleTheme.currentTime = 0;
+      titleThemeStopStartedAt = 0;
+      cancelTitleThemeRaf();
+      return;
+    }
+  }
+
+  if (
+    titleThemeDesired &&
+    titleThemeStopStartedAt <= 0 &&
+    Number.isFinite(titleTheme.duration) &&
+    titleTheme.duration > 0
+  ) {
+    const remaining = titleTheme.duration - titleTheme.currentTime;
+    if (remaining <= TITLE_THEME_LOOP_RESTART_S) {
+      titleTheme.volume = 0;
+      titleTheme.currentTime = 0.001;
+      titleThemeLoopStartedAt = performance.now();
+    }
+  }
+
+  if (!titleTheme.paused || titleThemeStopStartedAt > 0) {
+    titleThemeRaf = requestAnimationFrame(stepTitleTheme);
+    return;
+  }
+
+  cancelTitleThemeRaf();
+}
+
+async function tryPlayTitleTheme() {
+  const audio = ensureTitleTheme();
+  titleThemeDesired = true;
+  titleThemeStopStartedAt = 0;
+  if (!audio.paused) {
+    if (!titleThemeRaf) titleThemeRaf = requestAnimationFrame(stepTitleTheme);
+    return true;
+  }
+  titleThemeLoopStartedAt = performance.now();
+  audio.currentTime = 0;
+  syncTitleThemeVolume();
+  try {
+    await audio.play();
+    cancelTitleThemeRaf();
+    titleThemeRaf = requestAnimationFrame(stepTitleTheme);
+    return true;
+  } catch {
+    cancelTitleThemeRaf();
+    return false;
+  }
 }
 
 // Non-null accessors — only called after ensureCtx() has confirmed ctx/master are set
@@ -155,10 +270,28 @@ const SFX = {
   mute() {
     _muted = !_muted;
     if (master) master.gain.value = _muted ? 0 : 1;
+    syncTitleThemeVolume();
   },
 
   isMuted() {
     return _muted;
+  },
+
+  async playTitleTheme() {
+    return tryPlayTitleTheme();
+  },
+
+  stopTitleTheme() {
+    titleThemeDesired = false;
+    if (!titleTheme) return;
+    if (titleTheme.paused) {
+      titleTheme.currentTime = 0;
+      titleThemeStopStartedAt = 0;
+      cancelTitleThemeRaf();
+      return;
+    }
+    titleThemeStopStartedAt = performance.now();
+    if (!titleThemeRaf) titleThemeRaf = requestAnimationFrame(stepTitleTheme);
   },
 
   fire() {
