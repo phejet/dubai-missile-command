@@ -623,7 +623,7 @@ function drawShahed136Body(
   ctx.closePath();
   ctx.fill();
 
-  const propAngle = Math.cos(animTime * 0.8) * 1.1;
+  const propAngle = Math.cos(animTime * 0.56) * 1.1;
   ctx.strokeStyle = "rgba(226,232,242,0.82)";
   ctx.lineWidth = effectScale * 0.68;
   ctx.beginPath();
@@ -1001,20 +1001,16 @@ interface SharedLauncherOptions {
   statusLabel?: string | null;
 }
 
-function drawSharedSky(
-  ctx: CanvasRenderingContext2D,
-  { mode, renderHeight, groundY, stars }: SharedSkyOptions,
-  t: number,
-) {
+function drawSharedSky(ctx: CanvasRenderingContext2D, { renderHeight, groundY, stars }: SharedSkyOptions, t: number) {
   const skyGrad = ctx.createLinearGradient(0, 0, 0, renderHeight);
   skyGrad.addColorStop(0, "#050810");
   skyGrad.addColorStop(0.5, "#0a1030");
-  skyGrad.addColorStop(1, mode === "title" ? "#151030" : "#120d24");
+  skyGrad.addColorStop(1, "#120d24");
   ctx.fillStyle = skyGrad;
   ctx.fillRect(0, 0, CANVAS_W, renderHeight);
 
   ctx.save();
-  ctx.fillStyle = mode === "title" ? "rgba(0,255,200,0.03)" : "rgba(0,255,200,0.018)";
+  ctx.fillStyle = "rgba(0,255,200,0.018)";
   for (let y = 0; y < renderHeight; y += 3) {
     ctx.fillRect(0, y + ((t * 20) % 3), CANVAS_W, 1);
   }
@@ -1027,7 +1023,7 @@ function drawSharedSky(
   ctx.fillStyle = skyGlow;
   ctx.fillRect(0, 0, CANVAS_W, renderHeight);
 
-  if (mode === "game" && GAME_TITLE_STARFIELD_BLEND > 0) {
+  if (GAME_TITLE_STARFIELD_BLEND > 0) {
     const titleDrift = Math.sin(t * 0.08) * 4;
     for (let i = 0; i < GAME_TITLE_STARFIELD_DENSITY; i++) {
       const sx = (hash01(i, 2, 7) * CANVAS_W + titleDrift * 0.3) % CANVAS_W;
@@ -1088,7 +1084,7 @@ function drawSharedSky(
   ctx.restore();
 
   const bloom = ctx.createRadialGradient(BURJ_X, groundY - 220, 20, BURJ_X, groundY - 220, 320);
-  bloom.addColorStop(0, mode === "title" ? "rgba(130, 220, 255, 0.18)" : "rgba(110, 205, 255, 0.12)");
+  bloom.addColorStop(0, "rgba(110, 205, 255, 0.12)");
   bloom.addColorStop(0.45, "rgba(90, 120, 255, 0.08)");
   bloom.addColorStop(1, "rgba(0, 0, 0, 0)");
   ctx.fillStyle = bloom;
@@ -1798,6 +1794,11 @@ function drawSharedBurj(
       beaconGlow.addColorStop(1, "rgba(255, 0, 0, 0)");
       ctx.fillStyle = beaconGlow;
       ctx.fillRect(burjX - 8, burjBaseY - burjHeight - 54, 16, 16);
+      // Bright red center dot
+      ctx.fillStyle = `rgba(255, 255, 220, ${0.7 + 0.3 * beaconIntensity})`;
+      ctx.fillRect(burjX - 1, burjBaseY - burjHeight - 47, 2, 2);
+      ctx.fillStyle = `rgba(255, 80, 40, ${0.9 * beaconIntensity})`;
+      ctx.fillRect(burjX - 1.5, burjBaseY - burjHeight - 47.5, 3, 3);
     }
 
     ctx.save();
@@ -5508,7 +5509,7 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
       const shahedAngle = aimAngle + 0.08;
       const titleTime = t * 60 + index * 7;
       const travelSpeed = 2.8 + trailPulse * 0.45;
-      const titleDroneTrail = Array.from({ length: 14 }, (_, trailIndex) => ({
+      const titleDroneTrail = Array.from({ length: 10 }, (_, trailIndex) => ({
         x: x - Math.cos(shahedAngle) * (trailIndex + 1) * 9,
         y: y - Math.sin(shahedAngle) * (trailIndex + 1) * 9,
       }));
@@ -5539,7 +5540,7 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
         vx: Math.cos(missileAngle) * missileSpeed,
         vy: Math.sin(missileAngle) * missileSpeed,
         accel: 0,
-        trail: Array.from({ length: 14 }, (_, trailIndex) => ({
+        trail: Array.from({ length: 10 }, (_, trailIndex) => ({
           x: x - Math.cos(missileAngle) * (trailIndex + 1) * 7,
           y: y - Math.sin(missileAngle) * (trailIndex + 1) * 7,
         })),

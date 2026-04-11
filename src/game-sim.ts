@@ -1323,7 +1323,7 @@ function updateMissiles(g: GameState, dt: number, onEvent?: ((type: string, data
   g.missiles.forEach((m: Missile) => {
     if (!m.alive) return;
     m.trail.push({ x: m.x, y: m.y });
-    if (m.trail.length > 30) m.trail.shift();
+    if (m.trail.length > 21) m.trail.shift();
     if (m.accel) {
       m.vx *= m.accel ** dt;
       m.vy *= m.accel ** dt;
@@ -1520,7 +1520,7 @@ function updateDrones(
     if (!d.alive) return;
     d.trail ??= [];
     d.trail.push({ x: d.x, y: d.y });
-    if (d.trail.length > (d.subtype === "shahed238" ? 18 : 14)) d.trail.shift();
+    if (d.trail.length > (d.subtype === "shahed238" ? 13 : 10)) d.trail.shift();
     // Lured drones steer toward flare and detonate it on contact
     if (d.luredByFlare) {
       const flareTarget = getLiveFlare(g, d.flareTargetId);
