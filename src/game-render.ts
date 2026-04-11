@@ -5199,62 +5199,11 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
   const t = performance.now() / 1000;
   const cx = CANVAS_W / 2;
   const titleGroundY = GROUND_Y - 100;
-  const skyGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
-  skyGrad.addColorStop(0, "#050810");
-  skyGrad.addColorStop(0.5, "#0a1030");
-  skyGrad.addColorStop(1, "#151030");
-  ctx.fillStyle = skyGrad;
-  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-  ctx.save();
-  ctx.fillStyle = "rgba(0,255,200,0.03)";
-  for (let y = 0; y < CANVAS_H; y += 3) {
-    ctx.fillRect(0, y + ((t * 20) % 3), CANVAS_W, 1);
-  }
-  ctx.restore();
+  drawSharedSky(ctx, { mode: "title", renderHeight: CANVAS_H, groundY: titleGroundY }, t);
   ctx.textAlign = "center";
 
-  const skyGlow = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
-  skyGlow.addColorStop(0, "#050812");
-  skyGlow.addColorStop(0.5, "#0a1030");
-  skyGlow.addColorStop(1, "#130f2d");
-  ctx.fillStyle = skyGlow;
-  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-
-  const titleDrift = Math.sin(t * 0.08) * 4;
   const titleFlicker = 0.95 + 0.03 * Math.sin(t * 2.875) + 0.015 * Math.sin(t * 7.925 + 0.5);
   const titleFlickerSoft = 0.96 + 0.02 * Math.sin(t * 2.425 + 1.4) + 0.01 * Math.sin(t * 6.775);
-
-  // Stars
-  for (let i = 0; i < 500; i++) {
-    const sx = (hash01(i, 2, 7) * CANVAS_W + titleDrift * 0.3) % CANVAS_W;
-    const sy = hash01(i, 5, 11) * 1500 + 8;
-    const seed = hash01(i, 1, 9);
-    const { shimmer, flare } = getStarTwinkleProfile(t, i * 0.9, seed);
-    const size = 0.7 + hash01(i, 3, 1) * 1.6;
-    ctx.fillStyle = `rgba(220, 235, 255, ${0.11 + shimmer * 0.13 + flare * 0.34})`;
-    ctx.fillRect(sx, sy, size * (1 + flare * 0.55), size * (1 + flare * 0.55));
-  }
-
-  // Moon
-  ctx.save();
-  ctx.translate(764, 56);
-  ctx.fillStyle = "rgba(235, 232, 214, 0.9)";
-  ctx.beginPath();
-  ctx.arc(0, 0, 16, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#070912";
-  ctx.beginPath();
-  ctx.arc(6, -3, 15, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-
-  // Title haze / city bloom
-  const bloom = ctx.createRadialGradient(BURJ_X, 410, 20, BURJ_X, 410, 320);
-  bloom.addColorStop(0, "rgba(130, 220, 255, 0.18)");
-  bloom.addColorStop(0.45, "rgba(90, 120, 255, 0.08)");
-  bloom.addColorStop(1, "rgba(0, 0, 0, 0)");
-  ctx.fillStyle = bloom;
-  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
   TITLE_SKYLINE_TOWERS.forEach((tower, i) =>
     drawSharedTower(ctx, tower, titleGroundY - 6, t, Math.sin(t * 0.05 + i * 0.8) * 1.35, 1),
