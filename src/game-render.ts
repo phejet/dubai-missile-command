@@ -844,7 +844,7 @@ function getStarTwinkleProfile(time: number, phase: number, seed: number) {
   const timeA = time + seedA * 23 + seedB * 11;
   const timeB = time + seedB * 31 + seedC * 7;
   const timeC = time + seedC * 41 + seedA * 13;
-  const twinkleRate = 1.5;
+  const twinkleRate = 1.05;
   const shimmer =
     0.55 +
     0.28 * Math.sin(timeA * twinkleRate * (0.74 + seedA * 0.43) + phase * (0.92 + seedB * 0.28) + seedC * Math.PI * 2) +
@@ -866,16 +866,16 @@ function getLightFlicker(time: number, seed: number) {
   const seedA = hash01(seed, 1.1, 3.7);
   const seedB = hash01(seed, 5.9, 8.2);
   const seedC = hash01(seed, 11.7, 2.4);
-  const swell = 0.5 + 0.5 * Math.sin(time * (0.32 + seedA * 0.34) + seedB * Math.PI * 2);
+  const swell = 0.5 + 0.5 * Math.sin(time * (0.224 + seedA * 0.238) + seedB * Math.PI * 2);
   const flutter =
     0.5 +
     0.5 *
       Math.sin(
-        time * (1.15 + seedB * 1.1) +
+        time * (0.805 + seedB * 0.77) +
           seedC * Math.PI * 2 +
-          Math.sin(time * (0.62 + seedA * 0.28) + seedB * 7.1) * (0.35 + seedC * 0.5),
+          Math.sin(time * (0.434 + seedA * 0.196) + seedB * 7.1) * (0.35 + seedC * 0.5),
       );
-  const sparkle = Math.pow(0.5 + 0.5 * Math.sin(time * (2.4 + seedC * 1.5) + seedA * 8.4), 5);
+  const sparkle = Math.pow(0.5 + 0.5 * Math.sin(time * (1.68 + seedC * 1.05) + seedA * 8.4), 5);
   return Math.min(1, 0.32 + swell * 0.26 + flutter * 0.3 + sparkle * 0.42);
 }
 
@@ -1043,7 +1043,7 @@ function drawSharedSky(
     stars.forEach((s) => {
       const seed = hash01(s.x, s.y, s.twinkle);
       const { hero, shimmer, flare } = getStarTwinkleProfile(t, s.twinkle, seed);
-      const alpha = mode === "title" ? 0.1 + shimmer * 0.12 + flare * 0.56 : 0.08 + shimmer * 0.1 + flare * 0.42;
+      const alpha = 0.08 + shimmer * 0.1 + flare * 0.42;
       const sizeMul = 1 + flare * 0.95;
       ctx.fillStyle = `rgba(220, 235, 255, ${alpha})`;
       ctx.fillRect(s.x, s.y, s.size * 1.2 * sizeMul, s.size * 1.2 * sizeMul);
@@ -1062,10 +1062,10 @@ function drawSharedSky(
       const seed = hash01(i, 1, 9);
       const { hero, shimmer, flare } = getStarTwinkleProfile(t, i * 0.9, seed);
       const size = 0.7 + hash01(i, 3, 1) * 1.6;
-      ctx.fillStyle = `rgba(220, 235, 255, ${0.1 + shimmer * 0.12 + flare * 0.54})`;
+      ctx.fillStyle = `rgba(220, 235, 255, ${0.08 + shimmer * 0.1 + flare * 0.42})`;
       ctx.fillRect(sx, sy, size * (1 + flare * 0.95), size * (1 + flare * 0.95));
       if (hero && flare > 0.12) {
-        ctx.fillStyle = `rgba(255,255,255,${0.12 + flare * 0.54})`;
+        ctx.fillStyle = `rgba(255,255,255,${0.12 + flare * 0.52})`;
         const reach = size * (0.7 + flare * 2.2);
         ctx.fillRect(sx - reach, sy, reach * 2.4, Math.max(1, size * 0.36));
         ctx.fillRect(sx, sy - reach, Math.max(1, size * 0.36), reach * 2.4);
