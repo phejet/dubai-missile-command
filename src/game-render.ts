@@ -866,16 +866,16 @@ function getLightFlicker(time: number, seed: number) {
   const seedA = hash01(seed, 1.1, 3.7);
   const seedB = hash01(seed, 5.9, 8.2);
   const seedC = hash01(seed, 11.7, 2.4);
-  const swell = 0.5 + 0.5 * Math.sin(time * (0.056 + seedA * 0.0595) + seedB * Math.PI * 2);
+  const swell = 0.5 + 0.5 * Math.sin(time * (0.0056 + seedA * 0.00595) + seedB * Math.PI * 2);
   const flutter =
     0.5 +
     0.5 *
       Math.sin(
-        time * (0.20125 + seedB * 0.1925) +
+        time * (0.020125 + seedB * 0.01925) +
           seedC * Math.PI * 2 +
-          Math.sin(time * (0.1085 + seedA * 0.049) + seedB * 7.1) * (0.35 + seedC * 0.5),
+          Math.sin(time * (0.01085 + seedA * 0.0049) + seedB * 7.1) * (0.35 + seedC * 0.5),
       );
-  const sparkle = Math.pow(0.5 + 0.5 * Math.sin(time * (0.42 + seedC * 0.2625) + seedA * 8.4), 5);
+  const sparkle = Math.pow(0.5 + 0.5 * Math.sin(time * (0.042 + seedC * 0.02625) + seedA * 8.4), 5);
   return Math.min(1, 0.32 + swell * 0.26 + flutter * 0.3 + sparkle * 0.42);
 }
 
@@ -920,7 +920,7 @@ function drawFlickerWindows(
       const lightSeed = hash01(seed, row, col);
       const paneX = startX + col * (paneW + gapX);
       const paneY = startY + row * (paneH + gapY);
-      const lit = Math.sin(time * (0.44 + lightSeed * 0.28) + row * 1.17 + col * 2.03 + lightSeed * 12) > -0.42;
+      const lit = Math.sin(time * (0.044 + lightSeed * 0.028) + row * 1.17 + col * 2.03 + lightSeed * 12) > -0.42;
       if (!lit) {
         ctx.fillStyle = "rgba(3, 6, 12, 0.74)";
         ctx.fillRect(paneX, paneY, paneW, paneH);
