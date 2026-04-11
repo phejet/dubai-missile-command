@@ -866,16 +866,16 @@ function getLightFlicker(time: number, seed: number) {
   const seedA = hash01(seed, 1.1, 3.7);
   const seedB = hash01(seed, 5.9, 8.2);
   const seedC = hash01(seed, 11.7, 2.4);
-  const swell = 0.5 + 0.5 * Math.sin(time * (0.224 + seedA * 0.238) + seedB * Math.PI * 2);
+  const swell = 0.5 + 0.5 * Math.sin(time * (0.112 + seedA * 0.119) + seedB * Math.PI * 2);
   const flutter =
     0.5 +
     0.5 *
       Math.sin(
-        time * (0.805 + seedB * 0.77) +
+        time * (0.4025 + seedB * 0.385) +
           seedC * Math.PI * 2 +
-          Math.sin(time * (0.434 + seedA * 0.196) + seedB * 7.1) * (0.35 + seedC * 0.5),
+          Math.sin(time * (0.217 + seedA * 0.098) + seedB * 7.1) * (0.35 + seedC * 0.5),
       );
-  const sparkle = Math.pow(0.5 + 0.5 * Math.sin(time * (1.68 + seedC * 1.05) + seedA * 8.4), 5);
+  const sparkle = Math.pow(0.5 + 0.5 * Math.sin(time * (0.84 + seedC * 0.525) + seedA * 8.4), 5);
   return Math.min(1, 0.32 + swell * 0.26 + flutter * 0.3 + sparkle * 0.42);
 }
 
