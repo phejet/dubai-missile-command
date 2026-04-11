@@ -120,7 +120,7 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
     if (action) {
       g.crosshairX = action.x;
       g.crosshairY = action.y;
-      const fired = fireInterceptor(g, action.x, action.y);
+      const fired = fireInterceptor(g, action.x, action.y, tick);
       if (fired) {
         reserveBotTarget(g, action.targetRef, action.reservationUntil ?? tick, tick);
         lastFireTick = tick;

@@ -106,8 +106,9 @@ function runGameDraft(botConfig: Record<string, unknown>, seed: number, preset: 
     if (action) {
       g.crosshairX = action.x;
       g.crosshairY = action.y;
-      fireInterceptor(g, action.x, action.y);
-      lastFireTick = tick;
+      if (fireInterceptor(g, action.x, action.y, tick)) {
+        lastFireTick = tick;
+      }
     }
 
     update(g, 1, null);

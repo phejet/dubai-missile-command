@@ -422,6 +422,7 @@ export interface GameState {
   ammo: [number, number, number];
   launcherHP: [number, number, number];
   launcherFireTick: [number, number, number];
+  launcherReloadUntilTick: [number, number, number];
 
   missiles: Missile[];
   drones: Drone[];
@@ -591,6 +592,7 @@ export interface ReplayCheckpoint {
   burjHealth: number;
   ammo: number[];
   launcherHP: number[];
+  launcherReloadUntilTick: number[];
   upgrades: Upgrades;
   stats: GameStats;
   counts: Record<string, number>;

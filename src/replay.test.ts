@@ -348,6 +348,7 @@ describe("buildReplayCheckpoint", () => {
     expect(cp).toHaveProperty("burjHealth");
     expect(cp).toHaveProperty("ammo");
     expect(cp).toHaveProperty("launcherHP");
+    expect(cp).toHaveProperty("launcherReloadUntilTick");
     expect(cp).toHaveProperty("upgrades");
     expect(cp).toHaveProperty("stats");
     expect(cp).toHaveProperty("counts");

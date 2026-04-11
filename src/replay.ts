@@ -90,7 +90,7 @@ export function createReplayRunner(replayData: ReplayData, onEvent: EventCallbac
       if (action.type === "fire") {
         g.crosshairX = action.x;
         g.crosshairY = action.y;
-        fireInterceptor(g, action.x, action.y);
+        fireInterceptor(g, action.x, action.y, tick);
       } else if (action.type === "emp") {
         fireEmp(g, onEvent);
       }

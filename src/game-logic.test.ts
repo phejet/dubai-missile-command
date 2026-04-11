@@ -34,6 +34,7 @@ function makeGameState(overrides: Partial<GameState> = {}): GameState {
     shakeTimer: 0,
     shakeIntensity: 0,
     launcherFireTick: [0, 0, 0] as [number, number, number],
+    launcherReloadUntilTick: [0, 0, 0] as [number, number, number],
     ...overrides,
   } as GameState;
 }
@@ -159,18 +160,18 @@ describe("fireInterceptor", () => {
     expect(g.interceptors[0].x).toBe(LAUNCHERS[1].x);
   });
 
-  it("decrements ammo and increments shotsFired", () => {
+  it("increments shotsFired without consuming ammo", () => {
     const g = makeGameState();
-    fireInterceptor(g, 500, 300);
-    expect(g.ammo[1]).toBe(21);
+    fireInterceptor(g, 500, 300, 10);
+    expect(g.ammo[1]).toBe(22);
     expect(g.stats.shotsFired).toBe(1);
+    expect(g.launcherReloadUntilTick[1]).toBe(40);
   });
 
-  it("skips launchers with 0 HP or 0 ammo", () => {
+  it("skips destroyed launchers even if another launcher has zero ammo", () => {
     const g = makeGameState({ launcherHP: [0, 2, 2], ammo: [22, 0, 22] });
     fireInterceptor(g, 500, 300);
-    // Launcher 0 has 0 HP, launcher 1 has 0 ammo, so launcher 2 is used
-    expect(g.interceptors[0].x).toBe(LAUNCHERS[2].x);
+    expect(g.interceptors[0].x).toBe(LAUNCHERS[1].x);
   });
 
   it("does nothing when no launcher available", () => {
@@ -178,6 +179,23 @@ describe("fireInterceptor", () => {
     fireInterceptor(g, 500, 300);
     expect(g.interceptors).toHaveLength(0);
     expect(g.stats.shotsFired).toBe(0);
+  });
+
+  it("allows a short burst across ready launchers before all are reloading", () => {
+    const g = makeGameState();
+    expect(fireInterceptor(g, 500, 300, 0)).toBe(true);
+    expect(fireInterceptor(g, 500, 300, 0)).toBe(true);
+    expect(fireInterceptor(g, 500, 300, 0)).toBe(true);
+    expect(fireInterceptor(g, 500, 300, 0)).toBe(false);
+    expect(g.interceptors).toHaveLength(3);
+    expect(g.stats.shotsFired).toBe(3);
+  });
+
+  it("skips launchers that are still reloading", () => {
+    const g = makeGameState({ launcherReloadUntilTick: [0, 20, 0] as [number, number, number] });
+    fireInterceptor(g, 500, 300, 10);
+    expect(g.interceptors).toHaveLength(1);
+    expect(g.interceptors[0].x).toBe(LAUNCHERS[2].x);
   });
 });
 

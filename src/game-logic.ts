@@ -190,11 +190,12 @@ export function pickTarget(g: GameState, fromX: number): { x: number; y: number 
   return all[pick];
 }
 
-export function fireInterceptor(g: GameState, targetX: number, targetY: number): boolean {
+export function fireInterceptor(g: GameState, targetX: number, targetY: number, tick = g._replayTick ?? 0): boolean {
   let bestIdx = -1,
     bestDist = Infinity;
   for (let i = 0; i < LAUNCHERS.length; i++) {
-    if (g.launcherHP[i] <= 0 || g.ammo[i] <= 0) continue;
+    if (g.launcherHP[i] <= 0) continue;
+    if (tick < g.launcherReloadUntilTick[i]) continue;
     const launcher = getGameplayLauncherPosition(i);
     const d = dist(launcher.x, launcher.y, targetX, targetY);
     if (d < bestDist) {
@@ -211,9 +212,9 @@ export function fireInterceptor(g: GameState, targetX: number, targetY: number):
   const dy = targetY - l.y;
   const len = Math.sqrt(dx * dx + dy * dy);
   if (len < 1) return false;
-  g.ammo[bestIdx]--;
   g.stats.shotsFired++;
-  g.launcherFireTick[bestIdx] = g._replayTick ?? 0;
+  g.launcherFireTick[bestIdx] = tick;
+  g.launcherReloadUntilTick[bestIdx] = tick + LAUNCHER_RELOAD_TICKS;
   g.interceptors.push({
     x: l.x,
     y: l.y,
@@ -371,6 +372,25 @@ export function getAmmoCapacity(wave: number, launcherKitLevel: number): number 
   const base = 11 + Math.floor(wave / 3);
   const kitBonus = launcherKitLevel >= 2 ? 6 : 0;
   return Math.min(base + kitBonus, 24);
+}
+
+export const LAUNCHER_RELOAD_TICKS = 30;
+
+export function getLauncherReadiness(
+  g: GameState,
+  tick: number,
+): {
+  readyCount: number;
+  availableCount: number;
+} {
+  let readyCount = 0;
+  let availableCount = 0;
+  for (let i = 0; i < LAUNCHERS.length; i++) {
+    if (g.launcherHP[i] <= 0) continue;
+    availableCount++;
+    if (tick >= g.launcherReloadUntilTick[i]) readyCount++;
+  }
+  return { readyCount, availableCount };
 }
 
 export function getMultiKillBonus(kills: number): number {

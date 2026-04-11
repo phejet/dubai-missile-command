@@ -321,7 +321,7 @@ function pickLauncher(tx: number, ty: number, g: GameState | null = null): { x: 
   let launcherY = GROUND_Y;
   let bestDist = Infinity;
   for (let i = 0; i < LAUNCHERS.length; i++) {
-    if (g && (g.ammo[i] <= 0 || g.launcherHP[i] <= 0)) continue;
+    if (g && g.launcherHP[i] <= 0) continue;
     const d = Math.sqrt((tx - LAUNCHERS[i].x) ** 2 + (ty - LAUNCHERS[i].y) ** 2);
     if (d < bestDist) {
       bestDist = d;
@@ -540,16 +540,10 @@ export function botDecideAction(
   }
   candidateThreats = candidateThreats.filter((threat) => !threat.blocked);
 
-  const totalAmmo = g.ammo.reduce((s, a) => s + a, 0);
   const threatCount = candidateThreats.length;
   const maxInFlight = threatCount > cfg.highThreatThreshold ? cfg.maxInFlightHigh : cfg.maxInFlightBase;
   const fireRecoveryTicks = human ? 0 : cfg.fireRecoveryTicks || 0;
-  let cooldown =
-    totalAmmo < cfg.lowAmmoThreshold
-      ? cfg.cooldownLowAmmo
-      : threatCount > cfg.highThreatThreshold
-        ? cfg.cooldownHighThreat
-        : cfg.cooldownNormal;
+  let cooldown = threatCount > cfg.highThreatThreshold ? cfg.cooldownHighThreat : cfg.cooldownNormal;
   if (fireRecoveryTicks > cooldown) cooldown = fireRecoveryTicks;
 
   // Rapid fire when MIRV present — must kill before split

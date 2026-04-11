@@ -269,6 +269,7 @@ export function initGame(): GameState {
     ammo: [11, 11, 11],
     launcherHP: [1, 1, 1],
     launcherFireTick: [0, 0, 0],
+    launcherReloadUntilTick: [0, 0, 0],
     missiles: [],
     drones: [],
     interceptors: [],
@@ -2013,11 +2014,10 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
       if (!g._bonusScreenStarted) {
         g._bonusScreenStarted = true;
         if (g.burjAlive && onEvent) {
-          const savedAmmo = (g.ammo as number[]).reduce((sum, a, i) => sum + (g.launcherHP[i] > 0 ? a : 0), 0);
           onEvent("waveBonusStart", {
             wave: g.wave,
             buildings: g.buildings.filter((b) => b.alive).length,
-            savedAmmo,
+            savedAmmo: 0,
             missileKills: g.stats.missileKills - (g._waveStartMissileKills ?? 0),
             droneKills: g.stats.droneKills - (g._waveStartDroneKills ?? 0),
           });
@@ -2257,6 +2257,7 @@ export function closeShop(g: GameState) {
   g.ammo = g.ammo.map((_: number, i: number) =>
     g.launcherHP[i] > 0 ? getAmmoCapacity(g.wave, g.upgrades.launcherKit) : 0,
   ) as [number, number, number];
+  g.launcherReloadUntilTick = [0, 0, 0];
   g._bonusScreenStarted = false;
   g._bonusScreenDone = false;
   g._waveStartMissileKills = g.stats.missileKills;
@@ -2309,6 +2310,7 @@ export function repairLauncher(g: GameState, index: number): boolean {
   g.score -= cost;
   const baseHP = g.upgrades.launcherKit >= 2 ? 2 : 1;
   g.launcherHP[index] = baseHP;
+  g.launcherReloadUntilTick[index] = 0;
   return true;
 }
 
