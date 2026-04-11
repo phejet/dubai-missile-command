@@ -2293,26 +2293,28 @@ function drawSharedLauncher(
   const dmg = damaged;
   // Olive-khaki palette — clearly distinct from the blue-grey water below
   const c = {
-    base: dmg ? "#261816" : "#1a2014",
-    body: dmg ? "#30201e" : "#243020",
-    turr: dmg ? "#38282a" : "#2e3c26",
+    base: dmg ? "#6a3028" : "#4e5e38",
+    body: dmg ? "#7a3c34" : "#5c7044",
+    turr: dmg ? "#8a4c44" : "#6a8050",
     sk0: "rgba(6, 10, 4, 0.92)",
-    sk1: dmg ? "rgba(220, 140, 120, 0.3)" : "rgba(168, 214, 100, 0.3)",
-    glow: dmg ? "rgba(255, 90, 60, 0.2)" : "rgba(110, 200, 80, 0.2)",
+    sk1: dmg ? "rgba(240, 160, 130, 0.38)" : "rgba(190, 230, 120, 0.38)",
+    glow: dmg ? "rgba(255, 90, 60, 0.28)" : "rgba(130, 210, 90, 0.28)",
   };
 
-  // Single atmosphere glow under launcher
-  const atmos = ctx.createRadialGradient(0, 8, 0, 0, 8, 48);
-  atmos.addColorStop(0, c.glow);
-  atmos.addColorStop(1, "rgba(0,0,0,0)");
-  ctx.fillStyle = atmos;
-  ctx.fillRect(-50, -28, 100, 72);
+  // Podium-style radial bloom
+  const bloom = ctx.createRadialGradient(0, 6, 0, 0, 6, 72);
+  bloom.addColorStop(0, dmg ? "rgba(255, 180, 140, 0.14)" : "rgba(200, 255, 180, 0.14)");
+  bloom.addColorStop(0.28, dmg ? "rgba(220, 100,  80, 0.14)" : "rgba(120, 210, 100, 0.14)");
+  bloom.addColorStop(0.55, dmg ? "rgba(200,  60,  40, 0.10)" : "rgba(180, 220, 100, 0.08)");
+  bloom.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = bloom;
+  ctx.fillRect(-72, -42, 144, 100);
 
   // ── TRACKED BASE ──────────────────────────────────────────────────────────
   const baseG = ctx.createLinearGradient(-28, 0, 28, 0);
-  baseG.addColorStop(0, "#0e1208");
+  baseG.addColorStop(0, "#303e22");
   baseG.addColorStop(0.5, c.base);
-  baseG.addColorStop(1, "#0c100a");
+  baseG.addColorStop(1, "#2c3a1e");
   ctx.fillStyle = baseG;
   ctx.beginPath();
   ctx.moveTo(-30, 2);
@@ -2336,9 +2338,9 @@ function drawSharedLauncher(
   ctx.stroke();
 
   // Road wheel slots
-  ctx.fillStyle = dmg ? "rgba(50, 24, 20, 0.9)" : "rgba(12, 24, 10, 0.9)";
+  ctx.fillStyle = dmg ? "rgba(80, 36, 28, 0.9)" : "rgba(36, 52, 22, 0.9)";
   for (let i = 0; i < 7; i++) ctx.fillRect(-25 + i * 8, 5, 5, 7);
-  ctx.strokeStyle = dmg ? "rgba(70, 34, 28, 0.5)" : "rgba(30, 60, 24, 0.5)";
+  ctx.strokeStyle = dmg ? "rgba(100, 52, 40, 0.5)" : "rgba(70, 100, 48, 0.5)";
   ctx.lineWidth = 0.9;
   ctx.beginPath();
   ctx.moveTo(-26, 13);
@@ -2347,10 +2349,10 @@ function drawSharedLauncher(
 
   // ── MAIN BODY ─────────────────────────────────────────────────────────────
   const bodyG = ctx.createLinearGradient(-22, -14, 22, -14);
-  bodyG.addColorStop(0, "#101808");
+  bodyG.addColorStop(0, "#384e26");
   bodyG.addColorStop(0.3, c.body);
-  bodyG.addColorStop(0.75, "#1c2a16");
-  bodyG.addColorStop(1, "#0e1608");
+  bodyG.addColorStop(0.75, "#4a602e");
+  bodyG.addColorStop(1, "#344824");
   ctx.fillStyle = bodyG;
   ctx.beginPath();
   ctx.moveTo(-26, 0);
@@ -2375,7 +2377,7 @@ function drawSharedLauncher(
   ctx.stroke();
 
   // Top panel highlight
-  ctx.fillStyle = dmg ? "rgba(255, 80, 60, 0.07)" : "rgba(180, 230, 100, 0.09)";
+  ctx.fillStyle = dmg ? "rgba(255, 100, 70, 0.14)" : "rgba(200, 240, 120, 0.18)";
   ctx.beginPath();
   ctx.moveTo(-10, -12);
   ctx.lineTo(-6, -15);
@@ -2387,7 +2389,7 @@ function drawSharedLauncher(
   ctx.fill();
 
   // Horizontal armour crease + vertical panel lines
-  ctx.strokeStyle = dmg ? "rgba(90, 46, 40, 0.45)" : "rgba(50, 90, 34, 0.45)";
+  ctx.strokeStyle = dmg ? "rgba(130, 70, 58, 0.55)" : "rgba(90, 130, 58, 0.55)";
   ctx.lineWidth = 0.65;
   ctx.beginPath();
   ctx.moveTo(-20, -4);
@@ -2399,12 +2401,12 @@ function drawSharedLauncher(
   ctx.stroke();
 
   // Exhaust vent slots
-  ctx.fillStyle = dmg ? "rgba(44, 18, 14, 0.9)" : "rgba(10, 18, 6, 0.9)";
+  ctx.fillStyle = dmg ? "rgba(60, 24, 18, 0.9)" : "rgba(28, 40, 16, 0.9)";
   ctx.fillRect(-4, -8, 3, 3);
   ctx.fillRect(1, -8, 3, 3);
 
   // Rear support strut
-  ctx.strokeStyle = dmg ? "rgba(70, 36, 30, 0.9)" : "rgba(40, 72, 28, 0.9)";
+  ctx.strokeStyle = dmg ? "rgba(100, 52, 42, 0.9)" : "rgba(70, 100, 48, 0.9)";
   ctx.lineWidth = 3.2;
   ctx.beginPath();
   ctx.moveTo(-18, 0);
@@ -2451,9 +2453,9 @@ function drawSharedLauncher(
 
   // Angular turret housing
   const tG = ctx.createLinearGradient(-10, 0, 22, 0);
-  tG.addColorStop(0, "#0e1608");
+  tG.addColorStop(0, "#3c5228");
   tG.addColorStop(0.35, c.turr);
-  tG.addColorStop(1, "#18240e");
+  tG.addColorStop(1, "#445e30");
   ctx.fillStyle = tG;
   ctx.beginPath();
   ctx.moveTo(-10, -6);
@@ -2476,7 +2478,7 @@ function drawSharedLauncher(
   ctx.stroke();
 
   // Upper launch tube
-  ctx.fillStyle = dmg ? "#302028" : "#243020";
+  ctx.fillStyle = dmg ? "#6a3830" : "#506440";
   ctx.beginPath();
   ctx.moveTo(20, -6.5);
   ctx.lineTo(38, -5);
@@ -2495,7 +2497,7 @@ function drawSharedLauncher(
   ctx.stroke();
 
   // Lower launch tube
-  ctx.fillStyle = dmg ? "#302028" : "#243020";
+  ctx.fillStyle = dmg ? "#6a3830" : "#1a4a1e";
   ctx.beginPath();
   ctx.moveTo(20, 2);
   ctx.lineTo(38.5, 2.5);
@@ -2514,13 +2516,13 @@ function drawSharedLauncher(
   ctx.stroke();
 
   // Gap between tubes (dark channel)
-  ctx.fillStyle = dmg ? "#1c1018" : "#0e160a";
+  ctx.fillStyle = dmg ? "#3a1e18" : "#2a3418";
   ctx.fillRect(22, -2, 16.5, 4);
 
   // Barrel root collar
   const colG = ctx.createLinearGradient(-10, -7, -10, 7);
-  colG.addColorStop(0, dmg ? "#2e2030" : "#2a3c20");
-  colG.addColorStop(1, dmg ? "#1e1624" : "#162010");
+  colG.addColorStop(0, dmg ? "#7a3c36" : "#526640");
+  colG.addColorStop(1, dmg ? "#562a26" : "#384a2a");
   ctx.fillStyle = colG;
   ctx.fillRect(-10, -7, 12, 14);
   ctx.strokeStyle = c.sk0;
@@ -2544,15 +2546,22 @@ function drawSharedLauncher(
   ctx.fillStyle = dmg ? `rgba(255, 148, 118, ${0.5 + chP})` : `rgba(160, 244, 100, ${0.5 + chP})`;
   ctx.fillRect(2, -1.3, 10, 2.6);
 
-  // Muzzle tip glow
-  const pulse = 0.38 + 0.26 * Math.sin(t * 2.4 + lx * 0.02);
-  const fs = Math.max(pulse, muzzleFlash);
-  const mgR = 10 + muzzleFlash * 6;
-  const mgGrad = ctx.createRadialGradient(40, 0, 0, 40, 0, mgR);
-  mgGrad.addColorStop(0, dmg ? `rgba(255, 160, 110, ${fs * 0.38})` : `rgba(0, 255, 200, ${fs})`);
+  // Muzzle tip — red warning blink + fire flash
+  const blink = Math.max(0, Math.sin(t * 3.2 + lx * 0.0068));
+  const blinkI = Math.pow(blink, 0.4);
+  const fs = Math.max(blinkI, muzzleFlash);
+  // Glow halo
+  const mgR = 8 + muzzleFlash * 8;
+  const mgGrad = ctx.createRadialGradient(40, 0, 0, 40, 0, mgR + 4);
+  mgGrad.addColorStop(0, `rgba(255, 40, 20, ${fs * 0.7})`);
   mgGrad.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = mgGrad;
-  ctx.fillRect(30, -mgR, mgR * 2, mgR * 2);
+  ctx.fillRect(30, -(mgR + 4), (mgR + 4) * 2, (mgR + 4) * 2);
+  // Bright centre dot
+  ctx.fillStyle = `rgba(255, 255, 200, ${0.6 + 0.4 * blinkI})`;
+  ctx.fillRect(38.5, -1, 2, 2);
+  ctx.fillStyle = `rgba(255, 60, 30, ${0.85 * blinkI})`;
+  ctx.fillRect(38, -1.5, 3, 3);
 
   ctx.restore(); // end barrel rotation
 
