@@ -96,6 +96,7 @@ function buildHudSnapshot(game: GameState | null): HudSnapshot {
   if (!game) {
     return {
       score: 0,
+      combo: 1,
       wave: 1,
       waveProgress: 0,
       burjHealth: 5,
@@ -119,6 +120,7 @@ function buildHudSnapshot(game: GameState | null): HudSnapshot {
   const waveProgress = waveSpawnTotal > 0 ? Math.round((waveSpawned / waveSpawnTotal) * 100) : 0;
   return {
     score: game.score,
+    combo: game.combo,
     wave: game.wave,
     waveProgress,
     burjHealth: game.burjHealth,

@@ -24,6 +24,7 @@ type UpgradeDef = (typeof UPGRADES)[keyof typeof UPGRADES] & {
 
 export interface HudSnapshot {
   score: number;
+  combo: number;
   wave: number;
   waveProgress: number;
   burjHealth: number;
@@ -471,7 +472,9 @@ export function hideBonusScreen(): void {
 const hudElements = {
   progressFill: null as HTMLElement | null,
   score: null as HTMLElement | null,
-  ammoCells: null as HTMLElement[] | null,
+  comboPanel: null as HTMLElement | null,
+  comboValue: null as HTMLElement | null,
+  comboStatus: null as HTMLElement | null,
   empButton: null as HTMLButtonElement | null,
   empMeta: null as HTMLElement | null,
   perfRaf: null as HTMLElement | null,
@@ -483,7 +486,9 @@ const hudElements = {
 export function cacheHudElements(): void {
   hudElements.progressFill = document.getElementById("hud-progress-fill");
   hudElements.score = document.getElementById("hud-score");
-  hudElements.ammoCells = [0, 1, 2].map((i) => document.getElementById(`hud-ammo-${i}`)!);
+  hudElements.comboPanel = document.getElementById("hud-combo");
+  hudElements.comboValue = document.getElementById("hud-combo-value");
+  hudElements.comboStatus = document.getElementById("hud-combo-status");
   hudElements.empButton = document.getElementById("emp-button") as HTMLButtonElement;
   hudElements.empMeta = document.getElementById("emp-meta");
   hudElements.perfRaf = document.getElementById("perf-raf");
@@ -496,24 +501,16 @@ export function updateHud(hud: HudSnapshot): void {
   const h = hudElements;
   if (h.progressFill) h.progressFill.style.width = `${hud.waveProgress}%`;
   if (h.score) h.score.textContent = String(hud.score);
-  if (h.ammoCells) {
-    for (let i = 0; i < 3; i++) {
-      const cell = h.ammoCells[i];
-      if (!cell) continue;
-      const alive = hud.launcherHP[i] > 0;
-      const count = hud.ammo[i];
-      cell.className = `battlefield-ammo__cell${alive ? "" : " battlefield-ammo__cell--down"}`;
-      const stateEl = cell.querySelector(".battlefield-ammo__state") as HTMLElement;
-      if (stateEl) stateEl.textContent = alive ? "Online" : "Down";
-      const countEl = cell.querySelector(".battlefield-ammo__count") as HTMLElement;
-      if (countEl) countEl.textContent = String(count);
-      const maxEl = cell.querySelector(".battlefield-ammo__max") as HTMLElement;
-      if (maxEl) maxEl.textContent = `/${hud.ammoMax}`;
-      const meterFill = cell.querySelector(".battlefield-ammo__meter-fill") as HTMLElement;
-      if (meterFill) {
-        const pct = alive ? Math.max(0, Math.min(100, (count / Math.max(1, hud.ammoMax)) * 100)) : 0;
-        meterFill.style.width = `${pct}%`;
-      }
+  if (h.comboPanel) {
+    const combo = Math.max(1, hud.combo);
+    const active = combo >= 2;
+    const tier = combo >= 8 ? "critical" : combo >= 5 ? "hot" : combo >= 2 ? "warm" : "idle";
+    h.comboPanel.dataset.active = String(active);
+    h.comboPanel.dataset.tier = tier;
+    if (h.comboValue) h.comboValue.textContent = `${combo}\u00d7`;
+    if (h.comboStatus) {
+      h.comboStatus.textContent =
+        combo >= 8 ? "Overdrive" : combo >= 5 ? "Burning" : combo >= 2 ? "Building" : "Standby";
     }
   }
   // EMP button

@@ -38,57 +38,16 @@
                     <strong class="battlefield-score__value" id="hud-score">0</strong>
                   </div>
 
-                  <div class="battlefield-ammo" aria-label="Launcher ammo">
-                    <span class="battlefield-ammo__label">
-                      <svg class="battlefield-ammo__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                        <path d="M5 18h14" />
-                        <path d="M7 18l2-7h6l2 7" />
-                        <path d="M10.8 11V5.8l1.2-.8 1.2.8V11" />
-                        <path d="M9 7.2h6" />
-                      </svg>
-                      <span>Ammo</span>
-                    </span>
-                    <div class="battlefield-ammo__grid" id="hud-ammo-grid">
-                      <div class="battlefield-ammo__cell" id="hud-ammo-0">
-                        <div class="battlefield-ammo__cell-head">
-                          <span class="battlefield-ammo__slot">L1</span>
-                          <span class="battlefield-ammo__state">Online</span>
-                        </div>
-                        <div class="battlefield-ammo__readout">
-                          <strong class="battlefield-ammo__count">0</strong>
-                          <span class="battlefield-ammo__max">/0</span>
-                        </div>
-                        <div class="battlefield-ammo__meter" aria-hidden="true">
-                          <span class="battlefield-ammo__meter-fill"></span>
-                        </div>
-                      </div>
-                      <div class="battlefield-ammo__cell" id="hud-ammo-1">
-                        <div class="battlefield-ammo__cell-head">
-                          <span class="battlefield-ammo__slot">L2</span>
-                          <span class="battlefield-ammo__state">Online</span>
-                        </div>
-                        <div class="battlefield-ammo__readout">
-                          <strong class="battlefield-ammo__count">0</strong>
-                          <span class="battlefield-ammo__max">/0</span>
-                        </div>
-                        <div class="battlefield-ammo__meter" aria-hidden="true">
-                          <span class="battlefield-ammo__meter-fill"></span>
-                        </div>
-                      </div>
-                      <div class="battlefield-ammo__cell" id="hud-ammo-2">
-                        <div class="battlefield-ammo__cell-head">
-                          <span class="battlefield-ammo__slot">L3</span>
-                          <span class="battlefield-ammo__state">Online</span>
-                        </div>
-                        <div class="battlefield-ammo__readout">
-                          <strong class="battlefield-ammo__count">0</strong>
-                          <span class="battlefield-ammo__max">/0</span>
-                        </div>
-                        <div class="battlefield-ammo__meter" aria-hidden="true">
-                          <span class="battlefield-ammo__meter-fill"></span>
-                        </div>
-                      </div>
-                    </div>
+                  <div
+                    class="battlefield-combo"
+                    id="hud-combo"
+                    aria-label="Current combo multiplier"
+                    data-active="false"
+                    data-tier="idle"
+                  >
+                    <span class="battlefield-combo__label">Combo Count</span>
+                    <strong class="battlefield-combo__value" id="hud-combo-value">1×</strong>
+                    <span class="battlefield-combo__status" id="hud-combo-status">Standby</span>
                   </div>
                   <button
                     type="button"

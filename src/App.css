@@ -353,14 +353,15 @@
 }
 
 .battlefield-score,
-.battlefield-ammo {
+.battlefield-combo {
   display: flex;
   flex-direction: column;
   gap: 3px;
 }
 
 .battlefield-score__label,
-.battlefield-ammo__label {
+.battlefield-combo__label,
+.battlefield-combo__status {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.2em;
@@ -376,21 +377,6 @@
   box-shadow: inset 0 1px 0 rgba(255, 248, 220, 0.05);
 }
 
-.battlefield-ammo__label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.battlefield-ammo__icon {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-  fill: currentColor;
-  color: #6dd9ff;
-  opacity: 0.95;
-}
-
 .battlefield-score__value {
   display: block;
   min-width: 5.6ch;
@@ -402,83 +388,77 @@
   font-variant-numeric: tabular-nums;
 }
 
-.battlefield-ammo__grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
+.battlefield-combo {
+  min-width: 112px;
+  padding: 8px 11px 9px;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 255, 180, 0.16);
+  background: linear-gradient(180deg, rgba(7, 16, 28, 0.84), rgba(4, 10, 18, 0.9));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 0 0 rgba(0, 0, 0, 0);
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    background 120ms ease;
 }
 
-.battlefield-ammo__cell {
-  min-width: 0;
-  padding: 7px 7px 7px;
-  border-radius: 14px;
-  border: 1px solid rgba(109, 217, 255, 0.1);
-  background: linear-gradient(180deg, rgba(8, 15, 26, 0.8), rgba(6, 10, 18, 0.82));
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+.battlefield-combo__label {
+  color: rgba(0, 255, 180, 0.42);
 }
 
-.battlefield-ammo__cell--down {
-  border-color: rgba(255, 88, 88, 0.22);
-  opacity: 0.68;
-}
-
-.battlefield-ammo__cell-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 6px;
-}
-
-.battlefield-ammo__slot {
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  color: #9dc2d8;
-}
-
-.battlefield-ammo__state {
-  font-size: 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  color: #6f90a3;
-}
-
-.battlefield-ammo__readout {
-  display: flex;
-  align-items: baseline;
-  gap: 3px;
-}
-
-.battlefield-ammo__count {
-  font-size: 18px;
-  line-height: 1;
-  color: #effcff;
-}
-
-.battlefield-ammo__max {
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  color: #83a2b5;
-}
-
-.battlefield-ammo__meter {
-  position: relative;
-  height: 5px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(109, 217, 255, 0.12);
-}
-
-.battlefield-ammo__meter-fill {
+.battlefield-combo__value {
   display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #ffb24c 0%, #ffd870 52%, #f9ffb0 100%);
-  box-shadow: 0 0 12px rgba(255, 185, 72, 0.2);
+  min-width: 3.5ch;
+  font-size: clamp(1.45rem, 5.6vw, 1.95rem);
+  line-height: 1;
+  letter-spacing: 0.05em;
+  color: rgba(0, 255, 180, 0.28);
+  font-variant-numeric: tabular-nums;
+}
+
+.battlefield-combo__status {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: rgba(0, 255, 180, 0.34);
+}
+
+.battlefield-combo[data-active="true"] {
+  border-color: rgba(255, 221, 0, 0.28);
+  background: linear-gradient(180deg, rgba(33, 28, 0, 0.84), rgba(14, 10, 8, 0.9));
+}
+
+.battlefield-combo[data-active="true"] .battlefield-combo__label,
+.battlefield-combo[data-active="true"] .battlefield-combo__status {
+  color: rgba(255, 221, 0, 0.74);
+}
+
+.battlefield-combo[data-active="true"] .battlefield-combo__value {
+  color: #ffdd00;
+}
+
+.battlefield-combo[data-tier="hot"] {
+  border-color: rgba(255, 136, 0, 0.54);
+  background: linear-gradient(180deg, rgba(60, 24, 0, 0.78), rgba(16, 10, 8, 0.92));
+  box-shadow: 0 0 18px rgba(255, 136, 0, 0.16);
+}
+
+.battlefield-combo[data-tier="hot"] .battlefield-combo__label,
+.battlefield-combo[data-tier="hot"] .battlefield-combo__status,
+.battlefield-combo[data-tier="hot"] .battlefield-combo__value {
+  color: #ff8800;
+}
+
+.battlefield-combo[data-tier="critical"] {
+  border-color: rgba(255, 58, 24, 0.68);
+  background: linear-gradient(180deg, rgba(80, 12, 4, 0.8), rgba(18, 8, 8, 0.94));
+  box-shadow: 0 0 24px rgba(255, 58, 24, 0.22);
+}
+
+.battlefield-combo[data-tier="critical"] .battlefield-combo__label,
+.battlefield-combo[data-tier="critical"] .battlefield-combo__status,
+.battlefield-combo[data-tier="critical"] .battlefield-combo__value {
+  color: #ff3a18;
 }
 
 .battlefield-options-button {
@@ -1272,8 +1252,8 @@
   font-size: clamp(1.55rem, 6.4vw, 2rem);
 }
 
-.game-shell--compactPortrait .battlefield-ammo__count {
-  font-size: 16px;
+.game-shell--compactPortrait .battlefield-combo__value {
+  font-size: clamp(1.3rem, 5vw, 1.7rem);
 }
 
 .game-shell--compactPortrait .battlefield-options-button {
@@ -1359,7 +1339,7 @@
   }
 
   .battlefield-hud__summary {
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.95fr) minmax(0, 1.05fr) auto;
+    grid-template-columns: minmax(0, 1.2fr) minmax(108px, 0.85fr) auto;
     gap: 8px;
   }
 
@@ -1375,8 +1355,8 @@
     font-size: 14px;
   }
 
-  .battlefield-ammo__count {
-    font-size: 18px;
+  .battlefield-combo__value {
+    font-size: clamp(1.35rem, 5.4vw, 1.8rem);
   }
 
   .battlefield-options-button {
