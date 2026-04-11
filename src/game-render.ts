@@ -754,6 +754,82 @@ function getStarTwinkleProfile(time: number, phase: number, seed: number) {
   return { hero, shimmer, flare };
 }
 
+function getLightFlicker(time: number, seed: number) {
+  const seedA = hash01(seed, 1.1, 3.7);
+  const seedB = hash01(seed, 5.9, 8.2);
+  const seedC = hash01(seed, 11.7, 2.4);
+  const swell = 0.5 + 0.5 * Math.sin(time * (0.32 + seedA * 0.34) + seedB * Math.PI * 2);
+  const flutter =
+    0.5 +
+    0.5 *
+      Math.sin(
+        time * (1.15 + seedB * 1.1) +
+          seedC * Math.PI * 2 +
+          Math.sin(time * (0.62 + seedA * 0.28) + seedB * 7.1) * (0.35 + seedC * 0.5),
+      );
+  const sparkle = Math.pow(0.5 + 0.5 * Math.sin(time * (2.4 + seedC * 1.5) + seedA * 8.4), 5);
+  return Math.min(1, 0.32 + swell * 0.26 + flutter * 0.3 + sparkle * 0.42);
+}
+
+function drawFlickerWindows(
+  ctx: CanvasRenderingContext2D,
+  {
+    x,
+    y,
+    w,
+    h,
+    rows,
+    cols,
+    time,
+    seed,
+    warmBias = 0.5,
+    paneW = 3,
+    paneH = 3,
+    gapX = 4,
+    gapY = 6,
+  }: {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    rows: number;
+    cols: number;
+    time: number;
+    seed: number;
+    warmBias?: number;
+    paneW?: number;
+    paneH?: number;
+    gapX?: number;
+    gapY?: number;
+  },
+) {
+  const totalW = cols * paneW + (cols - 1) * gapX;
+  const totalH = rows * paneH + (rows - 1) * gapY;
+  const startX = x + Math.max(0, (w - totalW) * 0.5);
+  const startY = y + Math.max(0, (h - totalH) * 0.5);
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const lightSeed = hash01(seed, row, col);
+      const paneX = startX + col * (paneW + gapX);
+      const paneY = startY + row * (paneH + gapY);
+      const lit = Math.sin(time * (0.44 + lightSeed * 0.28) + row * 1.17 + col * 2.03 + lightSeed * 12) > -0.42;
+      if (!lit) {
+        ctx.fillStyle = "rgba(3, 6, 12, 0.74)";
+        ctx.fillRect(paneX, paneY, paneW, paneH);
+        continue;
+      }
+      const flicker = getLightFlicker(time, seed * 13 + row * 1.9 + col * 2.7);
+      const warm = hash01(seed, row, col, 4.7) < warmBias;
+      const spillRgb = warm ? "255, 198, 122" : "210, 232, 255";
+      const coreRgb = warm ? "255, 234, 186" : "236, 246, 255";
+      ctx.fillStyle = `rgba(${spillRgb}, ${0.06 + flicker * 0.24})`;
+      ctx.fillRect(paneX - 1, paneY - 1, paneW + 2, paneH + 2);
+      ctx.fillStyle = `rgba(${coreRgb}, ${0.12 + flicker * 0.72})`;
+      ctx.fillRect(paneX, paneY, paneW, paneH);
+    }
+  }
+}
+
 type TitleTower = {
   x: number;
   w: number;
@@ -1040,51 +1116,146 @@ function drawSharedTower(
   ctx.fillRect(right - 3, top + 8, 3, tower.h - 8);
 
   if (tower.profile === "leftLandmark") {
-    ctx.fillStyle = "rgba(245, 246, 250, 0.78)";
+    const ribAlphaA = getLightFlicker(t, tower.x * 0.09 + tower.h * 0.03 + 1.1);
+    const ribAlphaB = getLightFlicker(t, tower.x * 0.07 + tower.w * 0.13 + 2.6);
+    ctx.fillStyle = `rgba(245, 246, 250, ${0.46 + ribAlphaA * 0.38})`;
     ctx.fillRect(x + tower.w * 0.28, top + 22, 2.1, tower.h - 42);
+    ctx.fillStyle = `rgba(225, 238, 252, ${0.26 + ribAlphaB * 0.26})`;
     ctx.fillRect(x + tower.w * 0.39, top + 18, 1.4, tower.h - 52);
     for (let row = 0; row < 12; row++) {
       const wy = top + 26 + row * 12;
-      ctx.fillStyle = row % 2 === 0 ? "rgba(250, 240, 212, 0.46)" : "rgba(215, 228, 246, 0.16)";
+      const rowFlicker = getLightFlicker(t, tower.x * 0.11 + row * 1.7 + 4.2);
+      ctx.fillStyle =
+        row % 2 === 0
+          ? `rgba(250, 240, 212, ${0.08 + rowFlicker * 0.72})`
+          : `rgba(215, 228, 246, ${0.02 + rowFlicker * 0.28})`;
       ctx.fillRect(x + 6, wy, tower.w - 12, 1.9);
     }
+    drawFlickerWindows(ctx, {
+      x: x + tower.w * 0.48,
+      y: top + 28,
+      w: tower.w * 0.28,
+      h: tower.h - 44,
+      rows: 10,
+      cols: 2,
+      time: t,
+      seed: tower.x * 0.17 + 2.1,
+      warmBias: 0.75,
+      paneW: 2,
+      paneH: 3,
+      gapX: 4,
+      gapY: 8,
+    });
   } else if (tower.profile === "twinSpire") {
-    ctx.fillStyle = "rgba(250, 244, 220, 0.54)";
+    const spineA = getLightFlicker(t, tower.x * 0.08 + 6.1);
+    const spineB = getLightFlicker(t, tower.x * 0.11 + 8.7);
+    ctx.fillStyle = `rgba(250, 244, 220, ${0.24 + spineA * 0.34})`;
     ctx.fillRect(x + tower.w * 0.23, top + 18, 1.6, tower.h - 28);
+    ctx.fillStyle = `rgba(242, 236, 214, ${0.22 + spineB * 0.32})`;
     ctx.fillRect(x + tower.w * 0.73, top + 18, 1.6, tower.h - 28);
     for (let row = 0; row < 11; row++) {
       const wy = top + 24 + row * 13;
-      ctx.fillStyle = row % 3 === 0 ? "rgba(255, 232, 186, 0.48)" : "rgba(205, 220, 240, 0.1)";
+      const rowFlicker = getLightFlicker(t, tower.x * 0.06 + row * 2.1 + 9.2);
+      ctx.fillStyle =
+        row % 3 === 0
+          ? `rgba(255, 232, 186, ${0.06 + rowFlicker * 0.68})`
+          : `rgba(205, 220, 240, ${0.01 + rowFlicker * 0.22})`;
       ctx.fillRect(x + 5, wy, tower.w - 10, 1.6);
     }
+    drawFlickerWindows(ctx, {
+      x: x + 6,
+      y: top + 28,
+      w: tower.w - 12,
+      h: tower.h - 40,
+      rows: 9,
+      cols: 3,
+      time: t,
+      seed: tower.x * 0.19 + 4.8,
+      warmBias: 0.68,
+      paneW: 2.2,
+      paneH: 3,
+      gapX: 5,
+      gapY: 8,
+    });
   } else if (tower.profile === "slantedBlock") {
     for (let row = 0; row < 10; row++) {
       const wy = top + 16 + row * 12;
       const inset = row * 0.95;
-      ctx.fillStyle = "rgba(224, 236, 250, 0.18)";
+      const rowFlicker = getLightFlicker(t, tower.x * 0.09 + row * 1.9 + 12.4);
+      ctx.fillStyle = `rgba(224, 236, 250, ${0.02 + rowFlicker * 0.32})`;
       ctx.fillRect(x + 6 + inset, wy, tower.w - 18 - inset, 1.5);
     }
-    ctx.fillStyle = "rgba(248, 244, 222, 0.52)";
+    ctx.fillStyle = `rgba(248, 244, 222, ${0.22 + getLightFlicker(t, tower.x * 0.05 + 15.1) * 0.34})`;
     ctx.fillRect(right - 4, top + 9, 2, tower.h - 18);
+    drawFlickerWindows(ctx, {
+      x: x + 7,
+      y: top + 24,
+      w: tower.w - 16,
+      h: tower.h - 34,
+      rows: 8,
+      cols: 3,
+      time: t,
+      seed: tower.x * 0.13 + 7.4,
+      warmBias: 0.58,
+      paneW: 2.6,
+      paneH: 2.8,
+      gapX: 5,
+      gapY: 8,
+    });
   } else if (tower.profile === "eggTower") {
     for (let row = 0; row < 9; row++) {
       const wy = top + 22 + row * 11;
       const shrink = Math.abs(row - 4) * 0.8;
-      ctx.fillStyle = "rgba(224, 238, 252, 0.2)";
+      const rowFlicker = getLightFlicker(t, tower.x * 0.08 + row * 1.4 + 18.3);
+      ctx.fillStyle = `rgba(224, 238, 252, ${0.02 + rowFlicker * 0.36})`;
       ctx.fillRect(x + 5 + shrink, wy, tower.w - 10 - shrink * 2, 1.7);
     }
-    ctx.fillStyle = "rgba(248, 240, 214, 0.4)";
+    ctx.fillStyle = `rgba(248, 240, 214, ${0.16 + getLightFlicker(t, tower.x * 0.05 + 22.8) * 0.24})`;
     ctx.fillRect(x + tower.w * 0.68, top + 18, 1.7, tower.h - 26);
+    drawFlickerWindows(ctx, {
+      x: x + 8,
+      y: top + 30,
+      w: tower.w - 16,
+      h: tower.h - 46,
+      rows: 7,
+      cols: 3,
+      time: t,
+      seed: tower.x * 0.11 + 10.2,
+      warmBias: 0.62,
+      paneW: 2.3,
+      paneH: 2.8,
+      gapX: 4.5,
+      gapY: 8,
+    });
   } else if (tower.profile === "bladeTower") {
-    ctx.fillStyle = "rgba(236, 244, 255, 0.28)";
+    ctx.fillStyle = `rgba(236, 244, 255, ${0.1 + getLightFlicker(t, tower.x * 0.09 + 25.2) * 0.22})`;
     ctx.fillRect(x + tower.w * 0.16, top + 12, 1.4, tower.h - 18);
-    ctx.fillStyle = "rgba(255, 238, 205, 0.46)";
+    ctx.fillStyle = `rgba(255, 238, 205, ${0.2 + getLightFlicker(t, tower.x * 0.07 + 28.9) * 0.28})`;
     ctx.fillRect(right - 3.2, top + 10, 1.8, tower.h - 16);
     for (let row = 0; row < 11; row++) {
       const wy = top + 20 + row * 14;
-      ctx.fillStyle = row % 2 === 0 ? "rgba(215, 232, 248, 0.14)" : "rgba(255, 242, 214, 0.1)";
+      const rowFlicker = getLightFlicker(t, tower.x * 0.1 + row * 2.4 + 31.3);
+      ctx.fillStyle =
+        row % 2 === 0
+          ? `rgba(215, 232, 248, ${0.01 + rowFlicker * 0.26})`
+          : `rgba(255, 242, 214, ${0.01 + rowFlicker * 0.2})`;
       ctx.fillRect(x + 6, wy, tower.w - 12, 1.35);
     }
+    drawFlickerWindows(ctx, {
+      x: x + 7,
+      y: top + 24,
+      w: tower.w - 14,
+      h: tower.h - 38,
+      rows: 9,
+      cols: 2,
+      time: t,
+      seed: tower.x * 0.09 + 12.6,
+      warmBias: 0.45,
+      paneW: 2.4,
+      paneH: 3,
+      gapX: 6,
+      gapY: 8,
+    });
   } else {
     const rows = Math.max(2, Math.floor(tower.h / 17));
     const cols = tower.windows;
@@ -1095,14 +1266,19 @@ function drawSharedTower(
       for (let col = 0; col < cols; col++) {
         const litSeed = hash01(tower.x, row, col);
         const lit = Math.sin(t * 0.06 + litSeed * 10 + row * 0.65 + col * 2.1) > -0.2;
+        const flicker = getLightFlicker(t, litSeed * 100 + tower.w * 0.07 + tower.h * 0.01);
         const wx = startX + col * (winW + gap);
         const wy = top + 10 + row * 14;
         if (wy > baseY - 8) continue;
         if (lit) {
-          ctx.fillStyle = `rgba(255, 202, 132, ${0.2 + litSeed * 0.22})`;
+          ctx.fillStyle = `rgba(255, 202, 132, ${0.02 + litSeed * 0.06 + flicker * 0.44})`;
           ctx.fillRect(wx - 1, wy - 1, winW + 2, 5);
-          ctx.fillStyle = `rgba(255, 226, 176, ${0.42 + litSeed * 0.25})`;
+          ctx.fillStyle = `rgba(255, 226, 176, ${0.05 + litSeed * 0.08 + flicker * 0.84})`;
           ctx.fillRect(wx, wy, winW, 3);
+          if (flicker > 0.64) {
+            ctx.fillStyle = `rgba(255, 236, 194, ${(flicker - 0.64) * 1.15})`;
+            ctx.fillRect(wx, wy, winW, 1.4);
+          }
         } else {
           ctx.fillStyle = "rgba(4, 6, 12, 0.66)";
           ctx.fillRect(wx, wy, winW, 3);
@@ -1395,11 +1571,13 @@ function drawSharedBurj(
     ctx.moveTo(burjX, burjBaseY - burjHeight - 44);
     ctx.lineTo(burjX, burjBaseY - 28);
     ctx.stroke();
-    ctx.fillStyle = "rgba(250, 252, 255, 0.46)";
+    const spineFlicker = getLightFlicker(t, 41.7);
+    const crownFlicker = getLightFlicker(t, 44.1);
+    ctx.fillStyle = `rgba(250, 252, 255, ${0.06 + spineFlicker * 0.68})`;
     ctx.fillRect(burjX - 0.55, burjBaseY - burjHeight + 18, 1.1, burjHeight - 18);
-    ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+    ctx.fillStyle = `rgba(255, 255, 255, ${0.12 + crownFlicker * 0.88})`;
     ctx.fillRect(burjX - 2.4, burjBaseY - burjHeight + 22, 4.8, 3.6);
-    ctx.fillStyle = "rgba(225, 239, 255, 0.22)";
+    ctx.fillStyle = "rgba(225, 239, 255, 0.16)";
     for (let i = 0; i < 42; i++) {
       const ht = 0.04 + (i / 41) * 0.92;
       const ly = burjBaseY - burjHeight * ht;
@@ -1409,7 +1587,11 @@ function drawSharedBurj(
       if (lw < 1.2 && rw < 1.2) continue;
       const lit = Math.sin(t * 0.32 + i * 0.48) > -0.12;
       if (lit) {
-        ctx.fillStyle = i === 13 || i === 23 || i === 33 ? "rgba(255, 255, 255, 0.62)" : "rgba(215, 232, 248, 0.11)";
+        const bandFlicker = getLightFlicker(t, 47.5 + i * 0.63);
+        ctx.fillStyle =
+          i === 13 || i === 23 || i === 33
+            ? `rgba(255, 255, 255, ${0.04 + bandFlicker * 0.82})`
+            : `rgba(215, 232, 248, ${0.01 + bandFlicker * 0.22})`;
         ctx.fillRect(burjX - lw, ly, lw + rw, 0.72);
       }
     }
@@ -1426,19 +1608,68 @@ function drawSharedBurj(
     brightBands.forEach((ht, index) => {
       const ly = burjBaseY - burjHeight * ht.ht;
       const { left, right } = halfWidthsAt(ht.ht);
-      ctx.fillStyle = `rgba(252, 253, 255, ${ht.alpha})`;
+      const bandFlicker = getLightFlicker(t, 83.1 + index * 1.9);
+      ctx.fillStyle = `rgba(252, 253, 255, ${ht.alpha * (0.26 + bandFlicker * 0.94)})`;
       ctx.fillRect(burjX - left * 0.88, ly, left * 0.88 + right * 0.88, ht.thickness);
       ctx.fillStyle = `rgba(15, 24, 34, ${0.34 - index * 0.03})`;
       ctx.fillRect(burjX - left * 0.9, ly + ht.thickness, left * 0.9 + right * 0.9, 1.15);
-      ctx.fillStyle = "rgba(130, 200, 255, 0.12)";
+      ctx.fillStyle = `rgba(130, 200, 255, ${0.01 + bandFlicker * 0.24})`;
       ctx.fillRect(burjX - left * 0.86, ly - 0.7, left * 0.86 + right * 0.86, 0.55);
     });
 
     ctx.fillStyle = "rgba(10, 18, 28, 0.56)";
     ctx.fillRect(burjX - 8.2, burjBaseY - burjHeight + 158, 16.4, 10);
     ctx.fillRect(burjX - 11.4, burjBaseY - burjHeight + 224, 22.8, 10);
-    ctx.fillStyle = "rgba(248, 252, 255, 0.82)";
+    ctx.fillStyle = `rgba(248, 252, 255, ${0.08 + getLightFlicker(t, 97.2) * 0.92})`;
     ctx.fillRect(burjX - 7.1, burjBaseY - burjHeight + 166, 14.2, 2.6);
+    ctx.fillStyle = `rgba(255, 224, 176, ${0.04 + getLightFlicker(t, 101.4) * 0.56})`;
+    ctx.fillRect(burjX - 9.4, burjBaseY - burjHeight + 232, 18.8, 2.1);
+
+    const accentLights = [
+      { ht: 0.18, width: 0.54, thickness: 1.4, seed: 106.2, color: "255, 236, 194" },
+      { ht: 0.36, width: 0.5, thickness: 1.2, seed: 109.8, color: "214, 236, 255" },
+      { ht: 0.52, width: 0.46, thickness: 1.15, seed: 113.3, color: "255, 228, 168" },
+      { ht: 0.68, width: 0.38, thickness: 1.05, seed: 117.1, color: "220, 240, 255" },
+    ];
+    accentLights.forEach((light) => {
+      const ly = burjBaseY - burjHeight * light.ht;
+      const { left, right } = halfWidthsAt(light.ht);
+      const flicker = getLightFlicker(t, light.seed);
+      const span = (left + right) * 0.5 * light.width;
+      ctx.fillStyle = `rgba(${light.color}, ${0.02 + flicker * 0.68})`;
+      ctx.fillRect(burjX - span * 0.5, ly, span, light.thickness);
+    });
+
+    drawFlickerWindows(ctx, {
+      x: burjX - 8,
+      y: burjBaseY - burjHeight + 176,
+      w: 16,
+      h: 58,
+      rows: 5,
+      cols: 2,
+      time: t,
+      seed: 121.4,
+      warmBias: 0.52,
+      paneW: 2,
+      paneH: 2.4,
+      gapX: 4.2,
+      gapY: 7.2,
+    });
+    drawFlickerWindows(ctx, {
+      x: burjX - 6,
+      y: burjBaseY - burjHeight + 248,
+      w: 12,
+      h: 54,
+      rows: 5,
+      cols: 1,
+      time: t,
+      seed: 124.9,
+      warmBias: 0.66,
+      paneW: 2.2,
+      paneH: 2.6,
+      gapX: 0,
+      gapY: 7.6,
+    });
 
     const beaconBlink = Math.max(0, Math.sin(t * 3.0));
     const beaconIntensity = Math.pow(beaconBlink, 0.3);
@@ -1635,6 +1866,37 @@ function drawSharedBurj(
   ctx.lineTo(burjX + 104, burjBaseY + 2);
   ctx.closePath();
   ctx.fill();
+  const podiumBuildings = [
+    { x: burjX - 118, y: burjBaseY - 34, w: 28, h: 38, seed: 131.2, warmBias: 0.78, cols: 2 },
+    { x: burjX - 82, y: burjBaseY - 48, w: 32, h: 52, seed: 133.8, warmBias: 0.7, cols: 2 },
+    { x: burjX - 42, y: burjBaseY - 30, w: 22, h: 34, seed: 136.1, warmBias: 0.64, cols: 1 },
+    { x: burjX + 20, y: burjBaseY - 30, w: 22, h: 34, seed: 139.4, warmBias: 0.64, cols: 1 },
+    { x: burjX + 50, y: burjBaseY - 48, w: 32, h: 52, seed: 142.2, warmBias: 0.7, cols: 2 },
+    { x: burjX + 90, y: burjBaseY - 36, w: 28, h: 40, seed: 145.7, warmBias: 0.78, cols: 2 },
+  ];
+  podiumBuildings.forEach((building) => {
+    ctx.fillStyle = "rgba(14, 20, 30, 0.92)";
+    ctx.fillRect(building.x, building.y, building.w, building.h);
+    ctx.fillStyle = "rgba(24, 30, 42, 0.9)";
+    ctx.fillRect(building.x + 1, building.y + 1, building.w - 2, 2);
+    ctx.fillStyle = "rgba(255, 214, 150, 0.08)";
+    ctx.fillRect(building.x, building.y, building.w, 1.5);
+    drawFlickerWindows(ctx, {
+      x: building.x + 2,
+      y: building.y + 5,
+      w: building.w - 4,
+      h: building.h - 10,
+      rows: Math.max(3, Math.floor((building.h - 10) / 9)),
+      cols: building.cols,
+      time: t,
+      seed: building.seed,
+      warmBias: building.warmBias,
+      paneW: building.cols === 2 ? 4 : 5,
+      paneH: 4,
+      gapX: building.cols === 2 ? 6 : 0,
+      gapY: 6,
+    });
+  });
   ctx.fillStyle = "rgba(255, 214, 150, 0.28)";
   ctx.fillRect(burjX - 58, burjBaseY - 14, 116, 2.5);
   ctx.fillStyle = "rgba(236, 246, 255, 0.46)";
