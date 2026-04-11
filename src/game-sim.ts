@@ -1758,7 +1758,7 @@ function updateInterceptors(g: GameState, dt: number, onEvent?: ((type: string, 
       if (ic.fromF15) {
         boom(g, ic.x, ic.y, 30, "#aaccff", false, onEvent);
       } else {
-        boom(g, ic.x, ic.y, 74, COL.interceptor, true, onEvent, 74);
+        boom(g, ic.x, ic.y, 50, COL.interceptor, true, onEvent, 50);
       }
     }
     if (ic.fromF15 && (ic.x < -50 || ic.x > CANVAS_W + 50 || ic.y < -50 || ic.y > CANVAS_H + 50)) ic.alive = false;
