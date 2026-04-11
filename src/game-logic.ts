@@ -367,10 +367,9 @@ export function getKillReward(target: Threat): number {
   return 28;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function getAmmoCapacity(wave: number, launcherKitLevel: number): number {
-  const baseAmmo = 12 + wave * 1;
-  const multiplier = launcherKitLevel >= 3 ? 2 : launcherKitLevel >= 1 ? 1.5 : 1;
-  return Math.round(baseAmmo * multiplier);
+  return 99;
 }
 
 export function getMultiKillBonus(kills: number): number {

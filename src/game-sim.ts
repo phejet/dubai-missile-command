@@ -266,7 +266,7 @@ export function initGame(): GameState {
     score: 0,
     wave: 1,
     stats: { missileKills: 0, droneKills: 0, shotsFired: 0 },
-    ammo: [11, 11, 11],
+    ammo: [99, 99, 99],
     launcherHP: [1, 1, 1],
     launcherFireTick: [0, 0, 0],
     missiles: [],
