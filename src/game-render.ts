@@ -224,6 +224,62 @@ export function preloadRenderAssets() {
   getBurjDroneDecalImage();
 }
 
+function drawDistortedWaterSprite(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  t: number,
+) {
+  const srcW = img.naturalWidth || img.width;
+  const srcH = img.naturalHeight || img.height;
+  if (!srcW || !srcH || w <= 0 || h <= 0) {
+    ctx.drawImage(img, x, y, w, h);
+    return;
+  }
+
+  const bandH = 12;
+  const bands = Math.max(1, Math.ceil(h / bandH));
+  const srcBandH = srcH / bands;
+  const amplitude = 3.1;
+  const verticalAmplitude = 1.6;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+
+  for (let i = 0; i < bands; i++) {
+    const destY = y + i * bandH;
+    const destH = Math.min(bandH + 1, y + h - destY);
+    if (destH <= 0.5) continue;
+    const baseSrcY = i * srcBandH;
+    const seedA = 0.5 + 0.5 * Math.sin(i * 17.231 + 0.8);
+    const seedB = 0.5 + 0.5 * Math.sin(i * 9.173 + 2.4);
+    const seedC = 0.5 + 0.5 * Math.sin(i * 23.417 + 4.1);
+    const swell = 0.68 + 0.32 * Math.sin(t * (0.42 + seedC * 0.18) + i * 0.11 + seedB * 5.2);
+    const drift = Math.sin(t * (0.72 + seedA * 0.42) + i * (0.18 + seedB * 0.16) + seedC * 6.28);
+    const chop = Math.sin(t * (1.65 + seedB * 0.95) + i * (0.43 + seedC * 0.31) + seedA * 6.28);
+    const micro = Math.sin(t * (3.4 + seedC * 1.4) + i * (0.94 + seedA * 0.42) + seedB * 6.28);
+    const verticalDrift =
+      (Math.sin(t * (0.88 + seedB * 0.34) + i * (0.24 + seedA * 0.12) + seedC * 4.6) * 0.72 +
+        Math.sin(t * (2.45 + seedC * 0.85) + i * (0.53 + seedB * 0.18) + seedA * 3.2) * 0.28) *
+      verticalAmplitude;
+    const wave = (drift * 0.74 + chop * 0.28 * swell + micro * 0.09) * amplitude;
+    const stretch = 1 + (drift * 0.0055 + chop * 0.004 + micro * 0.002);
+    const drawW = w * stretch;
+    const drawX = x - (drawW - w) * 0.5 + wave;
+    const srcY = Math.max(0, Math.min(srcH - srcBandH - 1, baseSrcY + verticalDrift));
+    const srcSegH = Math.min(srcBandH + 1, srcH - srcY);
+    ctx.globalAlpha = 0.97 - (i / bands) * 0.04;
+    ctx.drawImage(img, 0, srcY, srcW, srcSegH, drawX, destY, drawW, destH);
+  }
+
+  ctx.restore();
+}
+
 interface CameraFrame {
   scale: number;
   left: number;
@@ -672,6 +728,32 @@ export function pulse(time: number, speed: number, phase = 0, min = 0, max = 1) 
   return min + (max - min) * t;
 }
 
+function getStarTwinkleProfile(time: number, phase: number, seed: number) {
+  const hero = seed > 0.72;
+  const seedA = hash01(seed, phase, 1.7);
+  const seedB = hash01(seed, phase, 8.3);
+  const seedC = hash01(seed, phase, 15.1);
+  const timeA = time + seedA * 23 + seedB * 11;
+  const timeB = time + seedB * 31 + seedC * 7;
+  const timeC = time + seedC * 41 + seedA * 13;
+  const twinkleRate = 1.5;
+  const shimmer =
+    0.55 +
+    0.28 * Math.sin(timeA * twinkleRate * (0.74 + seedA * 0.43) + phase * (0.92 + seedB * 0.28) + seedC * Math.PI * 2) +
+    0.17 * Math.sin(timeB * twinkleRate * (1.48 + seedC * 0.62) + phase * (0.34 + seedA * 0.12) + seedB * Math.PI * 2);
+  const flareWave =
+    0.5 +
+    0.5 *
+      Math.sin(
+        timeB * twinkleRate * (0.52 + seedA * 0.28) +
+          phase * (0.74 + seedB * 0.24) +
+          seedC * 9.7 +
+          Math.sin(timeC * twinkleRate * (0.43 + seedC * 0.24) + seedA * 7.3) * 1.4,
+      );
+  const flare = hero ? Math.pow(flareWave, 2.2) : 0;
+  return { hero, shimmer, flare };
+}
+
 type TitleTower = {
   x: number;
   w: number;
@@ -775,20 +857,35 @@ function drawSharedSky(
 
   if (stars?.length) {
     stars.forEach((s) => {
-      const tw = 0.3 + 0.7 * Math.sin(t * 2 + s.twinkle);
-      const alpha = mode === "title" ? 0.14 + tw * 0.2 : 0.11 + tw * 0.16;
+      const seed = hash01(s.x, s.y, s.twinkle);
+      const { hero, shimmer, flare } = getStarTwinkleProfile(t, s.twinkle, seed);
+      const alpha = mode === "title" ? 0.1 + shimmer * 0.12 + flare * 0.56 : 0.08 + shimmer * 0.1 + flare * 0.42;
+      const sizeMul = 1 + flare * 0.95;
       ctx.fillStyle = `rgba(220, 235, 255, ${alpha})`;
-      ctx.fillRect(s.x, s.y, s.size * 1.2, s.size * 1.2);
+      ctx.fillRect(s.x, s.y, s.size * 1.2 * sizeMul, s.size * 1.2 * sizeMul);
+      if (hero && flare > 0.12) {
+        ctx.fillStyle = `rgba(255,255,255,${0.12 + flare * 0.52})`;
+        const reach = s.size * (0.8 + flare * 2.4);
+        ctx.fillRect(s.x - reach, s.y, reach * 2.4, Math.max(1, s.size * 0.45));
+        ctx.fillRect(s.x, s.y - reach, Math.max(1, s.size * 0.45), reach * 2.4);
+      }
     });
   } else {
     const titleDrift = Math.sin(t * 0.08) * 4;
     for (let i = 0; i < 500; i++) {
       const sx = (hash01(i, 2, 7) * CANVAS_W + titleDrift * 0.3) % CANVAS_W;
       const sy = hash01(i, 5, 11) * 1500 + 8;
-      const tw = 0.55 + 0.45 * Math.sin(t * (0.7 + hash01(i, 1, 9)) + i * 0.9);
+      const seed = hash01(i, 1, 9);
+      const { hero, shimmer, flare } = getStarTwinkleProfile(t, i * 0.9, seed);
       const size = 0.7 + hash01(i, 3, 1) * 1.6;
-      ctx.fillStyle = `rgba(220, 235, 255, ${0.18 + tw * 0.32})`;
-      ctx.fillRect(sx, sy, size, size);
+      ctx.fillStyle = `rgba(220, 235, 255, ${0.1 + shimmer * 0.12 + flare * 0.54})`;
+      ctx.fillRect(sx, sy, size * (1 + flare * 0.95), size * (1 + flare * 0.95));
+      if (hero && flare > 0.12) {
+        ctx.fillStyle = `rgba(255,255,255,${0.12 + flare * 0.54})`;
+        const reach = size * (0.7 + flare * 2.2);
+        ctx.fillRect(sx - reach, sy, reach * 2.4, Math.max(1, size * 0.36));
+        ctx.fillRect(sx, sy - reach, Math.max(1, size * 0.36), reach * 2.4);
+      }
     }
   }
 
@@ -1581,7 +1678,7 @@ function drawSharedWater(
   const waterBottom = renderHeight;
   const titleWaterImg = getTitleWaterImage();
   if (titleWaterImg) {
-    ctx.drawImage(titleWaterImg, 0, waterTop, CANVAS_W + 10, waterBottom - waterTop);
+    drawDistortedWaterSprite(ctx, titleWaterImg, 0, waterTop, CANVAS_W + 10, waterBottom - waterTop, t);
     const waterGrade = ctx.createLinearGradient(0, waterTop, 0, waterBottom);
     waterGrade.addColorStop(0, "rgba(22, 34, 60, 0.18)");
     waterGrade.addColorStop(0.5, "rgba(8, 20, 40, 0.08)");
@@ -2005,15 +2102,26 @@ function UNUSED_drawSky(ctx: CanvasRenderingContext2D, game: GameState, layout: 
 
   // Animated twinkling stars
   game.stars.forEach((s) => {
-    const twinkle = 0.35 + 0.65 * Math.sin(game.time * ov("sky.starTwinkleSpeed", 0.02) + s.twinkle);
+    const seed = hash01(s.x, s.y, s.twinkle);
+    const { hero, shimmer, flare } = getStarTwinkleProfile(game.time / 60, s.twinkle, seed);
+    if (!hero) return;
+    const twinkle = 0.1 + shimmer * 0.08 + flare * 1.08;
     const drawStar = (y: number) => {
       if (y < 0 || y > layout.renderHeight) return;
       ctx.globalAlpha = twinkle;
-      glow(ctx, "#ffffff", 3 + s.size * 3);
+      glow(ctx, "#ffffff", 2 + s.size * 2 + flare * 10);
       ctx.fillStyle = "#fff";
       ctx.beginPath();
-      ctx.arc(s.x, y, s.size, 0, Math.PI * 2);
+      ctx.arc(s.x, y, s.size * (1 + flare * 1.1), 0, Math.PI * 2);
       ctx.fill();
+      ctx.strokeStyle = `rgba(255,255,255,${Math.min(1, 0.12 + flare * 0.88)})`;
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(s.x - (1.1 + flare * 3.8), y);
+      ctx.lineTo(s.x + (1.1 + flare * 3.8), y);
+      ctx.moveTo(s.x, y - (1.1 + flare * 3.8));
+      ctx.lineTo(s.x, y + (1.1 + flare * 3.8));
+      ctx.stroke();
       glowOff(ctx);
     };
     drawStar(s.y);
@@ -4494,8 +4602,8 @@ export function drawGame(
   drawDrones(ctx, game, layout);
   drawInterceptors(ctx, game, layout);
   drawUpgradeProjectiles(ctx, game, layout);
-  drawExplosionsAndParticles(ctx, game, layout);
   ctx.restore();
+  drawExplosionsAndParticles(ctx, game, layout);
   drawGroundStructures(ctx, game, layout);
   drawBurjWarningPlate(ctx, {
     groundY: scenicGroundY,
@@ -4818,10 +4926,11 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
   for (let i = 0; i < 500; i++) {
     const sx = (hash01(i, 2, 7) * CANVAS_W + titleDrift * 0.3) % CANVAS_W;
     const sy = hash01(i, 5, 11) * 1500 + 8;
-    const tw = 0.55 + 0.45 * Math.sin(t * (0.7 + hash01(i, 1, 9)) + i * 0.9);
+    const seed = hash01(i, 1, 9);
+    const { shimmer, flare } = getStarTwinkleProfile(t, i * 0.9, seed);
     const size = 0.7 + hash01(i, 3, 1) * 1.6;
-    ctx.fillStyle = `rgba(220, 235, 255, ${0.18 + tw * 0.32})`;
-    ctx.fillRect(sx, sy, size, size);
+    ctx.fillStyle = `rgba(220, 235, 255, ${0.11 + shimmer * 0.13 + flare * 0.34})`;
+    ctx.fillRect(sx, sy, size * (1 + flare * 0.55), size * (1 + flare * 0.55));
   }
 
   // Moon
@@ -5333,7 +5442,7 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
   ctx.save();
   const titleWaterImg = getTitleWaterImage();
   if (titleWaterImg) {
-    ctx.drawImage(titleWaterImg, 0, waterTop, CANVAS_W + 10, waterBottom - waterTop);
+    drawDistortedWaterSprite(ctx, titleWaterImg, 0, waterTop, CANVAS_W + 10, waterBottom - waterTop, t);
 
     // A light cool tint keeps the bitmap aligned with the scene's night palette.
     const waterGrade = ctx.createLinearGradient(0, waterTop, 0, waterBottom);
