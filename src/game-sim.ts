@@ -1731,7 +1731,7 @@ function updateInterceptors(g: GameState, dt: number, onEvent?: ((type: string, 
     ic.y += ic.vy * dt;
     let detonate = false;
     // Scale proximity thresholds with speed so fast interceptors don't skip past targets
-    const detonateRadius = 64;
+    const detonateRadius = 40;
     if (dist(ic.x, ic.y, ic.targetX, ic.targetY) < detonateRadius) {
       detonate = true;
     }
@@ -1758,7 +1758,7 @@ function updateInterceptors(g: GameState, dt: number, onEvent?: ((type: string, 
       if (ic.fromF15) {
         boom(g, ic.x, ic.y, 30, "#aaccff", false, onEvent);
       } else {
-        boom(g, ic.x, ic.y, 50, COL.interceptor, true, onEvent, 50);
+        boom(g, ic.x, ic.y, 60, COL.interceptor, true, onEvent, 60);
       }
     }
     if (ic.fromF15 && (ic.x < -50 || ic.x > CANVAS_W + 50 || ic.y < -50 || ic.y > CANVAS_H + 50)) ic.alive = false;
