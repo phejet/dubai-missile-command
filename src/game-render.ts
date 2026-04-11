@@ -322,25 +322,15 @@ function drawTitleStyleMissile(
     alpha = 1,
     trailLen = 58,
     trailPulse = 1,
-    stackCount = 1,
-    stackIndex = 0,
   }: {
     scale?: number;
     alpha?: number;
     trailLen?: number;
     trailPulse?: number;
-    stackCount?: number;
-    stackIndex?: number;
   } = {},
 ) {
-  const lateralSpacing = 8;
-  const offset = (stackIndex - (stackCount - 1) / 2) * lateralSpacing;
-  const sin = Math.sin(angle);
-  const cos = Math.cos(angle);
-  const px = x - sin * offset;
-  const py = y + cos * offset;
   ctx.save();
-  ctx.translate(px, py);
+  ctx.translate(x, y);
   ctx.rotate(angle);
   ctx.scale(scale, scale);
   ctx.globalAlpha = alpha;
@@ -396,6 +386,190 @@ function drawTitleStyleMissile(
   ctx.lineTo(-2, 1);
   ctx.closePath();
   ctx.fill();
+  ctx.restore();
+}
+
+function drawStackCarrierMissile(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  angle: number,
+  {
+    scale = 1,
+    alpha = 1,
+    trailPulse = 1,
+    payloadCount,
+  }: {
+    scale?: number;
+    alpha?: number;
+    trailPulse?: number;
+    payloadCount: 2 | 3;
+  },
+) {
+  const renderScale = 0.8;
+  const bodyHalfH = payloadCount === 3 ? 5.2 : 4.6;
+  const noseX = payloadCount === 3 ? 25 : 22.5;
+  const bodyFrontX = payloadCount === 3 ? 15.5 : 14;
+  const tailX = payloadCount === 3 ? -20.5 : -18;
+  const trailLen = (payloadCount === 3 ? 60 : 52) * (0.82 + 0.18 * trailPulse);
+  const payloadOffsets = payloadCount === 3 ? [-1.85, 0, 1.85] : [-1.3, 1.3];
+  const finSpan = payloadCount === 3 ? 10 : 9;
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.scale(scale * renderScale, scale * renderScale);
+  ctx.globalAlpha = alpha;
+
+  const exhaust = ctx.createLinearGradient(-trailLen - 6, 0, tailX + 1, 0);
+  exhaust.addColorStop(0, "rgba(255, 122, 36, 0)");
+  exhaust.addColorStop(0.35, "rgba(255, 140, 58, 0.18)");
+  exhaust.addColorStop(0.72, "rgba(238, 228, 216, 0.24)");
+  exhaust.addColorStop(1, "rgba(255, 214, 148, 0.08)");
+  ctx.strokeStyle = exhaust;
+  ctx.lineCap = "round";
+  ctx.lineWidth = payloadCount === 3 ? 4.1 : 3.7;
+  ctx.beginPath();
+  ctx.moveTo(-trailLen - 6, 0);
+  ctx.lineTo(tailX + 1, 0);
+  ctx.stroke();
+
+  const outerWake = ctx.createLinearGradient(-trailLen * 0.92 - 4, 0, tailX - 2, 0);
+  outerWake.addColorStop(0, "rgba(255, 112, 42, 0)");
+  outerWake.addColorStop(0.6, "rgba(255, 164, 78, 0.12)");
+  outerWake.addColorStop(1, "rgba(240, 246, 255, 0.05)");
+  ctx.strokeStyle = outerWake;
+  ctx.lineWidth = payloadCount === 3 ? 7.1 : 6.3;
+  ctx.beginPath();
+  ctx.moveTo(-trailLen * 0.92 - 4, 0);
+  ctx.lineTo(tailX - 2, 0);
+  ctx.stroke();
+
+  const shell = ctx.createLinearGradient(tailX, -bodyHalfH, noseX, bodyHalfH);
+  shell.addColorStop(0, "#465363");
+  shell.addColorStop(0.35, "#718091");
+  shell.addColorStop(0.7, "#d6dde6");
+  shell.addColorStop(1, "#f1f5fa");
+  ctx.fillStyle = shell;
+  ctx.beginPath();
+  ctx.moveTo(noseX, 0);
+  ctx.lineTo(bodyFrontX, -bodyHalfH * 0.78);
+  ctx.lineTo(4, -bodyHalfH);
+  ctx.lineTo(-9, -bodyHalfH * 0.92);
+  ctx.lineTo(tailX, -bodyHalfH * 0.38);
+  ctx.lineTo(tailX, bodyHalfH * 0.38);
+  ctx.lineTo(-9, bodyHalfH * 0.92);
+  ctx.lineTo(4, bodyHalfH);
+  ctx.lineTo(bodyFrontX, bodyHalfH * 0.78);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(24, 32, 42, 0.18)";
+  ctx.beginPath();
+  ctx.moveTo(bodyFrontX - 2, -bodyHalfH * 0.42);
+  ctx.lineTo(4.5, -bodyHalfH * 0.63);
+  ctx.lineTo(-11.5, -bodyHalfH * 0.34);
+  ctx.lineTo(-11.5, bodyHalfH * 0.34);
+  ctx.lineTo(4.5, bodyHalfH * 0.63);
+  ctx.lineTo(bodyFrontX - 2, bodyHalfH * 0.42);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = "rgba(250, 252, 255, 0.55)";
+  ctx.lineWidth = 0.75;
+  ctx.beginPath();
+  ctx.moveTo(-9, -bodyHalfH * 0.58);
+  ctx.lineTo(12, -bodyHalfH * 0.34);
+  ctx.stroke();
+
+  ctx.strokeStyle = "rgba(23, 28, 36, 0.34)";
+  ctx.lineWidth = 0.9;
+  [-10, -1.5].forEach((bandX) => {
+    ctx.beginPath();
+    ctx.moveTo(bandX, -bodyHalfH * 0.62);
+    ctx.lineTo(bandX, bodyHalfH * 0.62);
+    ctx.stroke();
+  });
+
+  ctx.fillStyle = payloadCount === 3 ? "#4d5968" : "#55606f";
+  ctx.beginPath();
+  ctx.moveTo(tailX, -bodyHalfH * 0.42);
+  ctx.lineTo(tailX - 5.5, -finSpan * 0.7);
+  ctx.lineTo(tailX + 3.2, -bodyHalfH * 0.14);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(tailX, bodyHalfH * 0.42);
+  ctx.lineTo(tailX - 5.5, finSpan * 0.7);
+  ctx.lineTo(tailX + 3.2, bodyHalfH * 0.14);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(255, 186, 96, 0.16)";
+  ctx.beginPath();
+  ctx.moveTo(bodyFrontX + 0.4, -bodyHalfH * 0.34);
+  ctx.lineTo(noseX - 1.5, 0);
+  ctx.lineTo(bodyFrontX + 0.4, bodyHalfH * 0.34);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = "rgba(255, 212, 148, 0.42)";
+  ctx.lineWidth = 0.8;
+  payloadOffsets.forEach((offset) => {
+    ctx.beginPath();
+    ctx.moveTo(4.2, offset);
+    ctx.lineTo(15.8, offset);
+    ctx.stroke();
+  });
+
+  payloadOffsets.forEach((offset) => {
+    const halo = ctx.createLinearGradient(4, offset, 17, offset);
+    halo.addColorStop(0, "rgba(255, 156, 74, 0.08)");
+    halo.addColorStop(0.55, "rgba(255, 214, 150, 0.38)");
+    halo.addColorStop(1, "rgba(255, 244, 214, 0.14)");
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.ellipse(11, offset, 7.1, 0.72, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(250, 252, 255, 0.68)";
+    ctx.beginPath();
+    ctx.ellipse(15.2, offset, 1.1, 0.58, 0, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.strokeStyle = "rgba(34, 42, 52, 0.45)";
+  ctx.lineWidth = 0.7;
+  const seamTop = payloadOffsets[0] - 0.92;
+  const seamBottom = payloadOffsets[payloadOffsets.length - 1] + 0.92;
+  ctx.beginPath();
+  ctx.moveTo(4.1, seamTop);
+  ctx.lineTo(4.1, seamBottom);
+  ctx.stroke();
+  if (payloadCount === 3) {
+    ctx.beginPath();
+    ctx.moveTo(10.3, seamTop);
+    ctx.lineTo(10.3, seamBottom);
+    ctx.stroke();
+  }
+
+  glow(ctx, payloadCount === 3 ? "#ffc27a" : "#ffb56a", 8.5 * renderScale);
+  ctx.fillStyle = "#ff9a4d";
+  ctx.beginPath();
+  ctx.moveTo(tailX, -2.8);
+  ctx.lineTo(tailX - (payloadCount === 3 ? 14 : 11), 0);
+  ctx.lineTo(tailX, 2.8);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#ffe4ae";
+  ctx.beginPath();
+  ctx.moveTo(tailX + 0.4, -1.4);
+  ctx.lineTo(tailX - (payloadCount === 3 ? 7.2 : 5.8), 0);
+  ctx.lineTo(tailX + 0.4, 1.4);
+  ctx.closePath();
+  ctx.fill();
+  glowOff(ctx);
+
   ctx.restore();
 }
 
@@ -2526,16 +2700,20 @@ function drawMissiles(ctx: CanvasRenderingContext2D, game: GameState, layout: La
       });
       glowOff(ctx);
     } else if (m.type === "stack2" || m.type === "stack3" || m.type === "stack_child") {
-      const stackCount = m.type === "stack3" ? 3 : m.type === "stack2" ? 2 : 1;
       const trailPulse = 0.55 + 0.45 * Math.sin(game.time * 0.9 + m.x * 0.018 + m.y * 0.02);
-      for (let i = 0; i < stackCount; i++) {
+      if (m.type === "stack2" || m.type === "stack3") {
+        drawStackCarrierMissile(ctx, m.x, m.y, angle, {
+          scale: layout.enemyScale,
+          alpha: 0.98,
+          trailPulse,
+          payloadCount: m.type === "stack3" ? 3 : 2,
+        });
+      } else {
         drawTitleStyleMissile(ctx, m.x, m.y, angle, {
           scale: layout.enemyScale,
           alpha: 0.98,
-          trailLen: m.type === "stack_child" ? 34 : 42,
+          trailLen: 34,
           trailPulse,
-          stackCount,
-          stackIndex: i,
         });
       }
     } else {
