@@ -314,6 +314,81 @@ export function glowOff(ctx: CanvasRenderingContext2D) {
   ctx.shadowBlur = 0;
 }
 
+function drawGradientTrail(
+  ctx: CanvasRenderingContext2D,
+  trail: Array<{ x: number; y: number }>,
+  headX: number,
+  headY: number,
+  {
+    outerRgb,
+    coreRgb,
+    headRgb,
+    width,
+    coreWidth,
+    headRadius,
+  }: {
+    outerRgb: string;
+    coreRgb: string;
+    headRgb: string;
+    width: number;
+    coreWidth: number;
+    headRadius: number;
+  },
+) {
+  const points = trail
+    .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y))
+    .concat(Number.isFinite(headX) && Number.isFinite(headY) ? [{ x: headX, y: headY }] : []);
+  if (points.length === 0) return;
+  if (points.length >= 2) {
+    const start = points[0];
+    const end = points[points.length - 1];
+
+    const outer = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
+    outer.addColorStop(0, `rgba(${outerRgb},0)`);
+    outer.addColorStop(0.45, `rgba(${outerRgb},0.12)`);
+    outer.addColorStop(0.82, `rgba(${outerRgb},0.34)`);
+    outer.addColorStop(1, `rgba(${outerRgb},0.03)`);
+    ctx.strokeStyle = outer;
+    ctx.lineWidth = width;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    points.forEach((point, index) => {
+      if (index === 0) ctx.moveTo(point.x, point.y);
+      else ctx.lineTo(point.x, point.y);
+    });
+    ctx.stroke();
+
+    const core = ctx.createLinearGradient(start.x, start.y, end.x, end.y);
+    core.addColorStop(0, `rgba(${coreRgb},0)`);
+    core.addColorStop(0.52, `rgba(${coreRgb},0.1)`);
+    core.addColorStop(0.88, `rgba(${coreRgb},0.6)`);
+    core.addColorStop(1, `rgba(${coreRgb},0.04)`);
+    ctx.strokeStyle = core;
+    ctx.lineWidth = coreWidth;
+    ctx.beginPath();
+    points.forEach((point, index) => {
+      if (index === 0) ctx.moveTo(point.x, point.y);
+      else ctx.lineTo(point.x, point.y);
+    });
+    ctx.stroke();
+  }
+
+  const headGlow = ctx.createRadialGradient(headX, headY, 0, headX, headY, headRadius * 2.6);
+  headGlow.addColorStop(0, `rgba(${headRgb},0.42)`);
+  headGlow.addColorStop(0.38, `rgba(${headRgb},0.18)`);
+  headGlow.addColorStop(1, `rgba(${headRgb},0)`);
+  ctx.fillStyle = headGlow;
+  ctx.beginPath();
+  ctx.arc(headX, headY, headRadius * 2.6, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = `rgba(${headRgb},0.78)`;
+  ctx.beginPath();
+  ctx.arc(headX, headY, headRadius, 0, Math.PI * 2);
+  ctx.fill();
+}
+
 function drawTitleStyleMissile(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -2684,15 +2759,14 @@ function drawMissiles(ctx: CanvasRenderingContext2D, game: GameState, layout: La
       glowOff(ctx);
       ctx.restore();
     } else if (m.type === "bomb") {
-      // Bomb trail
-      ctx.beginPath();
-      m.trail.forEach((t, i) => {
-        ctx.strokeStyle = `rgba(255,100,0,${(i / m.trail.length) * 0.6})`;
-        ctx.lineWidth = 1.5 * layout.effectScale;
-        if (i === 0) ctx.moveTo(t.x, t.y);
-        else ctx.lineTo(t.x, t.y);
+      drawGradientTrail(ctx, m.trail, m.x, m.y, {
+        outerRgb: "255,118,40",
+        coreRgb: "255,214,156",
+        headRgb: "255,150,72",
+        width: 3.2 * layout.effectScale,
+        coreWidth: 1.3 * layout.effectScale,
+        headRadius: 1.6 * layout.effectScale,
       });
-      if (m.trail.length > 1) ctx.stroke();
       withAnchorScale(ctx, m.x, m.y, layout.enemyScale, () => {
         ctx.fillStyle = "#ff8800";
         glow(ctx, "#ff6600", 8 * layout.effectScale);
@@ -3191,14 +3265,14 @@ function drawUpgradeProjectiles(ctx: CanvasRenderingContext2D, game: GameState, 
   game.hornets.forEach((h: Hornet) => {
     const heading =
       h.trail.length >= 1 ? Math.atan2(h.y - h.trail[h.trail.length - 1].y, h.x - h.trail[h.trail.length - 1].x) : 0;
-    ctx.beginPath();
-    h.trail.forEach((t, i) => {
-      ctx.strokeStyle = `rgba(255,204,0,${(i / h.trail.length) * 0.6})`;
-      ctx.lineWidth = 1.5 * layout.effectScale;
-      if (i === 0) ctx.moveTo(t.x, t.y);
-      else ctx.lineTo(t.x, t.y);
+    drawGradientTrail(ctx, h.trail, h.x, h.y, {
+      outerRgb: "255,204,0",
+      coreRgb: "255,248,176",
+      headRgb: "255,220,92",
+      width: 3 * layout.effectScale,
+      coreWidth: 1.2 * layout.effectScale,
+      headRadius: 1.7 * layout.effectScale,
     });
-    if (h.trail.length > 1) ctx.stroke();
     ctx.save();
     ctx.translate(h.x, h.y);
     ctx.rotate(heading + Math.PI / 2);
@@ -3223,14 +3297,14 @@ function drawUpgradeProjectiles(ctx: CanvasRenderingContext2D, game: GameState, 
 
   // Roadrunners
   game.roadrunners.forEach((r: Roadrunner) => {
-    ctx.beginPath();
-    r.trail.forEach((t, i) => {
-      ctx.strokeStyle = `rgba(68,170,255,${(i / r.trail.length) * 0.7})`;
-      ctx.lineWidth = 2 * layout.effectScale;
-      if (i === 0) ctx.moveTo(t.x, t.y);
-      else ctx.lineTo(t.x, t.y);
+    drawGradientTrail(ctx, r.trail, r.x, r.y, {
+      outerRgb: "68,170,255",
+      coreRgb: "196,236,255",
+      headRgb: "124,214,255",
+      width: 3.8 * layout.effectScale,
+      coreWidth: 1.5 * layout.effectScale,
+      headRadius: 1.9 * layout.effectScale,
     });
-    if (r.trail.length > 1) ctx.stroke();
     ctx.fillStyle = COL.roadrunner;
     glow(ctx, COL.roadrunner, 10 * layout.effectScale);
     ctx.save();
