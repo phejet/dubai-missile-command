@@ -601,6 +601,16 @@
   flex: 1;
 }
 
+.game-shell[data-screen="title"] #progression-panel {
+  position: absolute;
+  inset: max(18px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(18px, calc(env(safe-area-inset-bottom) + 12px)) max(16px, env(safe-area-inset-left));
+  z-index: 4;
+  width: auto;
+  margin: 0;
+  overflow: auto;
+}
+
 .game-shell[data-screen="title"] .game-canvas {
   flex: 1;
 }
@@ -610,6 +620,11 @@
     border-radius: 0;
     border: 0;
     box-shadow: none;
+  }
+
+  .title-corner-button {
+    top: max(10px, env(safe-area-inset-top));
+    right: max(10px, env(safe-area-inset-right));
   }
 
   .game-shell--phonePortrait[data-screen="title"] .battlefield-shell {
@@ -700,6 +715,36 @@
   letter-spacing: 0.2em;
   font-size: 10px;
   color: #6dd9ff;
+}
+
+.title-corner-button {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 3;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(109, 217, 255, 0.28);
+  background: linear-gradient(180deg, rgba(8, 20, 32, 0.9), rgba(4, 10, 18, 0.86)), rgba(0, 255, 200, 0.04);
+  box-shadow:
+    0 14px 28px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  color: #dcfbff;
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease;
+}
+
+.title-corner-button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(109, 217, 255, 0.42);
+  box-shadow: 0 18px 30px rgba(0, 0, 0, 0.28);
 }
 
 .battlefield-debug-overlay__row {

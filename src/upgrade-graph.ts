@@ -9,12 +9,18 @@ import type { UpgradeNodeId, UpgradeProgressionState } from "./types";
 
 export const UPGRADE_GRAPH_NODE_W = 172;
 export const UPGRADE_GRAPH_NODE_H = 112;
-const FAMILY_CLUSTER_W = 430;
-const FAMILY_CLUSTER_H = 226;
-const GRAPH_PADDING_X = 84;
-const GRAPH_PADDING_Y = 88;
-const GRAPH_COLUMN_GAP = 86;
-const GRAPH_ROW_GAP = 54;
+const GRAPH_FAMILY_COLUMNS = 3;
+const FAMILY_CLUSTER_W = 612;
+const FAMILY_CLUSTER_H = 284;
+const GRAPH_PADDING_X = 120;
+const GRAPH_PADDING_Y = 116;
+const GRAPH_COLUMN_GAP = 124;
+const GRAPH_ROW_GAP = 112;
+const FAMILY_NODE_X_STEP = 196;
+const FAMILY_NODE_Y_STEP = 34;
+const GRAPH_STAGE_FIT_PADDING = 44;
+export const UPGRADE_GRAPH_MIN_SCALE = 0.34;
+export const UPGRADE_GRAPH_MAX_SCALE = 2.4;
 
 export interface UpgradeGraphNodePosition {
   x: number;
@@ -60,6 +66,17 @@ export interface UpgradeGraphViewModel {
   edges: UpgradeGraphEdgeView[];
 }
 
+export interface UpgradeGraphPoint {
+  x: number;
+  y: number;
+}
+
+export interface UpgradeGraphViewportState {
+  scale: number;
+  panX: number;
+  panY: number;
+}
+
 function nodeStatePriority(state: UpgradeGraphNodeState): number {
   switch (state) {
     case "available":
@@ -89,25 +106,28 @@ function uniqueFamilies(nodes: UpgradeNodeDef[]): string[] {
 function buildDefaultLayout(): UpgradeGraphLayout {
   const nodes = getAllUpgradeNodeDefs();
   const families = uniqueFamilies(nodes);
-  const rowCount = Math.ceil(families.length / 2);
+  const rowCount = Math.ceil(families.length / GRAPH_FAMILY_COLUMNS);
   const layoutNodes: Record<UpgradeNodeId, UpgradeGraphNodePosition> = {};
 
   families.forEach((family, familyIndex) => {
     const familyNodes = nodes.filter((node) => node.family === family).sort((a, b) => a.rank - b.rank);
-    const column = familyIndex % 2;
-    const row = Math.floor(familyIndex / 2);
+    const column = familyIndex % GRAPH_FAMILY_COLUMNS;
+    const row = Math.floor(familyIndex / GRAPH_FAMILY_COLUMNS);
     const clusterX = GRAPH_PADDING_X + column * (FAMILY_CLUSTER_W + GRAPH_COLUMN_GAP);
     const clusterY = GRAPH_PADDING_Y + row * (FAMILY_CLUSTER_H + GRAPH_ROW_GAP);
     familyNodes.forEach((node, nodeIndex) => {
       layoutNodes[node.id] = {
-        x: clusterX + nodeIndex * 126,
-        y: clusterY,
+        x: clusterX + nodeIndex * FAMILY_NODE_X_STEP,
+        y: clusterY + (nodeIndex % 2) * FAMILY_NODE_Y_STEP,
       };
     });
   });
 
   return {
-    width: GRAPH_PADDING_X * 2 + FAMILY_CLUSTER_W * 2 + GRAPH_COLUMN_GAP,
+    width:
+      GRAPH_PADDING_X * 2 +
+      FAMILY_CLUSTER_W * GRAPH_FAMILY_COLUMNS +
+      Math.max(0, GRAPH_FAMILY_COLUMNS - 1) * GRAPH_COLUMN_GAP,
     height: GRAPH_PADDING_Y * 2 + rowCount * FAMILY_CLUSTER_H + Math.max(0, rowCount - 1) * GRAPH_ROW_GAP,
     nodes: layoutNodes,
   };
@@ -206,6 +226,104 @@ export function getDefaultSelectedUpgradeNodeId(view: UpgradeGraphViewModel): Up
     return a.rank - b.rank;
   });
   return sorted[0]?.id ?? null;
+}
+
+function clampScale(scale: number): number {
+  return Math.max(UPGRADE_GRAPH_MIN_SCALE, Math.min(UPGRADE_GRAPH_MAX_SCALE, scale));
+}
+
+function graphStagePadding(stageSize: number): number {
+  return Math.min(GRAPH_STAGE_FIT_PADDING, Math.max(18, stageSize * 0.08));
+}
+
+export function fitUpgradeGraphViewport(
+  stageWidth: number,
+  stageHeight: number,
+  graphWidth: number,
+  graphHeight: number,
+): UpgradeGraphViewportState {
+  const safeStageWidth = Math.max(stageWidth, 1);
+  const safeStageHeight = Math.max(stageHeight, 1);
+  const paddingX = graphStagePadding(safeStageWidth);
+  const paddingY = graphStagePadding(safeStageHeight);
+  const scale = clampScale(
+    Math.min(
+      (safeStageWidth - paddingX * 2) / Math.max(graphWidth, 1),
+      (safeStageHeight - paddingY * 2) / Math.max(graphHeight, 1),
+      1,
+    ),
+  );
+
+  return clampUpgradeGraphViewport(
+    {
+      scale,
+      panX: (safeStageWidth - graphWidth * scale) / 2,
+      panY: (safeStageHeight - graphHeight * scale) / 2,
+    },
+    safeStageWidth,
+    safeStageHeight,
+    graphWidth,
+    graphHeight,
+  );
+}
+
+export function clampUpgradeGraphViewport(
+  viewport: UpgradeGraphViewportState,
+  stageWidth: number,
+  stageHeight: number,
+  graphWidth: number,
+  graphHeight: number,
+): UpgradeGraphViewportState {
+  const scale = clampScale(viewport.scale);
+  const scaledWidth = graphWidth * scale;
+  const scaledHeight = graphHeight * scale;
+  let panX = viewport.panX;
+  let panY = viewport.panY;
+
+  if (scaledWidth <= stageWidth) {
+    panX = (stageWidth - scaledWidth) / 2;
+  } else {
+    panX = Math.min(0, Math.max(stageWidth - scaledWidth, panX));
+  }
+
+  if (scaledHeight <= stageHeight) {
+    panY = (stageHeight - scaledHeight) / 2;
+  } else {
+    panY = Math.min(0, Math.max(stageHeight - scaledHeight, panY));
+  }
+
+  return { scale, panX, panY };
+}
+
+export function graphScreenToWorld(point: UpgradeGraphPoint, viewport: UpgradeGraphViewportState): UpgradeGraphPoint {
+  return {
+    x: (point.x - viewport.panX) / viewport.scale,
+    y: (point.y - viewport.panY) / viewport.scale,
+  };
+}
+
+export function zoomUpgradeGraphViewportAtPoint(
+  viewport: UpgradeGraphViewportState,
+  stageWidth: number,
+  stageHeight: number,
+  graphWidth: number,
+  graphHeight: number,
+  point: UpgradeGraphPoint,
+  targetScale: number,
+): UpgradeGraphViewportState {
+  const nextScale = clampScale(targetScale);
+  const worldPoint = graphScreenToWorld(point, viewport);
+  return clampUpgradeGraphViewport(
+    {
+      scale: nextScale,
+      panX: point.x - worldPoint.x * nextScale,
+      panY: point.y - worldPoint.y * nextScale,
+    },
+    stageWidth,
+    stageHeight,
+    graphWidth,
+    graphHeight,
+  );
 }
 
 function getNodeCenter(node: UpgradeGraphNodeView): { x: number; y: number } {

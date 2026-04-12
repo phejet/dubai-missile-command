@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { createEmptyUpgradeProgression } from "./game-sim-upgrades";
-import { buildUpgradeGraphViewModel, getDefaultSelectedUpgradeNodeId } from "./upgrade-graph";
+import {
+  buildUpgradeGraphViewModel,
+  fitUpgradeGraphViewport,
+  getDefaultSelectedUpgradeNodeId,
+  zoomUpgradeGraphViewportAtPoint,
+} from "./upgrade-graph";
 
 describe("upgrade graph view model", () => {
   it("maps owned, available, locked, and meta-locked node states", () => {
@@ -31,5 +36,28 @@ describe("upgrade graph view model", () => {
 
     const selectedNodeId = getDefaultSelectedUpgradeNodeId(view);
     expect(view.nodes.find((node) => node.id === selectedNodeId)?.state).toBe("available");
+  });
+
+  it("fits the widened graph into a viewport and zooms around a point", () => {
+    const view = buildUpgradeGraphViewModel({
+      progression: createEmptyUpgradeProgression(),
+      ownedNodes: new Set(),
+    });
+
+    const fitted = fitUpgradeGraphViewport(900, 520, view.width, view.height);
+    expect(fitted.scale).toBeLessThanOrEqual(1);
+    expect(fitted.scale).toBeGreaterThan(0.3);
+
+    const zoomed = zoomUpgradeGraphViewportAtPoint(
+      fitted,
+      900,
+      520,
+      view.width,
+      view.height,
+      { x: 450, y: 260 },
+      fitted.scale * 1.5,
+    );
+
+    expect(zoomed.scale).toBeGreaterThan(fitted.scale);
   });
 });

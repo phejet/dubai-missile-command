@@ -4,9 +4,13 @@
 import { COL } from "./game-logic";
 import {
   buildUpgradeGraphViewModel,
+  clampUpgradeGraphViewport,
+  fitUpgradeGraphViewport,
+  graphScreenToWorld,
   getDefaultSelectedUpgradeNodeId,
   renderUpgradeGraphDetailMarkup,
   renderUpgradeGraphMarkup,
+  zoomUpgradeGraphViewportAtPoint,
 } from "./upgrade-graph";
 import { getUpgradeObjectiveLabel } from "./game-sim-upgrades";
 import type { ShopEntry } from "./types";
@@ -563,51 +567,139 @@ function getProgressionPanelRoot(): HTMLElement {
 export function showUpgradeProgression(data: UpgradeProgressionViewData, onClose: () => void): void {
   hideUpgradeProgression();
   const container = getProgressionPanelRoot();
-  let selectedNodeId: UpgradeNodeId | null = null;
+  const view = buildUpgradeGraphViewModel({
+    progression: data.progression,
+    ownedNodes: data.ownedNodes,
+  });
+  let selectedNodeId = getDefaultSelectedUpgradeNodeId(view);
+  const counts = countGraphStates(view);
+  container.innerHTML = `
+    <div class="upgrade-graph-shell upgrade-graph-shell--panel">
+      <div class="upgrade-graph-shell__header">
+        <div>
+          <div class="upgrade-graph-shell__eyebrow">Strategic Progression</div>
+          <h2 class="upgrade-graph-shell__title">Upgrade Graph</h2>
+          <p class="upgrade-graph-shell__copy">Review the full defense network, see which branches are active, and inspect objective-gated unlocks for later runs.</p>
+        </div>
+        <div class="upgrade-graph-shell__actions">
+          <button type="button" class="action-button action-button--info" data-progression-close>Back</button>
+        </div>
+      </div>
+      <div class="upgrade-graph-shell__stats">
+        <div class="upgrade-graph-shell__stat">
+          <span class="upgrade-graph-shell__stat-label">Owned This Run</span>
+          <strong class="upgrade-graph-shell__stat-value">${counts.owned}</strong>
+        </div>
+        <div class="upgrade-graph-shell__stat">
+          <span class="upgrade-graph-shell__stat-label">Available</span>
+          <strong class="upgrade-graph-shell__stat-value">${counts.available}</strong>
+        </div>
+        <div class="upgrade-graph-shell__stat">
+          <span class="upgrade-graph-shell__stat-label">Meta Locked</span>
+          <strong class="upgrade-graph-shell__stat-value">${counts.metaLocked}</strong>
+        </div>
+      </div>
+      <div class="upgrade-graph-shell__body">
+        <div class="upgrade-graph-shell__stage" data-upgrade-graph-stage>
+          <div class="upgrade-graph-shell__controls">
+            <button type="button" class="upgrade-graph-shell__control" data-zoom-control="out" aria-label="Zoom out">-</button>
+            <button type="button" class="upgrade-graph-shell__control" data-zoom-control="fit" aria-label="Fit graph">Fit</button>
+            <button type="button" class="upgrade-graph-shell__control" data-zoom-control="in" aria-label="Zoom in">+</button>
+            <span class="upgrade-graph-shell__scale" data-upgrade-graph-scale>100%</span>
+          </div>
+          <div class="upgrade-graph-shell__canvas" data-upgrade-graph-canvas>${renderUpgradeGraphMarkup(view, { selectedNodeId })}</div>
+        </div>
+        <div class="upgrade-graph-shell__detail" data-upgrade-graph-detail>${renderUpgradeGraphDetailMarkup(view, selectedNodeId)}</div>
+      </div>
+    </div>`;
 
-  const render = () => {
-    const view = buildUpgradeGraphViewModel({
-      progression: data.progression,
-      ownedNodes: data.ownedNodes,
+  const stageEl = container.querySelector("[data-upgrade-graph-stage]") as HTMLDivElement;
+  const canvasEl = container.querySelector("[data-upgrade-graph-canvas]") as HTMLDivElement;
+  const detailEl = container.querySelector("[data-upgrade-graph-detail]") as HTMLDivElement;
+  const scaleEl = container.querySelector("[data-upgrade-graph-scale]") as HTMLSpanElement;
+  const pointers = new Map<number, { x: number; y: number }>();
+  const TAP_SLOP = 8;
+  let viewport = fitUpgradeGraphViewport(
+    Math.max(stageEl.clientWidth, 760),
+    Math.max(stageEl.clientHeight, 420),
+    view.width,
+    view.height,
+  );
+  let panStart: {
+    viewport: typeof viewport;
+    point: { x: number; y: number };
+    candidateNodeId: UpgradeNodeId | null;
+    moved: boolean;
+  } | null = null;
+  let pinchStart: {
+    viewport: typeof viewport;
+    midpoint: { x: number; y: number };
+    distance: number;
+  } | null = null;
+
+  function getStageSize() {
+    return {
+      width: Math.max(stageEl.clientWidth, 760),
+      height: Math.max(stageEl.clientHeight, 420),
+    };
+  }
+
+  function getStagePoint(clientX: number, clientY: number) {
+    const rect = stageEl.getBoundingClientRect();
+    return { x: clientX - rect.left, y: clientY - rect.top };
+  }
+
+  function applyViewport() {
+    canvasEl.style.transform = `translate(${viewport.panX}px, ${viewport.panY}px) scale(${viewport.scale})`;
+    scaleEl.textContent = `${Math.round(viewport.scale * 100)}%`;
+  }
+
+  function fitViewport() {
+    const size = getStageSize();
+    viewport = fitUpgradeGraphViewport(size.width, size.height, view.width, view.height);
+    applyViewport();
+  }
+
+  function updateSelection(nextNodeId: UpgradeNodeId | null) {
+    selectedNodeId = nextNodeId;
+    detailEl.innerHTML = renderUpgradeGraphDetailMarkup(view, selectedNodeId);
+    container.querySelectorAll<HTMLElement>("[data-node-id]").forEach((nodeEl) => {
+      nodeEl.classList.toggle("upgrade-graph__node--selected", nodeEl.dataset.nodeId === selectedNodeId);
     });
-    if (!selectedNodeId || !view.nodes.some((node) => node.id === selectedNodeId)) {
-      selectedNodeId = getDefaultSelectedUpgradeNodeId(view);
-    }
-    const counts = countGraphStates(view);
-    container.innerHTML = `
-      <div class="upgrade-graph-shell upgrade-graph-shell--panel">
-        <div class="upgrade-graph-shell__header">
-          <div>
-            <div class="upgrade-graph-shell__eyebrow">Strategic Progression</div>
-            <h2 class="upgrade-graph-shell__title">Upgrade Graph</h2>
-            <p class="upgrade-graph-shell__copy">Review the full defense network, see which branches are active, and inspect objective-gated unlocks for later runs.</p>
-          </div>
-          <div class="upgrade-graph-shell__actions">
-            <button type="button" class="action-button action-button--info" data-progression-close>Back</button>
-          </div>
-        </div>
-        <div class="upgrade-graph-shell__stats">
-          <div class="upgrade-graph-shell__stat">
-            <span class="upgrade-graph-shell__stat-label">Owned This Run</span>
-            <strong class="upgrade-graph-shell__stat-value">${counts.owned}</strong>
-          </div>
-          <div class="upgrade-graph-shell__stat">
-            <span class="upgrade-graph-shell__stat-label">Available</span>
-            <strong class="upgrade-graph-shell__stat-value">${counts.available}</strong>
-          </div>
-          <div class="upgrade-graph-shell__stat">
-            <span class="upgrade-graph-shell__stat-label">Meta Locked</span>
-            <strong class="upgrade-graph-shell__stat-value">${counts.metaLocked}</strong>
-          </div>
-        </div>
-        <div class="upgrade-graph-shell__body">
-          <div class="upgrade-graph-shell__stage" data-upgrade-graph-stage>
-            <div class="upgrade-graph-shell__canvas">${renderUpgradeGraphMarkup(view, { selectedNodeId })}</div>
-          </div>
-          <div class="upgrade-graph-shell__detail">${renderUpgradeGraphDetailMarkup(view, selectedNodeId)}</div>
-        </div>
-      </div>`;
-  };
+  }
+
+  function zoomAt(point: { x: number; y: number }, targetScale: number) {
+    const size = getStageSize();
+    viewport = zoomUpgradeGraphViewportAtPoint(
+      viewport,
+      size.width,
+      size.height,
+      view.width,
+      view.height,
+      point,
+      targetScale,
+    );
+    applyViewport();
+  }
+
+  function distance(a: { x: number; y: number }, b: { x: number; y: number }) {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+
+  function midpoint(a: { x: number; y: number }, b: { x: number; y: number }) {
+    return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  }
+
+  function beginPinch() {
+    const active = Array.from(pointers.values());
+    if (active.length < 2) return;
+    pinchStart = {
+      viewport,
+      midpoint: midpoint(active[0], active[1]),
+      distance: Math.max(distance(active[0], active[1]), 1),
+    };
+    panStart = null;
+  }
 
   const handleClick = (event: Event) => {
     const target = event.target as HTMLElement;
@@ -618,21 +710,127 @@ export function showUpgradeProgression(data: UpgradeProgressionViewData, onClose
     }
     const nodeButton = target.closest("[data-node-id]") as HTMLElement | null;
     if (nodeButton?.dataset.nodeId) {
-      selectedNodeId = nodeButton.dataset.nodeId;
-      render();
+      updateSelection(nodeButton.dataset.nodeId);
+      return;
     }
+    const zoomButton = target.closest("[data-zoom-control]") as HTMLElement | null;
+    if (zoomButton?.dataset.zoomControl) {
+      const size = getStageSize();
+      const center = { x: size.width / 2, y: size.height / 2 };
+      if (zoomButton.dataset.zoomControl === "fit") fitViewport();
+      if (zoomButton.dataset.zoomControl === "in") zoomAt(center, viewport.scale * 1.18);
+      if (zoomButton.dataset.zoomControl === "out") zoomAt(center, viewport.scale / 1.18);
+    }
+  };
+
+  const handleWheel = (event: WheelEvent) => {
+    event.preventDefault();
+    const point = getStagePoint(event.clientX, event.clientY);
+    zoomAt(point, viewport.scale * Math.exp(-event.deltaY * 0.0014));
+  };
+
+  const handlePointerDown = (event: PointerEvent) => {
+    const target = event.target as HTMLElement;
+    if (target.closest("[data-zoom-control]")) return;
+    const point = getStagePoint(event.clientX, event.clientY);
+    pointers.set(event.pointerId, point);
+    stageEl.setPointerCapture(event.pointerId);
+    if (pointers.size === 1) {
+      panStart = {
+        viewport,
+        point,
+        candidateNodeId: (target.closest("[data-node-id]") as HTMLElement | null)?.dataset.nodeId ?? null,
+        moved: false,
+      };
+      pinchStart = null;
+    } else if (pointers.size === 2) {
+      beginPinch();
+    }
+  };
+
+  const handlePointerMove = (event: PointerEvent) => {
+    if (!pointers.has(event.pointerId)) return;
+    const point = getStagePoint(event.clientX, event.clientY);
+    pointers.set(event.pointerId, point);
+
+    if (pointers.size >= 2 && pinchStart) {
+      const active = Array.from(pointers.values());
+      const currentMidpoint = midpoint(active[0], active[1]);
+      const currentDistance = Math.max(distance(active[0], active[1]), 1);
+      const targetScale = pinchStart.viewport.scale * (currentDistance / pinchStart.distance);
+      const worldPoint = graphScreenToWorld(pinchStart.midpoint, pinchStart.viewport);
+      const size = getStageSize();
+      viewport = clampUpgradeGraphViewport(
+        {
+          scale: targetScale,
+          panX: currentMidpoint.x - worldPoint.x * targetScale,
+          panY: currentMidpoint.y - worldPoint.y * targetScale,
+        },
+        size.width,
+        size.height,
+        view.width,
+        view.height,
+      );
+      applyViewport();
+      return;
+    }
+
+    if (!panStart) return;
+    const dx = point.x - panStart.point.x;
+    const dy = point.y - panStart.point.y;
+    if (!panStart.moved && Math.hypot(dx, dy) > TAP_SLOP) panStart.moved = true;
+    if (!panStart.moved) return;
+    const size = getStageSize();
+    viewport = clampUpgradeGraphViewport(
+      {
+        scale: panStart.viewport.scale,
+        panX: panStart.viewport.panX + dx,
+        panY: panStart.viewport.panY + dy,
+      },
+      size.width,
+      size.height,
+      view.width,
+      view.height,
+    );
+    applyViewport();
+  };
+
+  const handlePointerUp = (event: PointerEvent) => {
+    const tapCandidate = pointers.size === 1 ? (panStart?.candidateNodeId ?? null) : null;
+    const shouldSelect = !!tapCandidate && !!panStart && !panStart.moved;
+    pointers.delete(event.pointerId);
+    if (stageEl.hasPointerCapture(event.pointerId)) {
+      stageEl.releasePointerCapture(event.pointerId);
+    }
+    if (shouldSelect) updateSelection(tapCandidate);
+    panStart = null;
+    pinchStart = null;
   };
 
   const handleKeyDown = (event: KeyboardEvent) => {
     if (event.key === "Escape") onClose();
   };
 
-  render();
+  const handleResize = () => fitViewport();
+
+  applyViewport();
   container.hidden = false;
   container.addEventListener("click", handleClick);
+  stageEl.addEventListener("wheel", handleWheel, { passive: false });
+  stageEl.addEventListener("pointerdown", handlePointerDown);
+  stageEl.addEventListener("pointermove", handlePointerMove);
+  stageEl.addEventListener("pointerup", handlePointerUp);
+  stageEl.addEventListener("pointercancel", handlePointerUp);
+  window.addEventListener("resize", handleResize);
   window.addEventListener("keydown", handleKeyDown);
   progressionCleanup = () => {
     container.removeEventListener("click", handleClick);
+    stageEl.removeEventListener("wheel", handleWheel);
+    stageEl.removeEventListener("pointerdown", handlePointerDown);
+    stageEl.removeEventListener("pointermove", handlePointerMove);
+    stageEl.removeEventListener("pointerup", handlePointerUp);
+    stageEl.removeEventListener("pointercancel", handlePointerUp);
+    window.removeEventListener("resize", handleResize);
     window.removeEventListener("keydown", handleKeyDown);
     container.hidden = true;
     container.innerHTML = "";

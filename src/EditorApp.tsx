@@ -6,11 +6,16 @@ import { PARAM_GROUPS, getDefaults } from "./editor-params.js";
 import { createEmptyUpgradeProgression, getAllUpgradeNodeDefs, getUpgradeObjectiveLabel } from "./game-sim-upgrades";
 import {
   buildUpgradeGraphViewModel,
+  clampUpgradeGraphViewport,
+  fitUpgradeGraphViewport,
+  graphScreenToWorld,
   getDefaultSelectedUpgradeNodeId,
   getUpgradeGraphPositionDefaults,
   renderUpgradeGraphDetailMarkup,
   renderUpgradeGraphMarkup,
+  zoomUpgradeGraphViewportAtPoint,
 } from "./upgrade-graph";
+import type { UpgradeGraphViewportState } from "./upgrade-graph";
 import type { GameState, Explosion, Particle } from "./types";
 import "./EditorApp.css";
 import "./UpgradeGraph.css";
@@ -152,6 +157,7 @@ function simTick(scene: GameState, dt: number): void {
 }
 
 export default function EditorApp() {
+  const DEFAULT_GRAPH_VIEWPORT: UpgradeGraphViewportState = { scale: 1, panX: 0, panY: 0 };
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const graphStageRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<GameState | null>(null);
@@ -171,9 +177,34 @@ export default function EditorApp() {
   const [positionOverrides, setPositionOverrides] = useState<Record<string, number>>(getEditorPositionDefaults);
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{ key: string; offsetX: number; offsetY: number } | null>(null);
+  const graphPointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const graphViewportRef = useRef<UpgradeGraphViewportState>(DEFAULT_GRAPH_VIEWPORT);
+  const graphGestureRef = useRef<
+    | {
+        mode: "pan";
+        viewport: UpgradeGraphViewportState;
+        point: { x: number; y: number };
+        moved: boolean;
+      }
+    | {
+        mode: "node";
+        nodeId: string;
+        offsetX: number;
+        offsetY: number;
+        point: { x: number; y: number };
+        moved: boolean;
+      }
+    | null
+  >(null);
+  const graphPinchRef = useRef<{
+    viewport: UpgradeGraphViewportState;
+    midpoint: { x: number; y: number };
+    distance: number;
+  } | null>(null);
   const [graphOwnedNodes, setGraphOwnedNodes] = useState<string[]>([]);
   const [graphSelection, setGraphSelection] = useState<string | null>(null);
   const [graphProgression, setGraphProgression] = useState(createEmptyUpgradeProgression);
+  const [graphViewport, setGraphViewport] = useState<UpgradeGraphViewportState>(DEFAULT_GRAPH_VIEWPORT);
   const graphOwnedSet = new Set(graphOwnedNodes);
   const graphView = buildUpgradeGraphViewModel({
     progression: graphProgression,
@@ -185,10 +216,61 @@ export default function EditorApp() {
       ? graphSelection
       : getDefaultSelectedUpgradeNodeId(graphView);
 
+  function getGraphStageSize() {
+    const stage = graphStageRef.current;
+    return {
+      width: Math.max(stage?.clientWidth ?? 0, 760),
+      height: Math.max(stage?.clientHeight ?? 0, 420),
+    };
+  }
+
+  function setClampedGraphViewport(nextViewport: UpgradeGraphViewportState) {
+    const size = getGraphStageSize();
+    const clamped = clampUpgradeGraphViewport(nextViewport, size.width, size.height, graphView.width, graphView.height);
+    graphViewportRef.current = clamped;
+    setGraphViewport(clamped);
+  }
+
+  function fitGraphViewport() {
+    const size = getGraphStageSize();
+    const fitted = fitUpgradeGraphViewport(size.width, size.height, graphView.width, graphView.height);
+    graphViewportRef.current = fitted;
+    setGraphViewport(fitted);
+  }
+
+  function getGraphStagePoint(clientX: number, clientY: number) {
+    const rect = graphStageRef.current?.getBoundingClientRect();
+    if (!rect) return { x: 0, y: 0 };
+    return { x: clientX - rect.left, y: clientY - rect.top };
+  }
+
   // Sync overrides to window
   useEffect(() => {
     window.__editorOverrides = { ...values, ...positionOverrides };
   }, [values, positionOverrides]);
+
+  useEffect(() => {
+    if (editorView !== "graph") return;
+    const frameId = requestAnimationFrame(() => {
+      const size = getGraphStageSize();
+      const fitted = fitUpgradeGraphViewport(size.width, size.height, graphView.width, graphView.height);
+      graphViewportRef.current = fitted;
+      setGraphViewport(fitted);
+    });
+    return () => cancelAnimationFrame(frameId);
+  }, [editorView, graphView.height, graphView.width]);
+
+  useEffect(() => {
+    if (editorView !== "graph") return;
+    const handleResize = () => {
+      const size = getGraphStageSize();
+      const fitted = fitUpgradeGraphViewport(size.width, size.height, graphView.width, graphView.height);
+      graphViewportRef.current = fitted;
+      setGraphViewport(fitted);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [editorView, graphView.height, graphView.width]);
 
   // Create scene once, with snapshot for timeline scrubbing
   useEffect(() => {
@@ -426,44 +508,151 @@ export default function EditorApp() {
     setIsDragging(false);
   }, []);
 
-  const onGraphMouseDown = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      const stage = graphStageRef.current;
-      const target = (e.target as HTMLElement).closest("[data-node-id]") as HTMLElement | null;
-      if (!stage || !target?.dataset.nodeId) return;
-      const nodeId = target.dataset.nodeId;
-      setGraphSelection(nodeId);
-      const rect = stage.getBoundingClientRect();
-      const pointerX = e.clientX - rect.left + stage.scrollLeft;
-      const pointerY = e.clientY - rect.top + stage.scrollTop;
-      dragRef.current = {
-        key: `upgradeGraph.${nodeId}`,
-        offsetX: positionOverrides[`upgradeGraph.${nodeId}.x`] - pointerX,
-        offsetY: positionOverrides[`upgradeGraph.${nodeId}.y`] - pointerY,
-      };
-      setIsDragging(true);
-    },
-    [positionOverrides],
-  );
-
-  const onGraphMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+  function onGraphMouseDown(e: React.PointerEvent<HTMLDivElement>) {
     const stage = graphStageRef.current;
-    const drag = dragRef.current;
-    if (!stage || !drag) return;
-    const rect = stage.getBoundingClientRect();
-    const pointerX = e.clientX - rect.left + stage.scrollLeft;
-    const pointerY = e.clientY - rect.top + stage.scrollTop;
+    const nativeEvent = e.nativeEvent;
+    const target = e.target as HTMLElement;
+    if (!stage || target.closest("[data-zoom-control]")) return;
+    const point = getGraphStagePoint(nativeEvent.clientX, nativeEvent.clientY);
+    graphPointersRef.current.set(nativeEvent.pointerId, point);
+    stage.setPointerCapture(nativeEvent.pointerId);
+    if (graphPointersRef.current.size === 2) {
+      const active = Array.from(graphPointersRef.current.values());
+      graphGestureRef.current = null;
+      graphPinchRef.current = {
+        viewport: graphViewportRef.current,
+        midpoint: { x: (active[0].x + active[1].x) / 2, y: (active[0].y + active[1].y) / 2 },
+        distance: Math.max(Math.hypot(active[0].x - active[1].x, active[0].y - active[1].y), 1),
+      };
+      return;
+    }
+    const nodeEl = target.closest("[data-node-id]") as HTMLElement | null;
+    if (nodeEl?.dataset.nodeId) {
+      const nodeId = nodeEl.dataset.nodeId;
+      setGraphSelection(nodeId);
+      const worldPoint = graphScreenToWorld(point, graphViewportRef.current);
+      graphGestureRef.current = {
+        mode: "node",
+        nodeId,
+        offsetX: positionOverrides[`upgradeGraph.${nodeId}.x`] - worldPoint.x,
+        offsetY: positionOverrides[`upgradeGraph.${nodeId}.y`] - worldPoint.y,
+        point,
+        moved: false,
+      };
+      return;
+    }
+    graphPinchRef.current = null;
+    graphGestureRef.current = {
+      mode: "pan",
+      viewport: graphViewportRef.current,
+      point,
+      moved: false,
+    };
+  }
+
+  function onGraphMouseMove(e: React.PointerEvent<HTMLDivElement>) {
+    const nativeEvent = e.nativeEvent;
+    if (!graphPointersRef.current.has(nativeEvent.pointerId)) return;
+    const point = getGraphStagePoint(nativeEvent.clientX, nativeEvent.clientY);
+    graphPointersRef.current.set(nativeEvent.pointerId, point);
+
+    if (graphPointersRef.current.size >= 2 && graphPinchRef.current) {
+      const active = Array.from(graphPointersRef.current.values());
+      const currentMidpoint = { x: (active[0].x + active[1].x) / 2, y: (active[0].y + active[1].y) / 2 };
+      const currentDistance = Math.max(Math.hypot(active[0].x - active[1].x, active[0].y - active[1].y), 1);
+      const pinch = graphPinchRef.current;
+      const targetScale = pinch.viewport.scale * (currentDistance / pinch.distance);
+      const worldPoint = graphScreenToWorld(pinch.midpoint, pinch.viewport);
+      setClampedGraphViewport({
+        scale: targetScale,
+        panX: currentMidpoint.x - worldPoint.x * targetScale,
+        panY: currentMidpoint.y - worldPoint.y * targetScale,
+      });
+      return;
+    }
+
+    const gesture = graphGestureRef.current;
+    if (!gesture) return;
+    const dx = point.x - gesture.point.x;
+    const dy = point.y - gesture.point.y;
+    if (!gesture.moved && Math.hypot(dx, dy) > 8) gesture.moved = true;
+
+    if (gesture.mode === "pan") {
+      if (!gesture.moved) return;
+      setClampedGraphViewport({
+        scale: gesture.viewport.scale,
+        panX: gesture.viewport.panX + dx,
+        panY: gesture.viewport.panY + dy,
+      });
+      return;
+    }
+
+    if (!gesture.moved) return;
+    const worldPoint = graphScreenToWorld(point, graphViewportRef.current);
     setPositionOverrides((prev) => ({
       ...prev,
-      [`${drag.key}.x`]: Math.round(pointerX + drag.offsetX),
-      [`${drag.key}.y`]: Math.round(pointerY + drag.offsetY),
+      [`upgradeGraph.${gesture.nodeId}.x`]: Math.round(worldPoint.x + gesture.offsetX),
+      [`upgradeGraph.${gesture.nodeId}.y`]: Math.round(worldPoint.y + gesture.offsetY),
     }));
-  }, []);
+  }
 
-  const onGraphMouseUp = useCallback(() => {
-    dragRef.current = null;
+  function onGraphMouseUp(e: React.PointerEvent<HTMLDivElement>) {
+    const stage = graphStageRef.current;
+    const nativeEvent = e.nativeEvent;
+    const gesture = graphGestureRef.current;
+    const shouldSelect = gesture?.mode === "node" && !gesture.moved;
+    graphPointersRef.current.delete(nativeEvent.pointerId);
+    if (stage?.hasPointerCapture(nativeEvent.pointerId)) {
+      stage.releasePointerCapture(nativeEvent.pointerId);
+    }
+    if (shouldSelect) setGraphSelection(gesture.nodeId);
+    graphGestureRef.current = null;
+    graphPinchRef.current = null;
     setIsDragging(false);
-  }, []);
+  }
+
+  function onGraphWheel(e: React.WheelEvent<HTMLDivElement>) {
+    e.preventDefault();
+    const point = getGraphStagePoint(e.clientX, e.clientY);
+    const size = getGraphStageSize();
+    const nextViewport = zoomUpgradeGraphViewportAtPoint(
+      graphViewportRef.current,
+      size.width,
+      size.height,
+      graphView.width,
+      graphView.height,
+      point,
+      graphViewportRef.current.scale * Math.exp(-e.deltaY * 0.0014),
+    );
+    graphViewportRef.current = nextViewport;
+    setGraphViewport(nextViewport);
+  }
+
+  function zoomGraphFromCenter(multiplier: number) {
+    const size = getGraphStageSize();
+    const nextViewport = zoomUpgradeGraphViewportAtPoint(
+      graphViewportRef.current,
+      size.width,
+      size.height,
+      graphView.width,
+      graphView.height,
+      { x: size.width / 2, y: size.height / 2 },
+      graphViewportRef.current.scale * multiplier,
+    );
+    graphViewportRef.current = nextViewport;
+    setGraphViewport(nextViewport);
+  }
+
+  function fitGraphViewNow() {
+    fitGraphViewport();
+  }
+
+  function onGraphMouseLeave() {
+    graphPointersRef.current.clear();
+    graphGestureRef.current = null;
+    graphPinchRef.current = null;
+    setIsDragging(false);
+  }
 
   const toggleObjective = useCallback((objectiveId: string) => {
     setGraphProgression((prev) => {
@@ -483,7 +672,7 @@ export default function EditorApp() {
     );
   }
 
-  const resetGraphPreview = useCallback(() => {
+  function resetGraphPreview() {
     setGraphOwnedNodes([]);
     setGraphProgression(createEmptyUpgradeProgression());
     setPositionOverrides((prev) => {
@@ -492,7 +681,8 @@ export default function EditorApp() {
       for (const [key, value] of Object.entries(defaults)) next[key] = value;
       return next;
     });
-  }, []);
+    requestAnimationFrame(() => fitGraphViewport());
+  }
 
   // "A" key hotkey for play/pause
   useEffect(() => {
@@ -592,13 +782,45 @@ export default function EditorApp() {
               <div
                 ref={graphStageRef}
                 className="upgrade-graph-shell__stage"
-                onMouseDown={onGraphMouseDown}
-                onMouseMove={onGraphMouseMove}
-                onMouseUp={onGraphMouseUp}
-                onMouseLeave={onGraphMouseUp}
+                onPointerDown={onGraphMouseDown}
+                onPointerMove={onGraphMouseMove}
+                onPointerUp={onGraphMouseUp}
+                onPointerCancel={onGraphMouseUp}
+                onPointerLeave={onGraphMouseLeave}
+                onWheel={onGraphWheel}
               >
+                <div className="upgrade-graph-shell__controls">
+                  <button
+                    type="button"
+                    className="upgrade-graph-shell__control"
+                    data-zoom-control="out"
+                    onClick={() => zoomGraphFromCenter(1 / 1.18)}
+                  >
+                    -
+                  </button>
+                  <button
+                    type="button"
+                    className="upgrade-graph-shell__control"
+                    data-zoom-control="fit"
+                    onClick={fitGraphViewNow}
+                  >
+                    Fit
+                  </button>
+                  <button
+                    type="button"
+                    className="upgrade-graph-shell__control"
+                    data-zoom-control="in"
+                    onClick={() => zoomGraphFromCenter(1.18)}
+                  >
+                    +
+                  </button>
+                  <span className="upgrade-graph-shell__scale">{Math.round(graphViewport.scale * 100)}%</span>
+                </div>
                 <div
                   className="upgrade-graph-shell__canvas"
+                  style={{
+                    transform: `translate(${graphViewport.panX}px, ${graphViewport.panY}px) scale(${graphViewport.scale})`,
+                  }}
                   dangerouslySetInnerHTML={{
                     __html: renderUpgradeGraphMarkup(graphView, { selectedNodeId: selectedGraphNodeId }),
                   }}

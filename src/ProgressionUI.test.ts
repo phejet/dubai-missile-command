@@ -41,4 +41,21 @@ describe("Upgrade progression UI", () => {
     (document.querySelector("[data-progression-close]") as HTMLButtonElement).click();
     expect(onClose).toHaveBeenCalled();
   });
+
+  it("renders zoom controls and updates the visible scale label", () => {
+    showUpgradeProgression(
+      {
+        progression: createEmptyUpgradeProgression(),
+        ownedNodes: new Set(),
+      },
+      vi.fn(),
+    );
+
+    const scaleEl = document.querySelector("[data-upgrade-graph-scale]") as HTMLSpanElement;
+    const before = scaleEl.textContent;
+    (document.querySelector('[data-zoom-control="in"]') as HTMLButtonElement).click();
+    expect(scaleEl.textContent).not.toBe(before);
+    (document.querySelector('[data-zoom-control="fit"]') as HTMLButtonElement).click();
+    expect(scaleEl.textContent).toMatch(/%/);
+  });
 });
