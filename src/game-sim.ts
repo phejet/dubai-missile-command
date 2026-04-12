@@ -25,7 +25,6 @@ import {
   getPhalanxTurrets,
   damageTarget,
   getKillReward,
-  getAmmoCapacity,
   getMultiKillBonus,
   getRng,
   computeShahed136Path,
@@ -33,6 +32,8 @@ import {
   ov,
 } from "./game-logic.js";
 import { createCommander, generateWaveSchedule, advanceSpawnSchedule, isWaveFullySpawned } from "./wave-spawner.js";
+import { createEmptyUpgradeLevels, createEmptyUpgradeProgression } from "./game-sim-upgrades.js";
+import { buyUpgrade, closeShop, draftPick3 } from "./game-sim-shop.js";
 import type {
   GameState,
   Threat,
@@ -44,129 +45,8 @@ import type {
   Roadrunner,
   PatriotMissile,
   Flare,
-  UpgradeKey,
   SpawnEntry,
 } from "./types.js";
-
-// ── UPGRADE DEFINITIONS ──
-export const UPGRADES = {
-  wildHornets: {
-    name: "Wild Hornets",
-    icon: "\uD83D\uDC1D",
-    desc: "Ukrainian FPV drone swarm. Fast-response drones thin bombs, drones, and clutter before they become emergencies.",
-    maxLevel: 3,
-    costs: [532, 2016, 4991],
-    color: COL.hornet,
-    statLines: [
-      "2 drones / 2.5s \u00B7 bomb + drone priority \u00B7 25 blast",
-      "3 drones / 2.5s \u00B7 battlefield control \u00B7 30 blast",
-      "5 drones / 1.8s \u00B7 swarm control \u00B7 40 blast",
-    ],
-  },
-  roadrunner: {
-    name: "Anduril Roadrunner",
-    icon: "\uD83E\uDD85",
-    desc: "AI-guided reusable interceptor. Precision hunter for MIRVs, jets, bombs, and must-kill threats.",
-    maxLevel: 3,
-    costs: [805, 2520, 6048],
-    color: COL.roadrunner,
-    statLines: [
-      "1 interceptor / 5s \u00B7 MIRV + jet priority",
-      "2 interceptors / 4s \u00B7 precision strikes",
-      "3 interceptors / 3s \u00B7 elite threat hunter",
-    ],
-  },
-  flare: {
-    name: "Decoy Flares",
-    icon: "\uD83C\uDF86",
-    desc: "Burj launches IR decoys that scramble guidance systems. Lures missiles, bombs, and drones to self-destruct.",
-    maxLevel: 3,
-    costs: [707, 2219, 5544],
-    color: COL.flare,
-    statLines: [
-      "4 flares / 4s \u00B7 lures 1 per flare",
-      "4 flares / 3s \u00B7 lures 2 per flare",
-      "4 flares / 2s \u00B7 lures 3 per flare",
-    ],
-  },
-  ironBeam: {
-    name: "Iron Beam",
-    icon: "\u26A1",
-    desc: "High-energy laser defense. Instant beam locks on and burns down incoming projectiles.",
-    maxLevel: 3,
-    costs: [1050, 3311, 7777],
-    color: COL.laser,
-    statLines: [
-      "1 beam \u00B7 42 range \u00B7 very slow charge",
-      "2 beams \u00B7 56 range \u00B7 slow",
-      "3 beams \u00B7 70 range \u00B7 medium",
-    ],
-  },
-  phalanx: {
-    name: "Phalanx CIWS",
-    icon: "\uD83D\uDD2B",
-    desc: "Close-in weapon system. Last-resort rapid-fire autocannon near protected sites.",
-    maxLevel: 3,
-    costs: [854, 2821, 6552],
-    color: COL.phalanx,
-    statLines: [
-      "1 turret at Burj \u00B7 100 range \u00B7 50% acc",
-      "+ east turret \u00B7 130 range \u00B7 60% acc",
-      "3 turrets \u00B7 160 range \u00B7 70% acc \u00B7 faster",
-    ],
-  },
-  patriot: {
-    name: "Patriot Battery",
-    icon: "\uD83D\uDE80",
-    desc: "Fast SAM barrage. Prioritizes MIRVs, missiles, and jet drones with homing intercepts.",
-    maxLevel: 3,
-    costs: [1512, 3479, 7966],
-    color: COL.patriot,
-    statLines: [
-      "2 missiles / 8s \u00B7 MIRV priority \u00B7 56 blast",
-      "3 missiles / 6s \u00B7 fast homing \u00B7 72 blast",
-      "4 missiles / 5s \u00B7 rapid barrage \u00B7 88 blast",
-    ],
-  },
-  burjRepair: {
-    name: "Burj Repair Kit",
-    icon: "\uD83D\uDD27",
-    desc: "Emergency structural repair. Restores 1 HP to Burj Khalifa.",
-    maxLevel: 3,
-    costs: [1512, 2520, 4032],
-    color: "#00ffcc",
-    statLines: ["+1 Burj HP (1/3)", "+1 Burj HP (2/3)", "+1 Burj HP (3/3)"],
-    consumable: true,
-    disabled: true,
-  },
-  launcherKit: {
-    name: "Launcher Upgrade",
-    icon: "\uD83D\uDEE1\uFE0F",
-    desc: "Progressive launcher enhancement. Magazine, armor, then double magazine.",
-    maxLevel: 3,
-    costs: [805, 1813, 3024],
-    color: COL.launcherKit,
-    statLines: [
-      "Extended Mag: +50% ammo per wave",
-      "Reinforced: launchers gain +1 HP",
-      "Deep Magazine: +100% ammo per wave",
-    ],
-  },
-  emp: {
-    name: "EMP Shockwave",
-    icon: "\uD83C\uDF00",
-    desc: "Tesla coil EMP cannon. Charge up, then press SPACE to unleash a shockwave from Burj.",
-    maxLevel: 3,
-    costs: [1211, 3227, 7560],
-    color: COL.emp,
-    statLines: [
-      "500 range \u00B7 20s charge \u00B7 1 dmg",
-      "800 range \u00B7 15s charge \u00B7 2 dmg",
-      "FULL MAP \u00B7 12s charge \u00B7 3 dmg + slow",
-    ],
-    active: true,
-  },
-};
 
 function boom(
   g: GameState,
@@ -300,17 +180,9 @@ export function initGame(): GameState {
     time: 0,
     shakeTimer: 0,
     shakeIntensity: 0,
-    upgrades: {
-      wildHornets: 0,
-      roadrunner: 0,
-      flare: 0,
-      ironBeam: 0,
-      phalanx: 0,
-      patriot: 0,
-      burjRepair: 0,
-      launcherKit: 0,
-      emp: 0,
-    },
+    upgrades: createEmptyUpgradeLevels(),
+    ownedUpgradeNodes: new Set(),
+    metaProgression: createEmptyUpgradeProgression(),
     defenseSites: [],
     hornets: [],
     roadrunners: [],
@@ -360,7 +232,7 @@ export function spawnMirv(g: GameState, onEvent?: ((type: string, data?: unknown
   const len = Math.sqrt(dx * dx + dy * dy);
   if (len < 1) return;
   const speed = (rand(0.6, 0.9) + g.wave * 0.05) * 2;
-  const hp = 3 + Math.floor(g.wave / 4);
+  const hp = 1;
   g.missiles.push({
     x: startX,
     y: startY,
@@ -560,7 +432,7 @@ export function spawnDroneOfType(
   else goingRight = _rng() > 0.5;
   const baseSpeed = isJet ? rand(2.5, 3.9) : rand(0.6, 1.2);
   const speed = (baseSpeed + g.wave * 0.05) * 2;
-  const health = isJet ? 1 : 1 + Math.floor(g.wave / 3);
+  const health = 1;
   const spawnX = goingRight ? -20 : CANVAS_W + 20;
   const spawnY = rand(yRange[0], yRange[1]);
   const drone: Drone = {
@@ -574,6 +446,7 @@ export function spawnDroneOfType(
     type: "drone",
     subtype,
     health,
+    collisionRadius: isJet ? 10 : 30,
     _hitByExplosions: new Set(),
   };
   if (isJet) {
@@ -1824,9 +1697,7 @@ function updateExplosions(g: GameState, dt: number, onEvent?: ((type: string, da
       });
       g.drones.forEach((d) => {
         if (!d.alive) return;
-        if (d._hitByExplosions?.has(ex.id)) return;
-        if (dist(d.x, d.y, ex.x, ex.y) < ex.radius + 10) {
-          d._hitByExplosions?.add(ex.id);
+        if (dist(d.x, d.y, ex.x, ex.y) < ex.radius + d.collisionRadius) {
           d.health--;
           if (d.health <= 0) {
             d.alive = false;
@@ -2132,140 +2003,6 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
   g.planes = g.planes.filter((p) => p.alive);
 }
 
-export function buyUpgrade(g: GameState, key: UpgradeKey) {
-  const def = UPGRADES[key];
-  if (!def) return false;
-  const lvl = g.upgrades[key];
-  if (lvl >= def.maxLevel) return false;
-  const cost = def.costs[lvl];
-  if (g.score < cost) return false;
-  g.score -= cost;
-  g.upgrades[key]++;
-  // Consumable: Burj Repair Kit
-  if (key === "burjRepair") {
-    g.burjHealth = Math.min(5, g.burjHealth + 1);
-    if (g.burjHealth > 0) g.burjAlive = true;
-    if (g.burjDecals.length > 0) g.burjDecals.shift();
-    if (g.burjDamageFx.length > 0) g.burjDamageFx.shift();
-    return true;
-  }
-  // Reinforced upgrade (launcherKit L2): set alive launchers to 2 HP
-  if (key === "launcherKit" && g.upgrades.launcherKit >= 2) {
-    for (let i = 0; i < g.launcherHP.length; i++) {
-      if (g.launcherHP[i] > 0) g.launcherHP[i] = 2;
-    }
-  }
-  // Register or revive defense site
-  const existingSite = g.defenseSites.find((s) => s.key === key);
-  if (existingSite) {
-    const siteDef = getDefenseSitePlacement(key);
-    if (siteDef) {
-      existingSite.x = siteDef.x;
-      existingSite.y = siteDef.y;
-      existingSite.hw = siteDef.hw;
-      existingSite.hh = siteDef.hh;
-    }
-    existingSite.alive = true;
-    existingSite.savedLevel = g.upgrades[key];
-  } else {
-    const siteDef = getDefenseSitePlacement(key);
-    if (siteDef) {
-      g.defenseSites.push({
-        key,
-        x: siteDef.x,
-        y: siteDef.y,
-        alive: true,
-        hw: siteDef.hw,
-        hh: siteDef.hh,
-        savedLevel: g.upgrades[key],
-      });
-    }
-  }
-  // Set EMP charge rate on purchase/upgrade
-  if (key === "emp") {
-    g.empChargeMax = [1200, 900, 720][g.upgrades.emp - 1];
-    g.empCharge = g.empChargeMax;
-    g.empReady = true;
-  }
-  return true;
-}
-
-const ALL_UPGRADE_KEYS = Object.keys(UPGRADES);
-
-/** Draw 3 unique non-maxed upgrade keys for draft mode using the game's RNG. */
-export function draftPick3(g: GameState): string[] {
-  const rng = getRng();
-  const available = ALL_UPGRADE_KEYS.filter(
-    (k) =>
-      !(UPGRADES[k as UpgradeKey] as Record<string, unknown>).disabled &&
-      g.upgrades[k as UpgradeKey] < UPGRADES[k as UpgradeKey].maxLevel,
-  );
-  if (available.length <= 3) return [...available];
-  const pool = [...available];
-  for (let i = 0; i < 3; i++) {
-    const j = i + Math.floor(rng() * (pool.length - i));
-    [pool[i], pool[j]] = [pool[j], pool[i]];
-  }
-  return pool.slice(0, 3);
-}
-
-/** Buy an upgrade for free (draft mode). */
-export function buyDraftUpgrade(g: GameState, key: UpgradeKey): boolean {
-  const def = UPGRADES[key];
-  if (!def || g.upgrades[key] >= def.maxLevel) return false;
-  const savedCosts = [...def.costs];
-  def.costs = [0, 0, 0];
-  const ok = buyUpgrade(g, key);
-  def.costs = savedCosts;
-  return ok;
-}
-
-export function closeShop(g: GameState) {
-  // Auto-repair all destroyed launchers and defense sites (free)
-  const baseHP = g.upgrades.launcherKit >= 2 ? 2 : 1;
-  for (let i = 0; i < g.launcherHP.length; i++) {
-    if (g.launcherHP[i] <= 0) g.launcherHP[i] = baseHP;
-  }
-  for (const site of g.defenseSites) {
-    if (!site.alive) site.alive = true;
-  }
-
-  // Clear all in-flight defense projectiles and friendly units at wave boundary
-  g.interceptors = [];
-  g.hornets = [];
-  g.roadrunners = [];
-  g.patriotMissiles = [];
-  g.flares = [];
-  g.planes = [];
-
-  // Reset defense system cooldowns so each wave starts fresh
-  g.hornetTimer = 360;
-  g.roadrunnerTimer = 480;
-  g.patriotTimer = 480;
-  g.flareTimer = 240;
-  g.ironBeamTimer = 360;
-  g.empCharge = g.empChargeMax;
-  g.empReady = g.upgrades.emp > 0;
-
-  g.wave++;
-  const waveData = generateWaveSchedule(g.wave, g.commander);
-  g.schedule = waveData.schedule;
-  g.scheduleIdx = 0;
-  g.waveTick = 0;
-  g.concurrentCap = waveData.concurrentCap;
-  g.waveTactics = waveData.tactics;
-  g.ammo = g.ammo.map((_: number, i: number) =>
-    g.launcherHP[i] > 0 ? getAmmoCapacity(g.wave, g.upgrades.launcherKit) : 0,
-  ) as [number, number, number];
-  g.launcherReloadUntilTick = [0, 0, 0];
-  g._bonusScreenStarted = false;
-  g._bonusScreenDone = false;
-  g._waveStartMissileKills = g.stats.missileKills;
-  g._waveStartDroneKills = g.stats.droneKills;
-  g.waveComplete = false;
-  g.state = "playing";
-}
-
 export function fireEmp(g: GameState, onEvent?: ((type: string, data?: unknown) => void) | null) {
   if (!g.empReady || g.upgrades.emp <= 0) return false;
   const lvl = g.upgrades.emp;
@@ -2285,32 +2022,6 @@ export function fireEmp(g: GameState, onEvent?: ((type: string, data?: unknown) 
   g.shakeTimer = 6;
   g.shakeIntensity = 3;
   if (onEvent) onEvent("sfx", { name: "empBlast" });
-  return true;
-}
-
-export function repairCost(wave: number): number {
-  return 200 + 50 * wave;
-}
-
-export function repairSite(g: GameState, siteKey: string): boolean {
-  const cost = repairCost(g.wave);
-  if (g.score < cost) return false;
-  const site = g.defenseSites.find((s) => s.key === siteKey && !s.alive);
-  if (!site) return false;
-  g.score -= cost;
-  site.alive = true;
-  return true;
-}
-
-export function repairLauncher(g: GameState, index: number): boolean {
-  if (index < 0 || index >= g.launcherHP.length) return false;
-  const cost = repairCost(g.wave);
-  if (g.score < cost) return false;
-  if (g.launcherHP[index] > 0) return false;
-  g.score -= cost;
-  const baseHP = g.upgrades.launcherKit >= 2 ? 2 : 1;
-  g.launcherHP[index] = baseHP;
-  g.launcherReloadUntilTick[index] = 0;
   return true;
 }
 
@@ -2435,3 +2146,5 @@ export function createGameSim(options: { onEvent?: ((type: string, data?: unknow
     updateAutoSystems: (g: GameState, dt: number, threats: Threat[]) => updateAutoSystems(g, dt, threats, onEvent),
   };
 }
+
+export { buyUpgrade, buyDraftUpgrade, closeShop, draftPick3, repairLauncher, repairSite } from "./game-sim-shop.js";

@@ -13,8 +13,9 @@
 
 import { writeFileSync } from "fs";
 import { setRng, fireInterceptor } from "../game-logic.js";
-import { initGame, update, buyUpgrade, closeShop, repairSite, repairLauncher, fireEmp, UPGRADES } from "../game-sim.js";
-import type { GameState, UpgradeKey } from "../types.js";
+import { initGame, update, closeShop, repairSite, repairLauncher, fireEmp } from "../game-sim.js";
+import { buyDraftUpgrade, draftPick3 } from "../game-sim-shop.js";
+import { getUpgradeNodeDef } from "../game-sim-upgrades.js";
 import { mulberry32 } from "./rng.js";
 import { botDecideAction, botDecideUpgrades, resolveBotConfig } from "./bot-brain.js";
 import defaultConfig from "./bot-config.json" with { type: "json" };
@@ -23,32 +24,6 @@ const NUM_GAMES = 300;
 const MAX_TICKS = 100_000;
 const PRESETS = ["perfect", "good", "average", "novice"];
 const SEEDS = Array.from({ length: NUM_GAMES }, (_, i) => i + 99999);
-
-const ALL_UPGRADE_KEYS = Object.keys(UPGRADES);
-
-/** Draw 3 unique non-maxed upgrade keys using the seeded RNG. */
-function draftPick3(g: GameState, rng: () => number) {
-  const available = ALL_UPGRADE_KEYS.filter((k) => g.upgrades[k as UpgradeKey] < UPGRADES[k as UpgradeKey].maxLevel);
-  if (available.length <= 3) return [...available];
-  // Fisher-Yates partial shuffle to pick 3
-  const pool = [...available];
-  for (let i = 0; i < 3; i++) {
-    const j = i + Math.floor(rng() * (pool.length - i));
-    [pool[i], pool[j]] = [pool[j], pool[i]];
-  }
-  return pool.slice(0, 3);
-}
-
-/** Force cost=0 for one upgrade key and buy it. */
-function buyFree(g: GameState, key: string) {
-  const def = UPGRADES[key as UpgradeKey];
-  if (!def || g.upgrades[key as UpgradeKey] >= def.maxLevel) return false;
-  const savedCosts = [...def.costs];
-  def.costs = [0, 0, 0];
-  const ok = buyUpgrade(g, key as UpgradeKey);
-  def.costs = savedCosts;
-  return ok;
-}
 
 function runGameDraft(botConfig: Record<string, unknown>, seed: number, preset: string) {
   const config = resolveBotConfig(botConfig, preset);
@@ -81,13 +56,15 @@ function runGameDraft(botConfig: Record<string, unknown>, seed: number, preset: 
       }
 
       // Draft: 3 random items from non-maxed pool
-      const offered = draftPick3(g, rng);
+      const offered = draftPick3(g);
       waveDraft.offered = offered;
 
-      // Bot picks its top priority item from offered set
-      const pick = priority.find((k) => offered.includes(k));
+      // Bot picks its top priority family from the offered node set.
+      const pick = priority
+        .map((family) => offered.find((nodeId) => getUpgradeNodeDef(nodeId)?.family === family || nodeId === family))
+        .find(Boolean);
       if (pick) {
-        buyFree(g, pick);
+        buyDraftUpgrade(g, pick);
         waveDraft.picked = pick;
       }
 

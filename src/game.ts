@@ -25,7 +25,6 @@ import {
 } from "./player-fire-limiter";
 import { buildReplayCheckpoint } from "./replay-debug";
 import {
-  UPGRADES,
   initGame as simInitGame,
   update as simUpdate,
   buyUpgrade as simBuyUpgrade,
@@ -36,8 +35,10 @@ import {
   applyInterpolation,
   restorePositions,
 } from "./game-sim";
+import { buildShopEntries } from "./game-sim-shop";
+import { applyRunSummaryToProgression, loadUpgradeProgression, saveUpgradeProgression } from "./game-sim-upgrades";
 import { createReplayRunner } from "./replay";
-import type { GameState, ReplayData, UpgradeKey } from "./types";
+import type { GameState, ReplayData } from "./types";
 import {
   showShop as uiShowShop,
   hideShop as uiHideShop,
@@ -161,10 +162,9 @@ function buildShopDataFromGame(game: GameState): ShopData {
   return {
     score: game.score,
     wave: game.wave,
-    upgrades: { ...game.upgrades },
+    entries: buildShopEntries(game),
     burjHealth: game.burjHealth,
     draftMode: game._draftMode,
-    draftOffers: game._draftOffers ?? undefined,
   };
 }
 
@@ -331,6 +331,7 @@ export class Game {
     setRng(mulberry32(seed));
     this.gameRef.current = simInitGame();
     const game = this.gameRef.current;
+    game.metaProgression = loadUpgradeProgression();
     simBuyUpgrade(game, "wildHornets");
     simBuyUpgrade(game, "emp");
     game._gameSeed = seed;
@@ -437,8 +438,17 @@ export class Game {
       this.finalScore = data.score;
       this.finalWave = data.wave;
       this.finalStats = { ...data.stats };
-      this.canvas.classList.remove("game-canvas--active");
       const game = this.gameRef.current;
+      if (game) {
+        const nextProgression = applyRunSummaryToProgression(game.metaProgression, {
+          wave: data.wave,
+          score: data.score,
+          stats: data.stats,
+        });
+        game.metaProgression = nextProgression;
+        saveUpgradeProgression(nextProgression);
+      }
+      this.canvas.classList.remove("game-canvas--active");
       if (game && game._actionLog) {
         maybeRecordReplayCheckpoint(game, {
           force: true,
@@ -510,12 +520,12 @@ export class Game {
 
     uiShowShop(
       shopData,
-      (key: UpgradeKey) => this.buyUpgrade(key),
+      (key: string) => this.buyUpgrade(key),
       () => this.closeShop(),
     );
   }
 
-  private buyUpgrade(key: UpgradeKey): void {
+  private buyUpgrade(key: string): void {
     const game = this.gameRef.current;
     if (!game) return;
     const isDraft = game._draftMode;

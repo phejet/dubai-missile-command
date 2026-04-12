@@ -50,6 +50,7 @@ export interface Drone {
   type: "drone";
   subtype: "shahed136" | "shahed238";
   health: number;
+  collisionRadius: number;
   speed?: number;
   /** shahed238 bezier waypoints */
   waypoints?: TrailPoint[];
@@ -222,6 +223,37 @@ export type UpgradeKey =
   | "emp";
 
 export type Upgrades = Record<UpgradeKey, number>;
+export type UpgradeNodeId = string;
+export type UpgradeObjectiveId = string;
+
+export interface UpgradeProgressionState {
+  version: number;
+  completedObjectives: UpgradeObjectiveId[];
+}
+
+export interface UpgradeRunSummary {
+  wave: number;
+  score: number;
+  stats: GameStats;
+}
+
+export interface ShopEntry {
+  id: string;
+  family: UpgradeKey | null;
+  name: string;
+  icon: string;
+  desc: string;
+  color: string;
+  cost: number | null;
+  statLine?: string;
+  active?: boolean;
+  owned: boolean;
+  locked: boolean;
+  disabled: boolean;
+  statusText?: string;
+  level: number;
+  maxLevel: number;
+}
 
 // ── Auto-defense entities ──
 
@@ -462,6 +494,8 @@ export interface GameState {
   shakeIntensity: number;
 
   upgrades: Upgrades;
+  ownedUpgradeNodes: Set<UpgradeNodeId>;
+  metaProgression: UpgradeProgressionState;
 
   hornetTimer: number;
   roadrunnerTimer: number;

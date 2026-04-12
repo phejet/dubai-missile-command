@@ -1,25 +1,37 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { showShop, hideShop } from "./ui";
+import type { ShopEntry } from "./types";
+
+function makeEntry(id: string, overrides: Partial<ShopEntry> = {}): ShopEntry {
+  return {
+    id,
+    family: "wildHornets",
+    name: id,
+    icon: "X",
+    desc: `${id} description`,
+    color: "#44ffaa",
+    cost: 500,
+    statLine: "Effect text",
+    owned: false,
+    locked: false,
+    disabled: false,
+    level: 0,
+    maxLevel: 3,
+    ...overrides,
+  };
+}
 
 function makeShopData(overrides = {}) {
   return {
     score: 5000,
     wave: 3,
-    upgrades: {
-      wildHornets: 0,
-      roadrunner: 0,
-      flare: 0,
-      ironBeam: 0,
-      phalanx: 0,
-      patriot: 0,
-      burjRepair: 0,
-      launcherKit: 0,
-      emp: 0,
-    },
+    entries: [
+      makeEntry("wildHornets", { family: "wildHornets", name: "Wild Hornets", icon: "\uD83D\uDC1D" }),
+      makeEntry("ironBeam", { family: "ironBeam", name: "Iron Beam", icon: "\u26A1", color: "#ffee66" }),
+      makeEntry("phalanx", { family: "phalanx", name: "Phalanx", icon: "\uD83D\uDD2B", color: "#ff9955" }),
+    ],
     burjHealth: 5,
-    launcherHP: [1, 1, 1],
-    defenseSites: [],
     ...overrides,
   };
 }
@@ -83,27 +95,25 @@ describe("ShopUI", () => {
 
   it("shows MAXED for max-level upgrades", () => {
     const data = makeShopData({
-      upgrades: {
-        wildHornets: 3,
-        roadrunner: 0,
-        flare: 0,
-        ironBeam: 0,
-        phalanx: 0,
-        patriot: 0,
-        burjRepair: 0,
-        launcherKit: 0,
-        emp: 0,
-      },
+      entries: [
+        makeEntry("wildHornets", {
+          family: "wildHornets",
+          name: "Wild Hornets",
+          owned: true,
+          disabled: true,
+          statusText: "OWNED",
+          level: 3,
+        }),
+      ],
     });
     showShop(data, noop, noop);
-    expect(document.getElementById("shop-container")!.textContent).toMatch(/MAXED/);
+    expect(document.getElementById("shop-container")!.textContent).toMatch(/OWNED/);
     hideShop();
   });
 
   it("shows draft mode UI with 3 offered cards", () => {
     const data = makeShopData({
       draftMode: true,
-      draftOffers: ["wildHornets", "ironBeam", "phalanx"],
     });
     showShop(data, noop, noop);
     expect(document.getElementById("shop-container")!.textContent).toMatch(/Choose 1/);
@@ -117,7 +127,6 @@ describe("ShopUI", () => {
     const onClose = vi.fn();
     const data = makeShopData({
       draftMode: true,
-      draftOffers: ["wildHornets", "ironBeam", "phalanx"],
     });
     showShop(data, onBuy, onClose);
     // Select first card

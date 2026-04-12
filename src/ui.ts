@@ -2,25 +2,18 @@
 // Replaces ShopUI.tsx and BonusScreen.tsx
 
 import { COL } from "./game-logic";
-import { UPGRADES } from "./game-sim";
-import type { UpgradeKey, Upgrades } from "./types";
+import type { ShopEntry } from "./types";
 import SFX from "./sound";
 
 // ─── Types ──────────────────────────────────────────────────────────
 
 export interface ShopData {
   draftMode?: boolean;
-  draftOffers?: string[];
-  upgrades: Upgrades;
+  entries: ShopEntry[];
   score: number;
   wave: number;
   burjHealth: number;
 }
-
-type UpgradeDef = (typeof UPGRADES)[keyof typeof UPGRADES] & {
-  disabled?: boolean;
-  active?: boolean;
-};
 
 export interface HudSnapshot {
   score: number;
@@ -46,76 +39,60 @@ export interface HudSnapshot {
 
 let shopCleanup: (() => void) | null = null;
 
-function getEntries(shopData: ShopData): [string, UpgradeDef][] {
-  const allEntries = (Object.entries(UPGRADES) as [string, UpgradeDef][]).filter(([, def]) => !def.disabled);
-  return shopData.draftMode ? allEntries.filter(([key]) => shopData.draftOffers?.includes(key)) : allEntries;
-}
-
-export function showShop(shopData: ShopData, onBuyUpgrade: (key: UpgradeKey) => void, onClose: () => void): void {
+export function showShop(shopData: ShopData, onBuyUpgrade: (key: string) => void, onClose: () => void): void {
   hideShop();
   const container = document.getElementById("shop-container")!;
   const isDraftMode = !!shopData.draftMode;
-  const entries = getEntries(shopData);
   let selected: string[] = [];
 
   function getSelectedCost(): number {
     return selected.reduce((sum, key) => {
-      const def = UPGRADES[key as UpgradeKey] as UpgradeDef | undefined;
-      if (!def) return sum;
-      const level = shopData.upgrades[key as UpgradeKey];
-      return sum + (isDraftMode ? 0 : def.costs[level] || 0);
+      const entry = shopData.entries.find((item) => item.id === key);
+      if (!entry || entry.cost === null) return sum;
+      return sum + (isDraftMode ? 0 : entry.cost);
     }, 0);
   }
 
   function render() {
     const remainingBudget = shopData.score - getSelectedCost();
 
-    const cardsHtml = entries
-      .map(([key, def]) => {
-        const level = shopData.upgrades[key as UpgradeKey];
-        const maxed = level >= def.maxLevel;
-        const cost = maxed ? null : isDraftMode ? 0 : def.costs[level];
-        const isBurjRepair = key === "burjRepair";
-        const burjFull = isBurjRepair && shopData.burjHealth >= 5;
-        if (isBurjRepair && maxed && burjFull) return "";
-
-        const isSelected = selected.includes(key);
-        const canAfford = cost !== null && (isDraftMode || remainingBudget >= cost || isSelected);
-        const isMaxedOut = (maxed && !isBurjRepair) || burjFull;
-        const disabled = isMaxedOut || (!canAfford && !isSelected);
+    const cardsHtml = shopData.entries
+      .map((entry) => {
+        const isSelected = selected.includes(entry.id);
+        const cost = isDraftMode ? 0 : entry.cost;
+        const canAfford = cost === null || remainingBudget >= cost || isSelected;
+        const disabled = entry.disabled || (!canAfford && !isSelected);
 
         const levelDots = Array.from(
-          { length: def.maxLevel },
-          (_, i) => `<span class="shop-card__level-dot ${i < level ? "shop-card__level-dot--filled" : ""}"></span>`,
+          { length: entry.maxLevel },
+          (_, i) =>
+            `<span class="shop-card__level-dot ${i < entry.level ? "shop-card__level-dot--filled" : ""}"></span>`,
         ).join("");
 
-        const costHtml =
-          !isDraftMode && cost !== null
-            ? `<span class="shop-card__cost">${isBurjRepair ? `HEAL $${cost}` : `$${cost}`}</span>`
-            : "";
+        const costHtml = !isDraftMode && cost !== null ? `<span class="shop-card__cost">$${cost}</span>` : "";
 
         const statLine =
-          !maxed && !isDraftMode && def.statLines[level]
-            ? `<div class="shop-card__statline"><span class="shop-card__statline-label">Next</span><span>${def.statLines[level]}</span></div>`
+          !isDraftMode && entry.statLine
+            ? `<div class="shop-card__statline"><span class="shop-card__statline-label">Effect</span><span>${entry.statLine}</span></div>`
             : "";
 
-        const statusHtml = isMaxedOut ? `<div class="shop-card__status">\u2713 MAXED</div>` : "";
+        const statusHtml = entry.statusText ? `<div class="shop-card__status">${entry.statusText}</div>` : "";
         const checkHtml = isSelected ? `<div class="shop-card__check">\u2713</div>` : "";
-        const badge = def.active ? `<span class="shop-card__badge">Active</span>` : "";
+        const badge = entry.active ? `<span class="shop-card__badge">Active</span>` : "";
 
         return `<article class="shop-card${disabled ? " shop-card--disabled" : ""}${isDraftMode ? " shop-card--draft" : ""}${isSelected ? " shop-card--selected" : ""}"
-          style="--shop-accent: ${def.color}; --shop-panel: ${COL.panelBg}"
+          style="--shop-accent: ${entry.color}; --shop-panel: ${COL.panelBg}"
           role="button" tabindex="${disabled ? -1 : 0}"
-          data-shop-card="${key}" ${isSelected ? 'data-selected="true"' : ""} ${disabled ? 'data-disabled="true"' : ""}>
+          data-shop-card="${entry.id}" ${isSelected ? 'data-selected="true"' : ""} ${disabled ? 'data-disabled="true"' : ""}>
           <div class="shop-card__topline">
-            <span class="shop-card__icon" aria-hidden="true">${def.icon}</span>
+            <span class="shop-card__icon" aria-hidden="true">${entry.icon}</span>
             <div class="shop-card__headline">
-              <div class="shop-card__name">${def.name}${badge}</div>
-              <div class="shop-card__levels" aria-label="Level ${level} of ${def.maxLevel}">${levelDots}</div>
+              <div class="shop-card__name">${entry.name}${badge}</div>
+              <div class="shop-card__levels" aria-label="Level ${entry.level} of ${entry.maxLevel}">${levelDots}</div>
             </div>
             ${costHtml}
           </div>
-          <p class="shop-card__description">${def.desc}</p>
+          <p class="shop-card__description">${entry.desc}</p>
           ${statLine}${statusHtml}${checkHtml}
         </article>`;
       })
@@ -168,7 +145,7 @@ export function showShop(shopData: ShopData, onBuyUpgrade: (key: UpgradeKey) => 
 
   function handleConfirm() {
     for (const key of selected) {
-      onBuyUpgrade(key as UpgradeKey);
+      onBuyUpgrade(key);
     }
     onClose();
   }

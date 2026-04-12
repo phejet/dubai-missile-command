@@ -1,10 +1,21 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { setRng, CANVAS_W, GROUND_Y, CITY_Y, BURJ_X, computeShahed238Path } from "./game-logic.js";
-import { createGameSim, spawnMirv, spawnDrone } from "./game-sim.js";
+import { buyUpgrade, createGameSim, spawnMirv, spawnDrone, spawnDroneOfType } from "./game-sim.js";
 import type { Drone, Missile, Flare } from "./types.js";
 
 describe("MIRV behavior", () => {
   afterEach(() => setRng(Math.random));
+
+  it("spawns MIRVs with 1 HP until boss-style health UI exists", () => {
+    setRng(() => 0.5);
+    const { g } = makeCleanGame();
+    spawnMirv(g);
+
+    const mirv = g.missiles.find((m) => m.alive && m.type === "mirv");
+    expect(mirv).toBeTruthy();
+    expect(mirv!.health).toBe(1);
+    expect(mirv!.maxHealth).toBe(1);
+  });
 
   it("splits into 3 warheads on wave 5", () => {
     setRng(() => 0.5);
@@ -25,6 +36,37 @@ describe("MIRV behavior", () => {
     sim.update(g, 2);
     expect(g.missiles.filter((m) => m.alive && m.type === "mirv_warhead")).toHaveLength(5);
     expect(g.explosions.some((ex) => ex.harmless)).toBe(true);
+  });
+});
+
+describe("Upgrade graph", () => {
+  afterEach(() => setRng(Math.random));
+
+  it("maps legacy family purchases to sequential graph nodes and derived levels", () => {
+    const { g } = makeCleanGame(5);
+    g.score = 10000;
+
+    expect(buyUpgrade(g, "wildHornets")).toBe(true);
+    expect(g.ownedUpgradeNodes.has("wildHornets")).toBe(true);
+    expect(g.upgrades.wildHornets).toBe(1);
+
+    expect(buyUpgrade(g, "wildHornets")).toBe(true);
+    expect(g.ownedUpgradeNodes.has("tridentFpvCell")).toBe(true);
+    expect(g.upgrades.wildHornets).toBe(2);
+  });
+
+  it("requires completed objectives before gated graph nodes can be purchased", () => {
+    const { g } = makeCleanGame(5);
+    g.score = 20000;
+
+    expect(buyUpgrade(g, "roadrunner")).toBe(true);
+    expect(buyUpgrade(g, "roadrunner")).toBe(true);
+    expect(buyUpgrade(g, "roadrunner")).toBe(false);
+
+    g.metaProgression.completedObjectives.push("kill_25_drones");
+    expect(buyUpgrade(g, "roadrunner")).toBe(true);
+    expect(g.ownedUpgradeNodes.has("roadrunnerCommandLink")).toBe(true);
+    expect(g.upgrades.roadrunner).toBe(3);
   });
 });
 
@@ -52,6 +94,7 @@ function makePropDrone(overrides: Partial<Drone> = {}): Drone {
     type: "drone",
     subtype: "shahed136",
     health: 2,
+    collisionRadius: 30,
     _hitByExplosions: new Set(),
     empSlowTimer: 0,
     ...overrides,
@@ -73,6 +116,7 @@ function makeJetDrone(overrides: Partial<Drone> = {}): Drone {
     type: "drone",
     subtype: "shahed238",
     health: 1,
+    collisionRadius: 10,
     _hitByExplosions: new Set(),
     empSlowTimer: 0,
     waypoints: path.waypoints,
@@ -102,6 +146,15 @@ function makeBallisticMissile(overrides: Partial<Missile> = {}): Missile {
 
 describe("Shahed-238 (jet) diving", () => {
   afterEach(() => setRng(Math.random));
+
+  it("spawns prop drones with 1 HP until regular threat health is surfaced", () => {
+    setRng(() => 0.5);
+    const { g } = makeCleanGame(9);
+    spawnDroneOfType(g, "shahed136");
+
+    expect(g.drones).toHaveLength(1);
+    expect(g.drones[0].health).toBe(1);
+  });
 
   it("spawnDrone creates jet with precomputed waypoints", () => {
     setRng(() => 0.5);

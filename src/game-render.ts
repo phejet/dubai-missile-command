@@ -21,7 +21,7 @@ import {
   getPhalanxTurrets,
   ov,
 } from "./game-logic";
-import { UPGRADES } from "./game-sim";
+import { getPurchaseDisplayName, UPGRADE_FAMILIES } from "./game-sim-upgrades";
 import type {
   GameState,
   Flare,
@@ -39,7 +39,6 @@ import type {
   Particle,
   EmpRing,
   DefenseSite,
-  UpgradeKey,
 } from "./types";
 
 // FPS probe: measure first 60 frames, disable shadowBlur if avg FPS < 45
@@ -4643,7 +4642,7 @@ function drawGroundStructures(ctx: CanvasRenderingContext2D, game: GameState, la
       ctx.fillRect(site.x - hw * 0.6, site.y - 5, hw * 1.2, 8);
     } else {
       // Subtle targeting indicator glow
-      const def = UPGRADES[site.key as UpgradeKey];
+      const def = UPGRADE_FAMILIES[site.key as keyof typeof UPGRADE_FAMILIES];
       const pulse = 0.2 + 0.15 * Math.sin(game.time * 0.06);
       ctx.strokeStyle = def ? def.color : "#44ffaa";
       ctx.globalAlpha = pulse;
@@ -4666,7 +4665,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutP
   );
   vignette.addColorStop(0, "rgba(0,0,0,0)");
   vignette.addColorStop(0.68, "rgba(0,0,0,0.04)");
-  vignette.addColorStop(1, `rgba(2,4,12,${ov("sky.vignetteAlpha", 0.21)})`);
+  vignette.addColorStop(1, `rgba(2,4,12,${ov("sky.vignetteAlpha", 0)})`);
   ctx.fillStyle = vignette;
   ctx.fillRect(0, 0, CANVAS_W, layout.renderHeight);
   ctx.fillStyle = "rgba(140, 220, 255, 0.035)";
@@ -4809,7 +4808,7 @@ function drawHUD(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutP
   if (game._purchaseToast && game._purchaseToast.timer > 0) {
     const toast = game._purchaseToast;
     const alpha = Math.min(1, toast.timer / 30); // fade out last ~0.5s (30 ticks)
-    const items = toast.items.map((key) => UPGRADES[key as UpgradeKey]?.name || key);
+    const items = toast.items.map((key) => getPurchaseDisplayName(key));
     // Deduplicate and count
     const counts: Record<string, number> = {};
     items.forEach((name) => {
@@ -4858,7 +4857,8 @@ function drawHUD(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutP
     if (activeUpgrades.length > 0) {
       let ux = 640;
       activeUpgrades.forEach(([key, level]) => {
-        const def = UPGRADES[key as UpgradeKey];
+        const def = UPGRADE_FAMILIES[key as keyof typeof UPGRADE_FAMILIES];
+        if (!def) return;
         ctx.fillStyle = def.color;
         ctx.globalAlpha = 0.9;
         ctx.font = `14px ${ARCADE_FONT_FAMILY}`;
@@ -5302,7 +5302,7 @@ function drawCollisionOverlay(ctx: CanvasRenderingContext2D, game: GameState) {
   game.drones.forEach((d) => {
     if (!d.alive) return;
     ctx.beginPath();
-    ctx.arc(d.x, d.y, 12, 0, Math.PI * 2);
+    ctx.arc(d.x, d.y, d.collisionRadius, 0, Math.PI * 2);
     ctx.stroke();
   });
 
@@ -5458,6 +5458,7 @@ export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as
         type: "drone",
         subtype: "shahed136",
         health: 1,
+        collisionRadius: 30,
         diving: true,
       };
       drawDroneEntity(ctx, titleDrone, {

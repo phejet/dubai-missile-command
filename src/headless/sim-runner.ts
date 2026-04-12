@@ -1,5 +1,6 @@
 import { setRng, fireInterceptor } from "../game-logic";
 import { initGame, update, buyUpgrade, buyDraftUpgrade, closeShop, fireEmp } from "../game-sim";
+import { getUpgradeNodeDef } from "../game-sim-upgrades";
 import { mulberry32 } from "./rng";
 import { botDecideAction, botDecideUpgrades, resolveBotConfig, reserveBotTarget } from "./bot-brain";
 import defaultConfig from "./bot-config.json" with { type: "json" };
@@ -61,10 +62,14 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
       const bought = [];
       const { priority } = withBotRng(() => botDecideUpgrades(g, config));
       if (draftMode && g._draftOffers) {
-        // Draft mode: pick the highest-priority offered upgrade
+        // Draft mode: pick the highest-priority family represented in the offered node set.
         for (const key of priority) {
-          if (g._draftOffers.includes(key)) {
-            if (buyDraftUpgrade(g, key as import("../types").UpgradeKey)) bought.push(key);
+          const offerId = g._draftOffers.find((nodeId) => {
+            const node = getUpgradeNodeDef(nodeId);
+            return node?.family === key || nodeId === key;
+          });
+          if (offerId) {
+            if (buyDraftUpgrade(g, offerId)) bought.push(offerId);
             break;
           }
         }
