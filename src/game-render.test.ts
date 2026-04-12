@@ -237,6 +237,7 @@ describe("drawGame", () => {
       health: 2,
       type: "drone",
       subtype: "shahed136",
+      collisionRadius: 30,
       wobble: 0,
     });
     gameState.explosions.push({

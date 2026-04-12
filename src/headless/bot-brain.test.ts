@@ -157,6 +157,7 @@ describe("botDecideAction jet reservations", () => {
       ],
       type: "drone",
       subtype: "shahed238",
+      collisionRadius: 10,
       empSlowTimer: 0,
     };
     const g = {
