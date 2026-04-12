@@ -3,8 +3,17 @@ import { CANVAS_W, CANVAS_H, GROUND_Y, BURJ_X, BURJ_H, COL, createExplosion, ov 
 import { drawGame } from "./game-render.js";
 import { createEditorScene } from "./editor-scene.js";
 import { PARAM_GROUPS, getDefaults } from "./editor-params.js";
+import { createEmptyUpgradeProgression, getAllUpgradeNodeDefs, getUpgradeObjectiveLabel } from "./game-sim-upgrades";
+import {
+  buildUpgradeGraphViewModel,
+  getDefaultSelectedUpgradeNodeId,
+  getUpgradeGraphPositionDefaults,
+  renderUpgradeGraphDetailMarkup,
+  renderUpgradeGraphMarkup,
+} from "./upgrade-graph";
 import type { GameState, Explosion, Particle } from "./types";
 import "./EditorApp.css";
+import "./UpgradeGraph.css";
 
 declare global {
   interface Window {
@@ -33,6 +42,17 @@ function getPositionDefaults(): Record<string, number> {
   }
   return defaults;
 }
+
+function getEditorPositionDefaults(): Record<string, number> {
+  return {
+    ...getPositionDefaults(),
+    ...getUpgradeGraphPositionDefaults(),
+  };
+}
+
+const GRAPH_OBJECTIVE_IDS = Array.from(
+  new Set(getAllUpgradeNodeDefs().flatMap((node) => node.objectives ?? [])),
+).sort();
 
 function canvasToGame(canvas: HTMLCanvasElement, clientX: number, clientY: number): { x: number; y: number } {
   const rect = canvas.getBoundingClientRect();
@@ -133,6 +153,7 @@ function simTick(scene: GameState, dt: number): void {
 
 export default function EditorApp() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const graphStageRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<GameState | null>(null);
   const rafRef = useRef<number | null>(null);
   const playingRef = useRef(false);
@@ -141,14 +162,28 @@ export default function EditorApp() {
   const scrubbingRef = useRef(false);
   const [values, setValues] = useState<Record<string, number | boolean | string>>(getDefaults);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [editorView, setEditorView] = useState<"effects" | "graph">("effects");
   const [playing, setPlaying] = useState(false);
   const [tick, setTick] = useState(0);
   const [maxTick, setMaxTick] = useState(600);
   const [hasPlayed, setHasPlayed] = useState(true);
   const [showUpgrades, setShowUpgrades] = useState(false);
-  const [positionOverrides, setPositionOverrides] = useState<Record<string, number>>(getPositionDefaults);
+  const [positionOverrides, setPositionOverrides] = useState<Record<string, number>>(getEditorPositionDefaults);
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{ key: string; offsetX: number; offsetY: number } | null>(null);
+  const [graphOwnedNodes, setGraphOwnedNodes] = useState<string[]>([]);
+  const [graphSelection, setGraphSelection] = useState<string | null>(null);
+  const [graphProgression, setGraphProgression] = useState(createEmptyUpgradeProgression);
+  const graphOwnedSet = new Set(graphOwnedNodes);
+  const graphView = buildUpgradeGraphViewModel({
+    progression: graphProgression,
+    ownedNodes: graphOwnedSet,
+    layoutOverrides: positionOverrides,
+  });
+  const selectedGraphNodeId =
+    graphSelection && graphView.nodes.some((node) => node.id === graphSelection)
+      ? graphSelection
+      : getDefaultSelectedUpgradeNodeId(graphView);
 
   // Sync overrides to window
   useEffect(() => {
@@ -218,7 +253,7 @@ export default function EditorApp() {
 
   const exportValues = useCallback(() => {
     const defaults = getDefaults();
-    const posDefaults = getPositionDefaults();
+    const posDefaults = getEditorPositionDefaults();
     const allValues = { ...values, ...positionOverrides };
     const allDefaults = { ...defaults, ...posDefaults };
     const changed: Record<string, number | boolean | string> = {};
@@ -391,6 +426,74 @@ export default function EditorApp() {
     setIsDragging(false);
   }, []);
 
+  const onGraphMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const stage = graphStageRef.current;
+      const target = (e.target as HTMLElement).closest("[data-node-id]") as HTMLElement | null;
+      if (!stage || !target?.dataset.nodeId) return;
+      const nodeId = target.dataset.nodeId;
+      setGraphSelection(nodeId);
+      const rect = stage.getBoundingClientRect();
+      const pointerX = e.clientX - rect.left + stage.scrollLeft;
+      const pointerY = e.clientY - rect.top + stage.scrollTop;
+      dragRef.current = {
+        key: `upgradeGraph.${nodeId}`,
+        offsetX: positionOverrides[`upgradeGraph.${nodeId}.x`] - pointerX,
+        offsetY: positionOverrides[`upgradeGraph.${nodeId}.y`] - pointerY,
+      };
+      setIsDragging(true);
+    },
+    [positionOverrides],
+  );
+
+  const onGraphMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const stage = graphStageRef.current;
+    const drag = dragRef.current;
+    if (!stage || !drag) return;
+    const rect = stage.getBoundingClientRect();
+    const pointerX = e.clientX - rect.left + stage.scrollLeft;
+    const pointerY = e.clientY - rect.top + stage.scrollTop;
+    setPositionOverrides((prev) => ({
+      ...prev,
+      [`${drag.key}.x`]: Math.round(pointerX + drag.offsetX),
+      [`${drag.key}.y`]: Math.round(pointerY + drag.offsetY),
+    }));
+  }, []);
+
+  const onGraphMouseUp = useCallback(() => {
+    dragRef.current = null;
+    setIsDragging(false);
+  }, []);
+
+  const toggleObjective = useCallback((objectiveId: string) => {
+    setGraphProgression((prev) => {
+      const completed = prev.completedObjectives.includes(objectiveId)
+        ? prev.completedObjectives.filter((id) => id !== objectiveId)
+        : [...prev.completedObjectives, objectiveId].sort();
+      return { ...prev, completedObjectives: completed };
+    });
+  }, []);
+
+  function toggleSelectedOwned() {
+    if (!selectedGraphNodeId) return;
+    setGraphOwnedNodes((prev) =>
+      prev.includes(selectedGraphNodeId)
+        ? prev.filter((id) => id !== selectedGraphNodeId)
+        : [...prev, selectedGraphNodeId].sort(),
+    );
+  }
+
+  const resetGraphPreview = useCallback(() => {
+    setGraphOwnedNodes([]);
+    setGraphProgression(createEmptyUpgradeProgression());
+    setPositionOverrides((prev) => {
+      const next = { ...prev };
+      const defaults = getUpgradeGraphPositionDefaults();
+      for (const [key, value] of Object.entries(defaults)) next[key] = value;
+      return next;
+    });
+  }, []);
+
   // "A" key hotkey for play/pause
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -415,36 +518,97 @@ export default function EditorApp() {
     scrubbingRef.current = false;
   }, []);
 
+  const graphCounts = graphView.nodes.reduce(
+    (counts, node) => {
+      counts[node.state]++;
+      return counts;
+    },
+    { owned: 0, available: 0, locked: 0, metaLocked: 0 },
+  );
+  const selectedGraphOwned = selectedGraphNodeId ? graphOwnedNodes.includes(selectedGraphNodeId) : false;
+
   return (
     <div className="editor-root">
       <div className="editor-canvas-wrap">
-        <canvas
-          ref={canvasRef}
-          width={CANVAS_W}
-          height={CANVAS_H}
-          className={`editor-canvas${showUpgrades ? (isDragging ? " editor-canvas--grabbing" : " editor-canvas--grab") : ""}`}
-          onMouseDown={onCanvasMouseDown}
-          onMouseMove={onCanvasMouseMove}
-          onMouseUp={onCanvasMouseUp}
-          onMouseLeave={onCanvasMouseUp}
-        />
-        {hasPlayed && (
-          <div className="editor-timeline">
-            <span className="timeline-tick">{tick}</span>
-            <input
-              type="range"
-              className="timeline-slider"
-              tabIndex={-1}
-              min={0}
-              max={maxTick}
-              value={tick}
-              onMouseDown={startScrub}
-              onMouseUp={stopScrub}
-              onTouchStart={startScrub}
-              onTouchEnd={stopScrub}
-              onChange={(e) => scrubToTick(Number(e.target.value))}
+        {editorView === "effects" ? (
+          <>
+            <canvas
+              ref={canvasRef}
+              width={CANVAS_W}
+              height={CANVAS_H}
+              className={`editor-canvas${showUpgrades ? (isDragging ? " editor-canvas--grabbing" : " editor-canvas--grab") : ""}`}
+              onMouseDown={onCanvasMouseDown}
+              onMouseMove={onCanvasMouseMove}
+              onMouseUp={onCanvasMouseUp}
+              onMouseLeave={onCanvasMouseUp}
             />
-            <span className="timeline-tick">{maxTick}</span>
+            {hasPlayed && (
+              <div className="editor-timeline">
+                <span className="timeline-tick">{tick}</span>
+                <input
+                  type="range"
+                  className="timeline-slider"
+                  tabIndex={-1}
+                  min={0}
+                  max={maxTick}
+                  value={tick}
+                  onMouseDown={startScrub}
+                  onMouseUp={stopScrub}
+                  onTouchStart={startScrub}
+                  onTouchEnd={stopScrub}
+                  onChange={(e) => scrubToTick(Number(e.target.value))}
+                />
+                <span className="timeline-tick">{maxTick}</span>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="upgrade-graph-shell upgrade-graph-shell--panel upgrade-graph-editor">
+            <div className="upgrade-graph-shell__header">
+              <div>
+                <div className="upgrade-graph-shell__eyebrow">Editor Layout Preview</div>
+                <h2 className="upgrade-graph-shell__title">Full Upgrade Graph</h2>
+                <p className="upgrade-graph-shell__copy">
+                  Drag nodes to reflow the progression map. The preview uses the authored graph data and the same
+                  renderer as the post-run viewer.
+                </p>
+              </div>
+              <div className="upgrade-graph-shell__stats">
+                <div className="upgrade-graph-shell__stat">
+                  <span className="upgrade-graph-shell__stat-label">Owned</span>
+                  <strong className="upgrade-graph-shell__stat-value">{graphCounts.owned}</strong>
+                </div>
+                <div className="upgrade-graph-shell__stat">
+                  <span className="upgrade-graph-shell__stat-label">Available</span>
+                  <strong className="upgrade-graph-shell__stat-value">{graphCounts.available}</strong>
+                </div>
+                <div className="upgrade-graph-shell__stat">
+                  <span className="upgrade-graph-shell__stat-label">Meta Locked</span>
+                  <strong className="upgrade-graph-shell__stat-value">{graphCounts.metaLocked}</strong>
+                </div>
+              </div>
+            </div>
+            <div className="upgrade-graph-shell__body">
+              <div
+                ref={graphStageRef}
+                className="upgrade-graph-shell__stage"
+                onMouseDown={onGraphMouseDown}
+                onMouseMove={onGraphMouseMove}
+                onMouseUp={onGraphMouseUp}
+                onMouseLeave={onGraphMouseUp}
+              >
+                <div
+                  className="upgrade-graph-shell__canvas"
+                  dangerouslySetInnerHTML={{
+                    __html: renderUpgradeGraphMarkup(graphView, { selectedNodeId: selectedGraphNodeId }),
+                  }}
+                />
+              </div>
+              <div
+                className="upgrade-graph-shell__detail"
+                dangerouslySetInnerHTML={{ __html: renderUpgradeGraphDetailMarkup(graphView, selectedGraphNodeId) }}
+              />
+            </div>
           </div>
         )}
       </div>
@@ -452,22 +616,38 @@ export default function EditorApp() {
         <div className="editor-header">
           <h2>Graphics Editor</h2>
           <div className="editor-actions">
-            <button onClick={playExplosions} className={playing ? "play-btn play-btn--active" : "play-btn"}>
-              {playing ? "\u25A0 Pause" : "\u25B6 Play"}
-            </button>
-            <button onClick={toggleUpgrades} className={showUpgrades ? "play-btn play-btn--active" : "play-btn"}>
-              {showUpgrades ? "Hide Upgrades" : "Show Upgrades"}
+            <button
+              onClick={() => setEditorView("effects")}
+              className={editorView === "effects" ? "play-btn play-btn--active" : "play-btn"}
+            >
+              Effects
             </button>
             <button
-              onClick={() => {
-                const scene = sceneRef.current;
-                if (!scene) return;
-                scene._showColliders = !scene._showColliders;
-              }}
-              className="play-btn"
+              onClick={() => setEditorView("graph")}
+              className={editorView === "graph" ? "play-btn play-btn--active" : "play-btn"}
             >
-              Colliders
+              Upgrade Graph
             </button>
+            {editorView === "effects" && (
+              <>
+                <button onClick={playExplosions} className={playing ? "play-btn play-btn--active" : "play-btn"}>
+                  {playing ? "\u25A0 Pause" : "\u25B6 Play"}
+                </button>
+                <button onClick={toggleUpgrades} className={showUpgrades ? "play-btn play-btn--active" : "play-btn"}>
+                  {showUpgrades ? "Hide Upgrades" : "Show Upgrades"}
+                </button>
+                <button
+                  onClick={() => {
+                    const scene = sceneRef.current;
+                    if (!scene) return;
+                    scene._showColliders = !scene._showColliders;
+                  }}
+                  className="play-btn"
+                >
+                  Colliders
+                </button>
+              </>
+            )}
             <button onClick={() => window.open("sprites.html", "_blank")}>Sprite Catalog</button>
             <button onClick={resetAll}>Reset All</button>
             <button onClick={exportValues} className="export-btn">
@@ -475,54 +655,106 @@ export default function EditorApp() {
             </button>
           </div>
         </div>
-        {PARAM_GROUPS.map((group) => (
-          <div key={group.name} className="editor-group">
-            <div className="editor-group-header" onClick={() => toggleGroup(group.name)}>
-              <span>
-                {collapsed[group.name] ? "\u25B6" : "\u25BC"} {group.name}
-              </span>
-            </div>
-            {!collapsed[group.name] && (
-              <div className="editor-group-body">
-                {group.params.map((p) => (
-                  <div key={p.key} className="editor-param">
-                    <label className="editor-label">{p.label}</label>
-                    <div className="editor-control">
-                      {p.type === "range" ? (
-                        <>
+        {editorView === "effects" ? (
+          PARAM_GROUPS.map((group) => (
+            <div key={group.name} className="editor-group">
+              <div className="editor-group-header" onClick={() => toggleGroup(group.name)}>
+                <span>
+                  {collapsed[group.name] ? "\u25B6" : "\u25BC"} {group.name}
+                </span>
+              </div>
+              {!collapsed[group.name] && (
+                <div className="editor-group-body">
+                  {group.params.map((p) => (
+                    <div key={p.key} className="editor-param">
+                      <label className="editor-label">{p.label}</label>
+                      <div className="editor-control">
+                        {p.type === "range" ? (
+                          <>
+                            <input
+                              type="range"
+                              min={p.min}
+                              max={p.max}
+                              step={p.step}
+                              value={values[p.key] as number}
+                              onChange={(e) => handleChange(p.key, e.target.value, p)}
+                            />
+                            <span className="editor-value">{values[p.key]}</span>
+                          </>
+                        ) : p.type === "checkbox" ? (
                           <input
-                            type="range"
-                            min={p.min}
-                            max={p.max}
-                            step={p.step}
-                            value={values[p.key] as number}
+                            type="checkbox"
+                            checked={values[p.key] as boolean}
+                            onChange={(e) => handleChange(p.key, e.target.checked, p)}
+                          />
+                        ) : p.type === "color" ? (
+                          <input
+                            type="color"
+                            value={values[p.key] as string}
                             onChange={(e) => handleChange(p.key, e.target.value, p)}
                           />
-                          <span className="editor-value">{values[p.key]}</span>
-                        </>
-                      ) : p.type === "checkbox" ? (
-                        <input
-                          type="checkbox"
-                          checked={values[p.key] as boolean}
-                          onChange={(e) => handleChange(p.key, e.target.checked, p)}
-                        />
-                      ) : p.type === "color" ? (
-                        <input
-                          type="color"
-                          value={values[p.key] as string}
-                          onChange={(e) => handleChange(p.key, e.target.value, p)}
-                        />
-                      ) : null}
-                      <button className="reset-btn" onClick={() => resetParam(p.key)} title="Reset to default">
-                        &times;
-                      </button>
+                        ) : null}
+                        <button className="reset-btn" onClick={() => resetParam(p.key)} title="Reset to default">
+                          &times;
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              )}
+            </div>
+          ))
+        ) : (
+          <div className="upgrade-graph-editor__toolbar">
+            <section className="upgrade-graph-editor__section">
+              <h3>Preview State</h3>
+              <div className="upgrade-graph-editor__actions">
+                <button
+                  onClick={toggleSelectedOwned}
+                  className={selectedGraphOwned ? "play-btn play-btn--active" : "play-btn"}
+                >
+                  {selectedGraphOwned ? "Remove Owned Flag" : "Mark Selected Owned"}
+                </button>
+                <button onClick={() => setGraphOwnedNodes([])}>Clear Owned</button>
+                <button onClick={resetGraphPreview}>Reset Graph Layout</button>
               </div>
-            )}
+              <p className="upgrade-graph-editor__hint">
+                Selection follows node clicks in the graph. Ownership here is preview-only and does not change gameplay
+                data.
+              </p>
+            </section>
+            <section className="upgrade-graph-editor__section">
+              <h3>Meta Objectives</h3>
+              <div className="upgrade-graph-objectives">
+                {GRAPH_OBJECTIVE_IDS.map((objectiveId) => {
+                  const active = graphProgression.completedObjectives.includes(objectiveId);
+                  return (
+                    <button
+                      key={objectiveId}
+                      type="button"
+                      className={`upgrade-graph-objective${active ? " upgrade-graph-objective--active" : ""}`}
+                      onClick={() => toggleObjective(objectiveId)}
+                    >
+                      {getUpgradeObjectiveLabel(objectiveId)}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+            <section className="upgrade-graph-editor__section">
+              <h3>Graph Summary</h3>
+              <p className="upgrade-graph-editor__hint">
+                Available nodes unlock when at least one previous branch node is owned. Objective chips simulate
+                between-run progression gates.
+              </p>
+              <div className="upgrade-graph-editor__actions">
+                <button onClick={() => setGraphSelection(getDefaultSelectedUpgradeNodeId(graphView) ?? null)}>
+                  Jump To Priority Node
+                </button>
+              </div>
+            </section>
           </div>
-        ))}
+        )}
       </div>
     </div>
   );

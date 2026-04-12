@@ -45,10 +45,12 @@ import {
   showBonusScreen,
   hideBonusScreen,
   showGameOver as uiShowGameOver,
+  showUpgradeProgression as uiShowUpgradeProgression,
+  hideUpgradeProgression as uiHideUpgradeProgression,
   updateHud,
   cacheHudElements,
 } from "./ui";
-import type { HudSnapshot, ShopData } from "./ui";
+import type { HudSnapshot, ShopData, UpgradeProgressionViewData } from "./ui";
 
 // ─── Window globals for bot/replay tooling ──────────────────────────
 
@@ -178,6 +180,8 @@ export class Game {
   private battlefieldCard: HTMLElement;
   private hudEl: HTMLElement;
   private gameoverPanel: HTMLElement;
+  private progressionPanel: HTMLElement;
+  private progressionButton: HTMLElement;
   private replayButton: HTMLElement;
   private retryButton: HTMLElement;
   private empButton: HTMLButtonElement;
@@ -205,6 +209,7 @@ export class Game {
   private shopOpen = false;
   private replayActive = false;
   private bonusActive = false;
+  private progressionOpen = false;
 
   // Final stats for game over
   private finalScore = 0;
@@ -219,6 +224,8 @@ export class Game {
     this.battlefieldCard = document.getElementById("battlefield-card")!;
     this.hudEl = document.getElementById("battlefield-hud")!;
     this.gameoverPanel = document.getElementById("gameover-panel")!;
+    this.progressionPanel = document.getElementById("progression-panel")!;
+    this.progressionButton = document.getElementById("progression-button")!;
     this.replayButton = document.getElementById("replay-button")!;
     this.retryButton = document.getElementById("retry-button")!;
     this.empButton = document.getElementById("emp-button") as HTMLButtonElement;
@@ -251,6 +258,7 @@ export class Game {
 
     // Buttons
     this.retryButton.addEventListener("click", () => void this.startGame());
+    this.progressionButton.addEventListener("click", () => this.openProgression());
     this.replayButton.addEventListener("click", () => {
       if (this.lastReplay) {
         this.replayActive = false;
@@ -310,12 +318,19 @@ export class Game {
 
     // Toggle visibility of screen-specific elements
     this.hudEl.hidden = s !== "playing";
-    this.gameoverPanel.hidden = s !== "gameover";
+    this.gameoverPanel.hidden = s !== "gameover" || this.progressionOpen;
+    this.progressionPanel.hidden = s !== "gameover" || !this.progressionOpen;
     this.battlefieldCard.classList.toggle("battlefield-card--portraitSky", s === "playing");
     if (s === "title") {
       void SFX.playTitleTheme();
     } else {
       SFX.stopTitleTheme();
+    }
+
+    if (s !== "gameover") {
+      this.progressionOpen = false;
+      uiHideUpgradeProgression();
+      this.progressionPanel.hidden = true;
     }
 
     if (s === "gameover") {
@@ -360,7 +375,9 @@ export class Game {
     this.replayActive = false;
     this.shopOpen = false;
     this.bonusActive = false;
+    this.progressionOpen = false;
     uiHideShop();
+    uiHideUpgradeProgression();
     hideBonusScreen();
     this.battlefieldCard.classList.remove("battlefield-card--blurred");
     this.canvas.classList.add("game-canvas--active");
@@ -386,10 +403,12 @@ export class Game {
     this.replayRunner = runner;
     this.replayActive = true;
     this.shopOpen = false;
+    this.progressionOpen = false;
     this.showOptionsMenu = false;
     this.showColliders = false;
     this.showPerfOverlay = false;
     uiHideShop();
+    uiHideUpgradeProgression();
     this.battlefieldCard.classList.remove("battlefield-card--blurred");
     this.canvas.classList.add("game-canvas--active");
     this.canvas.style.pointerEvents = "";
@@ -428,10 +447,12 @@ export class Game {
       this.clearPointerCapture();
       this.resetPlayerFireState();
       this.shopOpen = false;
+      this.progressionOpen = false;
       this.showOptionsMenu = false;
       this.showColliders = false;
       this.showPerfOverlay = false;
       uiHideShop();
+      uiHideUpgradeProgression();
       this.battlefieldCard.classList.remove("battlefield-card--blurred");
       this.optionsMenu.hidden = true;
       this.perfOverlay.hidden = true;
@@ -549,6 +570,29 @@ export class Game {
     uiHideShop();
     this.battlefieldCard.classList.remove("battlefield-card--blurred");
     this.syncHud(true);
+  }
+
+  private buildProgressionData(): UpgradeProgressionViewData {
+    const game = this.gameRef.current;
+    return {
+      progression: game?.metaProgression ?? loadUpgradeProgression(),
+      ownedNodes: game?.ownedUpgradeNodes ?? new Set(),
+    };
+  }
+
+  private openProgression(): void {
+    if (this.screen !== "gameover" || this.shopOpen) return;
+    this.progressionOpen = true;
+    this.gameoverPanel.hidden = true;
+    this.progressionPanel.hidden = false;
+    uiShowUpgradeProgression(this.buildProgressionData(), () => this.closeProgression());
+  }
+
+  private closeProgression(): void {
+    this.progressionOpen = false;
+    uiHideUpgradeProgression();
+    this.progressionPanel.hidden = true;
+    if (this.screen === "gameover") this.gameoverPanel.hidden = false;
   }
 
   // ─── Input Handling ─────────────────────────────────────────────

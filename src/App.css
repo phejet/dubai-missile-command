@@ -75,6 +75,10 @@
   width: min(100%, 430px);
 }
 
+.portrait-panel--progression {
+  width: min(100%, 1040px);
+}
+
 .portrait-hero {
   margin-top: 4px;
   display: flex;

@@ -2,7 +2,15 @@
 // Replaces ShopUI.tsx and BonusScreen.tsx
 
 import { COL } from "./game-logic";
+import {
+  buildUpgradeGraphViewModel,
+  getDefaultSelectedUpgradeNodeId,
+  renderUpgradeGraphDetailMarkup,
+  renderUpgradeGraphMarkup,
+} from "./upgrade-graph";
+import { getUpgradeObjectiveLabel } from "./game-sim-upgrades";
 import type { ShopEntry } from "./types";
+import type { UpgradeNodeId, UpgradeProgressionState } from "./types";
 import SFX from "./sound";
 
 // ─── Types ──────────────────────────────────────────────────────────
@@ -527,4 +535,124 @@ export function showGameOver(
   el("go-wave")!.textContent = String(wave);
   el("go-ratio")!.textContent = `${hitRatio}%`;
   el("go-missiles")!.textContent = String(stats.missileKills);
+}
+
+// ─── Upgrade Progression ───────────────────────────────────────────
+
+export interface UpgradeProgressionViewData {
+  progression: UpgradeProgressionState;
+  ownedNodes?: Set<UpgradeNodeId>;
+}
+
+let progressionCleanup: (() => void) | null = null;
+
+function countGraphStates(markupData: ReturnType<typeof buildUpgradeGraphViewModel>) {
+  return markupData.nodes.reduce(
+    (counts, node) => {
+      counts[node.state]++;
+      return counts;
+    },
+    { owned: 0, available: 0, locked: 0, metaLocked: 0 },
+  );
+}
+
+function getProgressionPanelRoot(): HTMLElement {
+  return document.getElementById("progression-panel")!;
+}
+
+export function showUpgradeProgression(data: UpgradeProgressionViewData, onClose: () => void): void {
+  hideUpgradeProgression();
+  const container = getProgressionPanelRoot();
+  let selectedNodeId: UpgradeNodeId | null = null;
+
+  const render = () => {
+    const view = buildUpgradeGraphViewModel({
+      progression: data.progression,
+      ownedNodes: data.ownedNodes,
+    });
+    if (!selectedNodeId || !view.nodes.some((node) => node.id === selectedNodeId)) {
+      selectedNodeId = getDefaultSelectedUpgradeNodeId(view);
+    }
+    const counts = countGraphStates(view);
+    container.innerHTML = `
+      <div class="upgrade-graph-shell upgrade-graph-shell--panel">
+        <div class="upgrade-graph-shell__header">
+          <div>
+            <div class="upgrade-graph-shell__eyebrow">Strategic Progression</div>
+            <h2 class="upgrade-graph-shell__title">Upgrade Graph</h2>
+            <p class="upgrade-graph-shell__copy">Review the full defense network, see which branches are active, and inspect objective-gated unlocks for later runs.</p>
+          </div>
+          <div class="upgrade-graph-shell__actions">
+            <button type="button" class="action-button action-button--info" data-progression-close>Back</button>
+          </div>
+        </div>
+        <div class="upgrade-graph-shell__stats">
+          <div class="upgrade-graph-shell__stat">
+            <span class="upgrade-graph-shell__stat-label">Owned This Run</span>
+            <strong class="upgrade-graph-shell__stat-value">${counts.owned}</strong>
+          </div>
+          <div class="upgrade-graph-shell__stat">
+            <span class="upgrade-graph-shell__stat-label">Available</span>
+            <strong class="upgrade-graph-shell__stat-value">${counts.available}</strong>
+          </div>
+          <div class="upgrade-graph-shell__stat">
+            <span class="upgrade-graph-shell__stat-label">Meta Locked</span>
+            <strong class="upgrade-graph-shell__stat-value">${counts.metaLocked}</strong>
+          </div>
+        </div>
+        <div class="upgrade-graph-shell__body">
+          <div class="upgrade-graph-shell__stage" data-upgrade-graph-stage>
+            <div class="upgrade-graph-shell__canvas">${renderUpgradeGraphMarkup(view, { selectedNodeId })}</div>
+          </div>
+          <div class="upgrade-graph-shell__detail">${renderUpgradeGraphDetailMarkup(view, selectedNodeId)}</div>
+        </div>
+      </div>`;
+  };
+
+  const handleClick = (event: Event) => {
+    const target = event.target as HTMLElement;
+    const closeButton = target.closest("[data-progression-close]");
+    if (closeButton) {
+      onClose();
+      return;
+    }
+    const nodeButton = target.closest("[data-node-id]") as HTMLElement | null;
+    if (nodeButton?.dataset.nodeId) {
+      selectedNodeId = nodeButton.dataset.nodeId;
+      render();
+    }
+  };
+
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (event.key === "Escape") onClose();
+  };
+
+  render();
+  container.hidden = false;
+  container.addEventListener("click", handleClick);
+  window.addEventListener("keydown", handleKeyDown);
+  progressionCleanup = () => {
+    container.removeEventListener("click", handleClick);
+    window.removeEventListener("keydown", handleKeyDown);
+    container.hidden = true;
+    container.innerHTML = "";
+  };
+}
+
+export function hideUpgradeProgression(): void {
+  if (progressionCleanup) {
+    progressionCleanup();
+    progressionCleanup = null;
+  }
+}
+
+export function renderUpgradeObjectiveChips(completedObjectiveIds: string[], allObjectiveIds: string[]): string {
+  return allObjectiveIds
+    .map((objectiveId) => {
+      const active = completedObjectiveIds.includes(objectiveId);
+      return `<button type="button" class="upgrade-graph-objective${active ? " upgrade-graph-objective--active" : ""}" data-objective-id="${objectiveId}">
+        ${getUpgradeObjectiveLabel(objectiveId)}
+      </button>`;
+    })
+    .join("");
 }

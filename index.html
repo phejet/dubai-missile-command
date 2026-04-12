@@ -139,6 +139,13 @@
               </div>
             </div>
             <div class="portrait-panel__actions portrait-panel__actions--stacked">
+              <button
+                type="button"
+                class="action-button action-button--info action-button--wide"
+                id="progression-button"
+              >
+                Upgrade Graph
+              </button>
               <button type="button" class="action-button action-button--danger action-button--wide" id="retry-button">
                 Retry
               </button>
@@ -152,6 +159,12 @@
               </button>
             </div>
           </section>
+
+          <section
+            class="portrait-panel portrait-panel--gameover portrait-panel--progression"
+            id="progression-panel"
+            hidden
+          ></section>
 
           <!-- Shop container (populated by ui.ts) -->
           <div id="shop-container"></div>
