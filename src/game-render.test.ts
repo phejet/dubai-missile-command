@@ -1,6 +1,16 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { drawGame, drawTitle, drawGameOver, glow, glowOff, hash01, pulse, perfState } from "./game-render.js";
-import { setRng } from "./game-logic.js";
+import { GAMEPLAY_SCENIC_BASE_Y, setRng } from "./game-logic.js";
+import {
+  buildBuildingAssets,
+  drawGame,
+  drawTitle,
+  drawGameOver,
+  glow,
+  glowOff,
+  hash01,
+  pulse,
+  perfState,
+} from "./game-render.js";
 import { mulberry32 } from "./headless/rng.js";
 import { initGame } from "./game-sim.js";
 import type { GameState } from "./types";
@@ -207,6 +217,12 @@ describe("drawGame", () => {
     ).not.toThrow();
   });
 
+  it("supports injected baked building assets", () => {
+    const { ctx } = mockCanvasContext();
+    const buildingAssets = buildBuildingAssets(GAMEPLAY_SCENIC_BASE_Y);
+    expect(() => drawGame(ctx, gameState, { showShop: false, buildingAssets })).not.toThrow();
+  });
+
   it("calls canvas drawing methods", () => {
     const { ctx, callLog } = mockCanvasContext();
     drawGame(ctx, gameState, { showShop: false });
@@ -292,6 +308,16 @@ describe("drawTitle", () => {
   it("supports an external title layout", () => {
     const { ctx } = mockCanvasContext();
     expect(() => drawTitle(ctx, { layoutProfile: { externalTitle: true } })).not.toThrow();
+  });
+
+  it("supports live title skyline rendering", () => {
+    const { ctx } = mockCanvasContext();
+    expect(() => drawTitle(ctx, { skylineRenderMode: "live" })).not.toThrow();
+  });
+
+  it("supports sharp baked title skyline rendering", () => {
+    const { ctx } = mockCanvasContext();
+    expect(() => drawTitle(ctx, { skylineRenderMode: "bakedSharp" })).not.toThrow();
   });
 });
 

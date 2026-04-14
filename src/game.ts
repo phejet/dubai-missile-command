@@ -6,12 +6,21 @@ import {
   CANVAS_W,
   CANVAS_H,
   GROUND_Y,
+  GAMEPLAY_SCENIC_BASE_Y,
   LAUNCHER_RELOAD_TICKS,
   fireInterceptor,
   getAmmoCapacity,
   setRng,
 } from "./game-logic";
-import { drawGame, drawTitle, drawGameOver, perfState, preloadRenderAssets } from "./game-render";
+import {
+  buildBuildingAssets,
+  drawGame,
+  drawTitle,
+  drawGameOver,
+  perfState,
+  preloadRenderAssets,
+  type BuildingAssets,
+} from "./game-render";
 import { mulberry32 } from "./headless/rng";
 import {
   bufferPlayerFire,
@@ -212,6 +221,7 @@ export class Game {
   private replayActive = false;
   private bonusActive = false;
   private progressionOpen = false;
+  private buildingAssets: BuildingAssets | null = null;
 
   // Final stats for game over
   private finalScore = 0;
@@ -241,6 +251,7 @@ export class Game {
     this.bindEvents();
     this.setupWindowGlobals();
     preloadRenderAssets();
+    this.buildingAssets = buildBuildingAssets(GAMEPLAY_SCENIC_BASE_Y);
     this.setScreen("title");
     this.startRenderLoop();
   }
@@ -909,7 +920,11 @@ export class Game {
         const alpha = game.state === "playing" ? (game._timeAccum ?? 0) : 1;
         applyInterpolation(game, alpha);
         this.syncHud();
-        drawGame(this.ctx, game, { showShop: this.shopOpen, layoutProfile: LAYOUT_PROFILE });
+        drawGame(this.ctx, game, {
+          showShop: this.shopOpen,
+          layoutProfile: LAYOUT_PROFILE,
+          buildingAssets: this.buildingAssets,
+        });
         restorePositions(game);
       } else {
         this.lastTime = null;

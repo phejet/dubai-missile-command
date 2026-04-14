@@ -3,7 +3,6 @@ import {
   CANVAS_H,
   GROUND_Y,
   CITY_Y,
-  GAMEPLAY_SCENIC_BASE_Y,
   GAMEPLAY_SCENIC_GROUND_Y,
   GAMEPLAY_WATERLINE_Y,
   GAMEPLAY_SCENIC_LAUNCHER_Y,
@@ -47,24 +46,33 @@ import type {
 // FPS probe: measure first 60 frames, disable shadowBlur if avg FPS < 45
 export const perfState = { frameCount: 0, startTime: 0, glowEnabled: true, probed: false };
 const ARCADE_FONT_FAMILY = "'Courier New', monospace";
-const BUILDING_GLOW_MARGIN = 80;
-const BUILDING_EMISSIVE_FRAME_COUNT = 8;
-const BUILDING_EMISSIVE_PERIOD_SECONDS = 20;
+const GLOW_MARGIN = 80;
+const GAMEPLAY_BUILDING_ANIM_FRAME_COUNT = 8;
+const GAMEPLAY_BUILDING_ANIM_PERIOD_SECONDS = 20;
+const TITLE_BUILDING_ANIM_FRAME_COUNT = 8;
+const TITLE_BUILDING_BAKE_PERIOD_SECONDS = 40;
+const TITLE_BUILDING_BLEND_WINDOW = 0.18;
+const TITLE_BUILDING_PLAYBACK_PERIOD_SECONDS = 4;
+const TITLE_BUILDING_ANIM_ALPHA = 0.58;
+const TITLE_BUILDING_LIT_THRESHOLD = 0.08;
+const TITLE_BUILDING_PLAYBACK_RATE_JITTER = 0.24;
 let _gameplaySkyAssets: SkyAssets | null = null;
 let _gameplaySkyStarsRef: Star[] | null = null;
 let _gameplaySkyGroundY: number | null = null;
 let _titleSkyAssets: SkyAssets | null = null;
-let _gameplayBuildingAssets: BuildingAssets | null = null;
-let _gameplayBuildingBaseY: number | null = null;
+let _titleBuildingAssets: BuildingAssets | null = null;
+let _titleBuildingBaseY: number | null = null;
 
 export interface BuildingAssets {
   staticSprites: HTMLCanvasElement[];
-  emissiveFrames: HTMLCanvasElement[][];
-  drawOffsets: Array<{ x: number; y: number }>;
-  emissiveOffsets: Array<{ x: number; y: number }>;
+  animFrames: HTMLCanvasElement[][];
+  staticOffsets: Array<{ x: number; y: number }>;
+  animOffsets: Array<{ x: number; y: number }>;
   frameCount: number;
   period: number;
 }
+
+type TitleSkylineRenderMode = "bakedBlend" | "bakedSharp" | "live";
 
 // Sky nebula background — loaded once, drawn every frame
 let _skyImg: HTMLImageElement | null = null;
@@ -239,7 +247,6 @@ export function preloadRenderAssets() {
   getTitleBurjGlowImage();
   getBurjMissileDecalImage();
   getBurjDroneDecalImage();
-  getGameplayBuildingAssets(GAMEPLAY_SCENIC_BASE_Y);
 }
 
 function drawDistortedWaterSprite(
@@ -913,6 +920,10 @@ function drawFlickerWindows(
     paneH = 3,
     gapX = 4,
     gapY = 6,
+    drawUnlit = true,
+    litThreshold = -0.42,
+    groupRows = 1,
+    groupCols = 1,
   }: {
     x: number;
     y: number;
@@ -927,6 +938,10 @@ function drawFlickerWindows(
     paneH?: number;
     gapX?: number;
     gapY?: number;
+    drawUnlit?: boolean;
+    litThreshold?: number;
+    groupRows?: number;
+    groupCols?: number;
   },
 ) {
   const totalW = cols * paneW + (cols - 1) * gapX;
@@ -935,17 +950,22 @@ function drawFlickerWindows(
   const startY = y + Math.max(0, (h - totalH) * 0.5);
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {
-      const lightSeed = hash01(seed, row, col);
+      const groupRow = Math.floor(row / groupRows);
+      const groupCol = Math.floor(col / groupCols);
+      const lightSeed = hash01(seed, groupRow, groupCol);
       const paneX = startX + col * (paneW + gapX);
       const paneY = startY + row * (paneH + gapY);
-      const lit = Math.sin(time * (0.044 + lightSeed * 0.028) + row * 1.17 + col * 2.03 + lightSeed * 12) > -0.42;
+      const lit =
+        Math.sin(time * (0.044 + lightSeed * 0.028) + groupRow * 1.17 + groupCol * 2.03 + lightSeed * 12) >
+        litThreshold;
       if (!lit) {
+        if (!drawUnlit) continue;
         ctx.fillStyle = "rgba(3, 6, 12, 0.74)";
         ctx.fillRect(paneX, paneY, paneW, paneH);
         continue;
       }
-      const flicker = getLightFlicker(time, seed * 13 + row * 1.9 + col * 2.7);
-      const warm = hash01(seed, row, col, 4.7) < warmBias;
+      const flicker = getLightFlicker(time, seed * 13 + groupRow * 1.9 + groupCol * 2.7);
+      const warm = hash01(seed, groupRow, groupCol, 4.7) < warmBias;
       const spillRgb = warm ? "255, 198, 122" : "210, 232, 255";
       const coreRgb = warm ? "255, 234, 186" : "236, 246, 255";
       ctx.fillStyle = `rgba(${spillRgb}, ${0.06 + flicker * 0.24})`;
@@ -1010,68 +1030,87 @@ function getTitleSkyAssets(): SkyAssets {
   return _titleSkyAssets;
 }
 
-function canBakeBuildingSprites() {
-  return typeof document !== "undefined" && typeof document.createElement === "function";
-}
-
-function buildBuildingAssets(baseY: number): BuildingAssets {
+function buildTowerAssets(
+  towers: readonly TitleTower[],
+  baseY: number,
+  glowScale: number,
+  frameCount: number,
+  period: number,
+  litOnlyAnim = false,
+  quantizedAnim = false,
+): BuildingAssets {
   const staticSprites: HTMLCanvasElement[] = [];
-  const emissiveFrames: HTMLCanvasElement[][] = [];
-  const drawOffsets: Array<{ x: number; y: number }> = [];
-  const emissiveOffsets: Array<{ x: number; y: number }> = [];
+  const animFrames: HTMLCanvasElement[][] = [];
+  const staticOffsets: Array<{ x: number; y: number }> = [];
+  const animOffsets: Array<{ x: number; y: number }> = [];
 
-  for (const tower of TITLE_SKYLINE_TOWERS) {
+  for (const tower of towers) {
     const top = baseY - tower.h;
-    const staticCanvas = createSpriteCanvas(tower.w + BUILDING_GLOW_MARGIN * 2, tower.h + BUILDING_GLOW_MARGIN * 2);
+    const staticCanvas = createSpriteCanvas(tower.w + GLOW_MARGIN * 2, tower.h + GLOW_MARGIN);
     const staticCtx = staticCanvas.getContext("2d");
     if (staticCtx) {
-      staticCtx.translate(-tower.x + BUILDING_GLOW_MARGIN, -top + BUILDING_GLOW_MARGIN);
-      drawSharedTower(staticCtx, tower, baseY, 0, 0, 0.48, { structureOnly: true });
+      staticCtx.translate(-tower.x + GLOW_MARGIN, -top + GLOW_MARGIN);
+      drawSharedTower(staticCtx, tower, baseY, 0, 0, glowScale, { structureOnly: true });
     }
     staticSprites.push(staticCanvas);
-    drawOffsets.push({
-      x: tower.x - BUILDING_GLOW_MARGIN,
-      y: top - BUILDING_GLOW_MARGIN,
+    staticOffsets.push({
+      x: tower.x - GLOW_MARGIN,
+      y: top - GLOW_MARGIN,
     });
 
-    const frames = Array.from({ length: BUILDING_EMISSIVE_FRAME_COUNT }, (_, frameIndex) => {
+    const frames = Array.from({ length: frameCount }, (_, frameIndex) => {
       const canvas = createSpriteCanvas(tower.w, tower.h);
       const ctx = canvas.getContext("2d");
       if (ctx) {
         ctx.translate(-tower.x, -top);
-        drawSharedTower(
-          ctx,
-          tower,
-          baseY,
-          (frameIndex / BUILDING_EMISSIVE_FRAME_COUNT) * BUILDING_EMISSIVE_PERIOD_SECONDS,
-          0,
-          0.48,
-          { emissiveOnly: true },
-        );
+        drawSharedTower(ctx, tower, baseY, (frameIndex / frameCount) * period, 0, glowScale, {
+          animOnly: true,
+          litOnlyAnim,
+          litThreshold: litOnlyAnim ? TITLE_BUILDING_LIT_THRESHOLD : undefined,
+          quantizedAnim,
+        });
       }
       return canvas;
     });
-    emissiveFrames.push(frames);
-    emissiveOffsets.push({ x: tower.x, y: top });
+    animFrames.push(frames);
+    animOffsets.push({ x: tower.x, y: top });
   }
 
   return {
     staticSprites,
-    emissiveFrames,
-    drawOffsets,
-    emissiveOffsets,
-    frameCount: BUILDING_EMISSIVE_FRAME_COUNT,
-    period: BUILDING_EMISSIVE_PERIOD_SECONDS,
+    animFrames,
+    staticOffsets,
+    animOffsets,
+    frameCount,
+    period,
   };
 }
 
-function getGameplayBuildingAssets(baseY: number): BuildingAssets | null {
-  if (!canBakeBuildingSprites()) return null;
-  if (!_gameplayBuildingAssets || _gameplayBuildingBaseY !== baseY) {
-    _gameplayBuildingAssets = buildBuildingAssets(baseY);
-    _gameplayBuildingBaseY = baseY;
+export function buildBuildingAssets(baseY: number): BuildingAssets {
+  const towers = SCENIC_BUILDING_LAYOUT.map((building, index) => mapGameplayBuildingTower(building, index));
+  return buildTowerAssets(
+    towers,
+    baseY,
+    0.48,
+    GAMEPLAY_BUILDING_ANIM_FRAME_COUNT,
+    GAMEPLAY_BUILDING_ANIM_PERIOD_SECONDS,
+  );
+}
+
+function getTitleBuildingAssets(baseY: number): BuildingAssets {
+  if (!_titleBuildingAssets || _titleBuildingBaseY !== baseY) {
+    _titleBuildingAssets = buildTowerAssets(
+      TITLE_SKYLINE_TOWERS,
+      baseY,
+      1,
+      TITLE_BUILDING_ANIM_FRAME_COUNT,
+      TITLE_BUILDING_BAKE_PERIOD_SECONDS,
+      true,
+      true,
+    );
+    _titleBuildingBaseY = baseY;
   }
-  return _gameplayBuildingAssets;
+  return _titleBuildingAssets;
 }
 
 interface SharedBurjOptions {
@@ -1107,7 +1146,10 @@ interface SharedLauncherOptions {
 
 interface DrawSharedTowerOptions {
   structureOnly?: boolean;
-  emissiveOnly?: boolean;
+  animOnly?: boolean;
+  litOnlyAnim?: boolean;
+  litThreshold?: number;
+  quantizedAnim?: boolean;
 }
 
 function drawSharedSky(ctx: CanvasRenderingContext2D, { groundY, stars }: SharedSkyOptions, t: number) {
@@ -1133,14 +1175,14 @@ function drawSharedTower(
   glowScale = 1,
   opts: DrawSharedTowerOptions = {},
 ) {
-  if (opts.structureOnly && opts.emissiveOnly) return;
+  if (opts.structureOnly && opts.animOnly) return;
   const x = tower.x + offset;
   const top = baseY - tower.h;
   const right = x + tower.w;
   const mid = x + tower.w / 2;
 
   ctx.save();
-  if (!opts.emissiveOnly) {
+  if (!opts.animOnly) {
     if (tower.glow) {
       const glow = ctx.createRadialGradient(mid, top + tower.h * 0.3, 0, mid, top + tower.h * 0.3, tower.w * 1.8);
       glow.addColorStop(0, `rgba(120, 190, 255, ${tower.glow * glowScale})`);
@@ -1288,6 +1330,10 @@ function drawSharedTower(
       paneH: 3,
       gapX: 4,
       gapY: 8,
+      drawUnlit: !opts.litOnlyAnim,
+      litThreshold: opts.litThreshold,
+      groupRows: opts.quantizedAnim ? 2 : 1,
+      groupCols: opts.quantizedAnim ? 2 : 1,
     });
   } else if (tower.profile === "twinSpire") {
     const spineA = getLightFlicker(t, tower.x * 0.08 + 6.1);
@@ -1319,6 +1365,10 @@ function drawSharedTower(
       paneH: 3,
       gapX: 5,
       gapY: 8,
+      drawUnlit: !opts.litOnlyAnim,
+      litThreshold: opts.litThreshold,
+      groupRows: opts.quantizedAnim ? 2 : 1,
+      groupCols: opts.quantizedAnim ? 2 : 1,
     });
   } else if (tower.profile === "slantedBlock") {
     for (let row = 0; row < 10; row++) {
@@ -1344,6 +1394,10 @@ function drawSharedTower(
       paneH: 2.8,
       gapX: 5,
       gapY: 8,
+      drawUnlit: !opts.litOnlyAnim,
+      litThreshold: opts.litThreshold,
+      groupRows: opts.quantizedAnim ? 2 : 1,
+      groupCols: opts.quantizedAnim ? 2 : 1,
     });
   } else if (tower.profile === "eggTower") {
     for (let row = 0; row < 9; row++) {
@@ -1369,6 +1423,10 @@ function drawSharedTower(
       paneH: 2.8,
       gapX: 4.5,
       gapY: 8,
+      drawUnlit: !opts.litOnlyAnim,
+      litThreshold: opts.litThreshold,
+      groupRows: opts.quantizedAnim ? 2 : 1,
+      groupCols: opts.quantizedAnim ? 2 : 1,
     });
   } else if (tower.profile === "bladeTower") {
     ctx.fillStyle = `rgba(236, 244, 255, ${0.1 + getLightFlicker(t, tower.x * 0.09 + 25.2) * 0.22})`;
@@ -1398,6 +1456,10 @@ function drawSharedTower(
       paneH: 3,
       gapX: 6,
       gapY: 8,
+      drawUnlit: !opts.litOnlyAnim,
+      litThreshold: opts.litThreshold,
+      groupRows: opts.quantizedAnim ? 2 : 1,
+      groupCols: opts.quantizedAnim ? 2 : 1,
     });
   } else {
     const rows = Math.max(2, Math.floor(tower.h / 17));
@@ -1405,10 +1467,14 @@ function drawSharedTower(
     const winW = cols === 1 ? 3 : 4;
     const gap = cols === 1 ? 0 : 6;
     const startX = x + Math.max(2, (tower.w - cols * winW - (cols - 1) * gap) / 2);
+    const groupRows = opts.quantizedAnim ? 2 : 1;
+    const groupCols = opts.quantizedAnim ? 2 : 1;
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
-        const litSeed = hash01(tower.x, row, col);
-        const lit = Math.sin(t * 0.06 + litSeed * 10 + row * 0.65 + col * 2.1) > -0.2;
+        const groupRow = Math.floor(row / groupRows);
+        const groupCol = Math.floor(col / groupCols);
+        const litSeed = hash01(tower.x, groupRow, groupCol);
+        const lit = Math.sin(t * 0.06 + litSeed * 10 + groupRow * 0.65 + groupCol * 2.1) > (opts.litThreshold ?? -0.2);
         const flicker = getLightFlicker(t, litSeed * 100 + tower.w * 0.07 + tower.h * 0.01);
         const wx = startX + col * (winW + gap);
         const wy = top + 10 + row * 14;
@@ -1422,7 +1488,7 @@ function drawSharedTower(
             ctx.fillStyle = `rgba(255, 236, 194, ${(flicker - 0.64) * 1.15})`;
             ctx.fillRect(wx, wy, winW, 1.4);
           }
-        } else {
+        } else if (!opts.litOnlyAnim) {
           ctx.fillStyle = "rgba(4, 6, 12, 0.66)";
           ctx.fillRect(wx, wy, winW, 3);
         }
@@ -1432,7 +1498,7 @@ function drawSharedTower(
   ctx.restore();
 }
 
-function mapGameplayBuildingTower(building: Building, index: number): TitleTower {
+function mapGameplayBuildingTower(building: Pick<Building, "x" | "w" | "h" | "windows">, index: number): TitleTower {
   const scenicTower = TITLE_SKYLINE_TOWERS[index];
   return {
     x: building.x,
@@ -1445,10 +1511,15 @@ function mapGameplayBuildingTower(building: Building, index: number): TitleTower
   };
 }
 
-function drawGameplayForegroundBuildings(ctx: CanvasRenderingContext2D, game: GameState, t: number, groundY: number) {
+function drawGameplayForegroundBuildings(
+  ctx: CanvasRenderingContext2D,
+  game: GameState,
+  t: number,
+  groundY: number,
+  buildingAssets?: BuildingAssets | null,
+) {
   const baseY = groundY - 6;
   const burstImg = getBuildingDestroyBurstImage();
-  const buildingAssets = getGameplayBuildingAssets(baseY);
   game.buildings.forEach((building, index) => {
     if (!building.alive) {
       ctx.fillStyle = "#1b2230";
@@ -1467,15 +1538,15 @@ function drawGameplayForegroundBuildings(ctx: CanvasRenderingContext2D, game: Ga
     const frameIndex = Math.floor(phase * buildingAssets.frameCount) % buildingAssets.frameCount;
     const blend = (phase * buildingAssets.frameCount) % 1;
     const staticSprite = buildingAssets.staticSprites[index];
-    const emissive = buildingAssets.emissiveFrames[index];
-    const staticOffset = buildingAssets.drawOffsets[index];
-    const emissiveOffset = buildingAssets.emissiveOffsets[index];
+    const anim = buildingAssets.animFrames[index];
+    const staticOffset = buildingAssets.staticOffsets[index];
+    const animOffset = buildingAssets.animOffsets[index];
 
     ctx.drawImage(staticSprite, staticOffset.x, staticOffset.y);
     ctx.globalAlpha = 1 - blend;
-    ctx.drawImage(emissive[frameIndex], emissiveOffset.x, emissiveOffset.y);
+    ctx.drawImage(anim[frameIndex], animOffset.x, animOffset.y);
     ctx.globalAlpha = blend;
-    ctx.drawImage(emissive[(frameIndex + 1) % buildingAssets.frameCount], emissiveOffset.x, emissiveOffset.y);
+    ctx.drawImage(anim[(frameIndex + 1) % buildingAssets.frameCount], animOffset.x, animOffset.y);
     ctx.globalAlpha = 1;
   });
   game.buildingDestroyFx.forEach((fx) => {
@@ -5030,7 +5101,15 @@ function drawHUD(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutP
 export function drawGame(
   ctx: CanvasRenderingContext2D,
   game: GameState,
-  { showShop = false, layoutProfile = {} as Partial<LayoutProfile> } = {},
+  {
+    showShop = false,
+    layoutProfile = {} as Partial<LayoutProfile>,
+    buildingAssets = null,
+  }: {
+    showShop?: boolean;
+    layoutProfile?: Partial<LayoutProfile>;
+    buildingAssets?: BuildingAssets | null;
+  } = {},
 ) {
   const layout = resolveLayoutProfile(layoutProfile);
   const sceneTime = game.time / 60;
@@ -5074,7 +5153,7 @@ export function drawGame(
     burjHitFlashX: game.burjHitFlashX,
     burjHitFlashY: game.burjHitFlashY,
   });
-  drawGameplayForegroundBuildings(ctx, game, sceneTime, scenicGroundY);
+  drawGameplayForegroundBuildings(ctx, game, sceneTime, scenicGroundY, buildingAssets);
   drawSharedWater(
     ctx,
     {
@@ -5385,20 +5464,68 @@ function drawCollisionOverlay(ctx: CanvasRenderingContext2D, game: GameState) {
   ctx.restore();
 }
 
-export function drawTitle(ctx: CanvasRenderingContext2D, { layoutProfile = {} as Partial<LayoutProfile> } = {}) {
+export function drawTitle(
+  ctx: CanvasRenderingContext2D,
+  {
+    layoutProfile = {} as Partial<LayoutProfile>,
+    skylineRenderMode = "bakedBlend",
+  }: {
+    layoutProfile?: Partial<LayoutProfile>;
+    skylineRenderMode?: TitleSkylineRenderMode;
+  } = {},
+) {
   const layout = resolveLayoutProfile(layoutProfile);
   const t = performance.now() / 1000;
   const cx = CANVAS_W / 2;
   const titleGroundY = GROUND_Y - 100;
+  const titleTowerBaseY = titleGroundY - 6;
   drawSharedSky(ctx, { mode: "title", renderHeight: CANVAS_H, groundY: titleGroundY }, t);
   ctx.textAlign = "center";
 
   const titleFlicker = 0.95 + 0.03 * Math.sin(t * 2.875) + 0.015 * Math.sin(t * 7.925 + 0.5);
   const titleFlickerSoft = 0.96 + 0.02 * Math.sin(t * 2.425 + 1.4) + 0.01 * Math.sin(t * 6.775);
 
-  TITLE_SKYLINE_TOWERS.forEach((tower, i) =>
-    drawSharedTower(ctx, tower, titleGroundY - 6, t, Math.sin(t * 0.05 + i * 0.8) * 1.35, 1),
-  );
+  if (skylineRenderMode === "live") {
+    TITLE_SKYLINE_TOWERS.forEach((tower, i) =>
+      drawSharedTower(ctx, tower, titleTowerBaseY, t, Math.sin(t * 0.05 + i * 0.8) * 1.35, 1),
+    );
+  } else {
+    const titleBuildingAssets = getTitleBuildingAssets(titleTowerBaseY);
+    const sharpFrames = skylineRenderMode === "bakedSharp";
+
+    TITLE_SKYLINE_TOWERS.forEach((tower, i) => {
+      const playbackSeed = hash01(tower.x, tower.w, tower.h, i + 1);
+      const playbackRate =
+        1 - TITLE_BUILDING_PLAYBACK_RATE_JITTER * 0.5 + playbackSeed * TITLE_BUILDING_PLAYBACK_RATE_JITTER;
+      const phaseOffset = playbackSeed * TITLE_BUILDING_PLAYBACK_PERIOD_SECONDS;
+      const phase =
+        (((t * playbackRate + phaseOffset) % TITLE_BUILDING_PLAYBACK_PERIOD_SECONDS) +
+          TITLE_BUILDING_PLAYBACK_PERIOD_SECONDS) /
+        TITLE_BUILDING_PLAYBACK_PERIOD_SECONDS;
+      const frameIndex = Math.floor(phase * titleBuildingAssets.frameCount) % titleBuildingAssets.frameCount;
+      const slotProgress = (phase * titleBuildingAssets.frameCount) % 1;
+      const blendStart = 1 - TITLE_BUILDING_BLEND_WINDOW;
+      const blend =
+        slotProgress <= blendStart ? 0 : Math.min(1, (slotProgress - blendStart) / TITLE_BUILDING_BLEND_WINDOW);
+      const driftX = Math.round(Math.sin(t * 0.05 + i * 0.8) * 1.35);
+      const staticSprite = titleBuildingAssets.staticSprites[i];
+      const anim = titleBuildingAssets.animFrames[i];
+      const staticOffset = titleBuildingAssets.staticOffsets[i];
+      const animOffset = titleBuildingAssets.animOffsets[i];
+
+      ctx.drawImage(staticSprite, staticOffset.x + driftX, staticOffset.y);
+      if (sharpFrames) {
+        ctx.globalAlpha = TITLE_BUILDING_ANIM_ALPHA;
+        ctx.drawImage(anim[frameIndex], animOffset.x + driftX, animOffset.y);
+      } else {
+        ctx.globalAlpha = TITLE_BUILDING_ANIM_ALPHA * (1 - blend);
+        ctx.drawImage(anim[frameIndex], animOffset.x + driftX, animOffset.y);
+        ctx.globalAlpha = TITLE_BUILDING_ANIM_ALPHA * blend;
+        ctx.drawImage(anim[(frameIndex + 1) % titleBuildingAssets.frameCount], animOffset.x + driftX, animOffset.y);
+      }
+      ctx.globalAlpha = 1;
+    });
+  }
 
   drawSharedBurj(ctx, { mode: "title", groundY: titleGroundY, alive: true, artScale: 2, t });
 
