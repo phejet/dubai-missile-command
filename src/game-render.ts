@@ -3,6 +3,7 @@ import {
   CANVAS_H,
   GROUND_Y,
   CITY_Y,
+  GAMEPLAY_SCENIC_BASE_Y,
   GAMEPLAY_SCENIC_GROUND_Y,
   GAMEPLAY_WATERLINE_Y,
   GAMEPLAY_SCENIC_LAUNCHER_Y,
@@ -21,6 +22,7 @@ import {
   getPhalanxTurrets,
   ov,
 } from "./game-logic";
+import { buildSkyAssets, createSpriteCanvas, type SkyAssets } from "./art-render";
 import { getPurchaseDisplayName, UPGRADE_FAMILIES } from "./game-sim-upgrades";
 import type {
   GameState,
@@ -39,13 +41,30 @@ import type {
   Particle,
   EmpRing,
   DefenseSite,
+  Star,
 } from "./types";
 
 // FPS probe: measure first 60 frames, disable shadowBlur if avg FPS < 45
 export const perfState = { frameCount: 0, startTime: 0, glowEnabled: true, probed: false };
 const ARCADE_FONT_FAMILY = "'Courier New', monospace";
-const GAME_TITLE_STARFIELD_BLEND = 1; //0.55;
-const GAME_TITLE_STARFIELD_DENSITY = 260;
+const BUILDING_GLOW_MARGIN = 80;
+const BUILDING_EMISSIVE_FRAME_COUNT = 8;
+const BUILDING_EMISSIVE_PERIOD_SECONDS = 20;
+let _gameplaySkyAssets: SkyAssets | null = null;
+let _gameplaySkyStarsRef: Star[] | null = null;
+let _gameplaySkyGroundY: number | null = null;
+let _titleSkyAssets: SkyAssets | null = null;
+let _gameplayBuildingAssets: BuildingAssets | null = null;
+let _gameplayBuildingBaseY: number | null = null;
+
+export interface BuildingAssets {
+  staticSprites: HTMLCanvasElement[];
+  emissiveFrames: HTMLCanvasElement[][];
+  drawOffsets: Array<{ x: number; y: number }>;
+  emissiveOffsets: Array<{ x: number; y: number }>;
+  frameCount: number;
+  period: number;
+}
 
 // Sky nebula background — loaded once, drawn every frame
 let _skyImg: HTMLImageElement | null = null;
@@ -220,6 +239,7 @@ export function preloadRenderAssets() {
   getTitleBurjGlowImage();
   getBurjMissileDecalImage();
   getBurjDroneDecalImage();
+  getGameplayBuildingAssets(GAMEPLAY_SCENIC_BASE_Y);
 }
 
 function drawDistortedWaterSprite(
@@ -968,6 +988,92 @@ interface SharedSkyOptions {
   stars?: GameState["stars"];
 }
 
+function getGameplaySkyAssets(stars: Star[], groundY: number): SkyAssets {
+  if (!_gameplaySkyAssets || _gameplaySkyStarsRef !== stars || _gameplaySkyGroundY !== groundY) {
+    _gameplaySkyAssets = buildSkyAssets(stars, CANVAS_H, groundY);
+    _gameplaySkyStarsRef = stars;
+    _gameplaySkyGroundY = groundY;
+  }
+  return _gameplaySkyAssets;
+}
+
+function getTitleSkyAssets(): SkyAssets {
+  if (!_titleSkyAssets) {
+    const titleStars: Star[] = Array.from({ length: 120 }, (_, i) => ({
+      x: hash01(i, 2, 7) * CANVAS_W,
+      y: hash01(i, 5, 11) * CANVAS_H * 0.6,
+      size: 0.5 + hash01(i, 3, 1) * 1.5,
+      twinkle: hash01(i, 7, 3) * 20,
+    }));
+    _titleSkyAssets = buildSkyAssets(titleStars, CANVAS_H, GROUND_Y - 100);
+  }
+  return _titleSkyAssets;
+}
+
+function canBakeBuildingSprites() {
+  return typeof document !== "undefined" && typeof document.createElement === "function";
+}
+
+function buildBuildingAssets(baseY: number): BuildingAssets {
+  const staticSprites: HTMLCanvasElement[] = [];
+  const emissiveFrames: HTMLCanvasElement[][] = [];
+  const drawOffsets: Array<{ x: number; y: number }> = [];
+  const emissiveOffsets: Array<{ x: number; y: number }> = [];
+
+  for (const tower of TITLE_SKYLINE_TOWERS) {
+    const top = baseY - tower.h;
+    const staticCanvas = createSpriteCanvas(tower.w + BUILDING_GLOW_MARGIN * 2, tower.h + BUILDING_GLOW_MARGIN * 2);
+    const staticCtx = staticCanvas.getContext("2d");
+    if (staticCtx) {
+      staticCtx.translate(-tower.x + BUILDING_GLOW_MARGIN, -top + BUILDING_GLOW_MARGIN);
+      drawSharedTower(staticCtx, tower, baseY, 0, 0, 0.48, { structureOnly: true });
+    }
+    staticSprites.push(staticCanvas);
+    drawOffsets.push({
+      x: tower.x - BUILDING_GLOW_MARGIN,
+      y: top - BUILDING_GLOW_MARGIN,
+    });
+
+    const frames = Array.from({ length: BUILDING_EMISSIVE_FRAME_COUNT }, (_, frameIndex) => {
+      const canvas = createSpriteCanvas(tower.w, tower.h);
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.translate(-tower.x, -top);
+        drawSharedTower(
+          ctx,
+          tower,
+          baseY,
+          (frameIndex / BUILDING_EMISSIVE_FRAME_COUNT) * BUILDING_EMISSIVE_PERIOD_SECONDS,
+          0,
+          0.48,
+          { emissiveOnly: true },
+        );
+      }
+      return canvas;
+    });
+    emissiveFrames.push(frames);
+    emissiveOffsets.push({ x: tower.x, y: top });
+  }
+
+  return {
+    staticSprites,
+    emissiveFrames,
+    drawOffsets,
+    emissiveOffsets,
+    frameCount: BUILDING_EMISSIVE_FRAME_COUNT,
+    period: BUILDING_EMISSIVE_PERIOD_SECONDS,
+  };
+}
+
+function getGameplayBuildingAssets(baseY: number): BuildingAssets | null {
+  if (!canBakeBuildingSprites()) return null;
+  if (!_gameplayBuildingAssets || _gameplayBuildingBaseY !== baseY) {
+    _gameplayBuildingAssets = buildBuildingAssets(baseY);
+    _gameplayBuildingBaseY = baseY;
+  }
+  return _gameplayBuildingAssets;
+}
+
 interface SharedBurjOptions {
   mode: "title" | "game";
   groundY: number;
@@ -999,94 +1105,23 @@ interface SharedLauncherOptions {
   statusLabel?: string | null;
 }
 
-function drawSharedSky(ctx: CanvasRenderingContext2D, { renderHeight, groundY, stars }: SharedSkyOptions, t: number) {
-  const skyGrad = ctx.createLinearGradient(0, 0, 0, renderHeight);
-  skyGrad.addColorStop(0, "#050810");
-  skyGrad.addColorStop(0.5, "#0a1030");
-  skyGrad.addColorStop(1, "#120d24");
-  ctx.fillStyle = skyGrad;
-  ctx.fillRect(0, 0, CANVAS_W, renderHeight);
+interface DrawSharedTowerOptions {
+  structureOnly?: boolean;
+  emissiveOnly?: boolean;
+}
 
-  ctx.save();
-  ctx.fillStyle = "rgba(0,255,200,0.018)";
-  for (let y = 0; y < renderHeight; y += 3) {
-    ctx.fillRect(0, y + ((t * 20) % 3), CANVAS_W, 1);
-  }
-  ctx.restore();
+function drawSharedSky(ctx: CanvasRenderingContext2D, { groundY, stars }: SharedSkyOptions, t: number) {
+  const assets = stars?.length ? getGameplaySkyAssets(stars, groundY) : getTitleSkyAssets();
+  const { frames, frameCount, period } = assets;
+  const phase = (t % period) / period;
+  const frameIndex = Math.floor(phase * frameCount) % frameCount;
+  const blend = (phase * frameCount) % 1;
 
-  const skyGlow = ctx.createLinearGradient(0, 0, 0, renderHeight);
-  skyGlow.addColorStop(0, "#050812");
-  skyGlow.addColorStop(0.5, "#0a1030");
-  skyGlow.addColorStop(1, "#130f2d");
-  ctx.fillStyle = skyGlow;
-  ctx.fillRect(0, 0, CANVAS_W, renderHeight);
-
-  if (GAME_TITLE_STARFIELD_BLEND > 0) {
-    const titleDrift = Math.sin(t * 0.08) * 4;
-    for (let i = 0; i < GAME_TITLE_STARFIELD_DENSITY; i++) {
-      const sx = (hash01(i, 2, 7) * CANVAS_W + titleDrift * 0.3) % CANVAS_W;
-      const sy = hash01(i, 5, 11) * 1500 + 8;
-      const tw = 0.55 + 0.45 * Math.sin(t * (0.7 + hash01(i, 1, 9)) + i * 0.9);
-      const size = (0.7 + hash01(i, 3, 1) * 1.6) * 0.92;
-      ctx.fillStyle = `rgba(220, 235, 255, ${(0.18 + tw * 0.32) * GAME_TITLE_STARFIELD_BLEND})`;
-      ctx.fillRect(sx, sy, size, size);
-    }
-  }
-
-  if (stars?.length) {
-    stars.forEach((s) => {
-      const seed = hash01(s.x, s.y, s.twinkle);
-      const { hero, shimmer, flare } = getStarTwinkleProfile(t, s.twinkle, seed);
-      const alpha = 0.08 + shimmer * 0.1 + flare * 0.42;
-      const sizeMul = 1 + flare * 0.95;
-      ctx.fillStyle = `rgba(220, 235, 255, ${alpha})`;
-      ctx.fillRect(s.x, s.y, s.size * 1.2 * sizeMul, s.size * 1.2 * sizeMul);
-      if (hero && flare > 0.12) {
-        ctx.fillStyle = `rgba(255,255,255,${0.12 + flare * 0.52})`;
-        const reach = s.size * (0.8 + flare * 2.4);
-        ctx.fillRect(s.x - reach, s.y, reach * 2.4, Math.max(1, s.size * 0.45));
-        ctx.fillRect(s.x, s.y - reach, Math.max(1, s.size * 0.45), reach * 2.4);
-      }
-    });
-  } else {
-    const titleDrift = Math.sin(t * 0.08) * 4;
-    for (let i = 0; i < 120; i++) {
-      const sx = (hash01(i, 2, 7) * CANVAS_W + titleDrift * 0.3) % CANVAS_W;
-      const sy = hash01(i, 5, 11) * CANVAS_H * 0.6;
-      const seed = hash01(i, 1, 9);
-      const phase = hash01(i, 7, 3) * 20;
-      const { hero, shimmer, flare } = getStarTwinkleProfile(t, phase, seed);
-      const size = 0.5 + hash01(i, 3, 1) * 1.5;
-      const sizeMul = 1 + flare * 0.95;
-      ctx.fillStyle = `rgba(220, 235, 255, ${0.08 + shimmer * 0.1 + flare * 0.42})`;
-      ctx.fillRect(sx, sy, size * 1.2 * sizeMul, size * 1.2 * sizeMul);
-      if (hero && flare > 0.12) {
-        ctx.fillStyle = `rgba(255,255,255,${0.12 + flare * 0.52})`;
-        const reach = size * (0.8 + flare * 2.4);
-        ctx.fillRect(sx - reach, sy, reach * 2.4, Math.max(1, size * 0.45));
-        ctx.fillRect(sx, sy - reach, Math.max(1, size * 0.45), reach * 2.4);
-      }
-    }
-  }
-
-  ctx.save();
-  ctx.translate(764, 56);
-  ctx.fillStyle = "rgba(235, 232, 214, 0.9)";
-  ctx.beginPath();
-  ctx.arc(0, 0, 16, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#070912";
-  ctx.beginPath();
-  ctx.arc(6, -3, 15, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-
-  const bloom = ctx.createRadialGradient(BURJ_X, groundY - 220, 20, BURJ_X, groundY - 220, 320);
-  bloom.addColorStop(0, "rgba(110, 205, 255, 0.12)");
-  bloom.addColorStop(0.45, "rgba(90, 120, 255, 0.08)");
-  bloom.addColorStop(1, "rgba(0, 0, 0, 0)");
-  ctx.fillStyle = bloom;
-  ctx.fillRect(0, 0, CANVAS_W, renderHeight);
+  ctx.globalAlpha = 1 - blend;
+  ctx.drawImage(frames[frameIndex], 0, 0);
+  ctx.globalAlpha = blend;
+  ctx.drawImage(frames[(frameIndex + 1) % frameCount], 0, 0);
+  ctx.globalAlpha = 1;
 }
 
 function drawSharedTower(
@@ -1096,130 +1131,134 @@ function drawSharedTower(
   t: number,
   offset = 0,
   glowScale = 1,
+  opts: DrawSharedTowerOptions = {},
 ) {
+  if (opts.structureOnly && opts.emissiveOnly) return;
   const x = tower.x + offset;
   const top = baseY - tower.h;
   const right = x + tower.w;
   const mid = x + tower.w / 2;
 
   ctx.save();
-  if (tower.glow) {
-    const glow = ctx.createRadialGradient(mid, top + tower.h * 0.3, 0, mid, top + tower.h * 0.3, tower.w * 1.8);
-    glow.addColorStop(0, `rgba(120, 190, 255, ${tower.glow * glowScale})`);
-    glow.addColorStop(1, "rgba(0, 0, 0, 0)");
-    ctx.fillStyle = glow;
-    ctx.fillRect(x - tower.w, top - tower.w, tower.w * 3, tower.h + tower.w * 2);
+  if (!opts.emissiveOnly) {
+    if (tower.glow) {
+      const glow = ctx.createRadialGradient(mid, top + tower.h * 0.3, 0, mid, top + tower.h * 0.3, tower.w * 1.8);
+      glow.addColorStop(0, `rgba(120, 190, 255, ${tower.glow * glowScale})`);
+      glow.addColorStop(1, "rgba(0, 0, 0, 0)");
+      ctx.fillStyle = glow;
+      ctx.fillRect(x - tower.w, top - tower.w, tower.w * 3, tower.h + tower.w * 2);
+    }
+
+    ctx.beginPath();
+    switch (tower.roof ?? "flat") {
+      case "spire":
+        ctx.moveTo(x, baseY);
+        ctx.lineTo(x, top + 12);
+        ctx.lineTo(mid - 2, top + 12);
+        ctx.lineTo(mid, top - 16);
+        ctx.lineTo(mid + 2, top + 12);
+        ctx.lineTo(right, top + 12);
+        ctx.lineTo(right, baseY);
+        break;
+      case "needle":
+        ctx.moveTo(x, baseY);
+        ctx.lineTo(x, top + 8);
+        ctx.lineTo(mid - 3, top + 8);
+        ctx.lineTo(mid - 1, top - 24);
+        ctx.lineTo(mid + 1, top - 24);
+        ctx.lineTo(mid + 3, top + 8);
+        ctx.lineTo(right, top + 8);
+        ctx.lineTo(right, baseY);
+        break;
+      case "crown":
+        ctx.moveTo(x, baseY);
+        ctx.lineTo(x, top + 16);
+        ctx.lineTo(x + tower.w * 0.22, top + 4);
+        ctx.lineTo(mid - 3, top + 14);
+        ctx.lineTo(mid, top - 12);
+        ctx.lineTo(mid + 3, top + 14);
+        ctx.lineTo(x + tower.w * 0.78, top + 4);
+        ctx.lineTo(right, top + 16);
+        ctx.lineTo(right, baseY);
+        break;
+      case "roundedCrownL":
+        ctx.moveTo(x, baseY);
+        ctx.lineTo(x, top + 34);
+        ctx.quadraticCurveTo(x + tower.w * 0.06, top + 6, x + tower.w * 0.34, top + 4);
+        ctx.lineTo(x + tower.w * 0.34, top - 18);
+        ctx.lineTo(x + tower.w * 0.43, top - 18);
+        ctx.lineTo(x + tower.w * 0.43, top + 6);
+        ctx.quadraticCurveTo(x + tower.w * 0.68, top + 8, right, top + 24);
+        ctx.lineTo(right, baseY);
+        break;
+      case "twinCrown":
+        ctx.moveTo(x, baseY);
+        ctx.lineTo(x, top + 18);
+        ctx.lineTo(x + tower.w * 0.18, top + 10);
+        ctx.lineTo(x + tower.w * 0.22, top - 16);
+        ctx.lineTo(x + tower.w * 0.3, top - 16);
+        ctx.lineTo(x + tower.w * 0.34, top + 12);
+        ctx.lineTo(x + tower.w * 0.5, top + 16);
+        ctx.lineTo(x + tower.w * 0.66, top + 12);
+        ctx.lineTo(x + tower.w * 0.7, top - 16);
+        ctx.lineTo(x + tower.w * 0.78, top - 16);
+        ctx.lineTo(x + tower.w * 0.82, top + 10);
+        ctx.lineTo(right, top + 18);
+        ctx.lineTo(right, baseY);
+        break;
+      case "curvedR":
+        ctx.moveTo(x, baseY);
+        ctx.lineTo(x, top + 42);
+        ctx.quadraticCurveTo(x + tower.w * 0.12, top + 20, x + tower.w * 0.46, top + 12);
+        ctx.quadraticCurveTo(x + tower.w * 0.9, top + 26, right, top + 46);
+        ctx.lineTo(right, baseY);
+        break;
+      case "curvedL":
+        ctx.moveTo(x, baseY);
+        ctx.lineTo(x, top + 46);
+        ctx.quadraticCurveTo(x + tower.w * 0.18, top + 18, x + tower.w * 0.58, top + 10);
+        ctx.quadraticCurveTo(x + tower.w * 0.88, top + 6, right, top + 24);
+        ctx.lineTo(right, baseY);
+        break;
+      case "tapered":
+        ctx.moveTo(x, baseY);
+        ctx.lineTo(x + tower.w * 0.04, top + 22);
+        ctx.lineTo(mid - 3, top + 10);
+        ctx.lineTo(mid, top - 8);
+        ctx.lineTo(mid + 3, top + 10);
+        ctx.lineTo(right - tower.w * 0.04, top + 22);
+        ctx.lineTo(right, baseY);
+        break;
+      case "slantL":
+        ctx.moveTo(x, baseY);
+        ctx.lineTo(x, top + 4);
+        ctx.lineTo(right, top + 18);
+        ctx.lineTo(right, baseY);
+        break;
+      case "slantR":
+        ctx.moveTo(x, baseY);
+        ctx.lineTo(x, top + 18);
+        ctx.lineTo(right, top + 4);
+        ctx.lineTo(right, baseY);
+        break;
+      default:
+        ctx.moveTo(x, baseY);
+        ctx.lineTo(x, top);
+        ctx.lineTo(right, top);
+        ctx.lineTo(right, baseY);
+        break;
+    }
+    ctx.closePath();
+    ctx.fillStyle = "rgba(8, 12, 22, 0.95)";
+    ctx.fill();
+
+    ctx.fillStyle = "rgba(18, 24, 38, 0.94)";
+    ctx.fillRect(x + 1, top + 2, Math.max(0, tower.w - 2), 2);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.32)";
+    ctx.fillRect(right - 3, top + 8, 3, tower.h - 8);
   }
 
-  ctx.beginPath();
-  switch (tower.roof ?? "flat") {
-    case "spire":
-      ctx.moveTo(x, baseY);
-      ctx.lineTo(x, top + 12);
-      ctx.lineTo(mid - 2, top + 12);
-      ctx.lineTo(mid, top - 16);
-      ctx.lineTo(mid + 2, top + 12);
-      ctx.lineTo(right, top + 12);
-      ctx.lineTo(right, baseY);
-      break;
-    case "needle":
-      ctx.moveTo(x, baseY);
-      ctx.lineTo(x, top + 8);
-      ctx.lineTo(mid - 3, top + 8);
-      ctx.lineTo(mid - 1, top - 24);
-      ctx.lineTo(mid + 1, top - 24);
-      ctx.lineTo(mid + 3, top + 8);
-      ctx.lineTo(right, top + 8);
-      ctx.lineTo(right, baseY);
-      break;
-    case "crown":
-      ctx.moveTo(x, baseY);
-      ctx.lineTo(x, top + 16);
-      ctx.lineTo(x + tower.w * 0.22, top + 4);
-      ctx.lineTo(mid - 3, top + 14);
-      ctx.lineTo(mid, top - 12);
-      ctx.lineTo(mid + 3, top + 14);
-      ctx.lineTo(x + tower.w * 0.78, top + 4);
-      ctx.lineTo(right, top + 16);
-      ctx.lineTo(right, baseY);
-      break;
-    case "roundedCrownL":
-      ctx.moveTo(x, baseY);
-      ctx.lineTo(x, top + 34);
-      ctx.quadraticCurveTo(x + tower.w * 0.06, top + 6, x + tower.w * 0.34, top + 4);
-      ctx.lineTo(x + tower.w * 0.34, top - 18);
-      ctx.lineTo(x + tower.w * 0.43, top - 18);
-      ctx.lineTo(x + tower.w * 0.43, top + 6);
-      ctx.quadraticCurveTo(x + tower.w * 0.68, top + 8, right, top + 24);
-      ctx.lineTo(right, baseY);
-      break;
-    case "twinCrown":
-      ctx.moveTo(x, baseY);
-      ctx.lineTo(x, top + 18);
-      ctx.lineTo(x + tower.w * 0.18, top + 10);
-      ctx.lineTo(x + tower.w * 0.22, top - 16);
-      ctx.lineTo(x + tower.w * 0.3, top - 16);
-      ctx.lineTo(x + tower.w * 0.34, top + 12);
-      ctx.lineTo(x + tower.w * 0.5, top + 16);
-      ctx.lineTo(x + tower.w * 0.66, top + 12);
-      ctx.lineTo(x + tower.w * 0.7, top - 16);
-      ctx.lineTo(x + tower.w * 0.78, top - 16);
-      ctx.lineTo(x + tower.w * 0.82, top + 10);
-      ctx.lineTo(right, top + 18);
-      ctx.lineTo(right, baseY);
-      break;
-    case "curvedR":
-      ctx.moveTo(x, baseY);
-      ctx.lineTo(x, top + 42);
-      ctx.quadraticCurveTo(x + tower.w * 0.12, top + 20, x + tower.w * 0.46, top + 12);
-      ctx.quadraticCurveTo(x + tower.w * 0.9, top + 26, right, top + 46);
-      ctx.lineTo(right, baseY);
-      break;
-    case "curvedL":
-      ctx.moveTo(x, baseY);
-      ctx.lineTo(x, top + 46);
-      ctx.quadraticCurveTo(x + tower.w * 0.18, top + 18, x + tower.w * 0.58, top + 10);
-      ctx.quadraticCurveTo(x + tower.w * 0.88, top + 6, right, top + 24);
-      ctx.lineTo(right, baseY);
-      break;
-    case "tapered":
-      ctx.moveTo(x, baseY);
-      ctx.lineTo(x + tower.w * 0.04, top + 22);
-      ctx.lineTo(mid - 3, top + 10);
-      ctx.lineTo(mid, top - 8);
-      ctx.lineTo(mid + 3, top + 10);
-      ctx.lineTo(right - tower.w * 0.04, top + 22);
-      ctx.lineTo(right, baseY);
-      break;
-    case "slantL":
-      ctx.moveTo(x, baseY);
-      ctx.lineTo(x, top + 4);
-      ctx.lineTo(right, top + 18);
-      ctx.lineTo(right, baseY);
-      break;
-    case "slantR":
-      ctx.moveTo(x, baseY);
-      ctx.lineTo(x, top + 18);
-      ctx.lineTo(right, top + 4);
-      ctx.lineTo(right, baseY);
-      break;
-    default:
-      ctx.moveTo(x, baseY);
-      ctx.lineTo(x, top);
-      ctx.lineTo(right, top);
-      ctx.lineTo(right, baseY);
-      break;
-  }
-  ctx.closePath();
-  ctx.fillStyle = "rgba(8, 12, 22, 0.95)";
-  ctx.fill();
-
-  ctx.fillStyle = "rgba(18, 24, 38, 0.94)";
-  ctx.fillRect(x + 1, top + 2, Math.max(0, tower.w - 2), 2);
-  ctx.fillStyle = "rgba(0, 0, 0, 0.32)";
-  ctx.fillRect(right - 3, top + 8, 3, tower.h - 8);
-
-  if (tower.profile === "leftLandmark") {
+  if (!opts.structureOnly && tower.profile === "leftLandmark") {
     const ribAlphaA = getLightFlicker(t, tower.x * 0.09 + tower.h * 0.03 + 1.1);
     const ribAlphaB = getLightFlicker(t, tower.x * 0.07 + tower.w * 0.13 + 2.6);
     ctx.fillStyle = `rgba(245, 246, 250, ${0.46 + ribAlphaA * 0.38})`;
@@ -1409,6 +1448,7 @@ function mapGameplayBuildingTower(building: Building, index: number): TitleTower
 function drawGameplayForegroundBuildings(ctx: CanvasRenderingContext2D, game: GameState, t: number, groundY: number) {
   const baseY = groundY - 6;
   const burstImg = getBuildingDestroyBurstImage();
+  const buildingAssets = getGameplayBuildingAssets(baseY);
   game.buildings.forEach((building, index) => {
     if (!building.alive) {
       ctx.fillStyle = "#1b2230";
@@ -1418,7 +1458,25 @@ function drawGameplayForegroundBuildings(ctx: CanvasRenderingContext2D, game: Ga
       return;
     }
     const tower = mapGameplayBuildingTower(building, index);
-    drawSharedTower(ctx, tower, baseY, t, 0, 0.48);
+    if (!buildingAssets) {
+      drawSharedTower(ctx, tower, baseY, t, 0, 0.48);
+      return;
+    }
+
+    const phase = (t % buildingAssets.period) / buildingAssets.period;
+    const frameIndex = Math.floor(phase * buildingAssets.frameCount) % buildingAssets.frameCount;
+    const blend = (phase * buildingAssets.frameCount) % 1;
+    const staticSprite = buildingAssets.staticSprites[index];
+    const emissive = buildingAssets.emissiveFrames[index];
+    const staticOffset = buildingAssets.drawOffsets[index];
+    const emissiveOffset = buildingAssets.emissiveOffsets[index];
+
+    ctx.drawImage(staticSprite, staticOffset.x, staticOffset.y);
+    ctx.globalAlpha = 1 - blend;
+    ctx.drawImage(emissive[frameIndex], emissiveOffset.x, emissiveOffset.y);
+    ctx.globalAlpha = blend;
+    ctx.drawImage(emissive[(frameIndex + 1) % buildingAssets.frameCount], emissiveOffset.x, emissiveOffset.y);
+    ctx.globalAlpha = 1;
   });
   game.buildingDestroyFx.forEach((fx) => {
     const lifeT = fx.life / fx.maxLife;

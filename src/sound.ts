@@ -22,10 +22,10 @@ let prewarmed = false;
 const TITLE_THEME_SRC = new URL("./assets/title-theme.mp3", import.meta.url).href;
 const TITLE_THEME_BASE_VOLUME = 0.42;
 const TITLE_THEME_FADE_IN_MS = 900;
-const TITLE_THEME_FADE_OUT_S = 5.5;
-const TITLE_THEME_LOOP_RESTART_S = 0.015;
 const TITLE_THEME_STOP_FADE_MS = 350;
 let titleTheme: HTMLAudioElement | null = null;
+let titleThemeSource: MediaElementAudioSourceNode | null = null;
+let titleThemeGain: GainNode | null = null;
 let titleThemeDesired = false;
 let titleThemeLoopStartedAt = 0;
 let titleThemeStopStartedAt = 0;
@@ -92,31 +92,44 @@ function getTitleThemeStopFactor(atMs: number) {
 
 function getTitleThemeVolumeFactor(atMs: number) {
   const fadeIn = Math.max(0, Math.min(1, (atMs - titleThemeLoopStartedAt) / TITLE_THEME_FADE_IN_MS));
-  let fadeOut = 1;
-  if (titleTheme && Number.isFinite(titleTheme.duration) && titleTheme.duration > 0) {
-    const remaining = titleTheme.duration - titleTheme.currentTime;
-    if (remaining <= TITLE_THEME_FADE_OUT_S) {
-      fadeOut = Math.max(0, Math.min(1, remaining / TITLE_THEME_FADE_OUT_S));
-    }
-  }
-  return Math.min(fadeIn, fadeOut, getTitleThemeStopFactor(atMs));
+  return Math.min(fadeIn, getTitleThemeStopFactor(atMs));
 }
 
 function syncTitleThemeVolume() {
   if (!titleTheme) return;
   const factor = getTitleThemeVolumeFactor(performance.now());
-  titleTheme.volume = _muted ? 0 : TITLE_THEME_BASE_VOLUME * factor;
+  const volume = _muted ? 0 : TITLE_THEME_BASE_VOLUME * factor;
+  if (titleThemeGain) {
+    titleThemeGain.gain.value = volume;
+    titleTheme.volume = 1;
+    return;
+  }
+  titleTheme.volume = volume;
 }
 
 function ensureTitleTheme() {
   if (titleTheme) return titleTheme;
   const audio = new Audio(TITLE_THEME_SRC);
   audio.preload = "auto";
-  audio.loop = false;
+  audio.loop = true;
   audio.setAttribute("playsinline", "");
-  audio.volume = 0;
+  audio.volume = 1;
   titleTheme = audio;
   return audio;
+}
+
+function ensureTitleThemeRouting() {
+  if (!ensureCtx() || !master) return;
+  const audio = ensureTitleTheme();
+  if (!titleThemeGain) {
+    titleThemeGain = ctx!.createGain();
+    titleThemeGain.gain.value = 0;
+    titleThemeGain.connect(master);
+  }
+  if (!titleThemeSource) {
+    titleThemeSource = ctx!.createMediaElementSource(audio);
+    titleThemeSource.connect(titleThemeGain);
+  }
 }
 
 function stepTitleTheme() {
@@ -138,21 +151,13 @@ function stepTitleTheme() {
     }
   }
 
-  if (
-    titleThemeDesired &&
-    titleThemeStopStartedAt <= 0 &&
-    Number.isFinite(titleTheme.duration) &&
-    titleTheme.duration > 0
-  ) {
-    const remaining = titleTheme.duration - titleTheme.currentTime;
-    if (remaining <= TITLE_THEME_LOOP_RESTART_S) {
-      titleTheme.volume = 0;
-      titleTheme.currentTime = 0.001;
-      titleThemeLoopStartedAt = performance.now();
-    }
+  if (titleThemeDesired && titleThemeStopStartedAt <= 0 && titleTheme.paused) {
+    void titleTheme.play().catch(() => {
+      cancelTitleThemeRaf();
+    });
   }
 
-  if (!titleTheme.paused || titleThemeStopStartedAt > 0) {
+  if (titleThemeDesired || !titleTheme.paused || titleThemeStopStartedAt > 0) {
     titleThemeRaf = requestAnimationFrame(stepTitleTheme);
     return;
   }
@@ -161,6 +166,8 @@ function stepTitleTheme() {
 }
 
 async function tryPlayTitleTheme() {
+  ensureTitleThemeRouting();
+  await resumeCtx();
   const audio = ensureTitleTheme();
   titleThemeDesired = true;
   titleThemeStopStartedAt = 0;

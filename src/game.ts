@@ -183,6 +183,7 @@ export class Game {
   private gameoverPanel: HTMLElement;
   private progressionPanel: HTMLElement;
   private progressionButton: HTMLElement;
+  private titleMenuButton: HTMLElement;
   private replayButton: HTMLElement;
   private retryButton: HTMLElement;
   private empButton: HTMLButtonElement;
@@ -228,6 +229,7 @@ export class Game {
     this.gameoverPanel = document.getElementById("gameover-panel")!;
     this.progressionPanel = document.getElementById("progression-panel")!;
     this.progressionButton = document.getElementById("progression-button")!;
+    this.titleMenuButton = document.getElementById("title-menu-button")!;
     this.replayButton = document.getElementById("replay-button")!;
     this.retryButton = document.getElementById("retry-button")!;
     this.empButton = document.getElementById("emp-button") as HTMLButtonElement;
@@ -260,7 +262,7 @@ export class Game {
 
     // Buttons
     this.retryButton.addEventListener("click", () => void this.startGame());
-    this.titleProgressionButton.addEventListener("click", () => this.openProgression());
+    this.titleMenuButton.addEventListener("click", () => this.returnToTitle());
     this.progressionButton.addEventListener("click", () => this.openProgression());
     this.replayButton.addEventListener("click", () => {
       if (this.lastReplay) {
@@ -321,9 +323,9 @@ export class Game {
 
     // Toggle visibility of screen-specific elements
     this.hudEl.hidden = s !== "playing";
-    this.titleProgressionButton.hidden = s !== "title" || this.progressionOpen;
+    this.titleProgressionButton.hidden = true;
     this.gameoverPanel.hidden = s !== "gameover" || this.progressionOpen;
-    this.progressionPanel.hidden = !this.progressionOpen || (s !== "gameover" && s !== "title");
+    this.progressionPanel.hidden = !this.progressionOpen || s !== "gameover";
     this.battlefieldCard.classList.toggle("battlefield-card--portraitSky", s === "playing");
     if (s === "title") {
       void SFX.playTitleTheme();
@@ -388,6 +390,31 @@ export class Game {
     this.canvas.style.pointerEvents = "";
     this.setScreen("playing");
     SFX.gameStart();
+  }
+
+  private returnToTitle(): void {
+    this.clearPointerCapture();
+    this.resetPlayerFireState();
+    if (this.replayRunner) {
+      this.replayRunner.cleanup();
+      this.replayRunner = null;
+    }
+    this.replayActive = false;
+    this.shopOpen = false;
+    this.bonusActive = false;
+    this.progressionOpen = false;
+    this.showOptionsMenu = false;
+    this.showColliders = false;
+    this.showPerfOverlay = false;
+    uiHideShop();
+    uiHideUpgradeProgression();
+    hideBonusScreen();
+    this.battlefieldCard.classList.remove("battlefield-card--blurred");
+    this.canvas.classList.remove("game-canvas--active");
+    this.canvas.style.pointerEvents = "";
+    this.optionsMenu.hidden = true;
+    this.perfOverlay.hidden = true;
+    this.setScreen("title");
   }
 
   private async startReplay(replayData: ReplayData): Promise<void> {
@@ -585,10 +612,9 @@ export class Game {
   }
 
   private openProgression(): void {
-    if ((this.screen !== "gameover" && this.screen !== "title") || this.shopOpen) return;
+    if (this.screen !== "gameover" || this.shopOpen) return;
     this.progressionOpen = true;
-    this.titleProgressionButton.hidden = true;
-    this.gameoverPanel.hidden = this.screen !== "gameover";
+    this.gameoverPanel.hidden = false;
     this.progressionPanel.hidden = false;
     uiShowUpgradeProgression(this.buildProgressionData(), () => this.closeProgression());
   }
@@ -597,7 +623,6 @@ export class Game {
     this.progressionOpen = false;
     uiHideUpgradeProgression();
     this.progressionPanel.hidden = true;
-    this.titleProgressionButton.hidden = this.screen !== "title";
     if (this.screen === "gameover") this.gameoverPanel.hidden = false;
   }
 

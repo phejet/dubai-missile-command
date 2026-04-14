@@ -11,6 +11,7 @@ const config = {
     allowsLinkPreview: false,
     scrollEnabled: false,
     preferredContentMode: "mobile",
+    webContentsDebuggingEnabled: true,
   },
 };
 
