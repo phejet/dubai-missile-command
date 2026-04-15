@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { setRng, CANVAS_W, GROUND_Y, CITY_Y, BURJ_X, computeShahed238Path } from "./game-logic.js";
 import { buyUpgrade, createGameSim, spawnMirv, spawnDrone, spawnDroneOfType } from "./game-sim.js";
-import type { Drone, Missile, Flare } from "./types.js";
+import type { Drone, Hornet, Missile, PatriotMissile } from "./types.js";
 
 describe("MIRV behavior", () => {
   afterEach(() => setRng(Math.random));
@@ -362,6 +362,134 @@ describe("Decoy flares", () => {
 
     expect(afterDist).toBeLessThan(beforeDist);
     expect(missile.vx).toBeGreaterThan(0);
+  });
+});
+
+describe("Auto-defense targeting spread", () => {
+  afterEach(() => setRng(Math.random));
+
+  it("spreads hornet launch targets across separate threats", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.wildHornets = 1;
+    g.hornetTimer = 149;
+    const threats = [
+      makeBallisticMissile({ x: 140, y: 240, vx: 0, vy: 1 }),
+      makeBallisticMissile({ x: 460, y: 240, vx: 0, vy: 1 }),
+      makeBallisticMissile({ x: 780, y: 240, vx: 0, vy: 1 }),
+    ];
+
+    sim.updateAutoSystems(g, 1, threats);
+
+    expect(g.hornets).toHaveLength(2);
+    const targets = g.hornets.map((h) => h.targetRef);
+    expect(new Set(targets).size).toBe(2);
+    expect(Math.abs(targets[0]!.x - targets[1]!.x)).toBeGreaterThan(200);
+  });
+
+  it("spreads roadrunner launch targets across separate threats", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.roadrunner = 2;
+    g.roadrunnerTimer = 239;
+    const threats = [
+      makeBallisticMissile({ x: 150, y: 250, vx: 0, vy: 1 }),
+      makeBallisticMissile({ x: 460, y: 250, vx: 0, vy: 1 }),
+      makeBallisticMissile({ x: 770, y: 250, vx: 0, vy: 1 }),
+    ];
+
+    sim.updateAutoSystems(g, 1, threats);
+
+    expect(g.roadrunners).toHaveLength(2);
+    const targets = g.roadrunners.map((r) => r.targetRef);
+    expect(new Set(targets).size).toBe(2);
+    expect(Math.abs(targets[0]!.x - targets[1]!.x)).toBeGreaterThan(200);
+  });
+
+  it("spreads patriot launch targets across separate threats", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.patriot = 1;
+    g.patriotTimer = 479;
+    const threats = [
+      makeBallisticMissile({ x: 140, y: 260, vx: 0, vy: 1 }),
+      makeBallisticMissile({ x: 460, y: 260, vx: 0, vy: 1 }),
+      makeBallisticMissile({ x: 780, y: 260, vx: 0, vy: 1 }),
+    ];
+
+    sim.updateAutoSystems(g, 1, threats);
+
+    expect(g.patriotMissiles).toHaveLength(2);
+    const targets = g.patriotMissiles.map((p) => p.targetRef);
+    expect(new Set(targets).size).toBe(2);
+    expect(Math.abs(targets[0]!.x - targets[1]!.x)).toBeGreaterThan(200);
+  });
+
+  it("keeps hornet retargets off another hornet's live target", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.wildHornets = 1;
+    g.hornetTimer = 0;
+    const deadTarget = makeBallisticMissile({ x: 200, y: 220, alive: false });
+    const reservedTarget = makeBallisticMissile({ x: 420, y: 230, vx: 0, vy: 1 });
+    const fallbackTarget = makeBallisticMissile({ x: 760, y: 230, vx: 0, vy: 1 });
+    g.hornets.push({
+      x: 210,
+      y: 480,
+      targetRef: deadTarget,
+      speed: 5,
+      trail: [],
+      alive: true,
+      blastRadius: 25,
+      wobble: 0,
+      life: 600,
+    } as Hornet);
+    g.hornets.push({
+      x: 240,
+      y: 470,
+      targetRef: reservedTarget,
+      speed: 5,
+      trail: [],
+      alive: true,
+      blastRadius: 25,
+      wobble: 0,
+      life: 600,
+    } as Hornet);
+
+    sim.updateAutoSystems(g, 1, [reservedTarget, fallbackTarget]);
+
+    expect(g.hornets[0].targetRef).toBe(fallbackTarget);
+  });
+
+  it("keeps patriot retargets off another patriot's live target", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.patriot = 1;
+    g.patriotTimer = 0;
+    const deadTarget = makeBallisticMissile({ x: 280, y: 210, alive: false });
+    const reservedTarget = makeBallisticMissile({ x: 460, y: 240, vx: 0, vy: 1 });
+    const fallbackTarget = makeBallisticMissile({ x: 760, y: 240, vx: 0, vy: 1 });
+    g.patriotMissiles.push({
+      x: 334,
+      y: 560,
+      targetRef: deadTarget,
+      speed: 15,
+      trail: [],
+      alive: true,
+      blastRadius: 56,
+      wobble: 0,
+      life: 200,
+    } as PatriotMissile);
+    g.patriotMissiles.push({
+      x: 350,
+      y: 560,
+      targetRef: reservedTarget,
+      speed: 15,
+      trail: [],
+      alive: true,
+      blastRadius: 56,
+      wobble: 0,
+      life: 200,
+    } as PatriotMissile);
+
+    sim.updateAutoSystems(g, 1, [reservedTarget, fallbackTarget]);
+
+    expect(g.patriotMissiles[0].targetRef).toBe(fallbackTarget);
   });
 });
 

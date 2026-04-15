@@ -491,33 +491,61 @@ function isThreatDamaged(t: Threat): boolean {
   return !!(t._hitByExplosions && t._hitByExplosions.size > 0);
 }
 
-function pickHornetTarget(allThreats: Threat[], activeHornets: Hornet[], lvl: number): Threat | null {
-  const aliveThreats = allThreats.filter((t) => t.alive);
-  if (aliveThreats.length === 0) return null;
+function getNearestThreatDistance(target: Threat, picked: readonly Threat[]): number {
+  if (picked.length === 0) return Infinity;
+  return picked.reduce((minDist, other) => Math.min(minDist, dist(target.x, target.y, other.x, other.y)), Infinity);
+}
 
-  const assignmentCounts = new Map();
+function getSpreadBonus(target: Threat, picked: readonly Threat[], cap: number, scale: number): number {
+  const nearest = getNearestThreatDistance(target, picked);
+  if (!Number.isFinite(nearest)) return 0;
+  return Math.min(nearest, cap) * scale;
+}
+
+function getHornetAssignmentCounts(activeHornets: Hornet[]): Map<Threat, number> {
+  const assignmentCounts = new Map<Threat, number>();
   activeHornets.forEach((h) => {
     if (h.alive && h.targetRef?.alive) {
       assignmentCounts.set(h.targetRef, (assignmentCounts.get(h.targetRef) || 0) + 1);
     }
   });
+  return assignmentCounts;
+}
+
+function hornetTargetScore(target: Threat, lvl: number, assignedCount: number): number {
+  let priority = 0;
+  if (target.type === "bomb") priority = 400;
+  else if (target.type === "drone") priority = 300;
+  else if (isThreatDamaged(target)) priority = 200;
+  else priority = 100;
+
+  if (lvl === 1 && target.type === "drone") priority += 30;
+  if (lvl === 1 && target.type === "bomb") priority += 20;
+
+  return priority - assignedCount * 75 + Math.min(target.y || 0, 500) * 0.05;
+}
+
+function pickHornetTarget(
+  allThreats: Threat[],
+  activeHornets: Hornet[],
+  lvl: number,
+  blockedTargets: ReadonlySet<Threat> = new Set(),
+): Threat | null {
+  const aliveThreats = allThreats.filter((t) => t.alive && !blockedTargets.has(t));
+  if (aliveThreats.length === 0) return null;
+
+  const assignmentCounts = getHornetAssignmentCounts(activeHornets);
+  const spreadTargets = activeHornets
+    .filter((h) => h.alive && h.targetRef?.alive && !blockedTargets.has(h.targetRef))
+    .map((h) => h.targetRef!);
 
   // Prefer unassigned threats — only double up if every threat already has a hornet
   const unassigned = aliveThreats.filter((t) => !assignmentCounts.has(t));
   const pool = unassigned.length > 0 ? unassigned : aliveThreats;
 
   const scored = pool.map((t: Threat) => {
-    let priority = 0;
-    if (t.type === "bomb") priority = 400;
-    else if (t.type === "drone") priority = 300;
-    else if (isThreatDamaged(t)) priority = 200;
-    else priority = 100;
-
-    if (lvl === 1 && t.type === "drone") priority += 30;
-    if (lvl === 1 && t.type === "bomb") priority += 20;
-
     const assigned = assignmentCounts.get(t) || 0;
-    const score = priority - assigned * 75 + Math.min(t.y || 0, 500) * 0.05;
+    const score = hornetTargetScore(t, lvl, assigned) + getSpreadBonus(t, spreadTargets, 340, 0.16);
     return { target: t, score, assigned };
   });
 
@@ -528,6 +556,31 @@ function pickHornetTarget(allThreats: Threat[], activeHornets: Hornet[], lvl: nu
   const topScore = scored[0].score;
   const topBand = scored.filter((s: { target: Threat; score: number; assigned: number }) => s.score >= topScore - 25);
   return topBand[randInt(0, topBand.length - 1)].target;
+}
+
+function pickHornetLaunchTargets(allThreats: Threat[], activeHornets: Hornet[], lvl: number, count: number): Threat[] {
+  const aliveThreats = allThreats.filter((t) => t.alive);
+  const assignmentCounts = getHornetAssignmentCounts(activeHornets);
+  const activeTargets = Array.from(assignmentCounts.keys());
+  const picked: Threat[] = [];
+  while (picked.length < Math.min(count, aliveThreats.length)) {
+    const available = aliveThreats.filter((t) => !picked.includes(t));
+    if (available.length === 0) break;
+    const unassigned = available.filter((t) => !assignmentCounts.has(t));
+    const pool = unassigned.length > 0 ? unassigned : available;
+    const scored = pool
+      .map((target) => ({
+        target,
+        score:
+          hornetTargetScore(target, lvl, assignmentCounts.get(target) || 0) +
+          getSpreadBonus(target, [...activeTargets, ...picked], 340, 0.16),
+      }))
+      .sort((a, b) => b.score - a.score);
+    const next = scored[0]?.target ?? null;
+    if (!next) break;
+    picked.push(next);
+  }
+  return picked;
 }
 
 function pickHornetRetargetTarget(
@@ -578,12 +631,16 @@ function pickRoadrunnerTargets(allThreats: Threat[], activeRoadrunners: Roadrunn
   if (aliveThreats.length === 0) return [];
 
   const reserved = new Set(activeRoadrunners.filter((r) => r.alive && r.targetRef?.alive).map((r) => r.targetRef));
+  const spreadTargets = Array.from(reserved);
   const picked: Threat[] = [];
 
   const pickNext = (allowReserved: boolean): Threat | null => {
     const candidates = aliveThreats
       .filter((t: Threat) => !picked.includes(t) && (allowReserved || !reserved.has(t)))
-      .map((t: Threat) => ({ target: t, score: roadrunnerThreatScore(t) }))
+      .map((t: Threat) => ({
+        target: t,
+        score: roadrunnerThreatScore(t) + getSpreadBonus(t, [...spreadTargets, ...picked], 320, 0.18),
+      }))
       .sort((a, b) => b.score - a.score);
     return candidates[0]?.target || null;
   };
@@ -609,13 +666,32 @@ function patriotTargetPriority(t: Threat): number {
   return 10;
 }
 
-function pickPatriotTargets(allThreats: Threat[], count: number): Threat[] {
+function pickPatriotTargets(allThreats: Threat[], activePatriots: PatriotMissile[], count: number): Threat[] {
   const aliveThreats = allThreats.filter((t) => t.alive);
   if (aliveThreats.length === 0) return [];
 
-  // Sort by priority (descending), then by Y position (lower = more urgent)
-  const sorted = [...aliveThreats].sort((a, b) => patriotTargetPriority(b) - patriotTargetPriority(a) || b.y - a.y);
-  return sorted.slice(0, count);
+  const reserved = new Set(activePatriots.filter((p) => p.alive && p.targetRef?.alive).map((p) => p.targetRef));
+  const spreadTargets = Array.from(reserved);
+  const picked: Threat[] = [];
+
+  const pickNext = (allowReserved: boolean): Threat | null => {
+    const sorted = [...aliveThreats]
+      .filter((t) => !picked.includes(t) && (allowReserved || !reserved.has(t)))
+      .map((t) => ({
+        target: t,
+        score: patriotTargetPriority(t) * 10 + t.y * 0.1 + getSpreadBonus(t, [...spreadTargets, ...picked], 360, 0.16),
+      }))
+      .sort((a, b) => b.score - a.score);
+    return sorted[0]?.target ?? null;
+  };
+
+  while (picked.length < Math.min(count, aliveThreats.length)) {
+    const next = pickNext(false) || pickNext(true);
+    if (!next) break;
+    picked.push(next);
+  }
+
+  return picked;
 }
 
 function normalizeAngle(angle: number): number {
@@ -713,13 +789,12 @@ export function updateAutoSystems(
       g.hornetTimer = 0;
       if (onEvent) onEvent("sfx", { name: "hornetBuzz" });
       const hornetSite = getDefenseSitePlacement("wildHornets");
-      for (let i = 0; i < count; i++) {
-        const target = pickHornetTarget(allThreats, g.hornets, lvl);
-        if (!target) continue;
+      const targets = pickHornetLaunchTargets(allThreats, g.hornets, lvl, count);
+      for (let i = 0; i < targets.length; i++) {
         g.hornets.push({
           x: (hornetSite?.x ?? 206) + rand(-12, 12),
           y: (hornetSite?.y ?? GROUND_Y) - 20,
-          targetRef: target,
+          targetRef: targets[i],
           speed: rand(4.1, 6.15),
           trail: [],
           alive: true,
@@ -1070,7 +1145,7 @@ export function updateAutoSystems(
     if (g.patriotTimer >= interval && allThreats.length > 0) {
       g.patriotTimer = 0;
       if (onEvent) onEvent("sfx", { name: "patriotLaunch" });
-      const targets = pickPatriotTargets(allThreats, count);
+      const targets = pickPatriotTargets(allThreats, g.patriotMissiles, count);
       const patriotSite = getDefenseSitePlacement("patriot");
       for (let i = 0; i < targets.length; i++) {
         g.patriotMissiles.push({
@@ -1099,7 +1174,11 @@ export function updateAutoSystems(
     const t = p.targetRef;
     if (!t || !t.alive) {
       // Prefer threats on current flight path, fall back to any alive threat
-      const candidates = pickPatriotTargets(allThreats, 5);
+      const candidates = pickPatriotTargets(
+        allThreats,
+        g.patriotMissiles.filter((other: PatriotMissile) => other !== p),
+        1,
+      );
       let best = null;
       const pdx = p.targetRef ? p.targetRef.x - p.x : 0;
       const pdy = p.targetRef ? p.targetRef.y - p.y : -1;
