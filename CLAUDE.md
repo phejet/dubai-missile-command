@@ -104,6 +104,22 @@ Game logic is split across `src/game-sim.js` (simulation) and `src/App.jsx` (ren
 
 Friendly fighter jets that fly across screen and shoot down threats. Only direct interceptor hits (not splash damage) can destroy F-15s, penalizing -500 points.
 
+## iOS Build (Capacitor)
+
+Capacitor is already configured. To build and open in Xcode:
+
+```bash
+npm run ios    # builds with CAPACITOR=1, syncs to ios/, opens Xcode
+```
+
+This runs three steps in sequence:
+
+1. `npm run build:ios` — Vite production build with `CAPACITOR=1` env flag
+2. `npm run cap:sync` — copies `dist/` into `ios/App/App/public` and updates plugins
+3. `npm run cap:open` — opens the Xcode workspace
+
+From Xcode, select a simulator or device and hit Run.
+
 ## Deployment
 
 GitHub Pages via Actions workflow (`.github/workflows/deploy.yml`). Pushes to `main` auto-deploy to https://phejet.github.io/dubai-missile-command/
