@@ -34,6 +34,7 @@ public/replay.json
 
 # Claude worktrees
 .claude/worktrees/
+.ai/
 
 # Auto-saved replays
 replays/
