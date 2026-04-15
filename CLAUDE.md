@@ -10,6 +10,8 @@ npm run dev          # starts dev server (usually http://localhost:5173)
 npx vite build       # production build to dist/
 ```
 
+When doing local verification, if you stop the dev server for testing or debugging, start it again before finishing and confirm the local URL.
+
 ## Running the Bot
 
 The Playwright bot (`play-bot.mjs`) auto-plays the game for testing.

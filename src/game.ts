@@ -216,7 +216,7 @@ export class Game {
   private bonusActive = false;
   private progressionOpen = false;
   private buildingAssets: BuildingAssets | null = null;
-  private titleRenderMode: "bakedBlend" | "live" = "bakedBlend";
+  private titleRenderMode: "bakedSharp" | "live" = "bakedSharp";
 
   // Final stats for game over
   private finalScore = 0;
@@ -366,7 +366,7 @@ export class Game {
   }
 
   private toggleTitleRenderMode(): void {
-    this.titleRenderMode = this.titleRenderMode === "live" ? "bakedBlend" : "live";
+    this.titleRenderMode = this.titleRenderMode === "live" ? "bakedSharp" : "live";
     this.syncTitleRenderModeButton();
   }
 

@@ -65,6 +65,7 @@ export const perfState = { frameCount: 0, startTime: 0, glowEnabled: true, probe
 const ARCADE_FONT_FAMILY = "'Courier New', monospace";
 const TITLE_BUILDING_BLEND_WINDOW = 0.18;
 const TITLE_BUILDING_PLAYBACK_PERIOD_SECONDS = 4;
+const GAMEPLAY_BUILDING_PLAYBACK_PERIOD_SECONDS = TITLE_BUILDING_PLAYBACK_PERIOD_SECONDS;
 const TITLE_BUILDING_ANIM_ALPHA = 0.58;
 const TITLE_BUILDING_PLAYBACK_RATE_JITTER = 0.24;
 let _gameplaySkyAssets: SkyAssets | null = null;
@@ -1014,7 +1015,7 @@ function drawGameplayForegroundBuildings(
       return;
     }
 
-    const phase = (t % buildingAssets.period) / buildingAssets.period;
+    const phase = (t % GAMEPLAY_BUILDING_PLAYBACK_PERIOD_SECONDS) / GAMEPLAY_BUILDING_PLAYBACK_PERIOD_SECONDS;
     const frameIndex = Math.floor(phase * buildingAssets.frameCount) % buildingAssets.frameCount;
     const blend = (phase * buildingAssets.frameCount) % 1;
     const staticSprite = buildingAssets.staticSprites[index];
@@ -4146,7 +4147,7 @@ export function drawTitle(
   ctx: CanvasRenderingContext2D,
   {
     layoutProfile = {} as Partial<LayoutProfile>,
-    skylineRenderMode = "bakedBlend",
+    skylineRenderMode = "bakedSharp",
   }: {
     layoutProfile?: Partial<LayoutProfile>;
     skylineRenderMode?: TitleSkylineRenderMode;
