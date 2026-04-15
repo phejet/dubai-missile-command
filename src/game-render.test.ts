@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { GAMEPLAY_SCENIC_BASE_Y, setRng } from "./game-logic.js";
+import { GAMEPLAY_SCENIC_BASE_Y, GAMEPLAY_SCENIC_GROUND_Y, GROUND_Y, setRng } from "./game-logic.js";
 import {
+  __getBurjAssetCacheKeysForTest,
+  __getBurjAssetsForTest,
+  __resetRenderAssetCachesForTest,
   buildBuildingAssets,
   drawGame,
   drawTitle,
@@ -8,6 +11,7 @@ import {
   glow,
   glowOff,
   hash01,
+  preloadRenderAssets,
   pulse,
   perfState,
 } from "./game-render.js";
@@ -289,11 +293,24 @@ describe("drawGame", () => {
     const { ctx } = mockCanvasContext();
     expect(() => drawGame(ctx, gameState, { showShop: true })).not.toThrow();
   });
+
+  it("warms the gameplay Burj asset cache entry", () => {
+    const { ctx } = mockCanvasContext();
+    __resetRenderAssetCachesForTest();
+
+    drawGame(ctx, gameState, { showShop: false });
+
+    expect(__getBurjAssetCacheKeysForTest()).toContain(`${GAMEPLAY_SCENIC_GROUND_Y}:2`);
+  });
 });
 
 // ── drawTitle ──
 
 describe("drawTitle", () => {
+  beforeEach(() => {
+    __resetRenderAssetCachesForTest();
+  });
+
   it("does not throw", () => {
     const { ctx } = mockCanvasContext();
     expect(() => drawTitle(ctx)).not.toThrow();
@@ -318,6 +335,41 @@ describe("drawTitle", () => {
   it("supports sharp baked title skyline rendering", () => {
     const { ctx } = mockCanvasContext();
     expect(() => drawTitle(ctx, { skylineRenderMode: "bakedSharp" })).not.toThrow();
+  });
+
+  it("warms the title Burj asset cache entry", () => {
+    const { ctx } = mockCanvasContext();
+
+    drawTitle(ctx);
+
+    expect(__getBurjAssetCacheKeysForTest()).toContain(`${GROUND_Y - 100}:2`);
+  });
+});
+
+describe("Burj asset cache", () => {
+  beforeEach(() => {
+    __resetRenderAssetCachesForTest();
+  });
+
+  it("reuses assets for the same groundY and artScale", () => {
+    const first = __getBurjAssetsForTest(GROUND_Y - 100, 2);
+    const second = __getBurjAssetsForTest(GROUND_Y - 100, 2);
+
+    expect(first).toBe(second);
+    expect(__getBurjAssetCacheKeysForTest()).toEqual([`${GROUND_Y - 100}:2`]);
+  });
+
+  it("stores distinct cache entries for the title and gameplay variants", () => {
+    __getBurjAssetsForTest(GROUND_Y - 100, 2);
+    __getBurjAssetsForTest(GAMEPLAY_SCENIC_GROUND_Y, 2);
+
+    expect(__getBurjAssetCacheKeysForTest()).toEqual([`${GAMEPLAY_SCENIC_GROUND_Y}:2`, `${GROUND_Y - 100}:2`]);
+  });
+
+  it("preloads both Burj cache variants", () => {
+    preloadRenderAssets();
+
+    expect(__getBurjAssetCacheKeysForTest()).toEqual([`${GAMEPLAY_SCENIC_GROUND_Y}:2`, `${GROUND_Y - 100}:2`]);
   });
 });
 

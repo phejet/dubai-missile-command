@@ -627,6 +627,11 @@
     right: max(10px, env(safe-area-inset-right));
   }
 
+  .title-corner-button--left {
+    left: max(10px, env(safe-area-inset-left));
+    right: auto;
+  }
+
   .game-shell--phonePortrait[data-screen="title"] .battlefield-shell {
     width: 100%;
   }
@@ -739,6 +744,11 @@
     transform 160ms ease,
     box-shadow 160ms ease,
     border-color 160ms ease;
+}
+
+.title-corner-button--left {
+  left: 14px;
+  right: auto;
 }
 
 .title-corner-button:hover {

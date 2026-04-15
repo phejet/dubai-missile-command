@@ -189,6 +189,7 @@ export class Game {
   private battlefieldCard: HTMLElement;
   private hudEl: HTMLElement;
   private titleProgressionButton: HTMLElement;
+  private titleRenderModeButton: HTMLButtonElement;
   private gameoverPanel: HTMLElement;
   private progressionPanel: HTMLElement;
   private progressionButton: HTMLElement;
@@ -222,6 +223,7 @@ export class Game {
   private bonusActive = false;
   private progressionOpen = false;
   private buildingAssets: BuildingAssets | null = null;
+  private titleRenderMode: "bakedBlend" | "live" = "bakedBlend";
 
   // Final stats for game over
   private finalScore = 0;
@@ -236,6 +238,7 @@ export class Game {
     this.battlefieldCard = document.getElementById("battlefield-card")!;
     this.hudEl = document.getElementById("battlefield-hud")!;
     this.titleProgressionButton = document.getElementById("title-progression-button")!;
+    this.titleRenderModeButton = document.getElementById("title-render-mode-button") as HTMLButtonElement;
     this.gameoverPanel = document.getElementById("gameover-panel")!;
     this.progressionPanel = document.getElementById("progression-panel")!;
     this.progressionButton = document.getElementById("progression-button")!;
@@ -281,6 +284,7 @@ export class Game {
         void this.startReplay(this.lastReplay);
       }
     });
+    this.titleRenderModeButton.addEventListener("click", () => this.toggleTitleRenderMode());
     this.empButton.addEventListener("click", () => this.fireEmp());
     this.optionsButton.addEventListener("click", () => this.toggleOptionsMenu());
     document.getElementById("option-sound")!.addEventListener("click", () => void this.toggleMute());
@@ -335,6 +339,7 @@ export class Game {
     // Toggle visibility of screen-specific elements
     this.hudEl.hidden = s !== "playing";
     this.titleProgressionButton.hidden = true;
+    this.titleRenderModeButton.hidden = s !== "title";
     this.gameoverPanel.hidden = s !== "gameover" || this.progressionOpen;
     this.progressionPanel.hidden = !this.progressionOpen || s !== "gameover";
     this.battlefieldCard.classList.toggle("battlefield-card--portraitSky", s === "playing");
@@ -354,6 +359,22 @@ export class Game {
       uiShowGameOver(this.finalScore, this.finalWave, this.finalStats);
       this.replayButton.hidden = !this.lastReplay;
     }
+
+    this.syncTitleRenderModeButton();
+  }
+
+  private syncTitleRenderModeButton(): void {
+    const live = this.titleRenderMode === "live";
+    this.titleRenderModeButton.textContent = `Render: ${live ? "Live" : "Baked"}`;
+    this.titleRenderModeButton.ariaPressed = live ? "true" : "false";
+    this.titleRenderModeButton.title = live
+      ? "Switch title rendering back to baked mode"
+      : "Switch title rendering to live mode";
+  }
+
+  private toggleTitleRenderMode(): void {
+    this.titleRenderMode = this.titleRenderMode === "live" ? "bakedBlend" : "live";
+    this.syncTitleRenderModeButton();
   }
 
   // ─── Game Lifecycle ─────────────────────────────────────────────
@@ -929,7 +950,7 @@ export class Game {
       } else {
         this.lastTime = null;
         if (this.screen === "title") {
-          drawTitle(this.ctx, { layoutProfile: LAYOUT_PROFILE });
+          drawTitle(this.ctx, { layoutProfile: LAYOUT_PROFILE, skylineRenderMode: this.titleRenderMode });
         } else if (this.screen === "gameover") {
           drawGameOver(this.ctx, this.finalScore, this.finalWave, this.finalStats, { layoutProfile: LAYOUT_PROFILE });
         }
