@@ -4,6 +4,8 @@ import { buildBuildingAssets } from "./art-render.js";
 import {
   __getBurjAssetCacheKeysForTest,
   __getBurjAssetsForTest,
+  __getLauncherAssetCacheKeysForTest,
+  __getLauncherAssetsForTest,
   __resetRenderAssetCachesForTest,
   drawGame,
   drawTitle,
@@ -18,6 +20,8 @@ import {
 import { mulberry32 } from "./headless/rng.js";
 import { initGame } from "./game-sim.js";
 import type { GameState } from "./types";
+
+const DEFAULT_GAMEPLAY_LAUNCHER_SCALE = 0.8 + 3 * 0.06;
 
 type CallEntry = { method: string; args: unknown[] };
 type MockCtx = CanvasRenderingContext2D & Record<string, unknown>;
@@ -302,6 +306,25 @@ describe("drawGame", () => {
 
     expect(__getBurjAssetCacheKeysForTest()).toContain(`${GAMEPLAY_SCENIC_GROUND_Y}:2`);
   });
+
+  it("warms the gameplay launcher asset cache entry", () => {
+    const { ctx } = mockCanvasContext();
+    __resetRenderAssetCachesForTest();
+
+    drawGame(ctx, gameState, { showShop: false });
+
+    expect(__getLauncherAssetCacheKeysForTest()).toContain(`${DEFAULT_GAMEPLAY_LAUNCHER_SCALE.toFixed(3)}:0`);
+  });
+
+  it("warms the damaged gameplay launcher asset cache entry", () => {
+    const { ctx } = mockCanvasContext();
+    __resetRenderAssetCachesForTest();
+    gameState.upgrades.launcherKit = 2;
+
+    drawGame(ctx, gameState, { showShop: false });
+
+    expect(__getLauncherAssetCacheKeysForTest()).toContain(`${DEFAULT_GAMEPLAY_LAUNCHER_SCALE.toFixed(3)}:1`);
+  });
 });
 
 // ── drawTitle ──
@@ -344,6 +367,22 @@ describe("drawTitle", () => {
 
     expect(__getBurjAssetCacheKeysForTest()).toContain(`${GROUND_Y - 100}:2`);
   });
+
+  it("warms the baked title launcher asset cache entry", () => {
+    const { ctx } = mockCanvasContext();
+
+    drawTitle(ctx);
+
+    expect(__getLauncherAssetCacheKeysForTest()).toContain("1.000:0");
+  });
+
+  it("keeps title launchers live when the title skyline is live", () => {
+    const { ctx } = mockCanvasContext();
+
+    drawTitle(ctx, { skylineRenderMode: "live" });
+
+    expect(__getLauncherAssetCacheKeysForTest()).toEqual([]);
+  });
 });
 
 describe("Burj asset cache", () => {
@@ -370,6 +409,40 @@ describe("Burj asset cache", () => {
     preloadRenderAssets();
 
     expect(__getBurjAssetCacheKeysForTest()).toEqual([`${GAMEPLAY_SCENIC_GROUND_Y}:2`, `${GROUND_Y - 100}:2`]);
+  });
+});
+
+describe("launcher asset cache", () => {
+  beforeEach(() => {
+    __resetRenderAssetCachesForTest();
+  });
+
+  it("reuses assets for the same scale and damage state", () => {
+    const first = __getLauncherAssetsForTest(1, false);
+    const second = __getLauncherAssetsForTest(1, false);
+
+    expect(first).toBe(second);
+    expect(__getLauncherAssetCacheKeysForTest()).toEqual(["1.000:0"]);
+  });
+
+  it("stores distinct cache entries for clean and damaged variants", () => {
+    __getLauncherAssetsForTest(DEFAULT_GAMEPLAY_LAUNCHER_SCALE, false);
+    __getLauncherAssetsForTest(DEFAULT_GAMEPLAY_LAUNCHER_SCALE, true);
+
+    expect(__getLauncherAssetCacheKeysForTest()).toEqual([
+      `${DEFAULT_GAMEPLAY_LAUNCHER_SCALE.toFixed(3)}:0`,
+      `${DEFAULT_GAMEPLAY_LAUNCHER_SCALE.toFixed(3)}:1`,
+    ]);
+  });
+
+  it("preloads common gameplay and title launcher variants", () => {
+    preloadRenderAssets();
+
+    expect(__getLauncherAssetCacheKeysForTest()).toEqual([
+      `${DEFAULT_GAMEPLAY_LAUNCHER_SCALE.toFixed(3)}:0`,
+      `${DEFAULT_GAMEPLAY_LAUNCHER_SCALE.toFixed(3)}:1`,
+      "1.000:0",
+    ]);
   });
 });
 

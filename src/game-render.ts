@@ -23,8 +23,11 @@ import {
 import {
   buildTitleBuildingAssets,
   buildBurjAssets,
+  buildLauncherAssets,
   buildSkyAssets,
   burjPath as traceBurjPath,
+  drawBakedLauncher,
+  drawSharedLauncher,
   drawSharedTower,
   drawFlickerWindows,
   getLightFlicker,
@@ -33,6 +36,7 @@ import {
   TITLE_SKYLINE_TOWERS,
   type BuildingAssets,
   type BurjAssets,
+  type LauncherAssets,
   type SkyAssets,
 } from "./art-render";
 import { getPurchaseDisplayName, UPGRADE_FAMILIES } from "./game-sim-upgrades";
@@ -70,6 +74,7 @@ let _titleSkyAssets: SkyAssets | null = null;
 let _titleBuildingAssets: BuildingAssets | null = null;
 let _titleBuildingBaseY: number | null = null;
 const _burjAssetsCache = new Map<string, BurjAssets>();
+const _launcherAssetsCache = new Map<string, LauncherAssets>();
 
 type TitleSkylineRenderMode = "bakedBlend" | "bakedSharp" | "live";
 
@@ -237,6 +242,7 @@ function getBurjDroneDecalImage() {
 }
 
 export function preloadRenderAssets() {
+  const gameplayLauncherScale = 0.8 + DEFAULT_LAYOUT_PROFILE.launcherScale * 0.06;
   getSkyImage();
   getTitleWaterImage();
   getInterceptorHitFlashImage();
@@ -248,6 +254,9 @@ export function preloadRenderAssets() {
   getBurjDroneDecalImage();
   getBurjAssets(GROUND_Y - 100, 2);
   getBurjAssets(GAMEPLAY_SCENIC_GROUND_Y, 2);
+  getLauncherAssets(1, false);
+  getLauncherAssets(gameplayLauncherScale, false);
+  getLauncherAssets(gameplayLauncherScale, true);
 }
 
 export function __resetRenderAssetCachesForTest() {
@@ -258,6 +267,7 @@ export function __resetRenderAssetCachesForTest() {
   _titleBuildingAssets = null;
   _titleBuildingBaseY = null;
   _burjAssetsCache.clear();
+  _launcherAssetsCache.clear();
 }
 
 export function __getBurjAssetCacheKeysForTest() {
@@ -266,6 +276,14 @@ export function __getBurjAssetCacheKeysForTest() {
 
 export function __getBurjAssetsForTest(groundY: number, artScale: number) {
   return getBurjAssets(groundY, artScale);
+}
+
+export function __getLauncherAssetCacheKeysForTest() {
+  return [..._launcherAssetsCache.keys()].sort();
+}
+
+export function __getLauncherAssetsForTest(scale: number, damaged: boolean) {
+  return getLauncherAssets(scale, damaged);
 }
 
 function drawDistortedWaterSprite(
@@ -928,6 +946,15 @@ function getBurjAssets(groundY: number, artScale: number): BurjAssets {
   return assets;
 }
 
+function getLauncherAssets(scale: number, damaged: boolean): LauncherAssets {
+  const key = `${scale.toFixed(3)}:${damaged ? 1 : 0}`;
+  const cached = _launcherAssetsCache.get(key);
+  if (cached) return cached;
+  const assets = buildLauncherAssets(scale, damaged);
+  _launcherAssetsCache.set(key, assets);
+  return assets;
+}
+
 interface SharedBurjOptions {
   mode: "title" | "game";
   groundY: number;
@@ -948,16 +975,6 @@ interface SharedWaterOptions {
   groundY: number;
   renderHeight: number;
   tintBottomAlpha?: number;
-}
-
-interface SharedLauncherOptions {
-  t: number;
-  scale?: number;
-  alpha?: number;
-  damaged?: boolean;
-  active?: boolean;
-  muzzleFlash?: number;
-  statusLabel?: string | null;
 }
 
 function drawSharedSky(ctx: CanvasRenderingContext2D, { groundY, stars }: SharedSkyOptions, t: number) {
@@ -1781,334 +1798,6 @@ function drawBurjWarningPlate(
   }
 
   ctx.textAlign = "left";
-  ctx.restore();
-}
-
-function drawSharedLauncher(
-  ctx: CanvasRenderingContext2D,
-  lx: number,
-  ly: number,
-  barrelAngle: number,
-  {
-    t,
-    scale = 1,
-    alpha = 1,
-    damaged = false,
-    active = true,
-    muzzleFlash = 0,
-    statusLabel = null,
-  }: SharedLauncherOptions,
-) {
-  // Destroyed — flat dark wreck silhouette
-  if (!active) {
-    ctx.save();
-    ctx.globalAlpha = alpha * 0.72;
-    ctx.fillStyle = "#1a1210";
-    ctx.beginPath();
-    ctx.moveTo(lx - 28, ly + 4);
-    ctx.lineTo(lx - 18, ly - 6);
-    ctx.lineTo(lx + 14, ly - 6);
-    ctx.lineTo(lx + 26, ly + 4);
-    ctx.lineTo(lx + 24, ly + 12);
-    ctx.lineTo(lx - 24, ly + 12);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = "rgba(180, 50, 30, 0.35)";
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.restore();
-    return;
-  }
-
-  // All drawing in local space — translate to launcher centre then scale
-  ctx.save();
-  ctx.translate(lx, ly);
-  ctx.scale(scale, scale);
-  ctx.globalAlpha = alpha;
-
-  const dmg = damaged;
-  // Olive-khaki palette — clearly distinct from the blue-grey water below
-  const c = {
-    base: dmg ? "#6a3028" : "#4e5e38",
-    body: dmg ? "#7a3c34" : "#5c7044",
-    turr: dmg ? "#8a4c44" : "#6a8050",
-    sk0: "rgba(6, 10, 4, 0.92)",
-    sk1: dmg ? "rgba(240, 160, 130, 0.38)" : "rgba(190, 230, 120, 0.38)",
-    glow: dmg ? "rgba(255, 90, 60, 0.28)" : "rgba(130, 210, 90, 0.28)",
-  };
-
-  // Podium-style radial bloom
-  const bloom = ctx.createRadialGradient(0, 6, 0, 0, 6, 72);
-  bloom.addColorStop(0, dmg ? "rgba(255, 180, 140, 0.14)" : "rgba(200, 255, 180, 0.14)");
-  bloom.addColorStop(0.28, dmg ? "rgba(220, 100,  80, 0.14)" : "rgba(120, 210, 100, 0.14)");
-  bloom.addColorStop(0.55, dmg ? "rgba(200,  60,  40, 0.10)" : "rgba(180, 220, 100, 0.08)");
-  bloom.addColorStop(1, "rgba(0,0,0,0)");
-  ctx.fillStyle = bloom;
-  ctx.fillRect(-72, -42, 144, 100);
-
-  // ── TRACKED BASE ──────────────────────────────────────────────────────────
-  const baseG = ctx.createLinearGradient(-28, 0, 28, 0);
-  baseG.addColorStop(0, "#303e22");
-  baseG.addColorStop(0.5, c.base);
-  baseG.addColorStop(1, "#2c3a1e");
-  ctx.fillStyle = baseG;
-  ctx.beginPath();
-  ctx.moveTo(-30, 2);
-  ctx.lineTo(-28, -2);
-  ctx.lineTo(28, -2);
-  ctx.lineTo(30, 2);
-  ctx.lineTo(28, 14);
-  ctx.lineTo(-28, 14);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = c.sk0;
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-  ctx.strokeStyle = c.sk1;
-  ctx.lineWidth = 0.75;
-  ctx.beginPath();
-  ctx.moveTo(-29, 2.5);
-  ctx.lineTo(-27, -1.5);
-  ctx.lineTo(27, -1.5);
-  ctx.lineTo(29, 2.5);
-  ctx.stroke();
-
-  // Road wheel slots
-  ctx.fillStyle = dmg ? "rgba(80, 36, 28, 0.9)" : "rgba(36, 52, 22, 0.9)";
-  for (let i = 0; i < 7; i++) ctx.fillRect(-25 + i * 8, 5, 5, 7);
-  ctx.strokeStyle = dmg ? "rgba(100, 52, 40, 0.5)" : "rgba(70, 100, 48, 0.5)";
-  ctx.lineWidth = 0.9;
-  ctx.beginPath();
-  ctx.moveTo(-26, 13);
-  ctx.lineTo(26, 13);
-  ctx.stroke();
-
-  // ── MAIN BODY ─────────────────────────────────────────────────────────────
-  const bodyG = ctx.createLinearGradient(-22, -14, 22, -14);
-  bodyG.addColorStop(0, "#384e26");
-  bodyG.addColorStop(0.3, c.body);
-  bodyG.addColorStop(0.75, "#4a602e");
-  bodyG.addColorStop(1, "#344824");
-  ctx.fillStyle = bodyG;
-  ctx.beginPath();
-  ctx.moveTo(-26, 0);
-  ctx.lineTo(-24, -8);
-  ctx.lineTo(-16, -14);
-  ctx.lineTo(16, -14);
-  ctx.lineTo(22, -8);
-  ctx.lineTo(24, 0);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = c.sk0;
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-  ctx.strokeStyle = c.sk1;
-  ctx.lineWidth = 0.72;
-  ctx.beginPath();
-  ctx.moveTo(-25, 0);
-  ctx.lineTo(-23, -7.5);
-  ctx.lineTo(-15.5, -13.5);
-  ctx.lineTo(15.5, -13.5);
-  ctx.lineTo(21.5, -7.5);
-  ctx.stroke();
-
-  // Top panel highlight
-  ctx.fillStyle = dmg ? "rgba(255, 100, 70, 0.14)" : "rgba(200, 240, 120, 0.18)";
-  ctx.beginPath();
-  ctx.moveTo(-10, -12);
-  ctx.lineTo(-6, -15);
-  ctx.lineTo(8, -15);
-  ctx.lineTo(12, -12);
-  ctx.lineTo(10, -10);
-  ctx.lineTo(-8, -10);
-  ctx.closePath();
-  ctx.fill();
-
-  // Horizontal armour crease + vertical panel lines
-  ctx.strokeStyle = dmg ? "rgba(130, 70, 58, 0.55)" : "rgba(90, 130, 58, 0.55)";
-  ctx.lineWidth = 0.65;
-  ctx.beginPath();
-  ctx.moveTo(-20, -4);
-  ctx.lineTo(20, -4);
-  ctx.moveTo(-8, 0);
-  ctx.lineTo(-8, -8);
-  ctx.moveTo(8, 0);
-  ctx.lineTo(8, -8);
-  ctx.stroke();
-
-  // Exhaust vent slots
-  ctx.fillStyle = dmg ? "rgba(60, 24, 18, 0.9)" : "rgba(28, 40, 16, 0.9)";
-  ctx.fillRect(-4, -8, 3, 3);
-  ctx.fillRect(1, -8, 3, 3);
-
-  // Rear support strut
-  ctx.strokeStyle = dmg ? "rgba(100, 52, 42, 0.9)" : "rgba(70, 100, 48, 0.9)";
-  ctx.lineWidth = 3.2;
-  ctx.beginPath();
-  ctx.moveTo(-18, 0);
-  ctx.lineTo(-24, 12);
-  ctx.stroke();
-  ctx.strokeStyle = dmg ? "rgba(200, 90, 70, 0.18)" : "rgba(160, 220, 80, 0.18)";
-  ctx.lineWidth = 0.9;
-  ctx.beginPath();
-  ctx.moveTo(-18, 0);
-  ctx.lineTo(-23, 11);
-  ctx.stroke();
-
-  // ── STATUS LIGHTS ─────────────────────────────────────────────────────────
-  // Fast blue status LEDs
-  const ledA = 0.5 + 0.5 * Math.sin(t * 10.8 + lx * 0.027);
-  ctx.fillStyle = dmg ? `rgba(255, 80, 60, ${0.65 * ledA})` : `rgba(80, 220, 255, ${0.65 * ledA})`;
-  ctx.fillRect(-16, -4, 3, 4);
-  ctx.fillRect(-10, -5, 3, 5);
-
-  // Amber warning light (slow pulse)
-  const warnA = 0.42 + 0.22 * Math.sin(t * 0.9 + lx * 0.013 + 1.2);
-  ctx.fillStyle = `rgba(255, 188, 100, ${warnA})`;
-  ctx.fillRect(10, -4, 3, 4);
-
-  // Green ready indicator (medium pulse)
-  const srvA = 0.46 + 0.28 * Math.sin(t * 2.2 + lx * 0.018);
-  ctx.fillStyle = dmg ? `rgba(255, 130, 110, ${srvA * 0.55})` : `rgba(120, 240, 80, ${srvA})`;
-  ctx.fillRect(-2, -1, 5, 5);
-  const srvGlow = ctx.createRadialGradient(1, 2, 0, 1, 2, 11);
-  srvGlow.addColorStop(0, dmg ? `rgba(255, 130, 110, ${srvA * 0.5})` : `rgba(120, 240, 80, ${srvA})`);
-  srvGlow.addColorStop(1, "rgba(0,0,0,0)");
-  ctx.fillStyle = srvGlow;
-  ctx.fillRect(-12, -10, 28, 26);
-
-  // Burj-facing rim light
-  const rimDir = lx < BURJ_X ? 1 : -1;
-  ctx.fillStyle = dmg ? "rgba(255, 142, 120, 0.18)" : "rgba(160, 230, 100, 0.2)";
-  ctx.fillRect(rimDir * 18 - 1.5, -12, 3, 18);
-
-  // ── ROTATING BARREL GROUP ─────────────────────────────────────────────────
-  ctx.save();
-  ctx.translate(2, -16);
-  ctx.rotate(barrelAngle);
-
-  // Angular turret housing
-  const tG = ctx.createLinearGradient(-10, 0, 22, 0);
-  tG.addColorStop(0, "#3c5228");
-  tG.addColorStop(0.35, c.turr);
-  tG.addColorStop(1, "#445e30");
-  ctx.fillStyle = tG;
-  ctx.beginPath();
-  ctx.moveTo(-10, -6);
-  ctx.lineTo(20, -5);
-  ctx.lineTo(24, -2.5);
-  ctx.lineTo(24, 2.5);
-  ctx.lineTo(20, 5);
-  ctx.lineTo(-10, 6);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = c.sk0;
-  ctx.lineWidth = 1.3;
-  ctx.stroke();
-  ctx.strokeStyle = c.sk1;
-  ctx.lineWidth = 0.7;
-  ctx.beginPath();
-  ctx.moveTo(-9, -5.5);
-  ctx.lineTo(20, -4.5);
-  ctx.lineTo(23, -2);
-  ctx.stroke();
-
-  // Upper launch tube
-  ctx.fillStyle = dmg ? "#6a3830" : "#506440";
-  ctx.beginPath();
-  ctx.moveTo(20, -6.5);
-  ctx.lineTo(38, -5);
-  ctx.lineTo(38.5, -2.5);
-  ctx.lineTo(20, -2);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = c.sk0;
-  ctx.lineWidth = 0.9;
-  ctx.stroke();
-  ctx.strokeStyle = dmg ? "rgba(230, 130, 110, 0.22)" : "rgba(168, 218, 100, 0.26)";
-  ctx.lineWidth = 0.6;
-  ctx.beginPath();
-  ctx.moveTo(20, -6);
-  ctx.lineTo(37, -4.5);
-  ctx.stroke();
-
-  // Lower launch tube
-  ctx.fillStyle = dmg ? "#6a3830" : "#1a4a1e";
-  ctx.beginPath();
-  ctx.moveTo(20, 2);
-  ctx.lineTo(38.5, 2.5);
-  ctx.lineTo(38, 5);
-  ctx.lineTo(20, 6.5);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = c.sk0;
-  ctx.lineWidth = 0.9;
-  ctx.stroke();
-  ctx.strokeStyle = dmg ? "rgba(230, 130, 110, 0.14)" : "rgba(168, 218, 100, 0.14)";
-  ctx.lineWidth = 0.6;
-  ctx.beginPath();
-  ctx.moveTo(20, 2.5);
-  ctx.lineTo(37, 3.8);
-  ctx.stroke();
-
-  // Gap between tubes (dark channel)
-  ctx.fillStyle = dmg ? "#3a1e18" : "#2a3418";
-  ctx.fillRect(22, -2, 16.5, 4);
-
-  // Barrel root collar
-  const colG = ctx.createLinearGradient(-10, -7, -10, 7);
-  colG.addColorStop(0, dmg ? "#7a3c36" : "#526640");
-  colG.addColorStop(1, dmg ? "#562a26" : "#384a2a");
-  ctx.fillStyle = colG;
-  ctx.fillRect(-10, -7, 12, 14);
-  ctx.strokeStyle = c.sk0;
-  ctx.lineWidth = 1;
-  ctx.strokeRect(-10, -7, 12, 14);
-  ctx.strokeStyle = c.sk1;
-  ctx.lineWidth = 0.5;
-  ctx.beginPath();
-  ctx.moveTo(-9, -6.5);
-  ctx.lineTo(1, -6.5);
-  ctx.stroke();
-
-  // Charge glow at barrel root
-  const chP = 0.16 + 0.18 * Math.sin(t * 1.45 + lx * 0.03 + 0.8);
-  const chG = ctx.createRadialGradient(4, 0, 0, 4, 0, 13);
-  chG.addColorStop(0, dmg ? `rgba(255, 130, 100, ${chP})` : `rgba(140, 240, 80, ${chP})`);
-  chG.addColorStop(0.6, dmg ? `rgba(200, 90, 70, ${chP * 0.35})` : `rgba(90, 190, 60, ${chP * 0.35})`);
-  chG.addColorStop(1, "rgba(0,0,0,0)");
-  ctx.fillStyle = chG;
-  ctx.fillRect(-8, -14, 26, 28);
-  ctx.fillStyle = dmg ? `rgba(255, 148, 118, ${0.5 + chP})` : `rgba(160, 244, 100, ${0.5 + chP})`;
-  ctx.fillRect(2, -1.3, 10, 2.6);
-
-  // Muzzle tip — red warning blink + fire flash
-  const blink = Math.max(0, Math.sin(t * 3.2 + lx * 0.0068));
-  const blinkI = Math.pow(blink, 0.4);
-  const fs = Math.max(blinkI, muzzleFlash);
-  // Glow halo
-  const mgR = 8 + muzzleFlash * 8;
-  const mgGrad = ctx.createRadialGradient(40, 0, 0, 40, 0, mgR + 4);
-  mgGrad.addColorStop(0, `rgba(255, 40, 20, ${fs * 0.7})`);
-  mgGrad.addColorStop(1, "rgba(0,0,0,0)");
-  ctx.fillStyle = mgGrad;
-  ctx.fillRect(30, -(mgR + 4), (mgR + 4) * 2, (mgR + 4) * 2);
-  // Bright centre dot
-  ctx.fillStyle = `rgba(255, 255, 200, ${0.6 + 0.4 * blinkI})`;
-  ctx.fillRect(38.5, -1, 2, 2);
-  ctx.fillStyle = `rgba(255, 60, 30, ${0.85 * blinkI})`;
-  ctx.fillRect(38, -1.5, 3, 3);
-
-  ctx.restore(); // end barrel rotation
-
-  if (statusLabel) {
-    ctx.textAlign = "center";
-    ctx.font = `bold 8px ${ARCADE_FONT_FAMILY}`;
-    ctx.fillStyle = dmg ? "rgba(255, 132, 110, 0.72)" : "rgba(128, 236, 255, 0.72)";
-    ctx.fillText(statusLabel, 0, 30);
-    ctx.textAlign = "left";
-  }
-
   ctx.restore();
 }
 
@@ -3323,6 +3012,7 @@ function drawGroundStructures(ctx: CanvasRenderingContext2D, game: GameState, la
   LAUNCHERS.forEach((l, i) => {
     const launcherMaxHP = game.upgrades.launcherKit >= 2 ? 2 : 1;
     const damaged = launcherMaxHP === 2 && game.launcherHP[i] === 1;
+    const launcherScale = 0.8 + layout.launcherScale * 0.06;
     const angle = Math.atan2(game.crosshairY - l.y, game.crosshairX - l.x);
     const barrelAngle = Math.min(-0.2, Math.max(angle, -Math.PI + 0.2));
     const fireTick = game.launcherFireTick ? game.launcherFireTick[i] : 0;
@@ -3330,14 +3020,18 @@ function drawGroundStructures(ctx: CanvasRenderingContext2D, game: GameState, la
     const fireAge = tickNow - fireTick;
     const muzzleFlash = fireAge < 6 ? 1 - fireAge / 6 : 0;
 
-    drawSharedLauncher(ctx, l.x, scenicLauncherY, barrelAngle, {
-      t: game.time / 60,
-      scale: 0.8 + layout.launcherScale * 0.06,
-      damaged,
-      active: game.launcherHP[i] > 0,
-      muzzleFlash,
-      statusLabel: null,
-    });
+    if (game.launcherHP[i] > 0) {
+      drawBakedLauncher(ctx, l.x, scenicLauncherY, barrelAngle, getLauncherAssets(launcherScale, damaged), {
+        t: game.time / 60,
+        muzzleFlash,
+      });
+    } else {
+      drawSharedLauncher(ctx, l.x, scenicLauncherY, barrelAngle, {
+        t: game.time / 60,
+        scale: launcherScale,
+        active: false,
+      });
+    }
 
     if (game.launcherHP[i] <= 0) return;
 
@@ -4575,7 +4269,22 @@ export function drawTitle(
 
   // Launcher silhouettes — delegate to shared renderer
   function drawTitleLauncher(lx: number, ly: number, barrelAngle: number, alpha = 1) {
-    drawSharedLauncher(ctx, lx, ly, barrelAngle, { t, scale: 1, alpha, damaged: false, active: true, muzzleFlash: 0 });
+    if (skylineRenderMode === "live") {
+      drawSharedLauncher(ctx, lx, ly, barrelAngle, {
+        t,
+        scale: 1,
+        alpha,
+        damaged: false,
+        active: true,
+        muzzleFlash: 0,
+      });
+      return;
+    }
+    drawBakedLauncher(ctx, lx, ly, barrelAngle, getLauncherAssets(1, false), {
+      t,
+      alpha,
+      muzzleFlash: 0,
+    });
   }
 
   // Barrel base angles: left launcher points up-right, center straight up, right up-left

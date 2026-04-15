@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { buildBuildingAssets, buildBurjAssets, buildTitleBuildingAssets, createSpriteCanvas } from "./art-render.js";
+import {
+  buildBuildingAssets,
+  buildBurjAssets,
+  buildLauncherAssets,
+  buildTitleBuildingAssets,
+  createSpriteCanvas,
+} from "./art-render.js";
 import { GAMEPLAY_SCENIC_BASE_Y, GROUND_Y } from "./game-logic.js";
 
 const originalDocument = globalThis.document;
@@ -83,5 +89,36 @@ describe("tower asset baking", () => {
     expect(assets.animFrames.length).toBe(assets.staticSprites.length);
     expect(assets.frameCount).toBe(8);
     expect(assets.period).toBe(40);
+  });
+});
+
+describe("launcher asset baking", () => {
+  it("builds gameplay launcher sprites in headless mode", () => {
+    Reflect.deleteProperty(globalThis, "document");
+
+    const assets = buildLauncherAssets(0.98, false);
+
+    expect(assets.scale).toBe(0.98);
+    expect(assets.damaged).toBe(false);
+    expect(assets.chassisStaticSprite.width).toBeGreaterThan(0);
+    expect(assets.turretSprite.width).toBeGreaterThan(0);
+    expect(assets.chassisAnimFrames).toHaveLength(8);
+    expect(assets.frameCount).toBe(8);
+    expect(assets.period).toBe(10);
+    expect(Number.isFinite(assets.chassisOffset.x)).toBe(true);
+    expect(Number.isFinite(assets.turretPivot.y)).toBe(true);
+  });
+
+  it("builds damaged launcher variants in headless mode", () => {
+    Reflect.deleteProperty(globalThis, "document");
+
+    const assets = buildLauncherAssets(0.98, true);
+
+    expect(assets.damaged).toBe(true);
+    expect(assets.chassisAnimFrames).toHaveLength(8);
+    for (const frame of assets.chassisAnimFrames) {
+      expect(frame.width).toBe(assets.chassisStaticSprite.width);
+      expect(frame.height).toBe(assets.chassisStaticSprite.height);
+    }
   });
 });
