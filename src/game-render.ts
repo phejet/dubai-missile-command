@@ -12,7 +12,6 @@ import {
   BURJ_X,
   BURJ_H,
   LAUNCHERS,
-  SCENIC_BUILDING_LAYOUT,
   getDefenseSitePlacement,
   getGameplayBuildingBounds,
   getGameplayBurjCollisionTop,
@@ -22,13 +21,17 @@ import {
   ov,
 } from "./game-logic";
 import {
+  buildTitleBuildingAssets,
   buildBurjAssets,
   buildSkyAssets,
   burjPath as traceBurjPath,
-  createSpriteCanvas,
+  drawSharedTower,
   drawFlickerWindows,
   getLightFlicker,
   halfWidthsAt as getBurjHalfWidths,
+  mapGameplayBuildingTower,
+  TITLE_SKYLINE_TOWERS,
+  type BuildingAssets,
   type BurjAssets,
   type SkyAssets,
 } from "./art-render";
@@ -56,15 +59,9 @@ import type {
 // FPS probe: measure first 60 frames, disable shadowBlur if avg FPS < 45
 export const perfState = { frameCount: 0, startTime: 0, glowEnabled: true, probed: false };
 const ARCADE_FONT_FAMILY = "'Courier New', monospace";
-const GLOW_MARGIN = 80;
-const GAMEPLAY_BUILDING_ANIM_FRAME_COUNT = 8;
-const GAMEPLAY_BUILDING_ANIM_PERIOD_SECONDS = 20;
-const TITLE_BUILDING_ANIM_FRAME_COUNT = 8;
-const TITLE_BUILDING_BAKE_PERIOD_SECONDS = 40;
 const TITLE_BUILDING_BLEND_WINDOW = 0.18;
 const TITLE_BUILDING_PLAYBACK_PERIOD_SECONDS = 4;
 const TITLE_BUILDING_ANIM_ALPHA = 0.58;
-const TITLE_BUILDING_LIT_THRESHOLD = 0.08;
 const TITLE_BUILDING_PLAYBACK_RATE_JITTER = 0.24;
 let _gameplaySkyAssets: SkyAssets | null = null;
 let _gameplaySkyStarsRef: Star[] | null = null;
@@ -73,15 +70,6 @@ let _titleSkyAssets: SkyAssets | null = null;
 let _titleBuildingAssets: BuildingAssets | null = null;
 let _titleBuildingBaseY: number | null = null;
 const _burjAssetsCache = new Map<string, BurjAssets>();
-
-export interface BuildingAssets {
-  staticSprites: HTMLCanvasElement[];
-  animFrames: HTMLCanvasElement[][];
-  staticOffsets: Array<{ x: number; y: number }>;
-  animOffsets: Array<{ x: number; y: number }>;
-  frameCount: number;
-  period: number;
-}
 
 type TitleSkylineRenderMode = "bakedBlend" | "bakedSharp" | "live";
 
@@ -918,29 +906,6 @@ function getStarTwinkleProfile(time: number, phase: number, seed: number) {
   return { hero, shimmer, flare };
 }
 
-type TitleTower = {
-  x: number;
-  w: number;
-  h: number;
-  windows: number;
-  profile?: "generic" | "leftLandmark" | "twinSpire" | "slantedBlock" | "eggTower" | "bladeTower";
-  roof?:
-    | "flat"
-    | "spire"
-    | "crown"
-    | "slantL"
-    | "slantR"
-    | "needle"
-    | "roundedCrownL"
-    | "twinCrown"
-    | "curvedR"
-    | "curvedL"
-    | "tapered";
-  glow?: number;
-};
-
-const TITLE_SKYLINE_TOWERS: TitleTower[] = [...SCENIC_BUILDING_LAYOUT];
-
 const TITLE_LAUNCHER_ANGLES = [-1.1, -1.57, -2.05];
 
 interface SharedSkyOptions {
@@ -972,84 +937,9 @@ function getTitleSkyAssets(): SkyAssets {
   return _titleSkyAssets;
 }
 
-function buildTowerAssets(
-  towers: readonly TitleTower[],
-  baseY: number,
-  glowScale: number,
-  frameCount: number,
-  period: number,
-  litOnlyAnim = false,
-  quantizedAnim = false,
-): BuildingAssets {
-  const staticSprites: HTMLCanvasElement[] = [];
-  const animFrames: HTMLCanvasElement[][] = [];
-  const staticOffsets: Array<{ x: number; y: number }> = [];
-  const animOffsets: Array<{ x: number; y: number }> = [];
-
-  for (const tower of towers) {
-    const top = baseY - tower.h;
-    const staticCanvas = createSpriteCanvas(tower.w + GLOW_MARGIN * 2, tower.h + GLOW_MARGIN);
-    const staticCtx = staticCanvas.getContext("2d");
-    if (staticCtx) {
-      staticCtx.translate(-tower.x + GLOW_MARGIN, -top + GLOW_MARGIN);
-      drawSharedTower(staticCtx, tower, baseY, 0, 0, glowScale, { structureOnly: true });
-    }
-    staticSprites.push(staticCanvas);
-    staticOffsets.push({
-      x: tower.x - GLOW_MARGIN,
-      y: top - GLOW_MARGIN,
-    });
-
-    const frames = Array.from({ length: frameCount }, (_, frameIndex) => {
-      const canvas = createSpriteCanvas(tower.w, tower.h);
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.translate(-tower.x, -top);
-        drawSharedTower(ctx, tower, baseY, (frameIndex / frameCount) * period, 0, glowScale, {
-          animOnly: true,
-          litOnlyAnim,
-          litThreshold: litOnlyAnim ? TITLE_BUILDING_LIT_THRESHOLD : undefined,
-          quantizedAnim,
-        });
-      }
-      return canvas;
-    });
-    animFrames.push(frames);
-    animOffsets.push({ x: tower.x, y: top });
-  }
-
-  return {
-    staticSprites,
-    animFrames,
-    staticOffsets,
-    animOffsets,
-    frameCount,
-    period,
-  };
-}
-
-export function buildBuildingAssets(baseY: number): BuildingAssets {
-  const towers = SCENIC_BUILDING_LAYOUT.map((building, index) => mapGameplayBuildingTower(building, index));
-  return buildTowerAssets(
-    towers,
-    baseY,
-    0.48,
-    GAMEPLAY_BUILDING_ANIM_FRAME_COUNT,
-    GAMEPLAY_BUILDING_ANIM_PERIOD_SECONDS,
-  );
-}
-
 function getTitleBuildingAssets(baseY: number): BuildingAssets {
   if (!_titleBuildingAssets || _titleBuildingBaseY !== baseY) {
-    _titleBuildingAssets = buildTowerAssets(
-      TITLE_SKYLINE_TOWERS,
-      baseY,
-      1,
-      TITLE_BUILDING_ANIM_FRAME_COUNT,
-      TITLE_BUILDING_BAKE_PERIOD_SECONDS,
-      true,
-      true,
-    );
+    _titleBuildingAssets = buildTitleBuildingAssets(baseY);
     _titleBuildingBaseY = baseY;
   }
   return _titleBuildingAssets;
@@ -1096,14 +986,6 @@ interface SharedLauncherOptions {
   statusLabel?: string | null;
 }
 
-interface DrawSharedTowerOptions {
-  structureOnly?: boolean;
-  animOnly?: boolean;
-  litOnlyAnim?: boolean;
-  litThreshold?: number;
-  quantizedAnim?: boolean;
-}
-
 function drawSharedSky(ctx: CanvasRenderingContext2D, { groundY, stars }: SharedSkyOptions, t: number) {
   const assets = stars?.length ? getGameplaySkyAssets(stars, groundY) : getTitleSkyAssets();
   const { frames, frameCount, period } = assets;
@@ -1116,351 +998,6 @@ function drawSharedSky(ctx: CanvasRenderingContext2D, { groundY, stars }: Shared
   ctx.globalAlpha = blend;
   ctx.drawImage(frames[(frameIndex + 1) % frameCount], 0, 0);
   ctx.globalAlpha = 1;
-}
-
-function drawSharedTower(
-  ctx: CanvasRenderingContext2D,
-  tower: TitleTower,
-  baseY: number,
-  t: number,
-  offset = 0,
-  glowScale = 1,
-  opts: DrawSharedTowerOptions = {},
-) {
-  if (opts.structureOnly && opts.animOnly) return;
-  const x = tower.x + offset;
-  const top = baseY - tower.h;
-  const right = x + tower.w;
-  const mid = x + tower.w / 2;
-
-  ctx.save();
-  if (!opts.animOnly) {
-    if (tower.glow) {
-      const glow = ctx.createRadialGradient(mid, top + tower.h * 0.3, 0, mid, top + tower.h * 0.3, tower.w * 1.8);
-      glow.addColorStop(0, `rgba(120, 190, 255, ${tower.glow * glowScale})`);
-      glow.addColorStop(1, "rgba(0, 0, 0, 0)");
-      ctx.fillStyle = glow;
-      ctx.fillRect(x - tower.w, top - tower.w, tower.w * 3, tower.h + tower.w * 2);
-    }
-
-    ctx.beginPath();
-    switch (tower.roof ?? "flat") {
-      case "spire":
-        ctx.moveTo(x, baseY);
-        ctx.lineTo(x, top + 12);
-        ctx.lineTo(mid - 2, top + 12);
-        ctx.lineTo(mid, top - 16);
-        ctx.lineTo(mid + 2, top + 12);
-        ctx.lineTo(right, top + 12);
-        ctx.lineTo(right, baseY);
-        break;
-      case "needle":
-        ctx.moveTo(x, baseY);
-        ctx.lineTo(x, top + 8);
-        ctx.lineTo(mid - 3, top + 8);
-        ctx.lineTo(mid - 1, top - 24);
-        ctx.lineTo(mid + 1, top - 24);
-        ctx.lineTo(mid + 3, top + 8);
-        ctx.lineTo(right, top + 8);
-        ctx.lineTo(right, baseY);
-        break;
-      case "crown":
-        ctx.moveTo(x, baseY);
-        ctx.lineTo(x, top + 16);
-        ctx.lineTo(x + tower.w * 0.22, top + 4);
-        ctx.lineTo(mid - 3, top + 14);
-        ctx.lineTo(mid, top - 12);
-        ctx.lineTo(mid + 3, top + 14);
-        ctx.lineTo(x + tower.w * 0.78, top + 4);
-        ctx.lineTo(right, top + 16);
-        ctx.lineTo(right, baseY);
-        break;
-      case "roundedCrownL":
-        ctx.moveTo(x, baseY);
-        ctx.lineTo(x, top + 34);
-        ctx.quadraticCurveTo(x + tower.w * 0.06, top + 6, x + tower.w * 0.34, top + 4);
-        ctx.lineTo(x + tower.w * 0.34, top - 18);
-        ctx.lineTo(x + tower.w * 0.43, top - 18);
-        ctx.lineTo(x + tower.w * 0.43, top + 6);
-        ctx.quadraticCurveTo(x + tower.w * 0.68, top + 8, right, top + 24);
-        ctx.lineTo(right, baseY);
-        break;
-      case "twinCrown":
-        ctx.moveTo(x, baseY);
-        ctx.lineTo(x, top + 18);
-        ctx.lineTo(x + tower.w * 0.18, top + 10);
-        ctx.lineTo(x + tower.w * 0.22, top - 16);
-        ctx.lineTo(x + tower.w * 0.3, top - 16);
-        ctx.lineTo(x + tower.w * 0.34, top + 12);
-        ctx.lineTo(x + tower.w * 0.5, top + 16);
-        ctx.lineTo(x + tower.w * 0.66, top + 12);
-        ctx.lineTo(x + tower.w * 0.7, top - 16);
-        ctx.lineTo(x + tower.w * 0.78, top - 16);
-        ctx.lineTo(x + tower.w * 0.82, top + 10);
-        ctx.lineTo(right, top + 18);
-        ctx.lineTo(right, baseY);
-        break;
-      case "curvedR":
-        ctx.moveTo(x, baseY);
-        ctx.lineTo(x, top + 42);
-        ctx.quadraticCurveTo(x + tower.w * 0.12, top + 20, x + tower.w * 0.46, top + 12);
-        ctx.quadraticCurveTo(x + tower.w * 0.9, top + 26, right, top + 46);
-        ctx.lineTo(right, baseY);
-        break;
-      case "curvedL":
-        ctx.moveTo(x, baseY);
-        ctx.lineTo(x, top + 46);
-        ctx.quadraticCurveTo(x + tower.w * 0.18, top + 18, x + tower.w * 0.58, top + 10);
-        ctx.quadraticCurveTo(x + tower.w * 0.88, top + 6, right, top + 24);
-        ctx.lineTo(right, baseY);
-        break;
-      case "tapered":
-        ctx.moveTo(x, baseY);
-        ctx.lineTo(x + tower.w * 0.04, top + 22);
-        ctx.lineTo(mid - 3, top + 10);
-        ctx.lineTo(mid, top - 8);
-        ctx.lineTo(mid + 3, top + 10);
-        ctx.lineTo(right - tower.w * 0.04, top + 22);
-        ctx.lineTo(right, baseY);
-        break;
-      case "slantL":
-        ctx.moveTo(x, baseY);
-        ctx.lineTo(x, top + 4);
-        ctx.lineTo(right, top + 18);
-        ctx.lineTo(right, baseY);
-        break;
-      case "slantR":
-        ctx.moveTo(x, baseY);
-        ctx.lineTo(x, top + 18);
-        ctx.lineTo(right, top + 4);
-        ctx.lineTo(right, baseY);
-        break;
-      default:
-        ctx.moveTo(x, baseY);
-        ctx.lineTo(x, top);
-        ctx.lineTo(right, top);
-        ctx.lineTo(right, baseY);
-        break;
-    }
-    ctx.closePath();
-    ctx.fillStyle = "rgba(8, 12, 22, 0.95)";
-    ctx.fill();
-
-    ctx.fillStyle = "rgba(18, 24, 38, 0.94)";
-    ctx.fillRect(x + 1, top + 2, Math.max(0, tower.w - 2), 2);
-    ctx.fillStyle = "rgba(0, 0, 0, 0.32)";
-    ctx.fillRect(right - 3, top + 8, 3, tower.h - 8);
-  }
-
-  if (!opts.structureOnly && tower.profile === "leftLandmark") {
-    const ribAlphaA = getLightFlicker(t, tower.x * 0.09 + tower.h * 0.03 + 1.1);
-    const ribAlphaB = getLightFlicker(t, tower.x * 0.07 + tower.w * 0.13 + 2.6);
-    ctx.fillStyle = `rgba(245, 246, 250, ${0.46 + ribAlphaA * 0.38})`;
-    ctx.fillRect(x + tower.w * 0.28, top + 22, 2.1, tower.h - 42);
-    ctx.fillStyle = `rgba(225, 238, 252, ${0.26 + ribAlphaB * 0.26})`;
-    ctx.fillRect(x + tower.w * 0.39, top + 18, 1.4, tower.h - 52);
-    for (let row = 0; row < 12; row++) {
-      const wy = top + 26 + row * 12;
-      const rowFlicker = getLightFlicker(t, tower.x * 0.11 + row * 1.7 + 4.2);
-      ctx.fillStyle =
-        row % 2 === 0
-          ? `rgba(250, 240, 212, ${0.08 + rowFlicker * 0.72})`
-          : `rgba(215, 228, 246, ${0.02 + rowFlicker * 0.28})`;
-      ctx.fillRect(x + 6, wy, tower.w - 12, 1.9);
-    }
-    drawFlickerWindows(ctx, {
-      x: x + tower.w * 0.48,
-      y: top + 28,
-      w: tower.w * 0.28,
-      h: tower.h - 44,
-      rows: 10,
-      cols: 2,
-      time: t,
-      seed: tower.x * 0.17 + 2.1,
-      warmBias: 0.75,
-      paneW: 2,
-      paneH: 3,
-      gapX: 4,
-      gapY: 8,
-      drawUnlit: !opts.litOnlyAnim,
-      litThreshold: opts.litThreshold,
-      groupRows: opts.quantizedAnim ? 2 : 1,
-      groupCols: opts.quantizedAnim ? 2 : 1,
-    });
-  } else if (tower.profile === "twinSpire") {
-    const spineA = getLightFlicker(t, tower.x * 0.08 + 6.1);
-    const spineB = getLightFlicker(t, tower.x * 0.11 + 8.7);
-    ctx.fillStyle = `rgba(250, 244, 220, ${0.24 + spineA * 0.34})`;
-    ctx.fillRect(x + tower.w * 0.23, top + 18, 1.6, tower.h - 28);
-    ctx.fillStyle = `rgba(242, 236, 214, ${0.22 + spineB * 0.32})`;
-    ctx.fillRect(x + tower.w * 0.73, top + 18, 1.6, tower.h - 28);
-    for (let row = 0; row < 11; row++) {
-      const wy = top + 24 + row * 13;
-      const rowFlicker = getLightFlicker(t, tower.x * 0.06 + row * 2.1 + 9.2);
-      ctx.fillStyle =
-        row % 3 === 0
-          ? `rgba(255, 232, 186, ${0.06 + rowFlicker * 0.68})`
-          : `rgba(205, 220, 240, ${0.01 + rowFlicker * 0.22})`;
-      ctx.fillRect(x + 5, wy, tower.w - 10, 1.6);
-    }
-    drawFlickerWindows(ctx, {
-      x: x + 6,
-      y: top + 28,
-      w: tower.w - 12,
-      h: tower.h - 40,
-      rows: 9,
-      cols: 3,
-      time: t,
-      seed: tower.x * 0.19 + 4.8,
-      warmBias: 0.68,
-      paneW: 2.2,
-      paneH: 3,
-      gapX: 5,
-      gapY: 8,
-      drawUnlit: !opts.litOnlyAnim,
-      litThreshold: opts.litThreshold,
-      groupRows: opts.quantizedAnim ? 2 : 1,
-      groupCols: opts.quantizedAnim ? 2 : 1,
-    });
-  } else if (tower.profile === "slantedBlock") {
-    for (let row = 0; row < 10; row++) {
-      const wy = top + 16 + row * 12;
-      const inset = row * 0.95;
-      const rowFlicker = getLightFlicker(t, tower.x * 0.09 + row * 1.9 + 12.4);
-      ctx.fillStyle = `rgba(224, 236, 250, ${0.02 + rowFlicker * 0.32})`;
-      ctx.fillRect(x + 6 + inset, wy, tower.w - 18 - inset, 1.5);
-    }
-    ctx.fillStyle = `rgba(248, 244, 222, ${0.22 + getLightFlicker(t, tower.x * 0.05 + 15.1) * 0.34})`;
-    ctx.fillRect(right - 4, top + 9, 2, tower.h - 18);
-    drawFlickerWindows(ctx, {
-      x: x + 7,
-      y: top + 24,
-      w: tower.w - 16,
-      h: tower.h - 34,
-      rows: 8,
-      cols: 3,
-      time: t,
-      seed: tower.x * 0.13 + 7.4,
-      warmBias: 0.58,
-      paneW: 2.6,
-      paneH: 2.8,
-      gapX: 5,
-      gapY: 8,
-      drawUnlit: !opts.litOnlyAnim,
-      litThreshold: opts.litThreshold,
-      groupRows: opts.quantizedAnim ? 2 : 1,
-      groupCols: opts.quantizedAnim ? 2 : 1,
-    });
-  } else if (tower.profile === "eggTower") {
-    for (let row = 0; row < 9; row++) {
-      const wy = top + 22 + row * 11;
-      const shrink = Math.abs(row - 4) * 0.8;
-      const rowFlicker = getLightFlicker(t, tower.x * 0.08 + row * 1.4 + 18.3);
-      ctx.fillStyle = `rgba(224, 238, 252, ${0.02 + rowFlicker * 0.36})`;
-      ctx.fillRect(x + 5 + shrink, wy, tower.w - 10 - shrink * 2, 1.7);
-    }
-    ctx.fillStyle = `rgba(248, 240, 214, ${0.16 + getLightFlicker(t, tower.x * 0.05 + 22.8) * 0.24})`;
-    ctx.fillRect(x + tower.w * 0.68, top + 18, 1.7, tower.h - 26);
-    drawFlickerWindows(ctx, {
-      x: x + 8,
-      y: top + 30,
-      w: tower.w - 16,
-      h: tower.h - 46,
-      rows: 7,
-      cols: 3,
-      time: t,
-      seed: tower.x * 0.11 + 10.2,
-      warmBias: 0.62,
-      paneW: 2.3,
-      paneH: 2.8,
-      gapX: 4.5,
-      gapY: 8,
-      drawUnlit: !opts.litOnlyAnim,
-      litThreshold: opts.litThreshold,
-      groupRows: opts.quantizedAnim ? 2 : 1,
-      groupCols: opts.quantizedAnim ? 2 : 1,
-    });
-  } else if (tower.profile === "bladeTower") {
-    ctx.fillStyle = `rgba(236, 244, 255, ${0.1 + getLightFlicker(t, tower.x * 0.09 + 25.2) * 0.22})`;
-    ctx.fillRect(x + tower.w * 0.16, top + 12, 1.4, tower.h - 18);
-    ctx.fillStyle = `rgba(255, 238, 205, ${0.2 + getLightFlicker(t, tower.x * 0.07 + 28.9) * 0.28})`;
-    ctx.fillRect(right - 3.2, top + 10, 1.8, tower.h - 16);
-    for (let row = 0; row < 11; row++) {
-      const wy = top + 20 + row * 14;
-      const rowFlicker = getLightFlicker(t, tower.x * 0.1 + row * 2.4 + 31.3);
-      ctx.fillStyle =
-        row % 2 === 0
-          ? `rgba(215, 232, 248, ${0.01 + rowFlicker * 0.26})`
-          : `rgba(255, 242, 214, ${0.01 + rowFlicker * 0.2})`;
-      ctx.fillRect(x + 6, wy, tower.w - 12, 1.35);
-    }
-    drawFlickerWindows(ctx, {
-      x: x + 7,
-      y: top + 24,
-      w: tower.w - 14,
-      h: tower.h - 38,
-      rows: 9,
-      cols: 2,
-      time: t,
-      seed: tower.x * 0.09 + 12.6,
-      warmBias: 0.45,
-      paneW: 2.4,
-      paneH: 3,
-      gapX: 6,
-      gapY: 8,
-      drawUnlit: !opts.litOnlyAnim,
-      litThreshold: opts.litThreshold,
-      groupRows: opts.quantizedAnim ? 2 : 1,
-      groupCols: opts.quantizedAnim ? 2 : 1,
-    });
-  } else {
-    const rows = Math.max(2, Math.floor(tower.h / 17));
-    const cols = tower.windows;
-    const winW = cols === 1 ? 3 : 4;
-    const gap = cols === 1 ? 0 : 6;
-    const startX = x + Math.max(2, (tower.w - cols * winW - (cols - 1) * gap) / 2);
-    const groupRows = opts.quantizedAnim ? 2 : 1;
-    const groupCols = opts.quantizedAnim ? 2 : 1;
-    for (let row = 0; row < rows; row++) {
-      for (let col = 0; col < cols; col++) {
-        const groupRow = Math.floor(row / groupRows);
-        const groupCol = Math.floor(col / groupCols);
-        const litSeed = hash01(tower.x, groupRow, groupCol);
-        const lit = Math.sin(t * 0.06 + litSeed * 10 + groupRow * 0.65 + groupCol * 2.1) > (opts.litThreshold ?? -0.2);
-        const flicker = getLightFlicker(t, litSeed * 100 + tower.w * 0.07 + tower.h * 0.01);
-        const wx = startX + col * (winW + gap);
-        const wy = top + 10 + row * 14;
-        if (wy > baseY - 8) continue;
-        if (lit) {
-          ctx.fillStyle = `rgba(255, 202, 132, ${0.02 + litSeed * 0.06 + flicker * 0.44})`;
-          ctx.fillRect(wx - 1, wy - 1, winW + 2, 5);
-          ctx.fillStyle = `rgba(255, 226, 176, ${0.05 + litSeed * 0.08 + flicker * 0.84})`;
-          ctx.fillRect(wx, wy, winW, 3);
-          if (flicker > 0.64) {
-            ctx.fillStyle = `rgba(255, 236, 194, ${(flicker - 0.64) * 1.15})`;
-            ctx.fillRect(wx, wy, winW, 1.4);
-          }
-        } else if (!opts.litOnlyAnim) {
-          ctx.fillStyle = "rgba(4, 6, 12, 0.66)";
-          ctx.fillRect(wx, wy, winW, 3);
-        }
-      }
-    }
-  }
-  ctx.restore();
-}
-
-function mapGameplayBuildingTower(building: Pick<Building, "x" | "w" | "h" | "windows">, index: number): TitleTower {
-  const scenicTower = TITLE_SKYLINE_TOWERS[index];
-  return {
-    x: building.x,
-    w: building.w,
-    h: building.h,
-    windows: building.windows,
-    profile: scenicTower?.profile ?? "generic",
-    roof: scenicTower?.roof ?? "flat",
-    glow: scenicTower?.glow ?? 0.06,
-  };
 }
 
 function drawGameplayForegroundBuildings(

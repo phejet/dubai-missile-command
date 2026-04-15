@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { GAMEPLAY_SCENIC_BASE_Y, GAMEPLAY_SCENIC_GROUND_Y, GROUND_Y, setRng } from "./game-logic.js";
+import { buildBuildingAssets } from "./art-render.js";
 import {
   __getBurjAssetCacheKeysForTest,
   __getBurjAssetsForTest,
   __resetRenderAssetCachesForTest,
-  buildBuildingAssets,
   drawGame,
   drawTitle,
   drawGameOver,

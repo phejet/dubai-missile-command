@@ -12,15 +12,8 @@ import {
   getAmmoCapacity,
   setRng,
 } from "./game-logic";
-import {
-  buildBuildingAssets,
-  drawGame,
-  drawTitle,
-  drawGameOver,
-  perfState,
-  preloadRenderAssets,
-  type BuildingAssets,
-} from "./game-render";
+import { drawGame, drawTitle, drawGameOver, perfState, preloadRenderAssets } from "./game-render";
+import { buildBuildingAssets, type BuildingAssets } from "./art-render";
 import { mulberry32 } from "./headless/rng";
 import {
   bufferPlayerFire,

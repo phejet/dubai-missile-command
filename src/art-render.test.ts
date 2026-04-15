@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { buildBurjAssets, createSpriteCanvas } from "./art-render.js";
+import { buildBuildingAssets, buildBurjAssets, buildTitleBuildingAssets, createSpriteCanvas } from "./art-render.js";
+import { GAMEPLAY_SCENIC_BASE_Y, GROUND_Y } from "./game-logic.js";
 
 const originalDocument = globalThis.document;
 
@@ -56,5 +57,31 @@ describe("buildBurjAssets", () => {
     expect(typeof ctx?.quadraticCurveTo).toBe("function");
     expect(typeof ctx?.setTransform).toBe("function");
     expect(ctx?.globalCompositeOperation).toBe("source-over");
+  });
+});
+
+describe("tower asset baking", () => {
+  it("builds gameplay building sprites in headless mode", () => {
+    Reflect.deleteProperty(globalThis, "document");
+
+    const assets = buildBuildingAssets(GAMEPLAY_SCENIC_BASE_Y);
+
+    expect(assets.staticSprites.length).toBeGreaterThan(0);
+    expect(assets.animFrames.length).toBe(assets.staticSprites.length);
+    expect(assets.frameCount).toBe(8);
+    expect(assets.period).toBe(20);
+    expect(assets.staticOffsets.length).toBe(assets.staticSprites.length);
+    expect(assets.animOffsets.length).toBe(assets.staticSprites.length);
+  });
+
+  it("builds title skyline sprites in headless mode", () => {
+    Reflect.deleteProperty(globalThis, "document");
+
+    const assets = buildTitleBuildingAssets(GROUND_Y - 106);
+
+    expect(assets.staticSprites.length).toBeGreaterThan(0);
+    expect(assets.animFrames.length).toBe(assets.staticSprites.length);
+    expect(assets.frameCount).toBe(8);
+    expect(assets.period).toBe(40);
   });
 });
