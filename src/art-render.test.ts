@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  buildDefenseSiteAssets,
   buildInterceptorSpriteAssets,
   buildBuildingAssets,
   buildBurjAssets,
@@ -170,5 +171,24 @@ describe("projectile sprite asset baking", () => {
     expect(assets.wildHornet.animFrames).toHaveLength(8);
     expect(assets.roadrunner.staticSprite.width).toBeGreaterThan(0);
     expect(assets.patriotSam.staticSprite.height).toBeGreaterThan(0);
+  });
+
+  it("builds defense site sprite variants in headless mode", () => {
+    Reflect.deleteProperty(globalThis, "document");
+
+    const assets = buildDefenseSiteAssets();
+
+    expect(assets.patriotTEL.sprite.width).toBeGreaterThan(0);
+    expect(assets.phalanxBase.sprite.width).toBeGreaterThan(0);
+    expect(assets.wildHornetsHive).toHaveLength(3);
+    expect(assets.roadrunnerContainer).toHaveLength(3);
+    expect(assets.flareDispenser).toHaveLength(3);
+    expect(assets.empEmitter).toHaveLength(3);
+    for (const level of assets.wildHornetsHive) {
+      expect(level.sprite.width).toBeGreaterThan(0);
+    }
+    for (const level of assets.empEmitter) {
+      expect(Number.isFinite(level.offset.x)).toBe(true);
+    }
   });
 });

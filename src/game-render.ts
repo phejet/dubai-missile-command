@@ -28,8 +28,10 @@ import {
   buildLauncherAssets,
   buildSkyAssets,
   buildUpgradeProjectileSpriteAssets,
+  buildDefenseSiteAssets,
   burjPath as traceBurjPath,
   drawBakedProjectileSprite,
+  drawBakedStaticSprite,
   drawBakedLauncher,
   drawLiveInterceptorSprite,
   drawLiveThreatSprite,
@@ -49,6 +51,7 @@ import {
   type ThreatSpriteKind,
   type InterceptorSpriteKind,
   type UpgradeProjectileSpriteAssets,
+  type DefenseSiteAssets,
 } from "./art-render";
 import { getPurchaseDisplayName, UPGRADE_FAMILIES } from "./game-sim-upgrades";
 import type {
@@ -90,6 +93,7 @@ const _launcherAssetsCache = new Map<string, LauncherAssets>();
 const _threatSpriteAssetsCache = new Map<string, ThreatSpriteAssets>();
 const _interceptorSpriteAssetsCache = new Map<string, InterceptorSpriteAssets>();
 const _upgradeProjectileSpriteAssetsCache = new Map<string, UpgradeProjectileSpriteAssets>();
+let _defenseSiteAssets: DefenseSiteAssets | null = null;
 
 type TitleSkylineRenderMode = "bakedBlend" | "bakedSharp" | "live";
 type SceneRenderMode = "bakedSharp" | "live";
@@ -276,6 +280,7 @@ export function preloadRenderAssets() {
   getThreatSpriteAssets(DEFAULT_LAYOUT_PROFILE.enemyScale);
   getInterceptorSpriteAssets(DEFAULT_LAYOUT_PROFILE.projectileScale);
   getUpgradeProjectileSpriteAssets(DEFAULT_LAYOUT_PROFILE.projectileScale);
+  getDefenseSiteAssets();
 }
 
 export function __resetRenderAssetCachesForTest() {
@@ -290,6 +295,7 @@ export function __resetRenderAssetCachesForTest() {
   _threatSpriteAssetsCache.clear();
   _interceptorSpriteAssetsCache.clear();
   _upgradeProjectileSpriteAssetsCache.clear();
+  _defenseSiteAssets = null;
 }
 
 export function __getBurjAssetCacheKeysForTest() {
@@ -330,6 +336,10 @@ export function __getUpgradeProjectileSpriteCacheKeysForTest() {
 
 export function __getUpgradeProjectileSpriteAssetsForTest(scale: number) {
   return getUpgradeProjectileSpriteAssets(scale);
+}
+
+export function __getDefenseSiteAssetsForTest() {
+  return getDefenseSiteAssets();
 }
 
 function drawDistortedWaterSprite(
@@ -683,6 +693,11 @@ function getUpgradeProjectileSpriteAssets(scale: number): UpgradeProjectileSprit
   const assets = buildUpgradeProjectileSpriteAssets(scale);
   _upgradeProjectileSpriteAssetsCache.set(key, assets);
   return assets;
+}
+
+function getDefenseSiteAssets(): DefenseSiteAssets {
+  if (!_defenseSiteAssets) _defenseSiteAssets = buildDefenseSiteAssets();
+  return _defenseSiteAssets;
 }
 
 function getThreatSpriteKind(m: Missile | Drone): ThreatSpriteKind {
@@ -2481,11 +2496,10 @@ function drawGroundStructures(
   // Phalanx turrets
   if (game.upgrades.phalanx > 0) {
     const turrets = getPhalanxTurrets(game.upgrades.phalanx);
+    const siteAssets = getDefenseSiteAssets();
     turrets.forEach((t) => {
-      ctx.fillStyle = "#556677";
-      ctx.fillRect(t.x - 6, t.y, 12, 10);
-      ctx.fillStyle = "#778899";
-      ctx.fillRect(t.x - 4, t.y - 6, 8, 8);
+      drawBakedStaticSprite(ctx, t.x, t.y, siteAssets.phalanxBase);
+      // Rotating barrel stays live.
       ctx.save();
       ctx.translate(t.x, t.y - 4);
       ctx.rotate(game.time * 0.3);
@@ -2505,49 +2519,7 @@ function drawGroundStructures(
     const patriotSite = getDefenseSitePlacement("patriot");
     const patX = patriotSite?.x ?? 334;
     const patY = patriotSite?.y ?? GROUND_Y;
-    ctx.save();
-    ctx.translate(patX, patY);
-    ctx.scale(3, 3);
-    // Truck body
-    ctx.fillStyle = "#3a4a30";
-    ctx.fillRect(-16, -5, 32, 7);
-    // Cab
-    ctx.fillStyle = "#4a5a40";
-    ctx.fillRect(-16, -9, 8, 5);
-    ctx.fillStyle = "#6a8a60";
-    ctx.fillRect(-15, -8, 4, 2);
-    // Angled launcher arm
-    ctx.save();
-    ctx.translate(4, -5);
-    ctx.rotate(-0.45);
-    ctx.fillStyle = "#4a5a3a";
-    ctx.fillRect(-3, -16, 6, 14);
-    // Missile tubes
-    ctx.fillStyle = "#3a4830";
-    ctx.fillRect(-2, -16, 2, 6);
-    ctx.fillRect(0.5, -16, 2, 6);
-    // Missile tips
-    ctx.fillStyle = "#88ff44";
-    glow(ctx, "#88ff44", 2);
-    ctx.fillRect(-1.5, -17, 1.5, 1.5);
-    ctx.fillRect(1, -17, 1.5, 1.5);
-    glowOff(ctx);
-    ctx.restore();
-    // Wheels
-    ctx.fillStyle = "#222";
-    ctx.beginPath();
-    ctx.arc(-12, 1, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(-6, 1, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(8, 1, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(14, 1, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+    drawBakedStaticSprite(ctx, patX, patY, getDefenseSiteAssets().patriotTEL);
     if (layout.showSystemLabels) {
       ctx.fillStyle = "rgba(136,255,68,0.6)";
       ctx.font = `10px ${ARCADE_FONT_FAMILY}`;
@@ -2560,52 +2532,8 @@ function drawGroundStructures(
     const hornetSite = getDefenseSitePlacement("wildHornets");
     const hx = hornetSite?.x ?? 206;
     const hy = hornetSite?.y ?? GROUND_Y;
-    ctx.save();
-    ctx.translate(hx, hy);
-    ctx.scale(3, 3);
-    const cellR = 5;
-    const cells = [
-      { x: 0, y: -8 },
-      { x: -6, y: -4.5 },
-      { x: 6, y: -4.5 },
-      { x: -3, y: -1 },
-      { x: 3, y: -1 },
-    ];
-    // Base platform
-    ctx.fillStyle = "#2a2a20";
-    ctx.fillRect(-14, -1, 28, 4);
-    const lvl = game.upgrades.wildHornets;
-    const filledCells = [2, 3, 5][lvl - 1];
-    cells.forEach((c, i) => {
-      ctx.strokeStyle = "#6a6a40";
-      ctx.lineWidth = 0.8;
-      ctx.beginPath();
-      for (let a = 0; a < 6; a++) {
-        const angle = (Math.PI / 3) * a - Math.PI / 6;
-        const px = c.x + cellR * Math.cos(angle);
-        const py = c.y + cellR * Math.sin(angle);
-        if (a === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-      }
-      ctx.closePath();
-      ctx.fillStyle = i < filledCells ? "#1a1a10" : "#222218";
-      ctx.fill();
-      ctx.stroke();
-      // Drone inside filled cells
-      if (i < filledCells) {
-        ctx.fillStyle = COL.hornet;
-        glow(ctx, COL.hornet, 3);
-        ctx.beginPath();
-        ctx.moveTo(c.x, c.y - 2.5);
-        ctx.lineTo(c.x + 2, c.y + 1.5);
-        ctx.lineTo(c.x, c.y + 0.5);
-        ctx.lineTo(c.x - 2, c.y + 1.5);
-        ctx.closePath();
-        ctx.fill();
-        glowOff(ctx);
-      }
-    });
-    ctx.restore();
+    const lvl = Math.max(1, Math.min(3, game.upgrades.wildHornets));
+    drawBakedStaticSprite(ctx, hx, hy, getDefenseSiteAssets().wildHornetsHive[lvl - 1]);
     if (layout.showSystemLabels) {
       ctx.fillStyle = "rgba(255,204,0,0.6)";
       ctx.font = `10px ${ARCADE_FONT_FAMILY}`;
@@ -2618,43 +2546,8 @@ function drawGroundStructures(
     const roadrunnerSite = getDefenseSitePlacement("roadrunner");
     const rrX = roadrunnerSite?.x ?? 678;
     const rrY = roadrunnerSite?.y ?? GROUND_Y;
-    ctx.save();
-    ctx.translate(rrX, rrY);
-    ctx.scale(3, 3);
-    // Container walls (3 walls, no top)
-    ctx.fillStyle = "#1e2e3e";
-    ctx.fillRect(-14, -10, 2, 12); // left wall
-    ctx.fillRect(12, -10, 2, 12); // right wall
-    ctx.fillRect(-14, 0, 28, 2); // bottom
-    // Back wall
-    ctx.fillStyle = "#162636";
-    ctx.fillRect(-12, -10, 24, 2);
-    // Missiles inside (count by level)
-    const rrCount = Math.min(game.upgrades.roadrunner, 3);
-    for (let i = 0; i < rrCount; i++) {
-      ctx.fillStyle = "#2c4760";
-      ctx.fillRect(-9 + i * 8, -9, 4, 9);
-      // Nose cone
-      ctx.fillStyle = "#44aaff";
-      glow(ctx, "#44aaff", 2);
-      ctx.beginPath();
-      ctx.moveTo(-7 + i * 8, -12);
-      ctx.lineTo(-9 + i * 8, -9);
-      ctx.lineTo(-5 + i * 8, -9);
-      ctx.closePath();
-      ctx.fill();
-      glowOff(ctx);
-    }
-    // Blue accent stripe
-    ctx.fillStyle = "#44aaff";
-    ctx.globalAlpha = 0.3;
-    ctx.fillRect(-14, -1, 28, 1.5);
-    ctx.globalAlpha = 1;
-    // Base legs
-    ctx.fillStyle = "#2a3a4a";
-    ctx.fillRect(-12, 1, 4, 2);
-    ctx.fillRect(8, 1, 4, 2);
-    ctx.restore();
+    const lvl = Math.max(1, Math.min(3, game.upgrades.roadrunner));
+    drawBakedStaticSprite(ctx, rrX, rrY, getDefenseSiteAssets().roadrunnerContainer[lvl - 1]);
     if (layout.showSystemLabels) {
       ctx.fillStyle = "rgba(68,170,255,0.6)";
       ctx.font = `10px ${ARCADE_FONT_FAMILY}`;
@@ -2665,30 +2558,9 @@ function drawGroundStructures(
   // Flare launcher — integrated dispensers near top of Burj
   if (game.upgrades.flare > 0) {
     const flareY = GROUND_Y - BURJ_H * 0.97;
-    const lvl = game.upgrades.flare;
-    const towerHW = 3.5; // approximate half-width at this height
-
-    // Flush-mounted dispenser panels on both sides of the tower
-    // Left dispenser
-    ctx.fillStyle = "#8a7a68";
-    ctx.fillRect(BURJ_X - towerHW - 4, flareY - 4, 4, 8);
-    // Dispenser tubes (count by level)
-    ctx.fillStyle = "#ff9944";
-    const leftTubes = Math.min(lvl, 2);
-    for (let i = 0; i < leftTubes; i++) {
-      ctx.fillRect(BURJ_X - towerHW - 3.5, flareY - 3 + i * 4, 3, 2);
-    }
-
-    // Right dispenser
-    ctx.fillStyle = "#8a7a68";
-    ctx.fillRect(BURJ_X + towerHW, flareY - 4, 4, 8);
-    ctx.fillStyle = "#ff9944";
-    const rightTubes = lvl >= 2 ? lvl - 1 : 0;
-    for (let i = 0; i < rightTubes; i++) {
-      ctx.fillRect(BURJ_X + towerHW + 0.5, flareY - 3 + i * 4, 3, 2);
-    }
-
-    // Warm glow when flares are launching
+    const lvl = Math.max(1, Math.min(3, game.upgrades.flare));
+    drawBakedStaticSprite(ctx, BURJ_X, flareY, getDefenseSiteAssets().flareDispenser[lvl - 1]);
+    // Warm glow when flares are launching stays live.
     if (game.flares.some((f) => f.alive && f.life > f.maxLife - 10)) {
       ctx.fillStyle = "rgba(255,160,60,0.35)";
       ctx.beginPath();
@@ -2705,29 +2577,9 @@ function drawGroundStructures(
   // EMP emitter — mounted at center of Burj
   if (game.upgrades.emp > 0) {
     const empY = GROUND_Y - BURJ_H * 0.67;
-    const lvl = game.upgrades.emp;
-    // Mounting ring on Burj
-    ctx.strokeStyle = "#7a5a9a";
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(BURJ_X, empY, 7, 0, Math.PI * 2);
-    ctx.stroke();
-    // Coil nodes (more at higher levels)
+    const lvl = Math.max(1, Math.min(3, game.upgrades.emp));
     const nodeCount = lvl + 1;
-    ctx.fillStyle = "#8866aa";
-    for (let i = 0; i < nodeCount; i++) {
-      const angle = (i / nodeCount) * Math.PI * 2 - Math.PI / 2;
-      const nx = BURJ_X + Math.cos(angle) * 7;
-      const ny = empY + Math.sin(angle) * 7;
-      ctx.beginPath();
-      ctx.arc(nx, ny, 2.5, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    // Center core
-    ctx.fillStyle = "#6644aa";
-    ctx.beginPath();
-    ctx.arc(BURJ_X, empY, 3, 0, Math.PI * 2);
-    ctx.fill();
+    drawBakedStaticSprite(ctx, BURJ_X, empY, getDefenseSiteAssets().empEmitter[lvl - 1]);
     // Charging arcs between nodes
     if (game.empCharge > 0 && game.empChargeMax > 0) {
       const chargeRatio = game.empCharge / game.empChargeMax;
