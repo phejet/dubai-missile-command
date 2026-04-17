@@ -6,6 +6,7 @@ import {
   buildLauncherAssets,
   buildThreatSpriteAssets,
   buildTitleBuildingAssets,
+  buildUpgradeProjectileSpriteAssets,
   createSpriteCanvas,
 } from "./art-render.js";
 import { GAMEPLAY_SCENIC_BASE_Y, GROUND_Y } from "./game-logic.js";
@@ -157,5 +158,17 @@ describe("projectile sprite asset baking", () => {
     expect(assets.playerInterceptor.scale).toBe(2);
     expect(assets.playerInterceptor.animFrames).toHaveLength(8);
     expect(assets.f15Interceptor.staticSprite.width).toBeGreaterThan(0);
+  });
+
+  it("builds upgrade projectile sprite variants in headless mode", () => {
+    Reflect.deleteProperty(globalThis, "document");
+
+    const assets = buildUpgradeProjectileSpriteAssets(2);
+
+    expect(Object.keys(assets).sort()).toEqual(["patriotSam", "roadrunner", "wildHornet"]);
+    expect(assets.wildHornet.scale).toBe(2);
+    expect(assets.wildHornet.animFrames).toHaveLength(8);
+    expect(assets.roadrunner.staticSprite.width).toBeGreaterThan(0);
+    expect(assets.patriotSam.staticSprite.height).toBeGreaterThan(0);
   });
 });

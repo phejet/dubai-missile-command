@@ -27,6 +27,7 @@ import {
   buildBurjAssets,
   buildLauncherAssets,
   buildSkyAssets,
+  buildUpgradeProjectileSpriteAssets,
   burjPath as traceBurjPath,
   drawBakedProjectileSprite,
   drawBakedLauncher,
@@ -47,6 +48,7 @@ import {
   type ThreatSpriteAssets,
   type ThreatSpriteKind,
   type InterceptorSpriteKind,
+  type UpgradeProjectileSpriteAssets,
 } from "./art-render";
 import { getPurchaseDisplayName, UPGRADE_FAMILIES } from "./game-sim-upgrades";
 import type {
@@ -87,6 +89,7 @@ const _burjAssetsCache = new Map<string, BurjAssets>();
 const _launcherAssetsCache = new Map<string, LauncherAssets>();
 const _threatSpriteAssetsCache = new Map<string, ThreatSpriteAssets>();
 const _interceptorSpriteAssetsCache = new Map<string, InterceptorSpriteAssets>();
+const _upgradeProjectileSpriteAssetsCache = new Map<string, UpgradeProjectileSpriteAssets>();
 
 type TitleSkylineRenderMode = "bakedBlend" | "bakedSharp" | "live";
 type SceneRenderMode = "bakedSharp" | "live";
@@ -272,6 +275,7 @@ export function preloadRenderAssets() {
   getLauncherAssets(gameplayLauncherScale, true);
   getThreatSpriteAssets(DEFAULT_LAYOUT_PROFILE.enemyScale);
   getInterceptorSpriteAssets(DEFAULT_LAYOUT_PROFILE.projectileScale);
+  getUpgradeProjectileSpriteAssets(DEFAULT_LAYOUT_PROFILE.projectileScale);
 }
 
 export function __resetRenderAssetCachesForTest() {
@@ -285,6 +289,7 @@ export function __resetRenderAssetCachesForTest() {
   _launcherAssetsCache.clear();
   _threatSpriteAssetsCache.clear();
   _interceptorSpriteAssetsCache.clear();
+  _upgradeProjectileSpriteAssetsCache.clear();
 }
 
 export function __getBurjAssetCacheKeysForTest() {
@@ -317,6 +322,14 @@ export function __getInterceptorSpriteCacheKeysForTest() {
 
 export function __getInterceptorSpriteAssetsForTest(scale: number) {
   return getInterceptorSpriteAssets(scale);
+}
+
+export function __getUpgradeProjectileSpriteCacheKeysForTest() {
+  return [..._upgradeProjectileSpriteAssetsCache.keys()].sort();
+}
+
+export function __getUpgradeProjectileSpriteAssetsForTest(scale: number) {
+  return getUpgradeProjectileSpriteAssets(scale);
 }
 
 function drawDistortedWaterSprite(
@@ -660,6 +673,15 @@ function getInterceptorSpriteAssets(scale: number): InterceptorSpriteAssets {
   if (cached) return cached;
   const assets = buildInterceptorSpriteAssets(scale);
   _interceptorSpriteAssetsCache.set(key, assets);
+  return assets;
+}
+
+function getUpgradeProjectileSpriteAssets(scale: number): UpgradeProjectileSpriteAssets {
+  const key = scale.toFixed(3);
+  const cached = _upgradeProjectileSpriteAssetsCache.get(key);
+  if (cached) return cached;
+  const assets = buildUpgradeProjectileSpriteAssets(scale);
+  _upgradeProjectileSpriteAssetsCache.set(key, assets);
   return assets;
 }
 
@@ -2021,6 +2043,9 @@ function drawInterceptors(
 }
 
 function drawUpgradeProjectiles(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutProfile) {
+  const upgradeSprites = getUpgradeProjectileSpriteAssets(layout.projectileScale);
+  const t = game.time / 60;
+
   // Wild Hornets
   game.hornets.forEach((h: Hornet) => {
     const heading =
@@ -2033,25 +2058,11 @@ function drawUpgradeProjectiles(ctx: CanvasRenderingContext2D, game: GameState, 
       coreWidth: 1.2 * layout.effectScale,
       headRadius: 1.7 * layout.effectScale,
     });
-    ctx.save();
-    ctx.translate(h.x, h.y);
-    ctx.rotate(heading + Math.PI / 2);
-    ctx.scale(layout.projectileScale, layout.projectileScale);
-    ctx.fillStyle = COL.hornet;
     glow(ctx, COL.hornet, 8 * layout.effectScale);
-    ctx.beginPath();
-    ctx.moveTo(0, -5);
-    ctx.lineTo(3.5, 4);
-    ctx.lineTo(0, 2);
-    ctx.lineTo(-3.5, 4);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = "rgba(255,244,160,0.85)";
-    ctx.fillRect(-0.8, -4, 1.6, 5);
-    ctx.fillStyle = "rgba(255,204,0,0.45)";
-    ctx.fillRect(-6, 0, 4, 1.6);
-    ctx.fillRect(2, 0, 4, 1.6);
-    ctx.restore();
+    drawBakedProjectileSprite(ctx, h.x, h.y, heading + Math.PI / 2, upgradeSprites.wildHornet, {
+      t,
+      sharpFrames: true,
+    });
     glowOff(ctx);
   });
 
@@ -2065,79 +2076,54 @@ function drawUpgradeProjectiles(ctx: CanvasRenderingContext2D, game: GameState, 
       coreWidth: 1.5 * layout.effectScale,
       headRadius: 1.9 * layout.effectScale,
     });
-    ctx.fillStyle = COL.roadrunner;
-    glow(ctx, COL.roadrunner, 10 * layout.effectScale);
-    ctx.save();
-    ctx.translate(r.x, r.y);
-    // Rotate to face direction of travel
-    let angle = -Math.PI / 2; // default: pointing up (launch phase)
+    // Rotate to face direction of travel (default: pointing up during launch)
+    let angle = 0;
     if (r.trail.length >= 2) {
       const prev = r.trail[r.trail.length - 1];
       angle = Math.atan2(r.y - prev.y, r.x - prev.x) + Math.PI / 2;
     }
-    ctx.rotate(angle);
-    ctx.scale(layout.projectileScale, layout.projectileScale);
-    ctx.fillStyle = "#2c4760";
-    ctx.beginPath();
-    ctx.moveTo(0, -10);
-    ctx.lineTo(5, 5);
-    ctx.lineTo(0, 2);
-    ctx.lineTo(-5, 5);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = "#7fd5ff";
-    ctx.fillRect(-1.5, -8, 3, 5);
-    ctx.fillStyle = "rgba(255,255,255,0.85)";
-    ctx.fillRect(-0.7, -5, 1.4, 2);
-    ctx.restore();
+    glow(ctx, COL.roadrunner, 10 * layout.effectScale);
+    drawBakedProjectileSprite(ctx, r.x, r.y, angle, upgradeSprites.roadrunner, {
+      t,
+      sharpFrames: true,
+    });
     glowOff(ctx);
   });
 
   // Patriot missiles
   game.patriotMissiles.forEach((p: PatriotMissile) => {
     ctx.beginPath();
-    p.trail.forEach((t, i) => {
+    p.trail.forEach((tp, i) => {
       ctx.strokeStyle = `rgba(136,255,68,${(i / p.trail.length) * 0.7})`;
       ctx.lineWidth = 2.5 * layout.effectScale;
-      if (i === 0) ctx.moveTo(t.x, t.y);
-      else ctx.lineTo(t.x, t.y);
+      if (i === 0) ctx.moveTo(tp.x, tp.y);
+      else ctx.lineTo(tp.x, tp.y);
     });
     if (p.trail.length > 1) ctx.stroke();
-    // Rotate to face direction of travel
-    let pAngle = -Math.PI / 2;
+    let pAngle = 0;
     if (p.trail.length >= 2) {
       const prev = p.trail[p.trail.length - 1];
       pAngle = Math.atan2(p.y - prev.y, p.x - prev.x) + Math.PI / 2;
     }
+    glow(ctx, COL.patriot, 12 * layout.effectScale);
+    drawBakedProjectileSprite(ctx, p.x, p.y, pAngle, upgradeSprites.patriotSam, {
+      t,
+      sharpFrames: true,
+    });
+    glowOff(ctx);
+    // Live exhaust flame — pulses per missile, so stays out of the bake.
     ctx.save();
     ctx.translate(p.x, p.y);
     ctx.rotate(pAngle);
     ctx.scale(layout.projectileScale, layout.projectileScale);
-    glow(ctx, COL.patriot, 12 * layout.effectScale);
-    // Missile body
-    ctx.fillStyle = "#2a5a2a";
-    ctx.fillRect(-3, -8, 6, 16);
-    // Nosecone
-    ctx.fillStyle = COL.patriot;
-    ctx.beginPath();
-    ctx.moveTo(-3, -8);
-    ctx.lineTo(0, -13);
-    ctx.lineTo(3, -8);
-    ctx.fill();
-    // Fins
-    ctx.fillStyle = "#1a4a1a";
-    ctx.fillRect(-5, 5, 2, 4);
-    ctx.fillRect(3, 5, 2, 4);
-    // Exhaust flame
-    ctx.fillStyle = "#ffaa22";
     const flameLen = 5 + 4 * pulse(game.time, 0.5, p.x * 0.02 + p.y * 0.015);
+    ctx.fillStyle = "#ffaa22";
     ctx.beginPath();
     ctx.moveTo(-2, 8);
     ctx.lineTo(0, 8 + flameLen);
     ctx.lineTo(2, 8);
     ctx.fill();
     ctx.restore();
-    glowOff(ctx);
   });
 }
 

@@ -69,6 +69,8 @@ export type ThreatSpriteKind =
 
 export type InterceptorSpriteKind = "playerInterceptor" | "f15Interceptor";
 
+export type UpgradeProjectileKind = "wildHornet" | "roadrunner" | "patriotSam";
+
 export interface ProjectileSpriteAsset {
   staticSprite: HTMLCanvasElement;
   animFrames: HTMLCanvasElement[];
@@ -81,6 +83,7 @@ export interface ProjectileSpriteAsset {
 
 export type ThreatSpriteAssets = Record<ThreatSpriteKind, ProjectileSpriteAsset>;
 export type InterceptorSpriteAssets = Record<InterceptorSpriteKind, ProjectileSpriteAsset>;
+export type UpgradeProjectileSpriteAssets = Record<UpgradeProjectileKind, ProjectileSpriteAsset>;
 
 export type TitleTower = {
   x: number;
@@ -141,6 +144,21 @@ const SHAHED_136_BOUNDS = { x: -18, y: -14, width: 36, height: 28 } as const;
 const SHAHED_238_BOUNDS = { x: -28, y: -18, width: 52, height: 36 } as const;
 const PLAYER_INTERCEPTOR_BOUNDS = { x: -40, y: -12, width: 58, height: 24 } as const;
 const F15_INTERCEPTOR_BOUNDS = { x: -14, y: -10, width: 24, height: 20 } as const;
+const WILD_HORNET_BOUNDS = { x: -8, y: -7, width: 16, height: 13 } as const;
+const ROADRUNNER_BOUNDS = { x: -7, y: -12, width: 14, height: 19 } as const;
+const PATRIOT_SAM_BOUNDS = { x: -7, y: -15, width: 14, height: 26 } as const;
+
+const UPGRADE_PROJECTILE_COLORS = {
+  hornetBody: "#ffcc00",
+  hornetBright: "rgba(255,244,160,0.85)",
+  hornetWing: "rgba(255,204,0,0.45)",
+  roadrunnerBody: "#2c4760",
+  roadrunnerFin: "#7fd5ff",
+  roadrunnerHighlight: "rgba(255,255,255,0.85)",
+  patriotBody: "#2a5a2a",
+  patriotNose: "#88ff44",
+  patriotFin: "#1a4a1a",
+} as const;
 
 export const TITLE_SKYLINE_TOWERS: TitleTower[] = [...SCENIC_BUILDING_LAYOUT];
 
@@ -1293,6 +1311,60 @@ function drawF15InterceptorLocal(ctx: CanvasRenderingContext2D, framePhase: numb
   ctx.lineTo(-2.8, 0.55);
   ctx.closePath();
   ctx.fill();
+}
+
+function drawWildHornetLocal(ctx: CanvasRenderingContext2D) {
+  ctx.fillStyle = UPGRADE_PROJECTILE_COLORS.hornetBody;
+  ctx.beginPath();
+  ctx.moveTo(0, -5);
+  ctx.lineTo(3.5, 4);
+  ctx.lineTo(0, 2);
+  ctx.lineTo(-3.5, 4);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = UPGRADE_PROJECTILE_COLORS.hornetBright;
+  ctx.fillRect(-0.8, -4, 1.6, 5);
+  ctx.fillStyle = UPGRADE_PROJECTILE_COLORS.hornetWing;
+  ctx.fillRect(-6, 0, 4, 1.6);
+  ctx.fillRect(2, 0, 4, 1.6);
+}
+
+function drawRoadrunnerLocal(ctx: CanvasRenderingContext2D) {
+  ctx.fillStyle = UPGRADE_PROJECTILE_COLORS.roadrunnerBody;
+  ctx.beginPath();
+  ctx.moveTo(0, -10);
+  ctx.lineTo(5, 5);
+  ctx.lineTo(0, 2);
+  ctx.lineTo(-5, 5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = UPGRADE_PROJECTILE_COLORS.roadrunnerFin;
+  ctx.fillRect(-1.5, -8, 3, 5);
+  ctx.fillStyle = UPGRADE_PROJECTILE_COLORS.roadrunnerHighlight;
+  ctx.fillRect(-0.7, -5, 1.4, 2);
+}
+
+function drawPatriotSamLocal(ctx: CanvasRenderingContext2D) {
+  ctx.fillStyle = UPGRADE_PROJECTILE_COLORS.patriotBody;
+  ctx.fillRect(-3, -8, 6, 16);
+  ctx.fillStyle = UPGRADE_PROJECTILE_COLORS.patriotNose;
+  ctx.beginPath();
+  ctx.moveTo(-3, -8);
+  ctx.lineTo(0, -13);
+  ctx.lineTo(3, -8);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = UPGRADE_PROJECTILE_COLORS.patriotFin;
+  ctx.fillRect(-5, 5, 2, 4);
+  ctx.fillRect(3, 5, 2, 4);
+}
+
+export function buildUpgradeProjectileSpriteAssets(scale: number): UpgradeProjectileSpriteAssets {
+  return {
+    wildHornet: buildProjectileSpriteAsset(scale, WILD_HORNET_BOUNDS, 0.8, drawWildHornetLocal),
+    roadrunner: buildProjectileSpriteAsset(scale, ROADRUNNER_BOUNDS, 0.8, drawRoadrunnerLocal),
+    patriotSam: buildProjectileSpriteAsset(scale, PATRIOT_SAM_BOUNDS, 0.8, drawPatriotSamLocal),
+  };
 }
 
 export function buildThreatSpriteAssets(scale: number): ThreatSpriteAssets {
