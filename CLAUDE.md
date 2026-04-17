@@ -11,6 +11,7 @@ npx vite build       # production build to dist/
 ```
 
 When doing local verification, if you stop the dev server for testing or debugging, start it again before finishing and confirm the local URL.
+After implementing a feature or bug fix, proactively check whether the dev server is already running. If it is not running and browser verification could matter, start `npm run dev` yourself and report the active local URL before finishing.
 
 ## Running the Bot
 
@@ -64,13 +65,29 @@ Replays record bot actions (fire coordinates + shop purchases at tick numbers) w
 
 ## Architecture
 
-Game logic is split across `src/game-sim.js` (simulation) and `src/App.jsx` (rendering + React UI).
+Current runtime architecture is split across:
+
+- `src/game-sim.ts` — simulation and gameplay state mutation
+- `src/art-render.ts` — shared art primitives and prebaked sprite generation
+- `src/game-render.ts` — frame composition and render-time asset caching
+- `src/game.ts` — runtime controller that advances sim and calls renderers
+
+Start with [`docs/README.md`](./docs/README.md) for the current documentation map.
+Focused breakdowns:
+
+- [`docs/render-split-analysis.md`](./docs/render-split-analysis.md)
+- [`docs/runtime-controller.md`](./docs/runtime-controller.md)
+- [`docs/game-state-contract.md`](./docs/game-state-contract.md)
+- [`docs/spawn-commander-reference.md`](./docs/spawn-commander-reference.md)
+- [`docs/upgrades-shop-progression.md`](./docs/upgrades-shop-progression.md)
+- [`docs/replay-system.md`](./docs/replay-system.md)
+- [`docs/headless-bot-workflow.md`](./docs/headless-bot-workflow.md)
 
 ### Key constants
 
-- `CANVAS_W=900`, `CANVAS_H=640`, `GROUND_Y=570`
+- `CANVAS_W=900`, `CANVAS_H=1600`, `GROUND_Y=1530`
 - `BURJ_X=460`, `BURJ_H=340`
-- `LAUNCHERS` at x: 60, 550, 860
+- `LAUNCHERS` at x: 60, 560, 860
 
 ### Game state (`gameRef.current`)
 
