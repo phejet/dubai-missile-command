@@ -4,8 +4,12 @@ import { buildBuildingAssets } from "./art-render.js";
 import {
   __getBurjAssetCacheKeysForTest,
   __getBurjAssetsForTest,
+  __getInterceptorSpriteAssetsForTest,
+  __getInterceptorSpriteCacheKeysForTest,
   __getLauncherAssetCacheKeysForTest,
   __getLauncherAssetsForTest,
+  __getThreatSpriteAssetsForTest,
+  __getThreatSpriteCacheKeysForTest,
   __resetRenderAssetCachesForTest,
   drawGame,
   drawTitle,
@@ -22,6 +26,8 @@ import { initGame } from "./game-sim.js";
 import type { GameState } from "./types";
 
 const DEFAULT_GAMEPLAY_LAUNCHER_SCALE = 0.8 + 3 * 0.06;
+const DEFAULT_THREAT_SPRITE_SCALE = 3;
+const DEFAULT_INTERCEPTOR_SPRITE_SCALE = 2;
 
 type CallEntry = { method: string; args: unknown[] };
 type MockCtx = CanvasRenderingContext2D & Record<string, unknown>;
@@ -293,6 +299,134 @@ describe("drawGame", () => {
     expect(() => drawGame(ctx, gameState, { showShop: false })).not.toThrow();
   });
 
+  it("renders live gameplay variants without warming baked projectile or structure caches", () => {
+    const { ctx } = mockCanvasContext();
+    __resetRenderAssetCachesForTest();
+
+    gameState.missiles.push(
+      {
+        x: 410,
+        y: 96,
+        vx: 0.25,
+        vy: 1.2,
+        alive: true,
+        accel: 1.01,
+        type: "mirv",
+        health: 2,
+        maxHealth: 3,
+        trail: [{ x: 408, y: 84 }],
+      },
+      {
+        x: 438,
+        y: 132,
+        vx: 0.5,
+        vy: 1.1,
+        alive: true,
+        accel: 1.02,
+        type: "mirv_warhead",
+        trail: [{ x: 435, y: 121 }],
+      },
+      {
+        x: 466,
+        y: 168,
+        vx: 0.65,
+        vy: 1.15,
+        alive: true,
+        accel: 1.01,
+        type: "bomb",
+        trail: [{ x: 462, y: 156 }],
+      },
+      {
+        x: 494,
+        y: 204,
+        vx: 0.55,
+        vy: 1.05,
+        alive: true,
+        accel: 1.01,
+        type: "stack2",
+        trail: [{ x: 490, y: 193 }],
+      },
+      {
+        x: 522,
+        y: 240,
+        vx: 0.7,
+        vy: 1.1,
+        alive: true,
+        accel: 1.01,
+        type: "stack3",
+        trail: [{ x: 517, y: 228 }],
+      },
+      {
+        x: 550,
+        y: 276,
+        vx: 0.8,
+        vy: 1.2,
+        alive: true,
+        accel: 1.01,
+        type: "stack_child",
+        trail: [{ x: 544, y: 263 }],
+      },
+    );
+    gameState.drones.push(
+      {
+        x: 260,
+        y: 248,
+        vx: 1.2,
+        vy: 0.15,
+        alive: true,
+        health: 1,
+        type: "drone",
+        subtype: "shahed136",
+        collisionRadius: 24,
+        wobble: 0,
+        trail: [{ x: 248, y: 247 }],
+      },
+      {
+        x: 286,
+        y: 292,
+        vx: 1.45,
+        vy: 0.7,
+        alive: true,
+        health: 2,
+        type: "drone",
+        subtype: "shahed238",
+        collisionRadius: 28,
+        wobble: 0,
+        diving: true,
+        trail: [{ x: 272, y: 284 }],
+      },
+    );
+    gameState.interceptors.push(
+      {
+        x: 120,
+        y: 560,
+        vx: 0.1,
+        vy: -3.2,
+        targetX: 410,
+        targetY: 96,
+        alive: true,
+        trail: [{ x: 118, y: 573 }],
+      },
+      {
+        x: 720,
+        y: 406,
+        vx: -2.8,
+        vy: -0.45,
+        targetX: 494,
+        targetY: 204,
+        alive: true,
+        trail: [{ x: 735, y: 409 }],
+        fromF15: true,
+      },
+    );
+
+    expect(() => drawGame(ctx, gameState, { showShop: false, renderMode: "live" })).not.toThrow();
+    expect(__getBurjAssetCacheKeysForTest()).toEqual([]);
+    expect(__getLauncherAssetCacheKeysForTest()).toEqual([]);
+    expect(__getThreatSpriteCacheKeysForTest()).toEqual([]);
+    expect(__getInterceptorSpriteCacheKeysForTest()).toEqual([]);
+  });
+
   it("does not throw with showShop true", () => {
     const { ctx } = mockCanvasContext();
     expect(() => drawGame(ctx, gameState, { showShop: true })).not.toThrow();
@@ -324,6 +458,24 @@ describe("drawGame", () => {
     drawGame(ctx, gameState, { showShop: false });
 
     expect(__getLauncherAssetCacheKeysForTest()).toContain(`${DEFAULT_GAMEPLAY_LAUNCHER_SCALE.toFixed(3)}:1`);
+  });
+
+  it("warms the gameplay threat sprite cache entry", () => {
+    const { ctx } = mockCanvasContext();
+    __resetRenderAssetCachesForTest();
+
+    drawGame(ctx, gameState, { showShop: false });
+
+    expect(__getThreatSpriteCacheKeysForTest()).toContain(DEFAULT_THREAT_SPRITE_SCALE.toFixed(3));
+  });
+
+  it("warms the gameplay interceptor sprite cache entry", () => {
+    const { ctx } = mockCanvasContext();
+    __resetRenderAssetCachesForTest();
+
+    drawGame(ctx, gameState, { showShop: false });
+
+    expect(__getInterceptorSpriteCacheKeysForTest()).toContain(DEFAULT_INTERCEPTOR_SPRITE_SCALE.toFixed(3));
   });
 });
 
@@ -382,6 +534,14 @@ describe("drawTitle", () => {
     drawTitle(ctx, { skylineRenderMode: "live" });
 
     expect(__getLauncherAssetCacheKeysForTest()).toEqual([]);
+  });
+
+  it("keeps title threat sprites live when the title skyline is live", () => {
+    const { ctx } = mockCanvasContext();
+
+    drawTitle(ctx, { skylineRenderMode: "live" });
+
+    expect(__getThreatSpriteCacheKeysForTest()).toEqual([]);
   });
 });
 
@@ -443,6 +603,35 @@ describe("launcher asset cache", () => {
       `${DEFAULT_GAMEPLAY_LAUNCHER_SCALE.toFixed(3)}:1`,
       "1.000:0",
     ]);
+  });
+});
+
+describe("projectile sprite caches", () => {
+  beforeEach(() => {
+    __resetRenderAssetCachesForTest();
+  });
+
+  it("reuses threat sprite assets for the same scale", () => {
+    const first = __getThreatSpriteAssetsForTest(DEFAULT_THREAT_SPRITE_SCALE);
+    const second = __getThreatSpriteAssetsForTest(DEFAULT_THREAT_SPRITE_SCALE);
+
+    expect(first).toBe(second);
+    expect(__getThreatSpriteCacheKeysForTest()).toEqual([DEFAULT_THREAT_SPRITE_SCALE.toFixed(3)]);
+  });
+
+  it("reuses interceptor sprite assets for the same scale", () => {
+    const first = __getInterceptorSpriteAssetsForTest(DEFAULT_INTERCEPTOR_SPRITE_SCALE);
+    const second = __getInterceptorSpriteAssetsForTest(DEFAULT_INTERCEPTOR_SPRITE_SCALE);
+
+    expect(first).toBe(second);
+    expect(__getInterceptorSpriteCacheKeysForTest()).toEqual([DEFAULT_INTERCEPTOR_SPRITE_SCALE.toFixed(3)]);
+  });
+
+  it("preloads common gameplay projectile sprite variants", () => {
+    preloadRenderAssets();
+
+    expect(__getThreatSpriteCacheKeysForTest()).toEqual([DEFAULT_THREAT_SPRITE_SCALE.toFixed(3)]);
+    expect(__getInterceptorSpriteCacheKeysForTest()).toEqual([DEFAULT_INTERCEPTOR_SPRITE_SCALE.toFixed(3)]);
   });
 });
 

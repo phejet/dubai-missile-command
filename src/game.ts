@@ -70,6 +70,7 @@ declare global {
 
 const REPLAY_CHECKPOINT_INTERVAL = 60;
 const HUD_REFRESH_MS = 120;
+type SceneRenderMode = "bakedSharp" | "live";
 const LAYOUT_PROFILE = {
   key: "phonePortrait",
   showTopHud: false,
@@ -183,6 +184,7 @@ export class Game {
   private hudEl: HTMLElement;
   private titleProgressionButton: HTMLElement;
   private titleRenderModeButton: HTMLButtonElement;
+  private gameplayRenderModeButton: HTMLButtonElement;
   private gameoverPanel: HTMLElement;
   private progressionPanel: HTMLElement;
   private progressionButton: HTMLElement;
@@ -216,7 +218,8 @@ export class Game {
   private bonusActive = false;
   private progressionOpen = false;
   private buildingAssets: BuildingAssets | null = null;
-  private titleRenderMode: "bakedSharp" | "live" = "bakedSharp";
+  private titleRenderMode: SceneRenderMode = "bakedSharp";
+  private gameplayRenderMode: SceneRenderMode = "bakedSharp";
 
   // Final stats for game over
   private finalScore = 0;
@@ -232,6 +235,7 @@ export class Game {
     this.hudEl = document.getElementById("battlefield-hud")!;
     this.titleProgressionButton = document.getElementById("title-progression-button")!;
     this.titleRenderModeButton = document.getElementById("title-render-mode-button") as HTMLButtonElement;
+    this.gameplayRenderModeButton = document.getElementById("option-render") as HTMLButtonElement;
     this.gameoverPanel = document.getElementById("gameover-panel")!;
     this.progressionPanel = document.getElementById("progression-panel")!;
     this.progressionButton = document.getElementById("progression-button")!;
@@ -283,6 +287,7 @@ export class Game {
     document.getElementById("option-sound")!.addEventListener("click", () => void this.toggleMute());
     document.getElementById("option-debug")!.addEventListener("click", () => this.toggleDebug());
     document.getElementById("option-perf")!.addEventListener("click", () => this.togglePerf());
+    this.gameplayRenderModeButton.addEventListener("click", () => this.toggleGameplayRenderMode());
 
     // Resize
     window.addEventListener("resize", () => this.updateCompactClass());
@@ -333,6 +338,7 @@ export class Game {
     this.hudEl.hidden = s !== "playing";
     this.titleProgressionButton.hidden = true;
     this.titleRenderModeButton.hidden = s !== "title";
+    this.gameplayRenderModeButton.hidden = s !== "playing";
     this.gameoverPanel.hidden = s !== "gameover" || this.progressionOpen;
     this.progressionPanel.hidden = !this.progressionOpen || s !== "gameover";
     this.battlefieldCard.classList.toggle("battlefield-card--portraitSky", s === "playing");
@@ -354,6 +360,7 @@ export class Game {
     }
 
     this.syncTitleRenderModeButton();
+    this.syncGameplayRenderModeButton();
   }
 
   private syncTitleRenderModeButton(): void {
@@ -368,6 +375,21 @@ export class Game {
   private toggleTitleRenderMode(): void {
     this.titleRenderMode = this.titleRenderMode === "live" ? "bakedSharp" : "live";
     this.syncTitleRenderModeButton();
+  }
+
+  private syncGameplayRenderModeButton(): void {
+    const live = this.gameplayRenderMode === "live";
+    this.gameplayRenderModeButton.classList.toggle("battlefield-option--active", live);
+    this.gameplayRenderModeButton.setAttribute("aria-pressed", live ? "true" : "false");
+    this.gameplayRenderModeButton.title = live
+      ? "Switch gameplay rendering back to baked sharp mode"
+      : "Switch gameplay rendering to live mode";
+    document.getElementById("option-render-meta")!.textContent = live ? "Live" : "Baked Sharp";
+  }
+
+  private toggleGameplayRenderMode(): void {
+    this.gameplayRenderMode = this.gameplayRenderMode === "live" ? "bakedSharp" : "live";
+    this.syncGameplayRenderModeButton();
   }
 
   // ─── Game Lifecycle ─────────────────────────────────────────────
@@ -938,6 +960,7 @@ export class Game {
           showShop: this.shopOpen,
           layoutProfile: LAYOUT_PROFILE,
           buildingAssets: this.buildingAssets,
+          renderMode: this.gameplayRenderMode,
         });
         restorePositions(game);
       } else {

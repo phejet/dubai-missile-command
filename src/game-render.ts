@@ -21,12 +21,17 @@ import {
   ov,
 } from "./game-logic";
 import {
+  buildInterceptorSpriteAssets,
+  buildThreatSpriteAssets,
   buildTitleBuildingAssets,
   buildBurjAssets,
   buildLauncherAssets,
   buildSkyAssets,
   burjPath as traceBurjPath,
+  drawBakedProjectileSprite,
   drawBakedLauncher,
+  drawLiveInterceptorSprite,
+  drawLiveThreatSprite,
   drawSharedLauncher,
   drawSharedTower,
   drawFlickerWindows,
@@ -36,8 +41,12 @@ import {
   TITLE_SKYLINE_TOWERS,
   type BuildingAssets,
   type BurjAssets,
+  type InterceptorSpriteAssets,
   type LauncherAssets,
   type SkyAssets,
+  type ThreatSpriteAssets,
+  type ThreatSpriteKind,
+  type InterceptorSpriteKind,
 } from "./art-render";
 import { getPurchaseDisplayName, UPGRADE_FAMILIES } from "./game-sim-upgrades";
 import type {
@@ -76,8 +85,11 @@ let _titleBuildingAssets: BuildingAssets | null = null;
 let _titleBuildingBaseY: number | null = null;
 const _burjAssetsCache = new Map<string, BurjAssets>();
 const _launcherAssetsCache = new Map<string, LauncherAssets>();
+const _threatSpriteAssetsCache = new Map<string, ThreatSpriteAssets>();
+const _interceptorSpriteAssetsCache = new Map<string, InterceptorSpriteAssets>();
 
 type TitleSkylineRenderMode = "bakedBlend" | "bakedSharp" | "live";
+type SceneRenderMode = "bakedSharp" | "live";
 
 // Sky nebula background — loaded once, drawn every frame
 let _skyImg: HTMLImageElement | null = null;
@@ -258,6 +270,8 @@ export function preloadRenderAssets() {
   getLauncherAssets(1, false);
   getLauncherAssets(gameplayLauncherScale, false);
   getLauncherAssets(gameplayLauncherScale, true);
+  getThreatSpriteAssets(DEFAULT_LAYOUT_PROFILE.enemyScale);
+  getInterceptorSpriteAssets(DEFAULT_LAYOUT_PROFILE.projectileScale);
 }
 
 export function __resetRenderAssetCachesForTest() {
@@ -269,6 +283,8 @@ export function __resetRenderAssetCachesForTest() {
   _titleBuildingBaseY = null;
   _burjAssetsCache.clear();
   _launcherAssetsCache.clear();
+  _threatSpriteAssetsCache.clear();
+  _interceptorSpriteAssetsCache.clear();
 }
 
 export function __getBurjAssetCacheKeysForTest() {
@@ -285,6 +301,22 @@ export function __getLauncherAssetCacheKeysForTest() {
 
 export function __getLauncherAssetsForTest(scale: number, damaged: boolean) {
   return getLauncherAssets(scale, damaged);
+}
+
+export function __getThreatSpriteCacheKeysForTest() {
+  return [..._threatSpriteAssetsCache.keys()].sort();
+}
+
+export function __getThreatSpriteAssetsForTest(scale: number) {
+  return getThreatSpriteAssets(scale);
+}
+
+export function __getInterceptorSpriteCacheKeysForTest() {
+  return [..._interceptorSpriteAssetsCache.keys()].sort();
+}
+
+export function __getInterceptorSpriteAssetsForTest(scale: number) {
+  return getInterceptorSpriteAssets(scale);
 }
 
 function drawDistortedWaterSprite(
@@ -520,83 +552,6 @@ function drawGradientTrail(
   ctx.fill();
 }
 
-function drawTitleStyleMissile(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  angle: number,
-  {
-    scale = 1,
-    alpha = 1,
-    trailLen = 58,
-    trailPulse = 1,
-  }: {
-    scale?: number;
-    alpha?: number;
-    trailLen?: number;
-    trailPulse?: number;
-  } = {},
-) {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(angle);
-  ctx.scale(scale, scale);
-  ctx.globalAlpha = alpha;
-  const len = trailLen * (0.84 + 0.16 * trailPulse);
-  const trail = ctx.createLinearGradient(-len, 0, -2, 0);
-  trail.addColorStop(0, "rgba(255, 150, 70, 0)");
-  trail.addColorStop(0.45, "rgba(255, 150, 70, 0.14)");
-  trail.addColorStop(0.82, "rgba(210, 220, 230, 0.28)");
-  trail.addColorStop(1, "rgba(210, 220, 230, 0.05)");
-  ctx.strokeStyle = trail;
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(-len, 0);
-  ctx.lineTo(-2, 0);
-  ctx.stroke();
-  ctx.strokeStyle = "rgba(255, 204, 140, 0.35)";
-  ctx.lineWidth = 1.4;
-  ctx.beginPath();
-  ctx.moveTo(-len * 0.62, 0);
-  ctx.lineTo(-6, 0);
-  ctx.stroke();
-  ctx.fillStyle = "#d6d9de";
-  ctx.beginPath();
-  ctx.moveTo(10, 0);
-  ctx.lineTo(-2, -3);
-  ctx.lineTo(-2, 3);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = "#8f96a0";
-  ctx.beginPath();
-  ctx.moveTo(-2, -3);
-  ctx.lineTo(-6, -6);
-  ctx.lineTo(-4, -3);
-  ctx.closePath();
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(-2, 3);
-  ctx.lineTo(-6, 6);
-  ctx.lineTo(-4, 3);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = "#ff884480";
-  ctx.beginPath();
-  ctx.moveTo(-2, -2);
-  ctx.lineTo(-12, 0);
-  ctx.lineTo(-2, 2);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = "#ffe7b8";
-  ctx.beginPath();
-  ctx.moveTo(-2, -1);
-  ctx.lineTo(-7, 0);
-  ctx.lineTo(-2, 1);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-}
-
 function drawShahed136Exhaust(
   ctx: CanvasRenderingContext2D,
   { trailLength = 0, effectScale = 1 }: { trailLength?: number; effectScale?: number } = {},
@@ -621,272 +576,6 @@ function drawShahed136Exhaust(
   ctx.beginPath();
   ctx.arc(-10.6, 0, 0.46 * effectScale, 0, Math.PI * 2);
   ctx.fill();
-}
-
-function drawShahed136Body(
-  ctx: CanvasRenderingContext2D,
-  { effectScale = 1, animTime = 0 }: { effectScale?: number; animTime?: number } = {},
-) {
-  const bodyGrad = ctx.createLinearGradient(13, 0, -11, 0);
-  bodyGrad.addColorStop(0, "#b4afbc");
-  bodyGrad.addColorStop(0.34, "#706c7e");
-  bodyGrad.addColorStop(1, "#353b4b");
-  ctx.fillStyle = bodyGrad;
-  ctx.beginPath();
-  ctx.moveTo(13, 0);
-  ctx.lineTo(4.4, -1.9);
-  ctx.lineTo(-7.8, -2.4);
-  ctx.lineTo(-10.8, 0);
-  ctx.lineTo(-7.8, 2.4);
-  ctx.lineTo(4.4, 1.9);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = "rgba(14,18,28,0.82)";
-  ctx.lineWidth = 0.85;
-  ctx.stroke();
-  ctx.strokeStyle = "rgba(236,242,250,0.4)";
-  ctx.lineWidth = 0.62;
-  ctx.stroke();
-
-  ctx.fillStyle = "#495367";
-  ctx.beginPath();
-  ctx.moveTo(5.8, -1.25);
-  ctx.lineTo(-5.6, -10.2);
-  ctx.lineTo(-8.2, -1.65);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = "rgba(236,242,250,0.34)";
-  ctx.lineWidth = 0.56;
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.moveTo(5.8, 1.25);
-  ctx.lineTo(-5.6, 10.2);
-  ctx.lineTo(-8.2, 1.65);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = "rgba(236,242,250,0.34)";
-  ctx.lineWidth = 0.56;
-  ctx.stroke();
-
-  ctx.fillStyle = "rgba(222, 236, 255, 0.3)";
-  ctx.fillRect(-0.4, -0.95, 6.5, 0.52);
-
-  ctx.fillStyle = "#5b6980";
-  ctx.beginPath();
-  ctx.moveTo(-6.2, -1.2);
-  ctx.lineTo(-9.8, -4.3);
-  ctx.lineTo(-8.2, -0.9);
-  ctx.closePath();
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(-6.2, 1.2);
-  ctx.lineTo(-9.8, 4.3);
-  ctx.lineTo(-8.2, 0.9);
-  ctx.closePath();
-  ctx.fill();
-
-  const propAngle = Math.cos(animTime * 0.56) * 1.1;
-  ctx.strokeStyle = "rgba(226,232,242,0.82)";
-  ctx.lineWidth = effectScale * 0.68;
-  ctx.beginPath();
-  ctx.moveTo(-11 + propAngle, -3.6);
-  ctx.lineTo(-11 - propAngle, 3.6);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(-11 - propAngle, -2.9);
-  ctx.lineTo(-11 + propAngle, 2.9);
-  ctx.stroke();
-
-  const propGlow = ctx.createRadialGradient(-11, 0, 0, -11, 0, 4.8);
-  propGlow.addColorStop(0, "rgba(255, 136, 76, 0.2)");
-  propGlow.addColorStop(1, "rgba(0,0,0,0)");
-  ctx.fillStyle = propGlow;
-  ctx.fillRect(-16, -5, 10, 10);
-}
-
-function drawStackCarrierMissile(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  angle: number,
-  {
-    scale = 1,
-    alpha = 1,
-    trailPulse = 1,
-    payloadCount,
-  }: {
-    scale?: number;
-    alpha?: number;
-    trailPulse?: number;
-    payloadCount: 2 | 3;
-  },
-) {
-  const renderScale = 0.8;
-  const bodyHalfH = payloadCount === 3 ? 5.2 : 4.6;
-  const noseX = payloadCount === 3 ? 25 : 22.5;
-  const bodyFrontX = payloadCount === 3 ? 15.5 : 14;
-  const tailX = payloadCount === 3 ? -20.5 : -18;
-  const trailLen = (payloadCount === 3 ? 60 : 52) * (0.82 + 0.18 * trailPulse);
-  const payloadOffsets = payloadCount === 3 ? [-1.85, 0, 1.85] : [-1.3, 1.3];
-  const finSpan = payloadCount === 3 ? 10 : 9;
-
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(angle);
-  ctx.scale(scale * renderScale, scale * renderScale);
-  ctx.globalAlpha = alpha;
-
-  const exhaust = ctx.createLinearGradient(-trailLen - 6, 0, tailX + 1, 0);
-  exhaust.addColorStop(0, "rgba(255, 122, 36, 0)");
-  exhaust.addColorStop(0.35, "rgba(255, 140, 58, 0.18)");
-  exhaust.addColorStop(0.72, "rgba(238, 228, 216, 0.24)");
-  exhaust.addColorStop(1, "rgba(255, 214, 148, 0.08)");
-  ctx.strokeStyle = exhaust;
-  ctx.lineCap = "round";
-  ctx.lineWidth = payloadCount === 3 ? 4.1 : 3.7;
-  ctx.beginPath();
-  ctx.moveTo(-trailLen - 6, 0);
-  ctx.lineTo(tailX + 1, 0);
-  ctx.stroke();
-
-  const outerWake = ctx.createLinearGradient(-trailLen * 0.92 - 4, 0, tailX - 2, 0);
-  outerWake.addColorStop(0, "rgba(255, 112, 42, 0)");
-  outerWake.addColorStop(0.6, "rgba(255, 164, 78, 0.12)");
-  outerWake.addColorStop(1, "rgba(240, 246, 255, 0.05)");
-  ctx.strokeStyle = outerWake;
-  ctx.lineWidth = payloadCount === 3 ? 7.1 : 6.3;
-  ctx.beginPath();
-  ctx.moveTo(-trailLen * 0.92 - 4, 0);
-  ctx.lineTo(tailX - 2, 0);
-  ctx.stroke();
-
-  const shell = ctx.createLinearGradient(tailX, -bodyHalfH, noseX, bodyHalfH);
-  shell.addColorStop(0, "#465363");
-  shell.addColorStop(0.35, "#718091");
-  shell.addColorStop(0.7, "#d6dde6");
-  shell.addColorStop(1, "#f1f5fa");
-  ctx.fillStyle = shell;
-  ctx.beginPath();
-  ctx.moveTo(noseX, 0);
-  ctx.lineTo(bodyFrontX, -bodyHalfH * 0.78);
-  ctx.lineTo(4, -bodyHalfH);
-  ctx.lineTo(-9, -bodyHalfH * 0.92);
-  ctx.lineTo(tailX, -bodyHalfH * 0.38);
-  ctx.lineTo(tailX, bodyHalfH * 0.38);
-  ctx.lineTo(-9, bodyHalfH * 0.92);
-  ctx.lineTo(4, bodyHalfH);
-  ctx.lineTo(bodyFrontX, bodyHalfH * 0.78);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.fillStyle = "rgba(24, 32, 42, 0.18)";
-  ctx.beginPath();
-  ctx.moveTo(bodyFrontX - 2, -bodyHalfH * 0.42);
-  ctx.lineTo(4.5, -bodyHalfH * 0.63);
-  ctx.lineTo(-11.5, -bodyHalfH * 0.34);
-  ctx.lineTo(-11.5, bodyHalfH * 0.34);
-  ctx.lineTo(4.5, bodyHalfH * 0.63);
-  ctx.lineTo(bodyFrontX - 2, bodyHalfH * 0.42);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.strokeStyle = "rgba(250, 252, 255, 0.55)";
-  ctx.lineWidth = 0.75;
-  ctx.beginPath();
-  ctx.moveTo(-9, -bodyHalfH * 0.58);
-  ctx.lineTo(12, -bodyHalfH * 0.34);
-  ctx.stroke();
-
-  ctx.strokeStyle = "rgba(23, 28, 36, 0.34)";
-  ctx.lineWidth = 0.9;
-  [-10, -1.5].forEach((bandX) => {
-    ctx.beginPath();
-    ctx.moveTo(bandX, -bodyHalfH * 0.62);
-    ctx.lineTo(bandX, bodyHalfH * 0.62);
-    ctx.stroke();
-  });
-
-  ctx.fillStyle = payloadCount === 3 ? "#4d5968" : "#55606f";
-  ctx.beginPath();
-  ctx.moveTo(tailX, -bodyHalfH * 0.42);
-  ctx.lineTo(tailX - 5.5, -finSpan * 0.7);
-  ctx.lineTo(tailX + 3.2, -bodyHalfH * 0.14);
-  ctx.closePath();
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(tailX, bodyHalfH * 0.42);
-  ctx.lineTo(tailX - 5.5, finSpan * 0.7);
-  ctx.lineTo(tailX + 3.2, bodyHalfH * 0.14);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.fillStyle = "rgba(255, 186, 96, 0.16)";
-  ctx.beginPath();
-  ctx.moveTo(bodyFrontX + 0.4, -bodyHalfH * 0.34);
-  ctx.lineTo(noseX - 1.5, 0);
-  ctx.lineTo(bodyFrontX + 0.4, bodyHalfH * 0.34);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.strokeStyle = "rgba(255, 212, 148, 0.42)";
-  ctx.lineWidth = 0.8;
-  payloadOffsets.forEach((offset) => {
-    ctx.beginPath();
-    ctx.moveTo(4.2, offset);
-    ctx.lineTo(15.8, offset);
-    ctx.stroke();
-  });
-
-  payloadOffsets.forEach((offset) => {
-    const halo = ctx.createLinearGradient(4, offset, 17, offset);
-    halo.addColorStop(0, "rgba(255, 156, 74, 0.08)");
-    halo.addColorStop(0.55, "rgba(255, 214, 150, 0.38)");
-    halo.addColorStop(1, "rgba(255, 244, 214, 0.14)");
-    ctx.fillStyle = halo;
-    ctx.beginPath();
-    ctx.ellipse(11, offset, 7.1, 0.72, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "rgba(250, 252, 255, 0.68)";
-    ctx.beginPath();
-    ctx.ellipse(15.2, offset, 1.1, 0.58, 0, 0, Math.PI * 2);
-    ctx.fill();
-  });
-
-  ctx.strokeStyle = "rgba(34, 42, 52, 0.45)";
-  ctx.lineWidth = 0.7;
-  const seamTop = payloadOffsets[0] - 0.92;
-  const seamBottom = payloadOffsets[payloadOffsets.length - 1] + 0.92;
-  ctx.beginPath();
-  ctx.moveTo(4.1, seamTop);
-  ctx.lineTo(4.1, seamBottom);
-  ctx.stroke();
-  if (payloadCount === 3) {
-    ctx.beginPath();
-    ctx.moveTo(10.3, seamTop);
-    ctx.lineTo(10.3, seamBottom);
-    ctx.stroke();
-  }
-
-  glow(ctx, payloadCount === 3 ? "#ffc27a" : "#ffb56a", 8.5 * renderScale);
-  ctx.fillStyle = "#ff9a4d";
-  ctx.beginPath();
-  ctx.moveTo(tailX, -2.8);
-  ctx.lineTo(tailX - (payloadCount === 3 ? 14 : 11), 0);
-  ctx.lineTo(tailX, 2.8);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = "#ffe4ae";
-  ctx.beginPath();
-  ctx.moveTo(tailX + 0.4, -1.4);
-  ctx.lineTo(tailX - (payloadCount === 3 ? 7.2 : 5.8), 0);
-  ctx.lineTo(tailX + 0.4, 1.4);
-  ctx.closePath();
-  ctx.fill();
-  glowOff(ctx);
-
-  ctx.restore();
 }
 
 export function hash01(a: number, b = 0, c = 0, d = 0) {
@@ -956,6 +645,51 @@ function getLauncherAssets(scale: number, damaged: boolean): LauncherAssets {
   return assets;
 }
 
+function getThreatSpriteAssets(scale: number): ThreatSpriteAssets {
+  const key = scale.toFixed(3);
+  const cached = _threatSpriteAssetsCache.get(key);
+  if (cached) return cached;
+  const assets = buildThreatSpriteAssets(scale);
+  _threatSpriteAssetsCache.set(key, assets);
+  return assets;
+}
+
+function getInterceptorSpriteAssets(scale: number): InterceptorSpriteAssets {
+  const key = scale.toFixed(3);
+  const cached = _interceptorSpriteAssetsCache.get(key);
+  if (cached) return cached;
+  const assets = buildInterceptorSpriteAssets(scale);
+  _interceptorSpriteAssetsCache.set(key, assets);
+  return assets;
+}
+
+function getThreatSpriteKind(m: Missile | Drone): ThreatSpriteKind {
+  if (m.type === "drone") {
+    return m.subtype === "shahed238" ? "shahed238" : "shahed136";
+  }
+  switch (m.type) {
+    case "mirv":
+      return "mirv";
+    case "mirv_warhead":
+      return "mirv_warhead";
+    case "bomb":
+      return "bomb";
+    case "stack2":
+      return "stack_carrier_2";
+    case "stack3":
+      return "stack_carrier_3";
+    case "stack_child":
+      return "stack_child";
+    case "missile":
+    default:
+      return "missile";
+  }
+}
+
+function getInterceptorSpriteKind(ic: Interceptor): InterceptorSpriteKind {
+  return ic.fromF15 ? "f15Interceptor" : "playerInterceptor";
+}
+
 interface SharedBurjOptions {
   mode: "title" | "game";
   groundY: number;
@@ -970,6 +704,7 @@ interface SharedBurjOptions {
   burjHitFlashX?: number;
   burjHitFlashY?: number;
   burjAssets?: BurjAssets | null;
+  sharpFrames?: boolean;
 }
 
 interface SharedWaterOptions {
@@ -997,6 +732,7 @@ function drawGameplayForegroundBuildings(
   game: GameState,
   t: number,
   groundY: number,
+  renderMode: SceneRenderMode,
   buildingAssets?: BuildingAssets | null,
 ) {
   const baseY = groundY - 6;
@@ -1010,7 +746,7 @@ function drawGameplayForegroundBuildings(
       return;
     }
     const tower = mapGameplayBuildingTower(building, index);
-    if (!buildingAssets) {
+    if (!buildingAssets || renderMode === "live") {
       drawSharedTower(ctx, tower, baseY, t, 0, 0.48);
       return;
     }
@@ -1024,10 +760,12 @@ function drawGameplayForegroundBuildings(
     const animOffset = buildingAssets.animOffsets[index];
 
     ctx.drawImage(staticSprite, staticOffset.x, staticOffset.y);
-    ctx.globalAlpha = 1 - blend;
+    ctx.globalAlpha = renderMode === "bakedSharp" ? 1 : 1 - blend;
     ctx.drawImage(anim[frameIndex], animOffset.x, animOffset.y);
-    ctx.globalAlpha = blend;
-    ctx.drawImage(anim[(frameIndex + 1) % buildingAssets.frameCount], animOffset.x, animOffset.y);
+    if (renderMode !== "bakedSharp") {
+      ctx.globalAlpha = blend;
+      ctx.drawImage(anim[(frameIndex + 1) % buildingAssets.frameCount], animOffset.x, animOffset.y);
+    }
     ctx.globalAlpha = 1;
   });
   game.buildingDestroyFx.forEach((fx) => {
@@ -1112,6 +850,7 @@ function drawSharedBurj(
     burjHitFlashX = BURJ_X,
     burjHitFlashY = GROUND_Y - BURJ_H * 0.45,
     burjAssets = null,
+    sharpFrames = false,
   }: SharedBurjOptions,
 ) {
   const burjX = BURJ_X;
@@ -1428,16 +1167,18 @@ function drawSharedBurj(
         burjAssets.frameCount;
       const frameIndex = Math.floor(phase) % burjAssets.frameCount;
       const blend = phase % 1;
-      ctx.globalAlpha = 1 - blend;
+      ctx.globalAlpha = sharpFrames ? 1 : 1 - blend;
       ctx.drawImage(burjAssets.animFrames[frameIndex], burjAssets.offset.x, burjAssets.offset.y, spriteW, spriteH);
-      ctx.globalAlpha = blend;
-      ctx.drawImage(
-        burjAssets.animFrames[(frameIndex + 1) % burjAssets.frameCount],
-        burjAssets.offset.x,
-        burjAssets.offset.y,
-        spriteW,
-        spriteH,
-      );
+      if (!sharpFrames) {
+        ctx.globalAlpha = blend;
+        ctx.drawImage(
+          burjAssets.animFrames[(frameIndex + 1) % burjAssets.frameCount],
+          burjAssets.offset.x,
+          burjAssets.offset.y,
+          spriteW,
+          spriteH,
+        );
+      }
       ctx.globalAlpha = 1;
     } else {
       const burjGrad = ctx.createLinearGradient(burjX, burjBaseY - burjHeight, burjX, burjBaseY);
@@ -2006,15 +1747,19 @@ function drawLasersAndBullets(ctx: CanvasRenderingContext2D, game: GameState, la
   });
 }
 
-function drawMissiles(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutProfile) {
-  // Missiles
+function drawMissiles(
+  ctx: CanvasRenderingContext2D,
+  game: GameState,
+  layout: LayoutProfile,
+  renderMode: SceneRenderMode,
+  t: number,
+) {
+  const spriteAssets = renderMode === "live" ? null : getThreatSpriteAssets(layout.enemyScale);
   game.missiles.forEach((m: Missile) => {
     const angle = Math.atan2(m.vy, m.vx);
 
     if (m.type === "mirv") {
-      // MIRV — large imposing ballistic missile
       ctx.save();
-      // Thick smoke trail
       m.trail.forEach((t, i) => {
         const a = (i / m.trail.length) * 0.5;
         const r = (3 + (1 - i / m.trail.length) * 5) * layout.effectScale;
@@ -2023,7 +1768,6 @@ function drawMissiles(ctx: CanvasRenderingContext2D, game: GameState, layout: La
         ctx.arc(t.x, t.y, r, 0, Math.PI * 2);
         ctx.fill();
       });
-      // Hot inner trail
       for (let i = Math.max(0, m.trail.length - 8); i < m.trail.length; i++) {
         const a = ((i - (m.trail.length - 8)) / 8) * 0.7;
         ctx.fillStyle = `rgba(255,180,60,${a})`;
@@ -2031,97 +1775,22 @@ function drawMissiles(ctx: CanvasRenderingContext2D, game: GameState, layout: La
         ctx.arc(m.trail[i].x, m.trail[i].y, 2.5 * layout.effectScale, 0, Math.PI * 2);
         ctx.fill();
       }
+      ctx.restore();
 
-      ctx.translate(m.x, m.y);
-      ctx.rotate(angle);
-      ctx.scale(layout.enemyScale, layout.enemyScale);
+      if (renderMode === "live") drawLiveThreatSprite(ctx, m.x, m.y, angle, "mirv", { t, scale: layout.enemyScale });
+      else drawBakedProjectileSprite(ctx, m.x, m.y, angle, spriteAssets!.mirv, { t, sharpFrames: true });
 
-      // Pulsing red glow
-      glow(ctx, "#ff2200", (15 + Math.sin(game.time * 0.2) * 5) * layout.effectScale);
-
-      // Body — large gunmetal
-      ctx.fillStyle = "#445060";
-      ctx.beginPath();
-      ctx.moveTo(14, 0);
-      ctx.lineTo(8, -4.5);
-      ctx.lineTo(-14, -4.5);
-      ctx.lineTo(-14, 4.5);
-      ctx.lineTo(8, 4.5);
-      ctx.closePath();
-      ctx.fill();
-
-      // Red nosecone
-      ctx.fillStyle = "#cc2200";
-      ctx.beginPath();
-      ctx.moveTo(20, 0);
-      ctx.lineTo(14, -4.5);
-      ctx.lineTo(14, 4.5);
-      ctx.closePath();
-      ctx.fill();
-
-      // Stage separation bands (white rings)
-      ctx.strokeStyle = "rgba(255,255,255,0.6)";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(2, -4.5);
-      ctx.lineTo(2, 4.5);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(-6, -4.5);
-      ctx.lineTo(-6, 4.5);
-      ctx.stroke();
-
-      // Large fins
-      ctx.fillStyle = "#556878";
-      ctx.beginPath();
-      ctx.moveTo(-14, -4.5);
-      ctx.lineTo(-18, -11);
-      ctx.lineTo(-10, -4.5);
-      ctx.closePath();
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(-14, 4.5);
-      ctx.lineTo(-18, 11);
-      ctx.lineTo(-10, 4.5);
-      ctx.closePath();
-      ctx.fill();
-
-      // Oversized exhaust
-      const mFlameLen = 10 + 8 * pulse(game.time, 0.3, m.x * 0.015 + m.y * 0.02);
-      ctx.fillStyle = "#ff6633";
-      ctx.beginPath();
-      ctx.moveTo(-14, -3.5);
-      ctx.lineTo(-14 - mFlameLen, 0);
-      ctx.lineTo(-14, 3.5);
-      ctx.closePath();
-      ctx.fill();
-      ctx.fillStyle = "#ffcc66";
-      ctx.beginPath();
-      ctx.moveTo(-14, -2);
-      ctx.lineTo(-14 - mFlameLen * 0.5, 0);
-      ctx.lineTo(-14, 2);
-      ctx.closePath();
-      ctx.fill();
-
-      glowOff(ctx);
-
-      // Health bar (only when damaged)
       if (m.health! < m.maxHealth!) {
-        ctx.rotate(-angle); // un-rotate for horizontal health bar
-        const barW = 24;
-        const barH = 3;
+        const barW = 24 * layout.enemyScale;
+        const barH = 3 * layout.enemyScale;
         const ratio = m.health! / m.maxHealth!;
         ctx.fillStyle = "rgba(0,0,0,0.6)";
-        ctx.fillRect(-barW / 2, -16, barW, barH);
+        ctx.fillRect(m.x - barW / 2, m.y - 16 * layout.enemyScale, barW, barH);
         ctx.fillStyle = ratio > 0.5 ? "#44ff44" : ratio > 0.25 ? "#ffaa00" : "#ff2222";
-        ctx.fillRect(-barW / 2, -16, barW * ratio, barH);
+        ctx.fillRect(m.x - barW / 2, m.y - 16 * layout.enemyScale, barW * ratio, barH);
       }
-
-      ctx.restore();
     } else if (m.type === "mirv_warhead") {
-      // MIRV warhead — smaller, red-orange, glowing
       ctx.save();
-      // Trail
       m.trail.forEach((t, i) => {
         const a = (i / m.trail.length) * 0.4;
         ctx.fillStyle = `rgba(220,100,50,${a})`;
@@ -2129,32 +1798,12 @@ function drawMissiles(ctx: CanvasRenderingContext2D, game: GameState, layout: La
         ctx.arc(t.x, t.y, 1.5 * layout.effectScale, 0, Math.PI * 2);
         ctx.fill();
       });
-      ctx.translate(m.x, m.y);
-      ctx.rotate(angle);
-      ctx.scale(layout.enemyScale, layout.enemyScale);
-      // Pulsing glow
-      glow(ctx, "#dd4422", (8 + Math.sin(game.time * 0.4) * 3) * layout.effectScale);
-      // Body
-      ctx.fillStyle = "#dd4422";
-      ctx.beginPath();
-      ctx.moveTo(7, 0);
-      ctx.lineTo(3, -2);
-      ctx.lineTo(-5, -2);
-      ctx.lineTo(-5, 2);
-      ctx.lineTo(3, 2);
-      ctx.closePath();
-      ctx.fill();
-      // Bright flame
-      const wFlameLen = 5 + 4 * pulse(game.time, 0.4, m.x * 0.02 + m.y * 0.025);
-      ctx.fillStyle = "#ff8844";
-      ctx.beginPath();
-      ctx.moveTo(-5, -1.5);
-      ctx.lineTo(-5 - wFlameLen, 0);
-      ctx.lineTo(-5, 1.5);
-      ctx.closePath();
-      ctx.fill();
-      glowOff(ctx);
       ctx.restore();
+      if (renderMode === "live") {
+        drawLiveThreatSprite(ctx, m.x, m.y, angle, "mirv_warhead", { t, scale: layout.enemyScale });
+      } else {
+        drawBakedProjectileSprite(ctx, m.x, m.y, angle, spriteAssets!.mirv_warhead, { t, sharpFrames: true });
+      }
     } else if (m.type === "bomb") {
       drawGradientTrail(ctx, m.trail, m.x, m.y, {
         outerRgb: "255,118,40",
@@ -2164,37 +1813,49 @@ function drawMissiles(ctx: CanvasRenderingContext2D, game: GameState, layout: La
         coreWidth: 1.3 * layout.effectScale,
         headRadius: 1.6 * layout.effectScale,
       });
-      withAnchorScale(ctx, m.x, m.y, layout.enemyScale, () => {
-        ctx.fillStyle = "#ff8800";
-        glow(ctx, "#ff6600", 8 * layout.effectScale);
+      if (renderMode === "live") drawLiveThreatSprite(ctx, m.x, m.y, angle, "bomb", { t, scale: layout.enemyScale });
+      else drawBakedProjectileSprite(ctx, m.x, m.y, angle, spriteAssets!.bomb, { t, sharpFrames: true });
+    } else if (m.type === "stack2" || m.type === "stack3" || m.type === "stack_child") {
+      drawGradientTrail(ctx, m.trail, m.x, m.y, {
+        outerRgb: "255,140,58",
+        coreRgb: m.type === "stack_child" ? "255,231,184" : "238,228,216",
+        headRgb: m.type === "stack_child" ? "255,180,92" : "255,214,148",
+        width: (m.type === "stack3" ? 5.4 : m.type === "stack2" ? 4.8 : 3.2) * layout.effectScale,
+        coreWidth: (m.type === "stack3" ? 2.2 : m.type === "stack2" ? 1.9 : 1.3) * layout.effectScale,
+        headRadius: (m.type === "stack3" ? 2.2 : m.type === "stack2" ? 2 : 1.5) * layout.effectScale,
+      });
+      const kind = getThreatSpriteKind(m);
+      if (renderMode === "live")
+        drawLiveThreatSprite(ctx, m.x, m.y, angle, kind, { t, scale: layout.enemyScale, alpha: 0.98 });
+      else drawBakedProjectileSprite(ctx, m.x, m.y, angle, spriteAssets![kind], { t, alpha: 0.98, sharpFrames: true });
+    } else {
+      m.trail.forEach((t, i) => {
+        const a = (i / m.trail.length) * 0.24;
+        const r = (1.8 + (1 - i / m.trail.length) * 2.6) * layout.effectScale;
+        ctx.fillStyle = `rgba(112,126,148,${a})`;
         ctx.beginPath();
-        ctx.arc(m.x, m.y, 2.5, 0, Math.PI * 2);
+        ctx.arc(t.x, t.y, r, 0, Math.PI * 2);
         ctx.fill();
       });
-      glowOff(ctx);
-    } else if (m.type === "stack2" || m.type === "stack3" || m.type === "stack_child") {
-      const trailPulse = 0.55 + 0.45 * Math.sin(game.time * 0.9 + m.x * 0.018 + m.y * 0.02);
-      if (m.type === "stack2" || m.type === "stack3") {
-        drawStackCarrierMissile(ctx, m.x, m.y, angle, {
-          scale: layout.enemyScale,
-          alpha: 0.98,
-          trailPulse,
-          payloadCount: m.type === "stack3" ? 3 : 2,
+      if (m.trail.length > 1) {
+        ctx.beginPath();
+        m.trail.forEach((t, i) => {
+          if (i === 0) ctx.moveTo(t.x, t.y);
+          else ctx.lineTo(t.x, t.y);
         });
-      } else {
-        drawTitleStyleMissile(ctx, m.x, m.y, angle, {
-          scale: layout.enemyScale,
-          alpha: 0.98,
-          trailLen: 34,
-          trailPulse,
-        });
+        ctx.strokeStyle = "rgba(208,220,232,0.18)";
+        ctx.lineWidth = 2 * layout.effectScale;
+        ctx.stroke();
       }
-    } else {
-      drawDefaultMissileEntity(ctx, m, {
-        time: game.time,
-        enemyScale: layout.enemyScale,
-        effectScale: layout.effectScale,
-      });
+      for (let i = Math.max(0, m.trail.length - 8); i < m.trail.length; i++) {
+        const a = ((i - (m.trail.length - 8)) / 8) * 0.55;
+        ctx.fillStyle = `rgba(255,188,92,${a})`;
+        ctx.beginPath();
+        ctx.arc(m.trail[i].x, m.trail[i].y, 1.25 * layout.effectScale, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      if (renderMode === "live") drawLiveThreatSprite(ctx, m.x, m.y, angle, "missile", { t, scale: layout.enemyScale });
+      else drawBakedProjectileSprite(ctx, m.x, m.y, angle, spriteAssets!.missile, { t, sharpFrames: true });
     }
 
     if (m.luredByFlare) {
@@ -2209,280 +1870,122 @@ function drawMissiles(ctx: CanvasRenderingContext2D, game: GameState, layout: La
   });
 }
 
-function drawDefaultMissileEntity(
+function drawDrones(
   ctx: CanvasRenderingContext2D,
-  m: Missile,
-  { time, enemyScale, effectScale }: { time: number; enemyScale: number; effectScale: number },
+  game: GameState,
+  layout: LayoutProfile,
+  renderMode: SceneRenderMode,
+  t: number,
 ) {
-  const angle = Math.atan2(m.vy, m.vx);
+  const spriteAssets = renderMode === "live" ? null : getThreatSpriteAssets(layout.enemyScale);
+  game.drones.forEach((d: Drone) => {
+    const facing = d.vx > 0 ? 1 : -1;
+    const trail = d.trail ?? [];
+    const trailAngle = trail.length
+      ? Math.atan2(d.y - trail[trail.length - 1].y, d.x - trail[trail.length - 1].x)
+      : Math.atan2(d.vy || 0, d.vx || 1);
+    const dirX = Math.cos(trailAngle);
+    const dirY = Math.sin(trailAngle);
+    const spriteAngle = d.subtype === "shahed238" || d.diving ? Math.atan2(d.vy, d.vx) : facing > 0 ? 0 : Math.PI;
 
-  ctx.save();
-  m.trail.forEach((t, i) => {
-    const a = (i / m.trail.length) * 0.24;
-    const r = (1.8 + (1 - i / m.trail.length) * 2.6) * effectScale;
-    ctx.fillStyle = `rgba(112,126,148,${a})`;
-    ctx.beginPath();
-    ctx.arc(t.x, t.y, r, 0, Math.PI * 2);
-    ctx.fill();
-  });
-  if (m.trail.length > 1) {
-    ctx.beginPath();
-    m.trail.forEach((t, i) => {
-      if (i === 0) ctx.moveTo(t.x, t.y);
-      else ctx.lineTo(t.x, t.y);
-    });
-    ctx.strokeStyle = "rgba(208,220,232,0.18)";
-    ctx.lineWidth = 2 * effectScale;
-    ctx.stroke();
-  }
-  for (let i = Math.max(0, m.trail.length - 8); i < m.trail.length; i++) {
-    const a = ((i - (m.trail.length - 8)) / 8) * 0.55;
-    ctx.fillStyle = `rgba(255,188,92,${a})`;
-    ctx.beginPath();
-    ctx.arc(m.trail[i].x, m.trail[i].y, 1.25 * effectScale, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  ctx.translate(m.x, m.y);
-  ctx.rotate(angle);
-  ctx.scale(enemyScale, enemyScale);
-
-  const bodyGrad = ctx.createLinearGradient(10, 0, -11, 0);
-  bodyGrad.addColorStop(0, "#fbfdff");
-  bodyGrad.addColorStop(0.18, "#d9e2ec");
-  bodyGrad.addColorStop(0.55, "#8798ac");
-  bodyGrad.addColorStop(1, "#46576d");
-  ctx.fillStyle = bodyGrad;
-  ctx.beginPath();
-  ctx.moveTo(10, 0);
-  ctx.lineTo(4.8, -2.3);
-  ctx.lineTo(-7.6, -2.15);
-  ctx.lineTo(-9.7, -0.9);
-  ctx.lineTo(-9.7, 0.9);
-  ctx.lineTo(-7.6, 2.15);
-  ctx.lineTo(4.8, 2.3);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = "rgba(16, 24, 36, 0.72)";
-  ctx.lineWidth = 0.9;
-  ctx.stroke();
-  ctx.strokeStyle = "rgba(242, 248, 255, 0.56)";
-  ctx.lineWidth = 0.68;
-  ctx.stroke();
-
-  ctx.fillStyle = "#dfe7f1";
-  ctx.beginPath();
-  ctx.moveTo(10, 0);
-  ctx.lineTo(5.1, -1.7);
-  ctx.lineTo(5.1, 1.7);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = "rgba(182, 232, 255, 0.5)";
-  ctx.fillRect(-0.7, -1.42, 5.9, 0.72);
-  ctx.fillStyle = "#41586f";
-  ctx.fillRect(-5.1, -0.48, 7.5, 0.96);
-  ctx.strokeStyle = "rgba(250,252,255,0.72)";
-  ctx.lineWidth = 0.65;
-  ctx.beginPath();
-  ctx.moveTo(-2.7, -2);
-  ctx.lineTo(5.8, -1.42);
-  ctx.stroke();
-
-  ctx.fillStyle = "#a2b3c4";
-  ctx.beginPath();
-  ctx.moveTo(-6, -2.05);
-  ctx.lineTo(-10.8, -5.9);
-  ctx.lineTo(-7.9, -1.3);
-  ctx.closePath();
-  ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(-6, 2.05);
-  ctx.lineTo(-10.8, 5.9);
-  ctx.lineTo(-7.9, 1.3);
-  ctx.closePath();
-  ctx.fill();
-
-  const exhaustFlicker = 0.55 + 0.45 * Math.sin(time * 0.9 + m.x * 0.018 + m.y * 0.02);
-  const flameLen = 7 + 10 * exhaustFlicker;
-  glow(ctx, "#ff9850", 11 * effectScale);
-  ctx.fillStyle = `rgba(255, 102, 42, ${0.62 + exhaustFlicker * 0.24})`;
-  ctx.beginPath();
-  ctx.moveTo(-9.3, -1.85);
-  ctx.lineTo(-10.6 - flameLen, 0);
-  ctx.lineTo(-9.3, 1.85);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = `rgba(255, 222, 144, ${0.54 + exhaustFlicker * 0.22})`;
-  ctx.beginPath();
-  ctx.moveTo(-9.1, -0.85);
-  ctx.lineTo(-10.1 - flameLen * 0.56, 0);
-  ctx.lineTo(-9.1, 0.85);
-  ctx.closePath();
-  ctx.fill();
-  glowOff(ctx);
-
-  ctx.restore();
-}
-
-function drawDroneEntity(
-  ctx: CanvasRenderingContext2D,
-  d: Drone,
-  { time, enemyScale, effectScale }: { time: number; enemyScale: number; effectScale: number },
-) {
-  const facing = d.vx > 0 ? 1 : -1;
-  const trail = d.trail ?? [];
-  const trailAngle = trail.length
-    ? Math.atan2(d.y - trail[trail.length - 1].y, d.x - trail[trail.length - 1].x)
-    : Math.atan2(d.vy || 0, d.vx || 1);
-  const dirX = Math.cos(trailAngle);
-  const dirY = Math.sin(trailAngle);
-
-  if (trail.length > 0 && d.subtype === "shahed238") {
-    ctx.save();
-    const pulseAmt = pulse(time, 0.55, d.x * 0.02 + d.y * 0.03);
-    const jetTailX = d.x - dirX * 14 * enemyScale;
-    const jetTailY = d.y - dirY * 14 * enemyScale;
-    const jetTrailLen = (22 + 8 * pulseAmt) * enemyScale;
-    const jetTrail = ctx.createLinearGradient(
-      jetTailX - dirX * jetTrailLen,
-      jetTailY - dirY * jetTrailLen,
-      jetTailX,
-      jetTailY,
-    );
-    jetTrail.addColorStop(0, "rgba(255, 130, 60, 0)");
-    jetTrail.addColorStop(0.45, "rgba(255, 130, 60, 0.16)");
-    jetTrail.addColorStop(0.82, "rgba(210, 220, 230, 0.24)");
-    jetTrail.addColorStop(1, "rgba(255, 205, 120, 0.08)");
-    ctx.strokeStyle = jetTrail;
-    ctx.lineWidth = 3.8 * effectScale * enemyScale;
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(jetTailX - dirX * jetTrailLen, jetTailY - dirY * jetTrailLen);
-    ctx.lineTo(jetTailX, jetTailY);
-    ctx.stroke();
-
-    trail.forEach((t, i) => {
-      const alpha = (i / trail.length) * 0.2;
-      const radius = (1.6 + (i / trail.length) * 2.4) * effectScale;
-      ctx.fillStyle = `rgba(255, 150, 82, ${alpha})`;
+    if (trail.length > 0 && d.subtype === "shahed238") {
+      ctx.save();
+      const pulseAmt = pulse(game.time, 0.55, d.x * 0.02 + d.y * 0.03);
+      const jetTailX = d.x - dirX * 14 * layout.enemyScale;
+      const jetTailY = d.y - dirY * 14 * layout.enemyScale;
+      const jetTrailLen = (22 + 8 * pulseAmt) * layout.enemyScale;
+      const jetTrail = ctx.createLinearGradient(
+        jetTailX - dirX * jetTrailLen,
+        jetTailY - dirY * jetTrailLen,
+        jetTailX,
+        jetTailY,
+      );
+      jetTrail.addColorStop(0, "rgba(255, 130, 60, 0)");
+      jetTrail.addColorStop(0.45, "rgba(255, 130, 60, 0.16)");
+      jetTrail.addColorStop(0.82, "rgba(210, 220, 230, 0.24)");
+      jetTrail.addColorStop(1, "rgba(255, 205, 120, 0.08)");
+      ctx.strokeStyle = jetTrail;
+      ctx.lineWidth = 3.8 * layout.effectScale * layout.enemyScale;
+      ctx.lineCap = "round";
       ctx.beginPath();
-      ctx.arc(t.x - dirX * 12 * enemyScale, t.y - dirY * 12 * enemyScale, radius, 0, Math.PI * 2);
-      ctx.fill();
-    });
-    ctx.restore();
-  }
+      ctx.moveTo(jetTailX - dirX * jetTrailLen, jetTailY - dirY * jetTrailLen);
+      ctx.lineTo(jetTailX, jetTailY);
+      ctx.stroke();
 
-  ctx.save();
-  ctx.translate(d.x, d.y);
-  if (d.subtype === "shahed238" || d.diving) {
-    const angle = Math.atan2(d.vy, d.vx);
-    ctx.rotate(angle);
-  } else {
-    ctx.scale(facing, 1);
-  }
-  ctx.scale(enemyScale, enemyScale);
+      trail.forEach((t, i) => {
+        const alpha = (i / trail.length) * 0.2;
+        const radius = (1.6 + (i / trail.length) * 2.4) * layout.effectScale;
+        ctx.fillStyle = `rgba(255, 150, 82, ${alpha})`;
+        ctx.beginPath();
+        ctx.arc(t.x - dirX * 12 * layout.enemyScale, t.y - dirY * 12 * layout.enemyScale, radius, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.restore();
+    }
 
-  if (d.subtype === "shahed136") drawShahed136Exhaust(ctx, { trailLength: trail.length, effectScale });
+    if (d.subtype === "shahed136") {
+      ctx.save();
+      ctx.translate(d.x, d.y);
+      ctx.rotate(spriteAngle);
+      ctx.scale(layout.enemyScale, layout.enemyScale);
+      drawShahed136Exhaust(ctx, { trailLength: trail.length, effectScale: layout.effectScale });
+      ctx.restore();
+    }
 
-  if (d.subtype === "shahed238") {
-    // Jet Shahed-238 — sleek delta wing, larger
-    ctx.fillStyle = "#4a4a5a";
-    ctx.beginPath();
-    ctx.moveTo(16, 0);
-    ctx.lineTo(-10, -3);
-    ctx.lineTo(-14, 0);
-    ctx.lineTo(-10, 3);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.fillStyle = "#3a3a4a";
-    ctx.beginPath();
-    ctx.moveTo(4, -2);
-    ctx.lineTo(-8, -14);
-    ctx.lineTo(-12, -2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(4, 2);
-    ctx.lineTo(-8, 14);
-    ctx.lineTo(-12, 2);
-    ctx.closePath();
-    ctx.fill();
-
-    const exLen = 7 + 5 * pulse(time, 0.55, d.x * 0.02 + d.y * 0.03);
-    ctx.fillStyle = "#ff6600";
-    glow(ctx, "#ff4400", 12 * effectScale);
-    ctx.beginPath();
-    ctx.moveTo(-14, -2);
-    ctx.lineTo(-14 - exLen, 0);
-    ctx.lineTo(-14, 2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = "#ffcc44";
-    glowOff(ctx);
-    ctx.beginPath();
-    ctx.moveTo(-14, -1);
-    ctx.lineTo(-14 - exLen * 0.5, 0);
-    ctx.lineTo(-14, 1);
-    ctx.closePath();
-    ctx.fill();
-    glowOff(ctx);
+    const kind = getThreatSpriteKind(d);
+    if (renderMode === "live") drawLiveThreatSprite(ctx, d.x, d.y, spriteAngle, kind, { t, scale: layout.enemyScale });
+    else drawBakedProjectileSprite(ctx, d.x, d.y, spriteAngle, spriteAssets![kind], { t, sharpFrames: true });
 
     if (d.diving) {
       ctx.strokeStyle = "#ff2200";
-      ctx.globalAlpha = 0.5 + Math.sin(time * 0.3) * 0.3;
-      ctx.lineWidth = effectScale;
+      ctx.globalAlpha = 0.5 + Math.sin(game.time * 0.3) * 0.3;
+      ctx.lineWidth = layout.effectScale;
       ctx.beginPath();
-      ctx.arc(0, 0, 20, 0, Math.PI * 2);
+      ctx.arc(d.x, d.y, 20 * layout.enemyScale, 0, Math.PI * 2);
       ctx.stroke();
       ctx.globalAlpha = 1;
     }
-  } else {
-    drawShahed136Body(ctx, { effectScale, animTime: time });
-  }
 
-  if (Math.sin(time * 0.15) > 0) {
-    ctx.fillStyle = d.subtype === "shahed238" ? "#ff2200" : "#ff4400";
-    glow(ctx, ctx.fillStyle, 2 * effectScale);
-    ctx.beginPath();
-    ctx.arc(0, 0, 0.75 * effectScale, 0, Math.PI * 2);
-    ctx.fill();
-    glowOff(ctx);
-  }
-  ctx.restore();
-}
-
-function drawDrones(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutProfile) {
-  game.drones.forEach((d: Drone) => {
-    drawDroneEntity(ctx, d, {
-      time: game.time,
-      enemyScale: layout.enemyScale,
-      effectScale: layout.effectScale,
-    });
+    if (Math.sin(game.time * 0.15) > 0) {
+      ctx.fillStyle = d.subtype === "shahed238" ? "#ff2200" : "#ff4400";
+      glow(ctx, ctx.fillStyle, 2 * layout.effectScale);
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, 0.75 * layout.effectScale * layout.enemyScale, 0, Math.PI * 2);
+      ctx.fill();
+      glowOff(ctx);
+    }
   });
 }
 
-function drawInterceptors(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutProfile) {
-  // Interceptors (player green, F-15 blue-white)
+function drawInterceptors(
+  ctx: CanvasRenderingContext2D,
+  game: GameState,
+  layout: LayoutProfile,
+  renderMode: SceneRenderMode,
+  t: number,
+) {
+  const spriteAssets = renderMode === "live" ? null : getInterceptorSpriteAssets(layout.projectileScale);
   game.interceptors.forEach((ic: Interceptor) => {
-    const isF15 = ic.fromF15;
-    if (isF15) {
+    const heading =
+      typeof ic.heading === "number"
+        ? ic.heading
+        : ic.trail.length >= 1
+          ? Math.atan2(ic.y - ic.trail[ic.trail.length - 1].y, ic.x - ic.trail[ic.trail.length - 1].x)
+          : Math.atan2(ic.vy || -1, ic.vx || 0);
+
+    if (ic.fromF15) {
       ctx.beginPath();
       ic.trail.forEach((t, i) => {
-        ctx.strokeStyle = `rgba(150,200,255,${(i / ic.trail.length) * 0.6})`;
+        ctx.strokeStyle = `rgba(150,200,255,${(i / Math.max(1, ic.trail.length)) * 0.6})`;
         ctx.lineWidth = 1.5 * layout.effectScale;
         if (i === 0) ctx.moveTo(t.x, t.y);
         else ctx.lineTo(t.x, t.y);
       });
       if (ic.trail.length > 1) ctx.stroke();
-      withAnchorScale(ctx, ic.x, ic.y, layout.projectileScale, () => {
-        ctx.fillStyle = "#aaccff";
-        glow(ctx, "#6699ff", 6 * layout.effectScale);
-        ctx.beginPath();
-        ctx.arc(ic.x, ic.y, 2, 0, Math.PI * 2);
-        ctx.fill();
-      });
-      glowOff(ctx);
+      const kind = getInterceptorSpriteKind(ic);
+      if (renderMode === "live")
+        drawLiveInterceptorSprite(ctx, ic.x, ic.y, heading, kind, { t, scale: layout.projectileScale });
+      else drawBakedProjectileSprite(ctx, ic.x, ic.y, heading, spriteAssets![kind], { t, sharpFrames: true });
       return;
     }
 
@@ -2506,86 +2009,14 @@ function drawInterceptors(ctx: CanvasRenderingContext2D, game: GameState, layout
       ctx.stroke();
     }
 
-    const heading =
-      typeof ic.heading === "number"
-        ? ic.heading
-        : ic.trail.length >= 1
-          ? Math.atan2(ic.y - ic.trail[ic.trail.length - 1].y, ic.x - ic.trail[ic.trail.length - 1].x)
-          : -Math.PI / 2;
-
-    ctx.save();
-    ctx.translate(ic.x, ic.y);
-    ctx.rotate(heading);
-    ctx.scale(layout.projectileScale, layout.projectileScale);
-
-    const exhaustFlicker = 0.55 + 0.45 * Math.sin(game.time * 0.85 + ic.x * 0.018 + ic.y * 0.022);
-    const exhaustLen = 18 + 18 * exhaustFlicker;
-    const exhaustAlpha = 0.78 + 0.22 * exhaustFlicker;
-
-    ctx.fillStyle = `rgba(90, 220, 255, ${exhaustAlpha * 0.28})`;
-    ctx.beginPath();
-    ctx.moveTo(-8.4, -3.8);
-    ctx.lineTo(-22 - exhaustLen * 0.78, 0);
-    ctx.lineTo(-8.4, 3.8);
-    ctx.closePath();
-    ctx.fill();
-
-    glow(ctx, "#8ce8ff", 12 * layout.effectScale);
-    ctx.fillStyle = "#c7f6ff";
-    ctx.beginPath();
-    ctx.moveTo(10, 0);
-    ctx.lineTo(2.4, -2.2);
-    ctx.lineTo(-9.6, -2);
-    ctx.lineTo(-11.3, -0.72);
-    ctx.lineTo(-11.3, 0.72);
-    ctx.lineTo(-9.6, 2);
-    ctx.lineTo(2.4, 2.2);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.fillStyle = "#8ce8ff";
-    ctx.beginPath();
-    ctx.moveTo(10, 0);
-    ctx.lineTo(3.8, -1.2);
-    ctx.lineTo(3.8, 1.2);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.fillStyle = "#2b4e6b";
-    ctx.fillRect(-6.2, -0.55, 12.2, 1.1);
-    ctx.fillStyle = "rgba(220, 250, 255, 0.58)";
-    ctx.fillRect(-0.4, -1.45, 5.4, 0.55);
-
-    ctx.fillStyle = "#88cfff";
-    ctx.beginPath();
-    ctx.moveTo(-2.8, -2.2);
-    ctx.lineTo(-8.8, -4.9);
-    ctx.lineTo(-5.6, -1.2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(-2.8, 2.2);
-    ctx.lineTo(-8.8, 4.9);
-    ctx.lineTo(-5.6, 1.2);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.fillStyle = `rgba(255, 112, 48, ${exhaustAlpha})`;
-    ctx.beginPath();
-    ctx.moveTo(-9.8, -2.4);
-    ctx.lineTo(-13.5 - exhaustLen, 0);
-    ctx.lineTo(-9.8, 2.4);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = `rgba(255, 220, 128, ${exhaustAlpha * 0.78})`;
-    ctx.beginPath();
-    ctx.moveTo(-9.6, -1.2);
-    ctx.lineTo(-11.8 - exhaustLen * 0.72, 0);
-    ctx.lineTo(-9.6, 1.2);
-    ctx.closePath();
-    ctx.fill();
-    glowOff(ctx);
-    ctx.restore();
+    if (renderMode === "live") {
+      drawLiveInterceptorSprite(ctx, ic.x, ic.y, heading, "playerInterceptor", { t, scale: layout.projectileScale });
+    } else {
+      drawBakedProjectileSprite(ctx, ic.x, ic.y, heading, spriteAssets!.playerInterceptor, {
+        t,
+        sharpFrames: true,
+      });
+    }
   });
 }
 
@@ -3007,7 +2438,12 @@ function drawExplosionsAndParticles(ctx: CanvasRenderingContext2D, game: GameSta
   }
 }
 
-function drawGroundStructures(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutProfile) {
+function drawGroundStructures(
+  ctx: CanvasRenderingContext2D,
+  game: GameState,
+  layout: LayoutProfile,
+  renderMode: SceneRenderMode,
+) {
   const scenicLauncherY = GAMEPLAY_SCENIC_LAUNCHER_Y;
   // Launchers
   LAUNCHERS.forEach((l, i) => {
@@ -3022,10 +2458,21 @@ function drawGroundStructures(ctx: CanvasRenderingContext2D, game: GameState, la
     const muzzleFlash = fireAge < 6 ? 1 - fireAge / 6 : 0;
 
     if (game.launcherHP[i] > 0) {
-      drawBakedLauncher(ctx, l.x, scenicLauncherY, barrelAngle, getLauncherAssets(launcherScale, damaged), {
-        t: game.time / 60,
-        muzzleFlash,
-      });
+      if (renderMode === "live") {
+        drawSharedLauncher(ctx, l.x, scenicLauncherY, barrelAngle, {
+          t: game.time / 60,
+          scale: launcherScale,
+          damaged,
+          active: true,
+          muzzleFlash,
+        });
+      } else {
+        drawBakedLauncher(ctx, l.x, scenicLauncherY, barrelAngle, getLauncherAssets(launcherScale, damaged), {
+          t: game.time / 60,
+          muzzleFlash,
+          sharpFrames: true,
+        });
+      }
     } else {
       drawSharedLauncher(ctx, l.x, scenicLauncherY, barrelAngle, {
         t: game.time / 60,
@@ -3782,17 +3229,19 @@ export function drawGame(
     showShop = false,
     layoutProfile = {} as Partial<LayoutProfile>,
     buildingAssets = null,
+    renderMode = "bakedSharp",
   }: {
     showShop?: boolean;
     layoutProfile?: Partial<LayoutProfile>;
     buildingAssets?: BuildingAssets | null;
+    renderMode?: SceneRenderMode;
   } = {},
 ) {
   const layout = resolveLayoutProfile(layoutProfile);
   const sceneTime = game.time / 60;
   const scenicGroundY = GAMEPLAY_SCENIC_GROUND_Y;
   const gameplayWaterlineY = GAMEPLAY_WATERLINE_Y;
-  const burjAssets = getBurjAssets(scenicGroundY, 2);
+  const burjAssets = renderMode === "live" ? null : getBurjAssets(scenicGroundY, 2);
   let sx = 0,
     sy = 0;
   if (game.shakeTimer > 0 && !game._debugMode) {
@@ -3831,8 +3280,9 @@ export function drawGame(
     burjHitFlashX: game.burjHitFlashX,
     burjHitFlashY: game.burjHitFlashY,
     burjAssets,
+    sharpFrames: renderMode === "bakedSharp",
   });
-  drawGameplayForegroundBuildings(ctx, game, sceneTime, scenicGroundY, buildingAssets);
+  drawGameplayForegroundBuildings(ctx, game, sceneTime, scenicGroundY, renderMode, buildingAssets);
   drawSharedWater(
     ctx,
     {
@@ -3849,13 +3299,13 @@ export function drawGame(
   ctx.beginPath();
   ctx.rect(0, 0, CANVAS_W, gameplayWaterlineY);
   ctx.clip();
-  drawMissiles(ctx, game, layout);
-  drawDrones(ctx, game, layout);
-  drawInterceptors(ctx, game, layout);
+  drawMissiles(ctx, game, layout, renderMode, sceneTime);
+  drawDrones(ctx, game, layout, renderMode, sceneTime);
+  drawInterceptors(ctx, game, layout, renderMode, sceneTime);
   drawUpgradeProjectiles(ctx, game, layout);
   ctx.restore();
   drawExplosionsAndParticles(ctx, game, layout);
-  drawGroundStructures(ctx, game, layout);
+  drawGroundStructures(ctx, game, layout, renderMode);
   drawBurjWarningPlate(ctx, {
     groundY: scenicGroundY,
     burjHealth: game.burjHealth,
@@ -4207,7 +3657,15 @@ export function drawTitle(
     });
   }
 
-  drawSharedBurj(ctx, { mode: "title", groundY: titleGroundY, alive: true, artScale: 2, t, burjAssets });
+  drawSharedBurj(ctx, {
+    mode: "title",
+    groundY: titleGroundY,
+    alive: true,
+    artScale: 2,
+    t,
+    burjAssets,
+    sharpFrames: skylineRenderMode === "bakedSharp",
+  });
 
   // Waterfront strip and reflections
   const waterTop = titleGroundY + WATER_SURFACE_OFFSET;
@@ -4285,6 +3743,7 @@ export function drawTitle(
       t,
       alpha,
       muzzleFlash: 0,
+      sharpFrames: skylineRenderMode === "bakedSharp",
     });
   }
 
@@ -4306,11 +3765,11 @@ export function drawTitle(
   ];
   const titleTargetX = BURJ_X;
   const titleTargetY = titleGroundY - 6 - BURJ_H + 18;
+  const titleThreatSprites = skylineRenderMode === "live" ? null : getThreatSpriteAssets(layout.enemyScale);
   titleAircraft.forEach((obj, index) => {
     const x = obj.x;
     const y = obj.y;
     const aimAngle = Math.atan2(titleTargetY - y, titleTargetX - x);
-    const trailPulse = 0.55 + 0.45 * Math.sin(t * 1.8 + obj.phase * 7 + index * 0.6);
     ctx.save();
     ctx.strokeStyle = obj.kind === "shahed" ? "rgba(255, 210, 150, 0.1)" : "rgba(210, 220, 230, 0.1)";
     ctx.lineWidth = 1;
@@ -4322,51 +3781,48 @@ export function drawTitle(
     if (obj.kind === "shahed") {
       const shahedAngle = aimAngle + 0.08;
       const titleTime = t * 60 + index * 7;
-      const travelSpeed = 2.8 + trailPulse * 0.45;
       const titleDroneTrail = Array.from({ length: 10 }, (_, trailIndex) => ({
         x: x - Math.cos(shahedAngle) * (trailIndex + 1) * 9,
         y: y - Math.sin(shahedAngle) * (trailIndex + 1) * 9,
       }));
-      const titleDrone: Drone = {
-        x,
-        y,
-        vx: Math.cos(shahedAngle) * travelSpeed,
-        vy: Math.sin(shahedAngle) * travelSpeed,
-        trail: titleDroneTrail,
-        wobble: 0,
-        alive: true,
-        type: "drone",
-        subtype: "shahed136",
-        health: 1,
-        collisionRadius: 30,
-        diving: true,
-      };
-      drawDroneEntity(ctx, titleDrone, {
-        time: titleTime,
-        enemyScale: obj.scale,
-        effectScale: layout.effectScale,
+      drawGradientTrail(ctx, titleDroneTrail, x, y, {
+        outerRgb: "136,144,152",
+        coreRgb: "196,204,212",
+        headRgb: "196,170,118",
+        width: 2.6 * layout.effectScale,
+        coreWidth: 1 * layout.effectScale,
+        headRadius: 1.2 * layout.effectScale,
       });
+      if (skylineRenderMode === "live") {
+        drawLiveThreatSprite(ctx, x, y, shahedAngle, "shahed136", { t: titleTime, scale: obj.scale });
+      } else {
+        drawBakedProjectileSprite(ctx, x, y, shahedAngle, titleThreatSprites!.shahed136, {
+          t: titleTime,
+          sharpFrames: skylineRenderMode === "bakedSharp",
+        });
+      }
     } else {
       const missileAngle = aimAngle + 0.04;
-      const missileSpeed = 6.8 + trailPulse * 0.8;
-      const titleMissile: Missile = {
-        x,
-        y,
-        vx: Math.cos(missileAngle) * missileSpeed,
-        vy: Math.sin(missileAngle) * missileSpeed,
-        accel: 0,
-        trail: Array.from({ length: 10 }, (_, trailIndex) => ({
-          x: x - Math.cos(missileAngle) * (trailIndex + 1) * 7,
-          y: y - Math.sin(missileAngle) * (trailIndex + 1) * 7,
-        })),
-        alive: true,
-        type: "missile",
-      };
-      drawDefaultMissileEntity(ctx, titleMissile, {
-        time: t * 60 + index * 5,
-        enemyScale: obj.scale,
-        effectScale: layout.effectScale,
+      const titleMissileTrail = Array.from({ length: 10 }, (_, trailIndex) => ({
+        x: x - Math.cos(missileAngle) * (trailIndex + 1) * 7,
+        y: y - Math.sin(missileAngle) * (trailIndex + 1) * 7,
+      }));
+      drawGradientTrail(ctx, titleMissileTrail, x, y, {
+        outerRgb: "112,126,148",
+        coreRgb: "208,220,232",
+        headRgb: "255,188,92",
+        width: 2.4 * layout.effectScale,
+        coreWidth: 1 * layout.effectScale,
+        headRadius: 1.2 * layout.effectScale,
       });
+      if (skylineRenderMode === "live") {
+        drawLiveThreatSprite(ctx, x, y, missileAngle, "missile", { t: t * 60 + index * 5, scale: obj.scale });
+      } else {
+        drawBakedProjectileSprite(ctx, x, y, missileAngle, titleThreatSprites!.missile, {
+          t: t * 60 + index * 5,
+          sharpFrames: skylineRenderMode === "bakedSharp",
+        });
+      }
     }
   });
 

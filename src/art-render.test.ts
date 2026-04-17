@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  buildInterceptorSpriteAssets,
   buildBuildingAssets,
   buildBurjAssets,
   buildLauncherAssets,
+  buildThreatSpriteAssets,
   buildTitleBuildingAssets,
   createSpriteCanvas,
 } from "./art-render.js";
@@ -120,5 +122,40 @@ describe("launcher asset baking", () => {
       expect(frame.width).toBe(assets.chassisStaticSprite.width);
       expect(frame.height).toBe(assets.chassisStaticSprite.height);
     }
+  });
+});
+
+describe("projectile sprite asset baking", () => {
+  it("builds threat sprite variants in headless mode", () => {
+    Reflect.deleteProperty(globalThis, "document");
+
+    const assets = buildThreatSpriteAssets(3);
+
+    expect(Object.keys(assets).sort()).toEqual([
+      "bomb",
+      "mirv",
+      "mirv_warhead",
+      "missile",
+      "shahed136",
+      "shahed238",
+      "stack_carrier_2",
+      "stack_carrier_3",
+      "stack_child",
+    ]);
+    expect(assets.missile.scale).toBe(3);
+    expect(assets.missile.animFrames).toHaveLength(8);
+    expect(assets.shahed136.staticSprite.width).toBeGreaterThan(0);
+    expect(assets.stack_carrier_3.staticSprite.height).toBeGreaterThan(0);
+  });
+
+  it("builds interceptor sprite variants in headless mode", () => {
+    Reflect.deleteProperty(globalThis, "document");
+
+    const assets = buildInterceptorSpriteAssets(2);
+
+    expect(Object.keys(assets).sort()).toEqual(["f15Interceptor", "playerInterceptor"]);
+    expect(assets.playerInterceptor.scale).toBe(2);
+    expect(assets.playerInterceptor.animFrames).toHaveLength(8);
+    expect(assets.f15Interceptor.staticSprite.width).toBeGreaterThan(0);
   });
 });
