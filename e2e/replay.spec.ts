@@ -65,6 +65,10 @@ test.describe("Replay", () => {
     await page.waitForFunction(() => window.__loadReplay != null, { timeout: 5000 });
 
     await page.evaluate((data: ReplayData) => window.__loadReplay!(data), SHORT_REPLAY);
+    await page.waitForFunction(() => {
+      const g = window.__gameRef?.current;
+      return g?._replay === true && g.state === "playing";
+    });
 
     const state = await page.evaluate(() => {
       const g = window.__gameRef?.current;

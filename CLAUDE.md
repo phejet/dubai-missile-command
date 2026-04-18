@@ -13,18 +13,32 @@ npx vite build       # production build to dist/
 When doing local verification, if you stop the dev server for testing or debugging, start it again before finishing and confirm the local URL.
 After implementing a feature or bug fix, proactively check whether the dev server is already running. If it is not running and browser verification could matter, start `npm run dev` yourself and report the active local URL before finishing.
 
+## Browser Smoke Tests
+
+Use the maintained Playwright smoke suite for browser boot/input/shop-flow checks:
+
+```bash
+npx playwright test e2e/smoke.spec.ts
+```
+
+For the full browser E2E suite:
+
+```bash
+npm run test:e2e
+```
+
+These tests boot their own production preview server via `playwright.config.ts`, so they do not require `npm run dev` first.
+
 ## Running the Bot
 
-The Playwright bot (`play-bot.mjs`) auto-plays the game for testing.
+The Playwright bot (`play-bot.ts`) auto-plays the game for testing.
 
 ```bash
 # 1. Start the dev server first
 npm run dev
 
-# 2. Update GAME_URL in play-bot.mjs to match the dev server port
-
-# 3. Run the bot (opens a visible Chromium window)
-node play-bot.mjs
+# 2. Run the bot against the active local URL (opens a visible Chromium window)
+GAME_URL=http://localhost:5173/dubai-missile-command/ npx tsx play-bot.ts
 ```
 
 The bot reads game state via `window.__gameRef`, calculates leading shots, prioritizes threats, buys upgrades in the shop, and avoids hitting friendly F-15s.

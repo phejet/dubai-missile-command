@@ -3,17 +3,15 @@
 
 import SFX from "./sound";
 import {
-  CANVAS_W,
   CANVAS_H,
+  CANVAS_W,
   GROUND_Y,
-  GAMEPLAY_SCENIC_BASE_Y,
   LAUNCHER_RELOAD_TICKS,
   fireInterceptor,
   getAmmoCapacity,
   setRng,
 } from "./game-logic";
-import { drawGame, drawTitle, drawGameOver, perfState, preloadRenderAssets } from "./game-render";
-import { buildBuildingAssets, type BuildingAssets } from "./art-render";
+import { perfState, type GameOverSnapshot, type GameRenderer, type GameScreen } from "./game-renderer";
 import { mulberry32 } from "./headless/rng";
 import {
   bufferPlayerFire,
@@ -70,35 +68,6 @@ declare global {
 
 const REPLAY_CHECKPOINT_INTERVAL = 60;
 const HUD_REFRESH_MS = 120;
-type SceneRenderMode = "bakedSharp" | "live";
-const LAYOUT_PROFILE = {
-  key: "phonePortrait",
-  showTopHud: false,
-  showSystemLabels: false,
-  externalTitle: false,
-  externalGameOver: true,
-  crosshairFillRadius: 22,
-  crosshairOuterRadius: 16,
-  crosshairInnerRadius: 18,
-  crosshairGap: 9,
-  crosshairArmLength: 24,
-  mirvWarningFontSize: 24,
-  mirvWarningY: 86,
-  purchaseToastFontSize: 28,
-  purchaseToastY: CANVAS_H * 0.38,
-  lowAmmoFontSize: 34,
-  lowAmmoY: CANVAS_H * 0.42,
-  waveClearedY: CANVAS_H * 0.5,
-  multiKillLabelSize: 28,
-  multiKillBonusSize: 20,
-  buildingScale: 2,
-  burjScale: 2,
-  launcherScale: 3,
-  enemyScale: 3,
-  projectileScale: 2,
-  effectScale: 2,
-  planeScale: 3,
-};
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
@@ -173,18 +142,23 @@ function buildShopDataFromGame(game: GameState): ShopData {
   };
 }
 
+interface GameOptions {
+  canvas: HTMLCanvasElement;
+  renderer: GameRenderer;
+  onScreenChange?: (screen: GameScreen) => void;
+}
+
 // ─── Game Controller ────────────────────────────────────────────────
 
 export class Game {
   // DOM elements
   private canvas: HTMLCanvasElement;
-  private ctx: CanvasRenderingContext2D;
+  private renderer: GameRenderer;
+  private onScreenChange?: (screen: GameScreen) => void;
   private shell: HTMLElement;
   private battlefieldCard: HTMLElement;
   private hudEl: HTMLElement;
   private titleProgressionButton: HTMLElement;
-  private titleRenderModeButton: HTMLButtonElement;
-  private gameplayRenderModeButton: HTMLButtonElement;
   private gameoverPanel: HTMLElement;
   private progressionPanel: HTMLElement;
   private progressionButton: HTMLElement;
@@ -198,7 +172,7 @@ export class Game {
 
   // Game state
   private gameRef: { current: GameState | null } = { current: null };
-  private screen: "title" | "playing" | "gameover" = "title";
+  private screen: GameScreen = "title";
   private rafId: number | null = null;
   private lastTime: number | null = null;
   private replayRunner: ReturnType<typeof createReplayRunner> | null = null;
@@ -217,9 +191,6 @@ export class Game {
   private replayActive = false;
   private bonusActive = false;
   private progressionOpen = false;
-  private buildingAssets: BuildingAssets | null = null;
-  private titleRenderMode: SceneRenderMode = "bakedSharp";
-  private gameplayRenderMode: SceneRenderMode = "bakedSharp";
 
   // Final stats for game over
   private finalScore = 0;
@@ -227,15 +198,14 @@ export class Game {
   private finalStats = { missileKills: 0, droneKills: 0, shotsFired: 0 };
   private lastReplay: ReplayData | null = null;
 
-  constructor() {
-    this.canvas = document.getElementById("game-canvas") as HTMLCanvasElement;
-    this.ctx = this.canvas.getContext("2d")!;
+  constructor({ canvas, renderer, onScreenChange }: GameOptions) {
+    this.canvas = canvas;
+    this.renderer = renderer;
+    this.onScreenChange = onScreenChange;
     this.shell = document.getElementById("game-shell")!;
     this.battlefieldCard = document.getElementById("battlefield-card")!;
     this.hudEl = document.getElementById("battlefield-hud")!;
     this.titleProgressionButton = document.getElementById("title-progression-button")!;
-    this.titleRenderModeButton = document.getElementById("title-render-mode-button") as HTMLButtonElement;
-    this.gameplayRenderModeButton = document.getElementById("option-render") as HTMLButtonElement;
     this.gameoverPanel = document.getElementById("gameover-panel")!;
     this.progressionPanel = document.getElementById("progression-panel")!;
     this.progressionButton = document.getElementById("progression-button")!;
@@ -250,8 +220,6 @@ export class Game {
     cacheHudElements();
     this.bindEvents();
     this.setupWindowGlobals();
-    preloadRenderAssets();
-    this.buildingAssets = buildBuildingAssets(GAMEPLAY_SCENIC_BASE_Y);
     this.setScreen("title");
     this.startRenderLoop();
   }
@@ -281,13 +249,11 @@ export class Game {
         void this.startReplay(this.lastReplay);
       }
     });
-    this.titleRenderModeButton.addEventListener("click", () => this.toggleTitleRenderMode());
     this.empButton.addEventListener("click", () => this.fireEmp());
     this.optionsButton.addEventListener("click", () => this.toggleOptionsMenu());
     document.getElementById("option-sound")!.addEventListener("click", () => void this.toggleMute());
     document.getElementById("option-debug")!.addEventListener("click", () => this.toggleDebug());
     document.getElementById("option-perf")!.addEventListener("click", () => this.togglePerf());
-    this.gameplayRenderModeButton.addEventListener("click", () => this.toggleGameplayRenderMode());
 
     // Resize
     window.addEventListener("resize", () => this.updateCompactClass());
@@ -312,6 +278,7 @@ export class Game {
   private updateCompactClass(): void {
     const compact = window.innerHeight <= 760;
     this.shell.classList.toggle("game-shell--compactPortrait", compact);
+    this.renderer.resize();
   }
 
   private clearPointerCapture(): void {
@@ -330,15 +297,13 @@ export class Game {
 
   // ─── Screen Management ──────────────────────────────────────────
 
-  private setScreen(s: "title" | "playing" | "gameover"): void {
+  private setScreen(s: GameScreen): void {
     this.screen = s;
     this.shell.dataset.screen = s;
 
     // Toggle visibility of screen-specific elements
     this.hudEl.hidden = s !== "playing";
     this.titleProgressionButton.hidden = true;
-    this.titleRenderModeButton.hidden = s !== "title";
-    this.gameplayRenderModeButton.hidden = s !== "playing";
     this.gameoverPanel.hidden = s !== "gameover" || this.progressionOpen;
     this.progressionPanel.hidden = !this.progressionOpen || s !== "gameover";
     this.battlefieldCard.classList.toggle("battlefield-card--portraitSky", s === "playing");
@@ -358,38 +323,7 @@ export class Game {
       uiShowGameOver(this.finalScore, this.finalWave, this.finalStats);
       this.replayButton.hidden = !this.lastReplay;
     }
-
-    this.syncTitleRenderModeButton();
-    this.syncGameplayRenderModeButton();
-  }
-
-  private syncTitleRenderModeButton(): void {
-    const live = this.titleRenderMode === "live";
-    this.titleRenderModeButton.textContent = `Render: ${live ? "Live" : "Baked"}`;
-    this.titleRenderModeButton.ariaPressed = live ? "true" : "false";
-    this.titleRenderModeButton.title = live
-      ? "Switch title rendering back to baked mode"
-      : "Switch title rendering to live mode";
-  }
-
-  private toggleTitleRenderMode(): void {
-    this.titleRenderMode = this.titleRenderMode === "live" ? "bakedSharp" : "live";
-    this.syncTitleRenderModeButton();
-  }
-
-  private syncGameplayRenderModeButton(): void {
-    const live = this.gameplayRenderMode === "live";
-    this.gameplayRenderModeButton.classList.toggle("battlefield-option--active", live);
-    this.gameplayRenderModeButton.setAttribute("aria-pressed", live ? "true" : "false");
-    this.gameplayRenderModeButton.title = live
-      ? "Switch gameplay rendering back to baked sharp mode"
-      : "Switch gameplay rendering to live mode";
-    document.getElementById("option-render-meta")!.textContent = live ? "Live" : "Baked Sharp";
-  }
-
-  private toggleGameplayRenderMode(): void {
-    this.gameplayRenderMode = this.gameplayRenderMode === "live" ? "bakedSharp" : "live";
-    this.syncGameplayRenderModeButton();
+    this.onScreenChange?.(s);
   }
 
   // ─── Game Lifecycle ─────────────────────────────────────────────
@@ -956,19 +890,19 @@ export class Game {
         const alpha = game.state === "playing" ? (game._timeAccum ?? 0) : 1;
         applyInterpolation(game, alpha);
         this.syncHud();
-        drawGame(this.ctx, game, {
-          showShop: this.shopOpen,
-          layoutProfile: LAYOUT_PROFILE,
-          buildingAssets: this.buildingAssets,
-          renderMode: this.gameplayRenderMode,
-        });
+        this.renderer.renderGameplay(game, { showShop: this.shopOpen });
         restorePositions(game);
       } else {
         this.lastTime = null;
         if (this.screen === "title") {
-          drawTitle(this.ctx, { layoutProfile: LAYOUT_PROFILE, skylineRenderMode: this.titleRenderMode });
+          this.renderer.renderTitle();
         } else if (this.screen === "gameover") {
-          drawGameOver(this.ctx, this.finalScore, this.finalWave, this.finalStats, { layoutProfile: LAYOUT_PROFILE });
+          const snapshot: GameOverSnapshot = {
+            score: this.finalScore,
+            wave: this.finalWave,
+            stats: this.finalStats,
+          };
+          this.renderer.renderGameOver(snapshot);
         }
       }
     };

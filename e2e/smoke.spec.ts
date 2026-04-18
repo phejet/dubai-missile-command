@@ -22,15 +22,14 @@ async function clickCanvasAt(page: import("@playwright/test").Page, xRatio = 0.5
 }
 
 async function startGameFromScreen(page: import("@playwright/test").Page) {
-  const shell = page.locator('[data-ui-mode="phonePortrait"]');
-  const box = await shell.boundingBox();
-  expect(box).toBeTruthy();
-  await shell.click({
-    position: {
-      x: Math.max(1, Math.min(box!.width - 1, box!.width * 0.5)),
-      y: Math.max(1, Math.min(box!.height - 1, box!.height * 0.5)),
-    },
-  });
+  const startButton = page.getByRole("button", { name: /start defense/i });
+  if ((await startButton.count()) > 0) {
+    await startButton.first().click();
+  } else {
+    await clickCanvasAt(page, 0.5, 0.35);
+  }
+
+  await page.waitForFunction(() => window.__gameRef?.current != null, { timeout: 5000 });
 }
 
 test.describe("Smoke tests", () => {

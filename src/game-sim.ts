@@ -630,7 +630,9 @@ function pickRoadrunnerTargets(allThreats: Threat[], activeRoadrunners: Roadrunn
   const aliveThreats = allThreats.filter((t) => t.alive);
   if (aliveThreats.length === 0) return [];
 
-  const reserved = new Set(activeRoadrunners.filter((r) => r.alive && r.targetRef?.alive).map((r) => r.targetRef));
+  const reserved = new Set<Threat>(
+    activeRoadrunners.filter((r) => r.alive && r.targetRef?.alive).map((r) => r.targetRef!),
+  );
   const spreadTargets = Array.from(reserved);
   const picked: Threat[] = [];
 
@@ -670,7 +672,9 @@ function pickPatriotTargets(allThreats: Threat[], activePatriots: PatriotMissile
   const aliveThreats = allThreats.filter((t) => t.alive);
   if (aliveThreats.length === 0) return [];
 
-  const reserved = new Set(activePatriots.filter((p) => p.alive && p.targetRef?.alive).map((p) => p.targetRef));
+  const reserved = new Set<Threat>(
+    activePatriots.filter((p) => p.alive && p.targetRef?.alive).map((p) => p.targetRef!),
+  );
   const spreadTargets = Array.from(reserved);
   const picked: Threat[] = [];
 

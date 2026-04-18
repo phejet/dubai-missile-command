@@ -127,14 +127,18 @@ describe("generateWaveSchedule", () => {
     }
   });
 
-  it("wave 1-2 has only missiles and drone136", () => {
+  it("wave 1-2 stay within their configured starter threat pools", () => {
     setRng(makeSeededRng(42));
     const cmdr = createCommander("balanced");
-    for (let w = 1; w <= 2; w++) {
-      const { schedule } = generateWaveSchedule(w, cmdr);
-      for (const entry of schedule) {
-        expect(["missile", "drone136"]).toContain(entry.type);
-      }
+
+    const { schedule: wave1 } = generateWaveSchedule(1, cmdr);
+    for (const entry of wave1) {
+      expect(["drone136", "stack2"]).toContain(entry.type);
+    }
+
+    const { schedule: wave2 } = generateWaveSchedule(2, cmdr);
+    for (const entry of wave2) {
+      expect(["missile", "drone136"]).toContain(entry.type);
     }
   });
 

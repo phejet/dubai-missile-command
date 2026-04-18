@@ -7,7 +7,7 @@ import tsparser from "@typescript-eslint/parser";
 import { defineConfig, globalIgnores } from "eslint/config";
 
 export default defineConfig([
-  globalIgnores(["dist"]),
+  globalIgnores(["dist", "coverage", "test-results", "playwright-report", "ios/App/App/public"]),
   {
     files: ["**/*.{ts,tsx}"],
     plugins: { "@typescript-eslint": tseslint },

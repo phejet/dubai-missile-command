@@ -3,6 +3,7 @@ import {
   CANVAS_H,
   GROUND_Y,
   CITY_Y,
+  GAMEPLAY_SCENIC_BASE_Y,
   GAMEPLAY_SCENIC_GROUND_Y,
   GAMEPLAY_WATERLINE_Y,
   GAMEPLAY_SCENIC_LAUNCHER_Y,
@@ -21,334 +22,225 @@ import {
   ov,
 } from "./game-logic";
 import {
-  buildInterceptorSpriteAssets,
-  buildThreatSpriteAssets,
-  buildTitleBuildingAssets,
-  buildBurjAssets,
-  buildLauncherAssets,
-  buildSkyAssets,
-  buildUpgradeProjectileSpriteAssets,
-  buildDefenseSiteAssets,
-  buildPlaneAssets,
-  burjPath as traceBurjPath,
+  TITLE_SKYLINE_TOWERS,
+  drawBakedLauncher,
   drawBakedProjectileSprite,
   drawBakedStaticSprite,
-  drawBakedLauncher,
+  drawFlickerWindows,
   drawLiveInterceptorSprite,
   drawLiveThreatSprite,
   drawSharedLauncher,
   drawSharedTower,
-  drawFlickerWindows,
+  getBurjHalfWidths,
+  getCanvasRenderResources,
   getLightFlicker,
-  halfWidthsAt as getBurjHalfWidths,
   mapGameplayBuildingTower,
-  TITLE_SKYLINE_TOWERS,
+  preloadCanvasRenderResources,
+  traceBurjPath,
   type BuildingAssets,
   type BurjAssets,
+  type DefenseSiteAssets,
   type InterceptorSpriteAssets,
+  type InterceptorSpriteKind,
   type LauncherAssets,
+  type PlaneAssets,
   type SkyAssets,
   type ThreatSpriteAssets,
   type ThreatSpriteKind,
-  type InterceptorSpriteKind,
   type UpgradeProjectileSpriteAssets,
-  type DefenseSiteAssets,
-  type PlaneAssets,
-} from "./art-render";
+} from "./canvas-render-resources";
 import { getPurchaseDisplayName, UPGRADE_FAMILIES } from "./game-sim-upgrades";
+import { perfState, type GameOverSnapshot, type GameRenderer } from "./game-renderer";
 import type {
-  GameState,
-  Flare,
   Building,
-  Plane,
-  LaserBeam,
-  PhalanxBullet,
-  Missile,
-  Drone,
-  Interceptor,
-  Hornet,
-  Roadrunner,
-  PatriotMissile,
-  Explosion,
-  Particle,
-  EmpRing,
   DefenseSite,
+  Drone,
+  EmpRing,
+  Explosion,
+  Flare,
+  GameState,
+  Hornet,
+  Interceptor,
+  LaserBeam,
+  Missile,
+  Particle,
+  PatriotMissile,
+  PhalanxBullet,
+  Plane,
+  Roadrunner,
   Star,
 } from "./types";
 
-// FPS probe: measure first 60 frames, disable shadowBlur if avg FPS < 45
-export const perfState = { frameCount: 0, startTime: 0, glowEnabled: true, probed: false };
+export { perfState };
+
+const canvasRenderResources = getCanvasRenderResources();
 const ARCADE_FONT_FAMILY = "'Courier New', monospace";
 const TITLE_BUILDING_BLEND_WINDOW = 0.18;
 const TITLE_BUILDING_PLAYBACK_PERIOD_SECONDS = 4;
 const GAMEPLAY_BUILDING_PLAYBACK_PERIOD_SECONDS = TITLE_BUILDING_PLAYBACK_PERIOD_SECONDS;
 const TITLE_BUILDING_ANIM_ALPHA = 0.58;
 const TITLE_BUILDING_PLAYBACK_RATE_JITTER = 0.24;
-let _gameplaySkyAssets: SkyAssets | null = null;
-let _gameplaySkyStarsRef: Star[] | null = null;
-let _gameplaySkyGroundY: number | null = null;
-let _titleSkyAssets: SkyAssets | null = null;
-let _titleBuildingAssets: BuildingAssets | null = null;
-let _titleBuildingBaseY: number | null = null;
-const _burjAssetsCache = new Map<string, BurjAssets>();
-const _launcherAssetsCache = new Map<string, LauncherAssets>();
-const _threatSpriteAssetsCache = new Map<string, ThreatSpriteAssets>();
-const _interceptorSpriteAssetsCache = new Map<string, InterceptorSpriteAssets>();
-const _upgradeProjectileSpriteAssetsCache = new Map<string, UpgradeProjectileSpriteAssets>();
-let _defenseSiteAssets: DefenseSiteAssets | null = null;
-let _planeAssets: PlaneAssets | null = null;
 
-type TitleSkylineRenderMode = "bakedBlend" | "bakedSharp" | "live";
-type SceneRenderMode = "bakedSharp" | "live";
+export type TitleSkylineRenderMode = "bakedBlend" | "bakedSharp" | "live";
+export type SceneRenderMode = "bakedSharp" | "live";
 
-// Sky nebula background — loaded once, drawn every frame
-let _skyImg: HTMLImageElement | null = null;
-let _skyLoading = false;
-function getSkyImage() {
-  if (_skyImg) return _skyImg;
-  if (_skyLoading) return null;
-  if (typeof Image === "undefined") return null; // headless/test env
-  _skyLoading = true;
-  const img = new Image();
-  img.src = new URL("../public/sky-nebula.png", import.meta.url).href;
-  img.onload = () => {
-    _skyImg = img;
-  };
-  img.onerror = () => {
-    _skyLoading = false; // allow retry on next call
-  };
-  return null;
-}
-
-let _titleWaterImg: HTMLImageElement | null = null;
-let _titleWaterLoading = false;
 function getTitleWaterImage() {
-  if (_titleWaterImg) return _titleWaterImg;
-  if (_titleWaterLoading) return null;
-  if (typeof Image === "undefined") return null; // headless/test env
-  _titleWaterLoading = true;
-  const img = new Image();
-  img.src = new URL("./assets/title-water-reflection.png", import.meta.url).href;
-  img.onload = () => {
-    _titleWaterImg = img;
-  };
-  img.onerror = () => {
-    _titleWaterLoading = false; // allow retry on next call
-  };
-  return null;
+  return canvasRenderResources.getTitleWaterImage();
 }
 
-let _interceptorHitFlashImg: HTMLImageElement | null = null;
-let _interceptorHitFlashLoading = false;
 function getInterceptorHitFlashImage() {
-  if (_interceptorHitFlashImg) return _interceptorHitFlashImg;
-  if (_interceptorHitFlashLoading) return null;
-  if (typeof Image === "undefined") return null; // headless/test env
-  _interceptorHitFlashLoading = true;
-  const img = new Image();
-  img.src = new URL("./assets/explosion-hit-flash-b.png", import.meta.url).href;
-  img.onload = () => {
-    _interceptorHitFlashImg = img;
-  };
-  img.onerror = () => {
-    _interceptorHitFlashLoading = false; // allow retry on next call
-  };
-  return null;
+  return canvasRenderResources.getInterceptorHitFlashImage();
 }
 
-let _missileKillFlashImg: HTMLImageElement | null = null;
-let _missileKillFlashLoading = false;
 function getMissileKillFlashImage() {
-  if (_missileKillFlashImg) return _missileKillFlashImg;
-  if (_missileKillFlashLoading) return null;
-  if (typeof Image === "undefined") return null;
-  _missileKillFlashLoading = true;
-  const img = new Image();
-  img.src = new URL("./assets/explosion-missile-kill.png", import.meta.url).href;
-  img.onload = () => {
-    _missileKillFlashImg = img;
-  };
-  img.onerror = () => {
-    _missileKillFlashLoading = false;
-  };
-  return null;
+  return canvasRenderResources.getMissileKillFlashImage();
 }
 
-let _droneKillFlashImg: HTMLImageElement | null = null;
-let _droneKillFlashLoading = false;
 function getDroneKillFlashImage() {
-  if (_droneKillFlashImg) return _droneKillFlashImg;
-  if (_droneKillFlashLoading) return null;
-  if (typeof Image === "undefined") return null;
-  _droneKillFlashLoading = true;
-  const img = new Image();
-  img.src = new URL("./assets/explosion-drone-kill.png", import.meta.url).href;
-  img.onload = () => {
-    _droneKillFlashImg = img;
-  };
-  img.onerror = () => {
-    _droneKillFlashLoading = false;
-  };
-  return null;
+  return canvasRenderResources.getDroneKillFlashImage();
 }
 
-let _buildingDestroyBurstImg: HTMLImageElement | null = null;
-let _buildingDestroyBurstLoading = false;
 function getBuildingDestroyBurstImage() {
-  if (_buildingDestroyBurstImg) return _buildingDestroyBurstImg;
-  if (_buildingDestroyBurstLoading) return null;
-  if (typeof Image === "undefined") return null;
-  _buildingDestroyBurstLoading = true;
-  const img = new Image();
-  img.src = new URL("./assets/building-destroy-burst.png", import.meta.url).href;
-  img.onload = () => {
-    _buildingDestroyBurstImg = img;
-  };
-  img.onerror = () => {
-    _buildingDestroyBurstLoading = false;
-  };
-  return null;
+  return canvasRenderResources.getBuildingDestroyBurstImage();
 }
 
-let _titleBurjGlowImg: HTMLImageElement | null = null;
-let _titleBurjGlowLoading = false;
 function getTitleBurjGlowImage() {
-  if (_titleBurjGlowImg) return _titleBurjGlowImg;
-  if (_titleBurjGlowLoading) return null;
-  if (typeof Image === "undefined") return null;
-  _titleBurjGlowLoading = true;
-  const img = new Image();
-  img.src = new URL("./assets/title-burj-glow.png", import.meta.url).href;
-  img.onload = () => {
-    _titleBurjGlowImg = img;
-  };
-  img.onerror = () => {
-    _titleBurjGlowLoading = false;
-  };
-  return null;
+  return canvasRenderResources.getTitleBurjGlowImage();
 }
 
-let _burjMissileDecalImg: HTMLImageElement | null = null;
-let _burjMissileDecalLoading = false;
 function getBurjMissileDecalImage() {
-  if (_burjMissileDecalImg) return _burjMissileDecalImg;
-  if (_burjMissileDecalLoading) return null;
-  if (typeof Image === "undefined") return null;
-  _burjMissileDecalLoading = true;
-  const img = new Image();
-  img.src = new URL("./assets/burj-hit-decal-missile.png", import.meta.url).href;
-  img.onload = () => {
-    _burjMissileDecalImg = img;
-  };
-  img.onerror = () => {
-    _burjMissileDecalLoading = false;
-  };
-  return null;
+  return canvasRenderResources.getBurjMissileDecalImage();
 }
 
-let _burjDroneDecalImg: HTMLImageElement | null = null;
-let _burjDroneDecalLoading = false;
 function getBurjDroneDecalImage() {
-  if (_burjDroneDecalImg) return _burjDroneDecalImg;
-  if (_burjDroneDecalLoading) return null;
-  if (typeof Image === "undefined") return null;
-  _burjDroneDecalLoading = true;
-  const img = new Image();
-  img.src = new URL("./assets/burj-hit-decal-drone.png", import.meta.url).href;
-  img.onload = () => {
-    _burjDroneDecalImg = img;
-  };
-  img.onerror = () => {
-    _burjDroneDecalLoading = false;
-  };
-  return null;
+  return canvasRenderResources.getBurjDroneDecalImage();
 }
 
 export function preloadRenderAssets() {
-  const gameplayLauncherScale = 0.8 + DEFAULT_LAYOUT_PROFILE.launcherScale * 0.06;
-  getSkyImage();
-  getTitleWaterImage();
-  getInterceptorHitFlashImage();
-  getMissileKillFlashImage();
-  getDroneKillFlashImage();
-  getBuildingDestroyBurstImage();
-  getTitleBurjGlowImage();
-  getBurjMissileDecalImage();
-  getBurjDroneDecalImage();
-  getBurjAssets(GROUND_Y - 100, 2);
-  getBurjAssets(GAMEPLAY_SCENIC_GROUND_Y, 2);
-  getLauncherAssets(1, false);
-  getLauncherAssets(gameplayLauncherScale, false);
-  getLauncherAssets(gameplayLauncherScale, true);
-  getThreatSpriteAssets(DEFAULT_LAYOUT_PROFILE.enemyScale);
-  getInterceptorSpriteAssets(DEFAULT_LAYOUT_PROFILE.projectileScale);
-  getUpgradeProjectileSpriteAssets(DEFAULT_LAYOUT_PROFILE.projectileScale);
-  getDefenseSiteAssets();
-  getPlaneAssets();
+  preloadCanvasRenderResources();
 }
 
 export function __resetRenderAssetCachesForTest() {
-  _gameplaySkyAssets = null;
-  _gameplaySkyStarsRef = null;
-  _gameplaySkyGroundY = null;
-  _titleSkyAssets = null;
-  _titleBuildingAssets = null;
-  _titleBuildingBaseY = null;
-  _burjAssetsCache.clear();
-  _launcherAssetsCache.clear();
-  _threatSpriteAssetsCache.clear();
-  _interceptorSpriteAssetsCache.clear();
-  _upgradeProjectileSpriteAssetsCache.clear();
-  _defenseSiteAssets = null;
-  _planeAssets = null;
+  canvasRenderResources.resetForTest();
 }
 
 export function __getBurjAssetCacheKeysForTest() {
-  return [..._burjAssetsCache.keys()].sort();
+  return canvasRenderResources.getBurjAssetCacheKeys();
 }
 
 export function __getBurjAssetsForTest(groundY: number, artScale: number) {
-  return getBurjAssets(groundY, artScale);
+  return canvasRenderResources.getBurjAssets(groundY, artScale);
 }
 
 export function __getLauncherAssetCacheKeysForTest() {
-  return [..._launcherAssetsCache.keys()].sort();
+  return canvasRenderResources.getLauncherAssetCacheKeys();
 }
 
 export function __getLauncherAssetsForTest(scale: number, damaged: boolean) {
-  return getLauncherAssets(scale, damaged);
+  return canvasRenderResources.getLauncherAssets(scale, damaged);
 }
 
 export function __getThreatSpriteCacheKeysForTest() {
-  return [..._threatSpriteAssetsCache.keys()].sort();
+  return canvasRenderResources.getThreatSpriteCacheKeys();
 }
 
 export function __getThreatSpriteAssetsForTest(scale: number) {
-  return getThreatSpriteAssets(scale);
+  return canvasRenderResources.getThreatSpriteAssets(scale);
 }
 
 export function __getInterceptorSpriteCacheKeysForTest() {
-  return [..._interceptorSpriteAssetsCache.keys()].sort();
+  return canvasRenderResources.getInterceptorSpriteCacheKeys();
 }
 
 export function __getInterceptorSpriteAssetsForTest(scale: number) {
-  return getInterceptorSpriteAssets(scale);
+  return canvasRenderResources.getInterceptorSpriteAssets(scale);
 }
 
 export function __getUpgradeProjectileSpriteCacheKeysForTest() {
-  return [..._upgradeProjectileSpriteAssetsCache.keys()].sort();
+  return canvasRenderResources.getUpgradeProjectileSpriteCacheKeys();
 }
 
 export function __getUpgradeProjectileSpriteAssetsForTest(scale: number) {
-  return getUpgradeProjectileSpriteAssets(scale);
+  return canvasRenderResources.getUpgradeProjectileSpriteAssets(scale);
 }
 
 export function __getDefenseSiteAssetsForTest() {
-  return getDefenseSiteAssets();
+  return canvasRenderResources.getDefenseSiteAssets();
 }
 
 export function __getPlaneAssetsForTest() {
-  return getPlaneAssets();
+  return canvasRenderResources.getPlaneAssets();
+}
+
+function getGameplaySkyAssets(stars: Star[], groundY: number): SkyAssets {
+  return canvasRenderResources.getGameplaySkyAssets(stars, groundY);
+}
+
+function getTitleSkyAssets(): SkyAssets {
+  return canvasRenderResources.getTitleSkyAssets();
+}
+
+function getTitleBuildingAssets(baseY: number): BuildingAssets {
+  return canvasRenderResources.getTitleBuildingAssets(baseY);
+}
+
+function getGameplayBuildingAssets(baseY = GAMEPLAY_SCENIC_BASE_Y): BuildingAssets {
+  return canvasRenderResources.getGameplayBuildingAssets(baseY);
+}
+
+function getBurjAssets(groundY: number, artScale: number): BurjAssets {
+  return canvasRenderResources.getBurjAssets(groundY, artScale);
+}
+
+function getLauncherAssets(scale: number, damaged: boolean): LauncherAssets {
+  return canvasRenderResources.getLauncherAssets(scale, damaged);
+}
+
+function getThreatSpriteAssets(scale: number): ThreatSpriteAssets {
+  return canvasRenderResources.getThreatSpriteAssets(scale);
+}
+
+function getInterceptorSpriteAssets(scale: number): InterceptorSpriteAssets {
+  return canvasRenderResources.getInterceptorSpriteAssets(scale);
+}
+
+function getUpgradeProjectileSpriteAssets(scale: number): UpgradeProjectileSpriteAssets {
+  return canvasRenderResources.getUpgradeProjectileSpriteAssets(scale);
+}
+
+function getDefenseSiteAssets(): DefenseSiteAssets {
+  return canvasRenderResources.getDefenseSiteAssets();
+}
+
+function getPlaneAssets(): PlaneAssets {
+  return canvasRenderResources.getPlaneAssets();
+}
+
+function getThreatSpriteKind(m: Missile | Drone): ThreatSpriteKind {
+  if (m.type === "drone") {
+    return m.subtype === "shahed238" ? "shahed238" : "shahed136";
+  }
+  switch (m.type) {
+    case "mirv":
+      return "mirv";
+    case "mirv_warhead":
+      return "mirv_warhead";
+    case "bomb":
+      return "bomb";
+    case "stack2":
+      return "stack_carrier_2";
+    case "stack3":
+      return "stack_carrier_3";
+    case "stack_child":
+      return "stack_child";
+    case "missile":
+    default:
+      return "missile";
+  }
+}
+
+function getInterceptorSpriteKind(ic: Interceptor): InterceptorSpriteKind {
+  return ic.fromF15 ? "f15Interceptor" : "playerInterceptor";
 }
 
 function drawDistortedWaterSprite(
@@ -627,118 +519,6 @@ interface SharedSkyOptions {
   renderHeight: number;
   groundY: number;
   stars?: GameState["stars"];
-}
-
-function getGameplaySkyAssets(stars: Star[], groundY: number): SkyAssets {
-  if (!_gameplaySkyAssets || _gameplaySkyStarsRef !== stars || _gameplaySkyGroundY !== groundY) {
-    _gameplaySkyAssets = buildSkyAssets(stars, CANVAS_H, groundY);
-    _gameplaySkyStarsRef = stars;
-    _gameplaySkyGroundY = groundY;
-  }
-  return _gameplaySkyAssets;
-}
-
-function getTitleSkyAssets(): SkyAssets {
-  if (!_titleSkyAssets) {
-    const titleStars: Star[] = Array.from({ length: 120 }, (_, i) => ({
-      x: hash01(i, 2, 7) * CANVAS_W,
-      y: hash01(i, 5, 11) * CANVAS_H * 0.6,
-      size: 0.5 + hash01(i, 3, 1) * 1.5,
-      twinkle: hash01(i, 7, 3) * 20,
-    }));
-    _titleSkyAssets = buildSkyAssets(titleStars, CANVAS_H, GROUND_Y - 100);
-  }
-  return _titleSkyAssets;
-}
-
-function getTitleBuildingAssets(baseY: number): BuildingAssets {
-  if (!_titleBuildingAssets || _titleBuildingBaseY !== baseY) {
-    _titleBuildingAssets = buildTitleBuildingAssets(baseY);
-    _titleBuildingBaseY = baseY;
-  }
-  return _titleBuildingAssets;
-}
-
-function getBurjAssets(groundY: number, artScale: number): BurjAssets {
-  const key = `${groundY}:${artScale}`;
-  const cached = _burjAssetsCache.get(key);
-  if (cached) return cached;
-  const assets = buildBurjAssets(groundY, artScale);
-  _burjAssetsCache.set(key, assets);
-  return assets;
-}
-
-function getLauncherAssets(scale: number, damaged: boolean): LauncherAssets {
-  const key = `${scale.toFixed(3)}:${damaged ? 1 : 0}`;
-  const cached = _launcherAssetsCache.get(key);
-  if (cached) return cached;
-  const assets = buildLauncherAssets(scale, damaged);
-  _launcherAssetsCache.set(key, assets);
-  return assets;
-}
-
-function getThreatSpriteAssets(scale: number): ThreatSpriteAssets {
-  const key = scale.toFixed(3);
-  const cached = _threatSpriteAssetsCache.get(key);
-  if (cached) return cached;
-  const assets = buildThreatSpriteAssets(scale);
-  _threatSpriteAssetsCache.set(key, assets);
-  return assets;
-}
-
-function getInterceptorSpriteAssets(scale: number): InterceptorSpriteAssets {
-  const key = scale.toFixed(3);
-  const cached = _interceptorSpriteAssetsCache.get(key);
-  if (cached) return cached;
-  const assets = buildInterceptorSpriteAssets(scale);
-  _interceptorSpriteAssetsCache.set(key, assets);
-  return assets;
-}
-
-function getUpgradeProjectileSpriteAssets(scale: number): UpgradeProjectileSpriteAssets {
-  const key = scale.toFixed(3);
-  const cached = _upgradeProjectileSpriteAssetsCache.get(key);
-  if (cached) return cached;
-  const assets = buildUpgradeProjectileSpriteAssets(scale);
-  _upgradeProjectileSpriteAssetsCache.set(key, assets);
-  return assets;
-}
-
-function getDefenseSiteAssets(): DefenseSiteAssets {
-  if (!_defenseSiteAssets) _defenseSiteAssets = buildDefenseSiteAssets();
-  return _defenseSiteAssets;
-}
-
-function getPlaneAssets(): PlaneAssets {
-  if (!_planeAssets) _planeAssets = buildPlaneAssets();
-  return _planeAssets;
-}
-
-function getThreatSpriteKind(m: Missile | Drone): ThreatSpriteKind {
-  if (m.type === "drone") {
-    return m.subtype === "shahed238" ? "shahed238" : "shahed136";
-  }
-  switch (m.type) {
-    case "mirv":
-      return "mirv";
-    case "mirv_warhead":
-      return "mirv_warhead";
-    case "bomb":
-      return "bomb";
-    case "stack2":
-      return "stack_carrier_2";
-    case "stack3":
-      return "stack_carrier_3";
-    case "stack_child":
-      return "stack_child";
-    case "missile":
-    default:
-      return "missile";
-  }
-}
-
-function getInterceptorSpriteKind(ic: Interceptor): InterceptorSpriteKind {
-  return ic.fromF15 ? "f15Interceptor" : "playerInterceptor";
 }
 
 interface SharedBurjOptions {
@@ -3025,6 +2805,7 @@ export function drawGame(
   const sceneTime = game.time / 60;
   const scenicGroundY = GAMEPLAY_SCENIC_GROUND_Y;
   const gameplayWaterlineY = GAMEPLAY_WATERLINE_Y;
+  const resolvedBuildingAssets = renderMode === "live" ? null : (buildingAssets ?? getGameplayBuildingAssets());
   const burjAssets = renderMode === "live" ? null : getBurjAssets(scenicGroundY, 2);
   let sx = 0,
     sy = 0;
@@ -3066,7 +2847,7 @@ export function drawGame(
     burjAssets,
     sharpFrames: renderMode === "bakedSharp",
   });
-  drawGameplayForegroundBuildings(ctx, game, sceneTime, scenicGroundY, renderMode, buildingAssets);
+  drawGameplayForegroundBuildings(ctx, game, sceneTime, scenicGroundY, renderMode, resolvedBuildingAssets);
   drawSharedWater(
     ctx,
     {
@@ -3799,4 +3580,67 @@ export function drawGameOver(
   ctx.font = `bold ${Math.round(14 * s)}px ${ARCADE_FONT_FAMILY}`;
   ctx.fillText(`HIT RATIO: ${hitRatio}%`, cx, 448 * s);
   ctx.textAlign = "left";
+}
+
+interface CanvasGameRendererOptions {
+  canvas: HTMLCanvasElement;
+  layoutProfile?: Partial<LayoutProfile>;
+}
+
+export class CanvasGameRenderer implements GameRenderer {
+  private readonly ctx: CanvasRenderingContext2D;
+  private readonly layoutProfile: Partial<LayoutProfile>;
+  private titleRenderMode: TitleSkylineRenderMode = "bakedSharp";
+  private gameplayRenderMode: SceneRenderMode = "bakedSharp";
+
+  constructor({ canvas, layoutProfile = {} }: CanvasGameRendererOptions) {
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      throw new Error("Unable to acquire a 2D rendering context for the main game canvas");
+    }
+    this.ctx = ctx;
+    this.layoutProfile = layoutProfile;
+  }
+
+  renderTitle(): void {
+    drawTitle(this.ctx, { layoutProfile: this.layoutProfile, skylineRenderMode: this.titleRenderMode });
+  }
+
+  renderGameplay(game: GameState, { showShop = false } = {}): void {
+    drawGame(this.ctx, game, {
+      showShop,
+      layoutProfile: this.layoutProfile,
+      renderMode: this.gameplayRenderMode,
+    });
+  }
+
+  renderGameOver(snapshot: GameOverSnapshot): void {
+    drawGameOver(this.ctx, snapshot.score, snapshot.wave, snapshot.stats, {
+      layoutProfile: this.layoutProfile,
+    });
+  }
+
+  resize(): void {
+    // Fixed-resolution canvas for now; the composition root owns future resize policy.
+  }
+
+  destroy(): void {
+    // Canvas2D path does not own disposable renderer resources yet.
+  }
+
+  toggleTitleRenderMode(): void {
+    this.titleRenderMode = this.titleRenderMode === "live" ? "bakedSharp" : "live";
+  }
+
+  toggleGameplayRenderMode(): void {
+    this.gameplayRenderMode = this.gameplayRenderMode === "live" ? "bakedSharp" : "live";
+  }
+
+  isTitleRenderLive(): boolean {
+    return this.titleRenderMode === "live";
+  }
+
+  isGameplayRenderLive(): boolean {
+    return this.gameplayRenderMode === "live";
+  }
 }
