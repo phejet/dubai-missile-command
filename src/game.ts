@@ -146,6 +146,27 @@ interface GameOptions {
   canvas: HTMLCanvasElement;
   renderer: GameRenderer;
   onScreenChange?: (screen: GameScreen) => void;
+  onFrameSample?: (sample: GameFrameSample) => void;
+  onReplayFinished?: (sample: GameReplayFinishedSample) => void;
+}
+
+export interface GameFrameSample {
+  screen: GameScreen;
+  replayActive: boolean;
+  tick: number;
+  frameMs: number;
+  gpuMs?: number;
+  missiles: number;
+  drones: number;
+  interceptors: number;
+  particles: number;
+  explosions: number;
+}
+
+export interface GameReplayFinishedSample {
+  score: number;
+  tick: number;
+  wave: number;
 }
 
 // ─── Game Controller ────────────────────────────────────────────────
@@ -155,6 +176,8 @@ export class Game {
   private canvas: HTMLCanvasElement;
   private renderer: GameRenderer;
   private onScreenChange?: (screen: GameScreen) => void;
+  private onFrameSample?: (sample: GameFrameSample) => void;
+  private onReplayFinished?: (sample: GameReplayFinishedSample) => void;
   private shell: HTMLElement;
   private battlefieldCard: HTMLElement;
   private hudEl: HTMLElement;
@@ -198,10 +221,12 @@ export class Game {
   private finalStats = { missileKills: 0, droneKills: 0, shotsFired: 0 };
   private lastReplay: ReplayData | null = null;
 
-  constructor({ canvas, renderer, onScreenChange }: GameOptions) {
+  constructor({ canvas, renderer, onScreenChange, onFrameSample, onReplayFinished }: GameOptions) {
     this.canvas = canvas;
     this.renderer = renderer;
     this.onScreenChange = onScreenChange;
+    this.onFrameSample = onFrameSample;
+    this.onReplayFinished = onReplayFinished;
     this.shell = document.getElementById("game-shell")!;
     this.battlefieldCard = document.getElementById("battlefield-card")!;
     this.hudEl = document.getElementById("battlefield-hud")!;
@@ -425,6 +450,10 @@ export class Game {
     this.canvas.classList.add("game-canvas--active");
     this.canvas.style.pointerEvents = "";
     this.setScreen("playing");
+  }
+
+  async loadReplay(replayData: ReplayData): Promise<void> {
+    await this.startReplay(replayData);
   }
 
   // ─── Sim Events ─────────────────────────────────────────────────
@@ -797,6 +826,20 @@ export class Game {
     updateHud(buildHudSnapshot(this.gameRef.current));
   }
 
+  private emitFrameSample(game: GameState, frameMs: number, replayActive: boolean, screen: GameScreen): void {
+    this.onFrameSample?.({
+      drones: game.drones.length,
+      explosions: game.explosions.length,
+      frameMs,
+      interceptors: game.interceptors.length,
+      missiles: game.missiles.length,
+      particles: game.particles.length,
+      replayActive,
+      screen,
+      tick: game._replayTick ?? 0,
+    });
+  }
+
   // ─── Render Loop ────────────────────────────────────────────────
 
   private startRenderLoop(): void {
@@ -819,6 +862,9 @@ export class Game {
         const elapsed = timestamp - this.lastTime;
         this.lastTime = timestamp;
         const game = this.gameRef.current;
+        const screenAtFrameStart = this.screen;
+        const replayWasActive = this.replayActive;
+        let replayFinishedSample: GameReplayFinishedSample | null = null;
         game._rafDeltaMs = elapsed;
         game._rafFps = elapsed > 0 ? 1000 / elapsed : 0;
         game._fpsFrames = (game._fpsFrames || 0) + 1;
@@ -857,6 +903,11 @@ export class Game {
             this.finalScore = game.score;
             this.finalWave = game.wave;
             this.finalStats = { ...game.stats };
+            replayFinishedSample = {
+              score: game.score,
+              tick: game._replayTick ?? 0,
+              wave: game.wave,
+            };
             this.canvas.classList.remove("game-canvas--active");
             this.setScreen("gameover");
           }
@@ -891,7 +942,11 @@ export class Game {
         applyInterpolation(game, alpha);
         this.syncHud();
         this.renderer.renderGameplay(game, { showShop: this.shopOpen });
+        this.emitFrameSample(game, elapsed, replayWasActive, screenAtFrameStart);
         restorePositions(game);
+        if (replayFinishedSample) {
+          this.onReplayFinished?.(replayFinishedSample);
+        }
       } else {
         this.lastTime = null;
         if (this.screen === "title") {

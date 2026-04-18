@@ -3,11 +3,25 @@ import { preloadCanvasRenderResources } from "./canvas-render-resources";
 import { Game } from "./game";
 import { CanvasGameRenderer } from "./game-render";
 import type { GameScreen } from "./game-renderer";
+import { PerfRecorder } from "./perf-recorder";
+import { ConsoleSink, HttpSink, type PerfSink } from "./perf-sinks";
+import type { ReplayData } from "./types";
 
 export type RendererMode = "canvas2d";
 
 interface BootGameOptions {
   mode?: RendererMode;
+}
+
+interface PerfBootRequest {
+  autoquit: boolean;
+  replayUrl: string;
+  runId?: string;
+  sinkUrl?: string;
+}
+
+interface PerfStatusBanner {
+  set(message: string, state?: "running" | "done" | "error"): void;
 }
 
 const PHONE_PORTRAIT_LAYOUT_PROFILE = {
@@ -38,6 +52,95 @@ const PHONE_PORTRAIT_LAYOUT_PROFILE = {
   planeScale: 3,
 };
 
+function isTruthyQueryValue(value: string | null): boolean {
+  return value === "1" || value === "true" || value === "yes";
+}
+
+export function parsePerfBootRequest(locationHref: string): PerfBootRequest | null {
+  let url: URL;
+  try {
+    url = new URL(locationHref);
+  } catch {
+    return null;
+  }
+
+  if (!isTruthyQueryValue(url.searchParams.get("perf"))) return null;
+  const replayUrl = url.searchParams.get("replay")?.trim();
+  if (!replayUrl) return null;
+
+  return {
+    autoquit: isTruthyQueryValue(url.searchParams.get("autoquit")),
+    replayUrl,
+    runId: url.searchParams.get("runId")?.trim() || undefined,
+    sinkUrl: url.searchParams.get("perfSink")?.trim() || undefined,
+  };
+}
+
+function createPerfStatusBanner(): PerfStatusBanner {
+  const banner = document.createElement("div");
+  banner.id = "perf-status-banner";
+  Object.assign(banner.style, {
+    background: "rgba(12, 18, 28, 0.88)",
+    border: "1px solid rgba(255, 255, 255, 0.18)",
+    borderRadius: "999px",
+    boxShadow: "0 18px 50px rgba(0, 0, 0, 0.28)",
+    color: "#f4efe2",
+    font: "600 13px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace",
+    letterSpacing: "0.06em",
+    padding: "10px 16px",
+    position: "fixed",
+    right: "20px",
+    textTransform: "uppercase",
+    top: "20px",
+    zIndex: "1000",
+  });
+  document.body.appendChild(banner);
+
+  return {
+    set(message, state = "running") {
+      banner.textContent = message;
+      banner.style.background =
+        state === "done"
+          ? "rgba(26, 94, 52, 0.92)"
+          : state === "error"
+            ? "rgba(138, 33, 25, 0.94)"
+            : "rgba(12, 18, 28, 0.88)";
+      banner.style.borderColor =
+        state === "done"
+          ? "rgba(112, 221, 148, 0.4)"
+          : state === "error"
+            ? "rgba(255, 152, 136, 0.45)"
+            : "rgba(255, 255, 255, 0.18)";
+    },
+  };
+}
+
+function getReplayIdFromData(replayData: ReplayData): string | undefined {
+  const maybeReplayId = (replayData as ReplayData & { replayId?: unknown }).replayId;
+  if (typeof maybeReplayId !== "string") return undefined;
+  const replayId = maybeReplayId.trim();
+  return replayId || undefined;
+}
+
+function resolvePerfSink(request: PerfBootRequest): PerfSink {
+  if (request.sinkUrl) return new HttpSink(request.sinkUrl);
+  return new ConsoleSink();
+}
+
+async function fetchReplayData(replayUrl: string): Promise<ReplayData> {
+  const response = await fetch(replayUrl);
+  if (!response.ok) {
+    throw new Error(`Replay fetch failed: ${response.status} ${response.statusText}`);
+  }
+
+  const replayData = (await response.json()) as ReplayData;
+  if (typeof replayData.seed !== "number" || !Array.isArray(replayData.actions)) {
+    throw new Error("Replay payload is not valid ReplayData");
+  }
+
+  return replayData;
+}
+
 export function bootGame({ mode = "canvas2d" }: BootGameOptions = {}): Game {
   const canvas = document.getElementById("game-canvas") as HTMLCanvasElement | null;
   const titleRenderModeButton = document.getElementById("title-render-mode-button") as HTMLButtonElement | null;
@@ -49,6 +152,9 @@ export function bootGame({ mode = "canvas2d" }: BootGameOptions = {}): Game {
   }
 
   preloadCanvasRenderResources();
+  const perfRequest = parsePerfBootRequest(window.location.href);
+  const perfBanner = perfRequest ? createPerfStatusBanner() : null;
+  const perfRecorder = perfRequest ? new PerfRecorder(canvas) : null;
 
   const renderer = (() => {
     switch (mode) {
@@ -92,6 +198,22 @@ export function bootGame({ mode = "canvas2d" }: BootGameOptions = {}): Game {
   const game = new Game({
     canvas,
     renderer,
+    onFrameSample(sample) {
+      perfRecorder?.onFrame(sample);
+    },
+    onReplayFinished(sample) {
+      if (!perfRecorder || !perfBanner) return;
+      void perfRecorder
+        .onReplayFinish()
+        .then((report) => {
+          if (!report) return;
+          perfBanner.set(`DONE ${report.replayId} p95 ${report.summary.p95.toFixed(1)}ms wave ${sample.wave}`, "done");
+        })
+        .catch((error: unknown) => {
+          const message = error instanceof Error ? error.message : String(error);
+          perfBanner.set(`PERF ERROR ${message}`, "error");
+        });
+    },
     onScreenChange(nextScreen) {
       screen = nextScreen;
       syncRenderModeUi();
@@ -99,5 +221,25 @@ export function bootGame({ mode = "canvas2d" }: BootGameOptions = {}): Game {
   });
 
   syncRenderModeUi();
+  if (perfRequest && perfRecorder && perfBanner) {
+    void (async () => {
+      try {
+        perfBanner.set(`PERF LOADING ${perfRequest.replayUrl}`);
+        const replayData = await fetchReplayData(perfRequest.replayUrl);
+        const run = perfRecorder.start({
+          autoquit: perfRequest.autoquit,
+          replayId: getReplayIdFromData(replayData),
+          replayUrl: perfRequest.replayUrl,
+          runId: perfRequest.runId,
+          sink: resolvePerfSink(perfRequest),
+        });
+        perfBanner.set(`PERF RUNNING ${run.replayId} ${run.runId.slice(0, 8)}`);
+        await game.loadReplay(replayData);
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        perfBanner.set(`PERF ERROR ${message}`, "error");
+      }
+    })();
+  }
   return game;
 }
