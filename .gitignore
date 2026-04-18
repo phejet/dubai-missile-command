@@ -54,3 +54,6 @@ ios/App/output/
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
 DerivedData/
+
+# Local task tracking
+tasks/todo.md
