@@ -5,6 +5,7 @@ import {
   buildBuildingAssets,
   buildBurjAssets,
   buildLauncherAssets,
+  buildPlaneAssets,
   buildThreatSpriteAssets,
   buildTitleBuildingAssets,
   buildUpgradeProjectileSpriteAssets,
@@ -171,6 +172,17 @@ describe("projectile sprite asset baking", () => {
     expect(assets.wildHornet.animFrames).toHaveLength(8);
     expect(assets.roadrunner.staticSprite.width).toBeGreaterThan(0);
     expect(assets.patriotSam.staticSprite.height).toBeGreaterThan(0);
+  });
+
+  it("builds plane airframe sprite in headless mode", () => {
+    Reflect.deleteProperty(globalThis, "document");
+
+    const assets = buildPlaneAssets();
+
+    expect(assets.f15Airframe.sprite.width).toBeGreaterThan(0);
+    expect(assets.f15Airframe.sprite.height).toBeGreaterThan(0);
+    expect(Number.isFinite(assets.f15Airframe.offset.x)).toBe(true);
+    expect(Number.isFinite(assets.f15Airframe.offset.y)).toBe(true);
   });
 
   it("builds defense site sprite variants in headless mode", () => {

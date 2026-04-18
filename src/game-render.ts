@@ -29,6 +29,7 @@ import {
   buildSkyAssets,
   buildUpgradeProjectileSpriteAssets,
   buildDefenseSiteAssets,
+  buildPlaneAssets,
   burjPath as traceBurjPath,
   drawBakedProjectileSprite,
   drawBakedStaticSprite,
@@ -52,6 +53,7 @@ import {
   type InterceptorSpriteKind,
   type UpgradeProjectileSpriteAssets,
   type DefenseSiteAssets,
+  type PlaneAssets,
 } from "./art-render";
 import { getPurchaseDisplayName, UPGRADE_FAMILIES } from "./game-sim-upgrades";
 import type {
@@ -94,6 +96,7 @@ const _threatSpriteAssetsCache = new Map<string, ThreatSpriteAssets>();
 const _interceptorSpriteAssetsCache = new Map<string, InterceptorSpriteAssets>();
 const _upgradeProjectileSpriteAssetsCache = new Map<string, UpgradeProjectileSpriteAssets>();
 let _defenseSiteAssets: DefenseSiteAssets | null = null;
+let _planeAssets: PlaneAssets | null = null;
 
 type TitleSkylineRenderMode = "bakedBlend" | "bakedSharp" | "live";
 type SceneRenderMode = "bakedSharp" | "live";
@@ -281,6 +284,7 @@ export function preloadRenderAssets() {
   getInterceptorSpriteAssets(DEFAULT_LAYOUT_PROFILE.projectileScale);
   getUpgradeProjectileSpriteAssets(DEFAULT_LAYOUT_PROFILE.projectileScale);
   getDefenseSiteAssets();
+  getPlaneAssets();
 }
 
 export function __resetRenderAssetCachesForTest() {
@@ -296,6 +300,7 @@ export function __resetRenderAssetCachesForTest() {
   _interceptorSpriteAssetsCache.clear();
   _upgradeProjectileSpriteAssetsCache.clear();
   _defenseSiteAssets = null;
+  _planeAssets = null;
 }
 
 export function __getBurjAssetCacheKeysForTest() {
@@ -340,6 +345,10 @@ export function __getUpgradeProjectileSpriteAssetsForTest(scale: number) {
 
 export function __getDefenseSiteAssetsForTest() {
   return getDefenseSiteAssets();
+}
+
+export function __getPlaneAssetsForTest() {
+  return getPlaneAssets();
 }
 
 function drawDistortedWaterSprite(
@@ -698,6 +707,11 @@ function getUpgradeProjectileSpriteAssets(scale: number): UpgradeProjectileSprit
 function getDefenseSiteAssets(): DefenseSiteAssets {
   if (!_defenseSiteAssets) _defenseSiteAssets = buildDefenseSiteAssets();
   return _defenseSiteAssets;
+}
+
+function getPlaneAssets(): PlaneAssets {
+  if (!_planeAssets) _planeAssets = buildPlaneAssets();
+  return _planeAssets;
 }
 
 function getThreatSpriteKind(m: Missile | Drone): ThreatSpriteKind {
@@ -1628,84 +1642,21 @@ function drawDecoyFlares(ctx: CanvasRenderingContext2D, game: GameState, layout:
 
 function drawPlanes(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutProfile) {
   // F-15 Eagle fighter jets
+  const planeAssets = getPlaneAssets();
+  const airframe = planeAssets.f15Airframe;
   game.planes.forEach((p: Plane) => {
     if (!p.alive) return;
     ctx.save();
     ctx.translate(p.x, p.y);
     if (p.vx < 0) ctx.scale(-1, 1);
-    // Bank when evading
     if (p.evadeTimer > 0) {
       const bankAngle = p.vy > 0 ? 0.3 : -0.3;
       ctx.rotate(bankAngle);
     }
     ctx.scale(layout.planeScale, layout.planeScale);
-    // Fuselage — sleek fighter body
-    ctx.fillStyle = "#7888a0";
-    ctx.beginPath();
-    ctx.moveTo(22, 0);
-    ctx.lineTo(10, -3);
-    ctx.lineTo(-18, -3.5);
-    ctx.lineTo(-22, -2);
-    ctx.lineTo(-22, 2);
-    ctx.lineTo(-18, 3.5);
-    ctx.lineTo(10, 3);
-    ctx.closePath();
-    ctx.fill();
-    // Nose cone — pointed
-    ctx.fillStyle = "#5a6a80";
-    ctx.beginPath();
-    ctx.moveTo(22, 0);
-    ctx.lineTo(30, 0);
-    ctx.lineTo(22, -1.5);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(22, 0);
-    ctx.lineTo(30, 0);
-    ctx.lineTo(22, 1.5);
-    ctx.closePath();
-    ctx.fill();
-    // Swept wings
-    ctx.fillStyle = "#687890";
-    ctx.beginPath();
-    ctx.moveTo(2, -3);
-    ctx.lineTo(-8, -16);
-    ctx.lineTo(-14, -14);
-    ctx.lineTo(-6, -3);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(2, 3);
-    ctx.lineTo(-8, 16);
-    ctx.lineTo(-14, 14);
-    ctx.lineTo(-6, 3);
-    ctx.closePath();
-    ctx.fill();
-    // Twin vertical stabilizers
-    ctx.fillStyle = "#5a6878";
-    ctx.beginPath();
-    ctx.moveTo(-16, -3.5);
-    ctx.lineTo(-20, -10);
-    ctx.lineTo(-22, -9);
-    ctx.lineTo(-20, -3.5);
-    ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(-16, 3.5);
-    ctx.lineTo(-20, 10);
-    ctx.lineTo(-22, 9);
-    ctx.lineTo(-20, 3.5);
-    ctx.closePath();
-    ctx.fill();
-    // Engine nozzles (twin)
-    ctx.fillStyle = "#4a5060";
-    ctx.beginPath();
-    ctx.ellipse(-22, -2, 3, 2, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(-22, 2, 3, 2, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // Afterburner glow
+    // Baked airframe: fuselage, nose, wings, stabilizers, nozzles, cockpit.
+    ctx.drawImage(airframe.sprite, airframe.offset.x, airframe.offset.y, airframe.width, airframe.height);
+    // Live afterburner glow
     const abLen = 5 + 4 * pulse(game.time, 0.35, p.x * 0.04 + p.y * 0.02);
     ctx.fillStyle = "#ff8844";
     glow(ctx, "#ff6600", 8);
@@ -1722,12 +1673,7 @@ function drawPlanes(ctx: CanvasRenderingContext2D, game: GameState, layout: Layo
     ctx.closePath();
     ctx.fill();
     glowOff(ctx);
-    // Cockpit
-    ctx.fillStyle = "rgba(100,200,255,0.4)";
-    ctx.beginPath();
-    ctx.ellipse(14, 0, 4, 2, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // Nav lights
+    // Nav lights blink
     if (Math.sin(p.blinkTimer * 0.15) > 0) {
       ctx.fillStyle = "#f00";
       glow(ctx, "#f00", 6);

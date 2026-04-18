@@ -94,6 +94,10 @@ export interface StaticSpriteAsset {
   scale: number;
 }
 
+export interface PlaneAssets {
+  f15Airframe: StaticSpriteAsset;
+}
+
 export interface DefenseSiteAssets {
   patriotTEL: StaticSpriteAsset;
   phalanxBase: StaticSpriteAsset;
@@ -1610,6 +1614,89 @@ function drawEmpEmitterLocal(ctx: CanvasRenderingContext2D, level: number) {
   ctx.beginPath();
   ctx.arc(0, 0, 3, 0, Math.PI * 2);
   ctx.fill();
+}
+
+const F15_AIRFRAME_BOUNDS = { x: -23, y: -17, width: 54, height: 34 } as const;
+const F15_AIRFRAME_SCALE = 1;
+
+function drawF15AirframeLocal(ctx: CanvasRenderingContext2D) {
+  // Fuselage
+  ctx.fillStyle = "#7888a0";
+  ctx.beginPath();
+  ctx.moveTo(22, 0);
+  ctx.lineTo(10, -3);
+  ctx.lineTo(-18, -3.5);
+  ctx.lineTo(-22, -2);
+  ctx.lineTo(-22, 2);
+  ctx.lineTo(-18, 3.5);
+  ctx.lineTo(10, 3);
+  ctx.closePath();
+  ctx.fill();
+  // Nose cone
+  ctx.fillStyle = "#5a6a80";
+  ctx.beginPath();
+  ctx.moveTo(22, 0);
+  ctx.lineTo(30, 0);
+  ctx.lineTo(22, -1.5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(22, 0);
+  ctx.lineTo(30, 0);
+  ctx.lineTo(22, 1.5);
+  ctx.closePath();
+  ctx.fill();
+  // Swept wings
+  ctx.fillStyle = "#687890";
+  ctx.beginPath();
+  ctx.moveTo(2, -3);
+  ctx.lineTo(-8, -16);
+  ctx.lineTo(-14, -14);
+  ctx.lineTo(-6, -3);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(2, 3);
+  ctx.lineTo(-8, 16);
+  ctx.lineTo(-14, 14);
+  ctx.lineTo(-6, 3);
+  ctx.closePath();
+  ctx.fill();
+  // Twin vertical stabilizers
+  ctx.fillStyle = "#5a6878";
+  ctx.beginPath();
+  ctx.moveTo(-16, -3.5);
+  ctx.lineTo(-20, -10);
+  ctx.lineTo(-22, -9);
+  ctx.lineTo(-20, -3.5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(-16, 3.5);
+  ctx.lineTo(-20, 10);
+  ctx.lineTo(-22, 9);
+  ctx.lineTo(-20, 3.5);
+  ctx.closePath();
+  ctx.fill();
+  // Engine nozzles
+  ctx.fillStyle = "#4a5060";
+  ctx.beginPath();
+  ctx.ellipse(-22, -2, 3, 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(-22, 2, 3, 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Cockpit
+  ctx.fillStyle = "rgba(100,200,255,0.4)";
+  ctx.beginPath();
+  ctx.ellipse(14, 0, 4, 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+export function buildPlaneAssets(): PlaneAssets {
+  return {
+    f15Airframe: buildStaticSpriteAsset(F15_AIRFRAME_SCALE, F15_AIRFRAME_BOUNDS, drawF15AirframeLocal),
+  };
 }
 
 export function buildDefenseSiteAssets(): DefenseSiteAssets {

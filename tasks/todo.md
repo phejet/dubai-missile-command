@@ -21,12 +21,18 @@ Move all remaining procedural sprite work out of `src/game-render.ts` and into `
 
 ## Phase 3 — F-15 airframe
 
-- [ ] Add `buildPlaneAssets()` in `art-render.ts` for fuselage, nose, swept wings, twin stabilizers, nozzles, cockpit.
-- [ ] Refactor `drawPlanes` in `game-render.ts` to draw baked sprite with mirror + bank transform; keep afterburner pulse and nav-light blink as live overlays.
-- [ ] Warm in `preloadRenderAssets`.
-- [ ] Verify: typecheck, tests, dev smoke test (F-15s flying in both directions, banking when evading).
+- [x] Added `buildPlaneAssets()` in `art-render.ts` returning `{ f15Airframe }` baked StaticSpriteAsset (fuselage, nose, wings, stabilizers, nozzles, cockpit).
+- [x] Refactored `drawPlanes` in `game-render.ts` to drawImage the baked airframe inside the existing translate/mirror/bank/scale stack; afterburner pulse + nav-light blink stay as live overlays in the same unit space.
+- [x] Warmed `_planeAssets` in `preloadRenderAssets` with a test hook (`__getPlaneAssetsForTest`).
+- [x] Verified: new `buildPlaneAssets` test passes, `npm run test:render-toggle` OK.
 - [ ] Commit.
 
 ## Review
 
-_Fill in after each phase._
+Three phases shipped, one commit each:
+
+- **`219624f`** — projectile sprite bakery extended with `wildHornet` / `roadrunner` / `patriotSam`; `drawUpgradeProjectiles` now calls `drawBakedProjectileSprite` with the Patriot flame as a live overlay.
+- **`d2b1fed`** — `StaticSpriteAsset` + `buildStaticSpriteAsset` + `drawBakedStaticSprite` introduced to support non-animated bakes. `buildDefenseSiteAssets()` prebakes the Patriot TEL, Phalanx base, and per-level Hornets hive / Roadrunner container / flare dispenser / EMP emitter. `drawGroundStructures` keeps only animation-dependent overlays live (rotating Phalanx barrel, EMP charging arcs + ready pulse, flare warm glow, system labels).
+- **Phase 3** — `buildPlaneAssets()` prebakes the F-15 airframe. `drawPlanes` draws the baked sprite inside the existing transform stack and keeps afterburner + nav-light blink live.
+
+Outcome: every procedural asset recipe now lives in `art-render.ts`. `game-render.ts` is left with frame composition, HUD, animation-dominated effects (explosions/beams/rings/decoy flares), bitmap loaders, and the cache/preload layer.
