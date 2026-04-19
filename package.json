@@ -11,6 +11,8 @@
     "cap:sync": "npx cap sync ios",
     "cap:open": "npx cap open ios",
     "ios": "npm run build:ios && npm run cap:sync && npm run cap:open",
+    "ios:dev": "CAP_DEV_SERVER=http://$(scutil --get LocalHostName).local:5173 npm run cap:sync && npm run cap:open",
+    "ios:prod": "npm run ios",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -25,6 +27,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.79.0",
+    "@capacitor/app": "^8.1.0",
     "@capacitor/core": "^8.3.0"
   },
   "devDependencies": {

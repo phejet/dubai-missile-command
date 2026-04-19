@@ -11,6 +11,7 @@ export type RendererMode = "canvas2d";
 
 interface BootGameOptions {
   mode?: RendererMode;
+  launchUrl?: string;
 }
 
 interface PerfBootRequest {
@@ -22,6 +23,16 @@ interface PerfBootRequest {
 
 interface PerfStatusBanner {
   set(message: string, state?: "running" | "done" | "error"): void;
+}
+
+export interface BootGameRuntime {
+  game: Game;
+  handleLaunchUrl(launchUrl: string): Promise<boolean>;
+}
+
+interface PerfHarness {
+  banner: PerfStatusBanner;
+  recorder: PerfRecorder;
 }
 
 const PHONE_PORTRAIT_LAYOUT_PROFILE = {
@@ -57,6 +68,29 @@ function isTruthyQueryValue(value: string | null): boolean {
   return value === "1" || value === "true" || value === "yes";
 }
 
+function isPerfDeepLink(url: URL): boolean {
+  if (url.protocol !== "dubaimissile:") return false;
+  const route = `${url.host}${url.pathname}`.replace(/^\/+|\/+$/g, "");
+  return route === "perf";
+}
+
+function normalizePerfReplayUrl(replayUrl: string): string {
+  const trimmed = replayUrl.trim();
+  if (!trimmed) return trimmed;
+
+  try {
+    return new URL(trimmed).toString();
+  } catch {
+    if (trimmed.startsWith("/") || trimmed.startsWith("./") || trimmed.startsWith("../")) {
+      return trimmed;
+    }
+    if (trimmed.includes("/")) {
+      return `/${trimmed.replace(/^\/+/, "")}`;
+    }
+    return `/replays/${trimmed.endsWith(".json") ? trimmed : `${trimmed}.json`}`;
+  }
+}
+
 export function parsePerfBootRequest(locationHref: string): PerfBootRequest | null {
   let url: URL;
   try {
@@ -65,8 +99,8 @@ export function parsePerfBootRequest(locationHref: string): PerfBootRequest | nu
     return null;
   }
 
-  if (!isTruthyQueryValue(url.searchParams.get("perf"))) return null;
-  const replayUrl = url.searchParams.get("replay")?.trim();
+  if (!isPerfDeepLink(url) && !isTruthyQueryValue(url.searchParams.get("perf"))) return null;
+  const replayUrl = normalizePerfReplayUrl(url.searchParams.get("replay")?.trim() || "");
   if (!replayUrl) return null;
 
   return {
@@ -82,7 +116,7 @@ export function resolveReplayAssetUrl(
   locationHref: string,
   basePath: string = import.meta.env.BASE_URL,
 ): string {
-  const trimmed = replayUrl.trim();
+  const trimmed = normalizePerfReplayUrl(replayUrl);
   if (!trimmed) return trimmed;
   try {
     return new URL(trimmed).toString();
@@ -161,7 +195,7 @@ async function fetchReplayData(replayUrl: string): Promise<ReplayData> {
   return replayData;
 }
 
-export function bootGame({ mode = "canvas2d" }: BootGameOptions = {}): Game {
+export function bootGame({ mode = "canvas2d", launchUrl }: BootGameOptions = {}): BootGameRuntime {
   const canvas = document.getElementById("game-canvas") as HTMLCanvasElement | null;
   const titleRenderModeButton = document.getElementById("title-render-mode-button") as HTMLButtonElement | null;
   const gameplayRenderModeButton = document.getElementById("option-render") as HTMLButtonElement | null;
@@ -172,9 +206,7 @@ export function bootGame({ mode = "canvas2d" }: BootGameOptions = {}): Game {
   }
 
   preloadCanvasRenderResources();
-  const perfRequest = parsePerfBootRequest(window.location.href);
-  const perfBanner = perfRequest ? createPerfStatusBanner() : null;
-  const perfRecorder = perfRequest ? new PerfRecorder(canvas) : null;
+  let perfHarness: PerfHarness | null = null;
 
   const renderer = (() => {
     switch (mode) {
@@ -219,19 +251,20 @@ export function bootGame({ mode = "canvas2d" }: BootGameOptions = {}): Game {
     canvas,
     renderer,
     onFrameSample(sample) {
-      perfRecorder?.onFrame(sample);
+      perfHarness?.recorder.onFrame(sample);
     },
     onReplayFinished(sample) {
-      if (!perfRecorder || !perfBanner) return;
-      void perfRecorder
+      if (!perfHarness) return;
+      const { banner, recorder } = perfHarness;
+      void recorder
         .onReplayFinish()
         .then((report) => {
           if (!report) return;
-          perfBanner.set(`DONE ${report.replayId} p95 ${report.summary.p95.toFixed(1)}ms wave ${sample.wave}`, "done");
+          banner.set(`DONE ${report.replayId} p95 ${report.summary.p95.toFixed(1)}ms wave ${sample.wave}`, "done");
         })
         .catch((error: unknown) => {
           const message = error instanceof Error ? error.message : String(error);
-          perfBanner.set(`PERF ERROR ${message}`, "error");
+          banner.set(`PERF ERROR ${message}`, "error");
         });
     },
     onScreenChange(nextScreen) {
@@ -240,26 +273,47 @@ export function bootGame({ mode = "canvas2d" }: BootGameOptions = {}): Game {
     },
   });
 
-  syncRenderModeUi();
-  if (perfRequest && perfRecorder && perfBanner) {
-    void (async () => {
-      try {
-        perfBanner.set(`PERF LOADING ${perfRequest.replayUrl}`);
-        const replayData = await fetchReplayData(perfRequest.replayUrl);
-        const run = perfRecorder.start({
-          autoquit: perfRequest.autoquit,
-          replayId: getReplayIdFromData(replayData),
-          replayUrl: perfRequest.replayUrl,
-          runId: perfRequest.runId,
-          sink: resolvePerfSink(perfRequest),
-        });
-        perfBanner.set(`PERF RUNNING ${run.replayId} ${run.runId.slice(0, 8)}`);
-        await game.loadReplay(replayData);
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
-        perfBanner.set(`PERF ERROR ${message}`, "error");
-      }
-    })();
+  function ensurePerfHarness(): PerfHarness {
+    if (perfHarness) return perfHarness;
+    perfHarness = {
+      banner: createPerfStatusBanner(),
+      recorder: new PerfRecorder(canvas!),
+    };
+    return perfHarness;
   }
-  return game;
+
+  async function runPerfRequest(perfRequest: PerfBootRequest): Promise<void> {
+    const { banner, recorder } = ensurePerfHarness();
+    try {
+      banner.set(`PERF LOADING ${perfRequest.replayUrl}`);
+      const replayData = await fetchReplayData(perfRequest.replayUrl);
+      const run = recorder.start({
+        autoquit: perfRequest.autoquit,
+        replayId: getReplayIdFromData(replayData),
+        replayUrl: perfRequest.replayUrl,
+        runId: perfRequest.runId,
+        sink: resolvePerfSink(perfRequest),
+      });
+      banner.set(`PERF RUNNING ${run.replayId} ${run.runId.slice(0, 8)}`);
+      await game.loadReplay(replayData);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      banner.set(`PERF ERROR ${message}`, "error");
+    }
+  }
+
+  syncRenderModeUi();
+  const initialPerfRequest = parsePerfBootRequest(launchUrl ?? window.location.href);
+  if (initialPerfRequest) {
+    void runPerfRequest(initialPerfRequest);
+  }
+  return {
+    game,
+    async handleLaunchUrl(nextLaunchUrl: string): Promise<boolean> {
+      const perfRequest = parsePerfBootRequest(nextLaunchUrl);
+      if (!perfRequest) return false;
+      await runPerfRequest(perfRequest);
+      return true;
+    },
+  };
 }

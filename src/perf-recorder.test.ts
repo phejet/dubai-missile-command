@@ -177,9 +177,19 @@ describe("parsePerfBootRequest", () => {
     });
   });
 
+  it("accepts perf deep links and normalizes replay names to replay assets", () => {
+    expect(parsePerfBootRequest("dubaimissile://perf?replay=perf-wave1&autoquit=1&runId=bench-7")).toEqual({
+      autoquit: true,
+      replayUrl: "/replays/perf-wave1.json",
+      runId: "bench-7",
+      sinkUrl: undefined,
+    });
+  });
+
   it("ignores non-perf boots and malformed perf requests", () => {
     expect(parsePerfBootRequest("http://localhost:5173/dubai-missile-command/")).toBeNull();
     expect(parsePerfBootRequest("http://localhost:5173/dubai-missile-command/?perf=1")).toBeNull();
+    expect(parsePerfBootRequest("dubaimissile://shop?replay=perf-wave1")).toBeNull();
   });
 });
 
