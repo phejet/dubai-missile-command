@@ -82,6 +82,43 @@ describe("createReplayRunner lifecycle", () => {
     // We can't easily test non-determinism, but we can verify setRng was called
     // by checking that the module-level RNG was restored
   });
+
+  it("init() can bootstrap a later wave with curated upgrades", () => {
+    const rr = createReplayRunner({
+      seed: SEED,
+      actions: [],
+      bootstrap: {
+        startWave: 4,
+        acquiredUpgrades: ["flare", "wildHornets", "emp", "patriot"],
+      },
+    });
+    const g = rr.init();
+
+    expect(g.wave).toBe(4);
+    expect(g.upgrades.flare).toBe(1);
+    expect(g.upgrades.wildHornets).toBe(1);
+    expect(g.upgrades.emp).toBe(1);
+    expect(g.upgrades.patriot).toBe(1);
+    expect(g.empReady).toBe(true);
+    expect(g.scheduleIdx).toBe(0);
+    expect(g.waveTick).toBe(0);
+    rr.cleanup();
+  });
+
+  it("stops immediately when a wave-complete stop condition is already satisfied", () => {
+    const rr = createReplayRunner({
+      seed: SEED,
+      actions: [],
+      stopCondition: { type: "waveComplete", wave: 1 },
+    });
+    const g = rr.init();
+    g.waveComplete = true;
+
+    rr.step();
+
+    expect(rr.isFinished()).toBe(true);
+    rr.cleanup();
+  });
 });
 
 // ── Action application ──

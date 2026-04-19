@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:lan": "CAPACITOR=1 vite --host 0.0.0.0",
     "build": "vite build",
     "build:ios": "CAPACITOR=1 vite build",
     "cap:sync": "npx cap sync ios",
@@ -15,6 +16,7 @@
     "format:check": "prettier --check .",
     "hooks:install": "git config core.hooksPath .githooks",
     "preview": "vite preview",
+    "perf:smoke": "node scripts/perf-smoke.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",

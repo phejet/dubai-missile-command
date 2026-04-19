@@ -4,7 +4,13 @@ import { getUpgradeNodeDef } from "../game-sim-upgrades";
 import { mulberry32 } from "./rng";
 import { botDecideAction, botDecideUpgrades, resolveBotConfig, reserveBotTarget } from "./bot-brain";
 import defaultConfig from "./bot-config.json" with { type: "json" };
-import type { ReplayAction, TacticId, CommanderStyle } from "../types";
+import {
+  applyReplayBootstrap,
+  resolveReplayStartWave,
+  resolveReplayStopWave,
+  shouldStopReplayAtWaveComplete,
+} from "../replay-bootstrap";
+import type { ReplayAction, ReplayData, TacticId, CommanderStyle } from "../types";
 
 interface RunGameOptions {
   preset?: string | null;
@@ -12,6 +18,8 @@ interface RunGameOptions {
   maxTicks?: number;
   record?: boolean;
   draftMode?: boolean;
+  bootstrap?: ReplayData["bootstrap"];
+  stopCondition?: ReplayData["stopCondition"];
 }
 
 export function runGame(botConfig: Record<string, unknown> | null, options: RunGameOptions = {}) {
@@ -21,6 +29,8 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
   const record = options.record ?? false;
   const draftMode = options.draftMode ?? true;
   const dt = 1; // fixed timestep per tick
+  const startWave = resolveReplayStartWave(options);
+  const stopWave = resolveReplayStopWave(options, startWave);
 
   const rng = mulberry32(seed);
   const botRng = mulberry32(seed ^ 0x5f3759df); // separate RNG for bot decisions
@@ -28,6 +38,7 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
 
   const g = initGame();
   if (draftMode) (g as unknown as { _draftMode: boolean })._draftMode = true;
+  applyReplayBootstrap(g, options, startWave);
   let lastFireTick = -Infinity;
   let deathCause = "timeout";
   const actions: ReplayAction[] | null = record ? [] : null;
@@ -139,6 +150,11 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
 
     // Advance simulation
     update(g, dt, null);
+    if (shouldStopReplayAtWaveComplete(g, stopWave)) {
+      deathCause = "completed";
+      tick++;
+      break;
+    }
   }
 
   // Restore default RNG

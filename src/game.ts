@@ -500,6 +500,10 @@ export class Game {
       this.finalScore = data.score;
       this.finalWave = data.wave;
       this.finalStats = { ...data.stats };
+      // Replay runs finalize on the next RAF tick after the runner marks itself finished.
+      if (this.replayActive && this.replayRunner) {
+        return;
+      }
       const game = this.gameRef.current;
       if (game) {
         const nextProgression = applyRunSummaryToProgression(game.metaProgression, {

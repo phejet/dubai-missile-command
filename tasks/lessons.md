@@ -13,3 +13,8 @@
 - The render split is worth preserving: `art-render.ts` for reusable art recipes and prebaked assets, `game-render.ts` for frame composition, `game-sim.ts` for rules/state mutation.
 - The DOM UI layer is imperative and cleanup-sensitive. If UI behavior gets strange, check `ui.ts` cleanup closures and `game.ts` screen/overlay state before blaming render code.
 - After implementing a feature, do not wait to be asked about the dev server. Check whether `npm run dev` is already up; if not, start it yourself and report the local URL.
+
+## 2026-04-19
+
+- Benchmark fixtures need semantic validation, not just file existence. For perf replays, inspect action-type mix and upgrade/shop activity before blessing a file as `stress`, `lategame`, or `particle-spam`.
+- A replay with high passive destruction but zero `fire` actions is not a valid particle benchmark in this game. The particle benchmark must exercise interceptor-driven explosions and, ideally, upgraded FX systems that amplify particle load.

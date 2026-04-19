@@ -33,7 +33,7 @@ Rationale: replays are sim-deterministic (seeded RNG + action log), so identical
 
 - **A — HTTP POST sink to Mac dev server.** `PerfRecorder` emits a versioned JSON report to `POST /api/save-perf`, handled by a new Vite middleware that writes `perf-results/runs/<buildId>/<device>-<runId>.json`. Mirrors the existing `fetch("/api/save-replay", ...)` pattern in `game.ts:568`. No phone interaction after launch.
 - **B — Capacitor Live Reload.** Dev-mode `capacitor.config.ts` points `server.url` at `http://<mac-hostname>.local:5173` so the installed iOS app is a thin WKWebView client for `npm run dev:lan`. HMR works over LAN. Removes rebuild per iteration. ATS is relaxed via `NSAllowsLocalNetworking = true`; `cleartext: true` permits HTTP to the Mac. Dev config only — production TestFlight build uses static `dist/`.
-- **C — Mac CLI harness.** `xcrun devicectl device process launch --device <udid> <bundle-id> --payload-url <deep-link>` launches the installed app and deep-links a replay via a registered URL scheme (`dubaimissile://perf?replay=stress&autoquit=1`). `scripts/bench.sh` wraps: launch → wait for POST → run analyzer → print p50/p95/p99. Single command from Mac, zero phone taps.
+- **C — Mac CLI harness.** `xcrun devicectl device process launch --device <udid> <bundle-id> --payload-url <deep-link>` launches the installed app and deep-links a replay via a registered URL scheme (`dubaimissile://perf?replay=wave1&autoquit=1`). `scripts/bench.sh` wraps: launch → wait for POST → run analyzer → print p50/p95/p99. Single command from Mac, zero phone taps.
 - **Core stays constant.** `PerfRecorder` + report schema v1 + `scripts/perf-analyze.mjs` do not change between local and TestFlight. Only the sink URL swaps (dev-server LAN → hosted endpoint) and the trigger (URL scheme → in-app opt-in menu).
 - **Report schema v1:** `{ schemaVersion: 1, runId, buildId, replayId, deviceInfo: { ua, dpr, drawingBufferSize, screenSize, isCapacitor }, frames: [{ tick, frameMs, gpuMs?, missiles, drones, interceptors, particles, explosions }], summary: { p50, p95, p99, longFrameCount16, longFrameCount33 } }`. Versioned from day one.
 - **Build-id source of truth:** `buildId` reuses the existing `getBuildId()` in `vite-replay-plugin.ts:10`, which already produces `<shortSha>` or `<shortSha>+<diffHash>` (dirty-worktree aware) and is stamped onto saved replays at `vite-replay-plugin.ts:54`. The perf plugin imports and calls the same helper so perf reports and replay files are directly joinable on `buildId`. No `VITE_BUILD_SHA` — do not invent a second scheme.
@@ -86,11 +86,11 @@ Numbering: Phase 0 (Step 0) lands the composition-root/render-resource refactor 
 
 - **Files**: new `vite-perf-plugin.ts` (sibling of `vite-replay-plugin.ts`), `vite.config.ts`, new `public/replays/perf-*.json`, new `perf-results/baselines/.gitkeep`, new `perf-results/pixi/.gitkeep`, `.gitignore`, `package.json`
 - **Changes**:
-  - Record three reference replays by playing (or bot-driving) the post-Step-0 Canvas2D baseline and saving via the existing `/api/save-replay` path: `perf-stress.json` (many MIRVs, full shop, late wave), `perf-lategame.json` (upgrade-heavy endgame), `perf-particle-spam.json` (explosions/particles worst case). Commit under `public/replays/`. Each replay exposes a stable `replayId = sha256(seed || JSON.stringify(actions))` written into the file.
+  - Record two reference replays by bot-driving the post-Step-0 Canvas2D baseline and committing them under `public/replays/`: `perf-wave1.json` (single-wave baseline starting at wave 1) and `perf-wave4-upgrades.json` (single-wave wave-4 benchmark bootstrapped with `flare`, `wildHornets`, `emp`, and `patriot` already acquired). Both fixtures stop on wave completion instead of running to game over; the wave-4 file carries explicit replay bootstrap metadata instead of replaying waves 1-3 in real time.
   - Implement `vite-perf-plugin.ts` mirroring `vite-replay-plugin.ts`: imports `getBuildId()` from the replay plugin (or a shared helper extracted into `vite-build-id.ts`), handles `POST /api/save-perf`, validates `schemaVersion`, stamps `_buildId` + `_savedAt` server-side, writes `perf-results/runs/<buildId>/<deviceHash>-<runId>.json`. Register in `vite.config.ts` alongside the existing replay plugin. Dev-only.
   - **Artifact policy (committed once, stated here):** `perf-results/runs/**/*.json` and `perf-results/latest/**/*.json` are git-ignored (ad-hoc outputs + convenience copies). `perf-results/baselines/**/*.json` and `perf-results/pixi/**/*.json` are _committed_ (curated median-of-3 reports used as comparison artifacts). `.gitignore` uses the explicit `perf-results/runs/` and `perf-results/latest/` prefixes; `baselines/` and `pixi/` dirs each have a `.gitkeep`.
   - Add `npm run dev:lan` = `CAPACITOR=1 vite --host 0.0.0.0` so the dev server binds to the LAN interface _and_ strips the GH-Pages base path. The plain `npm run dev` remains unchanged. All perf URLs documented in the plan assume `dev:lan`.
-  - Smoke-test on desktop Chromium: `npm run dev:lan`, then `http://<mac-hostname>.local:5173/?perf=1&replay=/replays/perf-stress.json&autoquit=1` writes a file under `perf-results/runs/`, analyzer reads it, numbers print.
+  - Smoke-test on desktop Chromium: `npm run dev:lan`, then `http://<mac-hostname>.local:5173/?perf=1&replay=/replays/perf-wave1.json&autoquit=1` writes a file under `perf-results/runs/`, analyzer reads it, numbers print.
 - **Rationale**: closes the desktop-only loop, reuses the existing build-id machinery, and pins the committed-vs-ignored artifact split so Phase 2 doesn't rediscover the contradiction.
 
 ### Step 1.3: Capacitor Live Reload + ATS + URL scheme (B+C foundations)
@@ -186,7 +186,7 @@ Numbering: Phase 0 (Step 0) lands the composition-root/render-resource refactor 
 - **Files**: `src/pixi-render.ts`, `src/art-render.ts` (add glow/EMP bakery if missing)
 - **Changes**:
   - **Default path — baked glow sprites.** Extend `art-render.ts` with `buildExplosionGlowAssets()` / `buildEmpRingAssets()` that pre-rasterize radial-gradient frames into canvases (mirroring the Burj/launcher bakery pattern). `pixi-render.ts` renders explosions and EMP rings as `Sprite` swaps with `alpha` + `scale` animated from the sim's timer. This alone removes the `shadowBlur` cost on the CPU path and is the floor we commit to.
-  - **Optional upgrade — live filters.** `@pixi/filter-glow` / `BlurFilter` on explosion sprites is an _experiment gated by bench numbers_, not the default. Implement behind a `RenderEffectsMode = "baked" | "filtered"` flag. Run the `perf-particle-spam` benchmark in both modes on the target iPhone; commit `filtered` only if p95 on iPhone does not regress. On older devices it may well lose (filter passes per explosion beat baked alpha-sprite fillrate).
+  - **Optional upgrade — live filters.** `@pixi/filter-glow` / `BlurFilter` on explosion sprites is an _experiment gated by bench numbers_, not the default. Implement behind a `RenderEffectsMode = "baked" | "filtered"` flag. Run the `perf-wave4-upgrades` benchmark in both modes on the target iPhone; commit `filtered` only if p95 on iPhone does not regress. On older devices it may well lose (filter passes per explosion beat baked alpha-sprite fillrate).
   - **Lasers:** a thin additive-blend `Sprite` along the beam line, `width = beam length`, `height = fixed thickness`. Phalanx bullets: `ParticleContainer` entries (Step 5).
   - Remove all `shadowBlur` code paths and the `perfState` probe. Keep a dummy `perfState` export returning `{ glowEnabled: true, probed: true }` so `buildHudSnapshot` and the HUD are unmodified until Step 9.
 - **Rationale**: the `shadowBlur` CPU cost disappears either way. Whether `GlowFilter` is faster than a baked glow sprite is an _empirical_ question the harness exists to answer — the plan defaults to the safer bet.
@@ -261,8 +261,8 @@ Numbering: Phase 0 (Step 0) lands the composition-root/render-resource refactor 
 
 - **Files**: `perf-results/pixi/`, `scripts/bench.sh` (no code changes; re-run)
 - **Changes**:
-  - Build the Pixi branch for production (`npm run ios:prod`), install on the same iPhone that produced the Step 1.4 baseline, and run `scripts/bench.sh perf-stress`, `perf-lategame`, `perf-particle-spam` three times each. Commit median reports under `perf-results/pixi/<buildId>/`.
-  - Compare against `perf-results/baselines/` using `perf-analyze.mjs`. Target: p95 frame time improved or within noise on stress + lategame; particle-spam shows meaningful improvement (the scenario shadowBlur was killing).
+  - Build the Pixi branch for production (`npm run ios:prod`), install on the same iPhone that produced the Step 1.4 baseline, and run `scripts/bench.sh perf-wave1` plus `scripts/bench.sh perf-wave4-upgrades` three times each. Commit median reports under `perf-results/pixi/<buildId>/`.
+  - Compare against `perf-results/baselines/` using `perf-analyze.mjs`. Target: p95 frame time improved or within noise on `perf-wave1`; `perf-wave4-upgrades` should stay within noise or improve, since that is the richer upgraded-effects case.
   - Manually verify: 60fps with glow always on, backgrounding + foregrounding restores rendering within ~1s (Step 11), no `<canvas>` flashing on orientation change, IPA bundle size delta recorded.
   - Also run the same benchmarks via Live Reload (`npm run ios:dev`) to confirm the harness itself is stable across both build modes — Live Reload numbers will be worse than prod-build and are _not_ the PR metric.
 - **Rationale**: the `FPS < 45` probe exists because iOS was the constraint. Migration is only a win if the bench harness proves it with the same replays that produced the baseline.
@@ -309,10 +309,10 @@ Numbering: Phase 0 (Step 0) lands the composition-root/render-resource refactor 
 
 - [ ] `src/perf-recorder.ts` + `src/perf-sinks.ts` + `scripts/perf-analyze.mjs` present; `?perf=1&replay=...&autoquit=1` produces a schema-v1 JSON report on desktop Chromium.
 - [ ] `POST /api/save-perf` Vite middleware writes `perf-results/runs/<buildId>/<device>-<runId>.json`; only ad-hoc outputs under `perf-results/runs/` and `perf-results/latest/` are git-ignored, while curated artifacts under `perf-results/baselines/` and `perf-results/pixi/` are committed.
-- [ ] Three benchmark replays committed under `public/replays/perf-{stress,lategame,particle-spam}.json` with stable `replayId` hashes.
+- [ ] Two benchmark replays committed under `public/replays/perf-wave1.json` and `public/replays/perf-wave4-upgrades.json`, with explicit single-wave replay metadata.
 - [ ] Capacitor dev config with Live Reload + `NSAllowsLocalNetworking` + `dubaimissile://` URL scheme functional; prod Capacitor build still ships static `dist/` unchanged.
 - [ ] `scripts/bench.sh <replay>` runs end-to-end on tethered iPhone with zero phone taps after initial install: launches app via `xcrun devicectl`, waits for POST, prints p50/p95/p99.
-- [ ] `perf-results/baselines/<buildId>/` committed, containing median-of-3 reports for all three replays on both desktop Chromium and iPhone.
+- [ ] `perf-results/baselines/<buildId>/` committed, containing median-of-3 reports for both benchmark replays on both desktop Chromium and iPhone.
 - [ ] `CLAUDE.md` documents the bench workflow.
 
 ### Phase 2 (Pixi migration)
@@ -330,7 +330,7 @@ Numbering: Phase 0 (Step 0) lands the composition-root/render-resource refactor 
 - [ ] `npm run ios` runs on simulator at 60 fps; backgrounding + foregrounding restores rendering within one second.
 - [ ] Replay recorded before migration (seed fixed) replays to the same `finalTick` and final score after migration (sim-deterministic sanity check).
 - [ ] Bundle size delta recorded in the PR description.
-- [ ] `perf-results/pixi/<buildId>/` committed with median-of-3 reports for all three benchmark replays on iPhone (prod build); `perf-analyze.mjs` diff vs baseline shows p95 improved or within noise on `perf-stress` and `perf-lategame`, meaningfully improved on `perf-particle-spam`.
+- [ ] `perf-results/pixi/<buildId>/` committed with median-of-3 reports for both benchmark replays on iPhone (prod build); `perf-analyze.mjs` diff vs baseline shows p95 improved or within noise on `perf-wave1`, and no regression on `perf-wave4-upgrades`.
 - [ ] PR description includes the p50/p95/p99 delta table printed by `perf-analyze.mjs`.
 
 ## Status

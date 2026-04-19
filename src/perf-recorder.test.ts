@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { parsePerfBootRequest } from "./boot-game.js";
+import { parsePerfBootRequest, resolveReplayAssetUrl } from "./boot-game.js";
 import { PerfRecorder, deriveReplayId, summarizePerfFrames } from "./perf-recorder.js";
 import { ConsoleSink, HttpSink } from "./perf-sinks.js";
 import type { PerfReport } from "./perf-recorder.js";
@@ -21,7 +21,7 @@ describe("PerfRecorder", () => {
 
     recorder.start({
       autoquit: true,
-      replayUrl: "/replays/perf-stress.json",
+      replayUrl: "/replays/perf-wave1.json",
       sink: { emit },
     });
 
@@ -65,8 +65,8 @@ describe("PerfRecorder", () => {
     expect(report).toMatchObject({
       autoquit: true,
       buildId: null,
-      replayId: "perf-stress",
-      replayUrl: "/replays/perf-stress.json",
+      replayId: "perf-wave1",
+      replayUrl: "/replays/perf-wave1.json",
       runId: "run-fixed",
       schemaVersion: 1,
       summary: {
@@ -91,7 +91,7 @@ describe("PerfRecorder", () => {
 
 describe("perf helpers", () => {
   it("derives a replay id from a replay path", () => {
-    expect(deriveReplayId("https://example.com/replays/perf-particle-spam.json")).toBe("perf-particle-spam");
+    expect(deriveReplayId("https://example.com/replays/perf-wave4-upgrades.json")).toBe("perf-wave4-upgrades");
   });
 
   it("summarizes frame timings with long-frame counts", () => {
@@ -123,8 +123,8 @@ describe("perf sinks", () => {
       ua: "Test UA",
     },
     frames: [],
-    replayId: "perf-stress",
-    replayUrl: "/replays/perf-stress.json",
+    replayId: "perf-wave1",
+    replayUrl: "/replays/perf-wave1.json",
     runId: "run-123",
     schemaVersion: 1,
     summary: {
@@ -167,11 +167,11 @@ describe("parsePerfBootRequest", () => {
   it("returns a perf replay request when the query params are present", () => {
     expect(
       parsePerfBootRequest(
-        "http://localhost:5173/dubai-missile-command/?perf=1&replay=/replays/perf-stress.json&autoquit=1&runId=bench-7",
+        "http://localhost:5173/dubai-missile-command/?perf=1&replay=/replays/perf-wave1.json&autoquit=1&runId=bench-7",
       ),
     ).toEqual({
       autoquit: true,
-      replayUrl: "/replays/perf-stress.json",
+      replayUrl: "/replays/perf-wave1.json",
       runId: "bench-7",
       sinkUrl: undefined,
     });
@@ -180,5 +180,17 @@ describe("parsePerfBootRequest", () => {
   it("ignores non-perf boots and malformed perf requests", () => {
     expect(parsePerfBootRequest("http://localhost:5173/dubai-missile-command/")).toBeNull();
     expect(parsePerfBootRequest("http://localhost:5173/dubai-missile-command/?perf=1")).toBeNull();
+  });
+});
+
+describe("resolveReplayAssetUrl", () => {
+  it("resolves root-style replay paths against the app base path", () => {
+    expect(
+      resolveReplayAssetUrl(
+        "/replays/perf-wave1.json",
+        "http://localhost:5173/dubai-missile-command/?perf=1",
+        "/dubai-missile-command/",
+      ),
+    ).toBe("http://localhost:5173/dubai-missile-command/replays/perf-wave1.json");
   });
 });

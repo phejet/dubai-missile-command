@@ -23,6 +23,7 @@ Inputs:
 Outputs:
 
 - the run is deterministically reconstructed by simulating from tick 0
+- or from an explicit bootstrapped wave-start fixture for perf benchmarks
 
 This means replays are sensitive to gameplay code drift.
 
@@ -33,6 +34,8 @@ This means replays are sensitive to gameplay code drift.
 - `seed`
 - `actions`
 - optional `draftMode`
+- optional `bootstrap` for wave-start fixtures
+- optional `stopCondition` for single-wave benchmarks
 - optional `checkpoints`
 - optional `finalTick`
 - optional `isHuman`
@@ -47,6 +50,12 @@ Supported action types:
 - `wave_plan`
 
 `wave_plan` is informational for analysis/UI, not required for action playback.
+
+Benchmark-only replay metadata:
+
+- `bootstrap.startWave` lets a replay start from a later wave without playing earlier waves in real time
+- `bootstrap.acquiredUpgrades` applies curated free upgrades before the replay starts
+- `stopCondition.type === "waveComplete"` ends the replay as soon as the target wave is cleared
 
 ## Human Replay Recording
 
@@ -85,7 +94,7 @@ On human game over:
 - `getTick()`
 - `cleanup()`
 
-`init()` seeds the RNG, creates a fresh sim state, and enables draft mode when needed.
+`init()` seeds the RNG, creates a fresh sim state, applies any replay bootstrap, and enables draft mode when needed.
 
 `step()`:
 
@@ -93,6 +102,7 @@ On human game over:
 - performs limited cursor interpolation toward the next cursor/fire action
 - calls `update(g, 1, onEvent)`
 - increments the replay tick
+- marks the replay finished immediately when `stopCondition` is satisfied
 
 ## Shop Pause Behavior
 

@@ -10,6 +10,12 @@ import {
   repairLauncher,
 } from "./game-sim";
 import { mulberry32 } from "./headless/rng";
+import {
+  applyReplayBootstrap,
+  resolveReplayStartWave,
+  resolveReplayStopWave,
+  shouldStopReplayAtWaveComplete,
+} from "./replay-bootstrap";
 import type { GameState, ReplayData, ShopAction } from "./types";
 
 type EventCallback = ((type: string, data?: unknown) => void) | null;
@@ -20,6 +26,8 @@ export function createReplayRunner(replayData: ReplayData, onEvent: EventCallbac
     replayData.draftMode !== undefined
       ? replayData.draftMode
       : !actions?.some((action) => action.type === "shop" && ((action as ShopAction).bought?.length ?? 0) > 1);
+  const startWave = resolveReplayStartWave(replayData);
+  const stopWave = resolveReplayStopWave(replayData, startWave);
   let actionIdx = 0;
   let tick = 0;
   let g: GameState | null = null;
@@ -27,11 +35,16 @@ export function createReplayRunner(replayData: ReplayData, onEvent: EventCallbac
   let shopPaused = false;
   let pendingShopAction: ShopAction | null = null;
 
+  function shouldStopReplay() {
+    return !!g && shouldStopReplayAtWaveComplete(g, stopWave);
+  }
+
   function init() {
     const rng = mulberry32(seed);
     setRng(rng);
     g = initGame();
     if (draftMode) g._draftMode = true;
+    applyReplayBootstrap(g, replayData, startWave);
     actionIdx = 0;
     tick = 0;
     finished = false;
@@ -44,6 +57,10 @@ export function createReplayRunner(replayData: ReplayData, onEvent: EventCallbac
     if (finished || !g || shopPaused) return;
 
     if (g.state === "gameover") {
+      finished = true;
+      return;
+    }
+    if (shouldStopReplay()) {
       finished = true;
       return;
     }
@@ -114,6 +131,9 @@ export function createReplayRunner(replayData: ReplayData, onEvent: EventCallbac
 
     update(g, 1, onEvent);
     tick++;
+    if (shouldStopReplay()) {
+      finished = true;
+    }
   }
 
   function resumeFromShop() {

@@ -603,10 +603,23 @@ export interface WavePlanAction {
 
 export type ReplayAction = FireAction | CursorAction | EmpAction | ShopAction | WavePlanAction;
 
+export interface ReplayBootstrap {
+  startWave?: number;
+  acquiredUpgrades?: string[];
+}
+
+export interface ReplayStopCondition {
+  type: "waveComplete";
+  wave?: number;
+}
+
 export interface ReplayData {
   seed: number;
   actions: ReplayAction[];
+  replayId?: string;
   draftMode?: boolean;
+  bootstrap?: ReplayBootstrap;
+  stopCondition?: ReplayStopCondition;
   wave?: number;
   score?: number;
   _buildId?: string;

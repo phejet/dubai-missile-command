@@ -51,6 +51,7 @@ const PHONE_PORTRAIT_LAYOUT_PROFILE = {
   effectScale: 2,
   planeScale: 3,
 };
+const DEFAULT_PERF_SINK_URL = "/api/save-perf";
 
 function isTruthyQueryValue(value: string | null): boolean {
   return value === "1" || value === "true" || value === "yes";
@@ -74,6 +75,24 @@ export function parsePerfBootRequest(locationHref: string): PerfBootRequest | nu
     runId: url.searchParams.get("runId")?.trim() || undefined,
     sinkUrl: url.searchParams.get("perfSink")?.trim() || undefined,
   };
+}
+
+export function resolveReplayAssetUrl(
+  replayUrl: string,
+  locationHref: string,
+  basePath: string = import.meta.env.BASE_URL,
+): string {
+  const trimmed = replayUrl.trim();
+  if (!trimmed) return trimmed;
+  try {
+    return new URL(trimmed).toString();
+  } catch {
+    const appBase = new URL(basePath, locationHref);
+    if (trimmed.startsWith("/")) {
+      return new URL(trimmed.slice(1), appBase).toString();
+    }
+    return new URL(trimmed, appBase).toString();
+  }
 }
 
 function createPerfStatusBanner(): PerfStatusBanner {
@@ -123,12 +142,13 @@ function getReplayIdFromData(replayData: ReplayData): string | undefined {
 }
 
 function resolvePerfSink(request: PerfBootRequest): PerfSink {
-  if (request.sinkUrl) return new HttpSink(request.sinkUrl);
-  return new ConsoleSink();
+  if (!request.sinkUrl) return new HttpSink(DEFAULT_PERF_SINK_URL);
+  if (request.sinkUrl.toLowerCase() === "console") return new ConsoleSink();
+  return new HttpSink(request.sinkUrl);
 }
 
 async function fetchReplayData(replayUrl: string): Promise<ReplayData> {
-  const response = await fetch(replayUrl);
+  const response = await fetch(resolveReplayAssetUrl(replayUrl, window.location.href));
   if (!response.ok) {
     throw new Error(`Replay fetch failed: ${response.status} ${response.statusText}`);
   }

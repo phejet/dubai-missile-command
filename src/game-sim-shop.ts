@@ -177,7 +177,7 @@ export function repairLauncher(g: GameState, index: number): boolean {
   return true;
 }
 
-export function closeShop(g: GameState): void {
+export function prepareWaveStart(g: GameState): void {
   const baseHP = g.upgrades.launcherKit >= 2 ? 2 : 1;
   for (let i = 0; i < g.launcherHP.length; i++) {
     if (g.launcherHP[i] <= 0) g.launcherHP[i] = baseHP;
@@ -201,13 +201,8 @@ export function closeShop(g: GameState): void {
   g.empCharge = g.empChargeMax;
   g.empReady = g.upgrades.emp > 0;
 
-  g.wave++;
-  const waveData = generateWaveSchedule(g.wave, g.commander);
-  g.schedule = waveData.schedule;
   g.scheduleIdx = 0;
   g.waveTick = 0;
-  g.concurrentCap = waveData.concurrentCap;
-  g.waveTactics = waveData.tactics;
   g.ammo = g.ammo.map((_, i) => (g.launcherHP[i] > 0 ? getAmmoCapacity(g.wave, g.upgrades.launcherKit) : 0)) as [
     number,
     number,
@@ -220,6 +215,15 @@ export function closeShop(g: GameState): void {
   g._waveStartDroneKills = g.stats.droneKills;
   g.waveComplete = false;
   g.state = "playing";
+}
+
+export function closeShop(g: GameState): void {
+  g.wave++;
+  const waveData = generateWaveSchedule(g.wave, g.commander);
+  g.schedule = waveData.schedule;
+  g.concurrentCap = waveData.concurrentCap;
+  g.waveTactics = waveData.tactics;
+  prepareWaveStart(g);
 }
 
 export function getPurchaseToastLabel(purchaseId: string): string {

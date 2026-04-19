@@ -30,6 +30,7 @@ let titleThemeDesired = false;
 let titleThemeLoopStartedAt = 0;
 let titleThemeStopStartedAt = 0;
 let titleThemeRaf: number | null = null;
+const AUDIO_RESUME_TIMEOUT_MS = 250;
 
 function ensureCtx() {
   if (ctx) return true;
@@ -51,13 +52,27 @@ function ensureCtx() {
 async function resumeCtx() {
   const audioCtx = ctx;
   if (!audioCtx || audioCtx.state === "running") return true;
-  try {
-    await audioCtx.resume();
-    return true;
-  } catch {
-    // iPhone/Safari may reject until the next user gesture; we retry on later interactions.
-    return false;
-  }
+  return await new Promise<boolean>((resolve) => {
+    let settled = false;
+    const finish = (value: boolean) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+    const timer = setTimeout(() => {
+      // Chromium autoplay policy can leave resume() pending forever without a gesture.
+      finish(false);
+    }, AUDIO_RESUME_TIMEOUT_MS);
+
+    void audioCtx
+      .resume()
+      .then(() => finish(true))
+      .catch(() => {
+        // iPhone/Safari may reject until the next user gesture; we retry on later interactions.
+        finish(false);
+      });
+  });
 }
 
 function now() {

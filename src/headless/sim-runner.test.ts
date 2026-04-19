@@ -76,6 +76,36 @@ describe("runGame recording", () => {
       expect(r.actions![i].tick).toBeGreaterThanOrEqual(r.actions![i - 1].tick);
     }
   });
+
+  it("can record a single bootstrapped wave and replay it back to the same result", () => {
+    const bootstrap = {
+      startWave: 4,
+      acquiredUpgrades: ["flare", "wildHornets", "emp", "patriot"],
+    };
+    const stopCondition = { type: "waveComplete" as const, wave: 4 };
+    const original = runGame(null, {
+      seed: 42,
+      maxTicks: 20000,
+      record: true,
+      draftMode: false,
+      bootstrap,
+      stopCondition,
+    });
+
+    expect(original.deathCause).toBe("completed");
+    expect(original.wave).toBe(4);
+    expect(original.actions!.some((action) => action.type === "fire")).toBe(true);
+
+    const g = replayToCompletion(42, original.actions!, {
+      bootstrap,
+      stopCondition,
+      draftMode: false,
+    });
+
+    expect(g!.wave).toBe(original.wave);
+    expect(g!.score).toBe(original.score);
+    expect(g!.stats).toEqual(original.stats);
+  });
 });
 
 // ── Round-trip replay ──

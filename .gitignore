@@ -37,7 +37,11 @@ public/replay.json
 .ai/
 
 # Auto-saved replays
-replays/
+/replays/
+
+# Perf benchmark artifacts
+perf-results/runs/
+perf-results/latest/
 
 # Coverage
 coverage/
