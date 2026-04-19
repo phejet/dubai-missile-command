@@ -68,6 +68,60 @@ In Xcode:
 
 The iOS project uses Swift Package Manager. CocoaPods is not required in the current setup.
 
+### Perf Benchmarking
+
+The replay-driven perf harness measures the current renderer on desktop Chromium and on an installed iPhone build.
+
+1. Start the LAN dev server:
+
+```bash
+npm run dev:lan
+```
+
+2. Create `.env.local` from `.env.local.example` and fill in:
+
+```bash
+MAC_HOSTNAME=YourMacHostName
+IPHONE_UDID=00000000-0000000000000000
+BUNDLE_ID=com.phejet.dubaicmd
+# optional pinned baseline root for compare output
+PERF_BASELINE_DIR=perf-results/baselines/<buildId>
+```
+
+`MAC_HOSTNAME` can be a LocalHostName such as `MyMac`, or a literal LAN IP if `.local` mDNS is blocked.
+
+3. Install the iPhone build you want to measure:
+
+```bash
+npm run ios:dev   # Live Reload build for fast iteration
+npm run ios:prod  # static production build; use this for committed baselines
+```
+
+If mDNS is blocked, run the sync/open step manually with an IP-based server URL:
+
+```bash
+CAP_DEV_SERVER=http://192.168.1.23:5173 npm run cap:sync && npm run cap:open
+```
+
+4. Run the Mac-side harness:
+
+```bash
+scripts/bench.sh perf-wave1
+scripts/bench.sh perf-wave4-upgrades --warmup 1 --loop 3
+scripts/bench.sh --list-devices
+```
+
+The harness probes `http://<host>:5173/api/save-perf`, launches the installed app with `xcrun devicectl`, waits for the saved report matching its `runId`, copies the selected run to `perf-results/latest/<replay>.json`, and prints baseline deltas when `PERF_BASELINE_DIR` points at a pinned baseline directory.
+
+5. Capture desktop baselines with the Chromium smoke harness:
+
+```bash
+npm run perf:smoke -- perf-wave1 http://127.0.0.1:5173/
+npm run perf:smoke -- perf-wave4-upgrades http://127.0.0.1:5173/
+```
+
+If the benchmark replay fixtures change because the sim changed, re-record the fixtures first, then recapture both desktop and iPhone baselines and commit the new median artifacts under `perf-results/baselines/<buildId>/`.
+
 ### Autoplay Bot
 
 A Playwright bot that plays the game automatically for testing:

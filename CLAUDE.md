@@ -151,6 +151,60 @@ This runs three steps in sequence:
 
 From Xcode, select a simulator or device and hit Run.
 
+## Perf Benchmarking
+
+Use the maintained perf harness for replay-driven renderer baselines.
+
+1. Start the LAN dev server:
+
+```bash
+npm run dev:lan
+```
+
+2. Create `.env.local` from `.env.local.example` and fill in:
+
+```bash
+MAC_HOSTNAME=YourMacHostName
+IPHONE_UDID=00000000-0000000000000000
+BUNDLE_ID=com.phejet.dubaicmd
+# optional pinned baseline root for compare output
+PERF_BASELINE_DIR=perf-results/baselines/<buildId>
+```
+
+`MAC_HOSTNAME` can be a LocalHostName such as `MyMac`, or a literal LAN IP if `.local` mDNS is blocked on the network.
+
+3. Install the iPhone build you want to measure:
+
+```bash
+npm run ios:dev   # Live Reload build pointed at http://<host>:5173
+npm run ios:prod  # static production build; this is the PR metric
+```
+
+If mDNS is blocked, run the sync/open step manually with an IP-based dev server URL:
+
+```bash
+CAP_DEV_SERVER=http://192.168.1.23:5173 npm run cap:sync && npm run cap:open
+```
+
+4. Run the iPhone harness from the Mac:
+
+```bash
+scripts/bench.sh perf-wave1
+scripts/bench.sh perf-wave4-upgrades --warmup 1 --loop 3
+scripts/bench.sh --list-devices
+```
+
+The harness probes `http://<host>:5173/api/save-perf`, launches the installed app via `xcrun devicectl`, waits for the matching `runId` report under `perf-results/runs/`, copies the selected run to `perf-results/latest/<replay>.json`, and prints baseline deltas when `PERF_BASELINE_DIR` is set.
+
+5. Capture the desktop baseline separately with the browser smoke harness:
+
+```bash
+npm run perf:smoke -- perf-wave1 http://127.0.0.1:5173/
+npm run perf:smoke -- perf-wave4-upgrades http://127.0.0.1:5173/
+```
+
+When benchmark replays change because the sim changed, re-record the fixtures first, then recapture both desktop and iPhone baselines and commit the new median artifacts under `perf-results/baselines/<buildId>/`.
+
 ## Deployment
 
 GitHub Pages via Actions workflow (`.github/workflows/deploy.yml`). Pushes to `main` auto-deploy to https://phejet.github.io/dubai-missile-command/

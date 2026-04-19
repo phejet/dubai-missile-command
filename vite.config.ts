@@ -13,6 +13,9 @@ const isCapacitor = process.env.CAPACITOR === "1";
 export default defineConfig({
   plugins: [react(), replayPlugin(), perfPlugin()],
   base: isCapacitor ? "./" : "/dubai-missile-command/",
+  server: {
+    allowedHosts: isCapacitor ? [".local"] : undefined,
+  },
   build: {
     rollupOptions: {
       input: isCapacitor
