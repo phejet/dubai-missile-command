@@ -1,13 +1,58 @@
 #!/usr/bin/env node
 
-import { access, readFile, readdir } from "node:fs/promises";
+import { access, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { chromium } from "playwright";
 
+import { applyGpuTraceProfile } from "./perf-trace-profile.mjs";
+
 const DEFAULT_BASE_URL = "http://localhost:5173/dubai-missile-command/";
 const DEFAULT_REPLAY = "perf-wave1";
 const DEFAULT_TIMEOUT_MS = 180000;
+const DEFAULT_TRACE_CAPTURE_MODE = "chromium-headless";
+const TRACE_CATEGORIES = [
+  "devtools.timeline",
+  "disabled-by-default-devtools.timeline.frame",
+  "toplevel",
+  "gpu",
+  "cc",
+  "viz",
+  "blink.user_timing",
+].join(",");
+
+function roundMetric(value) {
+  return Math.round(Number(value) * 1000) / 1000;
+}
+
+function quantile(sortedValues, percentile) {
+  if (sortedValues.length === 0) return 0;
+  if (sortedValues.length === 1) return sortedValues[0] ?? 0;
+  const index = (sortedValues.length - 1) * percentile;
+  const lowerIndex = Math.floor(index);
+  const upperIndex = Math.ceil(index);
+  const lowerValue = sortedValues[lowerIndex] ?? sortedValues[sortedValues.length - 1] ?? 0;
+  const upperValue = sortedValues[upperIndex] ?? lowerValue;
+  if (lowerIndex === upperIndex) return lowerValue;
+  return lowerValue + (upperValue - lowerValue) * (index - lowerIndex);
+}
+
+function summarizeFrameMetric(frames, key) {
+  const values = frames
+    .map((frame) => Number(frame[key]))
+    .filter((value) => Number.isFinite(value) && value >= 0)
+    .sort((a, b) => a - b);
+  if (values.length === 0) return null;
+  return {
+    avg: roundMetric(values.reduce((sum, value) => sum + value, 0) / values.length),
+    max: roundMetric(values[values.length - 1] ?? 0),
+    p50: roundMetric(quantile(values, 0.5)),
+    p95: roundMetric(quantile(values, 0.95)),
+    p99: roundMetric(quantile(values, 0.99)),
+    samples: values.length,
+    total: roundMetric(values.reduce((sum, value) => sum + value, 0)),
+  };
+}
 
 function resolveReplayPath(input) {
   const trimmed = (input || "").trim();
@@ -17,13 +62,35 @@ function resolveReplayPath(input) {
   return `/replays/${trimmed}.json`;
 }
 
-function buildPerfUrl(baseUrl, replayPath, runId) {
+function buildPerfUrl(baseUrl, replayPath, runId, options = {}) {
   const url = new URL(baseUrl);
   url.searchParams.set("perf", "1");
   url.searchParams.set("replay", replayPath);
   url.searchParams.set("autoquit", "1");
   url.searchParams.set("runId", runId);
+  if (options.perfSink) {
+    url.searchParams.set("perfSink", options.perfSink);
+  }
   return url.toString();
+}
+
+function parseJsonSafe(value) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+function extractConsolePerfReport(consoleMessages) {
+  const match = [...consoleMessages]
+    .reverse()
+    .find(
+      (message) =>
+        message.type === "log" && typeof message.text === "string" && message.text.startsWith("PERF_REPORT_V1 "),
+    );
+  if (!match) return null;
+  return parseJsonSafe(match.text.slice("PERF_REPORT_V1 ".length));
 }
 
 async function waitForFile(filePath, timeoutMs) {
@@ -66,24 +133,56 @@ async function findReportForRun(runId, timeoutMs) {
   return null;
 }
 
-async function main() {
-  const replayArg = process.argv[2];
-  const baseUrlArg = process.argv[3];
-  const timeoutArg = process.argv[4];
-  const replayPath = resolveReplayPath(replayArg);
-  const runId = `smoke-${Date.now().toString(36)}`;
-  const baseUrl = baseUrlArg || process.env.PERF_BASE_URL || DEFAULT_BASE_URL;
-  const timeoutMs = Number(timeoutArg || process.env.PERF_SMOKE_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
-  const perfUrl = buildPerfUrl(baseUrl, replayPath, runId);
+async function persistReport(reportPath, latestPath, report) {
+  const serialized = JSON.stringify(report, null, 2);
+  await writeFile(reportPath, serialized);
+  if (latestPath) {
+    await writeFile(latestPath, serialized);
+  }
+}
 
-  const requests = [];
-  const perfResponses = [];
-  const pageErrors = [];
+async function startChromiumTrace(page) {
+  const client = await page.context().newCDPSession(page);
+  const traceEvents = [];
+  let stopped = false;
+  await client.send("Tracing.start", {
+    categories: TRACE_CATEGORIES,
+    transferMode: "ReportEvents",
+  });
+  client.on("Tracing.dataCollected", (event) => {
+    if (!Array.isArray(event.value)) return;
+    traceEvents.push(...event.value);
+  });
+  const completed = new Promise((resolve) => {
+    client.once("Tracing.tracingComplete", resolve);
+  });
+
+  return {
+    async stop() {
+      if (stopped) return traceEvents;
+      stopped = true;
+      await client.send("Tracing.end");
+      await completed;
+      return traceEvents;
+    },
+  };
+}
+
+async function runPerfPass({ baseUrl, captureTrace, launchOptions, perfSink, replayPath, runId, timeoutMs }) {
+  const browser = await chromium.launch(launchOptions);
   const consoleMessages = [];
+  const pageErrors = [];
+  const perfResponses = [];
+  const requests = [];
+  const perfUrl = buildPerfUrl(baseUrl, replayPath, runId, { perfSink });
+  let traceController = null;
+  let traceEvents = null;
 
-  const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    if (captureTrace) {
+      traceController = await startChromiumTrace(page);
+    }
 
     page.on("console", (message) => {
       consoleMessages.push({ text: message.text(), type: message.type() });
@@ -115,54 +214,211 @@ async function main() {
       { timeout: timeoutMs },
     );
 
-    const bannerText = await page.locator("#perf-status-banner").innerText();
-    const perfResponse = perfResponses.at(-1);
-    let perfPayload = null;
-    if (perfResponse?.body) {
-      try {
-        perfPayload = JSON.parse(perfResponse.body);
-      } catch {
-        perfPayload = null;
-      }
-    }
-    const relativeFile = typeof perfPayload?.file === "string" ? perfPayload.file : null;
-    const latestFile = typeof perfPayload?.latestFile === "string" ? perfPayload.latestFile : null;
-
-    const reportPath = relativeFile ? path.resolve(process.cwd(), relativeFile) : await findReportForRun(runId, 5000);
-    if (!reportPath) {
-      throw new Error(`Perf smoke reached ${bannerText} but no run report was written for ${runId}`);
+    if (traceController) {
+      traceEvents = await traceController.stop();
+      traceController = null;
     }
 
-    const reportReady = await waitForFile(reportPath, 5000);
-    if (!reportReady) {
-      throw new Error(`Perf smoke did not find report file ${reportPath}`);
-    }
-
-    const latestPath = latestFile ? path.resolve(process.cwd(), latestFile) : null;
-    const latestReady = latestPath ? await waitForFile(latestPath, 5000) : false;
-    const report = JSON.parse(await readFile(reportPath, "utf8"));
-    console.log(
-      JSON.stringify(
-        {
-          banner: bannerText,
-          latestFile: latestReady && latestFile ? latestFile : null,
-          replayPath,
-          requests,
-          reportFile: path.relative(process.cwd(), reportPath),
-          runId,
-          summary: report.summary,
-        },
-        null,
-        2,
-      ),
-    );
-
-    if (pageErrors.length > 0) {
-      console.error(JSON.stringify({ consoleMessages, pageErrors }, null, 2));
-      process.exitCode = 1;
-    }
+    return {
+      bannerText: await page.locator("#perf-status-banner").innerText(),
+      consoleMessages,
+      pageErrors,
+      perfPayload: parseJsonSafe(perfResponses.at(-1)?.body || ""),
+      perfReportFromConsole: extractConsolePerfReport(consoleMessages),
+      requests,
+      traceEvents,
+    };
   } finally {
+    if (traceController) {
+      await traceController.stop().catch(() => {});
+    }
     await browser.close();
+  }
+}
+
+function findNearestTick(sortedTicks, targetTick) {
+  if (sortedTicks.length === 0 || !Number.isFinite(targetTick)) return null;
+  let low = 0;
+  let high = sortedTicks.length - 1;
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const value = sortedTicks[mid];
+    if (value === targetTick) return value;
+    if (value < targetTick) {
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+  const left = high >= 0 ? sortedTicks[high] : null;
+  const right = low < sortedTicks.length ? sortedTicks[low] : null;
+  if (left === null) return right;
+  if (right === null) return left;
+  return Math.abs(targetTick - left) <= Math.abs(right - targetTick) ? left : right;
+}
+
+function mergeGpuFrames(targetFrames, sourceFrames) {
+  const framesByTick = new Map();
+  for (const frame of sourceFrames) {
+    const tick = Number(frame.tick);
+    if (!Number.isFinite(tick)) continue;
+    if (!framesByTick.has(tick)) framesByTick.set(tick, []);
+    framesByTick.get(tick).push(frame);
+  }
+
+  const sortedTicks = [...framesByTick.keys()].sort((a, b) => a - b);
+  const usageByTick = new Map();
+  let matchedFrames = 0;
+  let fallbackMatches = 0;
+
+  for (const frame of targetFrames) {
+    const tick = Number(frame.tick);
+    let resolvedTick = Number.isFinite(tick) ? tick : null;
+    if (resolvedTick === null || !framesByTick.has(resolvedTick)) {
+      resolvedTick = findNearestTick(sortedTicks, tick);
+      if (resolvedTick === null) continue;
+      fallbackMatches++;
+    }
+
+    const candidates = framesByTick.get(resolvedTick) ?? [];
+    if (candidates.length === 0) continue;
+    const usageIndex = usageByTick.get(resolvedTick) ?? 0;
+    const sourceFrame = candidates[Math.min(usageIndex, candidates.length - 1)];
+    usageByTick.set(resolvedTick, usageIndex + 1);
+
+    if (Number.isFinite(sourceFrame.gpuMs)) frame.gpuMs = sourceFrame.gpuMs;
+    if (Number.isFinite(sourceFrame.presentMs)) frame.presentMs = sourceFrame.presentMs;
+    matchedFrames++;
+  }
+
+  return { fallbackMatches, matchedFrames };
+}
+
+async function main() {
+  const replayArg = process.argv[2];
+  const baseUrlArg = process.argv[3];
+  const timeoutArg = process.argv[4];
+  const replayPath = resolveReplayPath(replayArg);
+  const runId = `smoke-${Date.now().toString(36)}`;
+  const baseUrl = baseUrlArg || process.env.PERF_BASE_URL || DEFAULT_BASE_URL;
+  const timeoutMs = Number(timeoutArg || process.env.PERF_SMOKE_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
+  const captureGpuTrace = process.env.PERF_CAPTURE_GPU !== "0";
+  const saveRawTrace = process.env.PERF_SAVE_TRACE === "1";
+
+  const primaryPass = await runPerfPass({
+    baseUrl,
+    captureTrace: false,
+    launchOptions: { headless: true },
+    replayPath,
+    runId,
+    timeoutMs,
+  });
+
+  const relativeFile = typeof primaryPass.perfPayload?.file === "string" ? primaryPass.perfPayload.file : null;
+  const latestFile =
+    typeof primaryPass.perfPayload?.latestFile === "string" ? primaryPass.perfPayload.latestFile : null;
+  const reportPath = relativeFile ? path.resolve(process.cwd(), relativeFile) : await findReportForRun(runId, 5000);
+  if (!reportPath) {
+    throw new Error(`Perf smoke reached ${primaryPass.bannerText} but no run report was written for ${runId}`);
+  }
+
+  const reportReady = await waitForFile(reportPath, 5000);
+  if (!reportReady) {
+    throw new Error(`Perf smoke did not find report file ${reportPath}`);
+  }
+
+  const latestPath = latestFile ? path.resolve(process.cwd(), latestFile) : null;
+  const report = JSON.parse(await readFile(reportPath, "utf8"));
+
+  let gpuCaptureNote = null;
+  if (captureGpuTrace) {
+    try {
+      const traceRunId = `${runId}-gpu`;
+      const tracePass = await runPerfPass({
+        baseUrl,
+        captureTrace: true,
+        launchOptions: { channel: "chromium", headless: true },
+        perfSink: "console",
+        replayPath,
+        runId: traceRunId,
+        timeoutMs,
+      });
+
+      const traceReport = tracePass.perfReportFromConsole;
+      if (!traceReport) {
+        gpuCaptureNote = "GPU trace completed but the console perf report was not captured";
+      } else if (!Array.isArray(tracePass.traceEvents) || tracePass.traceEvents.length === 0) {
+        gpuCaptureNote = "GPU trace completed but no trace events were collected";
+      } else {
+        const traceResult = applyGpuTraceProfile(traceReport, tracePass.traceEvents, {
+          captureMode: DEFAULT_TRACE_CAPTURE_MODE,
+        });
+        if (!traceResult.applied) {
+          gpuCaptureNote = traceResult.reason;
+        } else {
+          const mergeResult = mergeGpuFrames(report.frames ?? [], traceReport.frames ?? []);
+          report.gpuProfile = {
+            ...traceReport.gpuProfile,
+            frameCount: report.frames?.length ?? 0,
+            gpuSummary: summarizeFrameMetric(report.frames ?? [], "gpuMs"),
+            notes: [
+              ...(traceReport.gpuProfile?.notes ?? []),
+              `GPU trace was captured in a second ${DEFAULT_TRACE_CAPTURE_MODE} pass and merged onto the primary perf report by replay tick.`,
+              `Matched ${mergeResult.matchedFrames} frames; ${mergeResult.fallbackMatches} used nearest-tick fallback.`,
+            ],
+            presentSummary: summarizeFrameMetric(report.frames ?? [], "presentMs"),
+          };
+          await persistReport(reportPath, latestPath, report);
+          if (saveRawTrace) {
+            const tracePath = reportPath.replace(/\.json$/i, ".trace.json");
+            await writeFile(tracePath, JSON.stringify({ traceEvents: tracePass.traceEvents }, null, 2));
+          }
+        }
+      }
+
+      if (tracePass.pageErrors.length > 0) {
+        console.error(
+          JSON.stringify({ consoleMessages: tracePass.consoleMessages, pageErrors: tracePass.pageErrors }, null, 2),
+        );
+        process.exitCode = 1;
+      }
+    } catch (error) {
+      gpuCaptureNote = `GPU trace disabled: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  }
+
+  const gpuSummary = report.gpuProfile?.gpuSummary;
+  const presentSummary = report.gpuProfile?.presentSummary;
+  console.log(
+    JSON.stringify(
+      {
+        banner: primaryPass.bannerText,
+        gpu: gpuSummary
+          ? {
+              captureMode: report.gpuProfile?.captureMode || null,
+              p50: roundMetric(gpuSummary.p50),
+              p95: roundMetric(gpuSummary.p95),
+              presentP95: Number.isFinite(presentSummary?.p95) ? roundMetric(presentSummary.p95) : null,
+            }
+          : null,
+        gpuCaptureNote,
+        latestFile: latestFile || null,
+        replayPath,
+        requests: primaryPass.requests,
+        reportFile: path.relative(process.cwd(), reportPath),
+        runId,
+        summary: report.summary,
+      },
+      null,
+      2,
+    ),
+  );
+
+  if (primaryPass.pageErrors.length > 0) {
+    console.error(
+      JSON.stringify({ consoleMessages: primaryPass.consoleMessages, pageErrors: primaryPass.pageErrors }, null, 2),
+    );
+    process.exitCode = 1;
   }
 }
 

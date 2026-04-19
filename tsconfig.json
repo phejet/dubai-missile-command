@@ -10,7 +10,7 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "noEmit": true,
-    "types": ["node"]
+    "types": ["node", "vite/client"]
   },
   "include": ["src", "e2e", "*.config.ts", "vite-replay-plugin.ts"],
   "exclude": ["node_modules", "dist"]

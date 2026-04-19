@@ -39,6 +39,35 @@ function roundMetric(value) {
   return Math.round(Number(value) * 1000) / 1000;
 }
 
+function quantile(sortedValues, percentile) {
+  if (sortedValues.length === 0) return 0;
+  if (sortedValues.length === 1) return sortedValues[0] ?? 0;
+  const index = (sortedValues.length - 1) * percentile;
+  const lowerIndex = Math.floor(index);
+  const upperIndex = Math.ceil(index);
+  const lowerValue = sortedValues[lowerIndex] ?? sortedValues[sortedValues.length - 1] ?? 0;
+  const upperValue = sortedValues[upperIndex] ?? lowerValue;
+  if (lowerIndex === upperIndex) return lowerValue;
+  return lowerValue + (upperValue - lowerValue) * (index - lowerIndex);
+}
+
+function summarizeOptionalMetric(frames, key) {
+  const values = frames
+    .map((frame) => Number(frame[key]))
+    .filter((value) => Number.isFinite(value) && value >= 0)
+    .sort((a, b) => a - b);
+  if (values.length === 0) return null;
+  return {
+    avg: roundMetric(values.reduce((sum, value) => sum + value, 0) / values.length),
+    max: roundMetric(values[values.length - 1] ?? 0),
+    p50: roundMetric(quantile(values, 0.5)),
+    p95: roundMetric(quantile(values, 0.95)),
+    p99: roundMetric(quantile(values, 0.99)),
+    samples: values.length,
+    total: roundMetric(values.reduce((sum, value) => sum + value, 0)),
+  };
+}
+
 function toSafeId(value) {
   const safe = String(value)
     .toLowerCase()
@@ -55,6 +84,8 @@ function buildTimelineDetail(report) {
   const allFrames = Array.isArray(report.frames) ? report.frames : [];
   const skippedFrames = 5;
   const frames = allFrames.slice(skippedFrames);
+  const gpuSummary = summarizeOptionalMetric(frames, "gpuMs") ?? report.gpuProfile?.gpuSummary;
+  const presentSummary = summarizeOptionalMetric(frames, "presentMs") ?? report.gpuProfile?.presentSummary;
   if (frames.length === 0) {
     return `<p class="detail-copy">No frame data captured for this report.</p>`;
   }
@@ -113,6 +144,7 @@ function buildTimelineDetail(report) {
       interceptors: frame.interceptors,
       missiles: frame.missiles,
       particles: frame.particles,
+      presentMs: Number.isFinite(frame.presentMs) ? roundMetric(frame.presentMs) : null,
       startMs: roundMetric(startMs),
       tick: frame.tick,
     });
@@ -134,6 +166,22 @@ function buildTimelineDetail(report) {
         <span class="label">Peak Frame</span>
         <strong>${formatMs(peakFrameMs)}</strong>
       </section>
+      ${
+        gpuSummary
+          ? `<section class="detail-metric">
+        <span class="label">GPU p95</span>
+        <strong>${formatMs(gpuSummary.p95)}</strong>
+      </section>`
+          : ""
+      }
+      ${
+        presentSummary
+          ? `<section class="detail-metric">
+        <span class="label">Present p95</span>
+        <strong>${formatMs(presentSummary.p95)}</strong>
+      </section>`
+          : ""
+      }
     </div>
 
     <p class="detail-copy">X axis is elapsed time. Y axis is frame time in milliseconds rising from the bottom. Hover a bar to inspect the frame in gruesome detail. The first ${skippedFrames} frames are ignored here to keep startup noise from fouling the view.</p>
@@ -189,6 +237,9 @@ function buildCard(report) {
   const { replayId, buildId, summary, frames, deviceInfo } = report;
   const long16Ratio = frames.length > 0 ? (summary.longFrameCount16 / frames.length) * 100 : 0;
   const long33Ratio = frames.length > 0 ? (summary.longFrameCount33 / frames.length) * 100 : 0;
+  const gpuSummary = summarizeOptionalMetric(frames, "gpuMs") ?? report.gpuProfile?.gpuSummary;
+  const presentSummary = summarizeOptionalMetric(frames, "presentMs") ?? report.gpuProfile?.presentSummary;
+  const gpuNotes = Array.isArray(report.gpuProfile?.notes) ? report.gpuProfile.notes.filter(Boolean) : [];
 
   return `
     <article class="card">
@@ -217,6 +268,22 @@ function buildCard(report) {
           <span class="label">Frames</span>
           <strong>${formatInt(frames.length)}</strong>
         </section>
+        ${
+          gpuSummary
+            ? `<section class="metric">
+          <span class="label">GPU p95</span>
+          <strong>${formatMs(gpuSummary.p95)}</strong>
+        </section>`
+            : ""
+        }
+        ${
+          presentSummary
+            ? `<section class="metric">
+          <span class="label">Present p95</span>
+          <strong>${formatMs(presentSummary.p95)}</strong>
+        </section>`
+            : ""
+        }
       </div>
 
       <div class="bars">
@@ -235,6 +302,18 @@ function buildCard(report) {
           <div class="bar-track"><div class="bar-fill red" style="width:${Math.min(100, long33Ratio)}%"></div></div>
         </div>
       </div>
+
+      ${
+        gpuSummary
+          ? `<div class="gpu-note">
+        <strong>GPU trace</strong>
+        <span>${escapeHtml(
+          gpuNotes[0] ||
+            "Derived from Chromium trace pipeline stages. Treat it as compositor and GPU pipeline time, not a hardware timer-query readout.",
+        )}</span>
+      </div>`
+          : ""
+      }
 
       <dl class="meta">
         <div>
@@ -305,12 +384,16 @@ function buildRuntimeScript() {
         }
 
         function buildTooltipHtml(frame) {
+          const presentRow = Number.isFinite(frame.presentMs)
+            ? \`<div><span>Present</span><strong>\${formatMs(frame.presentMs)}</strong></div>\`
+            : "";
           return [
             \`<div class="timeline-tooltip-title">Frame \${formatInt(frame.frameIndex)}</div>\`,
             '<div class="timeline-tooltip-grid">',
             \`<div><span>Tick</span><strong>\${formatInt(frame.tick)}</strong></div>\`,
             \`<div><span>Frame</span><strong>\${formatMs(frame.frameMs)}</strong></div>\`,
             \`<div><span>GPU</span><strong>\${formatMs(frame.gpuMs)}</strong></div>\`,
+            presentRow,
             \`<div><span>Elapsed</span><strong>\${formatSeconds(frame.startMs)} → \${formatSeconds(frame.endMs)}</strong></div>\`,
             \`<div><span>Missiles</span><strong>\${formatInt(frame.missiles)}</strong></div>\`,
             \`<div><span>Drones</span><strong>\${formatInt(frame.drones)}</strong></div>\`,
@@ -559,6 +642,28 @@ function buildHtml(reports, generatedAt, sourceFiles) {
         display: grid;
         gap: 14px;
         margin-bottom: 18px;
+      }
+
+      .gpu-note {
+        display: grid;
+        gap: 6px;
+        margin: 0 0 18px;
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: rgba(127, 215, 255, 0.06);
+        border: 1px solid rgba(127, 215, 255, 0.14);
+      }
+
+      .gpu-note strong {
+        font-size: 13px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--cyan);
+      }
+
+      .gpu-note span {
+        color: var(--muted);
+        line-height: 1.45;
       }
 
       .bar-row {

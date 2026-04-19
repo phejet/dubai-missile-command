@@ -3,16 +3,38 @@ import type { PerfSink } from "./perf-sinks";
 export const PERF_REPORT_SCHEMA_VERSION = 1 as const;
 const LONG_FRAME_16_MS = 16.67;
 const LONG_FRAME_33_MS = 33;
+const TRACE_MARK_FIRST_FRAME_END_PREFIX = "perf-trace:first-frame-end:";
+const TRACE_MARK_FINISH_PREFIX = "perf-trace:finish:";
 
 export interface PerfFrame {
   tick: number;
   frameMs: number;
   gpuMs?: number;
+  presentMs?: number;
   missiles: number;
   drones: number;
   interceptors: number;
   particles: number;
   explosions: number;
+}
+
+export interface PerfMetricSummary {
+  avg: number;
+  max: number;
+  p50: number;
+  p95: number;
+  p99: number;
+  samples: number;
+  total: number;
+}
+
+export interface PerfGpuProfile {
+  captureMode: string;
+  frameCount: number;
+  gpuSummary: PerfMetricSummary;
+  notes?: string[];
+  presentSummary?: PerfMetricSummary;
+  source: "chromium-trace";
 }
 
 export interface PerfSummary {
@@ -46,6 +68,7 @@ export interface PerfReport {
   autoquit: boolean;
   deviceInfo: PerfDeviceInfo;
   frames: PerfFrame[];
+  gpuProfile?: PerfGpuProfile;
   summary: PerfSummary;
 }
 
@@ -80,6 +103,7 @@ interface PerfRecorderSession {
   sink: PerfSink;
   frames: PerfFrame[];
   emitted: boolean;
+  firstFrameMarked: boolean;
 }
 
 interface PerfRecorderEnvironment {
@@ -125,6 +149,15 @@ function clampCount(value: number): number {
 
 function roundMetric(value: number): number {
   return Math.round(value * 1000) / 1000;
+}
+
+function safeTraceMark(name: string): void {
+  if (typeof performance === "undefined" || typeof performance.mark !== "function") return;
+  try {
+    performance.mark(name);
+  } catch {
+    // Trace markers are best-effort only; perf capture should not fail because user-timing is unavailable.
+  }
 }
 
 function quantile(sortedValues: number[], percentile: number): number {
@@ -187,6 +220,7 @@ export class PerfRecorder {
       buildId: options.buildId ?? null,
       emitted: false,
       frames: [],
+      firstFrameMarked: false,
       replayId,
       replayUrl: options.replayUrl,
       runId,
@@ -200,6 +234,10 @@ export class PerfRecorder {
     if (!session || session.emitted) return;
     if (!sample.replayActive || sample.screen !== "playing") return;
     if (!Number.isFinite(sample.frameMs) || sample.frameMs < 0) return;
+    if (!session.firstFrameMarked) {
+      safeTraceMark(`${TRACE_MARK_FIRST_FRAME_END_PREFIX}${session.runId}`);
+      session.firstFrameMarked = true;
+    }
 
     const frame: PerfFrame = {
       drones: clampCount(sample.drones),
@@ -221,6 +259,7 @@ export class PerfRecorder {
   async onReplayFinish(): Promise<PerfReport | null> {
     const session = this.session;
     if (!session || session.emitted) return null;
+    safeTraceMark(`${TRACE_MARK_FINISH_PREFIX}${session.runId}`);
 
     const report: PerfReport = {
       autoquit: session.autoquit,
