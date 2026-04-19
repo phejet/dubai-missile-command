@@ -19,3 +19,4 @@
 - Benchmark fixtures need semantic validation, not just file existence. For perf replays, inspect action-type mix and upgrade/shop activity before blessing a file as `stress`, `lategame`, or `particle-spam`.
 - A replay with high passive destruction but zero `fire` actions is not a valid particle benchmark in this game. The particle benchmark must exercise interceptor-driven explosions and, ideally, upgraded FX systems that amplify particle load.
 - Profiling instrumentation must be validated for visual side effects, not just data output. If a trace path changes what the player sees, the measurement is contaminated and the capture mode is wrong.
+- For reviews, anchor on the current worktree diff before inspecting commits. If the request says "uncommitted changes," verify with `git status --short` and review `git diff`, not the last commit like some caffeinated amateur.

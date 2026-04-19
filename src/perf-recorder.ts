@@ -68,6 +68,7 @@ export interface PerfReport {
   autoquit: boolean;
   deviceInfo: PerfDeviceInfo;
   frames: PerfFrame[];
+  // Populated post-hoc by the smoke script via Chromium trace merge; never set by PerfRecorder itself.
   gpuProfile?: PerfGpuProfile;
   summary: PerfSummary;
 }

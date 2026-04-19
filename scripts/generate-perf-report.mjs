@@ -4,6 +4,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 
+import { roundMetric, summarizeFrameMetric } from "./perf-utils.mjs";
+
 function usage() {
   console.error("Usage: node scripts/generate-perf-report.mjs <report.json> [more reports...]");
   process.exitCode = 1;
@@ -35,39 +37,6 @@ function roundUp(value, step) {
   return Math.ceil(value / step) * step;
 }
 
-function roundMetric(value) {
-  return Math.round(Number(value) * 1000) / 1000;
-}
-
-function quantile(sortedValues, percentile) {
-  if (sortedValues.length === 0) return 0;
-  if (sortedValues.length === 1) return sortedValues[0] ?? 0;
-  const index = (sortedValues.length - 1) * percentile;
-  const lowerIndex = Math.floor(index);
-  const upperIndex = Math.ceil(index);
-  const lowerValue = sortedValues[lowerIndex] ?? sortedValues[sortedValues.length - 1] ?? 0;
-  const upperValue = sortedValues[upperIndex] ?? lowerValue;
-  if (lowerIndex === upperIndex) return lowerValue;
-  return lowerValue + (upperValue - lowerValue) * (index - lowerIndex);
-}
-
-function summarizeOptionalMetric(frames, key) {
-  const values = frames
-    .map((frame) => Number(frame[key]))
-    .filter((value) => Number.isFinite(value) && value >= 0)
-    .sort((a, b) => a - b);
-  if (values.length === 0) return null;
-  return {
-    avg: roundMetric(values.reduce((sum, value) => sum + value, 0) / values.length),
-    max: roundMetric(values[values.length - 1] ?? 0),
-    p50: roundMetric(quantile(values, 0.5)),
-    p95: roundMetric(quantile(values, 0.95)),
-    p99: roundMetric(quantile(values, 0.99)),
-    samples: values.length,
-    total: roundMetric(values.reduce((sum, value) => sum + value, 0)),
-  };
-}
-
 function toSafeId(value) {
   const safe = String(value)
     .toLowerCase()
@@ -84,8 +53,8 @@ function buildTimelineDetail(report) {
   const allFrames = Array.isArray(report.frames) ? report.frames : [];
   const skippedFrames = 5;
   const frames = allFrames.slice(skippedFrames);
-  const gpuSummary = summarizeOptionalMetric(frames, "gpuMs") ?? report.gpuProfile?.gpuSummary;
-  const presentSummary = summarizeOptionalMetric(frames, "presentMs") ?? report.gpuProfile?.presentSummary;
+  const gpuSummary = summarizeFrameMetric(frames, "gpuMs") ?? report.gpuProfile?.gpuSummary;
+  const presentSummary = summarizeFrameMetric(frames, "presentMs") ?? report.gpuProfile?.presentSummary;
   if (frames.length === 0) {
     return `<p class="detail-copy">No frame data captured for this report.</p>`;
   }
@@ -237,8 +206,8 @@ function buildCard(report) {
   const { replayId, buildId, summary, frames, deviceInfo } = report;
   const long16Ratio = frames.length > 0 ? (summary.longFrameCount16 / frames.length) * 100 : 0;
   const long33Ratio = frames.length > 0 ? (summary.longFrameCount33 / frames.length) * 100 : 0;
-  const gpuSummary = summarizeOptionalMetric(frames, "gpuMs") ?? report.gpuProfile?.gpuSummary;
-  const presentSummary = summarizeOptionalMetric(frames, "presentMs") ?? report.gpuProfile?.presentSummary;
+  const gpuSummary = summarizeFrameMetric(frames, "gpuMs") ?? report.gpuProfile?.gpuSummary;
+  const presentSummary = summarizeFrameMetric(frames, "presentMs") ?? report.gpuProfile?.presentSummary;
   const gpuNotes = Array.isArray(report.gpuProfile?.notes) ? report.gpuProfile.notes.filter(Boolean) : [];
 
   return `

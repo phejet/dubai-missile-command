@@ -6,6 +6,7 @@ import process from "node:process";
 import { chromium } from "playwright";
 
 import { applyGpuTraceProfile } from "./perf-trace-profile.mjs";
+import { roundMetric, summarizeFrameMetric } from "./perf-utils.mjs";
 
 const DEFAULT_BASE_URL = "http://localhost:5173/dubai-missile-command/";
 const DEFAULT_REPLAY = "perf-wave1";
@@ -20,39 +21,6 @@ const TRACE_CATEGORIES = [
   "viz",
   "blink.user_timing",
 ].join(",");
-
-function roundMetric(value) {
-  return Math.round(Number(value) * 1000) / 1000;
-}
-
-function quantile(sortedValues, percentile) {
-  if (sortedValues.length === 0) return 0;
-  if (sortedValues.length === 1) return sortedValues[0] ?? 0;
-  const index = (sortedValues.length - 1) * percentile;
-  const lowerIndex = Math.floor(index);
-  const upperIndex = Math.ceil(index);
-  const lowerValue = sortedValues[lowerIndex] ?? sortedValues[sortedValues.length - 1] ?? 0;
-  const upperValue = sortedValues[upperIndex] ?? lowerValue;
-  if (lowerIndex === upperIndex) return lowerValue;
-  return lowerValue + (upperValue - lowerValue) * (index - lowerIndex);
-}
-
-function summarizeFrameMetric(frames, key) {
-  const values = frames
-    .map((frame) => Number(frame[key]))
-    .filter((value) => Number.isFinite(value) && value >= 0)
-    .sort((a, b) => a - b);
-  if (values.length === 0) return null;
-  return {
-    avg: roundMetric(values.reduce((sum, value) => sum + value, 0) / values.length),
-    max: roundMetric(values[values.length - 1] ?? 0),
-    p50: roundMetric(quantile(values, 0.5)),
-    p95: roundMetric(quantile(values, 0.95)),
-    p99: roundMetric(quantile(values, 0.99)),
-    samples: values.length,
-    total: roundMetric(values.reduce((sum, value) => sum + value, 0)),
-  };
-}
 
 function resolveReplayPath(input) {
   const trimmed = (input || "").trim();
@@ -357,6 +325,11 @@ async function main() {
           gpuCaptureNote = traceResult.reason;
         } else {
           const mergeResult = mergeGpuFrames(report.frames ?? [], traceReport.frames ?? []);
+          if (mergeResult.matchedFrames > 0 && mergeResult.fallbackMatches / mergeResult.matchedFrames > 0.1) {
+            console.warn(
+              `GPU trace: high nearest-tick fallback rate (${mergeResult.fallbackMatches}/${mergeResult.matchedFrames} frames). GPU timings may be unreliable.`,
+            );
+          }
           report.gpuProfile = {
             ...traceReport.gpuProfile,
             frameCount: report.frames?.length ?? 0,
