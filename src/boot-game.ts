@@ -260,10 +260,12 @@ export function bootGame({ mode = "canvas2d", launchUrl }: BootGameOptions = {})
         .onReplayFinish()
         .then((report) => {
           if (!report) return;
+          console.log("[perf-debug] replay finished", report.runId, report.summary.p95);
           banner.set(`DONE ${report.replayId} p95 ${report.summary.p95.toFixed(1)}ms wave ${sample.wave}`, "done");
         })
         .catch((error: unknown) => {
           const message = error instanceof Error ? error.message : String(error);
+          console.error("[perf-debug] replay finish failed", message);
           banner.set(`PERF ERROR ${message}`, "error");
         });
     },
@@ -285,8 +287,19 @@ export function bootGame({ mode = "canvas2d", launchUrl }: BootGameOptions = {})
   async function runPerfRequest(perfRequest: PerfBootRequest): Promise<void> {
     const { banner, recorder } = ensurePerfHarness();
     try {
+      console.log(
+        "[perf-debug] perf request",
+        perfRequest.runId,
+        perfRequest.replayUrl,
+        perfRequest.sinkUrl ?? DEFAULT_PERF_SINK_URL,
+      );
       banner.set(`PERF LOADING ${perfRequest.replayUrl}`);
       const replayData = await fetchReplayData(perfRequest.replayUrl);
+      console.log(
+        "[perf-debug] replay fetched",
+        perfRequest.runId,
+        getReplayIdFromData(replayData) ?? perfRequest.replayUrl,
+      );
       const run = recorder.start({
         autoquit: perfRequest.autoquit,
         replayId: getReplayIdFromData(replayData),
@@ -296,8 +309,10 @@ export function bootGame({ mode = "canvas2d", launchUrl }: BootGameOptions = {})
       });
       banner.set(`PERF RUNNING ${run.replayId} ${run.runId.slice(0, 8)}`);
       await game.loadReplay(replayData);
+      console.log("[perf-debug] replay started", run.runId, run.replayId);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
+      console.error("[perf-debug] perf request failed", message);
       banner.set(`PERF ERROR ${message}`, "error");
     }
   }

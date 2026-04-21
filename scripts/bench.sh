@@ -104,11 +104,19 @@ run_launch() {
   local launch_json
   launch_json="$(mktemp -t dmc-bench-launch)"
 
+  # Pass perfSink as an absolute URL so the static Capacitor build (origin: capacitor://localhost)
+  # POSTs to the Mac dev server instead of trying capacitor://localhost/api/save-perf.
+  local lan_host="$MAC_HOSTNAME"
+  if [[ "$lan_host" != *.* && "$lan_host" != *:* ]]; then
+    lan_host="${lan_host}.local"
+  fi
+  local sink_url="http://${lan_host}:5173/api/save-perf"
+
   xcrun devicectl device process launch \
     --device "$IPHONE_UDID" \
     "$BUNDLE_ID" \
     --terminate-existing \
-    --payload-url "dubaimissile://perf?replay=${replay_key}&autoquit=1&runId=${run_id}" \
+    --payload-url "dubaimissile://perf?replay=${replay_key}&autoquit=1&runId=${run_id}&perfSink=${sink_url}" \
     --timeout 30 \
     --json-output "$launch_json" >/dev/null
 

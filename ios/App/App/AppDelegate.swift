@@ -6,8 +6,26 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     var window: UIWindow?
 
+    private func forwardLaunchUrl(_ application: UIApplication, url: URL, source: String) {
+        NSLog("[perf-debug] forwarding launch URL from %@: %@", source, url.absoluteString)
+        _ = ApplicationDelegateProxy.shared.application(application, open: url, options: [:])
+    }
+
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        // Forward launch URL so Capacitor's getLaunchUrl() works when the app is opened
+        // via xcrun devicectl --payload-url or the registered URL scheme.
+        NSLog("[perf-debug] didFinishLaunching launchOptions=%@", String(describing: launchOptions))
+        NSLog("[perf-debug] argv=%@", CommandLine.arguments.joined(separator: " | "))
+        if let url = launchOptions?[UIApplication.LaunchOptionsKey.url] as? URL {
+            forwardLaunchUrl(application, url: url, source: "launchOptions")
+        } else if let payloadArg = CommandLine.arguments.first(where: { $0.contains("://") }),
+                  let url = URL(string: payloadArg) {
+            // devicectl appears to restart the app reliably; if it also smuggles the
+            // payload URL via process arguments on cold launch, catch it here.
+            forwardLaunchUrl(application, url: url, source: "argv")
+        } else {
+            NSLog("[perf-debug] no launch URL in launchOptions or argv")
+        }
         return true
     }
 
@@ -36,6 +54,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
         // Called when the app was launched with a url. Feel free to add additional processing here,
         // but if you want the App API to support tracking app url opens, make sure to keep this call
+        NSLog("[perf-debug] application open URL callback: %@", url.absoluteString)
         return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
     }
 

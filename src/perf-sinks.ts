@@ -24,11 +24,30 @@ export class HttpSink implements PerfSink {
   async emit(report: PerfReport): Promise<void> {
     const fetchImpl =
       this.fetchImpl ?? ((input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init));
-    const response = await fetchImpl(this.url, {
-      body: JSON.stringify(report),
-      headers: { "Content-Type": "application/json" },
-      method: "POST",
-    });
+    const body = JSON.stringify(report);
+    console.log(
+      `[perf-sink] POST ${this.url} runId=${report.runId} replayId=${report.replayId} frames=${report.frames.length} bytes=${body.length}`,
+    );
+    let response: Response;
+    try {
+      response = await fetchImpl(this.url, {
+        body,
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[perf-sink] fetch threw: ${message}`);
+      throw error;
+    }
+
+    let responseText = "";
+    try {
+      responseText = await response.clone().text();
+    } catch {
+      responseText = "<unreadable>";
+    }
+    console.log(`[perf-sink] response status=${response.status} ok=${response.ok} body=${responseText.slice(0, 300)}`);
 
     if (!response.ok) {
       throw new Error(`Perf sink POST failed: ${response.status} ${response.statusText}`);

@@ -7,6 +7,9 @@ import { getBuildId } from "./vite-build-id";
 
 function setPerfResponseHeaders(res: ServerResponse): void {
   res.setHeader("Allow", "POST, OPTIONS, HEAD");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS, HEAD");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.setHeader("Content-Type", "application/json");
 }
 
@@ -48,17 +51,24 @@ export default function perfPlugin(): Plugin {
     name: "vite-perf-save",
     configureServer(server: ViteDevServer) {
       server.middlewares.use("/api/save-perf", (req: IncomingMessage, res: ServerResponse) => {
+        const origin = req.headers["origin"] ?? "-";
+        const userAgent = req.headers["user-agent"] ?? "-";
+        const contentLength = req.headers["content-length"] ?? "-";
+        console.log(`[perf-save] ${req.method} ${req.url ?? ""} origin=${origin} len=${contentLength} ua=${userAgent}`);
+
         setPerfResponseHeaders(res);
 
         if (req.method === "OPTIONS" || req.method === "HEAD") {
           res.statusCode = 204;
           res.end();
+          console.log(`[perf-save] preflight ${req.method} -> 204`);
           return;
         }
 
         if (req.method !== "POST") {
           res.statusCode = 405;
           res.end(JSON.stringify({ error: "Method not allowed" }));
+          console.log(`[perf-save] rejected non-POST -> 405`);
           return;
         }
 
@@ -67,9 +77,15 @@ export default function perfPlugin(): Plugin {
           body += chunk;
         });
         req.on("end", () => {
+          console.log(`[perf-save] body received bytes=${body.length}`);
           try {
             const parsed = JSON.parse(body) as unknown;
             if (!isSchemaV1PerfPayload(parsed)) {
+              const preview =
+                typeof parsed === "object" && parsed !== null
+                  ? Object.keys(parsed).slice(0, 8).join(",")
+                  : typeof parsed;
+              console.log(`[perf-save] schema check failed; top-level keys/type=${preview}`);
               throw new Error("Perf payload must be a schema-v1 report");
             }
 
@@ -77,6 +93,9 @@ export default function perfPlugin(): Plugin {
             const deviceHash = buildDeviceHash(parsed);
             const runId = sanitizePathSegment(parsed.runId, "run");
             const replayId = sanitizePathSegment(parsed.replayId, "replay");
+            console.log(
+              `[perf-save] parsed runId=${runId} replayId=${replayId} buildId=${buildId} deviceHash=${deviceHash} frames=${parsed.frames.length}`,
+            );
             const stampedReport = {
               ...parsed,
               _buildId: buildId,
@@ -93,6 +112,9 @@ export default function perfPlugin(): Plugin {
 
             writeFileSync(runPath, JSON.stringify(stampedReport, null, 2));
             writeFileSync(latestPath, JSON.stringify(stampedReport, null, 2));
+            console.log(
+              `[perf-save] wrote run=${relative(process.cwd(), runPath)} latest=${relative(process.cwd(), latestPath)}`,
+            );
 
             res.end(
               JSON.stringify({
@@ -104,9 +126,15 @@ export default function perfPlugin(): Plugin {
               }),
             );
           } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.error(`[perf-save] save failed: ${message}`);
             res.statusCode = 400;
-            res.end(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }));
+            res.end(JSON.stringify({ error: message }));
           }
+        });
+
+        req.on("error", (error: Error) => {
+          console.error(`[perf-save] request stream error: ${error.message}`);
         });
       });
     },
