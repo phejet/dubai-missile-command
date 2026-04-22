@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { GAMEPLAY_SCENIC_BASE_Y, GAMEPLAY_SCENIC_GROUND_Y, GROUND_Y, setRng } from "./game-logic.js";
 import { buildBuildingAssets } from "./art-render.js";
 import {
@@ -8,6 +8,7 @@ import {
   __getInterceptorSpriteCacheKeysForTest,
   __getLauncherAssetCacheKeysForTest,
   __getLauncherAssetsForTest,
+  __getTitleThreatAnimationTimeForTest,
   __getThreatSpriteAssetsForTest,
   __getThreatSpriteCacheKeysForTest,
   __resetRenderAssetCachesForTest,
@@ -512,6 +513,11 @@ describe("drawTitle", () => {
     expect(() => drawTitle(ctx, { skylineRenderMode: "bakedSharp" })).not.toThrow();
   });
 
+  it("keeps title threat animation time in seconds instead of 60fps frame units", () => {
+    expect(__getTitleThreatAnimationTimeForTest(1, "shahed", 1)).toBeCloseTo(1.8 + 7 / 60);
+    expect(__getTitleThreatAnimationTimeForTest(1, "missile", 2)).toBeCloseTo(2.4 + (2 * 5) / 60);
+  });
+
   it("warms the title Burj asset cache entry", () => {
     const { ctx } = mockCanvasContext();
 
@@ -542,6 +548,31 @@ describe("drawTitle", () => {
     drawTitle(ctx, { skylineRenderMode: "live" });
 
     expect(__getThreatSpriteCacheKeysForTest()).toEqual([]);
+  });
+
+  it("cycles through the full baked shahed animation across one second of title rendering", () => {
+    const { ctx, callLog } = mockCanvasContext();
+    const assets = __getThreatSpriteAssetsForTest(DEFAULT_THREAT_SPRITE_SCALE);
+    const frameIndexByCanvas = new Map(assets.shahed136.animFrames.map((frame, index) => [frame, index]));
+    const nowSpy = vi.spyOn(performance, "now");
+    const seenFrameIndices = new Set<number>();
+
+    try {
+      for (let frame = 0; frame < 60; frame++) {
+        callLog.length = 0;
+        nowSpy.mockReturnValue(frame * (1000 / 60));
+        drawTitle(ctx, { skylineRenderMode: "bakedSharp" });
+        for (const call of callLog) {
+          if (call.method !== "drawImage") continue;
+          const frameIndex = frameIndexByCanvas.get(call.args[0] as HTMLCanvasElement);
+          if (frameIndex !== undefined) seenFrameIndices.add(frameIndex);
+        }
+      }
+    } finally {
+      nowSpy.mockRestore();
+    }
+
+    expect(seenFrameIndices).toEqual(new Set([0, 1, 2, 3, 4, 5, 6, 7]));
   });
 });
 

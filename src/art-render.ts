@@ -779,12 +779,14 @@ function drawDefaultMissileLocal(ctx: CanvasRenderingContext2D, framePhase: numb
   ctx.fill();
 
   const exhaustPulse = 0.55 + 0.45 * Math.sin(framePhase * Math.PI * 2);
-  const flameLen = 7 + 10 * exhaustPulse;
-  const flameGlow = ctx.createRadialGradient(-13, 0, 0, -13, 0, 18);
-  flameGlow.addColorStop(0, `rgba(255, 152, 80, ${0.22 + exhaustPulse * 0.24})`);
+  const flameLen = 6 + 8 * exhaustPulse;
+  const flameGlow = ctx.createRadialGradient(-13, 0, 0, -13, 0, 14);
+  flameGlow.addColorStop(0, `rgba(255, 152, 80, ${0.1 + exhaustPulse * 0.16})`);
   flameGlow.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = flameGlow;
-  ctx.fillRect(-31, -14, 28, 28);
+  ctx.beginPath();
+  ctx.ellipse(-13, 0, 14, 10, 0, 0, Math.PI * 2);
+  ctx.fill();
 
   ctx.fillStyle = `rgba(255, 102, 42, ${0.62 + exhaustPulse * 0.24})`;
   ctx.beginPath();
@@ -1176,7 +1178,9 @@ function drawShahed136Local(ctx: CanvasRenderingContext2D, framePhase: number) {
   propGlow.addColorStop(0, "rgba(255, 136, 76, 0.2)");
   propGlow.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = propGlow;
-  ctx.fillRect(-16, -5, 10, 10);
+  ctx.beginPath();
+  ctx.arc(-11, 0, 4.8, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 function drawShahed238Local(ctx: CanvasRenderingContext2D, framePhase: number) {

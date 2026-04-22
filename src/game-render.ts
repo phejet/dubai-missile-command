@@ -80,6 +80,10 @@ const TITLE_BUILDING_PLAYBACK_PERIOD_SECONDS = 4;
 const GAMEPLAY_BUILDING_PLAYBACK_PERIOD_SECONDS = TITLE_BUILDING_PLAYBACK_PERIOD_SECONDS;
 const TITLE_BUILDING_ANIM_ALPHA = 0.58;
 const TITLE_BUILDING_PLAYBACK_RATE_JITTER = 0.24;
+const TITLE_SHAHED_TIME_STAGGER_SECONDS = 7 / 60;
+const TITLE_MISSILE_TIME_STAGGER_SECONDS = 5 / 60;
+const TITLE_SHAHED_TIME_RATE = 1.8;
+const TITLE_MISSILE_TIME_RATE = 2.4;
 
 export type TitleSkylineRenderMode = "bakedBlend" | "bakedSharp" | "live";
 export type SceneRenderMode = "bakedSharp" | "live";
@@ -241,6 +245,17 @@ function getThreatSpriteKind(m: Missile | Drone): ThreatSpriteKind {
 
 function getInterceptorSpriteKind(ic: Interceptor): InterceptorSpriteKind {
   return ic.fromF15 ? "f15Interceptor" : "playerInterceptor";
+}
+
+function getTitleThreatAnimationTime(timeSeconds: number, kind: "shahed" | "missile", index: number): number {
+  if (kind === "shahed") {
+    return timeSeconds * TITLE_SHAHED_TIME_RATE + index * TITLE_SHAHED_TIME_STAGGER_SECONDS;
+  }
+  return timeSeconds * TITLE_MISSILE_TIME_RATE + index * TITLE_MISSILE_TIME_STAGGER_SECONDS;
+}
+
+export function __getTitleThreatAnimationTimeForTest(timeSeconds: number, kind: "shahed" | "missile", index: number) {
+  return getTitleThreatAnimationTime(timeSeconds, kind, index);
 }
 
 function drawDistortedWaterSprite(
@@ -3320,13 +3335,13 @@ export function drawTitle(
     drawTitleLauncher(l.x, l.y - 105, angle, 0.92);
   });
 
-  const titleAircraft = [
-    { kind: "shahed", x: 125, y: 520, scale: layout.enemyScale, phase: 0.1 },
-    { kind: "shahed", x: 100, y: 620, scale: layout.enemyScale, phase: 0.1 },
-    { kind: "shahed", x: 150, y: 800, scale: layout.enemyScale, phase: 0.1 },
-    { kind: "missile", x: 775, y: 520, scale: layout.enemyScale, phase: 0.32 },
-    { kind: "missile", x: 800, y: 620, scale: layout.enemyScale, phase: 0.32 },
-    { kind: "missile", x: 750, y: 800, scale: layout.enemyScale, phase: 0.56 },
+  const titleAircraft: Array<{ kind: "shahed" | "missile"; x: number; y: number; scale: number }> = [
+    { kind: "shahed", x: 125, y: 520, scale: layout.enemyScale },
+    { kind: "shahed", x: 100, y: 620, scale: layout.enemyScale },
+    { kind: "shahed", x: 150, y: 800, scale: layout.enemyScale },
+    { kind: "missile", x: 775, y: 520, scale: layout.enemyScale },
+    { kind: "missile", x: 800, y: 620, scale: layout.enemyScale },
+    { kind: "missile", x: 750, y: 800, scale: layout.enemyScale },
   ];
   const titleTargetX = BURJ_X;
   const titleTargetY = titleGroundY - 6 - BURJ_H + 18;
@@ -3343,9 +3358,9 @@ export function drawTitle(
     ctx.lineTo(titleTargetX, titleTargetY);
     ctx.stroke();
     ctx.restore();
+    const titleTime = getTitleThreatAnimationTime(t, obj.kind, index);
     if (obj.kind === "shahed") {
       const shahedAngle = aimAngle + 0.08;
-      const titleTime = t * 60 + index * 7;
       const titleDroneTrail = Array.from({ length: 10 }, (_, trailIndex) => ({
         x: x - Math.cos(shahedAngle) * (trailIndex + 1) * 9,
         y: y - Math.sin(shahedAngle) * (trailIndex + 1) * 9,
@@ -3381,10 +3396,10 @@ export function drawTitle(
         headRadius: 1.2 * layout.effectScale,
       });
       if (skylineRenderMode === "live") {
-        drawLiveThreatSprite(ctx, x, y, missileAngle, "missile", { t: t * 60 + index * 5, scale: obj.scale });
+        drawLiveThreatSprite(ctx, x, y, missileAngle, "missile", { t: titleTime, scale: obj.scale });
       } else {
         drawBakedProjectileSprite(ctx, x, y, missileAngle, titleThreatSprites!.missile, {
-          t: t * 60 + index * 5,
+          t: titleTime,
           sharpFrames: skylineRenderMode === "bakedSharp",
         });
       }
