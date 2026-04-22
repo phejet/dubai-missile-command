@@ -131,6 +131,7 @@ export function createReplayRunner(replayData: ReplayData, onEvent: EventCallbac
 
     update(g, 1, onEvent);
     tick++;
+    g._replayTick = tick;
     if (shouldStopReplay()) {
       finished = true;
     }
