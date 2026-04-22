@@ -20,3 +20,17 @@
 - A replay with high passive destruction but zero `fire` actions is not a valid particle benchmark in this game. The particle benchmark must exercise interceptor-driven explosions and, ideally, upgraded FX systems that amplify particle load.
 - Profiling instrumentation must be validated for visual side effects, not just data output. If a trace path changes what the player sees, the measurement is contaminated and the capture mode is wrong.
 - For reviews, anchor on the current worktree diff before inspecting commits. If the request says "uncommitted changes," verify with `git status --short` and review `git diff`, not the last commit like some caffeinated amateur.
+
+## 2026-04-20
+
+- Keep progress updates to one short sentence unless the user explicitly asks for a running narration. Repeating status in multiple themed sentences is noise, not help.
+- Global AGENTS tone rules do not matter if higher-priority instructions demand frequent updates, so configure both: ask for terse progress messages and fewer interim updates.
+
+## 2026-04-22
+
+- When the user changes the acceptance criteria mid-debugging, stop optimizing the old fix and reframe the implementation around the new steady-state workflow.
+
+## 2026-04-23
+
+- When a device build might be stale, add an unmistakable visible marker in the UI before drawing conclusions about whether the new bundle is running.
+- When the user excludes a scratch or handover file from a commit, keep it out of staged history instead of assuming "all changes" means literally everything.
