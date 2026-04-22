@@ -158,8 +158,10 @@ Use the maintained perf harness for replay-driven renderer baselines.
 1. Start the LAN dev server:
 
 ```bash
-npm run dev:lan
+npm run dev:lan -- --port 5173 --strictPort
 ```
+
+The iPhone perf workflow assumes port `5173`. If Vite silently drifts to `5174+`, the live-reload shell and bench helper can end up pointing at the wrong place.
 
 2. Create `.env.local` from `.env.local.example` and fill in:
 
@@ -194,7 +196,27 @@ scripts/bench.sh perf-wave4-upgrades --warmup 1 --loop 3
 scripts/bench.sh --list-devices
 ```
 
-The harness probes `http://<host>:5173/api/save-perf`, launches the installed app via `xcrun devicectl`, waits for the matching `runId` report under `perf-results/runs/`, copies the selected run to `perf-results/latest/<replay>.json`, and prints baseline deltas when `PERF_BASELINE_DIR` is set.
+Current iPhone perf flow:
+
+- `scripts/bench.sh` probes `http://<host>:5173/api/save-perf`.
+- It posts the next benchmark request to `http://<host>:5173/api/perf-command`.
+- It activates the installed app with `xcrun devicectl`.
+- The live-reload iPhone shell polls `/api/perf-command`, starts the replay from whatever screen the app is already on, uploads to `/api/save-perf`, and leaves the perf summary visible on-screen after completion.
+- The matching report is written under `perf-results/runs/<buildId>/...`, copied to `perf-results/latest/<replay>.json`, and compared against `PERF_BASELINE_DIR` when configured.
+
+Important findings from the iPhone perf investigation:
+
+- Warm `xcrun devicectl --payload-url ...` delivery was unreliable for reruns when the app was already open. Cold-start deep links work because `AppDelegate.swift` forwards the URL from `argv`, but repeat benchmark runs should now go through `/api/perf-command` instead of relying on warm deep-link delivery.
+- The live-reload shell must be synced against the LAN server you actually intend to use. After JS/runtime changes, rebuild and resync before trusting device behavior:
+
+```bash
+npm run build:ios
+npm run cap:sync
+```
+
+- A typo in the sink URL produces the classic red `NOT FOUND` banner. The valid save route is exactly `/api/save-perf`; `api/save-perfD` or any other variation will replay fine but never hit the save middleware.
+- If the app never reaches the Mac during a run, `npm run dev:lan` will show no `[perf-save]` lines. That means the phone did not POST to `/api/save-perf`, regardless of what the on-device replay looked like.
+- If `.local` name resolution is flaky on the network, use a literal LAN IP for `CAP_DEV_SERVER` and for any manual `perfSink` URLs.
 
 5. Capture the desktop baseline separately with the browser smoke harness:
 

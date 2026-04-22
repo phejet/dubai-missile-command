@@ -1,9 +1,11 @@
+import { Capacitor } from "@capacitor/core";
 import { CANVAS_H } from "./game-logic";
 import { preloadCanvasRenderResources } from "./canvas-render-resources";
 import { Game } from "./game";
 import { CanvasGameRenderer } from "./game-render";
 import type { GameScreen } from "./game-renderer";
 import { PerfRecorder } from "./perf-recorder";
+import type { PerfReport } from "./perf-recorder";
 import { ConsoleSink, HttpSink, type PerfSink } from "./perf-sinks";
 import type { ReplayData } from "./types";
 
@@ -21,8 +23,20 @@ interface PerfBootRequest {
   sinkUrl?: string;
 }
 
+interface QueuedPerfRequest extends PerfBootRequest {
+  requestKey: string;
+}
+
+interface PerfCommandPayload {
+  autoquit?: boolean;
+  commandId: string;
+  perfSink?: string;
+  replay: string;
+  runId?: string;
+}
+
 interface PerfStatusBanner {
-  set(message: string, state?: "running" | "done" | "error"): void;
+  set(message: string, state?: "running" | "done" | "error", details?: string): void;
 }
 
 export interface BootGameRuntime {
@@ -63,6 +77,8 @@ const PHONE_PORTRAIT_LAYOUT_PROFILE = {
   planeScale: 3,
 };
 const DEFAULT_PERF_SINK_URL = "/api/save-perf";
+const PERF_COMMAND_POLL_MS = 1200;
+const PERF_LAST_HANDLED_REQUEST_KEY_STORAGE = "dmc:perf-last-handled-request-key";
 
 function isTruthyQueryValue(value: string | null): boolean {
   return value === "1" || value === "true" || value === "yes";
@@ -91,6 +107,30 @@ function normalizePerfReplayUrl(replayUrl: string): string {
   }
 }
 
+function readLastHandledPerfRequestKey(): string | null {
+  if (typeof window === "undefined" || typeof window.localStorage === "undefined") return null;
+  try {
+    return window.localStorage.getItem(PERF_LAST_HANDLED_REQUEST_KEY_STORAGE);
+  } catch {
+    return null;
+  }
+}
+
+function writeLastHandledPerfRequestKey(requestKey: string): void {
+  if (typeof window === "undefined" || typeof window.localStorage === "undefined") return;
+  try {
+    window.localStorage.setItem(PERF_LAST_HANDLED_REQUEST_KEY_STORAGE, requestKey);
+  } catch {
+    // Ignore storage failures; perf command handling should still work for the current session.
+  }
+}
+
+function buildPerfRequestKey(perfRequest: PerfBootRequest, fallback: string): string {
+  const runId = perfRequest.runId?.trim();
+  if (runId) return runId;
+  return fallback;
+}
+
 export function parsePerfBootRequest(locationHref: string): PerfBootRequest | null {
   let url: URL;
   try {
@@ -108,6 +148,30 @@ export function parsePerfBootRequest(locationHref: string): PerfBootRequest | nu
     replayUrl,
     runId: url.searchParams.get("runId")?.trim() || undefined,
     sinkUrl: url.searchParams.get("perfSink")?.trim() || undefined,
+  };
+}
+
+export function parsePerfCommandPayload(payload: unknown): (PerfBootRequest & { commandId: string }) | null {
+  if (typeof payload !== "object" || payload === null) return null;
+  const record = payload as Partial<Record<keyof PerfCommandPayload, unknown>>;
+  if (typeof record.commandId !== "string" || !record.commandId.trim()) return null;
+  if (typeof record.replay !== "string" || !record.replay.trim()) return null;
+
+  const autoquit =
+    typeof record.autoquit === "boolean"
+      ? record.autoquit
+      : typeof record.autoquit === "string"
+        ? isTruthyQueryValue(record.autoquit)
+        : false;
+  const replayUrl = normalizePerfReplayUrl(record.replay);
+  if (!replayUrl) return null;
+
+  return {
+    autoquit,
+    commandId: record.commandId.trim(),
+    replayUrl,
+    runId: typeof record.runId === "string" && record.runId.trim() ? record.runId.trim() : undefined,
+    sinkUrl: typeof record.perfSink === "string" && record.perfSink.trim() ? record.perfSink.trim() : undefined,
   };
 }
 
@@ -131,27 +195,45 @@ export function resolveReplayAssetUrl(
 
 function createPerfStatusBanner(): PerfStatusBanner {
   const banner = document.createElement("div");
+  const headline = document.createElement("div");
+  const details = document.createElement("div");
   banner.id = "perf-status-banner";
   Object.assign(banner.style, {
     background: "rgba(12, 18, 28, 0.88)",
     border: "1px solid rgba(255, 255, 255, 0.18)",
-    borderRadius: "999px",
+    borderRadius: "18px",
     boxShadow: "0 18px 50px rgba(0, 0, 0, 0.28)",
     color: "#f4efe2",
     font: "600 13px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace",
     letterSpacing: "0.06em",
-    padding: "10px 16px",
+    maxWidth: "min(78vw, 360px)",
+    padding: "12px 16px",
     position: "fixed",
     right: "20px",
-    textTransform: "uppercase",
     top: "20px",
     zIndex: "1000",
   });
+  Object.assign(headline.style, {
+    textTransform: "uppercase",
+  });
+  Object.assign(details.style, {
+    fontSize: "11px",
+    letterSpacing: "0.03em",
+    lineHeight: "1.45",
+    marginTop: "6px",
+    opacity: "0.88",
+    textTransform: "none",
+    whiteSpace: "pre-wrap",
+  });
+  details.hidden = true;
+  banner.append(headline, details);
   document.body.appendChild(banner);
 
   return {
-    set(message, state = "running") {
-      banner.textContent = message;
+    set(message, state = "running", detailText = "") {
+      headline.textContent = message;
+      details.textContent = detailText;
+      details.hidden = !detailText;
       banner.style.background =
         state === "done"
           ? "rgba(26, 94, 52, 0.92)"
@@ -173,6 +255,14 @@ function getReplayIdFromData(replayData: ReplayData): string | undefined {
   if (typeof maybeReplayId !== "string") return undefined;
   const replayId = maybeReplayId.trim();
   return replayId || undefined;
+}
+
+function formatPerfReportSummary(report: PerfReport): string {
+  return [
+    `run ${report.runId}`,
+    `p50 ${report.summary.p50.toFixed(1)}ms  p95 ${report.summary.p95.toFixed(1)}ms  p99 ${report.summary.p99.toFixed(1)}ms`,
+    `long >16ms ${report.summary.longFrameCount16}  >33ms ${report.summary.longFrameCount33}`,
+  ].join("\n");
 }
 
 function resolvePerfSink(request: PerfBootRequest): PerfSink {
@@ -207,6 +297,9 @@ export function bootGame({ mode = "canvas2d", launchUrl }: BootGameOptions = {})
 
   preloadCanvasRenderResources();
   let perfHarness: PerfHarness | null = null;
+  let activePerfRequest: QueuedPerfRequest | null = null;
+  let queuedPerfRequest: QueuedPerfRequest | null = null;
+  let lastHandledPerfRequestKey = readLastHandledPerfRequestKey();
 
   const renderer = (() => {
     switch (mode) {
@@ -261,12 +354,24 @@ export function bootGame({ mode = "canvas2d", launchUrl }: BootGameOptions = {})
         .then((report) => {
           if (!report) return;
           console.log("[perf-debug] replay finished", report.runId, report.summary.p95);
-          banner.set(`DONE ${report.replayId} p95 ${report.summary.p95.toFixed(1)}ms wave ${sample.wave}`, "done");
+          banner.set(`DONE ${report.replayId} wave ${sample.wave}`, "done", formatPerfReportSummary(report));
+          activePerfRequest = null;
+          const nextPerfRequest = queuedPerfRequest;
+          queuedPerfRequest = null;
+          if (nextPerfRequest) {
+            void runPerfRequest(nextPerfRequest);
+          }
         })
         .catch((error: unknown) => {
           const message = error instanceof Error ? error.message : String(error);
           console.error("[perf-debug] replay finish failed", message);
           banner.set(`PERF ERROR ${message}`, "error");
+          activePerfRequest = null;
+          const nextPerfRequest = queuedPerfRequest;
+          queuedPerfRequest = null;
+          if (nextPerfRequest) {
+            void runPerfRequest(nextPerfRequest);
+          }
         });
     },
     onScreenChange(nextScreen) {
@@ -284,8 +389,12 @@ export function bootGame({ mode = "canvas2d", launchUrl }: BootGameOptions = {})
     return perfHarness;
   }
 
-  async function runPerfRequest(perfRequest: PerfBootRequest): Promise<void> {
+  async function runPerfRequest(perfRequest: QueuedPerfRequest): Promise<void> {
     const { banner, recorder } = ensurePerfHarness();
+    activePerfRequest = perfRequest;
+    queuedPerfRequest = queuedPerfRequest?.requestKey === perfRequest.requestKey ? null : queuedPerfRequest;
+    lastHandledPerfRequestKey = perfRequest.requestKey;
+    writeLastHandledPerfRequestKey(perfRequest.requestKey);
     try {
       console.log(
         "[perf-debug] perf request",
@@ -314,21 +423,77 @@ export function bootGame({ mode = "canvas2d", launchUrl }: BootGameOptions = {})
       const message = error instanceof Error ? error.message : String(error);
       console.error("[perf-debug] perf request failed", message);
       banner.set(`PERF ERROR ${message}`, "error");
+      activePerfRequest = null;
+      const nextPerfRequest = queuedPerfRequest;
+      queuedPerfRequest = null;
+      if (nextPerfRequest) {
+        void runPerfRequest(nextPerfRequest);
+      }
     }
+  }
+
+  function enqueuePerfRequest(perfRequest: PerfBootRequest, requestKey: string): boolean {
+    if (activePerfRequest?.requestKey === requestKey || queuedPerfRequest?.requestKey === requestKey) return false;
+    if (lastHandledPerfRequestKey === requestKey) return false;
+
+    const nextRequest: QueuedPerfRequest = { ...perfRequest, requestKey };
+    if (activePerfRequest) {
+      queuedPerfRequest = nextRequest;
+      ensurePerfHarness().banner.set(`PERF QUEUED ${nextRequest.replayUrl}`);
+      return true;
+    }
+
+    void runPerfRequest(nextRequest);
+    return true;
+  }
+
+  function startPerfCommandPolling(): void {
+    if (typeof window === "undefined") return;
+    if (!Capacitor.isNativePlatform()) return;
+    if (!/^https?:$/.test(window.location.protocol)) return;
+
+    let pollInFlight = false;
+    const poll = async () => {
+      if (pollInFlight) {
+        window.setTimeout(poll, PERF_COMMAND_POLL_MS);
+        return;
+      }
+
+      pollInFlight = true;
+      try {
+        const response = await fetch("/api/perf-command", { cache: "no-store" });
+        if (response.status === 204) return;
+        if (!response.ok) return;
+
+        const payload = parsePerfCommandPayload((await response.json()) as unknown);
+        if (!payload) return;
+        enqueuePerfRequest(payload, `command:${payload.commandId}`);
+      } catch {
+        // Ignore polling failures; the command endpoint is best-effort during local perf runs.
+      } finally {
+        pollInFlight = false;
+        window.setTimeout(poll, PERF_COMMAND_POLL_MS);
+      }
+    };
+
+    window.setTimeout(poll, 250);
   }
 
   syncRenderModeUi();
   const initialPerfRequest = parsePerfBootRequest(launchUrl ?? window.location.href);
   if (initialPerfRequest) {
-    void runPerfRequest(initialPerfRequest);
+    enqueuePerfRequest(
+      initialPerfRequest,
+      buildPerfRequestKey(initialPerfRequest, `launch:${launchUrl ?? window.location.href}`),
+    );
   }
+  startPerfCommandPolling();
   return {
     game,
     async handleLaunchUrl(nextLaunchUrl: string): Promise<boolean> {
       const perfRequest = parsePerfBootRequest(nextLaunchUrl);
       if (!perfRequest) return false;
-      await runPerfRequest(perfRequest);
-      return true;
+      return enqueuePerfRequest(perfRequest, buildPerfRequestKey(perfRequest, `launch:${nextLaunchUrl}`));
     },
   };
 }

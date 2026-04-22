@@ -428,6 +428,10 @@ export class Game {
     SFX.prewarm();
     this.clearPointerCapture();
     this.resetPlayerFireState();
+    if (this.replayRunner) {
+      this.replayRunner.cleanup();
+      this.replayRunner = null;
+    }
     const runner = createReplayRunner(replayData, (type, data) => this.handleSimEvent(type, data));
     const replayGameState = runner.init();
     this.gameRef.current = replayGameState;

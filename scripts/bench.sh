@@ -101,26 +101,33 @@ EOF
 run_launch() {
   local replay_key="$1"
   local run_id="$2"
-  local launch_json
-  launch_json="$(mktemp -t dmc-bench-launch)"
 
-  # Pass perfSink as an absolute URL so the static Capacitor build (origin: capacitor://localhost)
-  # POSTs to the Mac dev server instead of trying capacitor://localhost/api/save-perf.
   local lan_host="$MAC_HOSTNAME"
   if [[ "$lan_host" != *.* && "$lan_host" != *:* ]]; then
     lan_host="${lan_host}.local"
   fi
+  local command_url="http://${lan_host}:5173/api/perf-command"
   local sink_url="http://${lan_host}:5173/api/save-perf"
+  local command_id="bench-${run_id}"
+  local command_payload
+  command_payload="$(printf '{"commandId":"%s","replay":"%s","runId":"%s","autoquit":false,"perfSink":"%s"}' \
+    "$command_id" \
+    "$replay_key" \
+    "$run_id" \
+    "$sink_url")"
 
-  xcrun devicectl device process launch \
+  curl -sS \
+    -X POST \
+    -H "Content-Type: application/json" \
+    --data "$command_payload" \
+    "$command_url" >/dev/null
+
+  if ! xcrun devicectl device process launch \
     --device "$IPHONE_UDID" \
     "$BUNDLE_ID" \
-    --terminate-existing \
-    --payload-url "dubaimissile://perf?replay=${replay_key}&autoquit=1&runId=${run_id}&perfSink=${sink_url}" \
-    --timeout 30 \
-    --json-output "$launch_json" >/dev/null
-
-  rm -f "$launch_json"
+    --timeout 30 >/dev/null 2>&1; then
+    echo "[bench] App activation launch failed; continuing in case the app is already active." >&2
+  fi
 }
 
 wait_for_report() {

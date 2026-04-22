@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { parsePerfBootRequest, resolveReplayAssetUrl } from "./boot-game.js";
+import { parsePerfBootRequest, parsePerfCommandPayload, resolveReplayAssetUrl } from "./boot-game.js";
 import { PerfRecorder, deriveReplayId, summarizePerfFrames } from "./perf-recorder.js";
 import { ConsoleSink, HttpSink } from "./perf-sinks.js";
 import type { PerfReport } from "./perf-recorder.js";
@@ -190,6 +190,32 @@ describe("parsePerfBootRequest", () => {
     expect(parsePerfBootRequest("http://localhost:5173/dubai-missile-command/")).toBeNull();
     expect(parsePerfBootRequest("http://localhost:5173/dubai-missile-command/?perf=1")).toBeNull();
     expect(parsePerfBootRequest("dubaimissile://shop?replay=perf-wave1")).toBeNull();
+  });
+});
+
+describe("parsePerfCommandPayload", () => {
+  it("accepts a queued bench command payload", () => {
+    expect(
+      parsePerfCommandPayload({
+        commandId: "bench-run-7",
+        replay: "perf-wave1",
+        runId: "bench-run-7",
+        autoquit: false,
+        perfSink: "http://macbook-pro-75.local:5173/api/save-perf",
+      }),
+    ).toEqual({
+      autoquit: false,
+      commandId: "bench-run-7",
+      replayUrl: "/replays/perf-wave1.json",
+      runId: "bench-run-7",
+      sinkUrl: "http://macbook-pro-75.local:5173/api/save-perf",
+    });
+  });
+
+  it("rejects malformed perf command payloads", () => {
+    expect(parsePerfCommandPayload(null)).toBeNull();
+    expect(parsePerfCommandPayload({ commandId: "x" })).toBeNull();
+    expect(parsePerfCommandPayload({ commandId: "x", replay: 5, runId: "run-1" })).toBeNull();
   });
 });
 
