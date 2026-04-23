@@ -1,3 +1,7 @@
 current-typical-replay.json
 representative-bot-replay.json
 replays/
+
+# Generated Capacitor config files
+ios/App/App/capacitor.config.json
+ios/App/App/config.xml

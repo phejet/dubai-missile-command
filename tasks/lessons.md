@@ -34,3 +34,4 @@
 
 - When a device build might be stale, add an unmistakable visible marker in the UI before drawing conclusions about whether the new bundle is running.
 - When the user excludes a scratch or handover file from a commit, keep it out of staged history instead of assuming "all changes" means literally everything.
+- If local CI-equivalent format fails on ignored generated files, update `.prettierignore` to match generated artifacts instead of dismissing it as harmless.
