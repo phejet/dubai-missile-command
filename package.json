@@ -28,7 +28,8 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.79.0",
     "@capacitor/app": "^8.1.0",
-    "@capacitor/core": "^8.3.0"
+    "@capacitor/core": "^8.3.0",
+    "pixi.js": "^8.18.1"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.3.0",

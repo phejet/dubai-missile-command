@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { parsePerfBootRequest, parsePerfCommandPayload, resolveReplayAssetUrl } from "./boot-game.js";
+import {
+  parsePerfBootRequest,
+  parsePerfCommandPayload,
+  parseRendererMode,
+  resolveReplayAssetUrl,
+} from "./boot-game.js";
 import { PerfRecorder, deriveReplayId, summarizePerfFrames } from "./perf-recorder.js";
 import { ConsoleSink, HttpSink } from "./perf-sinks.js";
 import type { PerfReport } from "./perf-recorder.js";
@@ -216,6 +221,15 @@ describe("parsePerfCommandPayload", () => {
     expect(parsePerfCommandPayload(null)).toBeNull();
     expect(parsePerfCommandPayload({ commandId: "x" })).toBeNull();
     expect(parsePerfCommandPayload({ commandId: "x", replay: 5, runId: "run-1" })).toBeNull();
+  });
+});
+
+describe("parseRendererMode", () => {
+  it("defaults unknown values to canvas2d and accepts pixi explicitly", () => {
+    expect(parseRendererMode(undefined)).toBe("canvas2d");
+    expect(parseRendererMode("canvas2d")).toBe("canvas2d");
+    expect(parseRendererMode("pixi")).toBe("pixi");
+    expect(parseRendererMode("something-else")).toBe("canvas2d");
   });
 });
 

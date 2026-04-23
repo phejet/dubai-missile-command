@@ -3,13 +3,14 @@ import { CANVAS_H } from "./game-logic";
 import { preloadCanvasRenderResources } from "./canvas-render-resources";
 import { Game } from "./game";
 import { CanvasGameRenderer } from "./game-render";
-import type { GameScreen } from "./game-renderer";
+import type { GameRenderer, GameScreen } from "./game-renderer";
+import { PixiRenderer } from "./pixi-render";
 import { PerfRecorder } from "./perf-recorder";
 import type { PerfReport } from "./perf-recorder";
 import { ConsoleSink, HttpSink, type PerfSink } from "./perf-sinks";
 import type { ReplayData } from "./types";
 
-export type RendererMode = "canvas2d";
+export type RendererMode = "canvas2d" | "pixi";
 
 interface BootGameOptions {
   mode?: RendererMode;
@@ -49,6 +50,13 @@ interface PerfHarness {
   recorder: PerfRecorder;
 }
 
+type RenderModeControls = {
+  isGameplayRenderLive(): boolean;
+  isTitleRenderLive(): boolean;
+  toggleGameplayRenderMode(): void;
+  toggleTitleRenderMode(): void;
+};
+
 const PHONE_PORTRAIT_LAYOUT_PROFILE = {
   showTopHud: false,
   showSystemLabels: false,
@@ -79,6 +87,41 @@ const PHONE_PORTRAIT_LAYOUT_PROFILE = {
 const DEFAULT_PERF_SINK_URL = "/api/save-perf";
 const PERF_COMMAND_POLL_MS = 1200;
 const PERF_LAST_HANDLED_REQUEST_KEY_STORAGE = "dmc:perf-last-handled-request-key";
+const DEFAULT_RENDERER_MODE = parseRendererMode(import.meta.env.VITE_RENDERER_MODE);
+const ENABLE_PIXI_SCAFFOLD = isTruthyQueryValue(
+  (import.meta.env.VITE_ENABLE_PIXI_SCAFFOLD as string | undefined) ?? null,
+);
+
+export function parseRendererMode(value: unknown): RendererMode {
+  return value === "pixi" ? "pixi" : "canvas2d";
+}
+
+function hasRenderModeControls(renderer: GameRenderer): renderer is GameRenderer & RenderModeControls {
+  return (
+    typeof (renderer as Partial<RenderModeControls>).isGameplayRenderLive === "function" &&
+    typeof (renderer as Partial<RenderModeControls>).isTitleRenderLive === "function" &&
+    typeof (renderer as Partial<RenderModeControls>).toggleGameplayRenderMode === "function" &&
+    typeof (renderer as Partial<RenderModeControls>).toggleTitleRenderMode === "function"
+  );
+}
+
+function ensurePixiScaffoldCanvas(): HTMLCanvasElement | null {
+  const existingCanvas = document.getElementById("game-canvas-pixi");
+  if (existingCanvas instanceof HTMLCanvasElement) return existingCanvas;
+
+  const stage = document.querySelector(".battlefield-stage");
+  if (!(stage instanceof HTMLElement)) return null;
+
+  const scaffoldCanvas = document.createElement("canvas");
+  scaffoldCanvas.id = "game-canvas-pixi";
+  scaffoldCanvas.className = "game-canvas game-canvas--pixi-scaffold";
+  scaffoldCanvas.width = 900;
+  scaffoldCanvas.height = 1600;
+  scaffoldCanvas.setAttribute("aria-hidden", "true");
+  scaffoldCanvas.hidden = true;
+  stage.insertBefore(scaffoldCanvas, stage.children[1] ?? null);
+  return scaffoldCanvas;
+}
 
 function isTruthyQueryValue(value: string | null): boolean {
   return value === "1" || value === "true" || value === "yes";
@@ -285,8 +328,9 @@ async function fetchReplayData(replayUrl: string): Promise<ReplayData> {
   return replayData;
 }
 
-export function bootGame({ mode = "canvas2d", launchUrl }: BootGameOptions = {}): BootGameRuntime {
+export function bootGame({ mode = DEFAULT_RENDERER_MODE, launchUrl }: BootGameOptions = {}): BootGameRuntime {
   const canvas = document.getElementById("game-canvas") as HTMLCanvasElement | null;
+  const pixiScaffoldCanvas = ENABLE_PIXI_SCAFFOLD ? ensurePixiScaffoldCanvas() : null;
   const titleRenderModeButton = document.getElementById("title-render-mode-button") as HTMLButtonElement | null;
   const gameplayRenderModeButton = document.getElementById("option-render") as HTMLButtonElement | null;
   const gameplayRenderModeMeta = document.getElementById("option-render-meta") as HTMLElement | null;
@@ -301,8 +345,14 @@ export function bootGame({ mode = "canvas2d", launchUrl }: BootGameOptions = {})
   let queuedPerfRequest: QueuedPerfRequest | null = null;
   let lastHandledPerfRequestKey = readLastHandledPerfRequestKey();
 
-  const renderer = (() => {
+  if (pixiScaffoldCanvas) {
+    pixiScaffoldCanvas.hidden = true;
+  }
+
+  const renderer: GameRenderer = (() => {
     switch (mode) {
+      case "pixi":
+        return new PixiRenderer(canvas);
       case "canvas2d":
       default:
         return new CanvasGameRenderer({ canvas, layoutProfile: PHONE_PORTRAIT_LAYOUT_PROFILE });
@@ -312,6 +362,13 @@ export function bootGame({ mode = "canvas2d", launchUrl }: BootGameOptions = {})
   let screen: GameScreen = "title";
 
   const syncRenderModeUi = () => {
+    if (!hasRenderModeControls(renderer)) {
+      titleRenderModeButton.hidden = true;
+      gameplayRenderModeButton.hidden = true;
+      gameplayRenderModeMeta.textContent = "Pixi";
+      return;
+    }
+
     const titleLive = renderer.isTitleRenderLive();
     const gameplayLive = renderer.isGameplayRenderLive();
 
@@ -332,10 +389,12 @@ export function bootGame({ mode = "canvas2d", launchUrl }: BootGameOptions = {})
   };
 
   titleRenderModeButton.addEventListener("click", () => {
+    if (!hasRenderModeControls(renderer)) return;
     renderer.toggleTitleRenderMode();
     syncRenderModeUi();
   });
   gameplayRenderModeButton.addEventListener("click", () => {
+    if (!hasRenderModeControls(renderer)) return;
     renderer.toggleGameplayRenderMode();
     syncRenderModeUi();
   });
