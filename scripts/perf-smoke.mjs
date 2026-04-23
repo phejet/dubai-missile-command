@@ -273,10 +273,11 @@ async function main() {
   const captureGpuTrace = process.env.PERF_CAPTURE_GPU !== "0";
   const saveRawTrace = process.env.PERF_SAVE_TRACE === "1";
 
+  const primaryHeadless = process.env.PERF_HEADED !== "1";
   const primaryPass = await runPerfPass({
     baseUrl,
     captureTrace: false,
-    launchOptions: { headless: true },
+    launchOptions: primaryHeadless ? { headless: true } : { channel: "chromium", headless: false },
     replayPath,
     runId,
     timeoutMs,
