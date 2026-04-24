@@ -3461,15 +3461,6 @@ export function drawTitle(
     ctx.font = `bold 36px ${ARCADE_FONT_FAMILY}`;
     ctx.fillText("PRESS START", cx, 500);
     ctx.restore();
-  } else {
-    const pulse = 0.3 + 0.2 * Math.sin(t * 2.4);
-    ctx.fillStyle = `rgba(0,255,200,${pulse})`;
-    ctx.beginPath();
-    ctx.arc(cx, 500, 72, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "rgba(255,255,255,0.08)";
-    ctx.font = `bold 18px ${ARCADE_FONT_FAMILY}`;
-    ctx.fillText("TACTICAL FEED", cx, 560);
   }
   ctx.textAlign = "left";
 }

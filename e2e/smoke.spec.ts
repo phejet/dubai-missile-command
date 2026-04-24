@@ -169,6 +169,30 @@ test.describe("Portrait iPhone layout", () => {
     await expect(page.locator('[data-ui-mode="phonePortrait"]')).toBeVisible();
     await expect(page.locator('[data-screen="title"]')).toBeVisible();
     await expect(page.locator("canvas")).toBeVisible();
+    await expect(page.getByRole("heading", { name: /dubai missile command/i })).toBeVisible();
+    await expect(page.getByText(/defend the city/i)).toBeVisible();
+    await expect(page.getByText(/protect the burj khalifa/i)).toBeVisible();
+    await expect(page.getByText(/press start/i)).toBeVisible();
+    await expect(page.getByRole("button", { name: /start defense/i })).toBeVisible();
+
+    if (process.env.VITE_RENDERER_MODE === "pixi") {
+      await expect
+        .poll(async () =>
+          page.locator("canvas").evaluate((node) => {
+            const canvas = node as HTMLCanvasElement;
+            return {
+              pixiScreen: canvas.dataset.pixiScreen ?? null,
+              pixiTitle: canvas.dataset.pixiTitle ?? null,
+              renderer: canvas.dataset.renderer ?? null,
+            };
+          }),
+        )
+        .toEqual({
+          pixiScreen: "title",
+          pixiTitle: "ready",
+          renderer: "pixi",
+        });
+    }
   });
 
   test("renders a readable portrait HUD and fitted battlefield during play", async ({ page }) => {

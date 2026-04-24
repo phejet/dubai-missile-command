@@ -590,6 +590,138 @@
   min-height: 0;
 }
 
+.title-overlay {
+  --title-overlay-hud: #9affdd;
+  --title-overlay-hud-core: #effff8;
+  --title-overlay-hud-glow: 0, 255, 190;
+  --title-overlay-hot: #ff6e52;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  container-type: inline-size;
+  font-family: "Courier New", monospace;
+  pointer-events: none;
+}
+
+.title-overlay[hidden] {
+  display: none;
+}
+
+.title-overlay__copy {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  text-align: center;
+  pointer-events: none;
+}
+
+.title-overlay__eyebrow {
+  position: absolute;
+  top: 15.2%;
+  left: 0;
+  right: 0;
+  margin: 0;
+  color: var(--title-overlay-hot);
+  font-size: clamp(0.85rem, 3.8cqw, 2.125rem);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-shadow: 0 0 18px rgba(255, 110, 82, 0.26);
+}
+
+.title-overlay__title {
+  position: absolute;
+  top: 5.2%;
+  left: 0;
+  right: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2em;
+  line-height: 0.86;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.title-overlay__title span {
+  display: block;
+  white-space: nowrap;
+}
+
+.title-overlay__title span:first-child {
+  color: var(--title-overlay-hud);
+  font-size: clamp(2rem, 8cqw, 4.5rem);
+  letter-spacing: 0.06em;
+  text-shadow:
+    0 0 2px var(--title-overlay-hud-core),
+    0 0 7px rgba(var(--title-overlay-hud-glow), 0.56),
+    0 0 18px rgba(var(--title-overlay-hud-glow), 0.42),
+    0 0 36px rgba(var(--title-overlay-hud-glow), 0.22);
+}
+
+.title-overlay__title span:last-child {
+  color: var(--title-overlay-hud);
+  font-size: clamp(1.7rem, 8.2cqw, 4.75rem);
+  letter-spacing: 0.035em;
+  text-shadow:
+    0 0 2px var(--title-overlay-hud-core),
+    0 0 7px rgba(var(--title-overlay-hud-glow), 0.54),
+    0 0 18px rgba(var(--title-overlay-hud-glow), 0.4),
+    0 0 36px rgba(var(--title-overlay-hud-glow), 0.2);
+}
+
+.title-overlay__mission {
+  position: absolute;
+  top: 18.1%;
+  left: 0;
+  right: 0;
+  max-width: none;
+  margin: 0;
+  color: var(--title-overlay-hot);
+  font-size: clamp(0.85rem, 3.8cqw, 2.125rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: 0 0 18px rgba(255, 110, 82, 0.24);
+}
+
+.title-overlay__actions {
+  position: absolute;
+  top: 29.4%;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  pointer-events: none;
+}
+
+.title-overlay__start {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--title-overlay-hud);
+  font: inherit;
+  font-size: clamp(0.95rem, 4cqw, 2.25rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 2px rgba(216, 255, 247, 0.5),
+    0 0 14px rgba(0, 255, 204, 0.3);
+  pointer-events: auto;
+  opacity: 0.34;
+  box-shadow: none;
+}
+
+.title-overlay__hint {
+  display: none;
+}
+
 .game-canvas--active {
   cursor: none;
 }
@@ -790,6 +922,69 @@
 .battlefield-debug-overlay__row strong {
   color: #effcff;
   font-weight: 700;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .title-overlay__title span:first-child {
+    animation:
+      title-copy-drift 5.8s ease-in-out infinite,
+      title-crt-flicker 2.875s steps(18, end) infinite;
+  }
+
+  .title-overlay__title span:last-child {
+    animation:
+      title-copy-drift 6.7s ease-in-out infinite reverse,
+      title-crt-flicker 2.425s steps(16, end) infinite reverse;
+  }
+
+  .title-overlay__start {
+    animation: title-start-pulse 1.8s ease-in-out infinite;
+  }
+}
+
+@keyframes title-copy-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+
+  50% {
+    transform: translate3d(0, -2px, 0);
+  }
+}
+
+@keyframes title-crt-flicker {
+  0%,
+  100% {
+    opacity: 0.96;
+    filter: brightness(1.04) saturate(1.1);
+  }
+
+  44% {
+    opacity: 0.91;
+    filter: brightness(0.94) saturate(1);
+  }
+
+  47% {
+    opacity: 1;
+    filter: brightness(1.18) saturate(1.24);
+  }
+
+  53% {
+    opacity: 0.93;
+    filter: brightness(0.98) saturate(1.06);
+  }
+}
+
+@keyframes title-start-pulse {
+  0%,
+  100% {
+    opacity: 0.16;
+  }
+
+  50% {
+    opacity: 0.42;
+  }
 }
 
 .portrait-panel {

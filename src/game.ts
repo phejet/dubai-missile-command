@@ -181,7 +181,9 @@ export class Game {
   private shell: HTMLElement;
   private battlefieldCard: HTMLElement;
   private hudEl: HTMLElement;
+  private titleOverlay: HTMLElement;
   private titleProgressionButton: HTMLElement;
+  private titleStartButton: HTMLButtonElement;
   private gameoverPanel: HTMLElement;
   private progressionPanel: HTMLElement;
   private progressionButton: HTMLElement;
@@ -230,7 +232,9 @@ export class Game {
     this.shell = document.getElementById("game-shell")!;
     this.battlefieldCard = document.getElementById("battlefield-card")!;
     this.hudEl = document.getElementById("battlefield-hud")!;
+    this.titleOverlay = document.getElementById("title-overlay")!;
     this.titleProgressionButton = document.getElementById("title-progression-button")!;
+    this.titleStartButton = document.getElementById("title-start-button") as HTMLButtonElement;
     this.gameoverPanel = document.getElementById("gameover-panel")!;
     this.progressionPanel = document.getElementById("progression-panel")!;
     this.progressionButton = document.getElementById("progression-button")!;
@@ -265,6 +269,10 @@ export class Game {
     this.battlefieldCard.addEventListener("drop", (e) => this.handleDrop(e));
 
     // Buttons
+    this.titleStartButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      void this.startGame();
+    });
     this.retryButton.addEventListener("click", () => void this.startGame());
     this.titleMenuButton.addEventListener("click", () => this.returnToTitle());
     this.progressionButton.addEventListener("click", () => this.openProgression());
@@ -328,6 +336,8 @@ export class Game {
 
     // Toggle visibility of screen-specific elements
     this.hudEl.hidden = s !== "playing";
+    this.titleOverlay.hidden = s !== "title";
+    this.titleOverlay.setAttribute("aria-hidden", s === "title" ? "false" : "true");
     this.titleProgressionButton.hidden = true;
     this.gameoverPanel.hidden = s !== "gameover" || this.progressionOpen;
     this.progressionPanel.hidden = !this.progressionOpen || s !== "gameover";

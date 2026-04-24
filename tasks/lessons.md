@@ -35,3 +35,7 @@
 - When a device build might be stale, add an unmistakable visible marker in the UI before drawing conclusions about whether the new bundle is running.
 - When the user excludes a scratch or handover file from a commit, keep it out of staged history instead of assuming "all changes" means literally everything.
 - If local CI-equivalent format fails on ignored generated files, update `.prettierignore` to match generated artifacts instead of dismissing it as harmless.
+
+## 2026-04-24
+
+- When recreating canvas text in DOM, size and wrap against the game stage, not the browser viewport. CSS `vw` plus a constrained phone shell can turn "MISSILE COMMAND" into a typographic car crash.

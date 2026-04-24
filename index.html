@@ -88,6 +88,27 @@
               <!-- Canvas stage -->
               <div class="battlefield-stage">
                 <canvas id="game-canvas" class="game-canvas" width="900" height="1600"></canvas>
+                <div class="title-overlay" id="title-overlay" aria-hidden="false">
+                  <div class="title-overlay__copy">
+                    <p class="title-overlay__eyebrow">Defend the City</p>
+                    <h1 class="title-overlay__title">
+                      <span>Dubai</span>
+                      <span>Missile Command</span>
+                    </h1>
+                    <p class="title-overlay__mission">Protect the Burj Khalifa</p>
+                  </div>
+                  <div class="title-overlay__actions">
+                    <button
+                      type="button"
+                      class="title-overlay__start"
+                      id="title-start-button"
+                      aria-label="Start Defense"
+                    >
+                      Press Start
+                    </button>
+                    <p class="title-overlay__hint" aria-hidden="true"></p>
+                  </div>
+                </div>
                 <button
                   type="button"
                   class="title-corner-button"
@@ -105,7 +126,7 @@
                   aria-pressed="false"
                   hidden
                 >
-                  Render: Baked
+                  R:B
                 </button>
                 <button type="button" class="battlefield-emp" id="emp-button" hidden>
                   <span class="battlefield-emp__label">EMP</span>

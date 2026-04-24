@@ -60,7 +60,7 @@ type RenderModeControls = {
 const PHONE_PORTRAIT_LAYOUT_PROFILE = {
   showTopHud: false,
   showSystemLabels: false,
-  externalTitle: false,
+  externalTitle: true,
   externalGameOver: true,
   crosshairFillRadius: 22,
   crosshairOuterRadius: 16,
@@ -373,11 +373,12 @@ export function bootGame({ mode = DEFAULT_RENDERER_MODE, launchUrl }: BootGameOp
     const gameplayLive = renderer.isGameplayRenderLive();
 
     titleRenderModeButton.hidden = screen !== "title";
-    titleRenderModeButton.textContent = `Render: ${titleLive ? "Live" : "Baked"}`;
+    titleRenderModeButton.textContent = titleLive ? "R:L" : "R:B";
     titleRenderModeButton.ariaPressed = titleLive ? "true" : "false";
     titleRenderModeButton.title = titleLive
       ? "Switch title rendering back to baked mode"
       : "Switch title rendering to live mode";
+    titleRenderModeButton.setAttribute("aria-label", titleRenderModeButton.title);
 
     gameplayRenderModeButton.hidden = screen !== "playing";
     gameplayRenderModeButton.classList.toggle("battlefield-option--active", gameplayLive);
