@@ -245,10 +245,10 @@ class DefaultPixiTextureResources implements PixiTextureResources {
     this.planeAssets = null;
   }
 
-  private textureFromCanvas(canvas: HTMLCanvasElement, label: string): Texture {
+  private textureFromCanvas(canvas: HTMLCanvasElement, label: string, resolution = 1): Texture {
     const cached = this.textureCache.get(canvas);
     if (cached) return cached;
-    const texture = Texture.from({ resource: canvas }, true);
+    const texture = Texture.from({ resource: canvas, resolution }, true);
     texture.label = label;
     this.textureCache.set(canvas, texture);
     return texture;
@@ -264,8 +264,10 @@ class DefaultPixiTextureResources implements PixiTextureResources {
   private mapBurjAssets(source: BurjAssets, label: string): PixiBurjAssets {
     return {
       ...source,
-      staticSprite: this.textureFromCanvas(source.staticSprite, `${label}:static`),
-      animFrames: source.animFrames.map((frame, index) => this.textureFromCanvas(frame, `${label}:anim:${index}`)),
+      staticSprite: this.textureFromCanvas(source.staticSprite, `${label}:static`, source.resolutionScale),
+      animFrames: source.animFrames.map((frame, index) =>
+        this.textureFromCanvas(frame, `${label}:anim:${index}`, source.resolutionScale),
+      ),
     };
   }
 
@@ -284,26 +286,32 @@ class DefaultPixiTextureResources implements PixiTextureResources {
   private mapLauncherAssets(source: LauncherAssets, label: string): PixiLauncherAssets {
     return {
       ...source,
-      chassisStaticSprite: this.textureFromCanvas(source.chassisStaticSprite, `${label}:chassis-static`),
-      chassisAnimFrames: source.chassisAnimFrames.map((frame, index) =>
-        this.textureFromCanvas(frame, `${label}:chassis-anim:${index}`),
+      chassisStaticSprite: this.textureFromCanvas(
+        source.chassisStaticSprite,
+        `${label}:chassis-static`,
+        source.resolutionScale,
       ),
-      turretSprite: this.textureFromCanvas(source.turretSprite, `${label}:turret`),
+      chassisAnimFrames: source.chassisAnimFrames.map((frame, index) =>
+        this.textureFromCanvas(frame, `${label}:chassis-anim:${index}`, source.resolutionScale),
+      ),
+      turretSprite: this.textureFromCanvas(source.turretSprite, `${label}:turret`, source.resolutionScale),
     };
   }
 
   private mapProjectileAsset(source: CanvasProjectileSpriteAsset, label: string): PixiProjectileSpriteAsset {
     return {
       ...source,
-      staticSprite: this.textureFromCanvas(source.staticSprite, `${label}:static`),
-      animFrames: source.animFrames.map((frame, index) => this.textureFromCanvas(frame, `${label}:anim:${index}`)),
+      staticSprite: this.textureFromCanvas(source.staticSprite, `${label}:static`, source.resolutionScale),
+      animFrames: source.animFrames.map((frame, index) =>
+        this.textureFromCanvas(frame, `${label}:anim:${index}`, source.resolutionScale),
+      ),
     };
   }
 
   private mapStaticSpriteAsset(source: CanvasStaticSpriteAsset, label: string): PixiStaticSpriteAsset {
     return {
       ...source,
-      sprite: this.textureFromCanvas(source.sprite, label),
+      sprite: this.textureFromCanvas(source.sprite, label, source.resolutionScale),
     };
   }
 

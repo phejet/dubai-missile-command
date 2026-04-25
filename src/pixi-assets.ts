@@ -85,9 +85,8 @@ export async function loadPixiPngBundle(bundleName: PixiPngBundleName): Promise<
 
 export async function loadPixiPngBundles(bundleNames: PixiPngBundleName[]): Promise<PixiPngAssetMap> {
   const loaded: PixiPngAssetMap = {};
-  for (const bundleName of bundleNames) {
-    Object.assign(loaded, await loadPixiPngBundle(bundleName));
-  }
+  const bundles = await Promise.all(bundleNames.map((bundleName) => loadPixiPngBundle(bundleName)));
+  for (const bundle of bundles) Object.assign(loaded, bundle);
   return loaded;
 }
 
