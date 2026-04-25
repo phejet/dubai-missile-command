@@ -39,3 +39,7 @@
 ## 2026-04-24
 
 - When recreating canvas text in DOM, size and wrap against the game stage, not the browser viewport. CSS `vw` plus a constrained phone shell can turn "MISSILE COMMAND" into a typographic car crash.
+
+## 2026-04-25
+
+- Passing Pixi smoke tests are not enough for effect-heavy renderer work. When porting particles or explosions, inspect a screenshot from an actual detonation path before calling it done; placeholder circles can pass every structural test and still look broken.

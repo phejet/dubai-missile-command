@@ -8,6 +8,7 @@ import {
   COL,
   GAMEPLAY_SCENIC_GROUND_Y,
   GAMEPLAY_SCENIC_LAUNCHER_Y,
+  GAMEPLAY_WATERLINE_Y,
   GROUND_Y,
   LAUNCHERS,
   WATER_SURFACE_OFFSET,
@@ -22,13 +23,30 @@ import {
   type PixiBuildingAssets,
   type PixiBurjAssets,
   type PixiDefenseSiteAssets,
+  type PixiInterceptorSpriteAssets,
   type PixiLauncherAssets,
+  type PixiPlaneAssets,
+  type PixiProjectileSpriteAsset,
   type PixiSkyAssets,
   type PixiStaticSpriteAsset,
   type PixiTextureResources,
   type PixiThreatSpriteAssets,
+  type PixiUpgradeProjectileSpriteAssets,
 } from "./pixi-textures";
-import type { DefenseSite, GameState } from "./types";
+import type {
+  DefenseSite,
+  Drone,
+  Explosion,
+  Flare,
+  GameState,
+  Hornet,
+  Interceptor,
+  Missile,
+  PatriotMissile,
+  Plane,
+  Roadrunner,
+  TrailPoint,
+} from "./types";
 
 type PixiScreen = "title" | "playing" | "gameover";
 type TitleThreatKind = "shahed" | "missile";
@@ -125,6 +143,56 @@ interface GameplayDefenseSiteNode {
   overlay: Graphics;
 }
 
+interface GameplayProjectileNode {
+  container: Container;
+  trail: Graphics;
+  spriteRoot: Container;
+  anim: BlendSprites;
+  overlay: Graphics;
+}
+
+interface GameplayPlaneNode {
+  container: Container;
+  airframe: Sprite;
+  liveFx: Graphics;
+}
+
+interface GameplayFlareNode {
+  container: Container;
+  trail: Graphics;
+  glow: Graphics;
+}
+
+interface GameplayExplosionNode {
+  graphic: Graphics;
+}
+
+// Step 5 pooling audit:
+// - missiles, drones, interceptors, hornets, roadrunners, patriotMissiles, planes, flares, explosions:
+//   object-identity pooled because sim references survive across ticks and Pixi nodes carry mutable render state.
+// - particles, phalanxBullets, laserBeams: rebuild each frame through local Graphics pools because they are
+//   dense, short-lived, and identity-free.
+// - trail polylines: rebuilt inside the owning pooled node; segment identity would be render bookkeeping theatre.
+// ParticleContainer remains deferred until particle/bullet textures are baked, otherwise we'd merely batch wishful thinking.
+interface GameplayDynamicState {
+  threatAssets: PixiThreatSpriteAssets;
+  interceptorAssets: PixiInterceptorSpriteAssets;
+  upgradeProjectileAssets: PixiUpgradeProjectileSpriteAssets;
+  planeAssets: PixiPlaneAssets;
+  missiles: Map<Missile, GameplayProjectileNode>;
+  drones: Map<Drone, GameplayProjectileNode>;
+  interceptors: Map<Interceptor, GameplayProjectileNode>;
+  hornets: Map<Hornet, GameplayProjectileNode>;
+  roadrunners: Map<Roadrunner, GameplayProjectileNode>;
+  patriotMissiles: Map<PatriotMissile, GameplayProjectileNode>;
+  planes: Map<Plane, GameplayPlaneNode>;
+  flares: Map<Flare, GameplayFlareNode>;
+  explosions: Map<Explosion, GameplayExplosionNode>;
+  laserPool: Graphics[];
+  phalanxPool: Graphics[];
+  particlePool: Graphics[];
+}
+
 interface GameplaySceneState {
   skyAssets: PixiSkyAssets | null;
   skyBlend: BlendSprites;
@@ -143,6 +211,7 @@ interface GameplaySceneState {
   defenseStatusOverlay: Graphics;
   water: TilingSprite | null;
   waterShade: Graphics;
+  dynamic: GameplayDynamicState;
 }
 
 const TITLE_GROUND_Y = GROUND_Y - 100;
@@ -154,6 +223,10 @@ const GAMEPLAY_BUILDING_BLEND_WINDOW = 0.18;
 const GAMEPLAY_BUILDING_PLAYBACK_PERIOD_SECONDS = 20;
 const GAMEPLAY_BUILDING_ANIM_ALPHA = 0.58;
 const GAMEPLAY_LAUNCHER_SCALE = DEFAULT_GAMEPLAY_LAUNCHER_SCALE;
+const GAMEPLAY_ENEMY_SCALE = 3;
+const GAMEPLAY_PROJECTILE_SCALE = 2;
+const GAMEPLAY_EFFECT_SCALE = 2;
+const GAMEPLAY_PLANE_SCALE = 3;
 const GAMEPLAY_FLARE_VISUAL_Y = GROUND_Y - BURJ_H * 0.97;
 const GAMEPLAY_EMP_VISUAL_Y = GROUND_Y - BURJ_H * 0.67;
 const TITLE_TARGET_X = BURJ_X;
@@ -250,6 +323,31 @@ function cssHexToNumber(color: string | undefined, fallback: number): number {
   return fallback;
 }
 
+function cssColorToNumber(color: string | undefined, fallback: number): number {
+  if (!color) return fallback;
+  const hex = cssHexToNumber(color, Number.NaN);
+  if (Number.isFinite(hex)) return hex;
+  const rgb = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+  if (!rgb) return fallback;
+  return ((Number(rgb[1]) & 255) << 16) | ((Number(rgb[2]) & 255) << 8) | (Number(rgb[3]) & 255);
+}
+
+const COLOR_HEX_CACHE = new Map<string, number>();
+
+function memoCssColorToNumber(color: string | undefined, fallback: number): number {
+  if (!color) return fallback;
+  const cached = COLOR_HEX_CACHE.get(color);
+  if (cached !== undefined) return cached;
+  const parsed = cssColorToNumber(color, fallback);
+  COLOR_HEX_CACHE.set(color, parsed);
+  return parsed;
+}
+
+function pulse(time: number, speed: number, phase = 0, min = 0, max = 1): number {
+  const t = 0.5 + 0.5 * Math.sin(time * speed + phase);
+  return min + (max - min) * t;
+}
+
 function requireDefenseSitePlacement(key: string): { x: number; y: number; hw: number; hh: number } {
   const placement = getDefenseSitePlacement(key);
   if (!placement) throw new Error(`Missing defense-site placement for ${key}`);
@@ -269,6 +367,7 @@ const COL_HEX = {
   flare: cssHexToNumber(COL.flare, 0xff8833),
   emp: cssHexToNumber(COL.emp, 0xcc44ff),
   phalanx: cssHexToNumber(COL.phalanx, 0xff8844),
+  laser: cssColorToNumber(COL.laser, 0x66ddff),
 } as const;
 
 const UPGRADE_FAMILY_COLOR_HEX = new Map(
@@ -279,6 +378,217 @@ function createStaticAssetSprite(asset: PixiStaticSpriteAsset): Sprite {
   const sprite = new Sprite(asset.sprite);
   sprite.position.set(asset.offset.x, asset.offset.y);
   return sprite;
+}
+
+function getThreatSpriteAsset(
+  threatAssets: PixiThreatSpriteAssets,
+  entity: Missile | Drone,
+): PixiProjectileSpriteAsset {
+  if (entity.type === "drone") {
+    return entity.subtype === "shahed238" ? threatAssets.shahed238 : threatAssets.shahed136;
+  }
+
+  switch (entity.type) {
+    case "mirv":
+      return threatAssets.mirv;
+    case "mirv_warhead":
+      return threatAssets.mirv_warhead;
+    case "bomb":
+      return threatAssets.bomb;
+    case "stack2":
+      return threatAssets.stack_carrier_2;
+    case "stack3":
+      return threatAssets.stack_carrier_3;
+    case "stack_child":
+      return threatAssets.stack_child;
+    case "missile":
+    default:
+      return threatAssets.missile;
+  }
+}
+
+function createProjectileNode(asset: PixiProjectileSpriteAsset): GameplayProjectileNode {
+  const container = new Container();
+  const trail = new Graphics();
+  const spriteRoot = new Container();
+  const anim = createBlendSprites(asset.staticSprite);
+  const overlay = new Graphics();
+  positionBlendSprites(anim, asset.offset.x, asset.offset.y);
+  spriteRoot.addChild(anim.primary, anim.secondary);
+  container.addChild(trail, spriteRoot, overlay);
+  return { container, trail, spriteRoot, anim, overlay };
+}
+
+function syncProjectileNode(
+  node: GameplayProjectileNode,
+  asset: PixiProjectileSpriteAsset,
+  x: number,
+  y: number,
+  rotation: number,
+  sceneTime: number,
+  alpha = 1,
+  sharpFrames = true,
+): void {
+  const frames = asset.animFrames.length > 0 ? asset.animFrames : [asset.staticSprite];
+  positionBlendSprites(node.anim, asset.offset.x, asset.offset.y);
+  syncBlendSprites(
+    node.anim,
+    frames,
+    getFrameProgress(sceneTime, asset.period || 1, asset.frameCount),
+    alpha,
+    sharpFrames,
+  );
+  node.spriteRoot.position.set(x, y);
+  node.spriteRoot.rotation = rotation;
+  node.spriteRoot.alpha = alpha;
+}
+
+function cleanupEntityMap<T extends object, N>(
+  pool: Map<T, N>,
+  liveEntities: readonly T[],
+  isLive: (entity: T) => boolean,
+  destroyNode: (node: N) => void,
+): void {
+  for (const [entity, node] of pool) {
+    if (liveEntities.includes(entity) && isLive(entity)) continue;
+    pool.delete(entity);
+    destroyNode(node);
+  }
+}
+
+function drawPointTrail(
+  graphic: Graphics,
+  trail: readonly TrailPoint[] | undefined,
+  headX: number,
+  headY: number,
+  {
+    outerColor,
+    coreColor,
+    headColor,
+    width,
+    coreWidth,
+    headRadius,
+    alpha = 1,
+  }: {
+    outerColor: number;
+    coreColor: number;
+    headColor: number;
+    width: number;
+    coreWidth: number;
+    headRadius: number;
+    alpha?: number;
+  },
+): void {
+  const points = trail ?? [];
+  const hasHead = Number.isFinite(headX) && Number.isFinite(headY);
+  const pointCount = points.length + (hasHead ? 1 : 0);
+  graphic.clear();
+  if (pointCount === 0) return;
+
+  if (pointCount >= 2) {
+    const startIndex = Math.max(0, pointCount - 20);
+    const startX = startIndex < points.length ? points[startIndex].x : headX;
+    const startY = startIndex < points.length ? points[startIndex].y : headY;
+    graphic.moveTo(startX, startY);
+    for (let index = startIndex + 1; index < pointCount; index++) {
+      graphic.lineTo(index < points.length ? points[index].x : headX, index < points.length ? points[index].y : headY);
+    }
+    graphic.stroke({ width, color: outerColor, alpha: alpha * 0.24, cap: "round", join: "round" });
+
+    graphic.moveTo(startX, startY);
+    for (let index = startIndex + 1; index < pointCount; index++) {
+      graphic.lineTo(index < points.length ? points[index].x : headX, index < points.length ? points[index].y : headY);
+    }
+    graphic.stroke({ width: coreWidth, color: coreColor, alpha: alpha * 0.52, cap: "round", join: "round" });
+  }
+
+  graphic.circle(headX, headY, headRadius * 2.6).fill({ color: headColor, alpha: alpha * 0.16 });
+  graphic.circle(headX, headY, headRadius).fill({ color: headColor, alpha: alpha * 0.76 });
+}
+
+function drawSimpleTrailDots(
+  graphic: Graphics,
+  trail: readonly TrailPoint[] | undefined,
+  color: number,
+  radius: number,
+  alpha: number,
+): void {
+  graphic.clear();
+  const points = trail ?? [];
+  points.forEach((point, index) => {
+    const ratio = points.length <= 1 ? 1 : index / (points.length - 1);
+    graphic.circle(point.x, point.y, radius * (0.55 + ratio * 0.75)).fill({ color, alpha: alpha * ratio * 0.32 });
+  });
+}
+
+function getPooledGraphic(pool: Graphics[], container: Container, index: number): Graphics {
+  let graphic = pool[index];
+  if (!graphic) {
+    graphic = new Graphics();
+    pool[index] = graphic;
+    container.addChild(graphic);
+  }
+  graphic.visible = true;
+  graphic.clear();
+  return graphic;
+}
+
+function hideUnusedGraphics(pool: Graphics[], usedCount: number): void {
+  for (let index = usedCount; index < pool.length; index++) {
+    pool[index].visible = false;
+    pool[index].clear();
+  }
+}
+
+function countWhere<T>(items: readonly T[], predicate: (item: T) => boolean): number {
+  let count = 0;
+  for (const item of items) {
+    if (predicate(item)) count++;
+  }
+  return count;
+}
+
+export function summarizePixiDynamicEntities(game: GameState): {
+  counts: Record<string, number>;
+  summary: string;
+  firstPositions: Record<string, { x: number; y: number } | null>;
+} {
+  const livePlane = game.planes.find((plane) => plane.alive) ?? null;
+  const liveFlare = game.flares.find((flare) => flare.alive) ?? null;
+  const counts = {
+    missiles: game.missiles.length,
+    drones: game.drones.length,
+    interceptors: game.interceptors.length,
+    hornets: game.hornets.length,
+    roadrunners: game.roadrunners.length,
+    patriotMissiles: game.patriotMissiles.length,
+    planes: countWhere(game.planes, (plane) => plane.alive),
+    flares: countWhere(game.flares, (flare) => flare.alive),
+    explosions: game.explosions.length,
+    particles: game.particles.length,
+    phalanxBullets: countWhere(game.phalanxBullets, (bullet) => bullet.cx !== undefined && bullet.cy !== undefined),
+    laserBeams: countWhere(
+      game.laserBeams,
+      (beam) => beam.x1 != null && beam.y1 != null && beam.x2 != null && beam.y2 != null,
+    ),
+  };
+
+  return {
+    counts,
+    summary: Object.entries(counts)
+      .map(([key, value]) => `${key}:${value}`)
+      .join(","),
+    firstPositions: {
+      missile: game.missiles[0] ? { x: game.missiles[0].x, y: game.missiles[0].y } : null,
+      drone: game.drones[0] ? { x: game.drones[0].x, y: game.drones[0].y } : null,
+      interceptor: game.interceptors[0] ? { x: game.interceptors[0].x, y: game.interceptors[0].y } : null,
+      hornet: game.hornets[0] ? { x: game.hornets[0].x, y: game.hornets[0].y } : null,
+      roadrunner: game.roadrunners[0] ? { x: game.roadrunners[0].x, y: game.roadrunners[0].y } : null,
+      patriotMissile: game.patriotMissiles[0] ? { x: game.patriotMissiles[0].x, y: game.patriotMissiles[0].y } : null,
+      plane: livePlane ? { x: livePlane.x, y: livePlane.y } : null,
+      flare: liveFlare ? { x: liveFlare.x, y: liveFlare.y } : null,
+    },
+  };
 }
 
 function drawLauncherWreckage(graphic: Graphics): void {
@@ -322,6 +632,9 @@ export class PixiRenderer implements GameRenderer {
   private readonly gameplayBurjLayer = new Container();
   private readonly gameplayCityLayer = new Container();
   private readonly gameplayWaterLayer = new Container();
+  private readonly gameplayEffectsLayer = new Container();
+  private readonly gameplayProjectileLayer = new Container();
+  private readonly gameplayParticleLayer = new Container();
   private readonly gameplayGroundStructuresLayer = new Container();
   private readonly gameplayOverlayLayer = new Container();
   private readonly gameOverScene = new Container();
@@ -356,6 +669,9 @@ export class PixiRenderer implements GameRenderer {
     this.gameplayBurjLayer.label = "gameplay-burj-layer";
     this.gameplayCityLayer.label = "gameplay-city-layer";
     this.gameplayWaterLayer.label = "gameplay-water-layer";
+    this.gameplayEffectsLayer.label = "gameplay-effects-layer";
+    this.gameplayProjectileLayer.label = "gameplay-projectile-layer";
+    this.gameplayParticleLayer.label = "gameplay-particle-layer";
     this.gameplayGroundStructuresLayer.label = "gameplay-ground-structures-layer";
     this.gameplayOverlayLayer.label = "gameplay-overlay-layer";
     this.gameOverScene.label = "gameover-scene";
@@ -374,6 +690,9 @@ export class PixiRenderer implements GameRenderer {
       this.gameplayBurjLayer,
       this.gameplayCityLayer,
       this.gameplayWaterLayer,
+      this.gameplayEffectsLayer,
+      this.gameplayProjectileLayer,
+      this.gameplayParticleLayer,
       this.gameplayGroundStructuresLayer,
       this.gameplayOverlayLayer,
     );
@@ -635,6 +954,29 @@ export class PixiRenderer implements GameRenderer {
       damaged: this.textures.getLauncherAssets(GAMEPLAY_LAUNCHER_SCALE, true),
     };
     const defenseSiteAssets = this.textures.getDefenseSiteAssets();
+    const dynamic: GameplayDynamicState = {
+      threatAssets: this.textures.getThreatSpriteAssets(GAMEPLAY_ENEMY_SCALE),
+      interceptorAssets: this.textures.getInterceptorSpriteAssets(GAMEPLAY_PROJECTILE_SCALE),
+      upgradeProjectileAssets: this.textures.getUpgradeProjectileSpriteAssets(GAMEPLAY_PROJECTILE_SCALE),
+      planeAssets: this.textures.getPlaneAssets(),
+      missiles: new Map(),
+      drones: new Map(),
+      interceptors: new Map(),
+      hornets: new Map(),
+      roadrunners: new Map(),
+      patriotMissiles: new Map(),
+      planes: new Map(),
+      flares: new Map(),
+      explosions: new Map(),
+      laserPool: [],
+      phalanxPool: [],
+      particlePool: [],
+    };
+
+    const projectileMask = new Graphics();
+    projectileMask.rect(0, 0, CANVAS_W, GAMEPLAY_WATERLINE_Y).fill(0xffffff);
+    this.gameplayProjectileLayer.mask = projectileMask;
+    this.gameplayScene.addChild(projectileMask);
 
     const nebulaTexture = this.pngs[PIXI_PNG_ASSET_KEYS.skyNebula];
     const nebula = nebulaTexture ? new Sprite(nebulaTexture) : null;
@@ -832,6 +1174,7 @@ export class PixiRenderer implements GameRenderer {
       defenseStatusOverlay,
       water,
       waterShade,
+      dynamic,
     };
   }
 
@@ -940,10 +1283,12 @@ export class PixiRenderer implements GameRenderer {
     this.updateGameplayBuildings(state, game, sceneTime);
     this.updateGameplayBurj(state, game, sceneTime);
     this.updateGameplayWater(state, sceneTime);
+    this.updateGameplayDynamicEntities(state.dynamic, game, sceneTime);
     this.updateGameplayLaunchers(state, game, sceneTime);
     this.updateGameplayDefenseSites(state, game, sceneTime);
 
     this.canvas.dataset.pixiGameplayStatic = "ready";
+    this.canvas.dataset.pixiDynamicCounts = summarizePixiDynamicEntities(game).summary;
     this.canvas.dataset.pixiStaticCounts = [
       `buildings:${state.buildings.filter((_, index) => game.buildings[index]?.alive !== false).length}`,
       `launchers:${game.launcherHP.filter((hp) => hp > 0).length}`,
@@ -1294,6 +1639,527 @@ export class PixiRenderer implements GameRenderer {
         .rect(site.x - hw, site.y - hh, hw * 2, hh * 2)
         .stroke({ width: 1, color: getDefenseSiteColor(site), alpha: pulse });
     }
+  }
+
+  private updateGameplayDynamicEntities(state: GameplayDynamicState, game: GameState, sceneTime: number): void {
+    this.updateGameplayFlares(state, game, sceneTime);
+    this.updateGameplayPlanes(state, game, sceneTime);
+    this.updateGameplayLasers(state, game);
+    this.updateGameplayPhalanxBullets(state, game);
+    this.updateGameplayMissiles(state, game, sceneTime);
+    this.updateGameplayDrones(state, game, sceneTime);
+    this.updateGameplayInterceptors(state, game, sceneTime);
+    this.updateGameplayUpgradeProjectiles(state, game, sceneTime);
+    this.updateGameplayExplosions(state, game);
+    this.updateGameplayParticles(state, game);
+  }
+
+  private updateGameplayMissiles(state: GameplayDynamicState, game: GameState, sceneTime: number): void {
+    cleanupEntityMap(
+      state.missiles,
+      game.missiles,
+      () => true,
+      (node) => node.container.destroy({ children: true }),
+    );
+
+    for (const missile of game.missiles) {
+      const asset = getThreatSpriteAsset(state.threatAssets, missile);
+      let node = state.missiles.get(missile);
+      if (!node) {
+        node = createProjectileNode(asset);
+        state.missiles.set(missile, node);
+        this.gameplayProjectileLayer.addChild(node.container);
+      }
+
+      const angle = Math.atan2(missile.vy, missile.vx);
+      syncProjectileNode(node, asset, missile.x, missile.y, angle, sceneTime, 1, true);
+      node.overlay.clear();
+
+      if (
+        missile.type === "bomb" ||
+        missile.type === "stack2" ||
+        missile.type === "stack3" ||
+        missile.type === "stack_child"
+      ) {
+        const wide = missile.type === "stack3" ? 5.4 : missile.type === "stack2" ? 4.8 : 3.2;
+        drawPointTrail(node.trail, missile.trail, missile.x, missile.y, {
+          outerColor: 0xff8c3a,
+          coreColor: missile.type === "stack_child" ? 0xffe7b8 : 0xeee4d8,
+          headColor: missile.type === "stack_child" ? 0xffb45c : 0xffd694,
+          width: wide * GAMEPLAY_EFFECT_SCALE,
+          coreWidth: wide * 0.42 * GAMEPLAY_EFFECT_SCALE,
+          headRadius: 1.7 * GAMEPLAY_EFFECT_SCALE,
+        });
+      } else if (missile.type === "mirv" || missile.type === "mirv_warhead") {
+        drawSimpleTrailDots(
+          node.trail,
+          missile.trail,
+          missile.type === "mirv" ? 0xc8a078 : 0xdc6432,
+          (missile.type === "mirv" ? 3.2 : 1.7) * GAMEPLAY_EFFECT_SCALE,
+          missile.type === "mirv" ? 0.5 : 0.4,
+        );
+      } else {
+        drawSimpleTrailDots(node.trail, missile.trail, 0x707e94, 1.8 * GAMEPLAY_EFFECT_SCALE, 0.24);
+      }
+
+      if (
+        missile.type === "mirv" &&
+        missile.health != null &&
+        missile.maxHealth != null &&
+        missile.health < missile.maxHealth
+      ) {
+        const barW = 24 * GAMEPLAY_ENEMY_SCALE;
+        const barH = 3 * GAMEPLAY_ENEMY_SCALE;
+        const ratio = Math.max(0, Math.min(1, missile.health / missile.maxHealth));
+        node.overlay.rect(missile.x - barW / 2, missile.y - 16 * GAMEPLAY_ENEMY_SCALE, barW, barH).fill({
+          color: 0x000000,
+          alpha: 0.6,
+        });
+        node.overlay
+          .rect(missile.x - barW / 2, missile.y - 16 * GAMEPLAY_ENEMY_SCALE, barW * ratio, barH)
+          .fill(ratio > 0.5 ? 0x44ff44 : ratio > 0.25 ? 0xffaa00 : 0xff2222);
+      }
+
+      if (missile.luredByFlare) {
+        node.overlay
+          .circle(
+            missile.x,
+            missile.y,
+            (8 + Math.sin(game.time * 0.22 + missile.x * 0.01) * 1.5) * GAMEPLAY_EFFECT_SCALE,
+          )
+          .stroke({ width: 1.5 * GAMEPLAY_EFFECT_SCALE, color: 0xffb45a, alpha: 0.75 });
+      }
+    }
+  }
+
+  private updateGameplayDrones(state: GameplayDynamicState, game: GameState, sceneTime: number): void {
+    cleanupEntityMap(
+      state.drones,
+      game.drones,
+      () => true,
+      (node) => node.container.destroy({ children: true }),
+    );
+
+    for (const drone of game.drones) {
+      const asset = getThreatSpriteAsset(state.threatAssets, drone);
+      let node = state.drones.get(drone);
+      if (!node) {
+        node = createProjectileNode(asset);
+        state.drones.set(drone, node);
+        this.gameplayProjectileLayer.addChild(node.container);
+      }
+
+      const trail = drone.trail ?? [];
+      const facing = drone.vx > 0 ? 1 : -1;
+      const spriteAngle =
+        drone.subtype === "shahed238" || drone.diving ? Math.atan2(drone.vy, drone.vx) : facing > 0 ? 0 : Math.PI;
+      syncProjectileNode(node, asset, drone.x, drone.y, spriteAngle, sceneTime, 1, true);
+      node.overlay.clear();
+
+      if (drone.subtype === "shahed238") {
+        drawPointTrail(node.trail, trail, drone.x, drone.y, {
+          outerColor: 0xff823c,
+          coreColor: 0xd2dce6,
+          headColor: 0xffcd78,
+          width: 3.8 * GAMEPLAY_EFFECT_SCALE,
+          coreWidth: 1.4 * GAMEPLAY_EFFECT_SCALE,
+          headRadius: 1.6 * GAMEPLAY_EFFECT_SCALE,
+        });
+      } else {
+        drawSimpleTrailDots(node.trail, trail, 0x889098, 1.2 * GAMEPLAY_EFFECT_SCALE, 0.32);
+      }
+
+      if (drone.diving) {
+        node.overlay
+          .circle(drone.x, drone.y, 20 * GAMEPLAY_ENEMY_SCALE)
+          .stroke({ width: GAMEPLAY_EFFECT_SCALE, color: 0xff2200, alpha: 0.5 + Math.sin(game.time * 0.3) * 0.3 });
+      }
+
+      if (Math.sin(game.time * 0.15) > 0) {
+        node.overlay
+          .circle(drone.x, drone.y, 0.75 * GAMEPLAY_EFFECT_SCALE * GAMEPLAY_ENEMY_SCALE)
+          .fill(drone.subtype === "shahed238" ? 0xff2200 : 0xff4400);
+      }
+    }
+  }
+
+  private updateGameplayInterceptors(state: GameplayDynamicState, game: GameState, sceneTime: number): void {
+    cleanupEntityMap(
+      state.interceptors,
+      game.interceptors,
+      () => true,
+      (node) => node.container.destroy({ children: true }),
+    );
+
+    for (const interceptor of game.interceptors) {
+      const asset = interceptor.fromF15
+        ? state.interceptorAssets.f15Interceptor
+        : state.interceptorAssets.playerInterceptor;
+      let node = state.interceptors.get(interceptor);
+      if (!node) {
+        node = createProjectileNode(asset);
+        state.interceptors.set(interceptor, node);
+        this.gameplayProjectileLayer.addChild(node.container);
+      }
+
+      const heading =
+        typeof interceptor.heading === "number"
+          ? interceptor.heading
+          : interceptor.trail.length >= 1
+            ? Math.atan2(
+                interceptor.y - interceptor.trail[interceptor.trail.length - 1].y,
+                interceptor.x - interceptor.trail[interceptor.trail.length - 1].x,
+              )
+            : Math.atan2(interceptor.vy || -1, interceptor.vx || 0);
+
+      syncProjectileNode(node, asset, interceptor.x, interceptor.y, heading, sceneTime, 1, true);
+      node.overlay.clear();
+      drawPointTrail(node.trail, interceptor.trail, interceptor.x, interceptor.y, {
+        outerColor: interceptor.fromF15 ? 0x96c8ff : 0x6edcff,
+        coreColor: interceptor.fromF15 ? 0xd6ecff : 0x84e8ff,
+        headColor: interceptor.fromF15 ? 0xc8eeff : 0x8ff6ff,
+        width: (interceptor.fromF15 ? 1.5 : 2.2) * GAMEPLAY_EFFECT_SCALE,
+        coreWidth: (interceptor.fromF15 ? 0.7 : 1.1) * GAMEPLAY_EFFECT_SCALE,
+        headRadius: 1.6 * GAMEPLAY_EFFECT_SCALE,
+        alpha: interceptor.fromF15 ? 0.85 : 1,
+      });
+    }
+  }
+
+  private updateGameplayUpgradeProjectiles(state: GameplayDynamicState, game: GameState, sceneTime: number): void {
+    cleanupEntityMap(
+      state.hornets,
+      game.hornets,
+      () => true,
+      (node) => node.container.destroy({ children: true }),
+    );
+    cleanupEntityMap(
+      state.roadrunners,
+      game.roadrunners,
+      () => true,
+      (node) => node.container.destroy({ children: true }),
+    );
+    cleanupEntityMap(
+      state.patriotMissiles,
+      game.patriotMissiles,
+      () => true,
+      (node) => node.container.destroy({ children: true }),
+    );
+
+    for (const hornet of game.hornets) {
+      let node = state.hornets.get(hornet);
+      if (!node) {
+        node = createProjectileNode(state.upgradeProjectileAssets.wildHornet);
+        state.hornets.set(hornet, node);
+        this.gameplayProjectileLayer.addChild(node.container);
+      }
+      const prev = hornet.trail[hornet.trail.length - 1];
+      const heading = prev ? Math.atan2(hornet.y - prev.y, hornet.x - prev.x) : 0;
+      drawPointTrail(node.trail, hornet.trail, hornet.x, hornet.y, {
+        outerColor: 0xffcc00,
+        coreColor: 0xfff8b0,
+        headColor: 0xffdc5c,
+        width: 3 * GAMEPLAY_EFFECT_SCALE,
+        coreWidth: 1.2 * GAMEPLAY_EFFECT_SCALE,
+        headRadius: 1.7 * GAMEPLAY_EFFECT_SCALE,
+      });
+      node.overlay.clear();
+      syncProjectileNode(
+        node,
+        state.upgradeProjectileAssets.wildHornet,
+        hornet.x,
+        hornet.y,
+        heading + Math.PI / 2,
+        sceneTime,
+        1,
+        true,
+      );
+    }
+
+    for (const roadrunner of game.roadrunners) {
+      let node = state.roadrunners.get(roadrunner);
+      if (!node) {
+        node = createProjectileNode(state.upgradeProjectileAssets.roadrunner);
+        state.roadrunners.set(roadrunner, node);
+        this.gameplayProjectileLayer.addChild(node.container);
+      }
+      const prev = roadrunner.trail[roadrunner.trail.length - 1];
+      const heading = prev
+        ? Math.atan2(roadrunner.y - prev.y, roadrunner.x - prev.x) + Math.PI / 2
+        : roadrunner.heading;
+      drawPointTrail(node.trail, roadrunner.trail, roadrunner.x, roadrunner.y, {
+        outerColor: 0x44aaff,
+        coreColor: 0xc4ecff,
+        headColor: 0x7cd6ff,
+        width: 3.8 * GAMEPLAY_EFFECT_SCALE,
+        coreWidth: 1.5 * GAMEPLAY_EFFECT_SCALE,
+        headRadius: 1.9 * GAMEPLAY_EFFECT_SCALE,
+      });
+      node.overlay.clear();
+      syncProjectileNode(
+        node,
+        state.upgradeProjectileAssets.roadrunner,
+        roadrunner.x,
+        roadrunner.y,
+        heading,
+        sceneTime,
+        1,
+        true,
+      );
+    }
+
+    for (const patriot of game.patriotMissiles) {
+      let node = state.patriotMissiles.get(patriot);
+      if (!node) {
+        node = createProjectileNode(state.upgradeProjectileAssets.patriotSam);
+        state.patriotMissiles.set(patriot, node);
+        this.gameplayProjectileLayer.addChild(node.container);
+      }
+      const prev = patriot.trail[patriot.trail.length - 1];
+      const heading = prev ? Math.atan2(patriot.y - prev.y, patriot.x - prev.x) + Math.PI / 2 : (patriot.heading ?? 0);
+      drawPointTrail(node.trail, patriot.trail, patriot.x, patriot.y, {
+        outerColor: 0x88ff44,
+        coreColor: 0xeaffd0,
+        headColor: 0xb6ff76,
+        width: 2.5 * GAMEPLAY_EFFECT_SCALE,
+        coreWidth: 1.2 * GAMEPLAY_EFFECT_SCALE,
+        headRadius: 1.9 * GAMEPLAY_EFFECT_SCALE,
+      });
+      node.overlay.clear();
+      const flameLen = 5 + 4 * pulse(game.time, 0.5, patriot.x * 0.02 + patriot.y * 0.015);
+      const flameY = patriot.y + Math.cos(heading) * 8 * GAMEPLAY_PROJECTILE_SCALE;
+      const flameX = patriot.x - Math.sin(heading) * 8 * GAMEPLAY_PROJECTILE_SCALE;
+      node.overlay.circle(flameX, flameY, flameLen * 0.55).fill({ color: 0xffaa22, alpha: 0.72 });
+      syncProjectileNode(
+        node,
+        state.upgradeProjectileAssets.patriotSam,
+        patriot.x,
+        patriot.y,
+        heading,
+        sceneTime,
+        1,
+        true,
+      );
+    }
+  }
+
+  private updateGameplayFlares(state: GameplayDynamicState, game: GameState, sceneTime: number): void {
+    cleanupEntityMap(
+      state.flares,
+      game.flares,
+      (flare) => flare.alive,
+      (node) => node.container.destroy({ children: true }),
+    );
+
+    for (const flare of game.flares) {
+      if (!flare.alive) continue;
+      let node = state.flares.get(flare);
+      if (!node) {
+        const container = new Container();
+        const trail = new Graphics();
+        const glow = new Graphics();
+        container.addChild(trail, glow);
+        node = { container, trail, glow };
+        state.flares.set(flare, node);
+        this.gameplayEffectsLayer.addChild(container);
+      }
+      const alpha = Math.min(1, flare.life / 24);
+      const flicker = 0.78 + 0.22 * Math.sin(game.time * 0.25 + flare.x * 0.03);
+      drawSimpleTrailDots(node.trail, flare.trail, COL_HEX.flare, 2.4 * GAMEPLAY_EFFECT_SCALE, alpha);
+      node.glow.clear();
+      node.glow
+        .circle(flare.x, flare.y, (13 + Math.sin(sceneTime * 10 + flare.id) * 1.8) * GAMEPLAY_PROJECTILE_SCALE)
+        .fill({
+          color: COL_HEX.flare,
+          alpha: alpha * flicker * 0.18,
+        });
+      node.glow
+        .circle(flare.x, flare.y, (5 + Math.sin(game.time * 0.18 + flare.id) * 0.8) * GAMEPLAY_PROJECTILE_SCALE)
+        .fill({
+          color: COL_HEX.flare,
+          alpha: alpha * flicker,
+        });
+      node.glow.circle(flare.x, flare.y, 2.4 * GAMEPLAY_PROJECTILE_SCALE).fill({ color: 0xfff4d0, alpha });
+      node.glow
+        .circle(flare.x, flare.y, (8 + Math.sin(game.time * 0.16 + flare.id) * 1.2) * GAMEPLAY_PROJECTILE_SCALE)
+        .stroke({ width: 1.2 * GAMEPLAY_PROJECTILE_SCALE, color: 0xffe6b4, alpha: alpha * 0.65 });
+    }
+  }
+
+  private updateGameplayPlanes(state: GameplayDynamicState, game: GameState, sceneTime: number): void {
+    cleanupEntityMap(
+      state.planes,
+      game.planes,
+      (plane) => plane.alive,
+      (node) => node.container.destroy({ children: true }),
+    );
+
+    for (const plane of game.planes) {
+      if (!plane.alive) continue;
+      let node = state.planes.get(plane);
+      if (!node) {
+        const container = new Container();
+        const airframe = createStaticAssetSprite(state.planeAssets.f15Airframe);
+        const liveFx = new Graphics();
+        container.addChild(airframe, liveFx);
+        node = { container, airframe, liveFx };
+        state.planes.set(plane, node);
+        this.gameplayEffectsLayer.addChild(container);
+      }
+      node.container.position.set(plane.x, plane.y);
+      node.container.scale.set(plane.vx < 0 ? -GAMEPLAY_PLANE_SCALE : GAMEPLAY_PLANE_SCALE, GAMEPLAY_PLANE_SCALE);
+      node.container.rotation = plane.evadeTimer > 0 ? (plane.vy > 0 ? 0.3 : -0.3) : 0;
+      node.airframe.texture = state.planeAssets.f15Airframe.sprite;
+      node.airframe.position.set(state.planeAssets.f15Airframe.offset.x, state.planeAssets.f15Airframe.offset.y);
+      node.liveFx.clear();
+      const abLen = 5 + 4 * pulse(sceneTime, 0.35, plane.x * 0.04 + plane.y * 0.02);
+      node.liveFx
+        .moveTo(-22, -3)
+        .lineTo(-22 - abLen, -2)
+        .lineTo(-22, -1)
+        .closePath()
+        .fill(0xff8844);
+      node.liveFx
+        .moveTo(-22, 1)
+        .lineTo(-22 - abLen, 2)
+        .lineTo(-22, 3)
+        .closePath()
+        .fill(0xff8844);
+      if (Math.sin(plane.blinkTimer * 0.15) > 0) {
+        node.liveFx.circle(-10, -14, 1.5).fill(0xff0000);
+        node.liveFx.circle(-10, 14, 1.5).fill(0x00ff00);
+      }
+    }
+  }
+
+  private updateGameplayLasers(state: GameplayDynamicState, game: GameState): void {
+    let used = 0;
+    for (const beam of game.laserBeams) {
+      if (beam.x1 == null || beam.y1 == null || beam.x2 == null || beam.y2 == null) continue;
+      const alpha = beam.maxLife ? (beam.life ?? 0) / beam.maxLife : 1;
+      const graphic = getPooledGraphic(state.laserPool, this.gameplayEffectsLayer, used++);
+      graphic
+        .moveTo(beam.x1, beam.y1)
+        .lineTo(beam.x2, beam.y2)
+        .stroke({
+          width: 3 * GAMEPLAY_PROJECTILE_SCALE,
+          color: COL_HEX.laser,
+          alpha: alpha * 0.86,
+          cap: "round",
+        })
+        .moveTo(beam.x1, beam.y1)
+        .lineTo(beam.x2, beam.y2)
+        .stroke({ width: GAMEPLAY_PROJECTILE_SCALE, color: 0xffffff, alpha, cap: "round" });
+    }
+    hideUnusedGraphics(state.laserPool, used);
+  }
+
+  private updateGameplayPhalanxBullets(state: GameplayDynamicState, game: GameState): void {
+    let used = 0;
+    for (const bullet of game.phalanxBullets) {
+      if (bullet.cx === undefined || bullet.cy === undefined) continue;
+      const graphic = getPooledGraphic(state.phalanxPool, this.gameplayParticleLayer, used++);
+      const bulletSize = 2 * GAMEPLAY_PROJECTILE_SCALE;
+      graphic
+        .rect(bullet.cx - bulletSize / 2, bullet.cy - bulletSize / 2, bulletSize, bulletSize)
+        .fill({ color: COL_HEX.phalanx, alpha: 0.8 });
+      graphic.moveTo(bullet.x, bullet.y).lineTo(bullet.cx, bullet.cy).stroke({
+        width: GAMEPLAY_PROJECTILE_SCALE,
+        color: COL_HEX.phalanx,
+        alpha: 0.4,
+      });
+    }
+    hideUnusedGraphics(state.phalanxPool, used);
+  }
+
+  private updateGameplayExplosions(state: GameplayDynamicState, game: GameState): void {
+    cleanupEntityMap(
+      state.explosions,
+      game.explosions,
+      () => true,
+      (node) => node.graphic.destroy(),
+    );
+
+    for (const explosion of game.explosions) {
+      let node = state.explosions.get(explosion);
+      if (!node) {
+        node = { graphic: new Graphics() };
+        state.explosions.set(explosion, node);
+        this.gameplayParticleLayer.addChild(node.graphic);
+      }
+      const graphic = node.graphic;
+      graphic.clear();
+      const color = memoCssColorToNumber(explosion.color, 0xffaa44);
+      const radius = explosion.radius * GAMEPLAY_EFFECT_SCALE;
+      if (radius >= 1) {
+        graphic.circle(explosion.x, explosion.y, radius * 1.9).fill({ color, alpha: explosion.alpha * 0.1 });
+        graphic.circle(explosion.x, explosion.y, radius).fill({ color, alpha: explosion.alpha * 0.32 });
+        graphic.circle(explosion.x, explosion.y, radius * 0.3).fill({ color: 0xfff6dc, alpha: explosion.alpha * 0.72 });
+      }
+      if (explosion.ringAlpha > 0) {
+        graphic.circle(explosion.x, explosion.y, explosion.ringRadius * GAMEPLAY_EFFECT_SCALE).stroke({
+          width: Math.max(1, 3 * GAMEPLAY_EFFECT_SCALE * explosion.ringAlpha),
+          color,
+          alpha: explosion.ringAlpha * explosion.alpha,
+        });
+      }
+      if ((explosion.linkAlpha ?? 0) > 0 && explosion.linkFromX != null && explosion.linkFromY != null) {
+        graphic
+          .moveTo(explosion.linkFromX, explosion.linkFromY)
+          .lineTo(explosion.x, explosion.y)
+          .stroke({
+            width: (8 + (explosion.chainLevel ?? 0) * 2.2) * GAMEPLAY_EFFECT_SCALE * 0.4,
+            color,
+            alpha: Math.min(1, (explosion.linkAlpha ?? 0) * explosion.alpha),
+            cap: "round",
+          });
+      }
+    }
+  }
+
+  private updateGameplayParticles(state: GameplayDynamicState, game: GameState): void {
+    let used = 0;
+    for (const particle of game.particles) {
+      const alpha = particle.maxLife > 0 ? Math.max(0, Math.min(1, particle.life / particle.maxLife)) : 1;
+      const color = memoCssColorToNumber(particle.color, 0xffaa44);
+      const graphic = getPooledGraphic(state.particlePool, this.gameplayParticleLayer, used++);
+
+      if (particle.type === "debris") {
+        const w = (particle.w ?? particle.size) * GAMEPLAY_EFFECT_SCALE * 1.5;
+        const h = (particle.h ?? particle.size) * GAMEPLAY_EFFECT_SCALE * 1.5;
+        const angle = particle.angle ?? 0;
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        const points = [
+          { x: -w / 2, y: -h / 2 },
+          { x: w / 2, y: 0 },
+          { x: -w / 2, y: h / 2 },
+        ].map((point) => ({
+          x: particle.x + point.x * cos - point.y * sin,
+          y: particle.y + point.x * sin + point.y * cos,
+        }));
+        graphic
+          .moveTo(points[0].x, points[0].y)
+          .lineTo(points[1].x, points[1].y)
+          .lineTo(points[2].x, points[2].y)
+          .closePath()
+          .fill({
+            color,
+            alpha,
+          });
+      } else if (particle.type === "spark") {
+        graphic
+          .moveTo(particle.x - particle.vx * 5, particle.y - particle.vy * 5)
+          .lineTo(particle.x, particle.y)
+          .stroke({ width: particle.size * GAMEPLAY_EFFECT_SCALE * 1.2, color, alpha, cap: "round" });
+        graphic
+          .circle(particle.x, particle.y, particle.size * 0.7 * GAMEPLAY_EFFECT_SCALE)
+          .fill({ color: 0xffffff, alpha });
+      } else {
+        graphic.circle(particle.x, particle.y, particle.size * GAMEPLAY_EFFECT_SCALE).fill({ color, alpha });
+      }
+    }
+    hideUnusedGraphics(state.particlePool, used);
   }
 
   private updateTitleScene(state: TitleSceneState, timeSeconds: number): void {
