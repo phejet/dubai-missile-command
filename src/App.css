@@ -590,6 +590,15 @@
   min-height: 0;
 }
 
+.transient-overlays {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  container-type: inline-size;
+  font-family: "Courier New", monospace;
+  pointer-events: none;
+}
+
 .title-overlay {
   --title-overlay-hud: #9affdd;
   --title-overlay-hud-core: #effff8;
@@ -597,8 +606,6 @@
   --title-overlay-hot: #ff6e52;
   position: absolute;
   inset: 0;
-  z-index: 2;
-  container-type: inline-size;
   font-family: "Courier New", monospace;
   pointer-events: none;
 }
@@ -720,6 +727,113 @@
 
 .title-overlay__hint {
   display: none;
+}
+
+.transient-overlays__mirv,
+.transient-overlays__toast,
+.transient-overlays__low-ammo,
+.transient-overlays__wave-cleared,
+.transient-overlays__multi-kill,
+.transient-overlays__combo-toast {
+  position: absolute;
+  left: 50%;
+  text-align: center;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  transform: translate(-50%, -50%);
+  will-change: opacity, transform;
+}
+
+.transient-overlays__mirv {
+  top: 5.4%;
+  min-width: min(92%, 24rem);
+  color: #ff3a18;
+  font-size: clamp(1rem, 5.8cqw, 1.75rem);
+  text-shadow:
+    0 0 8px rgba(255, 34, 0, 0.75),
+    0 0 18px rgba(255, 34, 0, 0.36);
+}
+
+.transient-overlays__mirv::before,
+.transient-overlays__mirv::after {
+  content: "!";
+  display: inline-block;
+  margin: 0 0.45em;
+  color: #ffd27a;
+}
+
+.transient-overlays__toast {
+  top: 64%;
+  width: min(92%, 31rem);
+  color: #7cffd8;
+  font-size: clamp(0.78rem, 4.6cqw, 1.35rem);
+  line-height: 1.18;
+  text-shadow: 0 0 12px rgba(68, 255, 170, 0.34);
+}
+
+.transient-overlays__low-ammo {
+  top: 42%;
+  color: #ff6e52;
+  font-size: clamp(1.2rem, 7cqw, 2.15rem);
+  text-shadow:
+    0 0 10px rgba(255, 80, 40, 0.6),
+    0 0 22px rgba(255, 80, 40, 0.26);
+}
+
+.transient-overlays__wave-cleared {
+  top: 49%;
+  width: min(90%, 28rem);
+  padding: 0.55rem 0.85rem;
+  border: 1px solid rgba(0, 255, 200, 0.42);
+  background: rgba(0, 20, 10, 0.64);
+  color: #6dffdc;
+  font-size: clamp(1.1rem, 7cqw, 2.25rem);
+  text-shadow: 0 0 14px rgba(0, 255, 200, 0.26);
+}
+
+.transient-overlays__multi-kill {
+  width: min(88%, 19rem);
+  padding: 0.5rem 0.7rem;
+  border: 1px solid rgba(255, 204, 112, 0.65);
+  background: rgba(24, 8, 4, 0.5);
+  color: #ffdd00;
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+}
+
+.transient-overlays__multi-kill[data-tier="triple"] {
+  color: #ffaa00;
+}
+
+.transient-overlays__multi-kill[data-tier="mega"] {
+  color: #ff4444;
+}
+
+.transient-overlays__multi-kill-label {
+  font-size: clamp(1rem, 5.8cqw, 1.8rem);
+  text-shadow: 0 0 16px currentColor;
+}
+
+.transient-overlays__multi-kill-bonus {
+  color: #00ffcc;
+  font-size: clamp(0.78rem, 4cqw, 1.18rem);
+}
+
+.transient-overlays__combo-toast {
+  color: #ffdd00;
+  font-size: clamp(1rem, 6cqw, 2.1rem);
+  text-shadow: 0 0 15px currentColor;
+}
+
+.transient-overlays__combo-toast[data-tier="hot"] {
+  color: #ff8800;
+}
+
+.transient-overlays__combo-toast[data-tier="critical"] {
+  color: #ff4422;
 }
 
 .game-canvas--active {

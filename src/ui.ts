@@ -1,7 +1,7 @@
 // Vanilla DOM UI — shop modal, bonus screen, HUD updates
 // Replaces ShopUI.tsx and BonusScreen.tsx
 
-import { COL } from "./game-logic";
+import { CANVAS_H, CANVAS_W, COL } from "./game-logic";
 import {
   buildUpgradeGraphViewModel,
   clampUpgradeGraphViewport,
@@ -45,6 +45,33 @@ export interface HudSnapshot {
   empCharge: number;
   empChargeMax: number;
   empReady: boolean;
+}
+
+export interface TransientOverlaySnapshot {
+  titleCopyVisible: boolean;
+  mirvWarning: { visible: boolean; alpha: number };
+  purchaseToast: { visible: boolean; text: string; alpha: number };
+  lowAmmoWarning: { visible: boolean; text: string; alpha: number };
+  waveClearedBanner: { visible: boolean; text: string; alpha: number };
+  multiKillToast: {
+    visible: boolean;
+    label: string;
+    bonus: number;
+    x: number;
+    y: number;
+    alpha: number;
+    scale: number;
+    tier: "normal" | "triple" | "mega";
+  };
+  comboToast: {
+    visible: boolean;
+    text: string;
+    x: number;
+    y: number;
+    alpha: number;
+    scale: number;
+    tier: "warm" | "hot" | "critical";
+  };
 }
 
 // ─── Shop ───────────────────────────────────────────────────────────
@@ -523,6 +550,95 @@ export function updateHud(hud: HudSnapshot): void {
   if (h.perfFrame) h.perfFrame.textContent = hud.rafFrameMs ? `${hud.rafFrameMs.toFixed(1)} ms` : "--";
   if (h.perfHudFps) h.perfHudFps.textContent = hud.fps ? `${hud.fps} fps` : "--";
   if (h.perfGlow) h.perfGlow.textContent = hud.perfProbed ? (hud.perfGlowEnabled ? "on" : "off") : "probing";
+}
+
+// ─── Transient Overlays ────────────────────────────────────────────
+
+const transientOverlayElements = {
+  title: null as HTMLElement | null,
+  mirv: null as HTMLElement | null,
+  purchase: null as HTMLElement | null,
+  lowAmmo: null as HTMLElement | null,
+  waveCleared: null as HTMLElement | null,
+  multiKill: null as HTMLElement | null,
+  multiKillLabel: null as HTMLElement | null,
+  multiKillBonus: null as HTMLElement | null,
+  comboToast: null as HTMLElement | null,
+};
+
+export function cacheTransientOverlayElements(): void {
+  transientOverlayElements.title = document.getElementById("title-overlay");
+  transientOverlayElements.mirv = document.getElementById("overlay-mirv");
+  transientOverlayElements.purchase = document.getElementById("overlay-purchase");
+  transientOverlayElements.lowAmmo = document.getElementById("overlay-low-ammo");
+  transientOverlayElements.waveCleared = document.getElementById("overlay-wave-cleared");
+  transientOverlayElements.multiKill = document.getElementById("overlay-multi-kill");
+  transientOverlayElements.multiKillLabel = document.getElementById("overlay-multi-kill-label");
+  transientOverlayElements.multiKillBonus = document.getElementById("overlay-multi-kill-bonus");
+  transientOverlayElements.comboToast = document.getElementById("overlay-combo-toast");
+}
+
+function setOverlayVisible(
+  element: HTMLElement | null,
+  visible: boolean,
+  alpha = 1,
+  transform = "translate(-50%, -50%)",
+): void {
+  if (!element) return;
+  element.hidden = !visible;
+  element.style.opacity = visible ? String(Math.max(0, Math.min(1, alpha))) : "0";
+  element.style.transform = transform;
+}
+
+function setOverlayWorldPosition(element: HTMLElement | null, x: number, y: number): void {
+  if (!element) return;
+  element.style.left = `${(x / CANVAS_W) * 100}%`;
+  element.style.top = `${(y / CANVAS_H) * 100}%`;
+}
+
+export function updateTransientOverlays(snapshot: TransientOverlaySnapshot): void {
+  const els = transientOverlayElements;
+
+  if (els.title) {
+    els.title.hidden = !snapshot.titleCopyVisible;
+    els.title.setAttribute("aria-hidden", snapshot.titleCopyVisible ? "false" : "true");
+  }
+
+  setOverlayVisible(els.mirv, snapshot.mirvWarning.visible, snapshot.mirvWarning.alpha);
+
+  if (els.purchase) els.purchase.textContent = snapshot.purchaseToast.text;
+  setOverlayVisible(els.purchase, snapshot.purchaseToast.visible, snapshot.purchaseToast.alpha);
+
+  if (els.lowAmmo) els.lowAmmo.textContent = snapshot.lowAmmoWarning.text;
+  setOverlayVisible(els.lowAmmo, snapshot.lowAmmoWarning.visible, snapshot.lowAmmoWarning.alpha);
+
+  if (els.waveCleared) els.waveCleared.textContent = snapshot.waveClearedBanner.text;
+  setOverlayVisible(els.waveCleared, snapshot.waveClearedBanner.visible, snapshot.waveClearedBanner.alpha);
+
+  if (els.multiKillLabel) els.multiKillLabel.textContent = snapshot.multiKillToast.label;
+  if (els.multiKillBonus) els.multiKillBonus.textContent = `+${snapshot.multiKillToast.bonus}`;
+  if (els.multiKill) {
+    els.multiKill.dataset.tier = snapshot.multiKillToast.tier;
+    setOverlayWorldPosition(els.multiKill, snapshot.multiKillToast.x, snapshot.multiKillToast.y);
+  }
+  setOverlayVisible(
+    els.multiKill,
+    snapshot.multiKillToast.visible,
+    snapshot.multiKillToast.alpha,
+    `translate(-50%, -50%) scale(${snapshot.multiKillToast.scale})`,
+  );
+
+  if (els.comboToast) {
+    els.comboToast.textContent = snapshot.comboToast.text;
+    els.comboToast.dataset.tier = snapshot.comboToast.tier;
+    setOverlayWorldPosition(els.comboToast, snapshot.comboToast.x, snapshot.comboToast.y);
+  }
+  setOverlayVisible(
+    els.comboToast,
+    snapshot.comboToast.visible,
+    snapshot.comboToast.alpha,
+    `translate(-50%, -50%) scale(${snapshot.comboToast.scale})`,
+  );
 }
 
 // ─── Game Over ──────────────────────────────────────────────────────

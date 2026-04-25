@@ -49,7 +49,7 @@ import {
   type ThreatSpriteKind,
   type UpgradeProjectileSpriteAssets,
 } from "./canvas-render-resources";
-import { getPurchaseDisplayName, UPGRADE_FAMILIES } from "./game-sim-upgrades";
+import { UPGRADE_FAMILIES } from "./game-sim-upgrades";
 import { perfState, type GameOverSnapshot, type GameRenderer } from "./game-renderer";
 import type {
   Building,
@@ -2621,46 +2621,6 @@ function drawHUD(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutP
     }
   }
 
-  // MIRV INCOMING warning
-  const activeMirvs = game.missiles.filter((m) => m.alive && m.type === "mirv");
-  if (activeMirvs.length > 0) {
-    const pulse = 0.5 + 0.5 * Math.sin(game.time * 0.15);
-    ctx.save();
-    ctx.globalAlpha = 0.6 + pulse * 0.4;
-    ctx.font = `bold ${layout.mirvWarningFontSize}px ${ARCADE_FONT_FAMILY}`;
-    ctx.textAlign = "center";
-    ctx.fillStyle = "#ff2200";
-    glow(ctx, "#ff2200", 8 + pulse * 6);
-    ctx.fillText("\u26A0 MIRV INCOMING \u26A0", CANVAS_W / 2, layout.mirvWarningY);
-    glow(ctx, "transparent", 0);
-    ctx.restore();
-  }
-
-  // Purchase toast (replay mode)
-  if (game._purchaseToast && game._purchaseToast.timer > 0) {
-    const toast = game._purchaseToast;
-    const alpha = Math.min(1, toast.timer / 30); // fade out last ~0.5s (30 ticks)
-    const items = toast.items.map((key) => getPurchaseDisplayName(key));
-    // Deduplicate and count
-    const counts: Record<string, number> = {};
-    items.forEach((name) => {
-      counts[name] = (counts[name] || 0) + 1;
-    });
-    const label = Object.entries(counts)
-      .map(([name, n]) => (n > 1 ? `${name} x${n}` : name))
-      .join(", ");
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    ctx.font = `bold ${layout.purchaseToastFontSize}px ${ARCADE_FONT_FAMILY}`;
-    ctx.fillStyle = "#44ffaa";
-    ctx.textAlign = "center";
-    const who = game._replayIsHuman ? "PLAYER" : "BOT";
-    ctx.fillText(`${who} BOUGHT: ${label}`, CANVAS_W / 2, layout.purchaseToastY);
-    ctx.restore();
-    ctx.textAlign = "left";
-    toast.timer -= 1; // 1 tick per render frame (matched to fixed timestep)
-  }
-
   // Wave progress bar
   if (layout.showTopHud) {
     const wpX = 620,
@@ -2701,61 +2661,6 @@ function drawHUD(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutP
     }
   }
 
-  // Multi-kill toast
-  if (game.multiKillToast && game.multiKillToast.timer > 0) {
-    const mk = game.multiKillToast;
-    const fadeOut = Math.min(1, mk.timer / 20);
-    const rise = (90 - mk.timer) * 0.5;
-    const pulse = 1 + (mk.pulse ?? 0) * 0.28;
-    ctx.save();
-    ctx.globalAlpha = fadeOut;
-    ctx.textAlign = "center";
-    const toastX = mk.x ?? CANVAS_W / 2;
-    const toastY = mk.y ?? 200;
-    const plateW = 220 + (mk.kills ?? 2) * 18;
-    const plateH = 64;
-    ctx.fillStyle = "rgba(24, 8, 4, 0.48)";
-    ctx.fillRect(toastX - plateW / 2, toastY - 62 - rise, plateW, plateH);
-    ctx.strokeStyle = "rgba(255, 204, 112, 0.65)";
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(toastX - plateW / 2, toastY - 62 - rise, plateW, plateH);
-    ctx.font = `bold ${layout.multiKillLabelSize * pulse}px ${ARCADE_FONT_FAMILY}`;
-    const labelColor = mk.label === "MEGA KILL" ? "#ff4444" : mk.label === "TRIPLE KILL" ? "#ffaa00" : "#ffdd00";
-    ctx.fillStyle = labelColor;
-    glow(ctx, labelColor, 15 + (mk.pulse ?? 0) * 10);
-    ctx.fillText(mk.label ?? "", toastX, toastY - 30 - rise);
-    ctx.font = `bold ${layout.multiKillBonusSize}px ${ARCADE_FONT_FAMILY}`;
-    ctx.fillStyle = "#00ffcc";
-    ctx.fillText(`+${mk.bonus}`, toastX, toastY - 10 - rise);
-    glowOff(ctx);
-    ctx.textAlign = "left";
-    ctx.restore();
-  }
-
-  // Combo toast popup
-  if (game.comboToast && game.comboToast.timer > 0) {
-    const ct = game.comboToast;
-    const fadeOut = Math.min(1, ct.timer / 15);
-    const rise = (70 - ct.timer) * 0.38;
-    const scale = 1 + ct.pulse * 0.35;
-    const isMax = ct.multiplier >= 10;
-    const comboT = (ct.multiplier - 2) / 8;
-    const toastColor = ct.multiplier >= 8 ? "#ff4422" : ct.multiplier >= 5 ? "#ff8800" : "#ffdd00";
-    const fontSize = isMax ? 38 : Math.round(22 + comboT * 10);
-    ctx.save();
-    ctx.globalAlpha = fadeOut;
-    ctx.textAlign = "center";
-    ctx.font = `bold ${Math.round(fontSize * scale)}px ${ARCADE_FONT_FAMILY}`;
-    ctx.fillStyle = toastColor;
-    const glowSize = 6 + ct.multiplier * 2.5;
-    glow(ctx, toastColor, glowSize);
-    const label = isMax ? "10\u00d7 COMBO!" : `${ct.multiplier}\u00d7`;
-    ctx.fillText(label, ct.x, ct.y - rise);
-    glowOff(ctx);
-    ctx.textAlign = "left";
-    ctx.restore();
-  }
-
   // Burn vignette at combo 5+
   if (game.combo >= 5) {
     const burnT = (game.combo - 5) / 5;
@@ -2774,30 +2679,6 @@ function drawHUD(ctx: CanvasRenderingContext2D, game: GameState, layout: LayoutP
     burnVig.addColorStop(1, `rgba(220, 60, 10, ${burnAlpha})`);
     ctx.fillStyle = burnVig;
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-  }
-
-  // Wave cleared banner
-  if (game.waveComplete && (game.waveClearedTimer ?? 0) > 0) {
-    const alpha = Math.min(1, (game.waveClearedTimer ?? 0) / 20);
-    const bannerCX = CANVAS_W / 2;
-    const bannerCY = layout.waveClearedY - 14;
-    const bannerW = 420;
-    const bannerH = 70;
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle = "rgba(0,20,10,0.65)";
-    ctx.fillRect(bannerCX - bannerW / 2, bannerCY - bannerH / 2, bannerW, bannerH);
-    ctx.strokeStyle = COL.hud;
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(bannerCX - bannerW / 2, bannerCY - bannerH / 2, bannerW, bannerH);
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.font = `bold 40px ${ARCADE_FONT_FAMILY}`;
-    ctx.fillStyle = COL.hud;
-    ctx.fillText(`WAVE ${game.wave} CLEARED`, bannerCX, bannerCY);
-    ctx.textAlign = "left";
-    ctx.textBaseline = "alphabetic";
-    ctx.restore();
   }
 }
 

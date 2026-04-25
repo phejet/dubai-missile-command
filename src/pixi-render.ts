@@ -13,7 +13,12 @@ import {
   LAUNCHERS,
   WATER_SURFACE_OFFSET,
   getDefenseSitePlacement,
+  getGameplayBuildingBounds,
+  getGameplayBurjCollisionTop,
+  getGameplayBurjHalfW,
+  getGameplayLauncherPosition,
   getPhalanxTurrets,
+  ov,
 } from "./game-logic";
 import type { GameOverSnapshot, GameRenderer, GameplayRenderRequest } from "./game-renderer";
 import { PIXI_PNG_ASSET_KEYS, loadPixiPngBundles, type PixiPngAssetMap } from "./pixi-assets";
@@ -225,9 +230,26 @@ interface GameplaySceneState {
   defenseSiteAssets: PixiDefenseSiteAssets;
   defenseSiteNodes: Map<string, GameplayDefenseSiteNode>;
   defenseStatusOverlay: Graphics;
+  burjWarningPlate: Graphics;
+  crosshairOverlay: Graphics;
+  upgradeRangeOverlay: Graphics;
+  collisionOverlay: Graphics;
   water: TilingSprite | null;
   waterShade: Graphics;
   dynamic: GameplayDynamicState;
+}
+
+interface GameOverSceneState {
+  sky: Sprite;
+  nebula: Sprite | null;
+  buildings: Container[];
+  burj: Container;
+  water: TilingSprite | null;
+  waterShade: Graphics;
+  launchers: Container[];
+  defenseSites: Container[];
+  damageWash: Graphics;
+  embers: Graphics[];
 }
 
 const TITLE_GROUND_Y = GROUND_Y - 100;
@@ -245,6 +267,9 @@ const GAMEPLAY_EFFECT_SCALE = 2;
 const GAMEPLAY_PLANE_SCALE = 3;
 const GAMEPLAY_FLARE_VISUAL_Y = GROUND_Y - BURJ_H * 0.97;
 const GAMEPLAY_EMP_VISUAL_Y = GROUND_Y - BURJ_H * 0.67;
+const GAMEOVER_GROUND_Y = 560;
+const GAMEOVER_TOWER_BASE_Y = GAMEOVER_GROUND_Y - 6;
+const GAMEOVER_WATER_TOP = GAMEOVER_GROUND_Y + 18;
 const TITLE_TARGET_X = BURJ_X;
 const TITLE_TARGET_Y = TITLE_TOWER_BASE_Y - BURJ_H + 18;
 const TITLE_BUILDING_BLEND_WINDOW = 0.18;
@@ -711,11 +736,11 @@ function drawLauncherWreckage(graphic: Graphics): void {
     .stroke({ width: 1, color: 0xb4321e, alpha: 0.35 });
 }
 
-function drawBurjWreckage(graphic: Graphics): void {
+function drawBurjWreckage(graphic: Graphics, baseY = GAMEPLAY_TOWER_BASE_Y, centerX = BURJ_X): void {
   for (let i = 0; i < 8; i++) {
     const h1 = ((i * 7 + 3) % 13) / 13;
     const h2 = ((i * 11 + 5) % 13) / 13;
-    graphic.rect(BURJ_X - 18 + i * 5, GAMEPLAY_TOWER_BASE_Y - 12 - h1 * 24, 6, 12 + h2 * 18).fill(0x1f2432);
+    graphic.rect(centerX - 18 + i * 5, baseY - 12 - h1 * 24, 6, 12 + h2 * 18).fill(0x1f2432);
   }
 }
 
@@ -751,7 +776,9 @@ export class PixiRenderer implements GameRenderer {
   private pngs: PixiPngAssetMap = {};
   private titleState: TitleSceneState | null = null;
   private gameplayState: GameplaySceneState | null = null;
+  private gameOverState: GameOverSceneState | null = null;
   private latestGame: GameState | null = null;
+  private latestShowShop = false;
   private initialized = false;
   private destroyed = false;
   private initError: Error | null = null;
@@ -816,13 +843,14 @@ export class PixiRenderer implements GameRenderer {
   renderTitle(): void {
     this.screen = "title";
     this.latestGame = null;
+    this.latestShowShop = false;
     this.renderIfReady();
   }
 
   renderGameplay(game: GameState, request: GameplayRenderRequest = {}): void {
-    void request;
     this.screen = "playing";
     this.latestGame = game;
+    this.latestShowShop = !!request.showShop;
     this.renderIfReady();
   }
 
@@ -830,6 +858,7 @@ export class PixiRenderer implements GameRenderer {
     void snapshot;
     this.screen = "gameover";
     this.latestGame = null;
+    this.latestShowShop = false;
     this.renderIfReady();
   }
 
@@ -874,6 +903,7 @@ export class PixiRenderer implements GameRenderer {
       this.pngs = pngs;
       this.buildTitleScene();
       this.buildGameplayScene();
+      this.buildGameOverScene();
       this.initialized = true;
       this.canvas.dataset.pixiTitle = "ready";
       this.canvas.dataset.pixiGameplayStatic = "ready";
@@ -1252,7 +1282,17 @@ export class PixiRenderer implements GameRenderer {
     });
 
     const defenseStatusOverlay = new Graphics();
-    this.gameplayOverlayLayer.addChild(defenseStatusOverlay);
+    const burjWarningPlate = new Graphics();
+    const crosshairOverlay = new Graphics();
+    const upgradeRangeOverlay = new Graphics();
+    const collisionOverlay = new Graphics();
+    this.gameplayOverlayLayer.addChild(
+      defenseStatusOverlay,
+      burjWarningPlate,
+      upgradeRangeOverlay,
+      collisionOverlay,
+      crosshairOverlay,
+    );
 
     this.gameplayState = {
       skyAssets: null,
@@ -1281,9 +1321,174 @@ export class PixiRenderer implements GameRenderer {
       defenseSiteAssets,
       defenseSiteNodes,
       defenseStatusOverlay,
+      burjWarningPlate,
+      crosshairOverlay,
+      upgradeRangeOverlay,
+      collisionOverlay,
       water,
       waterShade,
       dynamic,
+    };
+  }
+
+  private buildGameOverScene(): void {
+    const skyAssets = this.textures.getGameplaySkyAssets([], GAMEOVER_GROUND_Y);
+    const buildingAssets = this.textures.getTitleBuildingAssets(GAMEOVER_TOWER_BASE_Y);
+    const burjAssets = this.textures.getBurjAssets(GAMEOVER_GROUND_Y, 1);
+    const launcherAssets = this.textures.getLauncherAssets(GAMEPLAY_LAUNCHER_SCALE, true);
+    const defenseSiteAssets = this.textures.getDefenseSiteAssets();
+
+    const sky = new Sprite(skyAssets.frames[0] ?? Texture.EMPTY);
+    sky.width = CANVAS_W;
+    sky.height = CANVAS_H;
+    sky.tint = 0x56424a;
+    sky.alpha = 0.96;
+    this.gameOverScene.addChild(sky);
+
+    const nebulaTexture = this.pngs[PIXI_PNG_ASSET_KEYS.skyNebula];
+    const nebula = nebulaTexture ? new Sprite(nebulaTexture) : null;
+    if (nebula) {
+      nebula.position.set(-80, -40);
+      nebula.width = CANVAS_W + 160;
+      nebula.height = CANVAS_H * 0.78;
+      nebula.tint = 0x7d3a32;
+      nebula.alpha = 0.16;
+      this.gameOverScene.addChild(nebula);
+    }
+
+    const buildings = TITLE_SKYLINE_TOWERS.map((_, index) => {
+      const container = new Container();
+      const staticSprite = new Sprite(buildingAssets.staticSprites[index] ?? Texture.EMPTY);
+      staticSprite.position.set(
+        buildingAssets.staticOffsets[index]?.x ?? 0,
+        buildingAssets.staticOffsets[index]?.y ?? 0,
+      );
+      staticSprite.tint = 0x6e4b44;
+      staticSprite.alpha = 0.8;
+      const damage = new Graphics();
+      damage
+        .rect(80 + index * 70, GAMEOVER_TOWER_BASE_Y - 34 - (index % 4) * 10, 42 + (index % 3) * 18, 44)
+        .fill({ color: 0x14090a, alpha: 0.32 });
+      container.addChild(staticSprite, damage);
+      this.gameOverScene.addChild(container);
+      return container;
+    });
+
+    const burj = new Container();
+    burj.position.set(BURJ_X, GAMEOVER_TOWER_BASE_Y);
+    const burjStatic = new Sprite(burjAssets.staticSprite);
+    burjStatic.position.set(burjAssets.offset.x - BURJ_X, burjAssets.offset.y - GAMEOVER_TOWER_BASE_Y);
+    burjStatic.tint = 0xffb7a5;
+    burjStatic.alpha = 0.72;
+    const burn = new Graphics();
+    burn
+      .rect(-40, -BURJ_H - 58, 80, BURJ_H + 82)
+      .fill({ color: 0x2d0c09, alpha: 0.28 })
+      .circle(-12, -BURJ_H * 0.55, 30)
+      .fill({ color: 0xff4b24, alpha: 0.12 })
+      .circle(14, -BURJ_H * 0.3, 24)
+      .fill({ color: 0xff8a34, alpha: 0.1 });
+    burj.addChild(burjStatic, burn);
+
+    const wreckage = new Graphics();
+    drawBurjWreckage(wreckage, GAMEOVER_TOWER_BASE_Y);
+    wreckage.alpha = 0.85;
+    const groundDecor = new Container();
+    groundDecor.addChild(
+      createRect(0xffb8a0, 0.45, 0, GAMEOVER_GROUND_Y - 1, CANVAS_W, 2),
+      createRect(0x1c1219, 0.98, 0, GAMEOVER_GROUND_Y, CANVAS_W, WATER_SURFACE_OFFSET),
+      createRect(0xff7b42, 0.18, BURJ_X - 58, GAMEOVER_TOWER_BASE_Y - 14, 116, 2.5),
+      createRect(0xdac0b8, 0.26, BURJ_X - 28, GAMEOVER_GROUND_Y - 8, 56, 7),
+    );
+    this.gameOverScene.addChild(burj, wreckage, groundDecor);
+
+    const waterTexture = this.pngs[PIXI_PNG_ASSET_KEYS.titleWaterReflection];
+    const water = waterTexture
+      ? new TilingSprite({
+          texture: waterTexture,
+          width: CANVAS_W + 10,
+          height: CANVAS_H - GAMEOVER_WATER_TOP,
+        })
+      : null;
+    if (water) {
+      water.position.set(0, GAMEOVER_WATER_TOP);
+      water.tint = 0x5a2730;
+      water.alpha = 0.48;
+      this.gameOverScene.addChild(water);
+    }
+    const waterShade = createRect(0x050305, 0.5, 0, GAMEOVER_WATER_TOP, CANVAS_W, CANVAS_H - GAMEOVER_WATER_TOP);
+    this.gameOverScene.addChild(waterShade);
+
+    const launchers = LAUNCHERS.map((launcher) => {
+      const container = new Container();
+      container.position.set(launcher.x, GAMEOVER_GROUND_Y - 18);
+      container.alpha = 0.62;
+      const chassis = new Sprite(launcherAssets.chassisStaticSprite);
+      chassis.position.set(launcherAssets.chassisOffset.x, launcherAssets.chassisOffset.y);
+      chassis.tint = 0x8f675e;
+      const wreck = new Graphics();
+      drawLauncherWreckage(wreck);
+      container.addChild(chassis, wreck);
+      this.gameOverScene.addChild(container);
+      return container;
+    });
+
+    const siteSpecs: ReadonlyArray<{
+      key: keyof Pick<PixiDefenseSiteAssets, "patriotTEL" | "phalanxBase">;
+      x: number;
+      y: number;
+    }> = [
+      { key: "patriotTEL", x: 334, y: GAMEOVER_GROUND_Y - 20 },
+      { key: "phalanxBase", x: 553, y: GAMEOVER_GROUND_Y - 32 },
+      { key: "phalanxBase", x: 860, y: GAMEOVER_GROUND_Y - 26 },
+      { key: "phalanxBase", x: 59, y: GAMEOVER_GROUND_Y - 30 },
+    ];
+    const defenseSites = siteSpecs.map((site) => {
+      const asset = defenseSiteAssets[site.key];
+      const container = new Container();
+      container.position.set(site.x, site.y);
+      container.alpha = 0.5;
+      const sprite = createStaticAssetSprite(asset);
+      sprite.tint = 0x8f675e;
+      const damage = new Graphics();
+      damage.rect(-22, -6, 44, 10).fill({ color: 0x1e1414, alpha: 0.72 });
+      container.addChild(sprite, damage);
+      this.gameOverScene.addChild(container);
+      return container;
+    });
+
+    const damageWash = new Graphics();
+    damageWash
+      .rect(0, 0, CANVAS_W, CANVAS_H)
+      .fill({ color: 0x110407, alpha: 0.42 })
+      .rect(0, 0, CANVAS_W, CANVAS_H * 0.42)
+      .fill({ color: 0x2a090b, alpha: 0.18 });
+    this.gameOverScene.addChild(damageWash);
+
+    const embers = Array.from({ length: 54 }, (_, index) => {
+      const ember = new Graphics();
+      const x = (hash01(index, 11) * CANVAS_W) | 0;
+      const y = (hash01(index, 23) * CANVAS_H) | 0;
+      const size = 1 + hash01(index, 37) * 2.5;
+      ember.rect(x, y, size, size).fill({
+        color: index % 4 === 0 ? 0xffbc5f : 0xff4b24,
+        alpha: 0.08 + hash01(index, 41) * 0.1,
+      });
+      this.gameOverScene.addChild(ember);
+      return ember;
+    });
+
+    this.gameOverState = {
+      sky,
+      nebula,
+      buildings,
+      burj,
+      water,
+      waterShade,
+      launchers,
+      defenseSites,
+      damageWash,
+      embers,
     };
   }
 
@@ -1359,22 +1564,31 @@ export class PixiRenderer implements GameRenderer {
   }
 
   private renderIfReady(): void {
-    if (!this.initialized || this.destroyed || this.initError || !this.titleState || !this.gameplayState) return;
+    if (
+      !this.initialized ||
+      this.destroyed ||
+      this.initError ||
+      !this.titleState ||
+      !this.gameplayState ||
+      !this.gameOverState
+    ) {
+      return;
+    }
 
     const timeSeconds = performance.now() / 1000;
     this.canvas.dataset.pixiScreen = this.screen;
     this.titleScene.visible = this.screen === "title";
-    this.gameplayScene.visible = this.screen !== "title";
-    this.gameOverScene.visible = false;
+    this.gameplayScene.visible = this.screen === "playing";
+    this.gameOverScene.visible = this.screen === "gameover";
 
     this.updateTitleScene(this.titleState, timeSeconds);
     if (this.latestGame) {
-      this.updateGameplayScene(this.gameplayState, this.latestGame, this.latestGame.time / 60);
+      this.updateGameplayScene(this.gameplayState, this.latestGame, this.latestGame.time / 60, this.latestShowShop);
     }
     this.app.render();
   }
 
-  private updateGameplayScene(state: GameplaySceneState, game: GameState, sceneTime: number): void {
+  private updateGameplayScene(state: GameplaySceneState, game: GameState, sceneTime: number, showShop: boolean): void {
     const skyAssets = this.textures.getGameplaySkyAssets(game.stars, GAMEPLAY_SCENIC_GROUND_Y);
     state.skyAssets = skyAssets;
     const skyFrameProgress = getFrameProgress(sceneTime, skyAssets.period, skyAssets.frameCount);
@@ -1395,6 +1609,7 @@ export class PixiRenderer implements GameRenderer {
     this.updateGameplayDynamicEntities(state.dynamic, game, sceneTime);
     this.updateGameplayLaunchers(state, game, sceneTime);
     this.updateGameplayDefenseSites(state, game, sceneTime);
+    this.updateGameplayOverlays(state, game, sceneTime, showShop);
 
     this.canvas.dataset.pixiGameplayStatic = "ready";
     this.canvas.dataset.pixiDynamicCounts = summarizePixiDynamicEntities(game).summary;
@@ -1747,6 +1962,224 @@ export class PixiRenderer implements GameRenderer {
       state.defenseStatusOverlay
         .rect(site.x - hw, site.y - hh, hw * 2, hh * 2)
         .stroke({ width: 1, color: getDefenseSiteColor(site), alpha: pulse });
+    }
+  }
+
+  private updateGameplayOverlays(
+    state: GameplaySceneState,
+    game: GameState,
+    sceneTime: number,
+    showShop: boolean,
+  ): void {
+    this.updateBurjWarningPlate(state.burjWarningPlate, game, sceneTime);
+    this.updateCrosshairOverlay(state.crosshairOverlay, game, showShop);
+    this.updateUpgradeRangeOverlay(state.upgradeRangeOverlay, game);
+    this.updateCollisionOverlay(state.collisionOverlay, game);
+  }
+
+  private updateBurjWarningPlate(graphic: Graphics, game: GameState, sceneTime: number): void {
+    graphic.clear();
+    if (!game.burjAlive) return;
+
+    const artScale = 2;
+    const healthRatio = Math.max(0, Math.min(1, game.burjHealth / 5));
+    const critical = game.burjHealth <= 1;
+    const flashT =
+      game.burjHitFlashMax > 0 ? Math.max(0, Math.min(1, game.burjHitFlashTimer / game.burjHitFlashMax)) : 0;
+    const warningY = GAMEPLAY_SCENIC_GROUND_Y + 24 * artScale;
+    const warningW = 102 * artScale;
+    const warningH = critical ? 24 * artScale : 18 * artScale;
+    const plateX = BURJ_X - warningW / 2;
+    const plateY = warningY - warningH + 2;
+    const plateInset = 13 * artScale;
+    const barW = warningW - plateInset * 2;
+    const barH = 4 * artScale;
+    const pulseAlpha = critical ? 0.22 + 0.18 * Math.sin(sceneTime * 7) : 0.12;
+
+    graphic
+      .moveTo(plateX + 10 * artScale, plateY)
+      .lineTo(plateX + warningW - 10 * artScale, plateY)
+      .lineTo(plateX + warningW, plateY + warningH * 0.48)
+      .lineTo(plateX + warningW - 8 * artScale, plateY + warningH)
+      .lineTo(plateX + 8 * artScale, plateY + warningH)
+      .lineTo(plateX, plateY + warningH * 0.48)
+      .closePath()
+      .fill({ color: critical ? 0x3a0d08 : 0x071621, alpha: 0.72 })
+      .stroke({ width: 1.3 * artScale, color: critical ? 0xff4433 : 0x54f0d4, alpha: critical ? 0.75 : 0.42 });
+
+    graphic.rect(plateX + plateInset, plateY + warningH - 8 * artScale, barW, barH).fill({
+      color: 0x102332,
+      alpha: 0.9,
+    });
+    graphic
+      .rect(plateX + plateInset, plateY + warningH - 8 * artScale, barW * healthRatio, barH)
+      .fill(critical ? 0xff4433 : healthRatio > 0.45 ? 0xffcc66 : 0x44ff88);
+    graphic
+      .rect(plateX + 18 * artScale, plateY + 4 * artScale, warningW - 36 * artScale, 1.5 * artScale)
+      .fill({ color: 0xd8fff8, alpha: 0.32 });
+    if (pulseAlpha > 0 || flashT > 0) {
+      graphic
+        .rect(plateX, plateY, warningW, warningH)
+        .fill({ color: critical ? 0xff4433 : 0xffffff, alpha: Math.max(pulseAlpha, flashT * 0.18) });
+    }
+  }
+
+  private updateCrosshairOverlay(graphic: Graphics, game: GameState, showShop: boolean): void {
+    graphic.clear();
+    if (showShop) return;
+    const cx = game.crosshairX;
+    const cy = game.crosshairY;
+    const arm = 24;
+    const gap = 9;
+    graphic
+      .circle(cx, cy, 22)
+      .fill({ color: 0x00ffc8, alpha: 0.055 })
+      .circle(cx, cy, 16)
+      .stroke({ width: 1, color: 0x00ffc8, alpha: 0.28 })
+      .circle(cx, cy, 2.4)
+      .fill({ color: 0xd8fff8, alpha: 0.72 });
+    graphic
+      .moveTo(cx - arm, cy)
+      .lineTo(cx - gap, cy)
+      .moveTo(cx + gap, cy)
+      .lineTo(cx + arm, cy)
+      .moveTo(cx, cy - arm)
+      .lineTo(cx, cy - gap)
+      .moveTo(cx, cy + gap)
+      .lineTo(cx, cy + arm)
+      .stroke({ width: 1.25, color: 0x00ffc8, alpha: 0.74, cap: "round" });
+  }
+
+  private updateUpgradeRangeOverlay(graphic: Graphics, game: GameState): void {
+    graphic.clear();
+    if (!game._showUpgradeRanges) return;
+
+    const phalanxRange = ov("upgrade.phalanxRange", 160);
+    const systems: ReadonlyArray<{ x: number; y: number; color: number; range?: number }> = [
+      {
+        x: ov("upgrade.ironBeam.x", BURJ_X),
+        y: ov("upgrade.ironBeam.y", 959),
+        color: 0xff2200,
+        range: ov("upgrade.ironBeamRange", 368),
+      },
+      {
+        x: ov("upgrade.phalanx1.x", 553),
+        y: ov("upgrade.phalanx1.y", 1498),
+        color: COL_HEX.phalanx,
+        range: phalanxRange,
+      },
+      {
+        x: ov("upgrade.phalanx2.x", 860),
+        y: ov("upgrade.phalanx2.y", 1504),
+        color: COL_HEX.phalanx,
+        range: phalanxRange,
+      },
+      {
+        x: ov("upgrade.phalanx3.x", 59),
+        y: ov("upgrade.phalanx3.y", GROUND_Y - 30),
+        color: COL_HEX.phalanx,
+        range: phalanxRange,
+      },
+      { x: ov("upgrade.patriot.x", 334), y: ov("upgrade.patriot.y", 1511), color: COL_HEX.patriot },
+      {
+        x: ov("upgrade.emp.x", 462),
+        y: ov("upgrade.emp.y", 1047),
+        color: COL_HEX.emp,
+        range: ov("upgrade.empRange", 1100),
+      },
+      {
+        x: ov("upgrade.flares.x", BURJ_X),
+        y: ov("upgrade.flares.y", 837),
+        color: COL_HEX.flare,
+        range: ov("upgrade.flareActivationRange", 320),
+      },
+      { x: ov("upgrade.hornets.x", 206), y: ov("upgrade.hornets.y", 1511), color: COL_HEX.hornet },
+      {
+        x: ov("upgrade.roadrunner.x", 678),
+        y: ov("upgrade.roadrunner.y", GROUND_Y - 15),
+        color: COL_HEX.roadrunner,
+      },
+      { x: ov("upgrade.launcherKit.x", 772), y: ov("upgrade.launcherKit.y", 1513), color: 0x66aaff },
+    ];
+
+    for (const system of systems) {
+      if (system.range) {
+        graphic.circle(system.x, system.y, system.range).fill({ color: system.color, alpha: 0.055 });
+        graphic.circle(system.x, system.y, system.range).stroke({ width: 2, color: system.color, alpha: 0.38 });
+      }
+      graphic.circle(system.x, system.y, 20).stroke({ width: 3, color: system.color, alpha: 0.9 });
+      graphic.circle(system.x, system.y, 5).fill({ color: system.color, alpha: 0.8 });
+    }
+
+    LAUNCHERS.forEach((_, index) => {
+      const launcher = getGameplayLauncherPosition(index);
+      graphic.circle(launcher.x, launcher.y, 20).stroke({ width: 3, color: 0x00ffcc, alpha: 0.92 });
+      graphic
+        .moveTo(launcher.x - 8, launcher.y)
+        .lineTo(launcher.x + 8, launcher.y)
+        .moveTo(launcher.x, launcher.y - 8)
+        .lineTo(launcher.x, launcher.y + 8)
+        .stroke({ width: 2, color: 0x00ffcc, alpha: 0.92 });
+    });
+  }
+
+  private updateCollisionOverlay(graphic: Graphics, game: GameState): void {
+    graphic.clear();
+    if (!game._showColliders) return;
+
+    if (game.burjAlive) {
+      const burjTop = getGameplayBurjCollisionTop(2);
+      graphic.moveTo(BURJ_X, burjTop);
+      for (let y = burjTop + 8; y <= GAMEPLAY_SCENIC_GROUND_Y - 6; y += 18) {
+        graphic.lineTo(BURJ_X + getGameplayBurjHalfW(y, 2), y);
+      }
+      for (let y = GAMEPLAY_SCENIC_GROUND_Y - 6; y >= burjTop + 8; y -= 18) {
+        graphic.lineTo(BURJ_X - getGameplayBurjHalfW(y, 2), y);
+      }
+      graphic.closePath().stroke({ width: 1.5, color: 0x00ffff, alpha: 0.72 });
+    }
+
+    for (let index = 0; index < LAUNCHERS.length; index++) {
+      if ((game.launcherHP[index] ?? 0) <= 0) continue;
+      const launcher = getGameplayLauncherPosition(index);
+      graphic.rect(launcher.x - 45, launcher.y - 36, 90, 36).stroke({ width: 1.5, color: 0x00ff00, alpha: 0.7 });
+    }
+
+    for (const building of game.buildings) {
+      if (!building.alive) continue;
+      const bounds = getGameplayBuildingBounds(building);
+      graphic
+        .rect(bounds.left, bounds.top, bounds.right - bounds.left, bounds.bottom - bounds.top)
+        .stroke({ width: 1.5, color: 0xffff00, alpha: 0.7 });
+    }
+
+    for (const site of game.defenseSites) {
+      if (!site.alive) continue;
+      const hw = site.hw ?? 0;
+      const hh = site.hh ?? 0;
+      graphic.rect(site.x - hw, site.y - hh, hw * 2, hh * 2).stroke({ width: 1.5, color: 0xff00ff, alpha: 0.7 });
+    }
+
+    graphic
+      .moveTo(0, GAMEPLAY_WATERLINE_Y)
+      .lineTo(CANVAS_W, GAMEPLAY_WATERLINE_Y)
+      .stroke({ width: 1.5, color: 0x66ccff, alpha: 0.7 });
+
+    for (const missile of game.missiles) {
+      if (!missile.alive) continue;
+      graphic.circle(missile.x, missile.y, 4).stroke({ width: 1.5, color: 0xff0000, alpha: 0.7 });
+    }
+    for (const drone of game.drones) {
+      if (!drone.alive) continue;
+      graphic.circle(drone.x, drone.y, drone.collisionRadius).stroke({ width: 1.5, color: 0xffa500, alpha: 0.7 });
+    }
+    for (const interceptor of game.interceptors) {
+      if (!interceptor.alive) continue;
+      graphic.circle(interceptor.x, interceptor.y, 18).stroke({ width: 1.5, color: 0x44ffaa, alpha: 0.7 });
+    }
+    for (const explosion of game.explosions) {
+      if (explosion.alpha < 0.05) continue;
+      graphic.circle(explosion.x, explosion.y, explosion.radius).stroke({ width: 1.5, color: 0xffffff, alpha: 0.7 });
     }
   }
 

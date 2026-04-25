@@ -36,7 +36,12 @@ import {
   restorePositions,
 } from "./game-sim";
 import { buildShopEntries } from "./game-sim-shop";
-import { applyRunSummaryToProgression, loadUpgradeProgression, saveUpgradeProgression } from "./game-sim-upgrades";
+import {
+  applyRunSummaryToProgression,
+  getPurchaseDisplayName,
+  loadUpgradeProgression,
+  saveUpgradeProgression,
+} from "./game-sim-upgrades";
 import { createReplayRunner } from "./replay";
 import type { GameState, ReplayData } from "./types";
 import {
@@ -49,8 +54,10 @@ import {
   hideUpgradeProgression as uiHideUpgradeProgression,
   updateHud,
   cacheHudElements,
+  updateTransientOverlays,
+  cacheTransientOverlayElements,
 } from "./ui";
-import type { HudSnapshot, ShopData, UpgradeProgressionViewData } from "./ui";
+import type { HudSnapshot, ShopData, TransientOverlaySnapshot, UpgradeProgressionViewData } from "./ui";
 
 // ─── Window globals for bot/replay tooling ──────────────────────────
 
@@ -130,6 +137,118 @@ function buildHudSnapshot(game: GameState | null): HudSnapshot {
     empChargeMax: game.empChargeMax,
     empReady: game.empReady,
   };
+}
+
+function emptyTransientOverlaySnapshot(titleCopyVisible = false): TransientOverlaySnapshot {
+  return {
+    titleCopyVisible,
+    mirvWarning: { visible: false, alpha: 0 },
+    purchaseToast: { visible: false, text: "", alpha: 0 },
+    lowAmmoWarning: { visible: false, text: "LOW AMMO", alpha: 0 },
+    waveClearedBanner: { visible: false, text: "", alpha: 0 },
+    multiKillToast: {
+      visible: false,
+      label: "",
+      bonus: 0,
+      x: CANVAS_W / 2,
+      y: 200,
+      alpha: 0,
+      scale: 1,
+      tier: "normal",
+    },
+    comboToast: {
+      visible: false,
+      text: "",
+      x: CANVAS_W / 2,
+      y: 200,
+      alpha: 0,
+      scale: 1,
+      tier: "warm",
+    },
+  };
+}
+
+function formatPurchaseToast(game: GameState): string {
+  const toast = game._purchaseToast;
+  if (!toast || toast.timer <= 0) return "";
+  const counts: Record<string, number> = {};
+  for (const item of toast.items.map((key) => getPurchaseDisplayName(key))) {
+    counts[item] = (counts[item] || 0) + 1;
+  }
+  const label = Object.entries(counts)
+    .map(([name, count]) => (count > 1 ? `${name} x${count}` : name))
+    .join(", ");
+  const who = game._replayIsHuman ? "PLAYER" : "BOT";
+  return `${who} BOUGHT: ${label}`;
+}
+
+function buildTransientOverlaySnapshot(game: GameState | null, screen: GameScreen): TransientOverlaySnapshot {
+  const snapshot = emptyTransientOverlaySnapshot(screen === "title");
+  if (!game || screen !== "playing") return snapshot;
+
+  const activeMirvs = game.missiles.some((missile) => missile.alive && missile.type === "mirv");
+  if (activeMirvs) {
+    const pulse = 0.5 + 0.5 * Math.sin(game.time * 0.15);
+    snapshot.mirvWarning = { visible: true, alpha: 0.6 + pulse * 0.4 };
+  }
+
+  const purchaseText = formatPurchaseToast(game);
+  if (purchaseText && game._purchaseToast) {
+    snapshot.purchaseToast = {
+      visible: true,
+      text: purchaseText,
+      alpha: Math.min(1, game._purchaseToast.timer / 30),
+    };
+  }
+
+  if ((game._lowAmmoTimer ?? 0) > 0) {
+    snapshot.lowAmmoWarning = {
+      visible: true,
+      text: "LOW AMMO",
+      alpha: Math.min(1, (game._lowAmmoTimer ?? 0) / 20),
+    };
+  }
+
+  if (game.waveComplete && (game.waveClearedTimer ?? 0) > 0) {
+    snapshot.waveClearedBanner = {
+      visible: true,
+      text: `WAVE ${game.wave} CLEARED`,
+      alpha: Math.min(1, (game.waveClearedTimer ?? 0) / 20),
+    };
+  }
+
+  if (game.multiKillToast && game.multiKillToast.timer > 0) {
+    const toast = game.multiKillToast;
+    const rise = (90 - toast.timer) * 0.5;
+    const label = toast.label ?? "";
+    snapshot.multiKillToast = {
+      visible: true,
+      label,
+      bonus: toast.bonus,
+      x: toast.x ?? CANVAS_W / 2,
+      y: (toast.y ?? 200) - 36 - rise,
+      alpha: Math.min(1, toast.timer / 20),
+      scale: 1 + (toast.pulse ?? 0) * 0.18,
+      tier: label === "MEGA KILL" ? "mega" : label === "TRIPLE KILL" ? "triple" : "normal",
+    };
+  }
+
+  if (game.comboToast && game.comboToast.timer > 0) {
+    const toast = game.comboToast;
+    const rise = (70 - toast.timer) * 0.38;
+    const isMax = toast.multiplier >= 10;
+    snapshot.comboToast = {
+      visible: true,
+      text: isMax ? "10\u00d7 COMBO!" : `${toast.multiplier}\u00d7`,
+      x: toast.x,
+      y: toast.y - rise,
+      alpha: Math.min(1, toast.timer / 15),
+      scale: 1 + toast.pulse * 0.24,
+      tier: toast.multiplier >= 8 ? "critical" : toast.multiplier >= 5 ? "hot" : "warm",
+    };
+  }
+
+  return snapshot;
 }
 
 function buildShopDataFromGame(game: GameState): ShopData {
@@ -247,6 +366,7 @@ export class Game {
     this.perfOverlay = document.getElementById("perf-overlay")!;
 
     cacheHudElements();
+    cacheTransientOverlayElements();
     this.bindEvents();
     this.setupWindowGlobals();
     this.setScreen("title");
@@ -358,6 +478,7 @@ export class Game {
       uiShowGameOver(this.finalScore, this.finalWave, this.finalStats);
       this.replayButton.hidden = !this.lastReplay;
     }
+    this.syncTransientOverlays();
     this.onScreenChange?.(s);
   }
 
@@ -844,6 +965,20 @@ export class Game {
     updateHud(buildHudSnapshot(this.gameRef.current));
   }
 
+  private syncTransientOverlays(): void {
+    updateTransientOverlays(buildTransientOverlaySnapshot(this.gameRef.current, this.screen));
+  }
+
+  private tickControllerOnlyTimers(game: GameState): void {
+    if (game._purchaseToast && game._purchaseToast.timer > 0) {
+      game._purchaseToast.timer -= 1;
+      if (game._purchaseToast.timer <= 0) game._purchaseToast = null;
+    }
+    if ((game._lowAmmoTimer ?? 0) > 0) {
+      game._lowAmmoTimer = Math.max(0, (game._lowAmmoTimer ?? 0) - 1);
+    }
+  }
+
   private emitFrameSample(game: GameState, frameMs: number, replayActive: boolean, screen: GameScreen): void {
     this.onFrameSample?.({
       drones: game.drones.length,
@@ -947,7 +1082,9 @@ export class Game {
 
         const alpha = game.state === "playing" ? (game._timeAccum ?? 0) : 1;
         applyInterpolation(game, alpha);
+        this.tickControllerOnlyTimers(game);
         this.syncHud();
+        this.syncTransientOverlays();
         this.renderer.renderGameplay(game, { showShop: this.shopOpen });
         this.emitFrameSample(game, elapsed, replayWasActive, screenAtFrameStart);
         restorePositions(game);
@@ -957,8 +1094,10 @@ export class Game {
       } else {
         this.lastTime = null;
         if (this.screen === "title") {
+          this.syncTransientOverlays();
           this.renderer.renderTitle();
         } else if (this.screen === "gameover") {
+          this.syncTransientOverlays();
           const snapshot: GameOverSnapshot = {
             score: this.finalScore,
             wave: this.finalWave,

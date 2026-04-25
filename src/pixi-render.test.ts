@@ -450,3 +450,59 @@ describe("PixiRenderer dynamic entity updates", () => {
     expect(self.gameplayProjectileLayer.children.length).toBe(5);
   });
 });
+
+describe("PixiRenderer game-over routing", () => {
+  it("switches to a dedicated game-over scene and hides live gameplay layers", () => {
+    const { methods } = rendererInternals();
+    let rendered = false;
+    const self = {
+      initialized: true,
+      destroyed: false,
+      initError: null,
+      titleState: {},
+      gameplayState: {},
+      gameOverState: {},
+      screen: "gameover",
+      canvas: { dataset: {} as Record<string, string> },
+      titleScene: new Container(),
+      gameplayScene: new Container(),
+      gameOverScene: new Container(),
+      latestGame: null,
+      app: { render: () => (rendered = true) },
+      updateTitleScene: () => undefined,
+      updateGameplayScene: () => undefined,
+    };
+
+    methods.renderIfReady.call(self);
+
+    expect(rendered).toBe(true);
+    expect(self.canvas.dataset.pixiScreen).toBe("gameover");
+    expect(self.titleScene.visible).toBe(false);
+    expect(self.gameplayScene.visible).toBe(false);
+    expect(self.gameOverScene.visible).toBe(true);
+  });
+
+  it("clears live game state when renderGameOver is requested", () => {
+    const { methods } = rendererInternals();
+    let renderCalls = 0;
+    const self = {
+      screen: "playing",
+      latestGame: initGame(),
+      latestShowShop: true,
+      renderIfReady: () => {
+        renderCalls += 1;
+      },
+    };
+
+    methods.renderGameOver.call(self, {
+      score: 1200,
+      wave: 3,
+      stats: { missileKills: 4, droneKills: 2, shotsFired: 9 },
+    });
+
+    expect(self.screen).toBe("gameover");
+    expect(self.latestGame).toBeNull();
+    expect(self.latestShowShop).toBe(false);
+    expect(renderCalls).toBe(1);
+  });
+});
