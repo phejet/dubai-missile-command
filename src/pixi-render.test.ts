@@ -30,6 +30,7 @@ function dynamicState() {
   const threat = projectileAsset();
   const interceptor = projectileAsset();
   const upgrade = projectileAsset();
+  const effect = staticAsset();
   return {
     threatAssets: {
       missile: threat,
@@ -54,6 +55,21 @@ function dynamicState() {
     planeAssets: {
       f15Airframe: staticAsset(),
     },
+    effectAssets: {
+      explosion: {
+        light: effect,
+        splash: effect,
+        fireball: effect,
+        core: effect,
+        ring: effect,
+      },
+      emp: {
+        wash: effect,
+        ring: effect,
+      },
+      laserBeam: effect,
+      phalanxBullet: effect,
+    },
     missiles: new Map(),
     drones: new Map(),
     interceptors: new Map(),
@@ -63,6 +79,7 @@ function dynamicState() {
     planes: new Map(),
     flares: new Map(),
     explosions: new Map(),
+    empRingPool: [],
     laserPool: [],
     phalanxPool: [],
     particlePool: [],
@@ -234,6 +251,7 @@ describe("summarizePixiDynamicEntities", () => {
       planes: 1,
       flares: 1,
       explosions: 1,
+      empRings: 0,
       particles: 1,
       phalanxBullets: 1,
       laserBeams: 1,
@@ -373,6 +391,14 @@ describe("PixiRenderer dynamic entity updates", () => {
       ringRadius: 12,
       ringAlpha: 1,
     });
+    game.empRings.push({
+      x: 430,
+      y: 450,
+      radius: 30,
+      maxRadius: 100,
+      alpha: 0.7,
+      alive: true,
+    });
     game.particles.push({
       x: 460,
       y: 480,
@@ -392,6 +418,7 @@ describe("PixiRenderer dynamic entity updates", () => {
     methods.updateGameplayFlares.call(self, state, game, 1);
     methods.updateGameplayPlanes.call(self, state, game, 1);
     methods.updateGameplayLasers.call(self, state, game);
+    methods.updateGameplayEmpRings.call(self, state, game);
     methods.updateGameplayPhalanxBullets.call(self, state, game);
     methods.updateGameplayMissiles.call(self, state, game, 1);
     methods.updateGameplayDrones.call(self, state, game, 1);
@@ -409,8 +436,9 @@ describe("PixiRenderer dynamic entity updates", () => {
     expect(state.planes.size).toBe(1);
     expect(state.flares.size).toBe(1);
     expect(state.explosions.size).toBe(1);
+    expect((state.empRingPool as Array<{ container: Container }>)[0].container.visible).toBe(true);
     expect(self.gameplayProjectileLayer.children.length).toBe(6);
-    expect(self.gameplayEffectsLayer.children.length).toBe(3);
+    expect(self.gameplayEffectsLayer.children.length).toBe(4);
     expect(self.gameplayParticleLayer.children.length).toBe(3);
     expect(state.missiles.get(missile)!.spriteRoot.position).toMatchObject({ x: 100, y: 120 });
     expect(state.planes.get(plane)!.container.position).toMatchObject({ x: 340, y: 360 });

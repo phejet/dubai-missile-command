@@ -5,6 +5,7 @@ import {
   type BurjAssets,
   type CanvasRenderResources,
   type DefenseSiteAssets,
+  type EffectSpriteAssets,
   type InterceptorSpriteAssets,
   type LauncherAssets,
   type PlaneAssets,
@@ -67,6 +68,26 @@ export interface PixiPlaneAssets {
   f15Airframe: PixiStaticSpriteAsset;
 }
 
+export interface PixiExplosionGlowAssets {
+  light: PixiStaticSpriteAsset;
+  splash: PixiStaticSpriteAsset;
+  fireball: PixiStaticSpriteAsset;
+  core: PixiStaticSpriteAsset;
+  ring: PixiStaticSpriteAsset;
+}
+
+export interface PixiEmpRingAssets {
+  wash: PixiStaticSpriteAsset;
+  ring: PixiStaticSpriteAsset;
+}
+
+export interface PixiEffectSpriteAssets {
+  explosion: PixiExplosionGlowAssets;
+  emp: PixiEmpRingAssets;
+  laserBeam: PixiStaticSpriteAsset;
+  phalanxBullet: PixiStaticSpriteAsset;
+}
+
 export interface PixiTextureResources {
   getGameplaySkyAssets(stars: Star[], groundY: number): PixiSkyAssets;
   getTitleSkyAssets(): PixiSkyAssets;
@@ -79,6 +100,7 @@ export interface PixiTextureResources {
   getUpgradeProjectileSpriteAssets(scale: number): PixiUpgradeProjectileSpriteAssets;
   getDefenseSiteAssets(): PixiDefenseSiteAssets;
   getPlaneAssets(): PixiPlaneAssets;
+  getEffectSpriteAssets(): PixiEffectSpriteAssets;
   reupload(): void;
 }
 
@@ -119,6 +141,7 @@ class DefaultPixiTextureResources implements PixiTextureResources {
   >();
   private defenseSiteAssets: { source: DefenseSiteAssets; assets: PixiDefenseSiteAssets } | null = null;
   private planeAssets: { source: PlaneAssets; assets: PixiPlaneAssets } | null = null;
+  private effectSpriteAssets: { source: EffectSpriteAssets; assets: PixiEffectSpriteAssets } | null = null;
 
   constructor(private readonly canvasResources: CanvasRenderResources) {}
 
@@ -228,6 +251,14 @@ class DefaultPixiTextureResources implements PixiTextureResources {
     return assets;
   }
 
+  getEffectSpriteAssets(): PixiEffectSpriteAssets {
+    const source = this.canvasResources.getEffectSpriteAssets();
+    if (this.effectSpriteAssets?.source === source) return this.effectSpriteAssets.assets;
+    const assets = this.mapEffectSpriteAssets(source);
+    this.effectSpriteAssets = { source, assets };
+    return assets;
+  }
+
   reupload(): void {
     this.textureCache = new WeakMap();
     this.titleSkyAssets = null;
@@ -243,6 +274,7 @@ class DefaultPixiTextureResources implements PixiTextureResources {
     this.upgradeProjectileSpriteAssets.clear();
     this.defenseSiteAssets = null;
     this.planeAssets = null;
+    this.effectSpriteAssets = null;
   }
 
   private textureFromCanvas(canvas: HTMLCanvasElement, label: string, resolution = 1): Texture {
@@ -331,6 +363,24 @@ class DefaultPixiTextureResources implements PixiTextureResources {
       empEmitter: cloneTuple(source.empEmitter, (asset, index) =>
         this.mapStaticSpriteAsset(asset, `defense-site:empEmitter:${index}`),
       ),
+    };
+  }
+
+  private mapEffectSpriteAssets(source: EffectSpriteAssets): PixiEffectSpriteAssets {
+    return {
+      explosion: {
+        light: this.mapStaticSpriteAsset(source.explosion.light, "effect:explosion:light"),
+        splash: this.mapStaticSpriteAsset(source.explosion.splash, "effect:explosion:splash"),
+        fireball: this.mapStaticSpriteAsset(source.explosion.fireball, "effect:explosion:fireball"),
+        core: this.mapStaticSpriteAsset(source.explosion.core, "effect:explosion:core"),
+        ring: this.mapStaticSpriteAsset(source.explosion.ring, "effect:explosion:ring"),
+      },
+      emp: {
+        wash: this.mapStaticSpriteAsset(source.emp.wash, "effect:emp:wash"),
+        ring: this.mapStaticSpriteAsset(source.emp.ring, "effect:emp:ring"),
+      },
+      laserBeam: this.mapStaticSpriteAsset(source.laserBeam, "effect:laser-beam"),
+      phalanxBullet: this.mapStaticSpriteAsset(source.phalanxBullet, "effect:phalanx-bullet"),
     };
   }
 }

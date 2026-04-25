@@ -4,6 +4,7 @@ import {
   buildBuildingAssets,
   buildBurjAssets,
   buildDefenseSiteAssets,
+  buildEffectSpriteAssets,
   buildInterceptorSpriteAssets,
   buildLauncherAssets,
   buildPlaneAssets,
@@ -26,6 +27,7 @@ import {
   type BuildingAssets,
   type BurjAssets,
   type DefenseSiteAssets,
+  type EffectSpriteAssets,
   type InterceptorSpriteAssets,
   type InterceptorSpriteKind,
   type LauncherAssets,
@@ -41,6 +43,7 @@ export type {
   BuildingAssets,
   BurjAssets,
   DefenseSiteAssets,
+  EffectSpriteAssets,
   InterceptorSpriteAssets,
   InterceptorSpriteKind,
   LauncherAssets,
@@ -112,6 +115,7 @@ export interface CanvasRenderResources {
   getUpgradeProjectileSpriteAssets(scale: number): UpgradeProjectileSpriteAssets;
   getDefenseSiteAssets(): DefenseSiteAssets;
   getPlaneAssets(): PlaneAssets;
+  getEffectSpriteAssets(): EffectSpriteAssets;
   getBurjAssetCacheKeys(): string[];
   getLauncherAssetCacheKeys(): string[];
   getThreatSpriteCacheKeys(): string[];
@@ -164,6 +168,7 @@ function createCanvasRenderResources(): CanvasRenderResources {
   const upgradeProjectileSpriteAssetsCache = new Map<string, UpgradeProjectileSpriteAssets>();
   let defenseSiteAssets: DefenseSiteAssets | null = null;
   let planeAssets: PlaneAssets | null = null;
+  let effectSpriteAssets: EffectSpriteAssets | null = null;
 
   const skyImage = createCachedImageEntry(new URL("../public/sky-nebula.png", import.meta.url).href);
   const titleWaterImage = createCachedImageEntry(new URL("./assets/title-water-reflection.png", import.meta.url).href);
@@ -280,6 +285,11 @@ function createCanvasRenderResources(): CanvasRenderResources {
     return planeAssets;
   };
 
+  const getEffectSpriteAssets = (): EffectSpriteAssets => {
+    if (!effectSpriteAssets) effectSpriteAssets = buildEffectSpriteAssets();
+    return effectSpriteAssets;
+  };
+
   const preload = (options: Partial<CanvasRenderPreloadOptions> = {}): void => {
     const resolved: CanvasRenderPreloadOptions = {
       gameplayBuildingBaseY: GAMEPLAY_SCENIC_BASE_Y,
@@ -312,6 +322,7 @@ function createCanvasRenderResources(): CanvasRenderResources {
     getUpgradeProjectileSpriteAssets(resolved.projectileScale);
     getDefenseSiteAssets();
     getPlaneAssets();
+    getEffectSpriteAssets();
   };
 
   const resetForTest = (): void => {
@@ -330,6 +341,7 @@ function createCanvasRenderResources(): CanvasRenderResources {
     upgradeProjectileSpriteAssetsCache.clear();
     defenseSiteAssets = null;
     planeAssets = null;
+    effectSpriteAssets = null;
 
     resetCachedImage(skyImage);
     resetCachedImage(titleWaterImage);
@@ -365,6 +377,7 @@ function createCanvasRenderResources(): CanvasRenderResources {
     getUpgradeProjectileSpriteAssets,
     getDefenseSiteAssets,
     getPlaneAssets,
+    getEffectSpriteAssets,
     getBurjAssetCacheKeys: () => [...burjAssetsCache.keys()].sort(),
     getLauncherAssetCacheKeys: () => [...launcherAssetsCache.keys()].sort(),
     getThreatSpriteCacheKeys: () => [...threatSpriteAssetsCache.keys()].sort(),

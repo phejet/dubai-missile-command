@@ -864,17 +864,6 @@ export class Game {
     const loop = (timestamp: number) => {
       this.rafId = requestAnimationFrame(loop);
 
-      if (!perfState.probed && this.screen === "playing" && this.gameRef.current) {
-        if (perfState.frameCount === 0) perfState.startTime = timestamp;
-        perfState.frameCount++;
-        if (perfState.frameCount >= 60) {
-          const elapsed = timestamp - perfState.startTime;
-          const avgFps = (60 / elapsed) * 1000;
-          perfState.glowEnabled = avgFps >= 45;
-          perfState.probed = true;
-        }
-      }
-
       if (this.screen === "playing" && this.gameRef.current) {
         if (this.lastTime === null) this.lastTime = timestamp;
         const elapsed = timestamp - this.lastTime;

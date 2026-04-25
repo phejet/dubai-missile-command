@@ -19,6 +19,7 @@
     "hooks:install": "git config core.hooksPath .githooks",
     "preview": "vite preview",
     "perf:smoke": "node scripts/perf-smoke.mjs",
+    "qa:pixi-phase6": "node scripts/capture-pixi-phase6.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",

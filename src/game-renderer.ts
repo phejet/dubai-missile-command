@@ -20,10 +20,10 @@ export interface GameRenderer {
   destroy(): void;
 }
 
-// Transitional render probe state shared by the controller HUD and the Canvas2D renderer.
+// Transitional HUD contract retained while the Pixi migration still carries the Canvas2D path.
 export const perfState = {
   frameCount: 0,
   startTime: 0,
   glowEnabled: true,
-  probed: false,
+  probed: true,
 };

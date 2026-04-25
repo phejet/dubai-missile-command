@@ -107,6 +107,26 @@ export interface DefenseSiteAssets {
   empEmitter: [StaticSpriteAsset, StaticSpriteAsset, StaticSpriteAsset];
 }
 
+export interface ExplosionGlowAssets {
+  light: StaticSpriteAsset;
+  splash: StaticSpriteAsset;
+  fireball: StaticSpriteAsset;
+  core: StaticSpriteAsset;
+  ring: StaticSpriteAsset;
+}
+
+export interface EmpRingAssets {
+  wash: StaticSpriteAsset;
+  ring: StaticSpriteAsset;
+}
+
+export interface EffectSpriteAssets {
+  explosion: ExplosionGlowAssets;
+  emp: EmpRingAssets;
+  laserBeam: StaticSpriteAsset;
+  phalanxBullet: StaticSpriteAsset;
+}
+
 export type TitleTower = {
   x: number;
   w: number;
@@ -1426,6 +1446,141 @@ function buildStaticSpriteAsset(
     height: bounds.height * scale,
     resolutionScale,
     scale,
+  };
+}
+
+function buildEffectSpriteAsset(
+  width: number,
+  height: number,
+  draw: (ctx: CanvasRenderingContext2D, width: number, height: number) => void,
+): StaticSpriteAsset {
+  const resolutionScale = 2;
+  const sprite = createSpriteCanvas(width, height, resolutionScale);
+  const ctx = sprite.getContext("2d");
+  if (ctx) {
+    ctx.scale(resolutionScale, resolutionScale);
+    draw(ctx, width, height);
+  }
+  return {
+    sprite,
+    offset: { x: -width / 2, y: -height / 2 },
+    width,
+    height,
+    resolutionScale,
+    scale: 1,
+  };
+}
+
+function drawCenteredRadialGlow(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  stops: Array<[number, string]>,
+): void {
+  const cx = width / 2;
+  const cy = height / 2;
+  const radius = Math.min(width, height) / 2;
+  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+  stops.forEach(([offset, color]) => grad.addColorStop(offset, color));
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, width, height);
+}
+
+export function buildExplosionGlowAssets(): ExplosionGlowAssets {
+  return {
+    light: buildEffectSpriteAsset(256, 256, (ctx, width, height) => {
+      drawCenteredRadialGlow(ctx, width, height, [
+        [0, "rgba(255, 255, 255, 0.9)"],
+        [0.24, "rgba(255, 255, 255, 0.36)"],
+        [0.58, "rgba(255, 255, 255, 0.1)"],
+        [1, "rgba(255, 255, 255, 0)"],
+      ]);
+    }),
+    splash: buildEffectSpriteAsset(192, 192, (ctx, width, height) => {
+      drawCenteredRadialGlow(ctx, width, height, [
+        [0, "rgba(255, 255, 255, 0.55)"],
+        [0.18, "rgba(255, 255, 255, 0.34)"],
+        [0.42, "rgba(255, 255, 255, 0.14)"],
+        [0.74, "rgba(255, 255, 255, 0.04)"],
+        [1, "rgba(255, 255, 255, 0)"],
+      ]);
+    }),
+    fireball: buildEffectSpriteAsset(128, 128, (ctx, width, height) => {
+      drawCenteredRadialGlow(ctx, width, height, [
+        [0, "rgba(255, 255, 255, 1)"],
+        [0.16, "rgba(255, 245, 206, 0.94)"],
+        [0.42, "rgba(255, 255, 255, 0.55)"],
+        [0.78, "rgba(255, 255, 255, 0.08)"],
+        [1, "rgba(255, 255, 255, 0)"],
+      ]);
+    }),
+    core: buildEffectSpriteAsset(64, 64, (ctx, width, height) => {
+      drawCenteredRadialGlow(ctx, width, height, [
+        [0, "rgba(255, 255, 255, 1)"],
+        [0.34, "rgba(255, 255, 255, 0.86)"],
+        [0.72, "rgba(255, 255, 255, 0.22)"],
+        [1, "rgba(255, 255, 255, 0)"],
+      ]);
+    }),
+    ring: buildEffectSpriteAsset(160, 160, (ctx, width, height) => {
+      drawCenteredRadialGlow(ctx, width, height, [
+        [0, "rgba(255, 255, 255, 0)"],
+        [0.72, "rgba(255, 255, 255, 0)"],
+        [0.82, "rgba(255, 255, 255, 0.78)"],
+        [0.9, "rgba(255, 255, 255, 0.28)"],
+        [1, "rgba(255, 255, 255, 0)"],
+      ]);
+    }),
+  };
+}
+
+export function buildEmpRingAssets(): EmpRingAssets {
+  return {
+    wash: buildEffectSpriteAsset(256, 256, (ctx, width, height) => {
+      drawCenteredRadialGlow(ctx, width, height, [
+        [0, "rgba(255, 255, 255, 0)"],
+        [0.58, "rgba(255, 255, 255, 0)"],
+        [0.88, "rgba(255, 255, 255, 0.22)"],
+        [1, "rgba(255, 255, 255, 0)"],
+      ]);
+    }),
+    ring: buildEffectSpriteAsset(256, 256, (ctx, width, height) => {
+      drawCenteredRadialGlow(ctx, width, height, [
+        [0, "rgba(255, 255, 255, 0)"],
+        [0.66, "rgba(255, 255, 255, 0)"],
+        [0.76, "rgba(255, 255, 255, 0.9)"],
+        [0.82, "rgba(255, 255, 255, 0.52)"],
+        [0.9, "rgba(255, 255, 255, 0.18)"],
+        [1, "rgba(255, 255, 255, 0)"],
+      ]);
+    }),
+  };
+}
+
+export function buildEffectSpriteAssets(): EffectSpriteAssets {
+  return {
+    explosion: buildExplosionGlowAssets(),
+    emp: buildEmpRingAssets(),
+    laserBeam: buildEffectSpriteAsset(128, 24, (ctx, width, height) => {
+      const cy = height / 2;
+      const glow = ctx.createLinearGradient(0, cy, 0, height);
+      glow.addColorStop(0, "rgba(255, 255, 255, 0)");
+      glow.addColorStop(0.35, "rgba(255, 255, 255, 0.34)");
+      glow.addColorStop(0.5, "rgba(255, 255, 255, 0.95)");
+      glow.addColorStop(0.65, "rgba(255, 255, 255, 0.34)");
+      glow.addColorStop(1, "rgba(255, 255, 255, 0)");
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, width, height);
+    }),
+    phalanxBullet: buildEffectSpriteAsset(96, 12, (ctx, width, height) => {
+      const beam = ctx.createLinearGradient(0, 0, width, 0);
+      beam.addColorStop(0, "rgba(255, 255, 255, 0)");
+      beam.addColorStop(0.28, "rgba(255, 255, 255, 0.24)");
+      beam.addColorStop(0.72, "rgba(255, 255, 255, 0.92)");
+      beam.addColorStop(1, "rgba(255, 255, 255, 0)");
+      ctx.fillStyle = beam;
+      ctx.fillRect(0, 0, width, height);
+    }),
   };
 }
 

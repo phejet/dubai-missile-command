@@ -23,6 +23,7 @@ import {
   type PixiBuildingAssets,
   type PixiBurjAssets,
   type PixiDefenseSiteAssets,
+  type PixiEffectSpriteAssets,
   type PixiInterceptorSpriteAssets,
   type PixiLauncherAssets,
   type PixiPlaneAssets,
@@ -164,7 +165,20 @@ interface GameplayFlareNode {
 }
 
 interface GameplayExplosionNode {
-  graphic: Graphics;
+  container: Container;
+  light: Sprite;
+  splash: Sprite;
+  fireball: Sprite;
+  core: Sprite;
+  ring: Sprite;
+  link: Graphics;
+}
+
+interface GameplayEmpRingNode {
+  container: Container;
+  flash: Graphics;
+  wash: Sprite;
+  ring: Sprite;
 }
 
 // Step 5 pooling audit:
@@ -179,6 +193,7 @@ interface GameplayDynamicState {
   interceptorAssets: PixiInterceptorSpriteAssets;
   upgradeProjectileAssets: PixiUpgradeProjectileSpriteAssets;
   planeAssets: PixiPlaneAssets;
+  effectAssets: PixiEffectSpriteAssets;
   missiles: Map<Missile, GameplayProjectileNode>;
   drones: Map<Drone, GameplayProjectileNode>;
   interceptors: Map<Interceptor, GameplayProjectileNode>;
@@ -188,8 +203,9 @@ interface GameplayDynamicState {
   planes: Map<Plane, GameplayPlaneNode>;
   flares: Map<Flare, GameplayFlareNode>;
   explosions: Map<Explosion, GameplayExplosionNode>;
-  laserPool: Graphics[];
-  phalanxPool: Graphics[];
+  empRingPool: GameplayEmpRingNode[];
+  laserPool: Sprite[];
+  phalanxPool: Sprite[];
   particlePool: Graphics[];
 }
 
@@ -380,6 +396,32 @@ function createStaticAssetSprite(asset: PixiStaticSpriteAsset): Sprite {
   return sprite;
 }
 
+function createEffectSprite(asset: PixiStaticSpriteAsset): Sprite {
+  const sprite = new Sprite(asset.sprite);
+  sprite.anchor.set(0.5);
+  sprite.visible = false;
+  sprite.blendMode = "add";
+  return sprite;
+}
+
+function syncCenteredSprite(
+  sprite: Sprite,
+  x: number,
+  y: number,
+  size: number,
+  alpha: number,
+  tint: number,
+  stretchY = 1,
+): void {
+  sprite.visible = alpha > 0.001 && size > 0.001;
+  if (!sprite.visible) return;
+  sprite.position.set(x, y);
+  sprite.width = size;
+  sprite.height = size * stretchY;
+  sprite.alpha = Math.max(0, Math.min(1, alpha));
+  sprite.tint = tint;
+}
+
 function getThreatSpriteAsset(
   threatAssets: PixiThreatSpriteAssets,
   entity: Missile | Drone,
@@ -533,10 +575,74 @@ function getPooledGraphic(pool: Graphics[], container: Container, index: number)
   return graphic;
 }
 
+function getPooledSprite(
+  pool: Sprite[],
+  container: Container,
+  index: number,
+  texture: Texture,
+  anchorX = 0.5,
+  anchorY = 0.5,
+): Sprite {
+  let sprite = pool[index];
+  if (!sprite) {
+    sprite = new Sprite(texture);
+    sprite.anchor.set(anchorX, anchorY);
+    sprite.blendMode = "add";
+    pool[index] = sprite;
+    container.addChild(sprite);
+  }
+  sprite.texture = texture;
+  sprite.anchor.set(anchorX, anchorY);
+  sprite.visible = true;
+  return sprite;
+}
+
 function hideUnusedGraphics(pool: Graphics[], usedCount: number): void {
   for (let index = usedCount; index < pool.length; index++) {
     pool[index].visible = false;
     pool[index].clear();
+  }
+}
+
+function hideUnusedSprites(pool: Sprite[], usedCount: number): void {
+  for (let index = usedCount; index < pool.length; index++) {
+    pool[index].visible = false;
+  }
+}
+
+function createEmpRingNode(assets: PixiEffectSpriteAssets): GameplayEmpRingNode {
+  const container = new Container();
+  const flash = new Graphics();
+  const wash = createEffectSprite(assets.emp.wash);
+  const ring = createEffectSprite(assets.emp.ring);
+  container.addChild(flash, wash, ring);
+  return { container, flash, wash, ring };
+}
+
+function getPooledEmpRingNode(
+  pool: GameplayEmpRingNode[],
+  container: Container,
+  index: number,
+  assets: PixiEffectSpriteAssets,
+): GameplayEmpRingNode {
+  let node = pool[index];
+  if (!node) {
+    node = createEmpRingNode(assets);
+    pool[index] = node;
+    container.addChild(node.container);
+  }
+  node.container.visible = true;
+  node.flash.clear();
+  return node;
+}
+
+function hideUnusedEmpRingNodes(pool: GameplayEmpRingNode[], usedCount: number): void {
+  for (let index = usedCount; index < pool.length; index++) {
+    const node = pool[index];
+    node.container.visible = false;
+    node.flash.clear();
+    node.wash.visible = false;
+    node.ring.visible = false;
   }
 }
 
@@ -565,6 +671,7 @@ export function summarizePixiDynamicEntities(game: GameState): {
     planes: countWhere(game.planes, (plane) => plane.alive),
     flares: countWhere(game.flares, (flare) => flare.alive),
     explosions: game.explosions.length,
+    empRings: countWhere(game.empRings, (ring) => ring.alive !== false),
     particles: game.particles.length,
     phalanxBullets: countWhere(game.phalanxBullets, (bullet) => bullet.cx !== undefined && bullet.cy !== undefined),
     laserBeams: countWhere(
@@ -959,6 +1066,7 @@ export class PixiRenderer implements GameRenderer {
       interceptorAssets: this.textures.getInterceptorSpriteAssets(GAMEPLAY_PROJECTILE_SCALE),
       upgradeProjectileAssets: this.textures.getUpgradeProjectileSpriteAssets(GAMEPLAY_PROJECTILE_SCALE),
       planeAssets: this.textures.getPlaneAssets(),
+      effectAssets: this.textures.getEffectSpriteAssets(),
       missiles: new Map(),
       drones: new Map(),
       interceptors: new Map(),
@@ -968,6 +1076,7 @@ export class PixiRenderer implements GameRenderer {
       planes: new Map(),
       flares: new Map(),
       explosions: new Map(),
+      empRingPool: [],
       laserPool: [],
       phalanxPool: [],
       particlePool: [],
@@ -1645,6 +1754,7 @@ export class PixiRenderer implements GameRenderer {
     this.updateGameplayFlares(state, game, sceneTime);
     this.updateGameplayPlanes(state, game, sceneTime);
     this.updateGameplayLasers(state, game);
+    this.updateGameplayEmpRings(state, game);
     this.updateGameplayPhalanxBullets(state, game);
     this.updateGameplayMissiles(state, game, sceneTime);
     this.updateGameplayDrones(state, game, sceneTime);
@@ -2037,39 +2147,77 @@ export class PixiRenderer implements GameRenderer {
     for (const beam of game.laserBeams) {
       if (beam.x1 == null || beam.y1 == null || beam.x2 == null || beam.y2 == null) continue;
       const alpha = beam.maxLife ? (beam.life ?? 0) / beam.maxLife : 1;
-      const graphic = getPooledGraphic(state.laserPool, this.gameplayEffectsLayer, used++);
-      graphic
-        .moveTo(beam.x1, beam.y1)
-        .lineTo(beam.x2, beam.y2)
-        .stroke({
-          width: 3 * GAMEPLAY_PROJECTILE_SCALE,
-          color: COL_HEX.laser,
-          alpha: alpha * 0.86,
-          cap: "round",
-        })
-        .moveTo(beam.x1, beam.y1)
-        .lineTo(beam.x2, beam.y2)
-        .stroke({ width: GAMEPLAY_PROJECTILE_SCALE, color: 0xffffff, alpha, cap: "round" });
+      const dx = beam.x2 - beam.x1;
+      const dy = beam.y2 - beam.y1;
+      const length = Math.hypot(dx, dy);
+      if (length < 1) continue;
+      const sprite = getPooledSprite(
+        state.laserPool,
+        this.gameplayEffectsLayer,
+        used++,
+        state.effectAssets.laserBeam.sprite,
+        0,
+        0.5,
+      );
+      sprite.position.set(beam.x1, beam.y1);
+      sprite.rotation = Math.atan2(dy, dx);
+      sprite.width = length;
+      sprite.height = 8 * GAMEPLAY_EFFECT_SCALE;
+      sprite.alpha = Math.max(0, Math.min(1, alpha * 0.92));
+      sprite.tint = COL_HEX.laser;
     }
-    hideUnusedGraphics(state.laserPool, used);
+    hideUnusedSprites(state.laserPool, used);
+  }
+
+  private updateGameplayEmpRings(state: GameplayDynamicState, game: GameState): void {
+    let used = 0;
+    for (const ring of game.empRings) {
+      if (ring.alive === false) continue;
+      const progress = ring.maxRadius > 0 ? Math.max(0, Math.min(1, ring.radius / ring.maxRadius)) : 1;
+      const node = getPooledEmpRingNode(state.empRingPool, this.gameplayEffectsLayer, used++, state.effectAssets);
+      if (progress < 0.15) {
+        node.flash.rect(0, 0, CANVAS_W, CANVAS_H).fill({
+          color: COL_HEX.emp,
+          alpha: (1 - progress / 0.15) * 0.18,
+        });
+      }
+      syncCenteredSprite(node.wash, ring.x, ring.y, ring.radius * 2, ring.alpha * 0.2, COL_HEX.emp);
+      syncCenteredSprite(
+        node.ring,
+        ring.x,
+        ring.y,
+        ring.radius * 2.16,
+        ring.alpha * (0.8 + (1 - progress) * 0.18),
+        COL_HEX.emp,
+      );
+    }
+    hideUnusedEmpRingNodes(state.empRingPool, used);
   }
 
   private updateGameplayPhalanxBullets(state: GameplayDynamicState, game: GameState): void {
     let used = 0;
     for (const bullet of game.phalanxBullets) {
       if (bullet.cx === undefined || bullet.cy === undefined) continue;
-      const graphic = getPooledGraphic(state.phalanxPool, this.gameplayParticleLayer, used++);
-      const bulletSize = 2 * GAMEPLAY_PROJECTILE_SCALE;
-      graphic
-        .rect(bullet.cx - bulletSize / 2, bullet.cy - bulletSize / 2, bulletSize, bulletSize)
-        .fill({ color: COL_HEX.phalanx, alpha: 0.8 });
-      graphic.moveTo(bullet.x, bullet.y).lineTo(bullet.cx, bullet.cy).stroke({
-        width: GAMEPLAY_PROJECTILE_SCALE,
-        color: COL_HEX.phalanx,
-        alpha: 0.4,
-      });
+      const dx = bullet.cx - bullet.x;
+      const dy = bullet.cy - bullet.y;
+      const length = Math.hypot(dx, dy);
+      if (length < 1) continue;
+      const sprite = getPooledSprite(
+        state.phalanxPool,
+        this.gameplayParticleLayer,
+        used++,
+        state.effectAssets.phalanxBullet.sprite,
+        0,
+        0.5,
+      );
+      sprite.position.set(bullet.x, bullet.y);
+      sprite.rotation = Math.atan2(dy, dx);
+      sprite.width = length + 8 * GAMEPLAY_PROJECTILE_SCALE;
+      sprite.height = 3 * GAMEPLAY_PROJECTILE_SCALE;
+      sprite.alpha = 0.84;
+      sprite.tint = COL_HEX.phalanx;
     }
-    hideUnusedGraphics(state.phalanxPool, used);
+    hideUnusedSprites(state.phalanxPool, used);
   }
 
   private updateGameplayExplosions(state: GameplayDynamicState, game: GameState): void {
@@ -2077,34 +2225,84 @@ export class PixiRenderer implements GameRenderer {
       state.explosions,
       game.explosions,
       () => true,
-      (node) => node.graphic.destroy(),
+      (node) => node.container.destroy({ children: true }),
     );
 
     for (const explosion of game.explosions) {
       let node = state.explosions.get(explosion);
       if (!node) {
-        node = { graphic: new Graphics() };
+        const container = new Container();
+        const light = createEffectSprite(state.effectAssets.explosion.light);
+        const splash = createEffectSprite(state.effectAssets.explosion.splash);
+        const fireball = createEffectSprite(state.effectAssets.explosion.fireball);
+        const core = createEffectSprite(state.effectAssets.explosion.core);
+        const ring = createEffectSprite(state.effectAssets.explosion.ring);
+        const link = new Graphics();
+        container.addChild(link, light, splash, fireball, core, ring);
+        node = { container, light, splash, fireball, core, ring, link };
         state.explosions.set(explosion, node);
-        this.gameplayParticleLayer.addChild(node.graphic);
+        this.gameplayParticleLayer.addChild(container);
       }
-      const graphic = node.graphic;
-      graphic.clear();
+      node.link.clear();
       const color = memoCssColorToNumber(explosion.color, 0xffaa44);
       const radius = explosion.radius * GAMEPLAY_EFFECT_SCALE;
-      if (radius >= 1) {
-        graphic.circle(explosion.x, explosion.y, radius * 1.9).fill({ color, alpha: explosion.alpha * 0.1 });
-        graphic.circle(explosion.x, explosion.y, radius).fill({ color, alpha: explosion.alpha * 0.32 });
-        graphic.circle(explosion.x, explosion.y, radius * 0.3).fill({ color: 0xfff6dc, alpha: explosion.alpha * 0.72 });
-      }
-      if (explosion.ringAlpha > 0) {
-        graphic.circle(explosion.x, explosion.y, explosion.ringRadius * GAMEPLAY_EFFECT_SCALE).stroke({
-          width: Math.max(1, 3 * GAMEPLAY_EFFECT_SCALE * explosion.ringAlpha),
-          color,
-          alpha: explosion.ringAlpha * explosion.alpha,
-        });
-      }
+      const chainBoost = 1 + (explosion.chainLevel ?? 0) * 0.12 + (explosion.heroPulse ?? 0) * 0.08;
+      const rootBoost =
+        explosion.rootExplosionId == null && (explosion.kills ?? 0) >= 2
+          ? 1 + Math.min(0.45, (explosion.kills ?? 0) * 0.08)
+          : 1;
+      const boostedRadius = radius * chainBoost * rootBoost;
+      const visualBoost =
+        explosion.visualType === "drone"
+          ? 1.12
+          : explosion.visualType === "missile"
+            ? 1.02
+            : explosion.playerCaused
+              ? 0.72
+              : 1;
+
+      syncCenteredSprite(
+        node.light,
+        explosion.x,
+        explosion.y,
+        boostedRadius * 7.2 * visualBoost,
+        explosion.alpha * 0.13,
+        color,
+      );
+      syncCenteredSprite(
+        node.splash,
+        explosion.x,
+        explosion.y,
+        boostedRadius * 4.4 * visualBoost,
+        explosion.alpha * 0.34,
+        color,
+      );
+      syncCenteredSprite(
+        node.fireball,
+        explosion.x,
+        explosion.y,
+        boostedRadius * 2.25 * visualBoost,
+        explosion.alpha * (explosion.playerCaused && !explosion.chain ? 0.72 : 0.92),
+        color,
+      );
+      syncCenteredSprite(
+        node.core,
+        explosion.x,
+        explosion.y,
+        boostedRadius * (explosion.playerCaused && !explosion.chain ? 0.72 : 0.58),
+        explosion.alpha * 0.88,
+        0xfff6dc,
+      );
+      syncCenteredSprite(
+        node.ring,
+        explosion.x,
+        explosion.y,
+        explosion.ringRadius * GAMEPLAY_EFFECT_SCALE * 2.25,
+        explosion.ringAlpha * explosion.alpha * (1 + (explosion.heroPulse ?? 0) * 0.18),
+        color,
+      );
       if ((explosion.linkAlpha ?? 0) > 0 && explosion.linkFromX != null && explosion.linkFromY != null) {
-        graphic
+        node.link
           .moveTo(explosion.linkFromX, explosion.linkFromY)
           .lineTo(explosion.x, explosion.y)
           .stroke({
