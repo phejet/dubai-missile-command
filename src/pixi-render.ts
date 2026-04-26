@@ -1,4 +1,4 @@
-import { Application, Container, Graphics, Sprite, Texture, TilingSprite } from "pixi.js";
+import { Application, Container, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
 import { DEFAULT_GAMEPLAY_LAUNCHER_SCALE, TITLE_SKYLINE_TOWERS } from "./canvas-render-resources";
 import {
   BURJ_H,
@@ -88,6 +88,19 @@ interface TitleThreatNode {
   y: number;
 }
 
+export interface PixiWaterBand {
+  sprite: Sprite;
+  index: number;
+  baseY: number;
+  baseWidth: number;
+  baseHeight: number;
+}
+
+export interface PixiWaterSurface {
+  container: Container;
+  bands: PixiWaterBand[];
+}
+
 interface TitleSceneState {
   skyAssets: PixiSkyAssets;
   skyBlend: BlendSprites;
@@ -103,7 +116,7 @@ interface TitleSceneState {
   launcherAssets: PixiLauncherAssets;
   threats: TitleThreatNode[];
   threatAssets: PixiThreatSpriteAssets;
-  water: TilingSprite | null;
+  water: PixiWaterSurface | null;
   waterShade: Graphics;
   ambientMarkers: Graphics[];
 }
@@ -236,7 +249,7 @@ interface GameplaySceneState {
   crosshairOverlay: Graphics;
   upgradeRangeOverlay: Graphics;
   collisionOverlay: Graphics;
-  water: TilingSprite | null;
+  water: PixiWaterSurface | null;
   waterShade: Graphics;
   dynamic: GameplayDynamicState;
 }
@@ -246,7 +259,7 @@ interface GameOverSceneState {
   nebula: Sprite | null;
   buildings: Container[];
   burj: Container;
-  water: TilingSprite | null;
+  water: PixiWaterSurface | null;
   waterShade: Graphics;
   launchers: Container[];
   defenseSites: Container[];
@@ -282,6 +295,9 @@ const TITLE_SHAHED_TIME_STAGGER_SECONDS = 7 / 60;
 const TITLE_MISSILE_TIME_STAGGER_SECONDS = 5 / 60;
 const TITLE_SHAHED_TIME_RATE = 1.8;
 const TITLE_MISSILE_TIME_RATE = 2.4;
+const WATER_BAND_HEIGHT = 12;
+const WATER_HORIZONTAL_BLEED = 8;
+const WATER_DISTORTION_AMPLITUDE = 3.1;
 const TITLE_LAUNCHER_ANGLES = [-1.1, -1.57, -2.05] as const;
 const TITLE_AIRCRAFT: ReadonlyArray<{ kind: TitleThreatKind; x: number; y: number; scale: number }> = [
   { kind: "shahed", x: 125, y: 520, scale: 3 },
@@ -302,6 +318,81 @@ function createBlendSprites(initialTexture: Texture): BlendSprites {
   const secondary = new Sprite(initialTexture);
   secondary.alpha = 0;
   return { primary, secondary };
+}
+
+export function getPixiWaterBandTransform(timeSeconds: number, index: number) {
+  const seedA = 0.5 + 0.5 * Math.sin(index * 17.231 + 0.8);
+  const seedB = 0.5 + 0.5 * Math.sin(index * 9.173 + 2.4);
+  const seedC = 0.5 + 0.5 * Math.sin(index * 23.417 + 4.1);
+  const swell = 0.68 + 0.32 * Math.sin(timeSeconds * (0.42 + seedC * 0.18) + index * 0.11 + seedB * 5.2);
+  const drift = Math.sin(timeSeconds * (0.72 + seedA * 0.42) + index * (0.18 + seedB * 0.16) + seedC * 6.28);
+  const chop = Math.sin(timeSeconds * (1.65 + seedB * 0.95) + index * (0.43 + seedC * 0.31) + seedA * 6.28);
+  const micro = Math.sin(timeSeconds * (3.4 + seedC * 1.4) + index * (0.94 + seedA * 0.42) + seedB * 6.28);
+  const wave = (drift * 0.74 + chop * 0.28 * swell + micro * 0.09) * WATER_DISTORTION_AMPLITUDE;
+  const stretch = 1 + (drift * 0.0055 + chop * 0.004 + micro * 0.002);
+  return { wave, stretch };
+}
+
+function createPixiWaterSurface(texture: Texture, width: number, height: number): PixiWaterSurface {
+  const container = new Container();
+  const bands: PixiWaterBand[] = [];
+  const bandTextures: Texture[] = [];
+  const srcW = Math.max(1, Math.round(texture.width));
+  const srcH = Math.max(1, Math.round(texture.height));
+  const bandsCount = Math.max(1, Math.ceil(height / WATER_BAND_HEIGHT));
+
+  for (let i = 0; i < bandsCount; i++) {
+    const destY = i * WATER_BAND_HEIGHT;
+    const destH = Math.min(WATER_BAND_HEIGHT + 1, height - destY);
+    if (destH <= 0.5) continue;
+
+    const srcY = Math.min(srcH - 1, Math.round((i / bandsCount) * srcH));
+    const nextSrcY = Math.min(srcH, Math.max(srcY + 1, Math.round(((i + 1) / bandsCount) * srcH)));
+    const bandTexture = new Texture({
+      source: texture.source,
+      frame: new Rectangle(0, srcY, srcW, nextSrcY - srcY),
+    });
+    bandTextures.push(bandTexture);
+    const sprite = new Sprite(bandTexture);
+    sprite.position.set(-WATER_HORIZONTAL_BLEED, destY);
+    sprite.width = width + WATER_HORIZONTAL_BLEED * 2;
+    sprite.height = destH;
+    sprite.alpha = 0.97 - (i / bandsCount) * 0.04;
+    container.addChild(sprite);
+    bands.push({
+      sprite,
+      index: i,
+      baseY: destY,
+      baseWidth: width + WATER_HORIZONTAL_BLEED * 2,
+      baseHeight: destH,
+    });
+  }
+
+  container.once("destroyed", () => {
+    bandTextures.forEach((bandTexture) => {
+      if (!bandTexture.destroyed) bandTexture.destroy(false);
+    });
+  });
+
+  return { container, bands };
+}
+
+function updatePixiWaterSurface(surface: PixiWaterSurface, timeSeconds: number, alpha: number): void {
+  surface.bands.forEach((band) => {
+    const { wave, stretch } = getPixiWaterBandTransform(timeSeconds, band.index);
+    band.sprite.position.set(-WATER_HORIZONTAL_BLEED + wave - (band.baseWidth * (stretch - 1)) / 2, band.baseY);
+    band.sprite.width = band.baseWidth * stretch;
+    band.sprite.height = band.baseHeight;
+    band.sprite.alpha = alpha * (0.97 - (band.index / surface.bands.length) * 0.04);
+  });
+}
+
+export function __createPixiWaterSurfaceForTest(texture: Texture, width: number, height: number): PixiWaterSurface {
+  return createPixiWaterSurface(texture, width, height);
+}
+
+export function __updatePixiWaterSurfaceForTest(surface: PixiWaterSurface, timeSeconds: number, alpha: number): void {
+  updatePixiWaterSurface(surface, timeSeconds, alpha);
 }
 
 function positionBlendSprites(blend: BlendSprites, x: number, y: number): void {
@@ -1166,17 +1257,10 @@ export class PixiRenderer implements GameRenderer {
     this.titleBurjLayer.addChild(this.createTitleGroundDecor());
 
     const waterTexture = this.pngs[PIXI_PNG_ASSET_KEYS.titleWaterReflection];
-    const water = waterTexture
-      ? new TilingSprite({
-          texture: waterTexture,
-          width: CANVAS_W + 10,
-          height: CANVAS_H - TITLE_WATER_TOP,
-        })
-      : null;
+    const water = waterTexture ? createPixiWaterSurface(waterTexture, CANVAS_W + 10, CANVAS_H - TITLE_WATER_TOP) : null;
     if (water) {
-      water.position.set(0, TITLE_WATER_TOP);
-      water.alpha = 0.94;
-      this.titleWaterLayer.addChild(water);
+      water.container.position.set(0, TITLE_WATER_TOP);
+      this.titleWaterLayer.addChild(water.container);
     }
 
     const waterShade = createRect(0x0a1426, 0.24, 0, TITLE_WATER_TOP, CANVAS_W, CANVAS_H - TITLE_WATER_TOP);
@@ -1379,16 +1463,11 @@ export class PixiRenderer implements GameRenderer {
 
     const waterTexture = this.pngs[PIXI_PNG_ASSET_KEYS.titleWaterReflection];
     const water = waterTexture
-      ? new TilingSprite({
-          texture: waterTexture,
-          width: CANVAS_W + 10,
-          height: CANVAS_H - GAMEPLAY_WATER_TOP,
-        })
+      ? createPixiWaterSurface(waterTexture, CANVAS_W + 10, CANVAS_H - GAMEPLAY_WATER_TOP)
       : null;
     if (water) {
-      water.position.set(0, GAMEPLAY_WATER_TOP);
-      water.alpha = 0.9;
-      this.gameplayWaterLayer.addChild(water);
+      water.container.position.set(0, GAMEPLAY_WATER_TOP);
+      this.gameplayWaterLayer.addChild(water.container);
     }
     const waterShade = createRect(0x000000, 0.18, 0, GAMEPLAY_WATER_TOP, CANVAS_W, CANVAS_H - GAMEPLAY_WATER_TOP);
     this.gameplayWaterLayer.addChild(waterShade);
@@ -1597,17 +1676,15 @@ export class PixiRenderer implements GameRenderer {
 
     const waterTexture = this.pngs[PIXI_PNG_ASSET_KEYS.titleWaterReflection];
     const water = waterTexture
-      ? new TilingSprite({
-          texture: waterTexture,
-          width: CANVAS_W + 10,
-          height: CANVAS_H - GAMEOVER_WATER_TOP,
-        })
+      ? createPixiWaterSurface(waterTexture, CANVAS_W + 10, CANVAS_H - GAMEOVER_WATER_TOP)
       : null;
     if (water) {
-      water.position.set(0, GAMEOVER_WATER_TOP);
-      water.tint = 0x5a2730;
-      water.alpha = 0.48;
-      this.gameOverScene.addChild(water);
+      water.container.position.set(0, GAMEOVER_WATER_TOP);
+      water.bands.forEach((band) => {
+        band.sprite.tint = 0x5a2730;
+      });
+      updatePixiWaterSurface(water, 0, 0.48);
+      this.gameOverScene.addChild(water.container);
     }
     const waterShade = createRect(0x050305, 0.5, 0, GAMEOVER_WATER_TOP, CANVAS_W, CANVAS_H - GAMEOVER_WATER_TOP);
     this.gameOverScene.addChild(waterShade);
@@ -2065,9 +2142,7 @@ export class PixiRenderer implements GameRenderer {
 
   private updateGameplayWater(state: GameplaySceneState, sceneTime: number): void {
     if (state.water) {
-      state.water.tilePosition.x = Math.sin(sceneTime * 0.28) * 18;
-      state.water.tilePosition.y = sceneTime * 10;
-      state.water.alpha = 0.88 + 0.04 * Math.sin(sceneTime * 0.4 + 0.6);
+      updatePixiWaterSurface(state.water, sceneTime, 0.88 + 0.04 * Math.sin(sceneTime * 0.4 + 0.6));
     }
     state.waterShade.alpha = 0.16 + 0.04 * Math.sin(sceneTime * 0.24);
   }
@@ -3145,9 +3220,7 @@ export class PixiRenderer implements GameRenderer {
     });
 
     if (state.water) {
-      state.water.tilePosition.x = Math.sin(timeSeconds * 0.28) * 18;
-      state.water.tilePosition.y = timeSeconds * 10;
-      state.water.alpha = 0.9 + 0.04 * Math.sin(timeSeconds * 0.4 + 0.6);
+      updatePixiWaterSurface(state.water, timeSeconds, 0.9 + 0.04 * Math.sin(timeSeconds * 0.4 + 0.6));
     }
     state.waterShade.alpha = 0.22 + 0.04 * Math.sin(timeSeconds * 0.24);
 

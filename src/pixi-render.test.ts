@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { Container, Texture } from "pixi.js";
 import { initGame } from "./game-sim";
-import { PixiRenderer, createBurjBeaconGlow, summarizePixiDynamicEntities } from "./pixi-render";
+import {
+  PixiRenderer,
+  __createPixiWaterSurfaceForTest,
+  __updatePixiWaterSurfaceForTest,
+  createBurjBeaconGlow,
+  getPixiWaterBandTransform,
+  summarizePixiDynamicEntities,
+} from "./pixi-render";
 
 function projectileAsset() {
   return {
@@ -279,6 +286,30 @@ describe("createBurjBeaconGlow", () => {
 
     expect(glow.position).toMatchObject({ x: 460, y: 698 });
     expect(glow.alpha).toBe(0);
+  });
+});
+
+describe("Pixi water distortion", () => {
+  it("animates horizontal band distortion without vertical sprite scrolling", () => {
+    const surface = __createPixiWaterSurfaceForTest(Texture.WHITE, 120, 36);
+
+    const startY = surface.bands.map((band) => band.sprite.position.y);
+    const startX = surface.bands.map((band) => band.sprite.position.x);
+    __updatePixiWaterSurfaceForTest(surface, 4, 0.9);
+    const afterY = surface.bands.map((band) => band.sprite.position.y);
+    const afterX = surface.bands.map((band) => band.sprite.position.x);
+
+    expect(afterY).toEqual(startY);
+    expect(afterX.some((x, index) => Math.abs(x - startX[index]) > 0.01)).toBe(true);
+  });
+
+  it("keeps the water transform horizontal-only", () => {
+    const transform = getPixiWaterBandTransform(3.5, 4);
+
+    expect(transform.wave).not.toBe(0);
+    expect(transform.stretch).toBeGreaterThan(0.98);
+    expect(transform.stretch).toBeLessThan(1.02);
+    expect(transform).not.toHaveProperty("y");
   });
 });
 
