@@ -6,6 +6,7 @@ import {
   __createPixiWaterSurfaceForTest,
   __updatePixiWaterSurfaceForTest,
   createBurjBeaconGlow,
+  getPixiBurjBeaconLayout,
   getPixiWaterBandTransform,
   summarizePixiDynamicEntities,
 } from "./pixi-render";
@@ -286,6 +287,23 @@ describe("createBurjBeaconGlow", () => {
 
     expect(glow.position).toMatchObject({ x: 460, y: 698 });
     expect(glow.alpha).toBe(0);
+  });
+});
+
+describe("getPixiBurjBeaconLayout", () => {
+  it("matches the Canvas anchor-scaled beacon position", () => {
+    const towerBaseY = 1424;
+
+    const layout = getPixiBurjBeaconLayout(towerBaseY, 2);
+
+    expect(layout).toMatchObject({
+      stemX: 458.6,
+      stemY: 644,
+      stemWidth: 2.8,
+      stemHeight: 20,
+      glowX: 460,
+      glowY: 652,
+    });
   });
 });
 

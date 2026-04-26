@@ -101,6 +101,15 @@ export interface PixiWaterSurface {
   bands: PixiWaterBand[];
 }
 
+export interface PixiBurjBeaconLayout {
+  stemX: number;
+  stemY: number;
+  stemWidth: number;
+  stemHeight: number;
+  glowX: number;
+  glowY: number;
+}
+
 interface TitleSceneState {
   skyAssets: PixiSkyAssets;
   skyBlend: BlendSprites;
@@ -444,6 +453,18 @@ function createRect(fill: number, alpha: number, x: number, y: number, width: nu
   graphic.rect(x, y, width, height).fill(fill);
   graphic.alpha = alpha;
   return graphic;
+}
+
+export function getPixiBurjBeaconLayout(towerBaseY: number, artScale = 2): PixiBurjBeaconLayout {
+  const scaleFromBurjAnchor = (value: number) => towerBaseY + (value - towerBaseY) * artScale;
+  return {
+    stemX: BURJ_X - 0.7 * artScale,
+    stemY: scaleFromBurjAnchor(towerBaseY - BURJ_H - 50),
+    stemWidth: 1.4 * artScale,
+    stemHeight: 10 * artScale,
+    glowX: BURJ_X,
+    glowY: scaleFromBurjAnchor(towerBaseY - BURJ_H - 46),
+  };
 }
 
 export function createBurjBeaconGlow(x: number, y: number): Graphics {
@@ -1250,8 +1271,16 @@ export class PixiRenderer implements GameRenderer {
     burjContainer.addChild(burjStatic, burjAnim.primary, burjAnim.secondary);
     this.titleBurjLayer.addChild(burjContainer);
 
-    const beaconStem = createRect(0x803c28, 0.5, BURJ_X - 0.7, TITLE_TOWER_BASE_Y - BURJ_H * 2 - 50, 1.4, 10);
-    const beaconGlow = createBurjBeaconGlow(BURJ_X, TITLE_TOWER_BASE_Y - BURJ_H * 2 - 46);
+    const titleBeacon = getPixiBurjBeaconLayout(TITLE_TOWER_BASE_Y);
+    const beaconStem = createRect(
+      0x803c28,
+      0.5,
+      titleBeacon.stemX,
+      titleBeacon.stemY,
+      titleBeacon.stemWidth,
+      titleBeacon.stemHeight,
+    );
+    const beaconGlow = createBurjBeaconGlow(titleBeacon.glowX, titleBeacon.glowY);
     this.titleBurjLayer.addChild(beaconStem, beaconGlow);
 
     this.titleBurjLayer.addChild(this.createTitleGroundDecor());
@@ -1435,8 +1464,16 @@ export class PixiRenderer implements GameRenderer {
     drawBurjWreckage(wreckage);
     wreckage.visible = false;
 
-    const beaconStem = createRect(0x803c28, 0.5, BURJ_X - 0.7, GAMEPLAY_TOWER_BASE_Y - BURJ_H * 2 - 50, 1.4, 10);
-    const beaconGlow = createBurjBeaconGlow(BURJ_X, GAMEPLAY_TOWER_BASE_Y - BURJ_H * 2 - 46);
+    const gameplayBeacon = getPixiBurjBeaconLayout(GAMEPLAY_TOWER_BASE_Y);
+    const beaconStem = createRect(
+      0x803c28,
+      0.5,
+      gameplayBeacon.stemX,
+      gameplayBeacon.stemY,
+      gameplayBeacon.stemWidth,
+      gameplayBeacon.stemHeight,
+    );
+    const beaconGlow = createBurjBeaconGlow(gameplayBeacon.glowX, gameplayBeacon.glowY);
     const groundDecor = this.createGameplayGroundDecor();
     this.gameplayBurjLayer.addChild(burjContainer, wreckage, beaconStem, beaconGlow, groundDecor);
 
