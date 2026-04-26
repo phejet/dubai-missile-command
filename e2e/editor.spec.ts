@@ -1,40 +1,56 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("Graphics editor", () => {
-  test("boots the effects preview with the Pixi renderer", async ({ page }) => {
+  test("boots the effects preview with a visible game renderer", async ({ page }) => {
     await page.goto("/dubai-missile-command/editor.html");
 
-    const canvas = page.locator("canvas.editor-canvas");
-    await expect(canvas).toBeVisible();
-    await expect
-      .poll(async () =>
-        canvas.evaluate((node) => {
-          const canvasNode = node as HTMLCanvasElement;
-          return {
-            editorPreview: canvasNode.dataset.editorPreview ?? null,
-            pixiGameplayStatic: canvasNode.dataset.pixiGameplayStatic ?? null,
-            pixiScreen: canvasNode.dataset.pixiScreen ?? null,
-            pixiTitle: canvasNode.dataset.pixiTitle ?? null,
-            renderer: canvasNode.dataset.renderer ?? null,
-          };
-        }),
-      )
-      .toEqual({
-        editorPreview: "ready",
-        pixiGameplayStatic: "ready",
-        pixiScreen: "playing",
-        pixiTitle: "ready",
-        renderer: "pixi",
-      });
+    await expect(page.locator("canvas.editor-canvas").first()).toBeVisible();
+    await page.waitForFunction(() => {
+      const source = document.querySelector<HTMLCanvasElement>("canvas.editor-canvas:not(.editor-canvas-fallback)");
+      const fallback = document.querySelector<HTMLCanvasElement>("canvas.editor-canvas-fallback");
+      const fallbackVisible = !!fallback && getComputedStyle(fallback).display !== "none";
+      return (
+        source?.dataset.editorPreview === "ready" || (source?.dataset.editorPreview === "fallback" && fallbackVisible)
+      );
+    });
 
-    const sampledPixels = await canvas.evaluate((node) => {
-      const source = node as HTMLCanvasElement;
+    const previewState = await page.evaluate(() => {
+      const source = document.querySelector<HTMLCanvasElement>("canvas.editor-canvas:not(.editor-canvas-fallback)");
+      const fallback = document.querySelector<HTMLCanvasElement>("canvas.editor-canvas-fallback");
+      const fallbackVisible = !!fallback && getComputedStyle(fallback).display !== "none";
+      const visibleCanvas = fallbackVisible ? fallback : source;
+      return {
+        editorPreview: source?.dataset.editorPreview ?? null,
+        pixiGameplayStatic: source?.dataset.pixiGameplayStatic ?? null,
+        pixiScreen: source?.dataset.pixiScreen ?? null,
+        pixiTitle: source?.dataset.pixiTitle ?? null,
+        renderer: source?.dataset.renderer ?? null,
+        visibleRenderer: visibleCanvas?.dataset.renderer ?? null,
+      };
+    });
+
+    expect(["ready", "fallback"]).toContain(previewState.editorPreview);
+    expect(previewState.renderer).toBe("pixi");
+    if (previewState.editorPreview === "ready") {
+      expect(previewState.pixiGameplayStatic).toBe("ready");
+      expect(previewState.pixiScreen).toBe("playing");
+      expect(previewState.pixiTitle).toBe("ready");
+      expect(previewState.visibleRenderer).toBe("pixi");
+    } else {
+      expect(previewState.visibleRenderer).toBe("editor-fallback");
+    }
+
+    const sampledPixels = await page.evaluate(() => {
+      const fallback = document.querySelector<HTMLCanvasElement>("canvas.editor-canvas-fallback");
+      const source = document.querySelector<HTMLCanvasElement>("canvas.editor-canvas:not(.editor-canvas-fallback)");
+      const sourceCanvas = fallback && getComputedStyle(fallback).display !== "none" ? fallback : source;
+      if (!sourceCanvas) return [];
       const copy = document.createElement("canvas");
-      copy.width = source.width;
-      copy.height = source.height;
+      copy.width = sourceCanvas.width;
+      copy.height = sourceCanvas.height;
       const context = copy.getContext("2d");
       if (!context) return [];
-      context.drawImage(source, 0, 0);
+      context.drawImage(sourceCanvas, 0, 0);
       return [
         [350, 350],
         [700, 550],

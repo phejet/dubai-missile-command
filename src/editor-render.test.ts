@@ -1,9 +1,15 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PixiEditorPreviewRenderer } from "./editor-render";
 import { initGame } from "./game-sim";
 import type { GameRenderer } from "./game-renderer";
+
+const drawGameMock = vi.hoisted(() => vi.fn());
+
+vi.mock("./game-render", () => ({
+  drawGame: drawGameMock,
+}));
 
 function createBackend() {
   const backend = {
@@ -18,6 +24,10 @@ function createBackend() {
 }
 
 describe("PixiEditorPreviewRenderer", () => {
+  beforeEach(() => {
+    drawGameMock.mockClear();
+  });
+
   it("routes editor scenes through Pixi gameplay rendering without shop chrome", () => {
     const canvas = document.createElement("canvas");
     const backend = createBackend();
@@ -50,19 +60,32 @@ describe("PixiEditorPreviewRenderer", () => {
     host.appendChild(canvas);
     document.body.appendChild(host);
     const backend = createBackend();
+    const context = {} as CanvasRenderingContext2D;
+    const getContext = vi.spyOn(HTMLCanvasElement.prototype, "getContext");
+    getContext.mockImplementation((() => context) as unknown as HTMLCanvasElement["getContext"]);
     canvas.dataset.pixiTitle = "error";
     const preview = new PixiEditorPreviewRenderer(canvas, { renderer: backend });
+    const scene = initGame();
 
     await backend.readyPromise;
     await Promise.resolve();
-    preview.render(initGame());
+    preview.render(scene);
 
     expect(canvas.dataset.editorPreview).toBe("fallback");
     expect(canvas.dataset.editorFallbackReason).toBe("pixi-error");
     expect(host.querySelector("canvas.editor-canvas-fallback")).not.toBeNull();
     expect(backend.renderGameplay).not.toHaveBeenCalled();
+    expect(drawGameMock).toHaveBeenCalledWith(
+      context,
+      scene,
+      expect.objectContaining({
+        showShop: false,
+        layoutProfile: expect.objectContaining({ externalTitle: true, buildingScale: 2 }),
+      }),
+    );
 
     preview.destroy();
+    getContext.mockRestore();
     host.remove();
   });
 });

@@ -1,5 +1,6 @@
 import { PixiRenderer } from "./pixi-render";
-import { BURJ_H, BURJ_X, CANVAS_H, CANVAS_W, GROUND_Y, LAUNCHERS } from "./game-logic";
+import { CANVAS_H, CANVAS_W } from "./game-logic";
+import { drawGame } from "./game-render";
 import type { GameRenderer } from "./game-renderer";
 import type { GameState } from "./types";
 
@@ -10,6 +11,20 @@ type EditorPreviewBackend = Pick<GameRenderer, "renderGameplay" | "resize" | "de
 interface PixiEditorPreviewRendererOptions {
   renderer?: EditorPreviewBackend;
 }
+
+const EDITOR_LAYOUT = {
+  showTopHud: false,
+  showSystemLabels: false,
+  externalTitle: true,
+  externalGameOver: true,
+  buildingScale: 2,
+  burjScale: 2,
+  launcherScale: 3,
+  enemyScale: 3,
+  projectileScale: 2,
+  effectScale: 2,
+  planeScale: 3,
+};
 
 export class PixiEditorPreviewRenderer {
   private readonly renderer: EditorPreviewBackend;
@@ -141,28 +156,11 @@ class CanvasEditorFallbackRenderer {
     this.resize();
     const ctx = this.ctx;
     if (!ctx) return;
-    ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
-
-    const sky = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
-    sky.addColorStop(0, "#070b1a");
-    sky.addColorStop(0.62, "#0b1630");
-    sky.addColorStop(1, "#09101a");
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-
-    ctx.fillStyle = "rgba(200,230,255,0.72)";
-    for (const star of scene.stars) {
-      if (star.y < 0 || star.y > GROUND_Y) continue;
-      ctx.globalAlpha = 0.28 + 0.28 * Math.sin(scene.time * 0.035 + star.twinkle);
-      ctx.fillRect(star.x, star.y, Math.max(1, star.size), Math.max(1, star.size));
-    }
-    ctx.globalAlpha = 1;
-
-    drawFallbackCity(ctx, scene);
-    drawFallbackProjectiles(ctx, scene);
-    drawFallbackExplosions(ctx, scene);
-    drawFallbackParticles(ctx, scene);
-    drawFallbackOverlays(ctx, scene);
+    drawGame(ctx, scene, {
+      showShop: false,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      layoutProfile: EDITOR_LAYOUT as any,
+    });
   }
 
   destroy(): void {
@@ -198,149 +196,5 @@ function isCanvasMostlyWhiteOrBlank(canvas: HTMLCanvasElement): boolean {
     return alpha < total * 8 || (bright / total > 0.8 && darkOrColored < 3);
   } catch {
     return false;
-  }
-}
-
-function drawFallbackCity(ctx: CanvasRenderingContext2D, scene: GameState): void {
-  ctx.fillStyle = "#071018";
-  ctx.fillRect(0, GROUND_Y, CANVAS_W, CANVAS_H - GROUND_Y);
-  ctx.fillStyle = "#122033";
-  ctx.fillRect(0, GROUND_Y - 4, CANVAS_W, 4);
-  ctx.fillStyle = "rgba(100,220,255,0.34)";
-  ctx.fillRect(0, GROUND_Y + 18, CANVAS_W, 2);
-
-  for (const building of scene.buildings) {
-    if (building.alive === false) continue;
-    ctx.fillStyle = "#080c14";
-    ctx.fillRect(building.x, GROUND_Y - building.h, building.w, building.h);
-    ctx.fillStyle = "rgba(255,230,150,0.68)";
-    for (let y = GROUND_Y - building.h + 16; y < GROUND_Y - 8; y += 18) {
-      for (let x = building.x + 6; x < building.x + building.w - 6; x += 14) {
-        if ((x + y + scene.time) % 4 < 2) ctx.fillRect(x, y, 4, 7);
-      }
-    }
-  }
-
-  const burjTop = GROUND_Y - BURJ_H;
-  ctx.fillStyle = scene.burjAlive ? "#b8d8e8" : "#523434";
-  ctx.beginPath();
-  ctx.moveTo(BURJ_X, burjTop - 70);
-  ctx.lineTo(BURJ_X - 38, GROUND_Y);
-  ctx.lineTo(BURJ_X + 38, GROUND_Y);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = "rgba(255,255,255,0.72)";
-  ctx.fillRect(BURJ_X - 3, burjTop - 28, 6, 230);
-  ctx.fillStyle = "rgba(110,240,255,0.6)";
-  ctx.fillRect(BURJ_X - 18, GROUND_Y - 110, 36, 4);
-  ctx.fillRect(BURJ_X - 26, GROUND_Y - 72, 52, 4);
-
-  for (const launcher of LAUNCHERS) {
-    ctx.fillStyle = "#5a863b";
-    ctx.fillRect(launcher.x - 24, launcher.y - 18, 48, 20);
-    ctx.fillStyle = "#87b856";
-    ctx.fillRect(launcher.x - 8, launcher.y - 38, 16, 22);
-  }
-}
-
-function drawFallbackProjectiles(ctx: CanvasRenderingContext2D, scene: GameState): void {
-  for (const missile of scene.missiles) {
-    drawTrail(ctx, missile.trail, "rgba(255,112,48,0.42)");
-    drawFallbackNeedle(ctx, missile.x, missile.y, Math.atan2(missile.vy, missile.vx), "#ff6638");
-  }
-  for (const drone of scene.drones) {
-    drawTrail(ctx, drone.trail, "rgba(255,150,60,0.28)");
-    drawFallbackNeedle(ctx, drone.x, drone.y, Math.atan2(drone.vy, drone.vx), "#dce8ef");
-  }
-  for (const interceptor of scene.interceptors) {
-    drawTrail(ctx, interceptor.trail, "rgba(120,240,255,0.5)");
-    drawFallbackNeedle(
-      ctx,
-      interceptor.x,
-      interceptor.y,
-      interceptor.heading ?? Math.atan2(interceptor.vy, interceptor.vx),
-      "#9ff6ff",
-    );
-  }
-}
-
-function drawTrail(
-  ctx: CanvasRenderingContext2D,
-  trail: Array<{ x: number; y: number }> | undefined,
-  color: string,
-): void {
-  if (!trail || trail.length < 2) return;
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(trail[0].x, trail[0].y);
-  for (const point of trail.slice(1)) ctx.lineTo(point.x, point.y);
-  ctx.stroke();
-}
-
-function drawFallbackNeedle(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number, color: string): void {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(angle + Math.PI / 2);
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.moveTo(0, -14);
-  ctx.lineTo(6, 10);
-  ctx.lineTo(0, 5);
-  ctx.lineTo(-6, 10);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawFallbackExplosions(ctx: CanvasRenderingContext2D, scene: GameState): void {
-  for (const explosion of scene.explosions) {
-    const gradient = ctx.createRadialGradient(explosion.x, explosion.y, 0, explosion.x, explosion.y, explosion.radius);
-    gradient.addColorStop(0, `rgba(255,255,240,${Math.min(1, explosion.alpha)})`);
-    gradient.addColorStop(0.32, explosion.playerCaused ? "rgba(90,255,210,0.72)" : "rgba(255,132,42,0.72)");
-    gradient.addColorStop(1, "rgba(255,80,20,0)");
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.arc(explosion.x, explosion.y, explosion.radius, 0, Math.PI * 2);
-    ctx.fill();
-    if (explosion.ringAlpha > 0) {
-      ctx.strokeStyle = `rgba(255,230,160,${explosion.ringAlpha})`;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(explosion.x, explosion.y, explosion.ringRadius, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-  }
-}
-
-function drawFallbackParticles(ctx: CanvasRenderingContext2D, scene: GameState): void {
-  for (const particle of scene.particles) {
-    const alpha = Math.max(0, Math.min(1, particle.life / Math.max(1, particle.maxLife ?? particle.life)));
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle = particle.color;
-    ctx.fillRect(particle.x - particle.size / 2, particle.y - particle.size / 2, particle.size, particle.size);
-  }
-  ctx.globalAlpha = 1;
-}
-
-function drawFallbackOverlays(ctx: CanvasRenderingContext2D, scene: GameState): void {
-  if (scene._showUpgradeRanges) {
-    ctx.strokeStyle = "rgba(100,255,200,0.22)";
-    ctx.lineWidth = 2;
-    for (const site of scene.defenseSites) {
-      if (!site.alive) continue;
-      ctx.beginPath();
-      ctx.arc(site.x, site.y, 120, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-  }
-  if (scene._showColliders) {
-    ctx.strokeStyle = "rgba(255,200,60,0.6)";
-    ctx.lineWidth = 2;
-    for (const drone of scene.drones) {
-      ctx.beginPath();
-      ctx.arc(drone.x, drone.y, drone.collisionRadius, 0, Math.PI * 2);
-      ctx.stroke();
-    }
   }
 }

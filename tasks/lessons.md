@@ -47,3 +47,6 @@
 ## 2026-04-26
 
 - For editor/browser rendering changes, verify the full browser surface the user will see, not just renderer dataset flags or a narrow canvas crop. A "ready" Pixi flag can still hide a blank or white preview.
+- Fallback renderers are product UI, not debugging doodles. If fallback is visible to the user, route through the same real art path or it will ship as a placeholder wearing a false moustache.
+- Editor fixture scenes need composition review, not just asset correctness. Avoid placing preview threats directly on landmark silhouettes unless testing that overlap deliberately.
+- Mock entities must include discriminator fields, not just matching subtype names. A `subtype: "shahed136"` without `type: "drone"` still renders as the default threat path.
