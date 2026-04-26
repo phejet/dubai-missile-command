@@ -17,6 +17,7 @@ export interface GameRenderer {
   renderTitle(): void;
   renderGameplay(game: GameState, request?: GameplayRenderRequest): void;
   renderGameOver(snapshot: GameOverSnapshot): void;
+  isRenderPaused?(): boolean;
   resize(): void;
   destroy(): void;
 }

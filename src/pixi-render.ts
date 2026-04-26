@@ -870,6 +870,26 @@ export class PixiRenderer implements GameRenderer {
   private readonly gameplayGroundStructuresLayer = new Container();
   private readonly gameplayOverlayLayer = new Container();
   private readonly gameOverScene = new Container();
+  private readonly titleLayers = [
+    this.titleSkyLayer,
+    this.titleSkylineLayer,
+    this.titleBurjLayer,
+    this.titleWaterLayer,
+    this.titleLauncherLayer,
+    this.titleThreatLayer,
+    this.titleAccentLayer,
+  ];
+  private readonly gameplayLayers = [
+    this.gameplaySkyLayer,
+    this.gameplayBurjLayer,
+    this.gameplayCityLayer,
+    this.gameplayWaterLayer,
+    this.gameplayEffectsLayer,
+    this.gameplayProjectileLayer,
+    this.gameplayParticleLayer,
+    this.gameplayGroundStructuresLayer,
+    this.gameplayOverlayLayer,
+  ];
   private readonly textures: PixiTextureResources;
   private readonly ready: Promise<void>;
   private readonly pngsPromise: Promise<PixiPngAssetMap>;
@@ -883,8 +903,11 @@ export class PixiRenderer implements GameRenderer {
   private initialized = false;
   private destroyed = false;
   private appDestroyed = false;
+  private contextLost = false;
   private initError: Error | null = null;
   private screen: PixiScreen = "title";
+  private readonly onWebGlContextLost = (event: Event) => this.handleWebGlContextLost(event);
+  private readonly onWebGlContextRestored = () => this.handleWebGlContextRestored();
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -912,32 +935,17 @@ export class PixiRenderer implements GameRenderer {
     this.gameplayOverlayLayer.label = "gameplay-overlay-layer";
     this.gameOverScene.label = "gameover-scene";
 
-    this.titleScene.addChild(
-      this.titleSkyLayer,
-      this.titleSkylineLayer,
-      this.titleBurjLayer,
-      this.titleWaterLayer,
-      this.titleLauncherLayer,
-      this.titleThreatLayer,
-      this.titleAccentLayer,
-    );
-    this.gameplayScene.addChild(
-      this.gameplaySkyLayer,
-      this.gameplayBurjLayer,
-      this.gameplayCityLayer,
-      this.gameplayWaterLayer,
-      this.gameplayEffectsLayer,
-      this.gameplayProjectileLayer,
-      this.gameplayParticleLayer,
-      this.gameplayGroundStructuresLayer,
-      this.gameplayOverlayLayer,
-    );
+    this.titleScene.addChild(...this.titleLayers);
+    this.gameplayScene.addChild(...this.gameplayLayers);
     this.root.addChild(this.titleScene, this.gameplayScene, this.gameOverScene);
     this.app.stage.addChild(this.root);
 
     this.canvas.dataset.renderer = "pixi";
+    this.canvas.dataset.pixiContext = "active";
     this.canvas.dataset.pixiTitle = "booting";
     this.canvas.dataset.pixiGameplayStatic = "booting";
+    this.canvas.addEventListener("webglcontextlost", this.onWebGlContextLost);
+    this.canvas.addEventListener("webglcontextrestored", this.onWebGlContextRestored);
     this.pngsPromise = loadPixiPngBundles(["title", "gameplay"]);
     this.ready = this.initialize();
   }
@@ -968,17 +976,24 @@ export class PixiRenderer implements GameRenderer {
   }
 
   resize(): void {
-    if (!this.initialized || this.destroyed) return;
+    if (!this.initialized || this.destroyed || this.contextLost) return;
     this.app.renderer.resize(CANVAS_W, CANVAS_H);
     this.renderIfReady();
+  }
+
+  isRenderPaused(): boolean {
+    return this.contextLost;
   }
 
   destroy(): void {
     this.destroyed = true;
     this.latestGame = null;
     this.latestInterpolationAlpha = 1;
+    this.canvas.removeEventListener("webglcontextlost", this.onWebGlContextLost);
+    this.canvas.removeEventListener("webglcontextrestored", this.onWebGlContextRestored);
     this.canvas.dataset.pixiTitle = "destroyed";
     this.canvas.dataset.pixiGameplayStatic = "destroyed";
+    this.canvas.dataset.pixiContext = "destroyed";
     if (this.initialized) this.destroyApp();
   }
 
@@ -994,6 +1009,55 @@ export class PixiRenderer implements GameRenderer {
     if (this.appDestroyed) return;
     this.appDestroyed = true;
     this.app.destroy(false, { children: true, texture: false, textureSource: false });
+  }
+
+  private handleWebGlContextLost(event: Event): void {
+    event.preventDefault();
+    if (this.destroyed) return;
+    this.contextLost = true;
+    this.canvas.dataset.pixiContext = "lost";
+  }
+
+  private handleWebGlContextRestored(): void {
+    if (this.destroyed) return;
+    this.contextLost = false;
+    this.canvas.dataset.pixiContext = "restoring";
+    if (this.initialized && !this.initError) {
+      this.textures.reupload();
+      this.rebuildScenesAfterContextRestore();
+    }
+    this.canvas.dataset.pixiContext = "active";
+    this.renderIfReady();
+  }
+
+  private rebuildScenesAfterContextRestore(): void {
+    this.clearRebuildableScenes();
+    this.buildTitleScene();
+    this.buildGameplayScene();
+    this.buildGameOverScene();
+    this.canvas.dataset.pixiTitle = "ready";
+    this.canvas.dataset.pixiGameplayStatic = "ready";
+  }
+
+  private clearRebuildableScenes(): void {
+    for (const layer of this.titleLayers) this.destroyChildren(layer);
+    for (const layer of this.gameplayLayers) this.destroyChildren(layer);
+    for (const child of [...this.gameplayScene.children]) {
+      if (this.gameplayLayers.includes(child as Container)) continue;
+      this.gameplayScene.removeChild(child);
+      child.destroy({ children: true });
+    }
+    this.gameplayProjectileLayer.mask = null;
+    this.destroyChildren(this.gameOverScene);
+    this.titleState = null;
+    this.gameplayState = null;
+    this.gameOverState = null;
+  }
+
+  private destroyChildren(container: Container): void {
+    for (const child of container.removeChildren()) {
+      child.destroy({ children: true });
+    }
   }
 
   private async initialize(): Promise<void> {
@@ -1696,6 +1760,7 @@ export class PixiRenderer implements GameRenderer {
     if (
       !this.initialized ||
       this.destroyed ||
+      this.contextLost ||
       this.initError ||
       !this.titleState ||
       !this.gameplayState ||

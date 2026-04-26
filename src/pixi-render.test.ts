@@ -500,6 +500,47 @@ describe("PixiRenderer dynamic entity updates", () => {
   });
 });
 
+describe("PixiRenderer WebGL context resilience", () => {
+  it("marks rendering paused and prevents default browser context-loss handling", () => {
+    const { methods } = rendererInternals();
+    const preventDefault = vi.fn();
+    const self = {
+      destroyed: false,
+      contextLost: false,
+      canvas: { dataset: {} },
+    };
+
+    methods.handleWebGlContextLost.call(self, { preventDefault });
+
+    expect(preventDefault).toHaveBeenCalledOnce();
+    expect(self.contextLost).toBe(true);
+    expect(self.canvas.dataset).toMatchObject({ pixiContext: "lost" });
+    expect(methods.isRenderPaused.call(self)).toBe(true);
+  });
+
+  it("reuploads baked textures, rebuilds scenes, and resumes after context restore", () => {
+    const { methods } = rendererInternals();
+    const self = {
+      destroyed: false,
+      contextLost: true,
+      initialized: true,
+      initError: null,
+      canvas: { dataset: {} },
+      textures: { reupload: vi.fn() },
+      rebuildScenesAfterContextRestore: vi.fn(),
+      renderIfReady: vi.fn(),
+    };
+
+    methods.handleWebGlContextRestored.call(self);
+
+    expect(self.contextLost).toBe(false);
+    expect(self.textures.reupload).toHaveBeenCalledOnce();
+    expect(self.rebuildScenesAfterContextRestore).toHaveBeenCalledOnce();
+    expect(self.renderIfReady).toHaveBeenCalledOnce();
+    expect(self.canvas.dataset).toMatchObject({ pixiContext: "active" });
+  });
+});
+
 describe("PixiRenderer game-over routing", () => {
   it("switches to a dedicated game-over scene and hides live gameplay layers", () => {
     const { methods } = rendererInternals();
@@ -562,7 +603,10 @@ describe("PixiRenderer game-over routing", () => {
       initialized: false,
       destroyed: false,
       latestGame: initGame(),
-      canvas: { dataset: {} as Record<string, string> },
+      canvas: {
+        dataset: {} as Record<string, string>,
+        removeEventListener: vi.fn(),
+      },
       destroyApp,
     };
 

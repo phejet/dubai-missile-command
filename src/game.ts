@@ -993,6 +993,11 @@ export class Game {
     const loop = (timestamp: number) => {
       this.rafId = requestAnimationFrame(loop);
 
+      if (this.renderer.isRenderPaused?.()) {
+        this.lastTime = timestamp;
+        return;
+      }
+
       if (this.screen === "playing" && this.gameRef.current) {
         if (this.lastTime === null) this.lastTime = timestamp;
         const elapsed = timestamp - this.lastTime;
