@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Container, Texture } from "pixi.js";
 import { initGame } from "./game-sim";
 import { PixiRenderer, summarizePixiDynamicEntities } from "./pixi-render";
@@ -504,5 +504,24 @@ describe("PixiRenderer game-over routing", () => {
     expect(self.latestGame).toBeNull();
     expect(self.latestShowShop).toBe(false);
     expect(renderCalls).toBe(1);
+  });
+
+  it("does not call Pixi Application.destroy before initialization completes", () => {
+    const { methods } = rendererInternals();
+    const destroyApp = vi.fn();
+    const self = {
+      initialized: false,
+      destroyed: false,
+      latestGame: initGame(),
+      canvas: { dataset: {} as Record<string, string> },
+      destroyApp,
+    };
+
+    methods.destroy.call(self);
+
+    expect(self.destroyed).toBe(true);
+    expect(self.latestGame).toBeNull();
+    expect(self.canvas.dataset.pixiTitle).toBe("destroyed");
+    expect(destroyApp).not.toHaveBeenCalled();
   });
 });

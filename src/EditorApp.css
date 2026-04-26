@@ -13,6 +13,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  position: relative;
   background: #000;
   min-width: 0;
   overflow: hidden;
@@ -22,6 +23,14 @@
   max-width: 100%;
   max-height: calc(100vh - 36px);
   object-fit: contain;
+  background: #02050c;
+}
+
+.editor-canvas-fallback {
+  position: absolute;
+  max-width: none;
+  max-height: none;
+  z-index: 1;
 }
 
 .editor-canvas--grab {

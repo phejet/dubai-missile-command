@@ -43,3 +43,7 @@
 ## 2026-04-25
 
 - Passing Pixi smoke tests are not enough for effect-heavy renderer work. When porting particles or explosions, inspect a screenshot from an actual detonation path before calling it done; placeholder circles can pass every structural test and still look broken.
+
+## 2026-04-26
+
+- For editor/browser rendering changes, verify the full browser surface the user will see, not just renderer dataset flags or a narrow canvas crop. A "ready" Pixi flag can still hide a blank or white preview.

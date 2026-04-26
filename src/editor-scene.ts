@@ -1,5 +1,6 @@
 // Creates a frozen mock game state for the graphics editor preview
 import { CANVAS_W, CANVAS_H, GROUND_Y, COL, createScenicBuildings } from "./game-logic.js";
+import { createEmptyUpgradeProgression } from "./game-sim-upgrades";
 import type { GameState } from "./types";
 
 export function createEditorScene(): GameState {
@@ -216,8 +217,15 @@ export function createEditorScene(): GameState {
     ],
     planes: [],
     buildings: allBuildings,
+    buildingDestroyFx: [],
     burjAlive: true,
     burjHealth: 5,
+    burjDecals: [],
+    burjDamageFx: [],
+    burjHitFlashTimer: 0,
+    burjHitFlashMax: 0,
+    burjHitFlashX: CANVAS_W / 2,
+    burjHitFlashY: GROUND_Y - 170,
     stars: Array.from({ length: 200 }, () => ({
       x: Math.random() * CANVAS_W,
       y: -CANVAS_H * 1.2 + Math.random() * CANVAS_H * 1.8,
@@ -243,6 +251,8 @@ export function createEditorScene(): GameState {
       launcherKit: 0,
       emp: 0,
     },
+    ownedUpgradeNodes: new Set(),
+    metaProgression: createEmptyUpgradeProgression(),
     defenseSites: [],
     hornets: [],
     roadrunners: [],
@@ -262,6 +272,8 @@ export function createEditorScene(): GameState {
     empReady: false,
     empRings: [],
     multiKillToast: null,
+    combo: 1,
+    comboToast: null,
     launcherFireTick: [0, 0, 0],
     launcherReloadUntilTick: [0, 0, 0],
     _replayTick: 100,

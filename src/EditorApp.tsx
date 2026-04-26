@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import { CANVAS_W, CANVAS_H, GROUND_Y, BURJ_X, BURJ_H, COL, createExplosion, ov } from "./game-logic.js";
-import { drawGame } from "./game-render.js";
 import { createEditorScene } from "./editor-scene.js";
+import { createPixiEditorPreviewRenderer, type PixiEditorPreviewRenderer } from "./editor-render.js";
 import { PARAM_GROUPS, getDefaults } from "./editor-params.js";
 import { createEmptyUpgradeProgression, getAllUpgradeNodeDefs, getUpgradeObjectiveLabel } from "./game-sim-upgrades";
 import {
@@ -67,21 +67,7 @@ function canvasToGame(canvas: HTMLCanvasElement, clientX: number, clientY: numbe
   };
 }
 
-const EDITOR_LAYOUT = {
-  showTopHud: false,
-  showSystemLabels: false,
-  externalTitle: true,
-  externalGameOver: true,
-  buildingScale: 2,
-  burjScale: 2,
-  launcherScale: 3,
-  enemyScale: 3,
-  projectileScale: 2,
-  effectScale: 2,
-  planeScale: 3,
-};
-
-// Expose overrides globally for game-render.js to pick up
+// Expose overrides globally for shared gameplay/art helpers to pick up.
 window.__editorOverrides = null;
 
 type SceneSnapshot = { explosions: Explosion[]; particles: Particle[]; time: number };
@@ -162,6 +148,7 @@ export default function EditorApp() {
   const graphStageRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<GameState | null>(null);
   const rafRef = useRef<number | null>(null);
+  const previewRendererRef = useRef<PixiEditorPreviewRenderer | null>(null);
   const playingRef = useRef(false);
   const snapshotRef = useRef<SceneSnapshot | null>(null);
   const tickRef = useRef(0);
@@ -281,10 +268,11 @@ export default function EditorApp() {
 
   // Animation loop — animate time so twinkle/glow effects are visible
   useEffect(() => {
+    if (editorView !== "effects") return;
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    const previewRenderer = createPixiEditorPreviewRenderer(canvas);
+    previewRendererRef.current = previewRenderer;
 
     function loop() {
       const scene = sceneRef.current;
@@ -309,15 +297,17 @@ export default function EditorApp() {
           setTick(tickRef.current);
         }
       }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      drawGame(ctx!, sceneRef.current!, { showShop: false, layoutProfile: EDITOR_LAYOUT as any });
+      previewRenderer.render(sceneRef.current!);
       rafRef.current = requestAnimationFrame(loop);
     }
     rafRef.current = requestAnimationFrame(loop);
     return () => {
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+      previewRenderer.destroy();
+      if (previewRendererRef.current === previewRenderer) previewRendererRef.current = null;
     };
-  }, []);
+  }, [editorView]);
 
   const handleChange = useCallback((key: string, raw: unknown, paramDef: { type: string }) => {
     const val = paramDef.type === "checkbox" ? raw : paramDef.type === "color" ? raw : Number(raw);

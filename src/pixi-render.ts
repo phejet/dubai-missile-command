@@ -781,6 +781,7 @@ export class PixiRenderer implements GameRenderer {
   private latestShowShop = false;
   private initialized = false;
   private destroyed = false;
+  private appDestroyed = false;
   private initError: Error | null = null;
   private screen: PixiScreen = "title";
 
@@ -873,7 +874,7 @@ export class PixiRenderer implements GameRenderer {
     this.latestGame = null;
     this.canvas.dataset.pixiTitle = "destroyed";
     this.canvas.dataset.pixiGameplayStatic = "destroyed";
-    this.app.destroy(false, { children: true, texture: false, textureSource: false });
+    if (this.initialized) this.destroyApp();
   }
 
   get readyPromise(): Promise<void> {
@@ -882,6 +883,12 @@ export class PixiRenderer implements GameRenderer {
 
   get textureResources(): PixiTextureResources {
     return this.textures;
+  }
+
+  private destroyApp(): void {
+    if (this.appDestroyed) return;
+    this.appDestroyed = true;
+    this.app.destroy(false, { children: true, texture: false, textureSource: false });
   }
 
   private async initialize(): Promise<void> {
@@ -898,7 +905,10 @@ export class PixiRenderer implements GameRenderer {
           preference: "webgl",
         }),
       ]);
-      if (this.destroyed) return;
+      if (this.destroyed) {
+        this.destroyApp();
+        return;
+      }
 
       this.pngs = pngs;
       this.buildTitleScene();
