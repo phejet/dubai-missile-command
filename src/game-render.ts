@@ -258,6 +258,37 @@ export function __getTitleThreatAnimationTimeForTest(timeSeconds: number, kind: 
   return getTitleThreatAnimationTime(timeSeconds, kind, index);
 }
 
+function getTitleShahedBeaconAlpha(timeSeconds: number, index: number): number {
+  const wave = Math.sin(timeSeconds * 9 + index * 1.35);
+  return wave > 0 ? 0.42 + wave * 0.48 : 0;
+}
+
+export function __getTitleShahedBeaconAlphaForTest(timeSeconds: number, index: number) {
+  return getTitleShahedBeaconAlpha(timeSeconds, index);
+}
+
+function drawTitleShahedBeacon(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  scale: number,
+  t: number,
+  index: number,
+) {
+  const alpha = getTitleShahedBeaconAlpha(t, index);
+  if (alpha <= 0) return;
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = "#ff3b22";
+  glow(ctx, ctx.fillStyle, 2.4 * scale);
+  ctx.beginPath();
+  ctx.arc(x, y, 0.85 * scale, 0, Math.PI * 2);
+  ctx.fill();
+  glowOff(ctx);
+  ctx.restore();
+}
+
 function drawDistortedWaterSprite(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
@@ -3242,18 +3273,25 @@ export function drawTitle(
     const titleTime = getTitleThreatAnimationTime(t, obj.kind, index);
     if (obj.kind === "shahed") {
       const shahedAngle = aimAngle + 0.08;
+      const trailPulse = pulse(t, 7.2, index * 1.6, 0.82, 1.16);
       const titleDroneTrail = Array.from({ length: 10 }, (_, trailIndex) => ({
-        x: x - Math.cos(shahedAngle) * (trailIndex + 1) * 9,
-        y: y - Math.sin(shahedAngle) * (trailIndex + 1) * 9,
+        x: x - Math.cos(shahedAngle) * (trailIndex + 1) * 9 * trailPulse,
+        y: y - Math.sin(shahedAngle) * (trailIndex + 1) * 9 * trailPulse,
       }));
       drawGradientTrail(ctx, titleDroneTrail, x, y, {
         outerRgb: "136,144,152",
         coreRgb: "196,204,212",
         headRgb: "196,170,118",
-        width: 2.6 * layout.effectScale,
-        coreWidth: 1 * layout.effectScale,
-        headRadius: 1.2 * layout.effectScale,
+        width: (2.2 + trailPulse * 0.5) * layout.effectScale,
+        coreWidth: (0.82 + trailPulse * 0.28) * layout.effectScale,
+        headRadius: (1 + trailPulse * 0.22) * layout.effectScale,
       });
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(shahedAngle);
+      ctx.scale(obj.scale, obj.scale);
+      drawShahed136Exhaust(ctx, { trailLength: 8 + trailPulse * 4, effectScale: layout.effectScale });
+      ctx.restore();
       if (skylineRenderMode === "live") {
         drawLiveThreatSprite(ctx, x, y, shahedAngle, "shahed136", { t: titleTime, scale: obj.scale });
       } else {
@@ -3262,6 +3300,7 @@ export function drawTitle(
           sharpFrames: skylineRenderMode === "bakedSharp",
         });
       }
+      drawTitleShahedBeacon(ctx, x, y, obj.scale, t, index);
     } else {
       const missileAngle = aimAngle + 0.04;
       const titleMissileTrail = Array.from({ length: 10 }, (_, trailIndex) => ({

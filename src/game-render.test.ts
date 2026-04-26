@@ -8,6 +8,7 @@ import {
   __getInterceptorSpriteCacheKeysForTest,
   __getLauncherAssetCacheKeysForTest,
   __getLauncherAssetsForTest,
+  __getTitleShahedBeaconAlphaForTest,
   __getTitleThreatAnimationTimeForTest,
   __getThreatSpriteAssetsForTest,
   __getThreatSpriteCacheKeysForTest,
@@ -516,6 +517,13 @@ describe("drawTitle", () => {
   it("keeps title threat animation time in seconds instead of 60fps frame units", () => {
     expect(__getTitleThreatAnimationTimeForTest(1, "shahed", 1)).toBeCloseTo(1.8 + 7 / 60);
     expect(__getTitleThreatAnimationTimeForTest(1, "missile", 2)).toBeCloseTo(2.4 + (2 * 5) / 60);
+  });
+
+  it("blinks title Shahed beacon light across time", () => {
+    const samples = Array.from({ length: 20 }, (_, index) => __getTitleShahedBeaconAlphaForTest(index / 10, 0));
+
+    expect(samples.some((alpha) => alpha === 0)).toBe(true);
+    expect(samples.some((alpha) => alpha > 0.5)).toBe(true);
   });
 
   it("warms the title Burj asset cache entry", () => {

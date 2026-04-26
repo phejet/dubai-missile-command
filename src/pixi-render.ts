@@ -81,6 +81,7 @@ interface TitleLauncherNode {
 interface TitleThreatNode {
   container: Container;
   trail: Graphics;
+  beacon: Graphics;
   anim: BlendSprites;
   kind: TitleThreatKind;
   x: number;
@@ -335,6 +336,15 @@ function getTitleThreatAnimationTime(timeSeconds: number, kind: TitleThreatKind,
     return timeSeconds * TITLE_SHAHED_TIME_RATE + index * TITLE_SHAHED_TIME_STAGGER_SECONDS;
   }
   return timeSeconds * TITLE_MISSILE_TIME_RATE + index * TITLE_MISSILE_TIME_STAGGER_SECONDS;
+}
+
+function getTitleShahedBeaconAlpha(timeSeconds: number, index: number): number {
+  const wave = Math.sin(timeSeconds * 9 + index * 1.35);
+  return wave > 0 ? 0.42 + wave * 0.48 : 0;
+}
+
+function getTitleShahedTrailPulse(timeSeconds: number, index: number): number {
+  return 0.82 + (0.5 + 0.5 * Math.sin(timeSeconds * 7.2 + index * 1.6)) * 0.34;
 }
 
 function createRect(fill: number, alpha: number, x: number, y: number, width: number, height: number): Graphics {
@@ -1043,6 +1053,7 @@ export class PixiRenderer implements GameRenderer {
       const trail = new Graphics();
       const anim = createBlendSprites(asset.animFrames[0] ?? Texture.EMPTY);
       positionBlendSprites(anim, asset.offset.x, asset.offset.y);
+      const beacon = new Graphics();
 
       const guideLine = new Graphics();
       guideLine
@@ -1054,11 +1065,12 @@ export class PixiRenderer implements GameRenderer {
           alpha: 0.1,
         });
 
-      container.addChild(trail, anim.primary, anim.secondary);
+      container.addChild(trail, anim.primary, anim.secondary, beacon);
       this.titleThreatLayer.addChild(guideLine, container);
       return {
         container,
         trail,
+        beacon,
         anim,
         kind: aircraft.kind,
         x: aircraft.x,
@@ -2869,7 +2881,7 @@ export class PixiRenderer implements GameRenderer {
 
       threat.container.rotation = rotation;
       syncBlendSprites(threat.anim, asset.animFrames, frameProgress);
-      this.updateThreatTrail(threat);
+      this.updateThreatTrail(threat, timeSeconds, index);
     });
 
     if (state.water) {
@@ -2887,21 +2899,34 @@ export class PixiRenderer implements GameRenderer {
     });
   }
 
-  private updateThreatTrail(threat: TitleThreatNode): void {
+  private updateThreatTrail(threat: TitleThreatNode, timeSeconds: number, index: number): void {
     threat.trail.clear();
     if (threat.kind === "shahed") {
+      const pulseAmount = getTitleShahedTrailPulse(timeSeconds, index);
+      const trailLength = 74 + pulseAmount * 18;
+      const beaconAlpha = getTitleShahedBeaconAlpha(timeSeconds, index);
+      threat.beacon.clear();
+      threat.beacon
+        .circle(0, 0, 7)
+        .fill({ color: 0xff3b22, alpha: beaconAlpha * 0.22 })
+        .circle(0, 0, 2.8)
+        .fill({ color: 0xff3b22, alpha: beaconAlpha });
       threat.trail
-        .moveTo(-86, 0)
+        .moveTo(-trailLength, 0)
         .lineTo(0, 0)
-        .stroke({ width: 7.8, color: 0x889098, alpha: 0.14, cap: "round" })
-        .moveTo(-86, 0)
+        .stroke({ width: 6.6 + pulseAmount * 1.7, color: 0x889098, alpha: 0.1 + pulseAmount * 0.08, cap: "round" })
+        .moveTo(-trailLength * 0.78, 0)
         .lineTo(0, 0)
-        .stroke({ width: 3, color: 0xc4ccd4, alpha: 0.5, cap: "round" })
-        .circle(0, 0, 3.6)
-        .fill(0xc4aa76);
+        .stroke({ width: 2.3 + pulseAmount * 0.8, color: 0xc4ccd4, alpha: 0.32 + pulseAmount * 0.2, cap: "round" })
+        .moveTo(-10.8 - (9 + pulseAmount * 9), 0)
+        .lineTo(-10.3, 0)
+        .stroke({ width: 1.25, color: 0xc4ccd4, alpha: 0.2 + pulseAmount * 0.1, cap: "round" })
+        .circle(-10.6, 0, 1.15 + pulseAmount * 0.3)
+        .fill({ color: 0xc4aa76, alpha: 0.18 + pulseAmount * 0.08 });
       return;
     }
 
+    threat.beacon.clear();
     threat.trail
       .moveTo(-70, 0)
       .lineTo(0, 0)
