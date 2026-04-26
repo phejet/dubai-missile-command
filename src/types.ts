@@ -14,8 +14,6 @@ export interface Missile {
   y: number;
   _px?: number;
   _py?: number;
-  _ox?: number;
-  _oy?: number;
   vx: number;
   vy: number;
   accel: number;
@@ -87,8 +85,6 @@ export interface Interceptor {
   fromF15?: boolean;
   _px?: number;
   _py?: number;
-  _ox?: number;
-  _oy?: number;
 }
 
 export type ExplosionVisualType = "missile" | "drone";
@@ -150,8 +146,6 @@ export interface Explosion {
   _lastBonusKills?: number;
   _px?: number;
   _py?: number;
-  _ox?: number;
-  _oy?: number;
 }
 
 export interface Particle {
@@ -314,8 +308,6 @@ export interface PhalanxBullet {
   cy?: number;
   _pcx?: number;
   _pcy?: number;
-  _ocx?: number;
-  _ocy?: number;
   hit?: boolean;
   targetRef?: Threat;
   alive: boolean;

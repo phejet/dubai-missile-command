@@ -32,8 +32,6 @@ import {
   closeShop as simCloseShop,
   fireEmp as simFireEmp,
   snapshotPositions,
-  applyInterpolation,
-  restorePositions,
 } from "./game-sim";
 import { buildShopEntries } from "./game-sim-shop";
 import {
@@ -1076,14 +1074,12 @@ export class Game {
           game._browserLaserHandle = null;
         }
 
-        const alpha = game.state === "playing" ? (game._timeAccum ?? 0) : 1;
-        applyInterpolation(game, alpha);
+        const interpolationAlpha = game.state === "playing" ? (game._timeAccum ?? 0) : 1;
         this.tickControllerOnlyTimers(game);
         this.syncHud();
         this.syncTransientOverlays();
-        this.renderer.renderGameplay(game, { showShop: this.shopOpen });
+        this.renderer.renderGameplay(game, { showShop: this.shopOpen, interpolationAlpha });
         this.emitFrameSample(game, elapsed, replayWasActive, screenAtFrameStart);
-        restorePositions(game);
         if (replayFinishedSample) {
           this.onReplayFinished?.(replayFinishedSample);
         }

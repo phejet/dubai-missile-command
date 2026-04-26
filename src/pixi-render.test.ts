@@ -460,6 +460,44 @@ describe("PixiRenderer dynamic entity updates", () => {
     expect(state.missiles.size).toBe(0);
     expect(self.gameplayProjectileLayer.children.length).toBe(5);
   });
+
+  it("interpolates from previous snapshots without mutating GameState", () => {
+    const game = initGame();
+    const missile = {
+      x: 110,
+      y: 220,
+      _px: 10,
+      _py: 20,
+      vx: 1,
+      vy: 0,
+      accel: 0,
+      trail: [{ x: 10, y: 20 }],
+      alive: true,
+      type: "missile" as const,
+    };
+    game.missiles.push(missile);
+    game.phalanxBullets.push({
+      x: 500,
+      y: 520,
+      cx: 700,
+      cy: 620,
+      _pcx: 600,
+      _pcy: 540,
+      alive: true,
+      life: 5,
+    });
+
+    const state = dynamicState();
+    const { methods, self } = rendererInternals();
+
+    methods.updateGameplayMissiles.call(self, state, game, 1, 0.25);
+    methods.updateGameplayPhalanxBullets.call(self, state, game, 0.5);
+
+    expect(state.missiles.get(missile)!.spriteRoot.position).toMatchObject({ x: 35, y: 70 });
+    expect(game.missiles[0]).toMatchObject({ x: 110, y: 220 });
+    expect(game.phalanxBullets[0]).toMatchObject({ cx: 700, cy: 620 });
+    expect((state.phalanxPool as Array<{ width: number }>)[0].width).toBeCloseTo(Math.hypot(150, 60) + 16);
+  });
 });
 
 describe("PixiRenderer game-over routing", () => {

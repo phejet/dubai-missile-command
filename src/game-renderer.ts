@@ -10,6 +10,7 @@ export interface GameOverSnapshot {
 
 export interface GameplayRenderRequest {
   showShop?: boolean;
+  interpolationAlpha?: number;
 }
 
 export interface GameRenderer {

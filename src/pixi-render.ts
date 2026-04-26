@@ -808,6 +808,46 @@ function getDefenseSiteColor(site: DefenseSite): number {
   return UPGRADE_FAMILY_COLOR_HEX.get(site.key) ?? 0x44ffaa;
 }
 
+interface InterpolatedXY {
+  x: number;
+  y: number;
+  _px?: number;
+  _py?: number;
+}
+
+interface InterpolatedBullet {
+  x: number;
+  y: number;
+  cx?: number;
+  cy?: number;
+  _pcx?: number;
+  _pcy?: number;
+}
+
+function clampInterpolationAlpha(alpha: number | undefined): number {
+  if (typeof alpha !== "number" || !Number.isFinite(alpha)) return 1;
+  return Math.max(0, Math.min(1, alpha));
+}
+
+function lerpValue(previous: number | undefined, current: number, alpha: number): number {
+  return previous === undefined ? current : previous + (current - previous) * alpha;
+}
+
+function getRenderPosition(entity: InterpolatedXY, alpha: number): { x: number; y: number } {
+  return {
+    x: lerpValue(entity._px, entity.x, alpha),
+    y: lerpValue(entity._py, entity.y, alpha),
+  };
+}
+
+function getRenderBulletEndpoint(bullet: InterpolatedBullet, alpha: number): { x: number; y: number } | null {
+  if (bullet.cx === undefined || bullet.cy === undefined) return null;
+  return {
+    x: lerpValue(bullet._pcx, bullet.cx, alpha),
+    y: lerpValue(bullet._pcy, bullet.cy, alpha),
+  };
+}
+
 export class PixiRenderer implements GameRenderer {
   private readonly app = new Application();
   private readonly root = new Container();
@@ -839,6 +879,7 @@ export class PixiRenderer implements GameRenderer {
   private gameOverState: GameOverSceneState | null = null;
   private latestGame: GameState | null = null;
   private latestShowShop = false;
+  private latestInterpolationAlpha = 1;
   private initialized = false;
   private destroyed = false;
   private appDestroyed = false;
@@ -905,6 +946,7 @@ export class PixiRenderer implements GameRenderer {
     this.screen = "title";
     this.latestGame = null;
     this.latestShowShop = false;
+    this.latestInterpolationAlpha = 1;
     this.renderIfReady();
   }
 
@@ -912,6 +954,7 @@ export class PixiRenderer implements GameRenderer {
     this.screen = "playing";
     this.latestGame = game;
     this.latestShowShop = !!request.showShop;
+    this.latestInterpolationAlpha = clampInterpolationAlpha(request.interpolationAlpha);
     this.renderIfReady();
   }
 
@@ -920,6 +963,7 @@ export class PixiRenderer implements GameRenderer {
     this.screen = "gameover";
     this.latestGame = null;
     this.latestShowShop = false;
+    this.latestInterpolationAlpha = 1;
     this.renderIfReady();
   }
 
@@ -932,6 +976,7 @@ export class PixiRenderer implements GameRenderer {
   destroy(): void {
     this.destroyed = true;
     this.latestGame = null;
+    this.latestInterpolationAlpha = 1;
     this.canvas.dataset.pixiTitle = "destroyed";
     this.canvas.dataset.pixiGameplayStatic = "destroyed";
     if (this.initialized) this.destroyApp();
@@ -1667,12 +1712,24 @@ export class PixiRenderer implements GameRenderer {
 
     this.updateTitleScene(this.titleState, timeSeconds);
     if (this.latestGame) {
-      this.updateGameplayScene(this.gameplayState, this.latestGame, this.latestGame.time / 60, this.latestShowShop);
+      this.updateGameplayScene(
+        this.gameplayState,
+        this.latestGame,
+        this.latestGame.time / 60,
+        this.latestShowShop,
+        this.latestInterpolationAlpha,
+      );
     }
     this.app.render();
   }
 
-  private updateGameplayScene(state: GameplaySceneState, game: GameState, sceneTime: number, showShop: boolean): void {
+  private updateGameplayScene(
+    state: GameplaySceneState,
+    game: GameState,
+    sceneTime: number,
+    showShop: boolean,
+    interpolationAlpha: number,
+  ): void {
     const skyAssets = this.textures.getGameplaySkyAssets(game.stars, GAMEPLAY_SCENIC_GROUND_Y);
     state.skyAssets = skyAssets;
     const skyFrameProgress = getFrameProgress(sceneTime, skyAssets.period, skyAssets.frameCount);
@@ -1690,10 +1747,10 @@ export class PixiRenderer implements GameRenderer {
     this.updateGameplayBuildings(state, game, sceneTime);
     this.updateGameplayBurj(state, game, sceneTime);
     this.updateGameplayWater(state, sceneTime);
-    this.updateGameplayDynamicEntities(state.dynamic, game, sceneTime);
+    this.updateGameplayDynamicEntities(state.dynamic, game, sceneTime, interpolationAlpha);
     this.updateGameplayLaunchers(state, game, sceneTime);
     this.updateGameplayDefenseSites(state, game, sceneTime);
-    this.updateGameplayOverlays(state, game, sceneTime, showShop);
+    this.updateGameplayOverlays(state, game, sceneTime, showShop, interpolationAlpha);
 
     this.canvas.dataset.pixiGameplayStatic = "ready";
     this.canvas.dataset.pixiDynamicCounts = summarizePixiDynamicEntities(game).summary;
@@ -2119,11 +2176,12 @@ export class PixiRenderer implements GameRenderer {
     game: GameState,
     sceneTime: number,
     showShop: boolean,
+    interpolationAlpha: number,
   ): void {
     this.updateBurjWarningPlate(state.burjWarningPlate, game, sceneTime);
     this.updateCrosshairOverlay(state.crosshairOverlay, game, showShop);
     this.updateUpgradeRangeOverlay(state.upgradeRangeOverlay, game);
-    this.updateCollisionOverlay(state.collisionOverlay, game);
+    this.updateCollisionOverlay(state.collisionOverlay, game, interpolationAlpha);
   }
 
   private updateBurjWarningPlate(graphic: Graphics, game: GameState, sceneTime: number): void {
@@ -2272,7 +2330,7 @@ export class PixiRenderer implements GameRenderer {
     });
   }
 
-  private updateCollisionOverlay(graphic: Graphics, game: GameState): void {
+  private updateCollisionOverlay(graphic: Graphics, game: GameState, interpolationAlpha = 1): void {
     graphic.clear();
     if (!game._showColliders) return;
 
@@ -2316,37 +2374,51 @@ export class PixiRenderer implements GameRenderer {
 
     for (const missile of game.missiles) {
       if (!missile.alive) continue;
-      graphic.circle(missile.x, missile.y, 4).stroke({ width: 1.5, color: 0xff0000, alpha: 0.7 });
+      const pos = getRenderPosition(missile, interpolationAlpha);
+      graphic.circle(pos.x, pos.y, 4).stroke({ width: 1.5, color: 0xff0000, alpha: 0.7 });
     }
     for (const drone of game.drones) {
       if (!drone.alive) continue;
-      graphic.circle(drone.x, drone.y, drone.collisionRadius).stroke({ width: 1.5, color: 0xffa500, alpha: 0.7 });
+      const pos = getRenderPosition(drone, interpolationAlpha);
+      graphic.circle(pos.x, pos.y, drone.collisionRadius).stroke({ width: 1.5, color: 0xffa500, alpha: 0.7 });
     }
     for (const interceptor of game.interceptors) {
       if (!interceptor.alive) continue;
-      graphic.circle(interceptor.x, interceptor.y, 18).stroke({ width: 1.5, color: 0x44ffaa, alpha: 0.7 });
+      const pos = getRenderPosition(interceptor, interpolationAlpha);
+      graphic.circle(pos.x, pos.y, 18).stroke({ width: 1.5, color: 0x44ffaa, alpha: 0.7 });
     }
     for (const explosion of game.explosions) {
       if (explosion.alpha < 0.05) continue;
-      graphic.circle(explosion.x, explosion.y, explosion.radius).stroke({ width: 1.5, color: 0xffffff, alpha: 0.7 });
+      const pos = getRenderPosition(explosion, interpolationAlpha);
+      graphic.circle(pos.x, pos.y, explosion.radius).stroke({ width: 1.5, color: 0xffffff, alpha: 0.7 });
     }
   }
 
-  private updateGameplayDynamicEntities(state: GameplayDynamicState, game: GameState, sceneTime: number): void {
-    this.updateGameplayFlares(state, game, sceneTime);
-    this.updateGameplayPlanes(state, game, sceneTime);
+  private updateGameplayDynamicEntities(
+    state: GameplayDynamicState,
+    game: GameState,
+    sceneTime: number,
+    interpolationAlpha = 1,
+  ): void {
+    this.updateGameplayFlares(state, game, sceneTime, interpolationAlpha);
+    this.updateGameplayPlanes(state, game, sceneTime, interpolationAlpha);
     this.updateGameplayLasers(state, game);
     this.updateGameplayEmpRings(state, game);
-    this.updateGameplayPhalanxBullets(state, game);
-    this.updateGameplayMissiles(state, game, sceneTime);
-    this.updateGameplayDrones(state, game, sceneTime);
-    this.updateGameplayInterceptors(state, game, sceneTime);
-    this.updateGameplayUpgradeProjectiles(state, game, sceneTime);
-    this.updateGameplayExplosions(state, game);
-    this.updateGameplayParticles(state, game);
+    this.updateGameplayPhalanxBullets(state, game, interpolationAlpha);
+    this.updateGameplayMissiles(state, game, sceneTime, interpolationAlpha);
+    this.updateGameplayDrones(state, game, sceneTime, interpolationAlpha);
+    this.updateGameplayInterceptors(state, game, sceneTime, interpolationAlpha);
+    this.updateGameplayUpgradeProjectiles(state, game, sceneTime, interpolationAlpha);
+    this.updateGameplayExplosions(state, game, interpolationAlpha);
+    this.updateGameplayParticles(state, game, interpolationAlpha);
   }
 
-  private updateGameplayMissiles(state: GameplayDynamicState, game: GameState, sceneTime: number): void {
+  private updateGameplayMissiles(
+    state: GameplayDynamicState,
+    game: GameState,
+    sceneTime: number,
+    interpolationAlpha = 1,
+  ): void {
     cleanupEntityMap(
       state.missiles,
       game.missiles,
@@ -2364,7 +2436,8 @@ export class PixiRenderer implements GameRenderer {
       }
 
       const angle = Math.atan2(missile.vy, missile.vx);
-      syncProjectileNode(node, asset, missile.x, missile.y, angle, sceneTime, 1, true);
+      const pos = getRenderPosition(missile, interpolationAlpha);
+      syncProjectileNode(node, asset, pos.x, pos.y, angle, sceneTime, 1, true);
       node.overlay.clear();
 
       if (
@@ -2374,7 +2447,7 @@ export class PixiRenderer implements GameRenderer {
         missile.type === "stack_child"
       ) {
         const wide = missile.type === "stack3" ? 5.4 : missile.type === "stack2" ? 4.8 : 3.2;
-        drawPointTrail(node.trail, missile.trail, missile.x, missile.y, {
+        drawPointTrail(node.trail, missile.trail, pos.x, pos.y, {
           outerColor: 0xff8c3a,
           coreColor: missile.type === "stack_child" ? 0xffe7b8 : 0xeee4d8,
           headColor: missile.type === "stack_child" ? 0xffb45c : 0xffd694,
@@ -2403,28 +2476,29 @@ export class PixiRenderer implements GameRenderer {
         const barW = 24 * GAMEPLAY_ENEMY_SCALE;
         const barH = 3 * GAMEPLAY_ENEMY_SCALE;
         const ratio = Math.max(0, Math.min(1, missile.health / missile.maxHealth));
-        node.overlay.rect(missile.x - barW / 2, missile.y - 16 * GAMEPLAY_ENEMY_SCALE, barW, barH).fill({
+        node.overlay.rect(pos.x - barW / 2, pos.y - 16 * GAMEPLAY_ENEMY_SCALE, barW, barH).fill({
           color: 0x000000,
           alpha: 0.6,
         });
         node.overlay
-          .rect(missile.x - barW / 2, missile.y - 16 * GAMEPLAY_ENEMY_SCALE, barW * ratio, barH)
+          .rect(pos.x - barW / 2, pos.y - 16 * GAMEPLAY_ENEMY_SCALE, barW * ratio, barH)
           .fill(ratio > 0.5 ? 0x44ff44 : ratio > 0.25 ? 0xffaa00 : 0xff2222);
       }
 
       if (missile.luredByFlare) {
         node.overlay
-          .circle(
-            missile.x,
-            missile.y,
-            (8 + Math.sin(game.time * 0.22 + missile.x * 0.01) * 1.5) * GAMEPLAY_EFFECT_SCALE,
-          )
+          .circle(pos.x, pos.y, (8 + Math.sin(game.time * 0.22 + pos.x * 0.01) * 1.5) * GAMEPLAY_EFFECT_SCALE)
           .stroke({ width: 1.5 * GAMEPLAY_EFFECT_SCALE, color: 0xffb45a, alpha: 0.75 });
       }
     }
   }
 
-  private updateGameplayDrones(state: GameplayDynamicState, game: GameState, sceneTime: number): void {
+  private updateGameplayDrones(
+    state: GameplayDynamicState,
+    game: GameState,
+    sceneTime: number,
+    interpolationAlpha = 1,
+  ): void {
     cleanupEntityMap(
       state.drones,
       game.drones,
@@ -2445,11 +2519,12 @@ export class PixiRenderer implements GameRenderer {
       const facing = drone.vx > 0 ? 1 : -1;
       const spriteAngle =
         drone.subtype === "shahed238" || drone.diving ? Math.atan2(drone.vy, drone.vx) : facing > 0 ? 0 : Math.PI;
-      syncProjectileNode(node, asset, drone.x, drone.y, spriteAngle, sceneTime, 1, true);
+      const pos = getRenderPosition(drone, interpolationAlpha);
+      syncProjectileNode(node, asset, pos.x, pos.y, spriteAngle, sceneTime, 1, true);
       node.overlay.clear();
 
       if (drone.subtype === "shahed238") {
-        drawPointTrail(node.trail, trail, drone.x, drone.y, {
+        drawPointTrail(node.trail, trail, pos.x, pos.y, {
           outerColor: 0xff823c,
           coreColor: 0xd2dce6,
           headColor: 0xffcd78,
@@ -2463,19 +2538,24 @@ export class PixiRenderer implements GameRenderer {
 
       if (drone.diving) {
         node.overlay
-          .circle(drone.x, drone.y, 20 * GAMEPLAY_ENEMY_SCALE)
+          .circle(pos.x, pos.y, 20 * GAMEPLAY_ENEMY_SCALE)
           .stroke({ width: GAMEPLAY_EFFECT_SCALE, color: 0xff2200, alpha: 0.5 + Math.sin(game.time * 0.3) * 0.3 });
       }
 
       if (Math.sin(game.time * 0.15) > 0) {
         node.overlay
-          .circle(drone.x, drone.y, 0.75 * GAMEPLAY_EFFECT_SCALE * GAMEPLAY_ENEMY_SCALE)
+          .circle(pos.x, pos.y, 0.75 * GAMEPLAY_EFFECT_SCALE * GAMEPLAY_ENEMY_SCALE)
           .fill(drone.subtype === "shahed238" ? 0xff2200 : 0xff4400);
       }
     }
   }
 
-  private updateGameplayInterceptors(state: GameplayDynamicState, game: GameState, sceneTime: number): void {
+  private updateGameplayInterceptors(
+    state: GameplayDynamicState,
+    game: GameState,
+    sceneTime: number,
+    interpolationAlpha = 1,
+  ): void {
     cleanupEntityMap(
       state.interceptors,
       game.interceptors,
@@ -2494,19 +2574,20 @@ export class PixiRenderer implements GameRenderer {
         this.gameplayProjectileLayer.addChild(node.container);
       }
 
+      const pos = getRenderPosition(interceptor, interpolationAlpha);
       const heading =
         typeof interceptor.heading === "number"
           ? interceptor.heading
           : interceptor.trail.length >= 1
             ? Math.atan2(
-                interceptor.y - interceptor.trail[interceptor.trail.length - 1].y,
-                interceptor.x - interceptor.trail[interceptor.trail.length - 1].x,
+                pos.y - interceptor.trail[interceptor.trail.length - 1].y,
+                pos.x - interceptor.trail[interceptor.trail.length - 1].x,
               )
             : Math.atan2(interceptor.vy || -1, interceptor.vx || 0);
 
-      syncProjectileNode(node, asset, interceptor.x, interceptor.y, heading, sceneTime, 1, true);
+      syncProjectileNode(node, asset, pos.x, pos.y, heading, sceneTime, 1, true);
       node.overlay.clear();
-      drawPointTrail(node.trail, interceptor.trail, interceptor.x, interceptor.y, {
+      drawPointTrail(node.trail, interceptor.trail, pos.x, pos.y, {
         outerColor: interceptor.fromF15 ? 0x96c8ff : 0x6edcff,
         coreColor: interceptor.fromF15 ? 0xd6ecff : 0x84e8ff,
         headColor: interceptor.fromF15 ? 0xc8eeff : 0x8ff6ff,
@@ -2518,7 +2599,12 @@ export class PixiRenderer implements GameRenderer {
     }
   }
 
-  private updateGameplayUpgradeProjectiles(state: GameplayDynamicState, game: GameState, sceneTime: number): void {
+  private updateGameplayUpgradeProjectiles(
+    state: GameplayDynamicState,
+    game: GameState,
+    sceneTime: number,
+    interpolationAlpha = 1,
+  ): void {
     cleanupEntityMap(
       state.hornets,
       game.hornets,
@@ -2546,8 +2632,9 @@ export class PixiRenderer implements GameRenderer {
         this.gameplayProjectileLayer.addChild(node.container);
       }
       const prev = hornet.trail[hornet.trail.length - 1];
-      const heading = prev ? Math.atan2(hornet.y - prev.y, hornet.x - prev.x) : 0;
-      drawPointTrail(node.trail, hornet.trail, hornet.x, hornet.y, {
+      const pos = getRenderPosition(hornet, interpolationAlpha);
+      const heading = prev ? Math.atan2(pos.y - prev.y, pos.x - prev.x) : 0;
+      drawPointTrail(node.trail, hornet.trail, pos.x, pos.y, {
         outerColor: 0xffcc00,
         coreColor: 0xfff8b0,
         headColor: 0xffdc5c,
@@ -2559,8 +2646,8 @@ export class PixiRenderer implements GameRenderer {
       syncProjectileNode(
         node,
         state.upgradeProjectileAssets.wildHornet,
-        hornet.x,
-        hornet.y,
+        pos.x,
+        pos.y,
         heading + Math.PI / 2,
         sceneTime,
         1,
@@ -2576,10 +2663,9 @@ export class PixiRenderer implements GameRenderer {
         this.gameplayProjectileLayer.addChild(node.container);
       }
       const prev = roadrunner.trail[roadrunner.trail.length - 1];
-      const heading = prev
-        ? Math.atan2(roadrunner.y - prev.y, roadrunner.x - prev.x) + Math.PI / 2
-        : roadrunner.heading;
-      drawPointTrail(node.trail, roadrunner.trail, roadrunner.x, roadrunner.y, {
+      const pos = getRenderPosition(roadrunner, interpolationAlpha);
+      const heading = prev ? Math.atan2(pos.y - prev.y, pos.x - prev.x) + Math.PI / 2 : roadrunner.heading;
+      drawPointTrail(node.trail, roadrunner.trail, pos.x, pos.y, {
         outerColor: 0x44aaff,
         coreColor: 0xc4ecff,
         headColor: 0x7cd6ff,
@@ -2588,16 +2674,7 @@ export class PixiRenderer implements GameRenderer {
         headRadius: 1.9 * GAMEPLAY_EFFECT_SCALE,
       });
       node.overlay.clear();
-      syncProjectileNode(
-        node,
-        state.upgradeProjectileAssets.roadrunner,
-        roadrunner.x,
-        roadrunner.y,
-        heading,
-        sceneTime,
-        1,
-        true,
-      );
+      syncProjectileNode(node, state.upgradeProjectileAssets.roadrunner, pos.x, pos.y, heading, sceneTime, 1, true);
     }
 
     for (const patriot of game.patriotMissiles) {
@@ -2608,8 +2685,9 @@ export class PixiRenderer implements GameRenderer {
         this.gameplayProjectileLayer.addChild(node.container);
       }
       const prev = patriot.trail[patriot.trail.length - 1];
-      const heading = prev ? Math.atan2(patriot.y - prev.y, patriot.x - prev.x) + Math.PI / 2 : (patriot.heading ?? 0);
-      drawPointTrail(node.trail, patriot.trail, patriot.x, patriot.y, {
+      const pos = getRenderPosition(patriot, interpolationAlpha);
+      const heading = prev ? Math.atan2(pos.y - prev.y, pos.x - prev.x) + Math.PI / 2 : (patriot.heading ?? 0);
+      drawPointTrail(node.trail, patriot.trail, pos.x, pos.y, {
         outerColor: 0x88ff44,
         coreColor: 0xeaffd0,
         headColor: 0xb6ff76,
@@ -2618,24 +2696,20 @@ export class PixiRenderer implements GameRenderer {
         headRadius: 1.9 * GAMEPLAY_EFFECT_SCALE,
       });
       node.overlay.clear();
-      const flameLen = 5 + 4 * pulse(game.time, 0.5, patriot.x * 0.02 + patriot.y * 0.015);
-      const flameY = patriot.y + Math.cos(heading) * 8 * GAMEPLAY_PROJECTILE_SCALE;
-      const flameX = patriot.x - Math.sin(heading) * 8 * GAMEPLAY_PROJECTILE_SCALE;
+      const flameLen = 5 + 4 * pulse(game.time, 0.5, pos.x * 0.02 + pos.y * 0.015);
+      const flameY = pos.y + Math.cos(heading) * 8 * GAMEPLAY_PROJECTILE_SCALE;
+      const flameX = pos.x - Math.sin(heading) * 8 * GAMEPLAY_PROJECTILE_SCALE;
       node.overlay.circle(flameX, flameY, flameLen * 0.55).fill({ color: 0xffaa22, alpha: 0.72 });
-      syncProjectileNode(
-        node,
-        state.upgradeProjectileAssets.patriotSam,
-        patriot.x,
-        patriot.y,
-        heading,
-        sceneTime,
-        1,
-        true,
-      );
+      syncProjectileNode(node, state.upgradeProjectileAssets.patriotSam, pos.x, pos.y, heading, sceneTime, 1, true);
     }
   }
 
-  private updateGameplayFlares(state: GameplayDynamicState, game: GameState, sceneTime: number): void {
+  private updateGameplayFlares(
+    state: GameplayDynamicState,
+    game: GameState,
+    sceneTime: number,
+    interpolationAlpha = 1,
+  ): void {
     cleanupEntityMap(
       state.flares,
       game.flares,
@@ -2655,30 +2729,36 @@ export class PixiRenderer implements GameRenderer {
         state.flares.set(flare, node);
         this.gameplayEffectsLayer.addChild(container);
       }
+      const pos = getRenderPosition(flare, interpolationAlpha);
       const alpha = Math.min(1, flare.life / 24);
-      const flicker = 0.78 + 0.22 * Math.sin(game.time * 0.25 + flare.x * 0.03);
+      const flicker = 0.78 + 0.22 * Math.sin(game.time * 0.25 + pos.x * 0.03);
       drawSimpleTrailDots(node.trail, flare.trail, COL_HEX.flare, 2.4 * GAMEPLAY_EFFECT_SCALE, alpha);
       node.glow.clear();
       node.glow
-        .circle(flare.x, flare.y, (13 + Math.sin(sceneTime * 10 + flare.id) * 1.8) * GAMEPLAY_PROJECTILE_SCALE)
+        .circle(pos.x, pos.y, (13 + Math.sin(sceneTime * 10 + flare.id) * 1.8) * GAMEPLAY_PROJECTILE_SCALE)
         .fill({
           color: COL_HEX.flare,
           alpha: alpha * flicker * 0.18,
         });
       node.glow
-        .circle(flare.x, flare.y, (5 + Math.sin(game.time * 0.18 + flare.id) * 0.8) * GAMEPLAY_PROJECTILE_SCALE)
+        .circle(pos.x, pos.y, (5 + Math.sin(game.time * 0.18 + flare.id) * 0.8) * GAMEPLAY_PROJECTILE_SCALE)
         .fill({
           color: COL_HEX.flare,
           alpha: alpha * flicker,
         });
-      node.glow.circle(flare.x, flare.y, 2.4 * GAMEPLAY_PROJECTILE_SCALE).fill({ color: 0xfff4d0, alpha });
+      node.glow.circle(pos.x, pos.y, 2.4 * GAMEPLAY_PROJECTILE_SCALE).fill({ color: 0xfff4d0, alpha });
       node.glow
-        .circle(flare.x, flare.y, (8 + Math.sin(game.time * 0.16 + flare.id) * 1.2) * GAMEPLAY_PROJECTILE_SCALE)
+        .circle(pos.x, pos.y, (8 + Math.sin(game.time * 0.16 + flare.id) * 1.2) * GAMEPLAY_PROJECTILE_SCALE)
         .stroke({ width: 1.2 * GAMEPLAY_PROJECTILE_SCALE, color: 0xffe6b4, alpha: alpha * 0.65 });
     }
   }
 
-  private updateGameplayPlanes(state: GameplayDynamicState, game: GameState, sceneTime: number): void {
+  private updateGameplayPlanes(
+    state: GameplayDynamicState,
+    game: GameState,
+    sceneTime: number,
+    interpolationAlpha = 1,
+  ): void {
     cleanupEntityMap(
       state.planes,
       game.planes,
@@ -2698,13 +2778,14 @@ export class PixiRenderer implements GameRenderer {
         state.planes.set(plane, node);
         this.gameplayEffectsLayer.addChild(container);
       }
-      node.container.position.set(plane.x, plane.y);
+      const pos = getRenderPosition(plane, interpolationAlpha);
+      node.container.position.set(pos.x, pos.y);
       node.container.scale.set(plane.vx < 0 ? -GAMEPLAY_PLANE_SCALE : GAMEPLAY_PLANE_SCALE, GAMEPLAY_PLANE_SCALE);
       node.container.rotation = plane.evadeTimer > 0 ? (plane.vy > 0 ? 0.3 : -0.3) : 0;
       node.airframe.texture = state.planeAssets.f15Airframe.sprite;
       node.airframe.position.set(state.planeAssets.f15Airframe.offset.x, state.planeAssets.f15Airframe.offset.y);
       node.liveFx.clear();
-      const abLen = 5 + 4 * pulse(sceneTime, 0.35, plane.x * 0.04 + plane.y * 0.02);
+      const abLen = 5 + 4 * pulse(sceneTime, 0.35, pos.x * 0.04 + pos.y * 0.02);
       node.liveFx
         .moveTo(-22, -3)
         .lineTo(-22 - abLen, -2)
@@ -2776,12 +2857,13 @@ export class PixiRenderer implements GameRenderer {
     hideUnusedEmpRingNodes(state.empRingPool, used);
   }
 
-  private updateGameplayPhalanxBullets(state: GameplayDynamicState, game: GameState): void {
+  private updateGameplayPhalanxBullets(state: GameplayDynamicState, game: GameState, interpolationAlpha = 1): void {
     let used = 0;
     for (const bullet of game.phalanxBullets) {
-      if (bullet.cx === undefined || bullet.cy === undefined) continue;
-      const dx = bullet.cx - bullet.x;
-      const dy = bullet.cy - bullet.y;
+      const endpoint = getRenderBulletEndpoint(bullet, interpolationAlpha);
+      if (!endpoint) continue;
+      const dx = endpoint.x - bullet.x;
+      const dy = endpoint.y - bullet.y;
       const length = Math.hypot(dx, dy);
       if (length < 1) continue;
       const sprite = getPooledSprite(
@@ -2802,7 +2884,7 @@ export class PixiRenderer implements GameRenderer {
     hideUnusedSprites(state.phalanxPool, used);
   }
 
-  private updateGameplayExplosions(state: GameplayDynamicState, game: GameState): void {
+  private updateGameplayExplosions(state: GameplayDynamicState, game: GameState, interpolationAlpha = 1): void {
     cleanupEntityMap(
       state.explosions,
       game.explosions,
@@ -2842,43 +2924,30 @@ export class PixiRenderer implements GameRenderer {
             : explosion.playerCaused
               ? 0.72
               : 1;
+      const pos = getRenderPosition(explosion, interpolationAlpha);
 
-      syncCenteredSprite(
-        node.light,
-        explosion.x,
-        explosion.y,
-        boostedRadius * 7.2 * visualBoost,
-        explosion.alpha * 0.13,
-        color,
-      );
-      syncCenteredSprite(
-        node.splash,
-        explosion.x,
-        explosion.y,
-        boostedRadius * 4.4 * visualBoost,
-        explosion.alpha * 0.34,
-        color,
-      );
+      syncCenteredSprite(node.light, pos.x, pos.y, boostedRadius * 7.2 * visualBoost, explosion.alpha * 0.13, color);
+      syncCenteredSprite(node.splash, pos.x, pos.y, boostedRadius * 4.4 * visualBoost, explosion.alpha * 0.34, color);
       syncCenteredSprite(
         node.fireball,
-        explosion.x,
-        explosion.y,
+        pos.x,
+        pos.y,
         boostedRadius * 2.25 * visualBoost,
         explosion.alpha * (explosion.playerCaused && !explosion.chain ? 0.72 : 0.92),
         color,
       );
       syncCenteredSprite(
         node.core,
-        explosion.x,
-        explosion.y,
+        pos.x,
+        pos.y,
         boostedRadius * (explosion.playerCaused && !explosion.chain ? 0.72 : 0.58),
         explosion.alpha * 0.88,
         0xfff6dc,
       );
       syncCenteredSprite(
         node.ring,
-        explosion.x,
-        explosion.y,
+        pos.x,
+        pos.y,
         explosion.ringRadius * GAMEPLAY_EFFECT_SCALE * 2.25,
         explosion.ringAlpha * explosion.alpha * (1 + (explosion.heroPulse ?? 0) * 0.18),
         color,
@@ -2886,7 +2955,7 @@ export class PixiRenderer implements GameRenderer {
       if ((explosion.linkAlpha ?? 0) > 0 && explosion.linkFromX != null && explosion.linkFromY != null) {
         node.link
           .moveTo(explosion.linkFromX, explosion.linkFromY)
-          .lineTo(explosion.x, explosion.y)
+          .lineTo(pos.x, pos.y)
           .stroke({
             width: (8 + (explosion.chainLevel ?? 0) * 2.2) * GAMEPLAY_EFFECT_SCALE * 0.4,
             color,
@@ -2897,9 +2966,10 @@ export class PixiRenderer implements GameRenderer {
     }
   }
 
-  private updateGameplayParticles(state: GameplayDynamicState, game: GameState): void {
+  private updateGameplayParticles(state: GameplayDynamicState, game: GameState, interpolationAlpha = 1): void {
     let used = 0;
     for (const particle of game.particles) {
+      const pos = getRenderPosition(particle, interpolationAlpha);
       const alpha = particle.maxLife > 0 ? Math.max(0, Math.min(1, particle.life / particle.maxLife)) : 1;
       const color = memoCssColorToNumber(particle.color, 0xffaa44);
       const graphic = getPooledGraphic(state.particlePool, this.gameplayParticleLayer, used++);
@@ -2915,8 +2985,8 @@ export class PixiRenderer implements GameRenderer {
           { x: w / 2, y: 0 },
           { x: -w / 2, y: h / 2 },
         ].map((point) => ({
-          x: particle.x + point.x * cos - point.y * sin,
-          y: particle.y + point.x * sin + point.y * cos,
+          x: pos.x + point.x * cos - point.y * sin,
+          y: pos.y + point.x * sin + point.y * cos,
         }));
         graphic
           .moveTo(points[0].x, points[0].y)
@@ -2929,14 +2999,12 @@ export class PixiRenderer implements GameRenderer {
           });
       } else if (particle.type === "spark") {
         graphic
-          .moveTo(particle.x - particle.vx * 5, particle.y - particle.vy * 5)
-          .lineTo(particle.x, particle.y)
+          .moveTo(pos.x - particle.vx * 5, pos.y - particle.vy * 5)
+          .lineTo(pos.x, pos.y)
           .stroke({ width: particle.size * GAMEPLAY_EFFECT_SCALE * 1.2, color, alpha, cap: "round" });
-        graphic
-          .circle(particle.x, particle.y, particle.size * 0.7 * GAMEPLAY_EFFECT_SCALE)
-          .fill({ color: 0xffffff, alpha });
+        graphic.circle(pos.x, pos.y, particle.size * 0.7 * GAMEPLAY_EFFECT_SCALE).fill({ color: 0xffffff, alpha });
       } else {
-        graphic.circle(particle.x, particle.y, particle.size * GAMEPLAY_EFFECT_SCALE).fill({ color, alpha });
+        graphic.circle(pos.x, pos.y, particle.size * GAMEPLAY_EFFECT_SCALE).fill({ color, alpha });
       }
     }
     hideUnusedGraphics(state.particlePool, used);
