@@ -3103,22 +3103,36 @@ export class PixiRenderer implements GameRenderer {
               : 1;
       const pos = getRenderPosition(explosion, interpolationAlpha);
 
-      syncCenteredSprite(node.light, pos.x, pos.y, boostedRadius * 7.2 * visualBoost, explosion.alpha * 0.13, color);
-      syncCenteredSprite(node.splash, pos.x, pos.y, boostedRadius * 4.4 * visualBoost, explosion.alpha * 0.34, color);
+      syncCenteredSprite(
+        node.light,
+        pos.x,
+        pos.y,
+        boostedRadius * ov("explosion.lightRadiusMul", 7.2) * visualBoost,
+        explosion.alpha * ov("explosion.lightIntensity", 0.13),
+        color,
+      );
+      syncCenteredSprite(
+        node.splash,
+        pos.x,
+        pos.y,
+        boostedRadius * ov("explosion.splashRadiusMul", 4.4) * visualBoost,
+        explosion.alpha * ov("explosion.splashIntensity", 0.34),
+        color,
+      );
       syncCenteredSprite(
         node.fireball,
         pos.x,
         pos.y,
-        boostedRadius * 2.25 * visualBoost,
-        explosion.alpha * (explosion.playerCaused && !explosion.chain ? 0.72 : 0.92),
+        boostedRadius * ov("explosion.fireballRadiusMul", 2.25) * visualBoost,
+        explosion.alpha * (explosion.playerCaused && !explosion.chain ? 0.72 : ov("explosion.fireballAlpha", 0.92)),
         color,
       );
       syncCenteredSprite(
         node.core,
         pos.x,
         pos.y,
-        boostedRadius * (explosion.playerCaused && !explosion.chain ? 0.72 : 0.58),
-        explosion.alpha * 0.88,
+        boostedRadius * ov("explosion.coreRadiusMul", 0.58) * visualBoost,
+        explosion.alpha * ov("explosion.coreAlpha", 0.88),
         0xfff6dc,
       );
       syncCenteredSprite(
