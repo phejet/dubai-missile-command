@@ -280,9 +280,10 @@ export default function EditorApp() {
         rafRef.current = requestAnimationFrame(loop);
         return;
       }
-      // Only auto-advance time when playing and not scrubbing
+      // Always advance scene time for ambient animations (sky, stars)
+      if (!scrubbingRef.current) scene.time += 1;
+      // Only advance simulation when playing
       if (playingRef.current && !scrubbingRef.current) {
-        scene.time += 1;
         tickRef.current += 1;
         simTick(scene, 1);
         // Loop: record max tick, respawn fresh explosions
