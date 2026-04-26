@@ -123,6 +123,7 @@ interface GameplayBurjNode {
   damageUnderlay: Graphics;
   decalLayer: Container;
   damageFxLayer: Container;
+  hitFlashGlow: Sprite;
   hitFlash: Graphics;
   wreckage: Graphics;
   beaconStem: Graphics;
@@ -354,11 +355,60 @@ function createRect(fill: number, alpha: number, x: number, y: number, width: nu
   return graphic;
 }
 
-function createCircle(fill: number, alpha: number, x: number, y: number, radius: number): Graphics {
+export function createBurjBeaconGlow(x: number, y: number): Graphics {
   const graphic = new Graphics();
-  graphic.circle(x, y, radius).fill(fill);
-  graphic.alpha = alpha;
+  graphic
+    .circle(0, 0, 13)
+    .fill({ color: 0xff3b22, alpha: 0.2 })
+    .circle(0, 0, 7)
+    .fill({ color: 0xff5c40, alpha: 0.55 })
+    .circle(0, 0, 2.8)
+    .fill({ color: 0xfff0dc, alpha: 0.95 });
+  graphic.position.set(x, y);
+  graphic.alpha = 0;
   return graphic;
+}
+
+let burjHitFlashTexture: Texture | null = null;
+
+function getBurjHitFlashTexture(): Texture {
+  if (burjHitFlashTexture) return burjHitFlashTexture;
+  if (typeof document === "undefined") return Texture.WHITE;
+
+  const size = 192;
+  const center = size / 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return Texture.WHITE;
+
+  const glow = ctx.createRadialGradient(center, center, 0, center, center, center);
+  glow.addColorStop(0, "rgba(255,252,244,1)");
+  glow.addColorStop(0.24, "rgba(255,214,142,0.96)");
+  glow.addColorStop(0.56, "rgba(255,112,52,0.74)");
+  glow.addColorStop(0.82, "rgba(255,76,34,0.22)");
+  glow.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, size, size);
+
+  burjHitFlashTexture = Texture.from(canvas);
+  return burjHitFlashTexture;
+}
+
+function createGameplayBurjDamageMask(): Graphics {
+  const mask = new Graphics();
+  const topY = getGameplayBurjCollisionTop(2);
+  const baseY = GAMEPLAY_SCENIC_GROUND_Y - 6;
+  mask.moveTo(0, (topY - GAMEPLAY_TOWER_BASE_Y) / 2);
+  for (let y = topY + 8; y <= baseY; y += 14) {
+    mask.lineTo(getGameplayBurjHalfW(y, 2) / 2, (y - GAMEPLAY_TOWER_BASE_Y) / 2);
+  }
+  for (let y = baseY; y >= topY + 8; y -= 14) {
+    mask.lineTo(-getGameplayBurjHalfW(y, 2) / 2, (y - GAMEPLAY_TOWER_BASE_Y) / 2);
+  }
+  mask.closePath().fill(0xffffff);
+  return mask;
 }
 
 function cssHexToNumber(color: string | undefined, fallback: number): number {
@@ -1001,7 +1051,7 @@ export class PixiRenderer implements GameRenderer {
     this.titleBurjLayer.addChild(burjContainer);
 
     const beaconStem = createRect(0x803c28, 0.5, BURJ_X - 0.7, TITLE_TOWER_BASE_Y - BURJ_H * 2 - 50, 1.4, 10);
-    const beaconGlow = createCircle(0xff5c40, 0, BURJ_X, TITLE_TOWER_BASE_Y - BURJ_H * 2 - 46, 8);
+    const beaconGlow = createBurjBeaconGlow(BURJ_X, TITLE_TOWER_BASE_Y - BURJ_H * 2 - 46);
     this.titleBurjLayer.addChild(beaconStem, beaconGlow);
 
     this.titleBurjLayer.addChild(this.createTitleGroundDecor());
@@ -1166,14 +1216,25 @@ export class PixiRenderer implements GameRenderer {
     const damageUnderlay = new Graphics();
     const decalLayer = new Container();
     const damageFxLayer = new Container();
+    const hitFlashGlow = new Sprite(getBurjHitFlashTexture());
+    hitFlashGlow.anchor.set(0.5);
+    hitFlashGlow.visible = false;
     const hitFlash = new Graphics();
+    const damageMask = createGameplayBurjDamageMask();
+    damageUnderlay.mask = damageMask;
+    decalLayer.mask = damageMask;
+    damageFxLayer.mask = damageMask;
+    hitFlashGlow.mask = damageMask;
+    hitFlash.mask = damageMask;
     burjContainer.addChild(
       burjStatic,
+      damageMask,
       damageUnderlay,
       burjAnim.primary,
       burjAnim.secondary,
       decalLayer,
       damageFxLayer,
+      hitFlashGlow,
       hitFlash,
     );
 
@@ -1182,7 +1243,7 @@ export class PixiRenderer implements GameRenderer {
     wreckage.visible = false;
 
     const beaconStem = createRect(0x803c28, 0.5, BURJ_X - 0.7, GAMEPLAY_TOWER_BASE_Y - BURJ_H * 2 - 50, 1.4, 10);
-    const beaconGlow = createCircle(0xff5c40, 0, BURJ_X, GAMEPLAY_TOWER_BASE_Y - BURJ_H * 2 - 46, 8);
+    const beaconGlow = createBurjBeaconGlow(BURJ_X, GAMEPLAY_TOWER_BASE_Y - BURJ_H * 2 - 46);
     const groundDecor = this.createGameplayGroundDecor();
     this.gameplayBurjLayer.addChild(burjContainer, wreckage, beaconStem, beaconGlow, groundDecor);
 
@@ -1330,6 +1391,7 @@ export class PixiRenderer implements GameRenderer {
         damageUnderlay,
         decalLayer,
         damageFxLayer,
+        hitFlashGlow,
         hitFlash,
         wreckage,
         beaconStem,
@@ -1699,14 +1761,24 @@ export class PixiRenderer implements GameRenderer {
     burj.staticSprite.tint = critical ? 0xffd7d0 : damageLevel > 0.45 ? 0xffece4 : 0xffffff;
     burj.damageUnderlay.clear();
     if (damageLevel > 0) {
-      burj.damageUnderlay
-        .rect(-34, -BURJ_H - 54, 68, BURJ_H + 72)
-        .fill({ color: 0x2c1010, alpha: 0.08 + damageLevel * 0.2 });
-      burj.damageUnderlay
-        .circle(0, -BURJ_H * 0.3, 34 + damageLevel * 10)
-        .fill({ color: 0xff7040, alpha: damageLevel * 0.08 });
+      for (let i = 0; i < 7; i++) {
+        const ht = 0.16 + i * 0.11;
+        const y = -BURJ_H * ht;
+        const width = 8 + i * 2.4 + damageLevel * 8;
+        const flicker = 0.58 + 0.42 * Math.sin(sceneTime * 0.9 + i * 1.7);
+        burj.damageUnderlay
+          .rect(-width * 0.5, y, width, 1.4 + damageLevel * 1.2)
+          .fill({ color: 0x2c1010, alpha: (0.12 + damageLevel * 0.16) * flicker });
+        if (i % 2 === 0) {
+          burj.damageUnderlay
+            .rect(-width * 0.32, y - 1.4, width * 0.64, 0.8)
+            .fill({ color: 0xff7040, alpha: damageLevel * 0.08 * flicker });
+        }
+      }
       if (critical) {
-        burj.damageUnderlay.rect(-22, -BURJ_H - 48, 44, BURJ_H + 66).fill({ color: 0xff4840, alpha: 0.12 });
+        burj.damageUnderlay
+          .rect(-4, -BURJ_H - 36, 8, BURJ_H + 48)
+          .fill({ color: 0xff4840, alpha: 0.08 + 0.04 * Math.sin(sceneTime * 3.2) });
       }
     }
 
@@ -1775,16 +1847,40 @@ export class PixiRenderer implements GameRenderer {
         burj.damageFxLayer.addChild(graphic);
       }
       graphic.clear();
-      graphic.circle(localX + Math.sin(fx.seed) * 2, localY - 3, 8).fill({ color: 0x1c1412, alpha: 0.72 });
-      graphic.circle(localX, localY, 20 + flicker * 3.2 + damageLevel * 3).fill({
+      const charX = localX + Math.sin(fx.seed) * 2;
+      graphic.ellipse(charX, localY - 2.5, 8.5, 5.5).fill({ color: 0x1c1412, alpha: 0.78 });
+      graphic.ellipse(charX - 1.5, localY - 4, 5.5, 2.4).fill({ color: 0x5a2418, alpha: 0.34 + flicker * 0.18 });
+
+      const glowAlpha = Math.min(0.34, (0.08 + flicker * 0.12) * emberBoost);
+      graphic.ellipse(localX, localY - 2, 12 + damageLevel * 2, 8 + flicker * 1.5).fill({
         color: 0xff6e2f,
-        alpha: Math.min(0.72, (0.22 + flicker * 0.28) * emberBoost),
+        alpha: glowAlpha,
       });
-      graphic.circle(localX, localY, 7 + flicker * 2).fill({ color: 0xfff0c8, alpha: 0.62 });
+      graphic.circle(localX, localY - 1, 3.2 + flicker).fill({ color: 0xfff0c8, alpha: 0.58 });
+      for (let i = 0; i < 3; i++) {
+        const phase = fx.seed + i * 0.9;
+        const flameH = (9 + i * 3.4) * (0.82 + 0.28 * Math.sin(sceneTime * 7 + phase) + damageLevel * 0.14);
+        const flameW = 3.4 + i * 1.15;
+        const baseX = localX + Math.sin(phase) * 1.8;
+        const baseY = localY + 1.5;
+        graphic
+          .moveTo(baseX, baseY)
+          .quadraticCurveTo(
+            localX - flameW * 0.65 + Math.cos(phase) * 1.2,
+            localY - flameH * 0.45,
+            localX + Math.sin(phase + 0.25) * 0.8,
+            localY - flameH,
+          )
+          .quadraticCurveTo(localX + flameW * 0.65 + Math.sin(phase) * 1.1, localY - flameH * 0.35, baseX, baseY)
+          .fill({
+            color: i === 0 ? 0xfff0c8 : i === 1 ? 0xffb458 : 0xff6e2f,
+            alpha: 0.82 - i * 0.13,
+          });
+      }
       if (damageLevel >= 0.5) {
-        graphic.ellipse(localX + Math.sin(fx.seed * 1.7 + sceneTime * 0.03) * 4, localY - 15, 9, 16).fill({
+        graphic.ellipse(localX + Math.sin(fx.seed * 1.7 + sceneTime * 0.03) * 4, localY - 15, 8, 14).fill({
           color: 0x221a1c,
-          alpha: 0.12 + damageLevel * 0.14 + (critical ? 0.08 : 0),
+          alpha: (0.1 + damageLevel * 0.11 + (critical ? 0.06 : 0)) * (0.72 + 0.28 * flicker),
         });
       }
     }
@@ -1800,18 +1896,49 @@ export class PixiRenderer implements GameRenderer {
     burj.hitFlash.clear();
     const hitFlashT =
       game.burjHitFlashMax > 0 ? Math.max(0, Math.min(1, game.burjHitFlashTimer / game.burjHitFlashMax)) : 0;
-    if (hitFlashT <= 0) return;
+    if (hitFlashT <= 0) {
+      burj.hitFlashGlow.visible = false;
+      return;
+    }
 
     const localX = (game.burjHitFlashX - BURJ_X) / 2;
     const localY = (game.burjHitFlashY - GAMEPLAY_TOWER_BASE_Y) / 2;
     const flashPop = Math.pow(hitFlashT, 0.45);
     const orangeTail = Math.pow(hitFlashT, 0.78);
     const flashFade = 1 - hitFlashT;
-    burj.hitFlash.circle(localX, localY, 36 + 32 * flashPop).fill({ color: 0xff7034, alpha: 0.18 * orangeTail });
+    const glowSize = 92 + 84 * flashPop;
+    burj.hitFlashGlow.visible = true;
+    burj.hitFlashGlow.position.set(localX, localY);
+    burj.hitFlashGlow.width = glowSize;
+    burj.hitFlashGlow.height = glowSize;
+    burj.hitFlashGlow.alpha = 0.94 * orangeTail;
+
     burj.hitFlash.circle(localX, localY, 8 + 10 * flashPop).fill({ color: 0xfff6dc, alpha: 0.98 * flashPop });
-    burj.hitFlash
-      .circle(localX, localY, 20 + 34 * flashFade)
-      .stroke({ width: 1.4, color: 0xff9c58, alpha: 0.38 * orangeTail });
+    burj.hitFlash.circle(localX, localY, 14 + 16 * flashPop).fill({ color: 0xffbc68, alpha: 0.46 * orangeTail });
+    burj.hitFlash.circle(localX, localY, 12 + 18 * flashPop).stroke({
+      width: 1.8,
+      color: 0xffeec4,
+      alpha: 0.7 * flashPop,
+    });
+    burj.hitFlash.circle(localX, localY, 20 + 34 * flashFade).stroke({
+      width: 1.4,
+      color: 0xff9c58,
+      alpha: 0.38 * orangeTail,
+    });
+    burj.hitFlash.circle(localX, localY, 30 + 46 * flashFade).stroke({
+      width: 1,
+      color: 0xffd2aa,
+      alpha: 0.34 * flashPop,
+    });
+    for (let i = 0; i < 8; i++) {
+      const angle = (Math.PI * 2 * i) / 8 + flashFade * 0.4;
+      const inner = 10 + flashPop * 8;
+      const outer = 28 + flashFade * 24;
+      burj.hitFlash
+        .moveTo(localX + Math.cos(angle) * inner, localY + Math.sin(angle) * inner)
+        .lineTo(localX + Math.cos(angle) * outer, localY + Math.sin(angle) * outer)
+        .stroke({ width: 1, color: 0xffc082, alpha: 0.18 * orangeTail });
+    }
   }
 
   private updateGameplayWater(state: GameplaySceneState, sceneTime: number): void {

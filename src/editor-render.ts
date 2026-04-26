@@ -1,6 +1,4 @@
 import { PixiRenderer } from "./pixi-render";
-import { CANVAS_H, CANVAS_W } from "./game-logic";
-import { drawGame } from "./game-render";
 import type { GameRenderer } from "./game-renderer";
 import type { GameState } from "./types";
 
@@ -12,25 +10,10 @@ interface PixiEditorPreviewRendererOptions {
   renderer?: EditorPreviewBackend;
 }
 
-const EDITOR_LAYOUT = {
-  showTopHud: false,
-  showSystemLabels: false,
-  externalTitle: true,
-  externalGameOver: true,
-  buildingScale: 2,
-  burjScale: 2,
-  launcherScale: 3,
-  enemyScale: 3,
-  projectileScale: 2,
-  effectScale: 2,
-  planeScale: 3,
-};
-
 export class PixiEditorPreviewRenderer {
   private readonly renderer: EditorPreviewBackend;
-  private readonly fallback: CanvasEditorFallbackRenderer;
   private destroyed = false;
-  private fallbackActive = false;
+  private failed = false;
   private pendingPixelCheck = false;
   private frameCount = 0;
 
@@ -39,7 +22,6 @@ export class PixiEditorPreviewRenderer {
     { renderer = new PixiRenderer(canvas) }: PixiEditorPreviewRendererOptions = {},
   ) {
     this.renderer = renderer;
-    this.fallback = new CanvasEditorFallbackRenderer(canvas);
     this.canvas.dataset.renderer = "pixi";
     this.canvas.dataset.editorPreview = "booting";
     this.renderer.readyPromise?.then(
@@ -59,113 +41,52 @@ export class PixiEditorPreviewRenderer {
 
   render(scene: GameState): void {
     if (this.destroyed) return;
-    if (this.fallbackActive) {
-      this.fallback.render(scene);
-      return;
-    }
+    if (this.failed) return;
     this.canvas.dataset.editorPreview = this.canvas.dataset.editorPreview === "booting" ? "booting" : "ready";
     this.renderer.renderGameplay(scene, { showShop: false });
-    this.schedulePixelCheck(scene);
+    this.schedulePixelCheck();
   }
 
   resize(): void {
     if (this.destroyed) return;
     this.renderer.resize();
-    this.fallback.resize();
   }
 
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
     this.canvas.dataset.editorPreview = "destroyed";
-    this.fallback.destroy();
     this.renderer.destroy();
   }
 
-  private schedulePixelCheck(scene: GameState): void {
+  private schedulePixelCheck(): void {
     this.frameCount += 1;
     if (this.pendingPixelCheck || this.frameCount < 12 || this.frameCount % 30 !== 12) return;
 
     this.pendingPixelCheck = true;
     requestAnimationFrame(() => {
       this.pendingPixelCheck = false;
-      if (this.destroyed || this.fallbackActive) return;
+      if (this.destroyed || this.failed) return;
       if (this.canvas.dataset.pixiTitle === "error" || this.canvas.dataset.pixiGameplayStatic === "error") {
-        this.activateFallback("pixi-error", scene);
+        this.activateFallback("pixi-error");
         return;
       }
       if (isCanvasMostlyWhiteOrBlank(this.canvas)) {
-        this.activateFallback("blank-pixi-canvas", scene);
+        this.activateFallback("blank-pixi-canvas");
       }
     });
   }
 
-  private activateFallback(reason: string, scene?: GameState): void {
-    if (this.fallbackActive || this.destroyed) return;
-    this.fallbackActive = true;
-    this.canvas.dataset.editorPreview = "fallback";
+  private activateFallback(reason: string): void {
+    if (this.failed || this.destroyed) return;
+    this.failed = true;
+    this.canvas.dataset.editorPreview = "error";
     this.canvas.dataset.editorFallbackReason = reason;
-    this.fallback.show();
-    if (scene) this.fallback.render(scene);
   }
 }
 
 export function createPixiEditorPreviewRenderer(canvas: HTMLCanvasElement): PixiEditorPreviewRenderer {
   return new PixiEditorPreviewRenderer(canvas);
-}
-
-class CanvasEditorFallbackRenderer {
-  private readonly canvas: HTMLCanvasElement;
-  private ctx: CanvasRenderingContext2D | null = null;
-  private visible = false;
-
-  constructor(private readonly sourceCanvas: HTMLCanvasElement) {
-    this.canvas = document.createElement("canvas");
-    this.canvas.width = CANVAS_W;
-    this.canvas.height = CANVAS_H;
-    this.canvas.className = "editor-canvas editor-canvas-fallback";
-    this.canvas.dataset.renderer = "editor-fallback";
-    this.canvas.setAttribute("aria-hidden", "true");
-    this.canvas.style.display = "none";
-    this.canvas.style.pointerEvents = "none";
-  }
-
-  show(): void {
-    if (!this.canvas.parentElement) {
-      this.sourceCanvas.parentElement?.appendChild(this.canvas);
-    }
-    this.ctx = this.ctx ?? this.canvas.getContext("2d");
-    this.visible = true;
-    this.canvas.style.display = "block";
-    this.resize();
-  }
-
-  resize(): void {
-    if (!this.visible) return;
-    const parentRect = this.sourceCanvas.parentElement?.getBoundingClientRect();
-    const rect = this.sourceCanvas.getBoundingClientRect();
-    if (!parentRect) return;
-    this.canvas.style.left = `${rect.left - parentRect.left}px`;
-    this.canvas.style.top = `${rect.top - parentRect.top}px`;
-    this.canvas.style.width = `${rect.width}px`;
-    this.canvas.style.height = `${rect.height}px`;
-  }
-
-  render(scene: GameState): void {
-    if (!this.visible) this.show();
-    this.resize();
-    const ctx = this.ctx;
-    if (!ctx) return;
-    drawGame(ctx, scene, {
-      showShop: false,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      layoutProfile: EDITOR_LAYOUT as any,
-    });
-  }
-
-  destroy(): void {
-    this.canvas.remove();
-  }
 }
 
 function isCanvasMostlyWhiteOrBlank(canvas: HTMLCanvasElement): boolean {

@@ -23,7 +23,6 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
-    "test:render-toggle": "node scripts/check-render-toggle.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

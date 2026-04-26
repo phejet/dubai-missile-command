@@ -37,8 +37,6 @@ export interface HudSnapshot {
   fps: number;
   rafFps: number;
   rafFrameMs: number;
-  perfGlowEnabled: boolean;
-  perfProbed: boolean;
   ammo: number[];
   ammoMax: number;
   launcherHP: number[];
@@ -496,7 +494,6 @@ const hudElements = {
   perfRaf: null as HTMLElement | null,
   perfFrame: null as HTMLElement | null,
   perfHudFps: null as HTMLElement | null,
-  perfGlow: null as HTMLElement | null,
 };
 
 export function cacheHudElements(): void {
@@ -510,7 +507,6 @@ export function cacheHudElements(): void {
   hudElements.perfRaf = document.getElementById("perf-raf");
   hudElements.perfFrame = document.getElementById("perf-frame");
   hudElements.perfHudFps = document.getElementById("perf-hud-fps");
-  hudElements.perfGlow = document.getElementById("perf-glow");
 }
 
 export function updateHud(hud: HudSnapshot): void {
@@ -549,7 +545,6 @@ export function updateHud(hud: HudSnapshot): void {
   if (h.perfRaf) h.perfRaf.textContent = hud.rafFps ? `${hud.rafFps.toFixed(1)} fps` : "--";
   if (h.perfFrame) h.perfFrame.textContent = hud.rafFrameMs ? `${hud.rafFrameMs.toFixed(1)} ms` : "--";
   if (h.perfHudFps) h.perfHudFps.textContent = hud.fps ? `${hud.fps} fps` : "--";
-  if (h.perfGlow) h.perfGlow.textContent = hud.perfProbed ? (hud.perfGlowEnabled ? "on" : "off") : "probing";
 }
 
 // ─── Transient Overlays ────────────────────────────────────────────

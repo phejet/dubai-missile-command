@@ -12,18 +12,6 @@ import {
   buildThreatSpriteAssets,
   buildTitleBuildingAssets,
   buildUpgradeProjectileSpriteAssets,
-  burjPath as traceBurjPath,
-  drawBakedLauncher,
-  drawBakedProjectileSprite,
-  drawBakedStaticSprite,
-  drawFlickerWindows,
-  drawLiveInterceptorSprite,
-  drawLiveThreatSprite,
-  drawSharedLauncher,
-  drawSharedTower,
-  getLightFlicker,
-  halfWidthsAt as getBurjHalfWidths,
-  mapGameplayBuildingTower,
   type BuildingAssets,
   type BurjAssets,
   type DefenseSiteAssets,
@@ -54,21 +42,7 @@ export type {
   UpgradeProjectileSpriteAssets,
 } from "./art-render";
 
-export {
-  TITLE_SKYLINE_TOWERS,
-  traceBurjPath,
-  drawBakedLauncher,
-  drawBakedProjectileSprite,
-  drawBakedStaticSprite,
-  drawFlickerWindows,
-  drawLiveInterceptorSprite,
-  drawLiveThreatSprite,
-  drawSharedLauncher,
-  drawSharedTower,
-  getBurjHalfWidths,
-  getLightFlicker,
-  mapGameplayBuildingTower,
-};
+export { TITLE_SKYLINE_TOWERS };
 
 const DEFAULT_TITLE_GROUND_Y = GROUND_Y - 100;
 const DEFAULT_BURJ_ART_SCALE = 2;

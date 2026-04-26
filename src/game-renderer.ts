@@ -19,11 +19,3 @@ export interface GameRenderer {
   resize(): void;
   destroy(): void;
 }
-
-// Transitional HUD contract retained while the Pixi migration still carries the Canvas2D path.
-export const perfState = {
-  frameCount: 0,
-  startTime: 0,
-  glowEnabled: true,
-  probed: true,
-};

@@ -51,3 +51,6 @@
 - Editor fixture scenes need composition review, not just asset correctness. Avoid placing preview threats directly on landmark silhouettes unless testing that overlap deliberately.
 - Mock entities must include discriminator fields, not just matching subtype names. A `subtype: "shahed136"` without `type: "drone"` still renders as the default threat path.
 - When a shared sprite looks different across screens, compare the full render stack. Gameplay can add post-sprite overlays that title/editor paths will not inherit from the asset itself.
+- In Pixi, never draw a pulsing/scaled `Graphics` primitive at absolute world coordinates unless you want it to scale around `(0,0)` like a drunk compass. Draw local geometry around `(0,0)` and set `position` to the world anchor.
+- When porting Canvas damage effects to Pixi, do not replace gradients with large opaque circles or rectangles. If Pixi lacks the same gradient primitive, use localized strokes, small glows, and shape language that preserves the original art intent.
+- Preserve Canvas clip semantics during Pixi ports. If the old renderer called `clip()` before decals or flashes, the Pixi version needs an equivalent mask or the same art becomes giant unbounded UI sludge.

@@ -1,5 +1,5 @@
 // Graphics editor parameter definitions
-// Each parameter maps to a hardcoded value in game-render.js or game-logic.js
+// Each parameter maps to a hardcoded value in the Pixi renderer or game logic.
 
 export const PARAM_GROUPS = [
   {

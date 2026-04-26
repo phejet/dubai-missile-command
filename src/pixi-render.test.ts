@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { Container, Texture } from "pixi.js";
 import { initGame } from "./game-sim";
-import { PixiRenderer, summarizePixiDynamicEntities } from "./pixi-render";
+import { PixiRenderer, createBurjBeaconGlow, summarizePixiDynamicEntities } from "./pixi-render";
 
 function projectileAsset() {
   return {
@@ -268,6 +268,17 @@ describe("summarizePixiDynamicEntities", () => {
     });
     expect(snapshot.summary).toContain("missiles:1");
     expect(snapshot.summary).toContain("laserBeams:1");
+  });
+});
+
+describe("createBurjBeaconGlow", () => {
+  it("anchors pulse scaling at the beacon position instead of world origin", () => {
+    const glow = createBurjBeaconGlow(460, 698);
+
+    glow.scale.set(1.3);
+
+    expect(glow.position).toMatchObject({ x: 460, y: 698 });
+    expect(glow.alpha).toBe(0);
   });
 });
 

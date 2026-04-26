@@ -252,22 +252,6 @@ function getLauncherPalette(damaged: boolean) {
   };
 }
 
-function drawLauncherWreckLocal(ctx: CanvasRenderingContext2D) {
-  ctx.fillStyle = "#1a1210";
-  ctx.beginPath();
-  ctx.moveTo(-28, 4);
-  ctx.lineTo(-18, -6);
-  ctx.lineTo(14, -6);
-  ctx.lineTo(26, 4);
-  ctx.lineTo(24, 12);
-  ctx.lineTo(-24, 12);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = "rgba(180, 50, 30, 0.35)";
-  ctx.lineWidth = 1;
-  ctx.stroke();
-}
-
 function drawLauncherChassisLocal(
   ctx: CanvasRenderingContext2D,
   {
@@ -647,55 +631,6 @@ export function drawBakedLauncher(
   ctx.scale(assets.scale, assets.scale);
   drawLauncherTurretEffectsLocal(ctx, t, lx * 0.0068, assets.damaged, muzzleFlash);
   ctx.restore();
-  ctx.restore();
-}
-
-export function drawSharedLauncher(
-  ctx: CanvasRenderingContext2D,
-  lx: number,
-  ly: number,
-  barrelAngle: number,
-  {
-    t,
-    scale = 1,
-    alpha = 1,
-    damaged = false,
-    active = true,
-    muzzleFlash = 0,
-    statusLabel = null,
-  }: SharedLauncherOptions,
-) {
-  ctx.save();
-  ctx.translate(lx, ly);
-  ctx.scale(scale, scale);
-  ctx.globalAlpha = alpha;
-
-  if (!active) {
-    ctx.globalAlpha = alpha * 0.72;
-    drawLauncherWreckLocal(ctx);
-    ctx.restore();
-    return;
-  }
-
-  drawLauncherChassisLocal(ctx, {
-    damaged,
-    readyLightAlpha: getLauncherReadyLightAlpha(t),
-  });
-  ctx.save();
-  ctx.translate(LAUNCHER_TURRET_PIVOT.x, LAUNCHER_TURRET_PIVOT.y);
-  ctx.rotate(barrelAngle);
-  drawLauncherTurretLocal(ctx, damaged);
-  drawLauncherTurretEffectsLocal(ctx, t, lx * 0.0068, damaged, muzzleFlash);
-  ctx.restore();
-
-  if (statusLabel) {
-    ctx.textAlign = "center";
-    ctx.font = `bold 8px ${ARCADE_FONT_FAMILY}`;
-    ctx.fillStyle = damaged ? "rgba(255, 132, 110, 0.72)" : "rgba(128, 236, 255, 0.72)";
-    ctx.fillText(statusLabel, 0, 30);
-    ctx.textAlign = "left";
-  }
-
   ctx.restore();
 }
 
@@ -1908,104 +1843,6 @@ export function buildInterceptorSpriteAssets(scale: number): InterceptorSpriteAs
   };
 }
 
-function getThreatSpritePeriod(kind: ThreatSpriteKind): number {
-  switch (kind) {
-    case "mirv":
-      return 1;
-    case "mirv_warhead":
-    case "bomb":
-    case "stack_carrier_2":
-    case "stack_carrier_3":
-    case "shahed238":
-      return 0.9;
-    case "shahed136":
-      return 0.6;
-    case "missile":
-    case "stack_child":
-    default:
-      return 0.8;
-  }
-}
-
-function getInterceptorSpritePeriod(kind: InterceptorSpriteKind): number {
-  switch (kind) {
-    case "playerInterceptor":
-    case "f15Interceptor":
-    default:
-      return 0.8;
-  }
-}
-
-function getFramePhaseForTime(t: number, period: number): number {
-  return (((t % period) + period) % period) / period;
-}
-
-export function drawLiveThreatSprite(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  angle: number,
-  kind: ThreatSpriteKind,
-  { t, scale = 1, alpha = 1 }: { t: number; scale?: number; alpha?: number },
-) {
-  const framePhase = getFramePhaseForTime(t, getThreatSpritePeriod(kind));
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(angle);
-  ctx.scale(scale, scale);
-  ctx.globalAlpha = alpha;
-  switch (kind) {
-    case "mirv":
-      drawMirvLocal(ctx, framePhase);
-      break;
-    case "mirv_warhead":
-      drawMirvWarheadLocal(ctx, framePhase);
-      break;
-    case "bomb":
-      drawBombLocal(ctx, framePhase);
-      break;
-    case "stack_carrier_2":
-      drawStackCarrierLocal(ctx, 2, framePhase);
-      break;
-    case "stack_carrier_3":
-      drawStackCarrierLocal(ctx, 3, framePhase);
-      break;
-    case "stack_child":
-      drawStackChildLocal(ctx, framePhase);
-      break;
-    case "shahed136":
-      drawShahed136Local(ctx, framePhase);
-      break;
-    case "shahed238":
-      drawShahed238Local(ctx, framePhase);
-      break;
-    case "missile":
-    default:
-      drawDefaultMissileLocal(ctx, framePhase);
-      break;
-  }
-  ctx.restore();
-}
-
-export function drawLiveInterceptorSprite(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  angle: number,
-  kind: InterceptorSpriteKind,
-  { t, scale = 1, alpha = 1 }: { t: number; scale?: number; alpha?: number },
-) {
-  const framePhase = getFramePhaseForTime(t, getInterceptorSpritePeriod(kind));
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(angle);
-  ctx.scale(scale, scale);
-  ctx.globalAlpha = alpha;
-  if (kind === "f15Interceptor") drawF15InterceptorLocal(ctx, framePhase);
-  else drawPlayerInterceptorLocal(ctx, framePhase);
-  ctx.restore();
-}
-
 export function drawBakedProjectileSprite(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -2194,7 +2031,7 @@ export function drawFlickerWindows(
   }
 }
 
-export function drawSharedTower(
+function drawSharedTower(
   ctx: CanvasRenderingContext2D,
   tower: TitleTower,
   baseY: number,

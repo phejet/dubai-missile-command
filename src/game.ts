@@ -11,7 +11,7 @@ import {
   getAmmoCapacity,
   setRng,
 } from "./game-logic";
-import { perfState, type GameOverSnapshot, type GameRenderer, type GameScreen } from "./game-renderer";
+import type { GameOverSnapshot, GameRenderer, GameScreen } from "./game-renderer";
 import { mulberry32 } from "./headless/rng";
 import {
   bufferPlayerFire,
@@ -104,8 +104,6 @@ function buildHudSnapshot(game: GameState | null): HudSnapshot {
       fps: 0,
       rafFps: 0,
       rafFrameMs: 0,
-      perfGlowEnabled: true,
-      perfProbed: false,
       ammo: [0, 0, 0],
       ammoMax: 0,
       launcherHP: [0, 0, 0],
@@ -128,8 +126,6 @@ function buildHudSnapshot(game: GameState | null): HudSnapshot {
     fps: game._fpsDisplay || 0,
     rafFps: game._rafFps || 0,
     rafFrameMs: game._rafDeltaMs || 0,
-    perfGlowEnabled: perfState.glowEnabled,
-    perfProbed: perfState.probed,
     ammo: [...game.ammo],
     ammoMax,
     launcherHP: [...game.launcherHP],
