@@ -1449,13 +1449,47 @@ export function buildExplosionGlowAssets(): ExplosionGlowAssets {
         [1, "rgba(255, 255, 255, 0)"],
       ]);
     }),
-    core: buildEffectSpriteAsset(64, 64, (ctx, width, height) => {
-      drawCenteredRadialGlow(ctx, width, height, [
-        [0, "rgba(255, 255, 255, 1)"],
-        [0.34, "rgba(255, 255, 255, 0.86)"],
-        [0.72, "rgba(255, 255, 255, 0.22)"],
-        [1, "rgba(255, 255, 255, 0)"],
-      ]);
+    core: buildEffectSpriteAsset(128, 128, (ctx, width, height) => {
+      const cx = width / 2;
+      const cy = height / 2;
+      const r = width / 2;
+
+      const drawLobe = (x: number, y: number, lR: number, peak: number) => {
+        const g = ctx.createRadialGradient(x, y, 0, x, y, lR);
+        g.addColorStop(0, `rgba(255,255,255,${peak.toFixed(2)})`);
+        g.addColorStop(0.5, `rgba(255,255,255,${(peak * 0.52).toFixed(2)})`);
+        g.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, width, height);
+      };
+
+      ctx.globalCompositeOperation = "lighter";
+      drawLobe(cx, cy, r * 0.52, 0.62);
+      drawLobe(cx + r * 0.19, cy - r * 0.14, r * 0.38, 0.36);
+      drawLobe(cx - r * 0.17, cy + r * 0.21, r * 0.34, 0.32);
+      drawLobe(cx + r * 0.13, cy + r * 0.19, r * 0.3, 0.28);
+      drawLobe(cx - r * 0.21, cy - r * 0.17, r * 0.32, 0.3);
+      drawLobe(cx + r * 0.05, cy - r * 0.23, r * 0.26, 0.24);
+      ctx.globalCompositeOperation = "source-over";
+
+      // Noise pass: break up smooth gradient edges at transition zones
+      const pw = ctx.canvas.width;
+      const ph = ctx.canvas.height;
+      const id = ctx.getImageData(0, 0, pw, ph);
+      const d = id.data;
+      let s = 12345;
+      const rng = () => {
+        s = Math.imul(s, 1664525) + 1013904223;
+        return (s >>> 0) / 0xffffffff;
+      };
+      for (let i = 0; i < d.length; i += 4) {
+        const a = d[i + 3];
+        if (a === 0) continue;
+        const t = a / 255;
+        const noiseStr = t * (1 - t) * 4; // peaks at mid-alpha transition zones
+        d[i + 3] = Math.max(0, Math.min(255, a + (rng() - 0.5) * 140 * noiseStr));
+      }
+      ctx.putImageData(id, 0, 0);
     }),
     ring: buildEffectSpriteAsset(160, 160, (ctx, width, height) => {
       drawCenteredRadialGlow(ctx, width, height, [
