@@ -66,7 +66,7 @@ probe_dev_server() {
   fi
   local probe_url="http://${lan_host}:5173/api/save-perf"
   local http_code
-  http_code="$(curl -sS -o /dev/null -w "%{http_code}" -I --max-time 5 "$probe_url" 2>/dev/null)"
+  http_code="$(curl -sS -o /dev/null -w "%{http_code}" -X OPTIONS --max-time 5 "$probe_url" 2>/dev/null)"
   if [[ "$http_code" != "204" ]]; then
     echo "[bench] Perf dev server probe failed (HTTP ${http_code:-000}): $probe_url" >&2
     echo "[bench] Start it with: npm run dev:lan" >&2
@@ -116,17 +116,27 @@ run_launch() {
     "$run_id" \
     "$sink_url")"
 
+  # Post to the command endpoint so Live Reload builds (http://) can pick it up via polling.
   curl -sS \
     -X POST \
     -H "Content-Type: application/json" \
     --data "$command_payload" \
-    "$command_url" >/dev/null
+    "$command_url" >/dev/null 2>&1 || true
+
+  # --terminate-existing kills any running instance and cold-launches with the deep link
+  # delivered through launchOptions/argv (AppDelegate.swift forwards both). Warm payload-url
+  # delivery to a foreground app is unreliable on iOS, so we always force a cold start.
+  local payload_url
+  payload_url="dubaimissile://perf?replay=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$replay_key")&runId=${run_id}&autoquit=false&perfSink=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$sink_url")"
 
   if ! xcrun devicectl device process launch \
     --device "$IPHONE_UDID" \
-    "$BUNDLE_ID" \
-    --timeout 30 >/dev/null 2>&1; then
-    echo "[bench] App activation launch failed; continuing in case the app is already active." >&2
+    --terminate-existing \
+    --payload-url "$payload_url" \
+    --timeout 30 \
+    "$BUNDLE_ID" >/dev/null 2>&1; then
+    echo "[bench] App launch failed." >&2
+    exit 1
   fi
 }
 

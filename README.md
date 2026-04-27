@@ -93,11 +93,14 @@ PERF_BASELINE_DIR=perf-results/baselines/<buildId>
 3. Install the iPhone build you want to measure:
 
 ```bash
-npm run ios:dev   # Live Reload build for fast iteration
-npm run ios:prod  # static production build; use this for committed baselines
+npm run ios:dev      # Live Reload build for fast iteration (opens Xcode; Run manually)
+npm run ios:deploy   # static production build, builds + installs on device via devicectl
+npm run ios:install  # re-install only (skips vite build + cap sync); needs an existing dist/
 ```
 
-If mDNS is blocked, run the sync/open step manually with an IP-based server URL:
+`ios:deploy` is the preferred path for committed baselines: it builds for `generic/platform=iOS`, signs with `-allowProvisioningUpdates`, and pushes the `.app` to `IPHONE_UDID` from `.env.local`. No Xcode click required.
+
+If mDNS is blocked, the Live Reload variant accepts an explicit URL:
 
 ```bash
 CAP_DEV_SERVER=http://192.168.1.23:5173 npm run cap:sync && npm run cap:open

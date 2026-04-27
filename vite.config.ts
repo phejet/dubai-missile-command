@@ -15,6 +15,7 @@ export default defineConfig({
   base: isCapacitor ? "./" : "/dubai-missile-command/",
   server: {
     allowedHosts: isCapacitor ? [".local"] : undefined,
+    cors: { origin: true },
   },
   build: {
     rollupOptions: {

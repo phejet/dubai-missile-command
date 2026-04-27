@@ -178,9 +178,12 @@ PERF_BASELINE_DIR=perf-results/baselines/<buildId>
 3. Install the iPhone build you want to measure:
 
 ```bash
-npm run ios:dev   # Live Reload build pointed at http://<host>:5173
-npm run ios:prod  # static production build; this is the PR metric
+npm run ios:dev      # Live Reload build pointed at http://<host>:5173 (opens Xcode; Run manually)
+npm run ios:deploy   # static production build, builds + installs on device — this is the PR metric
+npm run ios:install  # re-install only (skips vite build + cap sync); needs an existing dist/
 ```
+
+`ios:deploy` runs `xcodebuild -destination "generic/platform=iOS" -allowProvisioningUpdates build` and then `xcrun devicectl device install app` against `IPHONE_UDID` from `.env.local`. This avoids the need to open Xcode or pick a destination by hand. The legacy `npm run ios:prod` (= `npm run ios`) still exists and opens Xcode for the manual Run path if needed.
 
 If mDNS is blocked, run the sync/open step manually with an IP-based dev server URL:
 
@@ -217,6 +220,8 @@ npm run cap:sync
 - A typo in the sink URL produces the classic red `NOT FOUND` banner. The valid save route is exactly `/api/save-perf`; `api/save-perfD` or any other variation will replay fine but never hit the save middleware.
 - If the app never reaches the Mac during a run, `npm run dev:lan` will show no `[perf-save]` lines. That means the phone did not POST to `/api/save-perf`, regardless of what the on-device replay looked like.
 - If `.local` name resolution is flaky on the network, use a literal LAN IP for `CAP_DEV_SERVER` and for any manual `perfSink` URLs.
+- The Capacitor WebView origin is `capacitor://localhost`. Vite 8's default CORS middleware only whitelists `localhost`/`127.0.0.1`, so a preflight from the device returns 204 without `Access-Control-Allow-Origin` and the perf POST fails with `PERF ERROR LOAD FAILED` on the on-screen banner. Fix is `server.cors: { origin: true }` in `vite.config.ts` so the dev server reflects the request origin back. Removing it will silently break iPhone perf again.
+- The two `xcodebuild` and `devicectl` commands use different UDID schemes. `xcodebuild` wants the Apple hardware ECID (e.g. `00008130-...`); `devicectl` uses its own UUID (the one in `.env.local`). The `ios:install` script sidesteps this by building for `generic/platform=iOS` and installing via `devicectl` against `IPHONE_UDID`.
 
 5. Capture the desktop baseline separately with the browser smoke harness:
 
