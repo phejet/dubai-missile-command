@@ -24,7 +24,7 @@ export const COL = {
   buildingLit: "#ffdd66",
   missile: "#ff3333",
   drone: "#ff6600",
-  interceptor: "#44ffaa",
+  interceptor: "#c8f0ff",
   explosion: "#ffaa00",
   plane: "#ffffff",
   planeLight: "#ff0000",

@@ -39,7 +39,7 @@ export const PARAM_GROUPS = [
         min: 1,
         max: 10,
         step: 0.1,
-        default: 4.4,
+        default: 3.8,
       },
       {
         key: "explosion.ringFadeRate",
@@ -66,7 +66,7 @@ export const PARAM_GROUPS = [
         min: 0,
         max: 1,
         step: 0.01,
-        default: 0.92,
+        default: 0.54,
       },
       {
         key: "explosion.fireballRadiusMul",
@@ -75,7 +75,7 @@ export const PARAM_GROUPS = [
         min: 0,
         max: 6,
         step: 0.05,
-        default: 2.25,
+        default: 0.95,
       },
       {
         key: "explosion.coreAlpha",
@@ -84,7 +84,7 @@ export const PARAM_GROUPS = [
         min: 0,
         max: 1,
         step: 0.01,
-        default: 0.88,
+        default: 0.59,
       },
       {
         key: "explosion.coreRadiusMul",
@@ -93,7 +93,7 @@ export const PARAM_GROUPS = [
         min: 0,
         max: 3,
         step: 0.01,
-        default: 0.58,
+        default: 0.26,
       },
       {
         key: "explosion.fadeRate",
@@ -102,7 +102,7 @@ export const PARAM_GROUPS = [
         min: 0.01,
         max: 0.2,
         step: 0.005,
-        default: 0.05,
+        default: 0.085,
       },
     ],
   },
@@ -116,7 +116,7 @@ export const PARAM_GROUPS = [
         min: 1,
         max: 20,
         step: 1,
-        default: 6,
+        default: 7,
       },
       {
         key: "particle.dotCountHeavy",
@@ -127,7 +127,7 @@ export const PARAM_GROUPS = [
         step: 1,
         default: 10,
       },
-      { key: "particle.debrisCount", label: "Debris Count", type: "range", min: 0, max: 30, step: 1, default: 16 },
+      { key: "particle.debrisCount", label: "Debris Count", type: "range", min: 0, max: 30, step: 1, default: 26 },
       {
         key: "particle.sparkCountLight",
         label: "Spark Count (light)",
@@ -135,7 +135,7 @@ export const PARAM_GROUPS = [
         min: 1,
         max: 25,
         step: 1,
-        default: 8,
+        default: 19,
       },
       {
         key: "particle.sparkCountHeavy",
@@ -144,7 +144,7 @@ export const PARAM_GROUPS = [
         min: 1,
         max: 30,
         step: 1,
-        default: 14,
+        default: 25,
       },
       {
         key: "particle.debrisGravity",
@@ -153,7 +153,7 @@ export const PARAM_GROUPS = [
         min: 0,
         max: 0.5,
         step: 0.01,
-        default: 0.15,
+        default: 0.3,
       },
       {
         key: "particle.debrisDrag",
