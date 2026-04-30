@@ -276,6 +276,14 @@ interface GameOverSceneState {
   embers: Graphics[];
 }
 
+function isMobileDevice(): boolean {
+  if (typeof navigator !== "undefined" && /\bCapacitor\b/i.test(navigator.userAgent)) return true;
+  if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+    return window.matchMedia("(pointer: coarse)").matches;
+  }
+  return false;
+}
+
 const TITLE_GROUND_Y = GROUND_Y - 100;
 const TITLE_TOWER_BASE_Y = TITLE_GROUND_Y - 6;
 const TITLE_WATER_TOP = TITLE_GROUND_Y + WATER_SURFACE_OFFSET;
@@ -1020,6 +1028,7 @@ export class PixiRenderer implements GameRenderer {
   private screen: PixiScreen = "title";
   private readonly onWebGlContextLost = (event: Event) => this.handleWebGlContextLost(event);
   private readonly onWebGlContextRestored = () => this.handleWebGlContextRestored();
+  private readonly hideCrosshair = isMobileDevice();
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -2410,7 +2419,7 @@ export class PixiRenderer implements GameRenderer {
 
   private updateCrosshairOverlay(graphic: Graphics, game: GameState, showShop: boolean): void {
     graphic.clear();
-    if (showShop) return;
+    if (showShop || this.hideCrosshair) return;
     const cx = game.crosshairX;
     const cy = game.crosshairY;
     const arm = 24;
