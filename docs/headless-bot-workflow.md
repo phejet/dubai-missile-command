@@ -107,11 +107,11 @@ They can still be useful, but review them before trusting their output.
 
 Less-central scripts exist for one-off inspection:
 
-- `analyze-hornets.js`
-- `analyze-replay.js`
-- `spawn-analysis-new.ts`
-- `normal-bench-all.json`
-- `spawn-analysis-new.json`
+- `tools/analyze-hornets.js`
+- `tools/analyze-replay.js`
+- `src/headless/spawn-analysis-new.ts`
+- `tools/analysis-output/normal-bench-all.json`
+- `tools/analysis-output/spawn-analysis-new.json`
 
 These are analysis artifacts and probes, not part of the gameplay runtime.
 

@@ -120,5 +120,5 @@ for (let i = 1; i < results.length; i++) {
 // Also output JSON for capture
 const output = { version: "post-spawn-commander", waves: results };
 import { writeFileSync } from "fs";
-writeFileSync("spawn-analysis-new.json", JSON.stringify(output, null, 2));
-console.log("\nJSON saved to spawn-analysis-new.json");
+writeFileSync("tools/analysis-output/spawn-analysis-new.json", JSON.stringify(output, null, 2));
+console.log("\nJSON saved to tools/analysis-output/spawn-analysis-new.json");
