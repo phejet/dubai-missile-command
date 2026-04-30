@@ -52,19 +52,66 @@ describe("player fire limiter", () => {
     expect(getPlayerBurstChargeCount(state)).toBe(3);
   });
 
-  it("refills one burst charge at a time", () => {
+  it("refills the burst pool with a 30/10/5 catchup curve when the player holds fire", () => {
     const state = createPlayerFireLimiterState();
     syncPlayerFireLimiter(state, 0, 3, 30);
-    expect(spendPlayerBurstCharge(state, 0, 30)).toBe(true);
-    expect(spendPlayerBurstCharge(state, 1, 30)).toBe(true);
+    expect(spendPlayerBurstCharge(state, 2, 30)).toBe(true);
+    expect(spendPlayerBurstCharge(state, 2, 30)).toBe(true);
     expect(spendPlayerBurstCharge(state, 2, 30)).toBe(true);
     expect(getPlayerBurstChargeCount(state)).toBe(0);
-    syncPlayerFireLimiter(state, 29, 3, 30);
+    // First recharge takes the base 30 ticks (last spend at tick 2, so arrives at tick 32).
+    syncPlayerFireLimiter(state, 31, 3, 30);
     expect(getPlayerBurstChargeCount(state)).toBe(0);
+    syncPlayerFireLimiter(state, 32, 3, 30);
+    expect(getPlayerBurstChargeCount(state)).toBe(1);
+    // Second recharge takes only 10 ticks (catchup, streak=1).
+    syncPlayerFireLimiter(state, 41, 3, 30);
+    expect(getPlayerBurstChargeCount(state)).toBe(1);
+    syncPlayerFireLimiter(state, 42, 3, 30);
+    expect(getPlayerBurstChargeCount(state)).toBe(2);
+    // Third recharge takes only 5 ticks (catchup, streak=2). Pool full at tick 47.
+    syncPlayerFireLimiter(state, 46, 3, 30);
+    expect(getPlayerBurstChargeCount(state)).toBe(2);
+    syncPlayerFireLimiter(state, 47, 3, 30);
+    expect(getPlayerBurstChargeCount(state)).toBe(3);
+  });
+
+  it("resets the catchup streak when the player fires mid-refill", () => {
+    const state = createPlayerFireLimiterState();
+    syncPlayerFireLimiter(state, 0, 3, 30);
+    spendPlayerBurstCharge(state, 0, 30);
+    spendPlayerBurstCharge(state, 0, 30);
+    spendPlayerBurstCharge(state, 0, 30);
+    // First charge returns at tick 30 (catchup armed for 20 ticks later).
     syncPlayerFireLimiter(state, 30, 3, 30);
     expect(getPlayerBurstChargeCount(state)).toBe(1);
+    // Player fires before the catchup pays out; next recharge resets to base rate.
+    spendPlayerBurstCharge(state, 30, 30);
+    expect(getPlayerBurstChargeCount(state)).toBe(0);
+    syncPlayerFireLimiter(state, 59, 3, 30);
+    expect(getPlayerBurstChargeCount(state)).toBe(0);
     syncPlayerFireLimiter(state, 60, 3, 30);
-    expect(getPlayerBurstChargeCount(state)).toBe(2);
+    expect(getPlayerBurstChargeCount(state)).toBe(1);
+  });
+
+  it("keeps sustained tap-spam at one shot per base recharge tick", () => {
+    const state = createPlayerFireLimiterState();
+    syncPlayerFireLimiter(state, 0, 3, 30);
+    // Burn the burst.
+    spendPlayerBurstCharge(state, 0, 30);
+    spendPlayerBurstCharge(state, 0, 30);
+    spendPlayerBurstCharge(state, 0, 30);
+    // Player taps as fast as charges return — sustained should stay at one per 30 ticks.
+    let tick = 30;
+    let shotsFired = 0;
+    for (let i = 0; i < 5; i++) {
+      syncPlayerFireLimiter(state, tick, 3, 30);
+      expect(getPlayerBurstChargeCount(state)).toBe(1);
+      expect(spendPlayerBurstCharge(state, tick, 30)).toBe(true);
+      shotsFired++;
+      tick += 30;
+    }
+    expect(shotsFired).toBe(5);
   });
 
   it("clamps burst capacity when launchers are lost", () => {
