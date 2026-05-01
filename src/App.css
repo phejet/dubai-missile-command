@@ -1052,7 +1052,7 @@
   }
 
   .title-overlay__start {
-    animation: title-start-pulse 1.8s ease-in-out infinite;
+    animation: press-start-beacon 2.094s linear infinite;
   }
 }
 
@@ -1090,14 +1090,41 @@
   }
 }
 
-@keyframes title-start-pulse {
-  0%,
-  100% {
-    opacity: 0.16;
+@keyframes press-start-beacon {
+  0% {
+    opacity: 0.67;
+  }
+
+  12.5% {
+    opacity: 0.9;
+  }
+
+  25% {
+    opacity: 1;
+  }
+
+  37.5% {
+    opacity: 0.9;
   }
 
   50% {
-    opacity: 0.42;
+    opacity: 0.67;
+  }
+
+  62.5% {
+    opacity: 0.44;
+  }
+
+  75% {
+    opacity: 0.34;
+  }
+
+  87.5% {
+    opacity: 0.44;
+  }
+
+  100% {
+    opacity: 0.67;
   }
 }
 

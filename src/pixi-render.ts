@@ -1994,7 +1994,7 @@ export class PixiRenderer implements GameRenderer {
     const beaconBlink = Math.max(0, Math.sin(sceneTime * 3));
     const beaconIntensity = Math.pow(beaconBlink, 0.3);
     burj.beaconStem.alpha = 0.25 + 0.75 * beaconIntensity;
-    burj.beaconGlow.alpha = 0.36 * beaconIntensity;
+    burj.beaconGlow.alpha = 0.6 * beaconIntensity;
     burj.beaconGlow.scale.set(1 + beaconIntensity * 0.3);
     burj.groundDecor.alpha = 0.96 + 0.04 * Math.sin(sceneTime * 0.32);
   }
@@ -3217,7 +3217,7 @@ export class PixiRenderer implements GameRenderer {
     const beaconBlink = Math.max(0, Math.sin(timeSeconds * 3));
     const beaconIntensity = Math.pow(beaconBlink, 0.3);
     state.beaconStem.alpha = 0.25 + 0.75 * beaconIntensity;
-    state.beaconGlow.alpha = 0.36 * beaconIntensity;
+    state.beaconGlow.alpha = 0.6 * beaconIntensity;
     state.beaconGlow.scale.set(1 + beaconIntensity * 0.3);
     if (state.burjGlow) {
       state.burjGlow.alpha = 0.94 + 0.06 * Math.sin(timeSeconds * 0.32);
