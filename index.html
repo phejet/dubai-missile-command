@@ -68,20 +68,36 @@
                     </svg>
                   </button>
                 </div>
-                <div class="battlefield-options-menu" id="options-menu" role="menu" aria-label="Game options" hidden>
-                  <button type="button" class="battlefield-option" id="option-sound">
-                    <span class="battlefield-option__label">Sound</span>
-                    <span class="battlefield-option__meta" id="option-sound-meta">On</span>
-                  </button>
-                  <button type="button" class="battlefield-option" id="option-debug">
-                    <span class="battlefield-option__label">Debug</span>
-                    <span class="battlefield-option__meta">Colliders</span>
-                  </button>
-                  <button type="button" class="battlefield-option" id="option-perf">
-                    <span class="battlefield-option__label">Perf</span>
-                    <span class="battlefield-option__meta" id="option-perf-meta">Off</span>
-                  </button>
-                </div>
+              </div>
+              <button
+                type="button"
+                class="battlefield-options-button battlefield-title-options-button"
+                id="title-options-button"
+                aria-label="Open options"
+                aria-expanded="false"
+                aria-haspopup="menu"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" />
+                  <path
+                    d="M19.1 13.3a7.8 7.8 0 0 0 .1-2.6l2-1.1-2-3.5-2.2.6a8.4 8.4 0 0 0-2.2-1.3L14.2 3H9.8l-.6 2.4a8.4 8.4 0 0 0-2.2 1.3l-2.2-.6-2 3.5 2 1.1a7.8 7.8 0 0 0 0 2.6l-2 1.1 2 3.5 2.2-.6a8.4 8.4 0 0 0 2.2 1.3l.6 2.4h4.4l.6-2.4a8.4 8.4 0 0 0 2.2-1.3l2.2.6 2-3.5-2-1.1Z"
+                  />
+                </svg>
+              </button>
+              <div class="battlefield-options-menu" id="options-menu" role="menu" aria-label="Game options" hidden>
+                <button type="button" class="battlefield-option" id="option-sound">
+                  <span class="battlefield-option__label">Sound</span>
+                  <span class="battlefield-option__meta" id="option-sound-meta">On</span>
+                </button>
+                <button type="button" class="battlefield-option" id="option-debug">
+                  <span class="battlefield-option__label">Debug</span>
+                  <span class="battlefield-option__meta">Colliders</span>
+                </button>
+                <button type="button" class="battlefield-option" id="option-perf">
+                  <span class="battlefield-option__label">Perf</span>
+                  <span class="battlefield-option__meta" id="option-perf-meta">Off</span>
+                </button>
+                <div class="battlefield-debug-starts" id="debug-starts" aria-label="Debug wave starts"></div>
               </div>
 
               <!-- Canvas stage -->

@@ -12,6 +12,7 @@ import {
   setRng,
 } from "./game-logic";
 import type { GameOverSnapshot, GameRenderer, GameScreen } from "./game-renderer";
+import { DEBUG_START_PRESETS, applyDebugStartPreset, getDebugStartPreset, type DebugStartPreset } from "./debug-starts";
 import { mulberry32 } from "./headless/rng";
 import {
   bufferPlayerFire,
@@ -305,7 +306,9 @@ export class Game {
   private retryButton: HTMLElement;
   private empButton: HTMLButtonElement;
   private optionsButton: HTMLElement;
+  private titleOptionsButton: HTMLElement;
   private optionsMenu: HTMLElement;
+  private debugStartsEl: HTMLElement;
   private perfOverlay: HTMLElement;
 
   // Game state
@@ -356,11 +359,14 @@ export class Game {
     this.retryButton = document.getElementById("retry-button")!;
     this.empButton = document.getElementById("emp-button") as HTMLButtonElement;
     this.optionsButton = document.getElementById("options-button")!;
+    this.titleOptionsButton = document.getElementById("title-options-button")!;
     this.optionsMenu = document.getElementById("options-menu")!;
+    this.debugStartsEl = document.getElementById("debug-starts")!;
     this.perfOverlay = document.getElementById("perf-overlay")!;
 
     cacheHudElements();
     cacheTransientOverlayElements();
+    this.renderDebugStartOptions();
     this.bindEvents();
     this.setupWindowGlobals();
     this.setScreen("title");
@@ -398,9 +404,16 @@ export class Game {
     });
     this.empButton.addEventListener("click", () => this.fireEmp());
     this.optionsButton.addEventListener("click", () => this.toggleOptionsMenu());
+    this.titleOptionsButton.addEventListener("click", () => this.toggleOptionsMenu());
     document.getElementById("option-sound")!.addEventListener("click", () => void this.toggleMute());
     document.getElementById("option-debug")!.addEventListener("click", () => this.toggleDebug());
     document.getElementById("option-perf")!.addEventListener("click", () => this.togglePerf());
+    this.debugStartsEl.addEventListener("click", (event) => {
+      const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-debug-start-id]");
+      if (!button) return;
+      event.preventDefault();
+      void this.startDebugStart(button.dataset.debugStartId ?? "");
+    });
 
     // Resize
     window.addEventListener("resize", () => this.updateCompactClass());
@@ -478,7 +491,21 @@ export class Game {
 
   // ─── Game Lifecycle ─────────────────────────────────────────────
 
-  private initGame(): void {
+  private renderDebugStartOptions(): void {
+    this.debugStartsEl.replaceChildren(
+      ...DEBUG_START_PRESETS.map((preset) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "battlefield-debug-starts__button";
+        button.dataset.debugStartId = preset.id;
+        button.textContent = `W${preset.wave}`;
+        button.setAttribute("aria-label", `Start ${preset.label}`);
+        return button;
+      }),
+    );
+  }
+
+  private initGame(debugStart?: DebugStartPreset): void {
     const seed = (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0;
     setRng(mulberry32(seed));
     this.gameRef.current = simInitGame();
@@ -493,12 +520,16 @@ export class Game {
     game._replayCheckpoints = [];
     game._replayCheckpointLastTick = -Infinity;
     game._replayCheckpointLastHash = null;
-    maybeRecordReplayCheckpoint(game, { force: true, reason: "start" });
+    if (debugStart) {
+      applyDebugStartPreset(game, debugStart);
+    }
+    maybeRecordReplayCheckpoint(game, { force: true, reason: debugStart ? `debugStart:${debugStart.id}` : "start" });
     this.shopBought = [];
     this.showOptionsMenu = false;
     this.showColliders = false;
     this.showPerfOverlay = false;
     this.optionsMenu.hidden = true;
+    this.syncOptionsButtons();
     this.perfOverlay.hidden = true;
     window.__gameRef = this.gameRef;
   }
@@ -519,6 +550,32 @@ export class Game {
     this.battlefieldCard.classList.remove("battlefield-card--blurred");
     this.canvas.classList.add("game-canvas--active");
     this.canvas.style.pointerEvents = "";
+    this.setScreen("playing");
+    SFX.gameStart();
+  }
+
+  private async startDebugStart(presetId: string): Promise<void> {
+    if (this.screen !== "title") return;
+    const preset = getDebugStartPreset(presetId);
+    if (!preset) return;
+    await SFX.init();
+    SFX.prewarm();
+    this.clearPointerCapture();
+    this.resetPlayerFireState();
+    this.initGame(preset);
+    this.replayActive = false;
+    this.shopOpen = false;
+    this.bonusActive = false;
+    this.progressionOpen = false;
+    this.showOptionsMenu = false;
+    uiHideShop();
+    uiHideUpgradeProgression();
+    hideBonusScreen();
+    this.battlefieldCard.classList.remove("battlefield-card--blurred");
+    this.canvas.classList.add("game-canvas--active");
+    this.canvas.style.pointerEvents = "";
+    this.optionsMenu.hidden = true;
+    this.syncOptionsButtons();
     this.setScreen("playing");
     SFX.gameStart();
   }
@@ -545,6 +602,7 @@ export class Game {
     this.canvas.style.pointerEvents = "";
     this.optionsMenu.hidden = true;
     this.perfOverlay.hidden = true;
+    this.syncOptionsButtons();
     this.setScreen("title");
   }
 
@@ -922,8 +980,14 @@ export class Game {
   private toggleOptionsMenu(): void {
     this.showOptionsMenu = !this.showOptionsMenu;
     this.optionsMenu.hidden = !this.showOptionsMenu;
-    this.optionsButton.setAttribute("aria-expanded", String(this.showOptionsMenu));
-    this.optionsButton.setAttribute("aria-label", this.showOptionsMenu ? "Close options" : "Open options");
+    this.syncOptionsButtons();
+  }
+
+  private syncOptionsButtons(): void {
+    for (const button of [this.optionsButton, this.titleOptionsButton]) {
+      button.setAttribute("aria-expanded", String(this.showOptionsMenu));
+      button.setAttribute("aria-label", this.showOptionsMenu ? "Close options" : "Open options");
+    }
   }
 
   private async toggleMute(): Promise<void> {

@@ -517,6 +517,17 @@
   transform: translateY(-1px);
 }
 
+.battlefield-title-options-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 6;
+}
+
+.game-shell:not([data-screen="title"]) .battlefield-title-options-button {
+  display: none;
+}
+
 .battlefield-options-menu {
   position: absolute;
   top: 72px;
@@ -582,6 +593,42 @@
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: #8ea8b8;
+}
+
+.battlefield-debug-starts {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(109, 217, 255, 0.14);
+}
+
+.game-shell:not([data-screen="title"]) .battlefield-debug-starts {
+  display: none;
+}
+
+.battlefield-debug-starts__button {
+  min-width: 0;
+  min-height: 34px;
+  border: 1px solid rgba(255, 110, 82, 0.22);
+  border-radius: 10px;
+  background: rgba(34, 12, 13, 0.72);
+  color: #ffad9a;
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.battlefield-debug-starts__button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 110, 82, 0.46);
+  background: rgba(58, 18, 18, 0.82);
 }
 
 .battlefield-stage {
