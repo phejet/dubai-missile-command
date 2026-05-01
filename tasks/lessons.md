@@ -54,3 +54,7 @@
 - In Pixi, never draw a pulsing/scaled `Graphics` primitive at absolute world coordinates unless you want it to scale around `(0,0)` like a drunk compass. Draw local geometry around `(0,0)` and set `position` to the world anchor.
 - When porting Canvas damage effects to Pixi, do not replace gradients with large opaque circles or rectangles. If Pixi lacks the same gradient primitive, use localized strokes, small glows, and shape language that preserves the original art intent.
 - Preserve Canvas clip semantics during Pixi ports. If the old renderer called `clip()` before decals or flashes, the Pixi version needs an equivalent mask or the same art becomes giant unbounded UI sludge.
+
+## 2026-05-01
+
+- For subjective visual checks after a focused rendering fix, ask the user to inspect the running game before doing extra screenshot spelunking.
