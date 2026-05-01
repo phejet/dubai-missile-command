@@ -77,6 +77,7 @@ interface TitleLauncherNode {
   container: Container;
   chassis: BlendSprites;
   turretRoot: Container;
+  muzzleLight: Graphics;
 }
 
 interface TitleThreatNode {
@@ -163,6 +164,7 @@ interface GameplayLauncherNode {
   turretRoot: Container;
   turret: Sprite;
   muzzleFlash: Graphics;
+  muzzleLight: Graphics;
   hpPips: Graphics;
   wreckage: Graphics;
   damaged: boolean;
@@ -868,6 +870,20 @@ function drawLauncherWreckage(graphic: Graphics): void {
     .stroke({ width: 1, color: 0xb4321e, alpha: 0.35 });
 }
 
+function drawLauncherMuzzleLight(graphic: Graphics, scale: number, timeSeconds: number, seed: number): void {
+  const lightBreathe = 0.45 + 0.25 * Math.sin(timeSeconds * 7 + seed);
+  const lightFlutter = 0.35 + 0.2 * Math.sin(timeSeconds * 17 + seed * 3.1);
+  const lightIntensity = Math.max(0.34, Math.min(0.72, 0.6 * lightBreathe + 0.4 * lightFlutter));
+  const muzzleX = 38 * scale;
+  graphic
+    .circle(muzzleX, 0, 7.25 * scale)
+    .fill({ color: 0xff1a08, alpha: 0.26 * lightIntensity })
+    .circle(muzzleX, 0, 3.35 * scale)
+    .fill({ color: 0xff3a22, alpha: 0.58 * lightIntensity })
+    .circle(muzzleX, 0, 1.35 * scale)
+    .fill({ color: 0xffc6a0, alpha: 0.78 * lightIntensity });
+}
+
 function drawBurjWreckage(graphic: Graphics, baseY = GAMEPLAY_TOWER_BASE_Y, centerX = BURJ_X): void {
   for (let i = 0; i < 8; i++) {
     const h1 = ((i * 7 + 3) % 13) / 13;
@@ -1276,11 +1292,12 @@ export class PixiRenderer implements GameRenderer {
       turretRoot.position.set(launcherAssets.turretPivot.x, launcherAssets.turretPivot.y);
       const turret = new Sprite(launcherAssets.turretSprite);
       turret.position.set(launcherAssets.turretOffset.x, launcherAssets.turretOffset.y);
-      turretRoot.addChild(turret);
+      const muzzleLight = new Graphics();
+      turretRoot.addChild(turret, muzzleLight);
 
       container.addChild(chassisStatic, chassis.primary, chassis.secondary, turretRoot);
       this.titleLauncherLayer.addChild(container);
-      return { container, chassis, turretRoot };
+      return { container, chassis, turretRoot, muzzleLight };
     });
 
     const threats = TITLE_AIRCRAFT.map((aircraft) => {
@@ -1491,8 +1508,9 @@ export class PixiRenderer implements GameRenderer {
       turretRoot.position.set(launcherAssets.intact.turretPivot.x, launcherAssets.intact.turretPivot.y);
       const turret = new Sprite(launcherAssets.intact.turretSprite);
       turret.position.set(launcherAssets.intact.turretOffset.x, launcherAssets.intact.turretOffset.y);
+      const muzzleLight = new Graphics();
       const muzzleFlash = new Graphics();
-      turretRoot.addChild(turret, muzzleFlash);
+      turretRoot.addChild(turret, muzzleLight, muzzleFlash);
 
       const hpPips = new Graphics();
       const wreckage = new Graphics();
@@ -1508,6 +1526,7 @@ export class PixiRenderer implements GameRenderer {
         turretRoot,
         turret,
         muzzleFlash,
+        muzzleLight,
         hpPips,
         wreckage,
         damaged: false,
@@ -2185,6 +2204,7 @@ export class PixiRenderer implements GameRenderer {
       launcher.wreckage.visible = !alive;
       launcher.hpPips.clear();
       launcher.muzzleFlash.clear();
+      launcher.muzzleLight.clear();
 
       if (!alive) return;
 
@@ -2192,6 +2212,8 @@ export class PixiRenderer implements GameRenderer {
       const rawLauncher = LAUNCHERS[index];
       const angle = Math.atan2(game.crosshairY - rawLauncher.y, game.crosshairX - rawLauncher.x);
       launcher.turretRoot.rotation = Math.min(-0.2, Math.max(angle, -Math.PI + 0.2));
+
+      drawLauncherMuzzleLight(launcher.muzzleLight, assets.scale, sceneTime, index * 1.7 + 0.3);
 
       const fireTick = game.launcherFireTick ? game.launcherFireTick[index] : 0;
       const fireAge = tickNow - fireTick;
@@ -3233,6 +3255,8 @@ export class PixiRenderer implements GameRenderer {
       const angle = Math.min(-0.25, Math.max(TITLE_LAUNCHER_ANGLES[index] + sweep, -Math.PI + 0.25));
       syncBlendSprites(launcher.chassis, state.launcherAssets.chassisAnimFrames, launcherFrameProgress);
       launcher.turretRoot.rotation = angle;
+      launcher.muzzleLight.clear();
+      drawLauncherMuzzleLight(launcher.muzzleLight, state.launcherAssets.scale, timeSeconds, index * 1.7 + 0.3);
     });
 
     state.threats.forEach((threat, index) => {
