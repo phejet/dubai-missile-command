@@ -1,4 +1,5 @@
 import { Application, Container, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
+import { TrailBatch } from "./pixi-trails";
 import { DEFAULT_GAMEPLAY_LAUNCHER_SCALE, TITLE_SKYLINE_TOWERS } from "./canvas-render-resources";
 import {
   BURJ_H,
@@ -236,6 +237,7 @@ interface GameplayDynamicState {
   laserPool: Sprite[];
   phalanxPool: Sprite[];
   particlePool: Graphics[];
+  trailBatch: TrailBatch;
 }
 
 interface GameplaySceneState {
@@ -703,56 +705,6 @@ function cleanupEntityMap<T extends object, N>(
   }
 }
 
-function drawPointTrail(
-  graphic: Graphics,
-  trail: readonly TrailPoint[] | undefined,
-  headX: number,
-  headY: number,
-  {
-    outerColor,
-    coreColor,
-    headColor,
-    width,
-    coreWidth,
-    headRadius,
-    alpha = 1,
-  }: {
-    outerColor: number;
-    coreColor: number;
-    headColor: number;
-    width: number;
-    coreWidth: number;
-    headRadius: number;
-    alpha?: number;
-  },
-): void {
-  const points = trail ?? [];
-  const hasHead = Number.isFinite(headX) && Number.isFinite(headY);
-  const pointCount = points.length + (hasHead ? 1 : 0);
-  graphic.clear();
-  if (pointCount === 0) return;
-
-  if (pointCount >= 2) {
-    const startIndex = Math.max(0, pointCount - 20);
-    const startX = startIndex < points.length ? points[startIndex].x : headX;
-    const startY = startIndex < points.length ? points[startIndex].y : headY;
-    graphic.moveTo(startX, startY);
-    for (let index = startIndex + 1; index < pointCount; index++) {
-      graphic.lineTo(index < points.length ? points[index].x : headX, index < points.length ? points[index].y : headY);
-    }
-    graphic.stroke({ width, color: outerColor, alpha: alpha * 0.24, cap: "round", join: "round" });
-
-    graphic.moveTo(startX, startY);
-    for (let index = startIndex + 1; index < pointCount; index++) {
-      graphic.lineTo(index < points.length ? points[index].x : headX, index < points.length ? points[index].y : headY);
-    }
-    graphic.stroke({ width: coreWidth, color: coreColor, alpha: alpha * 0.52, cap: "round", join: "round" });
-  }
-
-  graphic.circle(headX, headY, headRadius * 2.6).fill({ color: headColor, alpha: alpha * 0.16 });
-  graphic.circle(headX, headY, headRadius).fill({ color: headColor, alpha: alpha * 0.76 });
-}
-
 function drawSimpleTrailDots(
   graphic: Graphics,
   trail: readonly TrailPoint[] | undefined,
@@ -984,6 +936,7 @@ export class PixiRenderer implements GameRenderer {
   private readonly gameplayBurjLayer = new Container();
   private readonly gameplayCityLayer = new Container();
   private readonly gameplayWaterLayer = new Container();
+  private readonly gameplayTrailLayer = new Container();
   private readonly gameplayEffectsLayer = new Container();
   private readonly gameplayProjectileLayer = new Container();
   private readonly gameplayParticleLayer = new Container();
@@ -1004,6 +957,7 @@ export class PixiRenderer implements GameRenderer {
     this.gameplayBurjLayer,
     this.gameplayCityLayer,
     this.gameplayWaterLayer,
+    this.gameplayTrailLayer,
     this.gameplayEffectsLayer,
     this.gameplayProjectileLayer,
     this.gameplayParticleLayer,
@@ -1049,6 +1003,7 @@ export class PixiRenderer implements GameRenderer {
     this.gameplayBurjLayer.label = "gameplay-burj-layer";
     this.gameplayCityLayer.label = "gameplay-city-layer";
     this.gameplayWaterLayer.label = "gameplay-water-layer";
+    this.gameplayTrailLayer.label = "gameplay-trail-layer";
     this.gameplayEffectsLayer.label = "gameplay-effects-layer";
     this.gameplayProjectileLayer.label = "gameplay-projectile-layer";
     this.gameplayParticleLayer.label = "gameplay-particle-layer";
@@ -1169,6 +1124,7 @@ export class PixiRenderer implements GameRenderer {
       child.destroy({ children: true });
     }
     this.gameplayProjectileLayer.mask = null;
+    this.gameplayTrailLayer.mask = null;
     this.destroyChildren(this.gameOverScene);
     this.titleState = null;
     this.gameplayState = null;
@@ -1201,6 +1157,7 @@ export class PixiRenderer implements GameRenderer {
       }
 
       this.pngs = pngs;
+      (window as unknown as { __pixiApp?: unknown }).__pixiApp = this.app;
       this.buildTitleScene();
       this.buildGameplayScene();
       this.buildGameOverScene();
@@ -1413,11 +1370,14 @@ export class PixiRenderer implements GameRenderer {
       laserPool: [],
       phalanxPool: [],
       particlePool: [],
+      trailBatch: new TrailBatch(),
     };
+    this.gameplayTrailLayer.addChild(dynamic.trailBatch.displayObject);
 
     const projectileMask = new Graphics();
     projectileMask.rect(0, 0, CANVAS_W, GAMEPLAY_WATERLINE_Y).fill(0xffffff);
     this.gameplayProjectileLayer.mask = projectileMask;
+    this.gameplayTrailLayer.mask = projectileMask;
     this.gameplayScene.addChild(projectileMask);
 
     const nebulaTexture = this.pngs[PIXI_PNG_ASSET_KEYS.skyNebula];
@@ -2591,10 +2551,12 @@ export class PixiRenderer implements GameRenderer {
     this.updateGameplayLasers(state, game);
     this.updateGameplayEmpRings(state, game);
     this.updateGameplayPhalanxBullets(state, game, interpolationAlpha);
+    state.trailBatch.beginFrame();
     this.updateGameplayMissiles(state, game, sceneTime, interpolationAlpha);
     this.updateGameplayDrones(state, game, sceneTime, interpolationAlpha);
     this.updateGameplayInterceptors(state, game, sceneTime, interpolationAlpha);
     this.updateGameplayUpgradeProjectiles(state, game, sceneTime, interpolationAlpha);
+    state.trailBatch.endFrame();
     this.updateGameplayExplosions(state, game, interpolationAlpha);
     this.updateGameplayParticles(state, game, interpolationAlpha);
   }
@@ -2633,7 +2595,8 @@ export class PixiRenderer implements GameRenderer {
         missile.type === "stack_child"
       ) {
         const wide = missile.type === "stack3" ? 5.4 : missile.type === "stack2" ? 4.8 : 3.2;
-        drawPointTrail(node.trail, missile.trail, pos.x, pos.y, {
+        node.trail.clear();
+        state.trailBatch.addTrail(missile.trail, pos.x, pos.y, {
           outerColor: 0xff8c3a,
           coreColor: missile.type === "stack_child" ? 0xffe7b8 : 0xeee4d8,
           headColor: missile.type === "stack_child" ? 0xffb45c : 0xffd694,
@@ -2710,7 +2673,8 @@ export class PixiRenderer implements GameRenderer {
       node.overlay.clear();
 
       if (drone.subtype === "shahed238") {
-        drawPointTrail(node.trail, trail, pos.x, pos.y, {
+        node.trail.clear();
+        state.trailBatch.addTrail(trail, pos.x, pos.y, {
           outerColor: 0xff823c,
           coreColor: 0xd2dce6,
           headColor: 0xffcd78,
@@ -2773,7 +2737,8 @@ export class PixiRenderer implements GameRenderer {
 
       syncProjectileNode(node, asset, pos.x, pos.y, heading, sceneTime, 1, true);
       node.overlay.clear();
-      drawPointTrail(node.trail, interceptor.trail, pos.x, pos.y, {
+      node.trail.clear();
+      state.trailBatch.addTrail(interceptor.trail, pos.x, pos.y, {
         outerColor: interceptor.fromF15 ? 0x96c8ff : 0x6edcff,
         coreColor: interceptor.fromF15 ? 0xd6ecff : 0x84e8ff,
         headColor: interceptor.fromF15 ? 0xc8eeff : 0x8ff6ff,
@@ -2820,7 +2785,8 @@ export class PixiRenderer implements GameRenderer {
       const prev = hornet.trail[hornet.trail.length - 1];
       const pos = getRenderPosition(hornet, interpolationAlpha);
       const heading = prev ? Math.atan2(pos.y - prev.y, pos.x - prev.x) : 0;
-      drawPointTrail(node.trail, hornet.trail, pos.x, pos.y, {
+      node.trail.clear();
+      state.trailBatch.addTrail(hornet.trail, pos.x, pos.y, {
         outerColor: 0xffcc00,
         coreColor: 0xfff8b0,
         headColor: 0xffdc5c,
@@ -2851,7 +2817,8 @@ export class PixiRenderer implements GameRenderer {
       const prev = roadrunner.trail[roadrunner.trail.length - 1];
       const pos = getRenderPosition(roadrunner, interpolationAlpha);
       const heading = prev ? Math.atan2(pos.y - prev.y, pos.x - prev.x) + Math.PI / 2 : roadrunner.heading;
-      drawPointTrail(node.trail, roadrunner.trail, pos.x, pos.y, {
+      node.trail.clear();
+      state.trailBatch.addTrail(roadrunner.trail, pos.x, pos.y, {
         outerColor: 0x44aaff,
         coreColor: 0xc4ecff,
         headColor: 0x7cd6ff,
@@ -2873,7 +2840,8 @@ export class PixiRenderer implements GameRenderer {
       const prev = patriot.trail[patriot.trail.length - 1];
       const pos = getRenderPosition(patriot, interpolationAlpha);
       const heading = prev ? Math.atan2(pos.y - prev.y, pos.x - prev.x) + Math.PI / 2 : (patriot.heading ?? 0);
-      drawPointTrail(node.trail, patriot.trail, pos.x, pos.y, {
+      node.trail.clear();
+      state.trailBatch.addTrail(patriot.trail, pos.x, pos.y, {
         outerColor: 0x88ff44,
         coreColor: 0xeaffd0,
         headColor: 0xb6ff76,

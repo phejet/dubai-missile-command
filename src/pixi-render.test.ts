@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { Container, Texture } from "pixi.js";
 import { initGame } from "./game-sim";
+import { TrailBatch } from "./pixi-trails";
 import {
   PixiRenderer,
   __createPixiWaterSurfaceForTest,
@@ -91,6 +92,7 @@ function dynamicState() {
     laserPool: [],
     phalanxPool: [],
     particlePool: [],
+    trailBatch: new TrailBatch(),
   };
 }
 
