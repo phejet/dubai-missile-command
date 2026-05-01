@@ -115,6 +115,13 @@ The output is:
 - `concurrentCap`
 - `tactics`
 
+Fast late-wave variants are represented as spawn overrides, not new spawn types:
+
+- `variant: "fast"`
+- `speedMul`
+
+The spawned missile or drone keeps those fields so the simulation can move it faster and the renderer can draw hotter trails/accent glows.
+
 ## Spawn Tick Logic
 
 Missiles, drones, MIRVs, and stacked missiles use different tick spacing.
@@ -133,22 +140,18 @@ It:
 
 - looks at `schedule[scheduleIdx]`
 - stops if the next entry is not due yet
-- stops if current alive threat value is at or above `concurrentCap`
+- stops if spawning the next entry would push alive threat value over `concurrentCap`
 - spawns the next entry through `spawnFn(...)`
 - increments `scheduleIdx`
 - increments `waveTick`
 
 `isWaveFullySpawned()` only checks that the schedule has been exhausted. It does not check whether existing threats are dead.
 
-## Important Gotcha: Effective Concurrent Cap
+## Effective Concurrent Cap
 
-`getWaveConfig()` returns a configured `cap`, but `generateWaveSchedule()` currently sets:
+`generateWaveSchedule()` returns the configured concurrent cap from `getWaveConfig()`. `SATURATION` can raise it modestly for that wave, but it remains capped well below the full wave budget.
 
-- `concurrentCap = config.budget`
-
-That means the live concurrent cap is effectively the budget, not the table/formula cap field. The code comment even calls this "effectively uncapped".
-
-Future changes to wave pressure should decide whether that is intentional or a drift bug.
+Schedules are split into attack groups with short tick gaps between groups. Those lulls are intentional: they give the player room to reload and recover without lowering the total wave budget.
 
 ## Practical Rules
 

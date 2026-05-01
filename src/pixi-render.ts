@@ -2608,6 +2608,9 @@ export class PixiRenderer implements GameRenderer {
       const angle = Math.atan2(missile.vy, missile.vx);
       const pos = getRenderPosition(missile, interpolationAlpha);
       syncProjectileNode(node, asset, pos.x, pos.y, angle, sceneTime, 1, true);
+      const isFastMissile = missile.variant === "fast";
+      node.anim.primary.tint = isFastMissile ? 0xfff0c0 : 0xffffff;
+      node.anim.secondary.tint = isFastMissile ? 0xfff0c0 : 0xffffff;
       node.overlay.clear();
 
       if (
@@ -2619,23 +2622,36 @@ export class PixiRenderer implements GameRenderer {
         const wide = missile.type === "stack3" ? 5.4 : missile.type === "stack2" ? 4.8 : 3.2;
         node.trail.clear();
         state.trailBatch.addTrail(missile.trail, pos.x, pos.y, {
-          outerColor: 0xff8c3a,
-          coreColor: missile.type === "stack_child" ? 0xffe7b8 : 0xeee4d8,
-          headColor: missile.type === "stack_child" ? 0xffb45c : 0xffd694,
-          width: wide * GAMEPLAY_EFFECT_SCALE,
+          outerColor: isFastMissile ? 0xff3a1f : 0xff8c3a,
+          coreColor: isFastMissile ? 0xfff4aa : missile.type === "stack_child" ? 0xffe7b8 : 0xeee4d8,
+          headColor: isFastMissile ? 0xffff88 : missile.type === "stack_child" ? 0xffb45c : 0xffd694,
+          width: wide * (isFastMissile ? 1.24 : 1) * GAMEPLAY_EFFECT_SCALE,
           coreWidth: wide * 0.42 * GAMEPLAY_EFFECT_SCALE,
-          headRadius: 1.7 * GAMEPLAY_EFFECT_SCALE,
+          headRadius: (isFastMissile ? 2.2 : 1.7) * GAMEPLAY_EFFECT_SCALE,
         });
       } else if (missile.type === "mirv" || missile.type === "mirv_warhead") {
         drawSimpleTrailDots(
           node.trail,
           missile.trail,
-          missile.type === "mirv" ? 0xc8a078 : 0xdc6432,
-          (missile.type === "mirv" ? 3.2 : 1.7) * GAMEPLAY_EFFECT_SCALE,
+          isFastMissile ? 0xffd040 : missile.type === "mirv" ? 0xc8a078 : 0xdc6432,
+          (missile.type === "mirv" ? 3.2 : 1.7) * (isFastMissile ? 1.25 : 1) * GAMEPLAY_EFFECT_SCALE,
           missile.type === "mirv" ? 0.5 : 0.4,
         );
       } else {
-        drawSimpleTrailDots(node.trail, missile.trail, 0x707e94, 1.8 * GAMEPLAY_EFFECT_SCALE, 0.24);
+        drawSimpleTrailDots(
+          node.trail,
+          missile.trail,
+          isFastMissile ? 0xffcc44 : 0x707e94,
+          1.8 * (isFastMissile ? 1.35 : 1) * GAMEPLAY_EFFECT_SCALE,
+          isFastMissile ? 0.36 : 0.24,
+        );
+      }
+
+      if (isFastMissile) {
+        const pulse = 1 + Math.sin(game.time * 0.38 + pos.x * 0.02) * 0.18;
+        node.overlay
+          .circle(pos.x, pos.y, 7 * pulse * GAMEPLAY_EFFECT_SCALE)
+          .stroke({ width: 1.3 * GAMEPLAY_EFFECT_SCALE, color: 0xffe45a, alpha: 0.72 });
       }
 
       if (
@@ -2692,20 +2708,36 @@ export class PixiRenderer implements GameRenderer {
         drone.subtype === "shahed238" || drone.diving ? Math.atan2(drone.vy, drone.vx) : facing > 0 ? 0 : Math.PI;
       const pos = getRenderPosition(drone, interpolationAlpha);
       syncProjectileNode(node, asset, pos.x, pos.y, spriteAngle, sceneTime, 1, true);
+      const isFastDrone = drone.variant === "fast";
+      node.anim.primary.tint = isFastDrone ? 0xffe0a8 : 0xffffff;
+      node.anim.secondary.tint = isFastDrone ? 0xffe0a8 : 0xffffff;
       node.overlay.clear();
 
       if (drone.subtype === "shahed238") {
         node.trail.clear();
         state.trailBatch.addTrail(trail, pos.x, pos.y, {
-          outerColor: 0xff823c,
-          coreColor: 0xd2dce6,
-          headColor: 0xffcd78,
-          width: 3.8 * GAMEPLAY_EFFECT_SCALE,
+          outerColor: isFastDrone ? 0xff341a : 0xff823c,
+          coreColor: isFastDrone ? 0xfff0ba : 0xd2dce6,
+          headColor: isFastDrone ? 0xffff66 : 0xffcd78,
+          width: 3.8 * (isFastDrone ? 1.22 : 1) * GAMEPLAY_EFFECT_SCALE,
           coreWidth: 1.4 * GAMEPLAY_EFFECT_SCALE,
-          headRadius: 1.6 * GAMEPLAY_EFFECT_SCALE,
+          headRadius: (isFastDrone ? 2.1 : 1.6) * GAMEPLAY_EFFECT_SCALE,
         });
       } else {
-        drawSimpleTrailDots(node.trail, trail, 0x889098, 1.2 * GAMEPLAY_EFFECT_SCALE, 0.32);
+        drawSimpleTrailDots(
+          node.trail,
+          trail,
+          isFastDrone ? 0xffc14a : 0x889098,
+          1.2 * (isFastDrone ? 1.35 : 1) * GAMEPLAY_EFFECT_SCALE,
+          isFastDrone ? 0.44 : 0.32,
+        );
+      }
+
+      if (isFastDrone) {
+        const pulse = 1 + Math.sin(game.time * 0.34 + pos.y * 0.015) * 0.16;
+        node.overlay
+          .circle(pos.x, pos.y, (drone.subtype === "shahed238" ? 9 : 12) * pulse * GAMEPLAY_EFFECT_SCALE)
+          .stroke({ width: 1.2 * GAMEPLAY_EFFECT_SCALE, color: 0xffd24a, alpha: 0.7 });
       }
 
       if (drone.diving) {

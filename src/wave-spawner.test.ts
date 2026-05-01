@@ -103,6 +103,14 @@ describe("generateWaveSchedule", () => {
     }
   });
 
+  it("uses configured concurrent cap instead of wave budget", () => {
+    setRng(makeSeededRng(42));
+    const cmdr = createCommander("balanced");
+    const result = generateWaveSchedule(1, cmdr);
+    expect(result.concurrentCap).toBe(getWaveConfig(1).concurrentCap);
+    expect(result.concurrentCap).toBeLessThan(getWaveConfig(1).budget);
+  });
+
   it("per-type counts within min/max", () => {
     setRng(makeSeededRng(42));
     const cmdr = createCommander("balanced");
@@ -125,6 +133,47 @@ describe("generateWaveSchedule", () => {
     for (const entry of schedule) {
       expect(entry.tick).toBeGreaterThanOrEqual(0);
     }
+  });
+
+  it("adds intra-wave lull gaps between attack groups", () => {
+    setRng(makeSeededRng(77));
+    const cmdr = createCommander("balanced");
+    for (let w = 1; w <= 5; w++) generateWaveSchedule(w, cmdr);
+    const { schedule } = generateWaveSchedule(6, cmdr);
+    const gaps = schedule.slice(1).map((entry, index) => entry.tick - schedule[index].tick);
+    expect(Math.max(...gaps)).toBeGreaterThanOrEqual(80);
+  });
+
+  it("does not create fast variants before wave 4", () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      setRng(makeSeededRng(seed));
+      const cmdr = createCommander("balanced");
+      for (let w = 1; w <= 3; w++) {
+        const { schedule } = generateWaveSchedule(w, cmdr);
+        expect(schedule.some((entry) => entry.overrides?.variant === "fast")).toBe(false);
+      }
+    }
+  });
+
+  it("leans on fast variants more often in late waves", () => {
+    let wave5Fast = 0;
+    let wave10Fast = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      setRng(makeSeededRng(seed));
+      const early = createCommander("balanced");
+      for (let w = 1; w < 5; w++) generateWaveSchedule(w, early);
+      wave5Fast += generateWaveSchedule(5, early).schedule.filter(
+        (entry) => entry.overrides?.variant === "fast",
+      ).length;
+
+      setRng(makeSeededRng(seed));
+      const late = createCommander("balanced");
+      for (let w = 1; w < 10; w++) generateWaveSchedule(w, late);
+      wave10Fast += generateWaveSchedule(10, late).schedule.filter(
+        (entry) => entry.overrides?.variant === "fast",
+      ).length;
+    }
+    expect(wave10Fast).toBeGreaterThan(wave5Fast * 2);
   });
 
   it("wave 1-2 stay within their configured starter threat pools", () => {
@@ -276,6 +325,40 @@ describe("advanceSpawnSchedule", () => {
     expect(g.scheduleIdx).toBe(0);
   });
 
+  it("does not spawn the next entry when it would exceed concurrent cap", () => {
+    const spawned: SpawnType[] = [];
+    const g = makeGameWithSchedule(
+      [
+        { tick: 0, type: "missile" },
+        { tick: 1, type: "missile" },
+      ],
+      2,
+    );
+    g.waveTick = 10;
+    g.missiles = [{ alive: true, type: "missile" }] as Missile[];
+    advanceSpawnSchedule(g, 1, (_g, type) => spawned.push(type));
+    expect(spawned).toEqual([]);
+    expect(g.scheduleIdx).toBe(0);
+  });
+
+  it("spawns while the next entry still fits under concurrent cap", () => {
+    const spawned: SpawnType[] = [];
+    const g = makeGameWithSchedule([{ tick: 0, type: "drone136" }], 2.5);
+    g.waveTick = 10;
+    g.missiles = [{ alive: true, type: "missile" }] as Missile[];
+    advanceSpawnSchedule(g, 1, (_g, type) => spawned.push(type));
+    expect(spawned).toEqual(["drone136"]);
+    expect(g.scheduleIdx).toBe(1);
+  });
+
+  it("passes fast variant overrides to spawn function", () => {
+    const calls: Array<{ type: SpawnType; overrides: import("./types.js").SpawnEntry["overrides"] }> = [];
+    const g = makeGameWithSchedule([{ tick: 0, type: "drone238", overrides: { variant: "fast", speedMul: 1.25 } }]);
+    g.waveTick = 10;
+    advanceSpawnSchedule(g, 1, (_g, type, overrides) => calls.push({ type, overrides }));
+    expect(calls).toEqual([{ type: "drone238", overrides: { variant: "fast", speedMul: 1.25 } }]);
+  });
+
   it("resumes after cap drops", () => {
     const spawned: SpawnType[] = [];
     const g = makeGameWithSchedule(
@@ -284,10 +367,10 @@ describe("advanceSpawnSchedule", () => {
         { tick: 1, type: "missile" },
         { tick: 2, type: "missile" },
       ],
-      2, // cap = 2 threat value
+      3, // cap = 3 threat value
     );
     g.waveTick = 10;
-    // 2 alive missiles = 2 threat value = at cap
+    // 2 alive missiles = 3 threat value = at cap
     g.missiles = [
       { alive: true, type: "missile" },
       { alive: true, type: "missile" },
@@ -300,10 +383,10 @@ describe("advanceSpawnSchedule", () => {
     advanceSpawnSchedule(g, 1, spawnFn);
     expect(spawned).toEqual([]); // blocked by cap
 
-    // Kill one missile (threat drops to 1, below cap of 2)
+    // Kill one missile (threat drops to 1.5, leaving room for one more missile)
     g.missiles[0].alive = false;
     advanceSpawnSchedule(g, 1, spawnFn);
-    // Spawns one missile (threat goes 1→2, at cap), next blocked
+    // Spawns one missile (threat goes 1.5→3, at cap), next blocked
     expect(spawned).toEqual(["missile"]);
     expect(g.scheduleIdx).toBe(1);
   });

@@ -34,6 +34,8 @@ export interface Missile {
   luredByFlare?: boolean;
   luredFlareId?: number | null;
   flareTargetId?: number;
+  variant?: "normal" | "fast";
+  speedMul?: number;
   _hitByExplosions?: Set<number>;
 }
 
@@ -65,6 +67,8 @@ export interface Drone {
   flareTargetId?: number;
   lureDeathTimer?: number;
   bombDropped?: boolean;
+  variant?: "normal" | "fast";
+  speedMul?: number;
   _hitByExplosions?: Set<number>;
 }
 
@@ -407,6 +411,8 @@ export interface SpawnEntry {
   overrides?: {
     side?: "left" | "right" | "top";
     yRange?: [number, number];
+    speedMul?: number;
+    variant?: "normal" | "fast";
   };
 }
 

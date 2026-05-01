@@ -223,6 +223,14 @@ function wrapAngle(angle: number): number {
 }
 
 export function spawnMirv(g: GameState, onEvent?: ((type: string, data?: unknown) => void) | null) {
+  return spawnMirvWithOverrides(g, undefined, onEvent);
+}
+
+function spawnMirvWithOverrides(
+  g: GameState,
+  overrides?: SpawnEntry["overrides"],
+  onEvent?: ((type: string, data?: unknown) => void) | null,
+) {
   const startX = rand(100, CANVAS_W - 100);
   const target = pickTarget(g, startX);
   if (!target) return;
@@ -231,7 +239,8 @@ export function spawnMirv(g: GameState, onEvent?: ((type: string, data?: unknown
   const dy = target.y - startY;
   const len = Math.sqrt(dx * dx + dy * dy);
   if (len < 1) return;
-  const speed = (rand(0.6, 0.9) + g.wave * 0.05) * 2;
+  const speedMul = overrides?.speedMul ?? 1;
+  const speed = (rand(0.6, 0.9) + g.wave * 0.05) * 2 * speedMul;
   const hp = 1;
   g.missiles.push({
     x: startX,
@@ -247,6 +256,8 @@ export function spawnMirv(g: GameState, onEvent?: ((type: string, data?: unknown
     splitY: rand(180, 300),
     warheadCount: 5 + Math.min(3, Math.max(0, Math.floor((g.wave - 8) / 3))),
     splitTriggered: false,
+    variant: overrides?.variant ?? "normal",
+    speedMul,
     empSlowTimer: 0,
     _hitByExplosions: new Set(),
   });
@@ -272,7 +283,8 @@ export function spawnPlane(g: GameState, onEvent?: ((type: string, data?: unknow
 
 export function spawnMissile(g: GameState, overrides?: SpawnEntry["overrides"]) {
   const _rng = getRng();
-  const speed = (rand(0.5, 1.0) + g.wave * 0.08) * 2;
+  const speedMul = overrides?.speedMul ?? 1;
+  const speed = (rand(0.5, 1.0) + g.wave * 0.08) * 2 * speedMul;
   const sideMinY = 20,
     sideMaxY = 200;
   const topSpawnY = -10;
@@ -316,6 +328,8 @@ export function spawnMissile(g: GameState, overrides?: SpawnEntry["overrides"]) 
     type: "missile",
     targetX: target.x,
     targetY: target.y,
+    variant: overrides?.variant ?? "normal",
+    speedMul,
     _hitByExplosions: new Set(),
   });
 }
@@ -366,7 +380,8 @@ function pickSplitTargetsWide(
 
 export function spawnStackedMissile(g: GameState, stackCount: 2 | 3, overrides?: SpawnEntry["overrides"]) {
   const _rng = getRng();
-  const speed = (rand(0.5, 1.0) + g.wave * 0.08) * 2;
+  const speedMul = overrides?.speedMul ?? 1;
+  const speed = (rand(0.5, 1.0) + g.wave * 0.08) * 2 * speedMul;
   const sideMinY = 20;
   const sideMaxY = 200;
   const topSpawnY = -10;
@@ -413,6 +428,8 @@ export function spawnStackedMissile(g: GameState, stackCount: 2 | 3, overrides?:
     travelDist: 0,
     targetX: target.x,
     targetY: target.y,
+    variant: overrides?.variant ?? "normal",
+    speedMul,
     _hitByExplosions: new Set(),
   });
 }
@@ -431,7 +448,8 @@ export function spawnDroneOfType(
   else if (side === "right") goingRight = false;
   else goingRight = _rng() > 0.5;
   const baseSpeed = isJet ? rand(2.5, 3.9) : rand(0.6, 1.2);
-  const speed = (baseSpeed + g.wave * 0.05) * 2;
+  const speedMul = overrides?.speedMul ?? 1;
+  const speed = (baseSpeed + g.wave * 0.05) * 2 * speedMul;
   const health = 1;
   const spawnX = goingRight ? -20 : CANVAS_W + 20;
   const spawnY = rand(yRange[0], yRange[1]);
@@ -447,6 +465,8 @@ export function spawnDroneOfType(
     subtype,
     health,
     collisionRadius: isJet ? 10 : 30,
+    variant: overrides?.variant ?? "normal",
+    speedMul,
     _hitByExplosions: new Set(),
   };
   if (isJet) {
@@ -1333,15 +1353,18 @@ function updateMissiles(g: GameState, dt: number, onEvent?: ((type: string, data
         const dy = t.y - m.y;
         const len = Math.sqrt(dx * dx + dy * dy);
         const spd = (rand(0.8, 1.2) + g.wave * 0.06) * 1;
+        const childSpeedMul = m.speedMul ?? 1;
         g.missiles.push({
           x: m.x + rand(-20, 20),
           y: m.y + rand(-10, 10),
-          vx: (dx / len) * spd,
-          vy: (dy / len) * spd,
+          vx: (dx / len) * spd * childSpeedMul,
+          vy: (dy / len) * spd * childSpeedMul,
           accel: 1.012 + g.wave * 0.0024,
           trail: [],
           alive: true,
           type: "mirv_warhead",
+          variant: m.variant ?? "normal",
+          speedMul: childSpeedMul,
           empSlowTimer: 0,
           _hitByExplosions: new Set(),
         });
@@ -1381,6 +1404,8 @@ function updateMissiles(g: GameState, dt: number, onEvent?: ((type: string, data
           type: "stack_child",
           targetX: t.x,
           targetY: t.y,
+          variant: m.variant ?? "normal",
+          speedMul: m.speedMul ?? 1,
           empSlowTimer: 0,
           _hitByExplosions: new Set(),
         });
@@ -1550,6 +1575,8 @@ function updateDrones(
             trail: [],
             alive: true,
             type: "bomb",
+            variant: d.variant ?? "normal",
+            speedMul: d.speedMul ?? 1,
             _hitByExplosions: new Set(),
           });
         }
@@ -1575,6 +1602,8 @@ function updateDrones(
                 trail: [],
                 alive: true,
                 type: "bomb",
+                variant: d.variant ?? "normal",
+                speedMul: d.speedMul ?? 1,
                 _hitByExplosions: new Set(),
               });
             }
@@ -2025,7 +2054,7 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
     else if (type === "stack3") spawnStackedMissile(gs, 3, overrides);
     else if (type === "drone136") spawnDroneOfType(gs, "shahed136", overrides);
     else if (type === "drone238") spawnDroneOfType(gs, "shahed238", overrides);
-    else if (type === "mirv") spawnMirv(gs, onEvent);
+    else if (type === "mirv") spawnMirvWithOverrides(gs, overrides, onEvent);
   });
 
   g.planeTimer += dt;

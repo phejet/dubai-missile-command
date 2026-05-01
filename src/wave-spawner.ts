@@ -85,31 +85,31 @@ const STYLE_WEIGHTS: Record<CommanderStyle, Record<string, number>> = {
 const WAVE_TABLE = [
   null, // index 0 unused (waves start at 1)
   {
-    budget: 18,
+    budget: 14,
     cap: 10,
     missile: [0, 0],
-    drone136: [6, 12],
+    drone136: [5, 8],
     drone238: [0, 0],
     mirv: [0, 0],
-    stack2: [3, 8],
+    stack2: [2, 3],
     stack3: [0, 0],
   },
   {
-    budget: 26,
+    budget: 20,
     cap: 14,
-    missile: [5, 11],
-    drone136: [7, 14],
+    missile: [4, 8],
+    drone136: [6, 10],
     drone238: [0, 0],
     mirv: [0, 0],
     stack2: [0, 0],
     stack3: [0, 0],
   },
   {
-    budget: 36,
+    budget: 32,
     cap: 16,
-    missile: [6, 12],
-    drone136: [7, 15],
-    drone238: [1, 3],
+    missile: [5, 10],
+    drone136: [6, 12],
+    drone238: [1, 2],
     mirv: [0, 0],
     stack2: [0, 0],
     stack3: [0, 0],
@@ -166,12 +166,17 @@ const WAVE_TABLE = [
   },
 ];
 
+function threatValueCapForBudget(budget: number, wave: number): number {
+  const ratio = wave <= 2 ? 0.92 : wave <= 5 ? 0.88 : 0.82;
+  return Math.round(budget * ratio);
+}
+
 export function getWaveConfig(wave: number) {
   if (wave >= 1 && wave <= 8) {
     const row = WAVE_TABLE[wave]!;
     return {
       budget: row.budget,
-      concurrentCap: row.cap,
+      concurrentCap: Math.max(row.cap, threatValueCapForBudget(row.budget, wave)),
       types: {
         missile: { min: row.missile[0], max: row.missile[1] },
         drone136: { min: row.drone136[0], max: row.drone136[1] },
@@ -184,9 +189,10 @@ export function getWaveConfig(wave: number) {
   }
   // Wave 9+: exponential pressure — overwhelm defenses by wave 12-15
   const w = wave - 8;
+  const budget = 105 + w * 40 + w * w * 8;
   return {
-    budget: 105 + w * 40 + w * w * 8,
-    concurrentCap: 35 + w * 10 + w * w * 2,
+    budget,
+    concurrentCap: Math.max(35 + w * 10 + w * w * 2, threatValueCapForBudget(budget, wave)),
     types: {
       missile: { min: 16 + w * 5, max: 30 + w * 8 },
       drone136: { min: 3 + w, max: 8 + w * 2 },
@@ -331,8 +337,11 @@ function buildTacticOverrides(
   tacticIds: TacticId[],
   entryType: SpawnType,
   entryIndex: number,
+  groupIndex = 0,
+  groupCount = 1,
+  wave = 1,
 ): SpawnEntry["overrides"] {
-  const overrides: { side?: "left" | "right" | "top"; yRange?: [number, number] } = {};
+  const overrides: NonNullable<SpawnEntry["overrides"]> = {};
   for (const id of tacticIds) {
     switch (id) {
       case "LEFT_FLANK":
@@ -373,7 +382,51 @@ function buildTacticOverrides(
       // SATURATION handled via cap modification
     }
   }
+  const groupPressure = groupCount <= 1 ? 0 : groupIndex / (groupCount - 1);
+  const fastChance =
+    wave < 4
+      ? 0
+      : Math.max(
+          0,
+          Math.min(
+            0.85,
+            (wave < 7 ? 0.12 : wave < 10 ? 0.24 : Math.min(0.52, 0.34 + (wave - 10) * 0.04)) +
+              groupPressure * 0.16 +
+              (entryType === "drone238" ? 0.16 : entryType === "drone136" ? 0.06 : entryType === "mirv" ? -0.08 : 0),
+          ),
+        );
+  if (fastChance > 0 && rand(0, 1) < fastChance) {
+    const late = Math.max(0, wave - 7);
+    const typeBoost = entryType === "drone238" ? 0.08 : entryType === "drone136" ? 0.04 : 0;
+    overrides.variant = "fast";
+    overrides.speedMul = Math.min(1.38, 1.14 + late * 0.025 + groupPressure * 0.08 + typeBoost);
+  }
   return Object.keys(overrides).length > 0 ? overrides : undefined;
+}
+
+function getThreatValue(type: SpawnType): number {
+  return THREAT_VALUES[type];
+}
+
+function getWaveGroupCount(wave: number): number {
+  if (wave <= 3) return 1;
+  if (wave <= 5) return 2;
+  return 4;
+}
+
+function addGroupLulls(
+  entries: Array<{ tick: number; type: SpawnType; _typeIndex: number }>,
+  wave: number,
+): Array<{ tick: number; type: SpawnType; _typeIndex: number; _groupIndex: number; _groupCount: number }> {
+  if (entries.length === 0) return [];
+  const groupCount = getWaveGroupCount(wave);
+  const sorted = [...entries].sort((a, b) => a.tick - b.tick);
+  const groupSize = Math.ceil(sorted.length / groupCount);
+  const lullBase = Math.max(90, 150 - Math.min(45, wave * 5));
+  return sorted.map((entry, index) => {
+    const groupIndex = Math.min(groupCount - 1, Math.floor(index / groupSize));
+    return { ...entry, tick: entry.tick + groupIndex * lullBase, _groupIndex: groupIndex, _groupCount: groupCount };
+  });
 }
 
 export function generateWaveSchedule(wave: number, commander: Commander): WaveResult {
@@ -467,14 +520,13 @@ export function generateWaveSchedule(wave: number, commander: Commander): WaveRe
     }
   }
 
-  // Sort by tick
-  entries.sort((a, b) => a.tick - b.tick);
+  const groupedEntries = addGroupLulls(entries, wave).sort((a, b) => a.tick - b.tick);
 
   // Apply MIXED_AXIS: drones from one side, missiles from other side/top
   const mixedSide = hasMixedAxis ? (rand(0, 1) < 0.5 ? "left" : "right") : null;
 
   // Build schedule with overrides
-  const schedule = entries.map((e, globalIdx) => {
+  const schedule = groupedEntries.map((e, globalIdx) => {
     let overrideInput = tactics;
     // MIXED_AXIS: apply directional override manually
     if (hasMixedAxis) {
@@ -491,14 +543,15 @@ export function generateWaveSchedule(wave: number, commander: Commander): WaveRe
       }
     }
 
-    const overrides = buildTacticOverrides(overrideInput, e.type, globalIdx);
+    const overrides = buildTacticOverrides(overrideInput, e.type, globalIdx, e._groupIndex, e._groupCount, wave);
     const entry: SpawnEntry = { tick: e.tick, type: e.type };
     if (overrides) entry.overrides = overrides;
     return entry;
   });
 
-  // Concurrent cap = budget — effectively uncapped, all threats can be on screen at once
-  const concurrentCap = config.budget;
+  const concurrentCap = tactics.includes("SATURATION")
+    ? Math.min(config.budget, Math.round(config.concurrentCap * 1.18))
+    : config.concurrentCap;
 
   // Record in commander history
   commander.history.push({ wave, tactics });
@@ -534,7 +587,7 @@ export function advanceSpawnSchedule(
     const next = g.schedule[g.scheduleIdx];
     if (next.tick > g.waveTick) break;
     const aliveValue = computeAliveThreatValue(g);
-    if (aliveValue >= g.concurrentCap) break;
+    if (aliveValue + getThreatValue(next.type) > g.concurrentCap) break;
     spawnFn(g, next.type, next.overrides);
     g.scheduleIdx++;
   }
