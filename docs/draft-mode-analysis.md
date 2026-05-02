@@ -142,7 +142,7 @@ Draft mode makes the game more _predictable_ for weak players (less luck in surv
 
 Normal perfect: 1.513 kills/shot → Draft perfect: 1.011 kills/shot (−33%)
 
-This drop is not from worse targeting — the same bot logic runs. It comes from the bot having fewer auto-systems (Wild Hornets, Roadrunner, Iron Beam) to extend effective kill range. More threats survive to close range, requiring reactive shots that miss more often. The bot also has lower ammo capacity (less `launcherKit` by mid-game).
+This drop is not from worse targeting — the same bot logic runs. It comes from the bot having fewer auto-systems (Wild Hornets, Roadrunner, Iron Beam) to extend effective kill range. More threats survive to close range, requiring reactive shots that miss more often. Launcher branch choices now affect reload, durability, interceptor velocity, and burst size rather than raw per-wave ammo capacity.
 
 ### 5. Difficulty curve: early vs late pressure
 

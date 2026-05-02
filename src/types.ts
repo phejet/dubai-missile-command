@@ -538,7 +538,14 @@ export interface GameState {
 
   // Replay / recording runtime fields
   _gameSeed?: number;
-  _actionLog?: Array<{ tick: number; type: string; x?: number; y?: number; bought?: string[] }>;
+  _actionLog?: Array<{
+    tick: number;
+    type: string;
+    x?: number;
+    y?: number;
+    bought?: string[];
+    ignoreLauncherReload?: boolean;
+  }>;
   _replayCheckpoints?: ReplayCheckpoint[];
   _replayCheckpointLastTick?: number;
   _replayCheckpointLastHash?: string | null;
@@ -571,6 +578,7 @@ export interface FireAction {
   tick: number;
   x: number;
   y: number;
+  ignoreLauncherReload?: boolean;
 }
 
 export interface CursorAction {

@@ -15,6 +15,12 @@ import {
   BURJ_H,
   LAUNCHERS,
   COL,
+  LAUNCHER_ARMOR_NODE,
+  LAUNCHER_DOUBLE_MAGAZINE_NODE,
+  LAUNCHER_HIGH_VELOCITY_NODE,
+  LAUNCHER_RAPID_RELOAD_NODE,
+  getLauncherBurstChargeCap,
+  getLauncherMaxHp,
 } from "./game-logic.js";
 import type { GameState } from "./types.js";
 
@@ -30,6 +36,7 @@ function makeGameState(overrides: Partial<GameState> = {}): GameState {
     explosions: [],
     particles: [],
     upgrades: { launcherKit: 0 } as GameState["upgrades"],
+    ownedUpgradeNodes: new Set(),
     stats: { missileKills: 0, droneKills: 0, shotsFired: 0 },
     shakeTimer: 0,
     shakeIntensity: 0,
@@ -166,6 +173,26 @@ describe("fireInterceptor", () => {
     expect(g.ammo[1]).toBe(22);
     expect(g.stats.shotsFired).toBe(1);
     expect(g.launcherReloadUntilTick[1]).toBe(40);
+  });
+
+  it("uses rapid reload for launcher timers", () => {
+    const g = makeGameState({ ownedUpgradeNodes: new Set([LAUNCHER_RAPID_RELOAD_NODE]) });
+    fireInterceptor(g, 500, 300, 10);
+    expect(g.launcherReloadUntilTick[1]).toBe(28);
+  });
+
+  it("uses high velocity interceptor stats", () => {
+    const g = makeGameState({ ownedUpgradeNodes: new Set([LAUNCHER_HIGH_VELOCITY_NODE]) });
+    fireInterceptor(g, 500, 300, 10);
+    expect(g.interceptors[0].speed).toBeCloseTo(10.444);
+    expect(g.interceptors[0].accel).toBeCloseTo(3.5);
+    expect(g.interceptors[0].maxSpeed).toBeCloseTo(35);
+  });
+
+  it("derives launcher armor and double magazine effects from owned nodes", () => {
+    const g = makeGameState({ ownedUpgradeNodes: new Set([LAUNCHER_ARMOR_NODE, LAUNCHER_DOUBLE_MAGAZINE_NODE]) });
+    expect(getLauncherMaxHp(g)).toBe(2);
+    expect(getLauncherBurstChargeCap(g, 3)).toBe(6);
   });
 
   it("skips destroyed launchers even if another launcher has zero ammo", () => {

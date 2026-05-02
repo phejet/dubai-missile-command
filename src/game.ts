@@ -6,9 +6,10 @@ import {
   CANVAS_H,
   CANVAS_W,
   GROUND_Y,
-  LAUNCHER_RELOAD_TICKS,
   fireInterceptor,
   getAmmoCapacity,
+  getLauncherBurstChargeCap,
+  getLauncherReloadTicks,
   setRng,
 } from "./game-logic";
 import type { GameOverSnapshot, GameRenderer, GameScreen } from "./game-renderer";
@@ -839,12 +840,12 @@ export class Game {
   private launchPlayerShot(game: GameState, x: number, y: number, silentOnFail = false): boolean {
     if (y >= GROUND_Y - 20) return false;
     const tick = game._replayTick ?? 0;
-    if (!fireInterceptor(game, x, y, tick)) {
+    if (!fireInterceptor(game, x, y, tick, true)) {
       if (!silentOnFail) SFX.emptyClick();
       return false;
     }
     SFX.fire();
-    if (game._actionLog) game._actionLog.push({ tick, type: "fire", x, y });
+    if (game._actionLog) game._actionLog.push({ tick, type: "fire", x, y, ignoreLauncherReload: true });
     return true;
   }
 
@@ -860,7 +861,9 @@ export class Game {
     if (y >= GROUND_Y - 20) return;
     const tick = game._replayTick ?? 0;
     const activeLauncherCount = this.getActiveLauncherCount(game);
-    syncPlayerFireLimiter(this.playerFireState, tick, activeLauncherCount, LAUNCHER_RELOAD_TICKS);
+    const reloadTicks = getLauncherReloadTicks(game);
+    const burstChargeCap = getLauncherBurstChargeCap(game, activeLauncherCount);
+    syncPlayerFireLimiter(this.playerFireState, tick, burstChargeCap, reloadTicks);
     if (activeLauncherCount <= 0) {
       SFX.emptyClick();
       return;
@@ -870,7 +873,7 @@ export class Game {
       return;
     }
     if (this.launchPlayerShot(game, x, y, true)) {
-      spendPlayerBurstCharge(this.playerFireState, tick, LAUNCHER_RELOAD_TICKS);
+      spendPlayerBurstCharge(this.playerFireState, tick, reloadTicks);
     } else {
       bufferPlayerFire(this.playerFireState, { x, y });
     }
@@ -879,13 +882,15 @@ export class Game {
   private releaseBufferedPlayerFire(game: GameState): void {
     const tick = game._replayTick ?? 0;
     const activeLauncherCount = this.getActiveLauncherCount(game);
-    syncPlayerFireLimiter(this.playerFireState, tick, activeLauncherCount, LAUNCHER_RELOAD_TICKS);
+    const reloadTicks = getLauncherReloadTicks(game);
+    const burstChargeCap = getLauncherBurstChargeCap(game, activeLauncherCount);
+    syncPlayerFireLimiter(this.playerFireState, tick, burstChargeCap, reloadTicks);
     const bufferedShot = getBufferedPlayerFire(this.playerFireState);
     if (!bufferedShot) return;
     if (getPlayerBurstChargeCount(this.playerFireState) <= 0) return;
     if (!this.launchPlayerShot(game, bufferedShot.x, bufferedShot.y, true)) return;
     consumeBufferedPlayerFire(this.playerFireState);
-    spendPlayerBurstCharge(this.playerFireState, tick, LAUNCHER_RELOAD_TICKS);
+    spendPlayerBurstCharge(this.playerFireState, tick, reloadTicks);
   }
 
   private async handlePointerDown(e: PointerEvent): Promise<void> {

@@ -1,4 +1,4 @@
-import type { RNG, GameState, DefenseSite, Threat, Building, ExplosionVisualType } from "./types";
+import type { RNG, GameState, DefenseSite, Threat, Building, ExplosionVisualType, UpgradeNodeId } from "./types";
 
 export const CANVAS_W = 900;
 export const CANVAS_H = 1600;
@@ -190,12 +190,18 @@ export function pickTarget(g: GameState, fromX: number): { x: number; y: number 
   return all[pick];
 }
 
-export function fireInterceptor(g: GameState, targetX: number, targetY: number, tick = g._replayTick ?? 0): boolean {
+export function fireInterceptor(
+  g: GameState,
+  targetX: number,
+  targetY: number,
+  tick = g._replayTick ?? 0,
+  ignoreLauncherReload = false,
+): boolean {
   let bestIdx = -1,
     bestDist = Infinity;
   for (let i = 0; i < LAUNCHERS.length; i++) {
     if (g.launcherHP[i] <= 0) continue;
-    if (tick < g.launcherReloadUntilTick[i]) continue;
+    if (!ignoreLauncherReload && tick < g.launcherReloadUntilTick[i]) continue;
     const launcher = getGameplayLauncherPosition(i);
     const d = dist(launcher.x, launcher.y, targetX, targetY);
     if (d < bestDist) {
@@ -207,14 +213,15 @@ export function fireInterceptor(g: GameState, targetX: number, targetY: number, 
   const l = getGameplayLauncherPosition(bestIdx);
   const targetAngle = Math.atan2(targetY - l.y, targetX - l.x);
   const launchAngle = -Math.PI / 2 + (targetAngle + Math.PI / 2) * 0.32;
-  const speed = 7.46;
+  const velocityMultiplier = getInterceptorVelocityMultiplier(g);
+  const speed = 7.46 * velocityMultiplier;
   const dx = targetX - l.x;
   const dy = targetY - l.y;
   const len = Math.sqrt(dx * dx + dy * dy);
   if (len < 1) return false;
   g.stats.shotsFired++;
   g.launcherFireTick[bestIdx] = tick;
-  g.launcherReloadUntilTick[bestIdx] = tick + LAUNCHER_RELOAD_TICKS;
+  g.launcherReloadUntilTick[bestIdx] = tick + getLauncherReloadTicks(g);
   g.interceptors.push({
     x: l.x,
     y: l.y,
@@ -224,8 +231,8 @@ export function fireInterceptor(g: GameState, targetX: number, targetY: number, 
     vy: Math.sin(launchAngle) * speed,
     heading: launchAngle,
     speed,
-    accel: 2.5,
-    maxSpeed: 25,
+    accel: 2.5 * velocityMultiplier,
+    maxSpeed: 25 * velocityMultiplier,
     turnRate: 0.22,
     trail: [],
     alive: true,
@@ -378,12 +385,43 @@ export function getKillReward(target: Threat): number {
 }
 
 export function getAmmoCapacity(wave: number, launcherKitLevel: number): number {
+  void launcherKitLevel;
   const base = 11 + Math.floor(wave / 3);
-  const kitBonus = launcherKitLevel >= 2 ? 6 : 0;
-  return Math.min(base + kitBonus, 24);
+  return Math.min(base, 24);
 }
 
 export const LAUNCHER_RELOAD_TICKS = 30;
+export const LAUNCHER_RAPID_RELOAD_TICKS = 18;
+export const LAUNCHER_HIGH_VELOCITY_MULTIPLIER = 1.4;
+
+export const LAUNCHER_RAPID_RELOAD_NODE: UpgradeNodeId = "launcherRapidReload";
+export const LAUNCHER_ARMOR_NODE: UpgradeNodeId = "launcherArmorKit";
+export const LAUNCHER_HIGH_VELOCITY_NODE: UpgradeNodeId = "launcherHighVelocity";
+export const LAUNCHER_DOUBLE_MAGAZINE_NODE: UpgradeNodeId = "launcherDoubleMagazine";
+
+function hasOwnedLauncherNode(g: Pick<GameState, "ownedUpgradeNodes">, nodeId: UpgradeNodeId): boolean {
+  return !!g.ownedUpgradeNodes?.has(nodeId);
+}
+
+export function getLauncherReloadTicks(g: Pick<GameState, "ownedUpgradeNodes">): number {
+  return hasOwnedLauncherNode(g, LAUNCHER_RAPID_RELOAD_NODE) ? LAUNCHER_RAPID_RELOAD_TICKS : LAUNCHER_RELOAD_TICKS;
+}
+
+export function getLauncherMaxHp(g: Pick<GameState, "ownedUpgradeNodes">): number {
+  return hasOwnedLauncherNode(g, LAUNCHER_ARMOR_NODE) ? 2 : 1;
+}
+
+export function getLauncherBurstChargeCap(
+  g: Pick<GameState, "ownedUpgradeNodes">,
+  activeLauncherCount: number,
+): number {
+  const multiplier = hasOwnedLauncherNode(g, LAUNCHER_DOUBLE_MAGAZINE_NODE) ? 2 : 1;
+  return Math.ceil(Math.max(0, activeLauncherCount) * multiplier);
+}
+
+function getInterceptorVelocityMultiplier(g: Pick<GameState, "ownedUpgradeNodes">): number {
+  return hasOwnedLauncherNode(g, LAUNCHER_HIGH_VELOCITY_NODE) ? LAUNCHER_HIGH_VELOCITY_MULTIPLIER : 1;
+}
 
 export function getLauncherReadiness(
   g: GameState,

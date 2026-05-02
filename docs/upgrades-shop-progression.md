@@ -75,7 +75,7 @@ Important effects:
 
 - resync `g.upgrades`
 - revive or register defense sites tied to upgrade families
-- if `launcherKit` reaches rank 2, surviving launchers jump to 2 HP
+- launcher branch nodes apply independently: Rapid Reload shortens player reload, Armor raises launcher HP, High Velocity boosts player interceptors, and Double Magazine doubles burst capacity
 - if `emp` is bought or upgraded, charge values are initialized immediately
 
 ## Shop Entries
@@ -121,7 +121,7 @@ It:
 - refills EMP
 - increments the wave
 - generates the next spawn schedule
-- refills launcher ammo based on current upgrade levels
+- refills legacy launcher ammo for HUD/bot compatibility
 - resets launcher reload timers
 - switches `g.state` back to `"playing"`
 

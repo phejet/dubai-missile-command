@@ -5,10 +5,14 @@ import {
   GROUND_Y,
   CITY_Y,
   BURJ_X,
+  LAUNCHER_ARMOR_NODE,
+  LAUNCHER_DOUBLE_MAGAZINE_NODE,
+  LAUNCHER_HIGH_VELOCITY_NODE,
+  LAUNCHER_RAPID_RELOAD_NODE,
   computeShahed136Path,
   computeShahed238Path,
 } from "./game-logic.js";
-import { buyUpgrade, createGameSim, spawnMirv, spawnDrone, spawnDroneOfType } from "./game-sim.js";
+import { buyDraftUpgrade, buyUpgrade, createGameSim, spawnMirv, spawnDrone, spawnDroneOfType } from "./game-sim.js";
 import type { Drone, Hornet, Missile, PatriotMissile } from "./types.js";
 
 describe("MIRV behavior", () => {
@@ -75,6 +79,30 @@ describe("Upgrade graph", () => {
     expect(buyUpgrade(g, "roadrunner")).toBe(true);
     expect(g.ownedUpgradeNodes.has("roadrunnerCommandLink")).toBe(true);
     expect(g.upgrades.roadrunner).toBe(3);
+  });
+
+  it("treats launcher rapid reload, armor, and high velocity as independent draft nodes", () => {
+    const { g } = makeCleanGame(5);
+
+    expect(buyDraftUpgrade(g, LAUNCHER_RAPID_RELOAD_NODE)).toBe(true);
+    expect(buyDraftUpgrade(g, LAUNCHER_ARMOR_NODE)).toBe(true);
+    expect(buyDraftUpgrade(g, LAUNCHER_HIGH_VELOCITY_NODE)).toBe(true);
+
+    expect(g.ownedUpgradeNodes.has(LAUNCHER_RAPID_RELOAD_NODE)).toBe(true);
+    expect(g.ownedUpgradeNodes.has(LAUNCHER_ARMOR_NODE)).toBe(true);
+    expect(g.ownedUpgradeNodes.has(LAUNCHER_HIGH_VELOCITY_NODE)).toBe(true);
+  });
+
+  it("gates double magazine behind wave 4 progression and any launcher branch", () => {
+    const { g } = makeCleanGame(5);
+
+    expect(buyDraftUpgrade(g, LAUNCHER_DOUBLE_MAGAZINE_NODE)).toBe(false);
+    expect(buyDraftUpgrade(g, LAUNCHER_RAPID_RELOAD_NODE)).toBe(true);
+    expect(buyDraftUpgrade(g, LAUNCHER_DOUBLE_MAGAZINE_NODE)).toBe(false);
+
+    g.metaProgression.completedObjectives.push("reach_wave_4");
+    expect(buyDraftUpgrade(g, LAUNCHER_DOUBLE_MAGAZINE_NODE)).toBe(true);
+    expect(g.ownedUpgradeNodes.has(LAUNCHER_DOUBLE_MAGAZINE_NODE)).toBe(true);
   });
 });
 

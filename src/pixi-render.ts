@@ -18,6 +18,7 @@ import {
   getGameplayBurjCollisionTop,
   getGameplayBurjHalfW,
   getGameplayLauncherPosition,
+  getLauncherMaxHp,
   getPhalanxTurrets,
   ov,
 } from "./game-logic";
@@ -2187,7 +2188,7 @@ export class PixiRenderer implements GameRenderer {
   }
 
   private updateGameplayLaunchers(state: GameplaySceneState, game: GameState, sceneTime: number): void {
-    const launcherMaxHP = game.upgrades.launcherKit >= 2 ? 2 : 1;
+    const launcherMaxHP = getLauncherMaxHp(game);
     const tickNow = game._replayTick || 0;
     const frameProgress = getFrameProgress(
       sceneTime,

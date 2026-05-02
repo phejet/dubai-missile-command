@@ -1,4 +1,4 @@
-import { getDefenseSitePlacement, getAmmoCapacity, getRng } from "./game-logic";
+import { getDefenseSitePlacement, getAmmoCapacity, getLauncherMaxHp, getRng } from "./game-logic";
 import { generateWaveSchedule } from "./wave-spawner";
 import {
   computeUpgradeLevelsFromNodes,
@@ -55,9 +55,10 @@ function applyNodeSideEffects(g: GameState, nodeId: UpgradeNodeId): void {
   const node = getUpgradeNodeDef(nodeId);
   if (!node) return;
   syncUpgradeLevels(g);
-  if (node.family === "launcherKit" && g.upgrades.launcherKit >= 2) {
+  if (node.family === "launcherKit") {
+    const maxHp = getLauncherMaxHp(g);
     for (let i = 0; i < g.launcherHP.length; i++) {
-      if (g.launcherHP[i] > 0) g.launcherHP[i] = 2;
+      if (g.launcherHP[i] > 0) g.launcherHP[i] = Math.max(g.launcherHP[i], maxHp);
     }
   }
   reviveOrRegisterDefenseSite(g, node.family);
@@ -107,7 +108,7 @@ export function buildShopEntries(g: GameState): ShopEntry[] {
       locked: !owned && !!lockReason,
       disabled: owned || !!lockReason,
       statusText: owned ? "OWNED" : (lockReason ?? undefined),
-      level: g.upgrades[node.family],
+      level: familyNodes.filter((familyNode) => g.ownedUpgradeNodes.has(familyNode.id)).length,
       maxLevel: familyNodes.length,
     });
     return entries;
@@ -171,14 +172,14 @@ export function repairLauncher(g: GameState, index: number): boolean {
   if (g.score < cost) return false;
   if (g.launcherHP[index] > 0) return false;
   g.score -= cost;
-  const baseHP = g.upgrades.launcherKit >= 2 ? 2 : 1;
+  const baseHP = getLauncherMaxHp(g);
   g.launcherHP[index] = baseHP;
   g.launcherReloadUntilTick[index] = 0;
   return true;
 }
 
 export function prepareWaveStart(g: GameState): void {
-  const baseHP = g.upgrades.launcherKit >= 2 ? 2 : 1;
+  const baseHP = getLauncherMaxHp(g);
   for (let i = 0; i < g.launcherHP.length; i++) {
     if (g.launcherHP[i] <= 0) g.launcherHP[i] = baseHP;
   }

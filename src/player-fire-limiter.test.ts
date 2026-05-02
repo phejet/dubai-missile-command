@@ -76,6 +76,32 @@ describe("player fire limiter", () => {
     expect(getPlayerBurstChargeCount(state)).toBe(3);
   });
 
+  it("refills rapid reload bursts with an 18/6/3 catchup curve", () => {
+    const state = createPlayerFireLimiterState();
+    syncPlayerFireLimiter(state, 0, 3, 18);
+    expect(spendPlayerBurstCharge(state, 2, 18)).toBe(true);
+    expect(spendPlayerBurstCharge(state, 2, 18)).toBe(true);
+    expect(spendPlayerBurstCharge(state, 2, 18)).toBe(true);
+    syncPlayerFireLimiter(state, 19, 3, 18);
+    expect(getPlayerBurstChargeCount(state)).toBe(0);
+    syncPlayerFireLimiter(state, 20, 3, 18);
+    expect(getPlayerBurstChargeCount(state)).toBe(1);
+    syncPlayerFireLimiter(state, 25, 3, 18);
+    expect(getPlayerBurstChargeCount(state)).toBe(1);
+    syncPlayerFireLimiter(state, 26, 3, 18);
+    expect(getPlayerBurstChargeCount(state)).toBe(2);
+    syncPlayerFireLimiter(state, 28, 3, 18);
+    expect(getPlayerBurstChargeCount(state)).toBe(2);
+    syncPlayerFireLimiter(state, 29, 3, 18);
+    expect(getPlayerBurstChargeCount(state)).toBe(3);
+  });
+
+  it("supports doubled burst capacity from the caller", () => {
+    const state = createPlayerFireLimiterState();
+    syncPlayerFireLimiter(state, 0, 6, 30);
+    expect(getPlayerBurstChargeCount(state)).toBe(6);
+  });
+
   it("resets the catchup streak when the player fires mid-refill", () => {
     const state = createPlayerFireLimiterState();
     syncPlayerFireLimiter(state, 0, 3, 30);

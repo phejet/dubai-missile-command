@@ -35,6 +35,7 @@ Invariants:
 
 - these are always 3-element tuples
 - index `0..2` maps directly to `LAUNCHERS`
+- player burst capacity is controlled by the runtime fire limiter; Double Magazine doubles that burst pool rather than per-wave ammo
 
 ## Active Combat Arrays
 
