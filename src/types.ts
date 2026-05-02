@@ -267,6 +267,7 @@ export interface Hornet {
   blastRadius: number;
   wobble: number;
   life: number;
+  maxLife: number;
 }
 
 export interface Roadrunner {

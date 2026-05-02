@@ -603,13 +603,15 @@ function pickHornetLaunchTargets(allThreats: Threat[], activeHornets: Hornet[], 
   return picked;
 }
 
+const HORNET_DIVE_SLACK = 80;
+
 function pickHornetRetargetTarget(
   h: Hornet,
   allThreats: Threat[],
   activeHornets: Hornet[],
   lvl: number,
 ): Threat | null {
-  const alive = allThreats.filter((t) => t.alive);
+  const alive = allThreats.filter((t) => t.alive && t.y <= h.y + HORNET_DIVE_SLACK);
   if (alive.length === 0) return null;
 
   // Prefer targets in the forward cone first
@@ -819,12 +821,13 @@ export function updateAutoSystems(
           x: (hornetSite?.x ?? 206) + rand(-12, 12),
           y: (hornetSite?.y ?? GROUND_Y) - 20,
           targetRef: targets[i],
-          speed: rand(4.1, 6.15),
+          speed: rand(2.87, 4.31),
           trail: [],
           alive: true,
           blastRadius: blastR,
           wobble: rand(0, Math.PI * 2),
-          life: 600,
+          life: 240,
+          maxLife: 240,
         });
       }
     }
@@ -838,8 +841,25 @@ export function updateAutoSystems(
       boom(g, h.x, h.y, h.blastRadius * 0.5, COL.hornet, false, onEvent, h.blastRadius * 0.2);
       return;
     }
+    // Fuel sputter — when hornet is running out of life, drop sparks like a coughing engine
+    if (h.life < 30 && rand(0, 1) < 0.18 * dt) {
+      g.particles.push({
+        x: h.x + rand(-2, 2),
+        y: h.y + rand(-2, 2),
+        vx: rand(-0.8, 0.8),
+        vy: rand(0.2, 1.4),
+        life: rand(8, 18),
+        maxLife: 18,
+        color: rand(0, 1) > 0.5 ? "#ff6600" : "#ffaa44",
+        size: rand(0.8, 1.6),
+        type: "spark",
+        drag: 0.93,
+        gravity: 0.04,
+      });
+    }
     const t = h.targetRef;
-    if (!t || !t.alive) {
+    // Hornets are kamikaze drones — they climb or hold, never dive at threats below them
+    if (!t || !t.alive || t.y > h.y + HORNET_DIVE_SLACK) {
       const newT = pickHornetRetargetTarget(
         h,
         allThreats,
@@ -886,9 +906,9 @@ export function updateAutoSystems(
     const lvl = g.upgrades.roadrunner;
     const interval = [300, 240, 180][lvl - 1];
     const count = [1, 2, 3][lvl - 1];
-    const rrSpeed = [8.4, 11.55, 14.7][lvl - 1];
+    const rrSpeed = [10.1, 13.86, 17.64][lvl - 1];
     const rrBlastR = [27, 27, 28][lvl - 1];
-    const rrTurnRate = [0.08, 0.11, 0.14][lvl - 1];
+    const rrTurnRate = [0.096, 0.132, 0.168][lvl - 1];
     g.roadrunnerTimer += dt;
     if (g.roadrunnerTimer >= interval && allThreats.length > 0) {
       g.roadrunnerTimer = 0;
@@ -1164,7 +1184,7 @@ export function updateAutoSystems(
     const lvl = g.upgrades.patriot;
     const interval = [480, 360, 300][lvl - 1];
     const count = [2, 3, 4][lvl - 1];
-    const blastR = [56, 72, 88][lvl - 1];
+    const blastR = [84, 108, 132][lvl - 1];
     g.patriotTimer += dt;
     if (g.patriotTimer >= interval && allThreats.length > 0) {
       g.patriotTimer = 0;
@@ -1176,7 +1196,7 @@ export function updateAutoSystems(
           x: (patriotSite?.x ?? 334) + rand(-10, 10),
           y: (patriotSite?.y ?? GROUND_Y) - 3,
           targetRef: targets[i],
-          speed: rand(14, 17),
+          speed: rand(21, 25.5),
           trail: [],
           alive: true,
           blastRadius: blastR,
@@ -1214,7 +1234,7 @@ export function updateAutoSystems(
         const cdy = c.y - p.y;
         const cMag = Math.sqrt(cdx * cdx + cdy * cdy) || 1;
         const dot = (cdx / cMag) * pnx + (cdy / cMag) * pny;
-        if (dot > 0.5) {
+        if (dot > 0.7) {
           best = c;
           break;
         }

@@ -334,6 +334,20 @@ function hash01(a: number, b = 0, c = 0, d = 0): number {
   return value - Math.floor(value);
 }
 
+function lerpHex(a: number, b: number, t: number): number {
+  const tt = Math.max(0, Math.min(1, t));
+  const ar = (a >> 16) & 0xff;
+  const ag = (a >> 8) & 0xff;
+  const ab = a & 0xff;
+  const br = (b >> 16) & 0xff;
+  const bg = (b >> 8) & 0xff;
+  const bb = b & 0xff;
+  const r = Math.round(ar + (br - ar) * tt);
+  const g = Math.round(ag + (bg - ag) * tt);
+  const bch = Math.round(ab + (bb - ab) * tt);
+  return (r << 16) | (g << 8) | bch;
+}
+
 function createBlendSprites(initialTexture: Texture): BlendSprites {
   const primary = new Sprite(initialTexture);
   const secondary = new Sprite(initialTexture);
@@ -2840,13 +2854,18 @@ export class PixiRenderer implements GameRenderer {
       const pos = getRenderPosition(hornet, interpolationAlpha);
       const heading = prev ? Math.atan2(pos.y - prev.y, pos.x - prev.x) : 0;
       node.trail.clear();
+      // Trail visually depletes with hornet's remaining life — bright yellow → dim red-orange
+      const lifeFrac = Math.max(0, Math.min(1, hornet.life / Math.max(1, hornet.maxLife)));
+      const fade = 1 - lifeFrac;
+      const widthMul = 0.5 + 0.5 * lifeFrac;
       state.trailBatch.addTrail(hornet.trail, pos.x, pos.y, {
-        outerColor: 0xffcc00,
-        coreColor: 0xfff8b0,
-        headColor: 0xffdc5c,
-        width: 3 * GAMEPLAY_EFFECT_SCALE,
-        coreWidth: 1.2 * GAMEPLAY_EFFECT_SCALE,
-        headRadius: 1.7 * GAMEPLAY_EFFECT_SCALE,
+        outerColor: lerpHex(0xffcc00, 0xff3300, fade),
+        coreColor: lerpHex(0xfff8b0, 0xff8844, fade),
+        headColor: lerpHex(0xffdc5c, 0xff5522, fade),
+        width: 3 * GAMEPLAY_EFFECT_SCALE * widthMul,
+        coreWidth: 1.2 * GAMEPLAY_EFFECT_SCALE * widthMul,
+        headRadius: 1.7 * GAMEPLAY_EFFECT_SCALE * widthMul,
+        alpha: 0.4 + 0.6 * lifeFrac,
       });
       node.overlay.clear();
       syncProjectileNode(

@@ -280,8 +280,13 @@ export function createExplosion(
   });
   let budget = MAX_PARTICLES - g.particles.length;
   const heavy = !playerCaused; // threat explosions get more/bigger particles
+  // Large blasts (e.g. Patriot, big chains) get proportionally more particles so they don't look thin
+  const radiusScale = Math.min(2, Math.max(1, radius / 56));
   // Dot particles (smoke puffs)
-  const dotCount = Math.min(heavy ? ov("particle.dotCountHeavy", 10) : ov("particle.dotCountLight", 6), budget);
+  const dotCount = Math.min(
+    Math.round((heavy ? ov("particle.dotCountHeavy", 10) : ov("particle.dotCountLight", 6)) * radiusScale),
+    budget,
+  );
   for (let i = 0; i < dotCount; i++) {
     const angle = rand(0, Math.PI * 2);
     const sp = rand(1, heavy ? 6 : 4);
@@ -298,7 +303,8 @@ export function createExplosion(
   }
   budget -= dotCount;
   // Debris shards — spinning triangular fragments (skip for interceptor detonation)
-  const debrisCount = playerCaused && !options.chain ? 0 : Math.min(ov("particle.debrisCount", 16), budget);
+  const debrisCount =
+    playerCaused && !options.chain ? 0 : Math.min(Math.round(ov("particle.debrisCount", 16) * radiusScale), budget);
   for (let i = 0; i < debrisCount; i++) {
     const angle = rand(0, Math.PI * 2);
     const sp = rand(1.5, 4);
@@ -323,7 +329,10 @@ export function createExplosion(
   }
   budget -= debrisCount;
   // Sparks — fast bright particles with drag
-  const sparkCount = Math.min(heavy ? ov("particle.sparkCountHeavy", 14) : ov("particle.sparkCountLight", 8), budget);
+  const sparkCount = Math.min(
+    Math.round((heavy ? ov("particle.sparkCountHeavy", 14) : ov("particle.sparkCountLight", 8)) * radiusScale),
+    budget,
+  );
   for (let i = 0; i < sparkCount; i++) {
     const angle = rand(0, Math.PI * 2);
     const sp = rand(4, heavy ? 12 : 8);

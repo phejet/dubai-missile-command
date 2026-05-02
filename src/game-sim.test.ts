@@ -439,6 +439,7 @@ describe("Auto-defense targeting spread", () => {
       blastRadius: 25,
       wobble: 0,
       life: 600,
+      maxLife: 600,
     } as Hornet);
     g.hornets.push({
       x: 240,
@@ -450,6 +451,7 @@ describe("Auto-defense targeting spread", () => {
       blastRadius: 25,
       wobble: 0,
       life: 600,
+      maxLife: 600,
     } as Hornet);
 
     sim.updateAutoSystems(g, 1, [reservedTarget, fallbackTarget]);
