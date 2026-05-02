@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { setRng, CANVAS_W, GROUND_Y, CITY_Y, BURJ_X, computeShahed238Path } from "./game-logic.js";
+import {
+  setRng,
+  CANVAS_W,
+  GROUND_Y,
+  CITY_Y,
+  BURJ_X,
+  computeShahed136Path,
+  computeShahed238Path,
+} from "./game-logic.js";
 import { buyUpgrade, createGameSim, spawnMirv, spawnDrone, spawnDroneOfType } from "./game-sim.js";
 import type { Drone, Hornet, Missile, PatriotMissile } from "./types.js";
 
@@ -512,20 +520,27 @@ describe("Shahed-136 (prop) diving", () => {
     expect(prop.diveTarget).toBeDefined();
   });
 
-  it("dives at 1.8x horizontal speed toward target", () => {
+  it("ramps pathSpeed from 1x up to 4x during the waypoint dive portion (Shahed-136)", () => {
     setRng(() => 0.5);
     const { sim, g } = makeCleanGame(5);
-    const prop = makePropDrone();
+    const path = computeShahed136Path(-20, 150, true, 2.0, { x: BURJ_X, y: CITY_Y });
+    const prop = makePropDrone({
+      waypoints: path.waypoints,
+      pathIndex: path.diveStartIndex,
+      bombIndices: path.bombIndices,
+      bombsDropped: 0,
+      diveStartIndex: path.diveStartIndex,
+      diveTarget: { x: BURJ_X, y: CITY_Y },
+    });
     g.drones.push(prop);
-    const hSpeed = Math.abs(prop.vx);
 
-    prop.diving = true;
-    prop.diveTarget = { x: BURJ_X, y: CITY_Y };
     sim.update(g, 1);
+    // After one tick on the dive segment: pathSpeed ramped from 1.0 by factor 1.06.
+    expect(prop.diveSpeed).toBeCloseTo(1.06, 2);
 
-    expect(prop.diveSpeed).toBeCloseTo(Math.max(hSpeed, 1.0) * 1.8, 1);
-    const actualSpeed = Math.sqrt(prop.vx ** 2 + prop.vy ** 2);
-    expect(actualSpeed).toBeCloseTo(prop.diveSpeed!, 1);
+    // After many ticks, pathSpeed multiplier saturates at the 4x cap.
+    for (let i = 0; i < 80; i++) sim.update(g, 1);
+    expect(prop.diveSpeed).toBeCloseTo(4.0, 2);
   });
 
   it("drops a bomb when reaching mid-screen on wave 3+", () => {

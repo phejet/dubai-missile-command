@@ -247,7 +247,7 @@ function spawnMirvWithOverrides(
     y: startY,
     vx: (dx / len) * speed,
     vy: (dy / len) * speed,
-    accel: 1.012,
+    accel: 1.018,
     trail: [],
     alive: true,
     type: "mirv",
@@ -322,7 +322,7 @@ export function spawnMissile(g: GameState, overrides?: SpawnEntry["overrides"]) 
     y: startY,
     vx: (dx / len) * speed,
     vy: (dy / len) * speed,
-    accel: 1.003 + g.wave * 0.0006,
+    accel: 1.0045 + g.wave * 0.0009,
     trail: [],
     alive: true,
     type: "missile",
@@ -419,7 +419,7 @@ export function spawnStackedMissile(g: GameState, stackCount: 2 | 3, overrides?:
     y: startY,
     vx: (dx / len) * speed,
     vy: (dy / len) * speed,
-    accel: 1.003 + g.wave * 0.0006,
+    accel: 1.0045 + g.wave * 0.0009,
     trail: [],
     alive: true,
     type: stackCount === 2 ? "stack2" : "stack3",
@@ -447,7 +447,7 @@ export function spawnDroneOfType(
   if (side === "left") goingRight = true;
   else if (side === "right") goingRight = false;
   else goingRight = _rng() > 0.5;
-  const baseSpeed = isJet ? rand(2.5, 3.9) : rand(0.6, 1.2);
+  const baseSpeed = isJet ? rand(2.5, 3.9) : rand(0.42, 0.84);
   const speedMul = overrides?.speedMul ?? 1;
   const speed = (baseSpeed + g.wave * 0.05) * 2 * speedMul;
   const health = 1;
@@ -1379,7 +1379,7 @@ function updateMissiles(g: GameState, dt: number, onEvent?: ((type: string, data
           y: m.y + rand(-10, 10),
           vx: (dx / len) * spd * childSpeedMul,
           vy: (dy / len) * spd * childSpeedMul,
-          accel: 1.012 + g.wave * 0.0024,
+          accel: 1.018 + g.wave * 0.0036,
           trail: [],
           alive: true,
           type: "mirv_warhead",
@@ -1569,7 +1569,16 @@ function updateDrones(
       }
       const prevX = d.x;
       const prevY = d.y;
-      const pathSpeed = d.subtype === "shahed136" && (d.pathIndex ?? 0) >= (d.diveStartIndex ?? Infinity) ? 1.18 : 1;
+      // Two-phase Shahed-136 behavior: cruise feels lazy, dive ramps to terminal velocity.
+      // diveSpeed is repurposed here as the ramping pathSpeed multiplier. Shahed-136 always
+      // follows waypoints, so it never reaches the manual-dive branch where diveSpeed means
+      // absolute px/frame — the field overload is safe.
+      let pathSpeed = 1;
+      if (d.subtype === "shahed136" && (d.pathIndex ?? 0) >= (d.diveStartIndex ?? Infinity)) {
+        if (!d.diveSpeed) d.diveSpeed = 1.0;
+        d.diveSpeed = Math.min(4.0, d.diveSpeed * 1.06 ** dt);
+        pathSpeed = d.diveSpeed;
+      }
       d.pathIndex = Math.min((d.pathIndex ?? 0) + dt * dSlow * pathSpeed, d.waypoints.length - 1);
       const i0 = Math.floor(d.pathIndex);
       const frac = d.pathIndex - i0;
@@ -1639,7 +1648,10 @@ function updateDrones(
         if (len < 0.01) {
           d.alive = false;
         } else {
-          if (!d.diveSpeed) d.diveSpeed = Math.max(Math.abs(d.vx), 1.0) * 1.8;
+          // Fallback dive for drones spawned without waypoints (legacy path; not exercised
+          // in current spawn paths). Real Shahed-136 dive tuning lives in the waypoint
+          // branch above where pathSpeed ramps with d.diveSpeed.
+          if (!d.diveSpeed) d.diveSpeed = Math.max(Math.abs(d.vx), 1.0) * 2.7;
           d.vx = (dx / len) * d.diveSpeed;
           d.vy = (dy / len) * d.diveSpeed;
           d.x += d.vx * dt * dSlow;
