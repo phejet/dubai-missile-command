@@ -49,6 +49,7 @@ export interface Drone {
   alive: boolean;
   type: "drone";
   subtype: "shahed136" | "shahed238";
+  shahedVariant?: Shahed136Variant;
   health: number;
   collisionRadius: number;
   speed?: number;
@@ -60,6 +61,7 @@ export interface Drone {
   diveStartIndex?: number;
   diveTarget?: { x: number; y: number };
   diving?: boolean;
+  diveTelegraphing?: boolean;
   diveSpeed?: number;
   empSlowTimer?: number;
   luredByFlare?: boolean;
@@ -71,6 +73,8 @@ export interface Drone {
   speedMul?: number;
   _hitByExplosions?: Set<number>;
 }
+
+export type Shahed136Variant = "shahed-136" | "shahed-136-bomber" | "shahed-136-dive" | "shahed-136-dive-bomber";
 
 export interface Interceptor {
   x: number;
@@ -404,7 +408,7 @@ export interface Commander {
   history: Array<{ wave: number; tactics: TacticId[] }>;
 }
 
-export type SpawnType = "missile" | "drone136" | "drone238" | "mirv" | "stack2" | "stack3";
+export type SpawnType = "missile" | Shahed136Variant | "drone238" | "mirv" | "stack2" | "stack3";
 
 export interface SpawnEntry {
   type: SpawnType;

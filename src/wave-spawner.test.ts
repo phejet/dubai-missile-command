@@ -16,6 +16,22 @@ import {
 
 afterEach(() => setRng(Math.random));
 
+const SHAHED_136_TYPES = [
+  "shahed-136",
+  "shahed-136-bomber",
+  "shahed-136-dive",
+  "shahed-136-dive-bomber",
+] as const satisfies readonly SpawnType[];
+
+const ALL_SPAWN_TYPES = [
+  "missile",
+  ...SHAHED_136_TYPES,
+  "drone238",
+  "mirv",
+  "stack2",
+  "stack3",
+] as const satisfies readonly SpawnType[];
+
 function makeSeededRng(seed = 42) {
   // Simple mulberry32 for tests
   let s = seed | 0;
@@ -35,7 +51,7 @@ describe("getWaveConfig", () => {
       const cfg = getWaveConfig(w);
       expect(cfg.budget).toBeGreaterThan(0);
       expect(cfg.concurrentCap).toBeGreaterThan(0);
-      for (const type of ["missile", "drone136", "drone238", "mirv", "stack2", "stack3"] as SpawnType[]) {
+      for (const type of ALL_SPAWN_TYPES) {
         expect(cfg.types[type].min).toBeLessThanOrEqual(cfg.types[type].max);
         expect(cfg.types[type].min).toBeGreaterThanOrEqual(0);
       }
@@ -117,7 +133,7 @@ describe("generateWaveSchedule", () => {
     for (let w = 1; w <= 8; w++) {
       const { schedule } = generateWaveSchedule(w, cmdr);
       const cfg = getWaveConfig(w);
-      const counts: Record<SpawnType, number> = { missile: 0, drone136: 0, drone238: 0, mirv: 0, stack2: 0, stack3: 0 };
+      const counts = Object.fromEntries(ALL_SPAWN_TYPES.map((type) => [type, 0])) as Record<SpawnType, number>;
       for (const entry of schedule) counts[entry.type]++;
       for (const type of Object.keys(counts) as SpawnType[]) {
         expect(counts[type]).toBeGreaterThanOrEqual(cfg.types[type].min);
@@ -182,13 +198,53 @@ describe("generateWaveSchedule", () => {
 
     const { schedule: wave1 } = generateWaveSchedule(1, cmdr);
     for (const entry of wave1) {
-      expect(["drone136", "stack2"]).toContain(entry.type);
+      expect(["shahed-136", "stack2"]).toContain(entry.type);
     }
 
     const { schedule: wave2 } = generateWaveSchedule(2, cmdr);
     for (const entry of wave2) {
-      expect(["missile", "drone136"]).toContain(entry.type);
+      expect(["missile", "shahed-136", "shahed-136-bomber"]).toContain(entry.type);
     }
+  });
+
+  it("introduces Shahed-136 variants by wave tier", () => {
+    setRng(makeSeededRng(42));
+    const cmdr = createCommander("balanced");
+
+    const wave1 = generateWaveSchedule(1, cmdr).schedule;
+    expect(wave1.some((entry) => entry.type === "shahed-136")).toBe(true);
+    expect(wave1.some((entry) => entry.type === "shahed-136-bomber")).toBe(false);
+    expect(wave1.some((entry) => entry.type === "shahed-136-dive")).toBe(false);
+    expect(wave1.some((entry) => entry.type === "shahed-136-dive-bomber")).toBe(false);
+
+    const wave2 = generateWaveSchedule(2, cmdr).schedule;
+    expect(wave2.some((entry) => entry.type === "shahed-136-bomber")).toBe(true);
+    expect(wave2.some((entry) => entry.type === "shahed-136-dive-bomber")).toBe(false);
+
+    const wave3 = generateWaveSchedule(3, cmdr).schedule;
+    expect(wave3.some((entry) => entry.type === "shahed-136-dive")).toBe(true);
+    expect(wave3.some((entry) => entry.type === "shahed-136-dive-bomber")).toBe(false);
+
+    const wave4 = generateWaveSchedule(4, cmdr).schedule;
+    expect(wave4.some((entry) => entry.type === "shahed-136-dive-bomber")).toBe(true);
+  });
+
+  it("replaces the old drone136 budget with more dangerous late-wave Shahed mix", () => {
+    let wave1Dangerous = 0;
+    let wave8Dangerous = 0;
+    for (let seed = 1; seed <= 30; seed++) {
+      setRng(makeSeededRng(seed));
+      const cmdr = createCommander("balanced");
+      wave1Dangerous += generateWaveSchedule(1, cmdr).schedule.filter(
+        (entry) => entry.type === "shahed-136-dive" || entry.type === "shahed-136-dive-bomber",
+      ).length;
+      for (let wave = 2; wave < 8; wave++) generateWaveSchedule(wave, cmdr);
+      wave8Dangerous += generateWaveSchedule(8, cmdr).schedule.filter(
+        (entry) => entry.type === "shahed-136-dive" || entry.type === "shahed-136-dive-bomber",
+      ).length;
+    }
+    expect(wave1Dangerous).toBe(0);
+    expect(wave8Dangerous).toBeGreaterThan(40);
   });
 
   it("wave 3+ can include drone238", () => {
@@ -243,15 +299,16 @@ describe("computeAliveThreatValue", () => {
     expect(computeAliveThreatValue(g)).toBe(3);
   });
 
-  it("counts drone136 as 1, drone238 as 2.5", () => {
+  it("counts Shahed-136 variants and drone238 by threat value", () => {
     const g = {
       missiles: [] as Missile[],
       drones: [
-        { alive: true, subtype: "shahed136" },
+        { alive: true, subtype: "shahed136", shahedVariant: "shahed-136" },
+        { alive: true, subtype: "shahed136", shahedVariant: "shahed-136-dive-bomber" },
         { alive: true, subtype: "shahed238" },
       ] as Drone[],
     };
-    expect(computeAliveThreatValue(g)).toBe(3.5);
+    expect(computeAliveThreatValue(g)).toBe(4.5);
   });
 
   it("counts mirv as 3, mirv_warhead as 1.5", () => {
@@ -295,12 +352,12 @@ describe("advanceSpawnSchedule", () => {
     const spawned: SpawnType[] = [];
     const g = makeGameWithSchedule([
       { tick: 0, type: "missile" },
-      { tick: 5, type: "drone136" },
+      { tick: 5, type: "shahed-136" },
       { tick: 100, type: "missile" },
     ]);
     g.waveTick = 10;
     advanceSpawnSchedule(g, 1, (_g, type) => spawned.push(type));
-    expect(spawned).toEqual(["missile", "drone136"]);
+    expect(spawned).toEqual(["missile", "shahed-136"]);
     expect(g.scheduleIdx).toBe(2);
   });
 
@@ -343,11 +400,11 @@ describe("advanceSpawnSchedule", () => {
 
   it("spawns while the next entry still fits under concurrent cap", () => {
     const spawned: SpawnType[] = [];
-    const g = makeGameWithSchedule([{ tick: 0, type: "drone136" }], 2.5);
+    const g = makeGameWithSchedule([{ tick: 0, type: "shahed-136" }], 2.5);
     g.waveTick = 10;
     g.missiles = [{ alive: true, type: "missile" }] as Missile[];
     advanceSpawnSchedule(g, 1, (_g, type) => spawned.push(type));
-    expect(spawned).toEqual(["drone136"]);
+    expect(spawned).toEqual(["shahed-136"]);
     expect(g.scheduleIdx).toBe(1);
   });
 
@@ -401,7 +458,7 @@ describe("advanceSpawnSchedule", () => {
 
   it("passes overrides to spawn function", () => {
     const calls: Array<{ type: SpawnType; overrides: import("./types.js").SpawnEntry["overrides"] }> = [];
-    const g = makeGameWithSchedule([{ tick: 0, type: "drone136", overrides: { side: "left" } }]);
+    const g = makeGameWithSchedule([{ tick: 0, type: "shahed-136-bomber", overrides: { side: "left" } }]);
     g.waveTick = 10;
     advanceSpawnSchedule(g, 1, (_g, type, overrides) => calls.push({ type, overrides }));
     expect(calls[0].overrides).toEqual({ side: "left" });

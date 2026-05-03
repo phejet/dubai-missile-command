@@ -9,6 +9,7 @@ import { setRng } from "../game-logic.js";
 import { mulberry32 } from "./rng.js";
 
 const NUM_SAMPLES = 200; // schedules per wave for statistical analysis
+const SHAHED_136_TYPES = new Set(["shahed-136", "shahed-136-bomber", "shahed-136-dive", "shahed-136-dive-bomber"]);
 
 function analyzeWave(wave: number) {
   const missiles = [];
@@ -43,7 +44,7 @@ function analyzeWave(wave: number) {
     let lastTick = 0;
     for (const entry of schedule) {
       if (entry.type === "missile") m++;
-      else if (entry.type === "drone136") d1++;
+      else if (SHAHED_136_TYPES.has(entry.type)) d1++;
       else if (entry.type === "drone238") d2++;
       else if (entry.type === "mirv") mv++;
       if (entry.tick > lastTick) lastTick = entry.tick;
@@ -54,9 +55,7 @@ function analyzeWave(wave: number) {
     drone238s.push(d2);
     mirvs.push(mv);
     totalThreats.push(m + d1 + d2 + mv);
-    threatValues.push(
-      m * THREAT_VALUES.missile + d1 * THREAT_VALUES.drone136 + d2 * THREAT_VALUES.drone238 + mv * THREAT_VALUES.mirv,
-    );
+    threatValues.push(schedule.reduce((sum, entry) => sum + THREAT_VALUES[entry.type], 0));
     budgets.push(getWaveConfig(wave).budget);
     durations.push(lastTick);
   }

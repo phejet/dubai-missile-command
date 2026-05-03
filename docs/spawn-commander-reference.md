@@ -19,7 +19,10 @@ The planner works in threat-value units, not just raw counts.
 Current values:
 
 - `missile`: `1.5`
-- `drone136`: `1`
+- `shahed-136`: `0.75`
+- `shahed-136-bomber`: `1`
+- `shahed-136-dive`: `1.05`
+- `shahed-136-dive-bomber`: `1.25`
 - `drone238`: `2.5`
 - `mirv`: `3`
 - `stack2`: `3`
@@ -38,6 +41,8 @@ Each row defines:
 - `budget`
 - `cap`
 - min/max ranges per spawn type
+
+The old `drone136` row value is treated as the total prop-drone pool, then split into `shahed-136`, bomber, dive, and dive-bomber variants by wave tier. Wave 1 uses only the baseline. Wave 2 introduces bombers. Wave 3 introduces dive drones. Wave 4+ can include dive-bombers.
 
 ### Waves 9+
 

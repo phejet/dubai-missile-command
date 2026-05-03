@@ -465,14 +465,14 @@ export function botDecideAction(
   // Drones — diving ones are always priority 0, engage non-diving ones early
   for (const d of g.drones) {
     if (!d.alive) continue;
-    if (d.diving) {
+    if (d.diving || d.diveTelegraphing) {
       const led = leadThreatTarget(d, config, interceptorSpeed, g);
-      allThreats.push({ ...led, rawX: d.x, rawY: d.y, priority: 0, targetRef: d });
-    } else if (d.bombDropped && !d.diving) {
+      allThreats.push({ ...led, rawX: d.x, rawY: d.y, priority: d.diving ? 0 : 1, targetRef: d });
+    } else if ((d.bombDropped || (d.bombsDropped ?? 0) > 0) && !d.diving) {
       // Transitional: bomb dropped but not yet diving — still a threat
       const led = leadThreatTarget(d, config, interceptorSpeed, g);
       allThreats.push({ ...led, rawX: d.x, rawY: d.y, priority: 1, targetRef: d });
-    } else if (d.y > cfg.minThreatY && !d.bombDropped) {
+    } else if (d.y > cfg.minThreatY && !d.bombDropped && (d.bombsDropped ?? 0) === 0) {
       // Engage horizontal drones before they drop bombs
       const [minX, maxX] = cfg.droneEngageRange;
       if ((d.vx > 0 && d.x > minX) || (d.vx < 0 && d.x < maxX)) {

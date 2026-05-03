@@ -28,6 +28,7 @@ import {
   getMultiKillBonus,
   getRng,
   computeShahed136Path,
+  computeShahed136StraightPath,
   computeShahed238Path,
   ov,
 } from "./game-logic.js";
@@ -46,6 +47,7 @@ import type {
   PatriotMissile,
   Flare,
   SpawnEntry,
+  Shahed136Variant,
 } from "./types.js";
 
 function boom(
@@ -434,15 +436,28 @@ export function spawnStackedMissile(g: GameState, stackCount: 2 | 3, overrides?:
   });
 }
 
+const SHAHED_136_DIVE_TELEGRAPH_TICKS = 52;
+
+function shahed136HasBomb(variant: Shahed136Variant | undefined): boolean {
+  return variant === "shahed-136-bomber" || variant === "shahed-136-dive-bomber";
+}
+
+function shahed136HasDive(variant: Shahed136Variant | undefined): boolean {
+  return variant === "shahed-136-dive" || variant === "shahed-136-dive-bomber";
+}
+
 export function spawnDroneOfType(
   g: GameState,
   subtype: "shahed136" | "shahed238",
   overrides?: SpawnEntry["overrides"],
+  shahedVariant: Shahed136Variant = "shahed-136-dive-bomber",
 ) {
   const _rng = getRng();
   const isJet = subtype === "shahed238";
+  const hasDive = !isJet && shahed136HasDive(shahedVariant);
+  const hasBomb = !isJet && shahed136HasBomb(shahedVariant);
   const side = overrides?.side;
-  const yRange = overrides?.yRange || (isJet ? [80, 250] : [55, 320]);
+  const yRange = overrides?.yRange || (isJet ? [80, 250] : hasDive ? [45, 150] : [120, 280]);
   let goingRight;
   if (side === "left") goingRight = true;
   else if (side === "right") goingRight = false;
@@ -463,6 +478,7 @@ export function spawnDroneOfType(
     alive: true,
     type: "drone",
     subtype,
+    shahedVariant: isJet ? undefined : shahedVariant,
     health,
     collisionRadius: isJet ? 10 : 30,
     variant: overrides?.variant ?? "normal",
@@ -480,14 +496,25 @@ export function spawnDroneOfType(
     drone.diveStartIndex = path.diveStartIndex;
     drone.diveTarget = target;
   } else {
-    const estimatedMidX = spawnX + (goingRight ? 1 : -1) * CANVAS_W * rand(0.28, 0.42);
-    const target = pickTarget(g, estimatedMidX) || { x: BURJ_X, y: CITY_Y };
-    const path = computeShahed136Path(spawnX, spawnY, goingRight, speed, target);
+    const target = hasDive
+      ? pickTarget(g, spawnX + (goingRight ? 1 : -1) * CANVAS_W * rand(0.28, 0.42)) || { x: BURJ_X, y: CITY_Y }
+      : { x: BURJ_X, y: CITY_Y };
+    const path = hasDive
+      ? computeShahed136Path(spawnX, spawnY, goingRight, speed, target)
+      : {
+          waypoints: computeShahed136StraightPath(spawnX, spawnY, speed, target),
+          diveStartIndex: undefined,
+          bombIndices: [] as number[],
+        };
     drone.waypoints = path.waypoints;
     drone.pathIndex = 0;
-    drone.bombIndices = path.bombIndices;
+    drone.bombIndices = hasBomb
+      ? hasDive
+        ? path.bombIndices
+        : [Math.max(1, Math.floor(path.waypoints.length * rand(0.46, 0.58)))]
+      : [];
     drone.bombsDropped = 0;
-    drone.diveStartIndex = path.diveStartIndex;
+    if (hasDive && typeof path.diveStartIndex === "number") drone.diveStartIndex = path.diveStartIndex;
     drone.diveTarget = target;
   }
   g.drones.push(drone);
@@ -643,6 +670,7 @@ function roadrunnerThreatScore(t: Threat): number {
   if (t.type === "stack3") return 900 + t.y * 0.18;
   if (t.type === "stack2") return 760 + t.y * 0.18;
   if (t.type === "drone" && t.subtype === "shahed238") return 850 + t.y * 0.15;
+  if (t.type === "drone" && (t.diving || t.diveTelegraphing)) return 720 + t.y * 0.16;
   if (t.type === "bomb") return 700 + t.y * 0.25;
   if (t.type === "drone") return 500 + t.y * 0.1;
   return 300 + t.y * 0.35;
@@ -686,6 +714,7 @@ function patriotTargetPriority(t: Threat): number {
   if (t.type === "stack2") return 72;
   if (t.type === "missile") return 60;
   if (t.type === "drone" && t.subtype === "shahed238") return 60;
+  if (t.type === "drone" && (t.diving || t.diveTelegraphing)) return 55;
   if (t.type === "bomb") return 50;
   return 10;
 }
@@ -1569,12 +1598,16 @@ function updateDrones(
       }
       const prevX = d.x;
       const prevY = d.y;
-      // Two-phase Shahed-136 behavior: cruise feels lazy, dive ramps to terminal velocity.
-      // diveSpeed is repurposed here as the ramping pathSpeed multiplier. Shahed-136 always
-      // follows waypoints, so it never reaches the manual-dive branch where diveSpeed means
-      // absolute px/frame — the field overload is safe.
+      const diveStart = d.diveStartIndex ?? Infinity;
+      const isShahed136Diver =
+        d.subtype === "shahed136" && shahed136HasDive(d.shahedVariant ?? "shahed-136-dive-bomber");
+      const hasWaypointDive = Number.isFinite(diveStart);
+      d.diveTelegraphing =
+        isShahed136Diver && !d.diving && (d.pathIndex ?? 0) >= diveStart - SHAHED_136_DIVE_TELEGRAPH_TICKS;
+      // Two-phase Shahed-136 dive behavior: cruise feels lazy, dive ramps to terminal velocity.
+      // diveSpeed is repurposed here as the ramping pathSpeed multiplier for waypoint paths.
       let pathSpeed = 1;
-      if (d.subtype === "shahed136" && (d.pathIndex ?? 0) >= (d.diveStartIndex ?? Infinity)) {
+      if (isShahed136Diver && (d.pathIndex ?? 0) >= diveStart) {
         if (!d.diveSpeed) d.diveSpeed = 1.0;
         d.diveSpeed = Math.min(4.0, d.diveSpeed * 1.06 ** dt);
         pathSpeed = d.diveSpeed;
@@ -1587,7 +1620,10 @@ function updateDrones(
       d.y = d.waypoints[i0].y + (d.waypoints[i1].y - d.waypoints[i0].y) * frac;
       d.vx = d.x - prevX;
       d.vy = d.y - prevY;
-      if (!d.diving && d.pathIndex >= (d.diveStartIndex ?? Infinity)) d.diving = true;
+      if (hasWaypointDive && !d.diving && d.pathIndex >= diveStart) {
+        d.diving = true;
+        d.diveTelegraphing = false;
+      }
       // Drop bombs at precomputed path positions
       if (
         (d.bombsDropped ?? 0) < (d.bombIndices?.length ?? 0) &&
@@ -1617,7 +1653,7 @@ function updateDrones(
         d.y += (d.vy + Math.sin(d.wobble) * 0.3) * dt * dSlow;
         const nearMid = (d.vx > 0 && d.x > CANVAS_W * 0.35) || (d.vx < 0 && d.x < CANVAS_W * 0.65);
         if (nearMid) {
-          if (g.wave >= 3 && !d.bombDropped) {
+          if (shahed136HasBomb(d.shahedVariant ?? "shahed-136-dive-bomber") && !d.bombDropped) {
             d.bombDropped = true;
             const bombT = pickTarget(g, d.x);
             if (bombT) {
@@ -1637,9 +1673,12 @@ function updateDrones(
               });
             }
           }
-          d.diving = true;
-          const diveT = pickTarget(g, d.x);
-          d.diveTarget = diveT || { x: BURJ_X, y: CITY_Y };
+          if (shahed136HasDive(d.shahedVariant ?? "shahed-136-dive-bomber")) {
+            d.diving = true;
+            d.diveTelegraphing = false;
+            const diveT = pickTarget(g, d.x);
+            d.diveTarget = diveT || { x: BURJ_X, y: CITY_Y };
+          }
         }
       } else {
         const dx = d.diveTarget!.x - d.x;
@@ -2084,7 +2123,13 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
     if (type === "missile") spawnMissile(gs, overrides);
     else if (type === "stack2") spawnStackedMissile(gs, 2, overrides);
     else if (type === "stack3") spawnStackedMissile(gs, 3, overrides);
-    else if (type === "drone136") spawnDroneOfType(gs, "shahed136", overrides);
+    else if (
+      type === "shahed-136" ||
+      type === "shahed-136-bomber" ||
+      type === "shahed-136-dive" ||
+      type === "shahed-136-dive-bomber"
+    )
+      spawnDroneOfType(gs, "shahed136", overrides, type);
     else if (type === "drone238") spawnDroneOfType(gs, "shahed238", overrides);
     else if (type === "mirv") spawnMirvWithOverrides(gs, overrides, onEvent);
   });

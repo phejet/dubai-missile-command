@@ -1,16 +1,39 @@
 import { rand, randInt } from "./game-logic.js";
-import type { TacticId, CommanderStyle, Commander, SpawnEntry, WaveResult, SpawnType, GameState } from "./types.js";
+import type {
+  TacticId,
+  CommanderStyle,
+  Commander,
+  SpawnEntry,
+  WaveResult,
+  SpawnType,
+  GameState,
+  Shahed136Variant,
+} from "./types.js";
 
 // ── Threat values ──
 
 export const THREAT_VALUES = {
   missile: 1.5,
-  drone136: 1,
+  "shahed-136": 0.75,
+  "shahed-136-bomber": 1,
+  "shahed-136-dive": 1.05,
+  "shahed-136-dive-bomber": 1.25,
   drone238: 2.5,
   mirv: 3,
   stack2: 3,
   stack3: 4.5,
 };
+
+const SHAHED_136_VARIANTS: Shahed136Variant[] = [
+  "shahed-136",
+  "shahed-136-bomber",
+  "shahed-136-dive",
+  "shahed-136-dive-bomber",
+];
+
+function isShahed136SpawnType(type: SpawnType): type is Shahed136Variant {
+  return SHAHED_136_VARIANTS.includes(type as Shahed136Variant);
+}
 
 // ── Tactic definitions ──
 
@@ -171,36 +194,163 @@ function threatValueCapForBudget(budget: number, wave: number): number {
   return Math.round(budget * ratio);
 }
 
+function emptySpawnTypeRanges(): Record<SpawnType, { min: number; max: number }> {
+  return {
+    missile: { min: 0, max: 0 },
+    "shahed-136": { min: 0, max: 0 },
+    "shahed-136-bomber": { min: 0, max: 0 },
+    "shahed-136-dive": { min: 0, max: 0 },
+    "shahed-136-dive-bomber": { min: 0, max: 0 },
+    drone238: { min: 0, max: 0 },
+    mirv: { min: 0, max: 0 },
+    stack2: { min: 0, max: 0 },
+    stack3: { min: 0, max: 0 },
+  };
+}
+
+function getShahed136Weights(wave: number): Partial<Record<Shahed136Variant, number>> {
+  if (wave <= 1) return { "shahed-136": 1 };
+  if (wave === 2) return { "shahed-136": 0.65, "shahed-136-bomber": 0.35 };
+  if (wave === 3) return { "shahed-136": 0.45, "shahed-136-bomber": 0.35, "shahed-136-dive": 0.2 };
+  if (wave === 4) {
+    return {
+      "shahed-136": 0.25,
+      "shahed-136-bomber": 0.3,
+      "shahed-136-dive": 0.25,
+      "shahed-136-dive-bomber": 0.2,
+    };
+  }
+  if (wave === 5) {
+    return {
+      "shahed-136": 0.15,
+      "shahed-136-bomber": 0.3,
+      "shahed-136-dive": 0.25,
+      "shahed-136-dive-bomber": 0.3,
+    };
+  }
+  if (wave <= 7) {
+    return {
+      "shahed-136": 0.08,
+      "shahed-136-bomber": 0.22,
+      "shahed-136-dive": 0.32,
+      "shahed-136-dive-bomber": 0.38,
+    };
+  }
+  return {
+    "shahed-136": 0.03,
+    "shahed-136-bomber": 0.17,
+    "shahed-136-dive": 0.35,
+    "shahed-136-dive-bomber": 0.45,
+  };
+}
+
+function allocateShahed136Variants(wave: number, total: number): Record<Shahed136Variant, number> {
+  const weights = getShahed136Weights(wave);
+  const counts: Record<Shahed136Variant, number> = {
+    "shahed-136": 0,
+    "shahed-136-bomber": 0,
+    "shahed-136-dive": 0,
+    "shahed-136-dive-bomber": 0,
+  };
+  if (total <= 0) return counts;
+
+  const active = SHAHED_136_VARIANTS.filter((variant) => (weights[variant] ?? 0) > 0);
+  let assigned = 0;
+  const weighted = active.map((variant) => {
+    const raw = total * (weights[variant] ?? 0);
+    const base = Math.floor(raw);
+    counts[variant] = base;
+    assigned += base;
+    return { variant, remainder: raw - base, weight: weights[variant] ?? 0 };
+  });
+
+  while (assigned < total) {
+    const remainderTotal = weighted.reduce((sum, item) => sum + item.remainder, 0);
+    let pick: Shahed136Variant | null = null;
+    if (remainderTotal > 0) {
+      let r = rand(0, remainderTotal);
+      for (const item of weighted) {
+        r -= item.remainder;
+        if (r <= 0) {
+          pick = item.variant;
+          break;
+        }
+      }
+    }
+    if (!pick) {
+      const weightTotal = weighted.reduce((sum, item) => sum + item.weight, 0);
+      let r = rand(0, weightTotal);
+      for (const item of weighted) {
+        r -= item.weight;
+        if (r <= 0) {
+          pick = item.variant;
+          break;
+        }
+      }
+    }
+    counts[pick ?? active[active.length - 1]]++;
+    assigned++;
+  }
+  return counts;
+}
+
+function getShahed136Ranges(
+  wave: number,
+  minTotal: number,
+  maxTotal: number,
+): Record<Shahed136Variant, { min: number; max: number }> {
+  const weights = getShahed136Weights(wave);
+  const ranges = {} as Record<Shahed136Variant, { min: number; max: number }>;
+  const activeCount = SHAHED_136_VARIANTS.filter((variant) => (weights[variant] ?? 0) > 0).length;
+  for (const variant of SHAHED_136_VARIANTS) {
+    const weight = weights[variant] ?? 0;
+    const min = activeCount === 1 && weight > 0 ? minTotal : 0;
+    const max = weight <= 0 ? 0 : maxTotal;
+    ranges[variant] = { min, max };
+  }
+  return {
+    "shahed-136": ranges["shahed-136"],
+    "shahed-136-bomber": ranges["shahed-136-bomber"],
+    "shahed-136-dive": ranges["shahed-136-dive"],
+    "shahed-136-dive-bomber": ranges["shahed-136-dive-bomber"],
+  };
+}
+
 export function getWaveConfig(wave: number) {
   if (wave >= 1 && wave <= 8) {
     const row = WAVE_TABLE[wave]!;
+    const types = emptySpawnTypeRanges();
+    const shahedRanges = getShahed136Ranges(wave, row.drone136[0], row.drone136[1]);
+    types.missile = { min: row.missile[0], max: row.missile[1] };
+    types.drone238 = { min: row.drone238[0], max: row.drone238[1] };
+    types.mirv = { min: row.mirv[0], max: row.mirv[1] };
+    types.stack2 = { min: row.stack2[0], max: row.stack2[1] };
+    types.stack3 = { min: row.stack3[0], max: row.stack3[1] };
+    for (const variant of SHAHED_136_VARIANTS) types[variant] = shahedRanges[variant];
     return {
       budget: row.budget,
       concurrentCap: Math.max(row.cap, threatValueCapForBudget(row.budget, wave)),
-      types: {
-        missile: { min: row.missile[0], max: row.missile[1] },
-        drone136: { min: row.drone136[0], max: row.drone136[1] },
-        drone238: { min: row.drone238[0], max: row.drone238[1] },
-        mirv: { min: row.mirv[0], max: row.mirv[1] },
-        stack2: { min: row.stack2[0], max: row.stack2[1] },
-        stack3: { min: row.stack3[0], max: row.stack3[1] },
-      },
+      shahed136Total: { min: row.drone136[0], max: row.drone136[1] },
+      types,
     };
   }
   // Wave 9+: exponential pressure — overwhelm defenses by wave 12-15
   const w = wave - 8;
   const budget = 105 + w * 40 + w * w * 8;
+  const shahed136Total = { min: 3 + w, max: 8 + w * 2 };
+  const types = emptySpawnTypeRanges();
+  const shahedRanges = getShahed136Ranges(wave, shahed136Total.min, shahed136Total.max);
+  types.missile = { min: 16 + w * 5, max: 30 + w * 8 };
+  types.drone238 = { min: 6 + w * 3, max: 12 + w * 5 };
+  types.mirv = { min: 3 + w, max: 6 + w * 2 };
+  types.stack2 = { min: 1 + Math.floor(w * 0.5), max: 3 + w };
+  types.stack3 = { min: Math.floor(w * 0.3), max: 1 + Math.floor(w * 0.7) };
+  for (const variant of SHAHED_136_VARIANTS) types[variant] = shahedRanges[variant];
   return {
     budget,
     concurrentCap: Math.max(35 + w * 10 + w * w * 2, threatValueCapForBudget(budget, wave)),
-    types: {
-      missile: { min: 16 + w * 5, max: 30 + w * 8 },
-      drone136: { min: 3 + w, max: 8 + w * 2 },
-      drone238: { min: 6 + w * 3, max: 12 + w * 5 },
-      mirv: { min: 3 + w, max: 6 + w * 2 },
-      stack2: { min: 1 + Math.floor(w * 0.5), max: 3 + w },
-      stack3: { min: Math.floor(w * 0.3), max: 1 + Math.floor(w * 0.7) },
-    },
+    shahed136Total,
+    types,
   };
 }
 
@@ -392,12 +542,18 @@ function buildTacticOverrides(
             0.85,
             (wave < 7 ? 0.12 : wave < 10 ? 0.24 : Math.min(0.52, 0.34 + (wave - 10) * 0.04)) +
               groupPressure * 0.16 +
-              (entryType === "drone238" ? 0.16 : entryType === "drone136" ? 0.06 : entryType === "mirv" ? -0.08 : 0),
+              (entryType === "drone238"
+                ? 0.16
+                : isShahed136SpawnType(entryType)
+                  ? 0.06
+                  : entryType === "mirv"
+                    ? -0.08
+                    : 0),
           ),
         );
   if (fastChance > 0 && rand(0, 1) < fastChance) {
     const late = Math.max(0, wave - 7);
-    const typeBoost = entryType === "drone238" ? 0.08 : entryType === "drone136" ? 0.04 : 0;
+    const typeBoost = entryType === "drone238" ? 0.08 : isShahed136SpawnType(entryType) ? 0.04 : 0;
     overrides.variant = "fast";
     overrides.speedMul = Math.min(1.38, 1.14 + late * 0.025 + groupPressure * 0.08 + typeBoost);
   }
@@ -434,18 +590,44 @@ export function generateWaveSchedule(wave: number, commander: Commander): WaveRe
   const tactics = commanderPickTactics(commander, wave);
 
   // Pick counts per type
-  const counts: Record<SpawnType, number> = { mirv: 0, stack3: 0, stack2: 0, drone238: 0, drone136: 0, missile: 0 };
+  const counts: Record<SpawnType, number> = {
+    mirv: 0,
+    stack3: 0,
+    stack2: 0,
+    drone238: 0,
+    "shahed-136": 0,
+    "shahed-136-bomber": 0,
+    "shahed-136-dive": 0,
+    "shahed-136-dive-bomber": 0,
+    missile: 0,
+  };
   let totalThreat = 0;
-  const typeOrder: SpawnType[] = ["stack3", "mirv", "stack2", "drone238", "drone136", "missile"];
+  const nonShahedTypeOrder: SpawnType[] = ["stack3", "mirv", "stack2", "drone238", "missile"];
+  const clampTypeOrder: SpawnType[] = [
+    "stack3",
+    "mirv",
+    "stack2",
+    "drone238",
+    "shahed-136-dive-bomber",
+    "shahed-136-dive",
+    "shahed-136-bomber",
+    "missile",
+    "shahed-136",
+  ];
 
-  for (const type of typeOrder) {
+  for (const type of nonShahedTypeOrder) {
     const range = config.types[type];
     counts[type] = randInt(range.min, range.max);
     totalThreat += counts[type] * THREAT_VALUES[type];
   }
+  const shahedCounts = allocateShahed136Variants(wave, randInt(config.shahed136Total.min, config.shahed136Total.max));
+  for (const variant of SHAHED_136_VARIANTS) {
+    counts[variant] = shahedCounts[variant];
+    totalThreat += counts[variant] * THREAT_VALUES[variant];
+  }
 
   // Clamp to budget — reduce from highest-value types first
-  for (const type of typeOrder) {
+  for (const type of clampTypeOrder) {
     while (totalThreat > config.budget && counts[type] > config.types[type].min) {
       counts[type]--;
       totalThreat -= THREAT_VALUES[type];
@@ -493,11 +675,15 @@ export function generateWaveSchedule(wave: number, commander: Commander): WaveRe
     entries.push({ tick: stack3Ticks[i], type: "stack3", _typeIndex: i });
   }
 
-  // Drone136
+  // Shahed-136 prop variants
   const d136Interval = hasDroneSwarm ? Math.max(8, droneInterval * 0.3) : droneInterval;
-  const d136Ticks = spacedTicks(counts.drone136, d136Interval, 0.15, 50);
-  for (let i = 0; i < d136Ticks.length; i++) {
-    entries.push({ tick: d136Ticks[i], type: "drone136", _typeIndex: i });
+  let shahedTickOffset = 0;
+  for (const variant of SHAHED_136_VARIANTS) {
+    const variantTicks = spacedTicks(counts[variant], d136Interval, 0.15, 50 + shahedTickOffset);
+    shahedTickOffset += 12;
+    for (let i = 0; i < variantTicks.length; i++) {
+      entries.push({ tick: variantTicks[i], type: variant, _typeIndex: i });
+    }
   }
 
   // Drone238
@@ -573,7 +759,9 @@ export function computeAliveThreatValue(g: Pick<GameState, "missiles" | "drones"
     }
   }
   for (const d of g.drones) {
-    if (d.alive) v += d.subtype === "shahed238" ? THREAT_VALUES.drone238 : THREAT_VALUES.drone136;
+    if (d.alive) {
+      v += d.subtype === "shahed238" ? THREAT_VALUES.drone238 : THREAT_VALUES[d.shahedVariant ?? "shahed-136"];
+    }
   }
   return v;
 }

@@ -2724,8 +2724,13 @@ export class PixiRenderer implements GameRenderer {
       const pos = getRenderPosition(drone, interpolationAlpha);
       syncProjectileNode(node, asset, pos.x, pos.y, spriteAngle, sceneTime, 1, true);
       const isFastDrone = drone.variant === "fast";
-      node.anim.primary.tint = isFastDrone ? 0xffe0a8 : 0xffffff;
-      node.anim.secondary.tint = isFastDrone ? 0xffe0a8 : 0xffffff;
+      const isShahedDiveVariant =
+        drone.shahedVariant === "shahed-136-dive" || drone.shahedVariant === "shahed-136-dive-bomber";
+      const isShahedBomber =
+        drone.shahedVariant === "shahed-136-bomber" || drone.shahedVariant === "shahed-136-dive-bomber";
+      const droneTint = isFastDrone ? 0xffe0a8 : isShahedDiveVariant ? 0xa7ebff : 0xffffff;
+      node.anim.primary.tint = droneTint;
+      node.anim.secondary.tint = droneTint;
       node.overlay.clear();
 
       if (drone.subtype === "shahed238") {
@@ -2742,9 +2747,9 @@ export class PixiRenderer implements GameRenderer {
         drawSimpleTrailDots(
           node.trail,
           trail,
-          isFastDrone ? 0xffc14a : 0x889098,
+          isShahedDiveVariant ? 0x4bd6ff : isFastDrone ? 0xffc14a : 0x889098,
           1.2 * (isFastDrone ? 1.35 : 1) * GAMEPLAY_EFFECT_SCALE,
-          isFastDrone ? 0.44 : 0.32,
+          isShahedDiveVariant ? 0.42 : isFastDrone ? 0.44 : 0.32,
         );
       }
 
@@ -2755,13 +2760,38 @@ export class PixiRenderer implements GameRenderer {
           .stroke({ width: 1.2 * GAMEPLAY_EFFECT_SCALE, color: 0xffd24a, alpha: 0.7 });
       }
 
+      if (isShahedDiveVariant) {
+        const stripeLen = 13 * GAMEPLAY_ENEMY_SCALE;
+        node.overlay
+          .moveTo(pos.x - stripeLen, pos.y)
+          .lineTo(pos.x + stripeLen, pos.y)
+          .stroke({ width: 1.5 * GAMEPLAY_EFFECT_SCALE, color: 0x46d9ff, alpha: 0.82 });
+      }
+
+      if (drone.diveTelegraphing && !drone.diving) {
+        const pulse = 1 + Math.sin(game.time * 0.42 + pos.x * 0.01) * 0.18;
+        const r = 25 * GAMEPLAY_ENEMY_SCALE * pulse;
+        node.overlay
+          .circle(pos.x, pos.y, r)
+          .stroke({ width: 1.6 * GAMEPLAY_EFFECT_SCALE, color: 0xffc13a, alpha: 0.76 });
+        node.overlay
+          .moveTo(pos.x - 14 * GAMEPLAY_ENEMY_SCALE, pos.y + 14 * GAMEPLAY_ENEMY_SCALE)
+          .lineTo(pos.x, pos.y + 24 * GAMEPLAY_ENEMY_SCALE)
+          .lineTo(pos.x + 14 * GAMEPLAY_ENEMY_SCALE, pos.y + 14 * GAMEPLAY_ENEMY_SCALE)
+          .stroke({ width: 1.4 * GAMEPLAY_EFFECT_SCALE, color: 0xffe08a, alpha: 0.72 });
+      }
+
       if (drone.diving) {
         node.overlay
           .circle(pos.x, pos.y, 20 * GAMEPLAY_ENEMY_SCALE)
           .stroke({ width: GAMEPLAY_EFFECT_SCALE, color: 0xff2200, alpha: 0.5 + Math.sin(game.time * 0.3) * 0.3 });
       }
 
-      if (Math.sin(game.time * 0.15) > 0) {
+      if (isShahedBomber && Math.sin(game.time * 0.32) > -0.15) {
+        node.overlay
+          .circle(pos.x, pos.y + 3 * GAMEPLAY_ENEMY_SCALE, 2.4 * GAMEPLAY_EFFECT_SCALE * GAMEPLAY_ENEMY_SCALE)
+          .fill(0xff1800);
+      } else if (Math.sin(game.time * 0.15) > 0) {
         node.overlay
           .circle(pos.x, pos.y, 0.75 * GAMEPLAY_EFFECT_SCALE * GAMEPLAY_ENEMY_SCALE)
           .fill(drone.subtype === "shahed238" ? 0xff2200 : 0xff4400);

@@ -34,7 +34,7 @@ export function buildReplayCheckpoint(g: GameState, tick: number, reason: string
   const drones = encodeEntities(
     g.drones || [],
     (d) =>
-      `${d.subtype || d.type || "drone"}:${roundCoord(d.x)}:${roundCoord(d.y)}:${roundCoord(d.vx)}:${roundCoord(d.vy)}:${d.health ?? 1}:${d.diving ? 1 : 0}`,
+      `${d.shahedVariant || d.subtype || d.type || "drone"}:${roundCoord(d.x)}:${roundCoord(d.y)}:${roundCoord(d.vx)}:${roundCoord(d.vy)}:${d.health ?? 1}:${d.diving ? 1 : 0}`,
   );
   const interceptors = encodeEntities(
     g.interceptors || [],

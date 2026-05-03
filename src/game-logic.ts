@@ -581,6 +581,24 @@ export function computeShahed136Path(
   return { waypoints, diveStartIndex, bombIndices: [bombIndex] };
 }
 
+export function computeShahed136StraightPath(
+  spawnX: number,
+  spawnY: number,
+  speed: number,
+  target: { x: number; y: number },
+): Point[] {
+  const dx = target.x - spawnX;
+  const dy = target.y - spawnY;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  const steps = Math.max(2, Math.ceil(len / Math.max(1, speed)));
+  const waypoints: Point[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    waypoints.push({ x: spawnX + dx * t, y: spawnY + dy * t });
+  }
+  return waypoints;
+}
+
 export function damageTarget(
   g: GameState,
   target: Threat,

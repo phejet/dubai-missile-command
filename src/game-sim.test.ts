@@ -192,6 +192,73 @@ describe("Shahed-238 (jet) diving", () => {
     expect(g.drones[0].health).toBe(1);
   });
 
+  it("spawns baseline Shahed-136 as a Burj-only straight flyer with no bomb or dive", () => {
+    setRng(() => 0.5);
+    const { sim, g } = makeCleanGame(5);
+    spawnDroneOfType(g, "shahed136", undefined, "shahed-136");
+    const drone = g.drones[0];
+
+    expect(drone.shahedVariant).toBe("shahed-136");
+    expect(drone.diveStartIndex).toBeUndefined();
+    expect(drone.bombIndices).toEqual([]);
+    expect(drone.diveTarget).toEqual({ x: BURJ_X, y: CITY_Y });
+
+    drone.pathIndex = Math.floor((drone.waypoints!.length - 1) * 0.55);
+    sim.update(g, 1);
+    expect(drone.diving).toBeFalsy();
+    expect(g.missiles.some((m) => m.type === "bomb")).toBe(false);
+  });
+
+  it("spawns bomber Shahed-136 with a single mid-flight bomb and no dive", () => {
+    setRng(() => 0.5);
+    const { sim, g } = makeCleanGame(5);
+    spawnDroneOfType(g, "shahed136", undefined, "shahed-136-bomber");
+    const drone = g.drones[0];
+
+    expect(drone.shahedVariant).toBe("shahed-136-bomber");
+    expect(drone.diveStartIndex).toBeUndefined();
+    expect(drone.bombIndices).toHaveLength(1);
+
+    drone.pathIndex = drone.bombIndices![0] - 0.25;
+    sim.update(g, 1);
+    expect(drone.bombsDropped).toBe(1);
+    expect(drone.diving).toBeFalsy();
+    expect(g.missiles.filter((m) => m.type === "bomb")).toHaveLength(1);
+  });
+
+  it("telegraphs Shahed-136 dive variants before the terminal dive", () => {
+    setRng(() => 0.5);
+    const { sim, g } = makeCleanGame(5);
+    spawnDroneOfType(g, "shahed136", undefined, "shahed-136-dive");
+    const drone = g.drones[0];
+
+    expect(drone.shahedVariant).toBe("shahed-136-dive");
+    expect(drone.bombIndices).toEqual([]);
+    expect(drone.diveStartIndex).toBeGreaterThan(0);
+
+    drone.pathIndex = drone.diveStartIndex! - 20;
+    sim.update(g, 1);
+    expect(drone.diveTelegraphing).toBe(true);
+    expect(drone.diving).toBeFalsy();
+
+    drone.pathIndex = drone.diveStartIndex!;
+    sim.update(g, 1);
+    expect(drone.diving).toBe(true);
+    expect(drone.diveTelegraphing).toBe(false);
+  });
+
+  it("spawns dive-bomber Shahed-136 with current bomb plus dive behavior", () => {
+    setRng(() => 0.5);
+    const { g } = makeCleanGame(5);
+    spawnDroneOfType(g, "shahed136", undefined, "shahed-136-dive-bomber");
+    const drone = g.drones[0];
+
+    expect(drone.shahedVariant).toBe("shahed-136-dive-bomber");
+    expect(drone.bombIndices).toHaveLength(1);
+    expect(drone.diveStartIndex).toBeGreaterThan(0);
+    expect(drone.bombIndices![0]).toBeLessThan(drone.diveStartIndex!);
+  });
+
   it("spawnDrone creates jet with precomputed waypoints", () => {
     setRng(() => 0.5);
     const { g } = makeCleanGame(5);
