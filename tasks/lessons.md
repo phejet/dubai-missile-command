@@ -58,3 +58,12 @@
 ## 2026-05-01
 
 - For subjective visual checks after a focused rendering fix, ask the user to inspect the running game before doing extra screenshot spelunking.
+
+## 2026-05-04
+
+- For variant behavior, encode the intended trajectory geometry in tests. "Straight to target" is not "horizontal" unless the target y equals the spawn y, because apparently trigonometry remains undefeated.
+- When implementing visual altitude bands, use the actual landmark bounds the user named rather than a broad collision-safe range. "Can hit the Burj" and "flies at the Burj tip to mid-Burj" are different requirements, astonishingly.
+- When replacing a threat class in a specific wave, assert both absence and replacement presence. Otherwise stack carriers can lurk in wave 1 wearing a starter-wave trench coat.
+- When tuning variant speed, test relative velocity between variants so the multiplier cannot quietly become a global prop-drone buff.
+- For spawn geometry, constrain the actual trajectory slope, not just spawn zones. Edge spawns plus nearest-edge targets create vertical nonsense even when each input looks individually reasonable.
+- Do not multiply small sprite detail markers by both effect scale and enemy scale unless the desired output is a glowing clown nose visible from orbit.

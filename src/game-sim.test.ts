@@ -4,7 +4,10 @@ import {
   CANVAS_W,
   GROUND_Y,
   CITY_Y,
+  GAMEPLAY_SCENIC_BASE_Y,
   BURJ_X,
+  BURJ_H,
+  getGameplayBurjCollisionTop,
   LAUNCHER_ARMOR_NODE,
   LAUNCHER_DOUBLE_MAGAZINE_NODE,
   LAUNCHER_HIGH_VELOCITY_NODE,
@@ -12,7 +15,16 @@ import {
   computeShahed136Path,
   computeShahed238Path,
 } from "./game-logic.js";
-import { buyDraftUpgrade, buyUpgrade, createGameSim, spawnMirv, spawnDrone, spawnDroneOfType } from "./game-sim.js";
+import {
+  buyDraftUpgrade,
+  buyUpgrade,
+  createGameSim,
+  spawnMirv,
+  spawnDrone,
+  spawnDroneOfType,
+  spawnMissile,
+  spawnStackedMissile,
+} from "./game-sim.js";
 import type { Drone, Hornet, Missile, PatriotMissile } from "./types.js";
 
 describe("MIRV behavior", () => {
@@ -119,6 +131,19 @@ function makeCleanGame(wave = 5) {
   return { sim, g };
 }
 
+function expectLevelShahedAltitude(drone: Drone) {
+  const burjTip = getGameplayBurjCollisionTop(2);
+  const burjMid = GAMEPLAY_SCENIC_BASE_Y - BURJ_H;
+  expect(drone.y).toBeGreaterThanOrEqual(burjTip);
+  expect(drone.y).toBeLessThanOrEqual(burjMid);
+}
+
+function expectPlayableMissileAngle(missile: Missile) {
+  const dy = Math.max(1, (missile.targetY ?? missile.y) - missile.y);
+  expect(Math.abs(missile.vx / missile.vy)).toBeGreaterThanOrEqual(0.42 - 0.001);
+  expect(Math.abs((missile.targetX ?? missile.x) - missile.x) / dy).toBeGreaterThanOrEqual(0.42 - 0.001);
+}
+
 function makePropDrone(overrides: Partial<Drone> = {}): Drone {
   return {
     x: -20,
@@ -201,12 +226,28 @@ describe("Shahed-238 (jet) diving", () => {
     expect(drone.shahedVariant).toBe("shahed-136");
     expect(drone.diveStartIndex).toBeUndefined();
     expect(drone.bombIndices).toEqual([]);
-    expect(drone.diveTarget).toEqual({ x: BURJ_X, y: CITY_Y });
+    expect(drone.diveTarget).toEqual({ x: BURJ_X, y: drone.y });
+    expectLevelShahedAltitude(drone);
+    expect(drone.waypoints!.every((p) => Math.abs(p.y - drone.y) < 0.001)).toBe(true);
 
     drone.pathIndex = Math.floor((drone.waypoints!.length - 1) * 0.55);
     sim.update(g, 1);
     expect(drone.diving).toBeFalsy();
     expect(g.missiles.some((m) => m.type === "bomb")).toBe(false);
+  });
+
+  it("baseline Shahed-136 level flight intersects the Burj body", () => {
+    setRng(() => 0.5);
+    const { sim, g } = makeCleanGame(5);
+    spawnDroneOfType(g, "shahed136", undefined, "shahed-136");
+    const drone = g.drones[0];
+    const healthBefore = g.burjHealth;
+
+    drone.pathIndex = drone.waypoints!.length - 2;
+    sim.update(g, 2);
+
+    expect(drone.alive).toBe(false);
+    expect(g.burjHealth).toBe(healthBefore - 1);
   });
 
   it("spawns bomber Shahed-136 with a single mid-flight bomb and no dive", () => {
@@ -218,12 +259,30 @@ describe("Shahed-238 (jet) diving", () => {
     expect(drone.shahedVariant).toBe("shahed-136-bomber");
     expect(drone.diveStartIndex).toBeUndefined();
     expect(drone.bombIndices).toHaveLength(1);
+    expect(drone.diveTarget).toEqual({ x: BURJ_X, y: drone.y });
+    expectLevelShahedAltitude(drone);
+    expect(drone.waypoints!.every((p) => Math.abs(p.y - drone.y) < 0.001)).toBe(true);
 
     drone.pathIndex = drone.bombIndices![0] - 0.25;
     sim.update(g, 1);
     expect(drone.bombsDropped).toBe(1);
     expect(drone.diving).toBeFalsy();
     expect(g.missiles.filter((m) => m.type === "bomb")).toHaveLength(1);
+  });
+
+  it("makes baseline and bomber Shahed-136 25% faster than dive variants before overrides", () => {
+    const { g } = makeCleanGame(5);
+
+    setRng(() => 0.5);
+    spawnDroneOfType(g, "shahed136", undefined, "shahed-136");
+    setRng(() => 0.5);
+    spawnDroneOfType(g, "shahed136", undefined, "shahed-136-bomber");
+    setRng(() => 0.5);
+    spawnDroneOfType(g, "shahed136", undefined, "shahed-136-dive");
+
+    const [basic, bomber, dive] = g.drones;
+    expect(Math.abs(basic.vx)).toBeCloseTo(Math.abs(dive.vx) * 1.25);
+    expect(Math.abs(bomber.vx)).toBeCloseTo(Math.abs(dive.vx) * 1.25);
   });
 
   it("telegraphs Shahed-136 dive variants before the terminal dive", () => {
@@ -342,6 +401,46 @@ describe("Shahed-238 (jet) diving", () => {
     sim.update(g, 1);
     expect(jet.alive).toBe(false);
     expect(g.explosions.length).toBeGreaterThan(0);
+  });
+});
+
+describe("Missile spawn angles", () => {
+  afterEach(() => setRng(Math.random));
+
+  it("retargets edge-spawned missiles instead of sending them nearly vertical down the edge", () => {
+    setRng(() => 0.5);
+    const { g } = makeCleanGame(5);
+    g.burjAlive = false;
+
+    spawnMissile(g, { side: "left" });
+
+    const missile = g.missiles[0];
+    expect(missile.targetX).not.toBe(60);
+    expectPlayableMissileAngle(missile);
+  });
+
+  it("moves top-spawned missiles off-axis when the target is directly below", () => {
+    const { g } = makeCleanGame(5);
+    const rng = [0.5, 0.5125, 0.1];
+    let index = 0;
+    setRng(() => rng[Math.min(index++, rng.length - 1)]);
+
+    spawnMissile(g, { side: "top" });
+
+    const missile = g.missiles[0];
+    expect(missile.targetX).toBe(BURJ_X);
+    expect(Math.abs(missile.x - BURJ_X)).toBeGreaterThan(600);
+    expectPlayableMissileAngle(missile);
+  });
+
+  it("applies the same angle guard to stacked missiles", () => {
+    setRng(() => 0.5);
+    const { g } = makeCleanGame(5);
+    g.burjAlive = false;
+
+    spawnStackedMissile(g, 2, { side: "left" });
+
+    expectPlayableMissileAngle(g.missiles[0]);
   });
 });
 

@@ -2788,9 +2788,7 @@ export class PixiRenderer implements GameRenderer {
       }
 
       if (isShahedBomber && Math.sin(game.time * 0.32) > -0.15) {
-        node.overlay
-          .circle(pos.x, pos.y + 3 * GAMEPLAY_ENEMY_SCALE, 2.4 * GAMEPLAY_EFFECT_SCALE * GAMEPLAY_ENEMY_SCALE)
-          .fill(0xff1800);
+        node.overlay.circle(pos.x, pos.y + 2.4 * GAMEPLAY_ENEMY_SCALE, 1.05 * GAMEPLAY_EFFECT_SCALE).fill(0xff1800);
       } else if (Math.sin(game.time * 0.15) > 0) {
         node.overlay
           .circle(pos.x, pos.y, 0.75 * GAMEPLAY_EFFECT_SCALE * GAMEPLAY_ENEMY_SCALE)

@@ -110,11 +110,11 @@ const WAVE_TABLE = [
   {
     budget: 14,
     cap: 10,
-    missile: [0, 0],
+    missile: [4, 6],
     drone136: [5, 8],
     drone238: [0, 0],
     mirv: [0, 0],
-    stack2: [2, 3],
+    stack2: [0, 0],
     stack3: [0, 0],
   },
   {
@@ -253,6 +253,11 @@ function allocateShahed136Variants(wave: number, total: number): Record<Shahed13
     "shahed-136-dive-bomber": 0,
   };
   if (total <= 0) return counts;
+  if (wave === 1) {
+    counts["shahed-136"] = Math.max(0, total - 1);
+    counts["shahed-136-dive"] = 1;
+    return counts;
+  }
 
   const active = SHAHED_136_VARIANTS.filter((variant) => (weights[variant] ?? 0) > 0);
   let assigned = 0;
@@ -299,6 +304,15 @@ function getShahed136Ranges(
   minTotal: number,
   maxTotal: number,
 ): Record<Shahed136Variant, { min: number; max: number }> {
+  if (wave === 1) {
+    return {
+      "shahed-136": { min: Math.max(0, minTotal - 1), max: Math.max(0, maxTotal - 1) },
+      "shahed-136-bomber": { min: 0, max: 0 },
+      "shahed-136-dive": { min: 1, max: 1 },
+      "shahed-136-dive-bomber": { min: 0, max: 0 },
+    };
+  }
+
   const weights = getShahed136Weights(wave);
   const ranges = {} as Record<Shahed136Variant, { min: number; max: number }>;
   const activeCount = SHAHED_136_VARIANTS.filter((variant) => (weights[variant] ?? 0) > 0).length;
@@ -679,7 +693,11 @@ export function generateWaveSchedule(wave: number, commander: Commander): WaveRe
   const d136Interval = hasDroneSwarm ? Math.max(8, droneInterval * 0.3) : droneInterval;
   let shahedTickOffset = 0;
   for (const variant of SHAHED_136_VARIANTS) {
-    const variantTicks = spacedTicks(counts[variant], d136Interval, 0.15, 50 + shahedTickOffset);
+    const offset =
+      wave === 1 && variant === "shahed-136-dive"
+        ? 50 + counts["shahed-136"] * d136Interval + 36
+        : 50 + shahedTickOffset;
+    const variantTicks = spacedTicks(counts[variant], d136Interval, 0.15, offset);
     shahedTickOffset += 12;
     for (let i = 0; i < variantTicks.length; i++) {
       entries.push({ tick: variantTicks[i], type: variant, _typeIndex: i });

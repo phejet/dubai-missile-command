@@ -5,6 +5,7 @@ import {
   CITY_Y,
   GAMEPLAY_WATERLINE_Y,
   GAMEPLAY_SCENIC_THREAT_FLOOR_Y,
+  GAMEPLAY_SCENIC_BASE_Y,
   COL,
   BURJ_X,
   BURJ_H,
@@ -224,6 +225,53 @@ function wrapAngle(angle: number): number {
   return angle;
 }
 
+const MIN_INCOMING_MISSILE_HORIZONTAL_SLOPE = 0.42;
+
+function missileTargetCandidates(g: GameState): Array<{ x: number; y: number }> {
+  const candidates: Array<{ x: number; y: number }> = [];
+  if (g.burjAlive) candidates.push({ x: BURJ_X, y: CITY_Y });
+  g.defenseSites.forEach((site) => {
+    if (site.alive) candidates.push({ x: site.x, y: site.y });
+  });
+  LAUNCHERS.forEach((_, i) => {
+    if (g.launcherHP[i] > 0) candidates.push(getGameplayLauncherPosition(i));
+  });
+  return candidates;
+}
+
+function isMissileAnglePlayable(startX: number, startY: number, target: { x: number; y: number }): boolean {
+  const dy = Math.max(1, target.y - startY);
+  return Math.abs(target.x - startX) / dy >= MIN_INCOMING_MISSILE_HORIZONTAL_SLOPE;
+}
+
+function resolveMissileApproach(
+  g: GameState,
+  startX: number,
+  startY: number,
+  preferredTarget: { x: number; y: number },
+): { startX: number; target: { x: number; y: number } } {
+  if (isMissileAnglePlayable(startX, startY, preferredTarget)) return { startX, target: preferredTarget };
+
+  if (startY < 0) {
+    const dy = Math.max(1, preferredTarget.y - startY);
+    const requiredDx = dy * MIN_INCOMING_MISSILE_HORIZONTAL_SLOPE;
+    const currentDx = preferredTarget.x - startX;
+    const side = currentDx === 0 ? (preferredTarget.x < CANVAS_W / 2 ? 1 : -1) : currentDx > 0 ? -1 : 1;
+    return { startX: preferredTarget.x + side * requiredDx, target: preferredTarget };
+  }
+
+  const alternate = missileTargetCandidates(g)
+    .filter((target) => isMissileAnglePlayable(startX, startY, target))
+    .sort((a, b) => Math.abs(a.x - startX) - Math.abs(b.x - startX))[0];
+  if (alternate) return { startX, target: alternate };
+
+  const dy = Math.max(1, preferredTarget.y - startY);
+  const requiredDx = dy * MIN_INCOMING_MISSILE_HORIZONTAL_SLOPE;
+  const currentDx = preferredTarget.x - startX;
+  const side = currentDx === 0 ? (preferredTarget.x < CANVAS_W / 2 ? 1 : -1) : currentDx > 0 ? -1 : 1;
+  return { startX: preferredTarget.x + side * requiredDx, target: preferredTarget };
+}
+
 export function spawnMirv(g: GameState, onEvent?: ((type: string, data?: unknown) => void) | null) {
   return spawnMirvWithOverrides(g, undefined, onEvent);
 }
@@ -233,10 +281,11 @@ function spawnMirvWithOverrides(
   overrides?: SpawnEntry["overrides"],
   onEvent?: ((type: string, data?: unknown) => void) | null,
 ) {
-  const startX = rand(100, CANVAS_W - 100);
-  const target = pickTarget(g, startX);
+  let startX = rand(100, CANVAS_W - 100);
+  let target = pickTarget(g, startX);
   if (!target) return;
   const startY = -20;
+  ({ startX, target } = resolveMissileApproach(g, startX, startY, target));
   const dx = target.x - startX;
   const dy = target.y - startY;
   const len = Math.sqrt(dx * dx + dy * dy);
@@ -309,12 +358,9 @@ export function spawnMissile(g: GameState, overrides?: SpawnEntry["overrides"]) 
     startX = rand(50, CANVAS_W - 50);
     startY = topSpawnY;
   }
-  const target = pickTarget(g, startX);
+  let target = pickTarget(g, startX);
   if (!target) return;
-  if (Math.abs(startX - target.x) < 200 && startY < 0) {
-    startX = target.x + (_rng() > 0.5 ? 1 : -1) * rand(300, 500);
-    startX = Math.max(-10, Math.min(CANVAS_W + 10, startX));
-  }
+  ({ startX, target } = resolveMissileApproach(g, startX, startY, target));
   const dx = target.x - startX;
   const dy = target.y - startY;
   const len = Math.sqrt(dx * dx + dy * dy);
@@ -406,12 +452,9 @@ export function spawnStackedMissile(g: GameState, stackCount: 2 | 3, overrides?:
     startX = rand(50, CANVAS_W - 50);
     startY = topSpawnY;
   }
-  const target = pickTarget(g, startX);
+  let target = pickTarget(g, startX);
   if (!target) return;
-  if (Math.abs(startX - target.x) < 200 && startY < 0) {
-    startX = target.x + (_rng() > 0.5 ? 1 : -1) * rand(300, 500);
-    startX = Math.max(-10, Math.min(CANVAS_W + 10, startX));
-  }
+  ({ startX, target } = resolveMissileApproach(g, startX, startY, target));
   const dx = target.x - startX;
   const dy = target.y - startY;
   const len = Math.sqrt(dx * dx + dy * dy);
@@ -438,6 +481,12 @@ export function spawnStackedMissile(g: GameState, stackCount: 2 | 3, overrides?:
 
 const SHAHED_136_DIVE_TELEGRAPH_TICKS = 52;
 
+function getShahed136LevelFlightY(): number {
+  const burjTip = getGameplayBurjCollisionTop(2);
+  const burjMid = GAMEPLAY_SCENIC_BASE_Y - BURJ_H;
+  return rand(burjTip, burjMid);
+}
+
 function shahed136HasBomb(variant: Shahed136Variant | undefined): boolean {
   return variant === "shahed-136-bomber" || variant === "shahed-136-dive-bomber";
 }
@@ -457,17 +506,18 @@ export function spawnDroneOfType(
   const hasDive = !isJet && shahed136HasDive(shahedVariant);
   const hasBomb = !isJet && shahed136HasBomb(shahedVariant);
   const side = overrides?.side;
-  const yRange = overrides?.yRange || (isJet ? [80, 250] : hasDive ? [45, 150] : [120, 280]);
+  const yRange = overrides?.yRange || (isJet ? [80, 250] : hasDive ? [45, 150] : undefined);
   let goingRight;
   if (side === "left") goingRight = true;
   else if (side === "right") goingRight = false;
   else goingRight = _rng() > 0.5;
   const baseSpeed = isJet ? rand(2.5, 3.9) : rand(0.42, 0.84);
+  const shahedLevelSpeedMul = !isJet && !hasDive ? 1.25 : 1;
   const speedMul = overrides?.speedMul ?? 1;
-  const speed = (baseSpeed + g.wave * 0.05) * 2 * speedMul;
+  const speed = (baseSpeed + g.wave * 0.05) * 2 * speedMul * shahedLevelSpeedMul;
   const health = 1;
   const spawnX = goingRight ? -20 : CANVAS_W + 20;
-  const spawnY = rand(yRange[0], yRange[1]);
+  const spawnY = yRange ? rand(yRange[0], yRange[1]) : getShahed136LevelFlightY();
   const drone: Drone = {
     x: spawnX,
     y: spawnY,
@@ -498,7 +548,7 @@ export function spawnDroneOfType(
   } else {
     const target = hasDive
       ? pickTarget(g, spawnX + (goingRight ? 1 : -1) * CANVAS_W * rand(0.28, 0.42)) || { x: BURJ_X, y: CITY_Y }
-      : { x: BURJ_X, y: CITY_Y };
+      : { x: BURJ_X, y: spawnY };
     const path = hasDive
       ? computeShahed136Path(spawnX, spawnY, goingRight, speed, target)
       : {
