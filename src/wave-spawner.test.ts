@@ -337,6 +337,69 @@ describe("generateWaveSchedule", () => {
     expect(wave10.setPiece).toEqual(getWaveSetPiece(10));
     expect(wave10.tactics).toEqual(["MIXED_AXIS"]);
   });
+
+  function scheduleWithTactic(wave: number, tactic: (typeof TACTICS)[keyof typeof TACTICS]["id"]) {
+    for (let seed = 1; seed <= 500; seed++) {
+      setRng(makeSeededRng(seed));
+      const cmdr = createCommander("balanced");
+      for (let w = 1; w < wave; w++) generateWaveSchedule(w, cmdr);
+      const result = generateWaveSchedule(wave, cmdr);
+      if (result.tactics.includes(tactic)) return result.schedule;
+    }
+    throw new Error(`No schedule found for ${tactic} on wave ${wave}`);
+  }
+
+  it("applies side tactics to Shahed-136 variants", () => {
+    for (const tactic of ["LEFT_FLANK", "RIGHT_FLANK", "PINCER"] as const) {
+      const schedule = scheduleWithTactic(4, tactic);
+      const shaheds = schedule.filter((entry) =>
+        SHAHED_136_TYPES.includes(entry.type as (typeof SHAHED_136_TYPES)[number]),
+      );
+
+      expect(shaheds.length).toBeGreaterThan(0);
+      expect(shaheds.every((entry) => entry.overrides?.side === "left" || entry.overrides?.side === "right")).toBe(
+        true,
+      );
+      if (tactic === "LEFT_FLANK") expect(shaheds.every((entry) => entry.overrides?.side === "left")).toBe(true);
+      if (tactic === "RIGHT_FLANK") expect(shaheds.every((entry) => entry.overrides?.side === "right")).toBe(true);
+    }
+  });
+
+  it("applies altitude tactics to Shahed-136 variants", () => {
+    const low = scheduleWithTactic(3, "LOW_APPROACH").filter((entry) =>
+      SHAHED_136_TYPES.includes(entry.type as (typeof SHAHED_136_TYPES)[number]),
+    );
+    const high = scheduleWithTactic(3, "HIGH_APPROACH").filter((entry) =>
+      SHAHED_136_TYPES.includes(entry.type as (typeof SHAHED_136_TYPES)[number]),
+    );
+
+    expect(low.length).toBeGreaterThan(0);
+    expect(high.length).toBeGreaterThan(0);
+    expect(low.every((entry) => entry.overrides?.yRange?.[0] === 200 && entry.overrides.yRange[1] === 320)).toBe(true);
+    expect(high.every((entry) => entry.overrides?.yRange?.[0] === 40 && entry.overrides.yRange[1] === 120)).toBe(true);
+  });
+
+  it("treats Shahed-136 variants as drone-like threats for MIXED_AXIS", () => {
+    setRng(makeSeededRng(42));
+    const cmdr = createCommander("balanced");
+    for (let w = 1; w < 10; w++) generateWaveSchedule(w, cmdr);
+
+    const { schedule, tactics } = generateWaveSchedule(10, cmdr);
+    const shaheds = schedule.filter((entry) =>
+      SHAHED_136_TYPES.includes(entry.type as (typeof SHAHED_136_TYPES)[number]),
+    );
+    const jets = schedule.filter((entry) => entry.type === "drone238");
+    const missiles = schedule.filter(
+      (entry) => entry.type === "missile" || entry.type === "stack2" || entry.type === "stack3",
+    );
+
+    expect(tactics).toEqual(["MIXED_AXIS"]);
+    expect(shaheds.length).toBeGreaterThan(0);
+    expect(jets.length).toBeGreaterThan(0);
+    expect(missiles.length).toBeGreaterThan(0);
+    expect([...shaheds, ...jets].every((entry) => entry.overrides?.side === shaheds[0].overrides?.side)).toBe(true);
+    expect(missiles.every((entry) => entry.overrides?.side === "top")).toBe(true);
+  });
 });
 
 // ── computeAliveThreatValue ──

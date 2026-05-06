@@ -36,6 +36,22 @@ function isShahed136SpawnType(type: SpawnType): type is Shahed136Variant {
   return SHAHED_136_VARIANTS.includes(type as Shahed136Variant);
 }
 
+function isMissileLike(type: SpawnType): type is "missile" | "stack2" | "stack3" | "mirv" {
+  return type === "missile" || type === "stack2" || type === "stack3" || type === "mirv";
+}
+
+function isDroneLike(type: SpawnType): type is Shahed136Variant | "drone238" {
+  return type === "drone238" || isShahed136SpawnType(type);
+}
+
+function supportsSideOverride(type: SpawnType): boolean {
+  return isDroneLike(type) || type === "missile" || type === "stack2" || type === "stack3";
+}
+
+function supportsAltitudeOverride(type: SpawnType): boolean {
+  return isDroneLike(type);
+}
+
 // ── Tactic definitions ──
 
 export const TACTICS: Record<TacticId, { id: TacticId; cat: string; label: string; intel: string }> = {
@@ -529,36 +545,22 @@ function buildTacticOverrides(
   for (const id of tacticIds) {
     switch (id) {
       case "LEFT_FLANK":
-        if (
-          entryType.startsWith("drone") ||
-          entryType === "missile" ||
-          entryType === "stack2" ||
-          entryType === "stack3"
-        )
-          overrides.side = "left";
+        if (supportsSideOverride(entryType)) overrides.side = "left";
         break;
       case "RIGHT_FLANK":
-        if (
-          entryType.startsWith("drone") ||
-          entryType === "missile" ||
-          entryType === "stack2" ||
-          entryType === "stack3"
-        )
-          overrides.side = "right";
+        if (supportsSideOverride(entryType)) overrides.side = "right";
         break;
       case "PINCER":
-        if (entryType.startsWith("drone")) overrides.side = entryIndex % 2 === 0 ? "left" : "right";
-        if (entryType === "missile" || entryType === "stack2" || entryType === "stack3")
-          overrides.side = entryIndex % 2 === 0 ? "left" : "right";
+        if (supportsSideOverride(entryType)) overrides.side = entryIndex % 2 === 0 ? "left" : "right";
         break;
       case "TOP_BARRAGE":
         if (entryType === "missile" || entryType === "stack2" || entryType === "stack3") overrides.side = "top";
         break;
       case "LOW_APPROACH":
-        if (entryType.startsWith("drone")) overrides.yRange = [200, 320];
+        if (supportsAltitudeOverride(entryType)) overrides.yRange = [200, 320];
         break;
       case "HIGH_APPROACH":
-        if (entryType.startsWith("drone")) overrides.yRange = [40, 120];
+        if (supportsAltitudeOverride(entryType)) overrides.yRange = [40, 120];
         break;
       // DRONE_SWARM and MISSILE_RAIN affect tick spacing, handled during schedule generation
       // MIXED_AXIS handled during schedule generation
@@ -756,12 +758,12 @@ export function generateWaveSchedule(wave: number, commander: Commander): WaveRe
     // MIXED_AXIS: apply directional override manually
     if (hasMixedAxis) {
       // Drones get one side, missiles get opposite/top
-      if (e.type.startsWith("drone")) {
+      if (isDroneLike(e.type)) {
         overrideInput = [
           ...tactics.filter((t) => t !== "MIXED_AXIS"),
           mixedSide === "left" ? "LEFT_FLANK" : "RIGHT_FLANK",
         ];
-      } else if (e.type === "missile" || e.type === "stack2" || e.type === "stack3") {
+      } else if (isMissileLike(e.type) && e.type !== "mirv") {
         overrideInput = [...tactics.filter((t) => t !== "MIXED_AXIS"), "TOP_BARRAGE"];
       } else {
         overrideInput = tactics.filter((t) => t !== "MIXED_AXIS");
