@@ -2,9 +2,9 @@
  * Tactical spawn quality analysis for the spawn commander.
  *
  * This intentionally measures the scheduled plan, not actual runtime survival.
- * Phase 2 can extend it with realized-overlap metrics once cells and cell IDs
- * exist. For now it gives us a post-Phase-1 ruler for axis diversity and
- * repetition before the attack-cell rewrite begins.
+ * It does not simulate actual runtime survival; use headless bot runs for that.
+ * Cell metrics measure schedule intent, while overlap metrics measure scheduled
+ * proximity before concurrent-cap deferrals.
  */
 
 import { createCommander, generateWaveSchedule } from "../src/wave-spawner.js";
@@ -28,6 +28,8 @@ type Speed = "normal" | "fast";
 
 interface SampleMetrics {
   entries: number;
+  cellCoverage: number;
+  mixedCellShare: number;
   explicitAxisShare: number;
   sideEntropy: number;
   sameLaneStreak: number;
@@ -66,6 +68,28 @@ function entropy(entries: SpawnEntry[]): number {
 function explicitAxisShare(entries: SpawnEntry[]): number {
   if (entries.length === 0) return 0;
   return entries.filter((entry) => axisFor(entry) !== "natural").length / entries.length;
+}
+
+function cellCoverage(entries: SpawnEntry[]): number {
+  if (entries.length === 0) return 0;
+  return entries.filter((entry) => entry.cellId).length / entries.length;
+}
+
+function mixedCellShare(entries: SpawnEntry[]): number {
+  const cells = new Map<string, SpawnEntry[]>();
+  for (const entry of entries) {
+    if (!entry.cellId) continue;
+    cells.set(entry.cellId, [...(cells.get(entry.cellId) ?? []), entry]);
+  }
+  if (cells.size === 0) return 0;
+
+  let mixed = 0;
+  for (const cell of cells.values()) {
+    const axes = new Set(cell.map((entry) => axisFor(entry)));
+    const families = new Set(cell.map((entry) => familyFor(entry.type)));
+    if (axes.size >= 2 || families.size >= 2) mixed++;
+  }
+  return mixed / cells.size;
 }
 
 function longestStreak<T>(items: T[], keyFn: (item: T) => string): number {
@@ -124,6 +148,8 @@ function repetitionScore(schedule: SpawnEntry[]): number {
 function metricsForSchedule(schedule: SpawnEntry[]): SampleMetrics {
   return {
     entries: schedule.length,
+    cellCoverage: cellCoverage(schedule),
+    mixedCellShare: mixedCellShare(schedule),
     explicitAxisShare: explicitAxisShare(schedule),
     sideEntropy: entropy(schedule),
     sameLaneStreak: longestStreak(schedule, (entry) => axisFor(entry)),
@@ -156,12 +182,12 @@ function fmt(value: number, digits = 2): string {
   return value.toFixed(digits);
 }
 
-console.log(`\n===== Spawn Tactics Baseline (${NUM_SAMPLES} samples, ${WINDOW_TICKS}-tick windows) =====\n`);
+console.log(`\n===== Spawn Tactics Analysis (${NUM_SAMPLES} samples, ${WINDOW_TICKS}-tick windows) =====\n`);
 console.log(
-  "W | Entries | Explicit axis | Axis entropy | Same lane max | Same type max | Mixed windows | Speed windows | Repetition",
+  "W | Entries | Cell cov | Mixed cells | Explicit axis | Axis entropy | Same lane max | Same type max | Mixed windows | Speed windows | Repetition",
 );
 console.log(
-  "--+---------+---------------+--------------+---------------+---------------+---------------+---------------+-----------",
+  "--+---------+----------+-------------+---------------+--------------+---------------+---------------+---------------+---------------+-----------",
 );
 
 for (const wave of WAVES) {
@@ -170,6 +196,8 @@ for (const wave of WAVES) {
     samples.push(sampleWave(wave, sample * 1009 + wave * 31 + 17));
   }
   const entries = aggregate(samples.map((sample) => sample.entries));
+  const cellCoverage = aggregate(samples.map((sample) => sample.cellCoverage));
+  const mixedCells = aggregate(samples.map((sample) => sample.mixedCellShare));
   const explicitAxis = aggregate(samples.map((sample) => sample.explicitAxisShare));
   const sideEntropy = aggregate(samples.map((sample) => sample.sideEntropy));
   const sameLane = aggregate(samples.map((sample) => sample.sameLaneStreak));
@@ -179,7 +207,9 @@ for (const wave of WAVES) {
   const repetition = aggregate(samples.map((sample) => sample.repetitionScore));
 
   console.log(
-    `${String(wave).padStart(2)}| ${fmt(entries.mean, 1).padStart(7)} | ${fmt(explicitAxis.mean * 100, 0).padStart(
+    `${String(wave).padStart(2)}| ${fmt(entries.mean, 1).padStart(7)} | ${fmt(cellCoverage.mean * 100, 0).padStart(
+      7,
+    )}% | ${fmt(mixedCells.mean * 100, 0).padStart(10)}% | ${fmt(explicitAxis.mean * 100, 0).padStart(
       12,
     )}% | ${fmt(sideEntropy.mean).padStart(12)} | ${fmt(sameLane.mean, 1).padStart(
       13,

@@ -413,6 +413,8 @@ export type SpawnType = "missile" | Shahed136Variant | "drone238" | "mirv" | "st
 export interface SpawnEntry {
   type: SpawnType;
   tick: number;
+  cellId?: string;
+  role?: "anchor" | "disruptor" | "punisher" | "screen";
   overrides?: {
     side?: "left" | "right" | "top";
     yRange?: [number, number];

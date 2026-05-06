@@ -52,6 +52,25 @@ function supportsAltitudeOverride(type: SpawnType): boolean {
   return isDroneLike(type);
 }
 
+type CellRole = NonNullable<SpawnEntry["role"]>;
+
+interface PlannedEntry {
+  tick: number;
+  type: SpawnType;
+  _typeIndex: number;
+  _groupIndex: number;
+  _groupCount: number;
+  cellId?: string;
+  role?: CellRole;
+  cellOverrides?: NonNullable<SpawnEntry["overrides"]>;
+}
+
+function mergeOverrides(base: SpawnEntry["overrides"], extra: SpawnEntry["overrides"]): SpawnEntry["overrides"] {
+  if (!base) return extra;
+  if (!extra) return base;
+  return { ...base, ...extra };
+}
+
 // ── Tactic definitions ──
 
 export const TACTICS: Record<TacticId, { id: TacticId; cat: string; label: string; intel: string }> = {
@@ -172,53 +191,53 @@ const WAVE_TABLE = [
     stack3: [0, 0],
   },
   {
-    budget: 40,
+    budget: 38,
     cap: 18,
-    missile: [7, 12],
-    drone136: [6, 11],
-    drone238: [2, 4],
+    missile: [7, 11],
+    drone136: [6, 10],
+    drone238: [2, 3],
     mirv: [0, 0],
     stack2: [0, 0],
     stack3: [0, 0],
   },
   {
-    budget: 50,
+    budget: 45,
     cap: 22,
-    missile: [9, 15],
-    drone136: [6, 10],
-    drone238: [3, 5],
+    missile: [8, 13],
+    drone136: [5, 9],
+    drone238: [3, 4],
     mirv: [1, 1],
     stack2: [0, 1],
     stack3: [0, 0],
   },
   {
-    budget: 68,
+    budget: 58,
     cap: 28,
-    missile: [12, 22],
-    drone136: [5, 11],
-    drone238: [4, 8],
-    mirv: [1, 3],
+    missile: [10, 18],
+    drone136: [5, 9],
+    drone238: [4, 7],
+    mirv: [1, 2],
     stack2: [1, 2],
     stack3: [0, 0],
   },
   {
-    budget: 88,
+    budget: 74,
     cap: 34,
-    missile: [15, 26],
-    drone136: [4, 9],
-    drone238: [5, 10],
-    mirv: [2, 5],
-    stack2: [1, 3],
+    missile: [13, 22],
+    drone136: [4, 8],
+    drone238: [5, 8],
+    mirv: [2, 4],
+    stack2: [1, 2],
     stack3: [0, 1],
   },
   {
-    budget: 110,
+    budget: 90,
     cap: 40,
-    missile: [18, 32],
-    drone136: [4, 9],
-    drone238: [6, 13],
-    mirv: [3, 7],
-    stack2: [2, 3],
+    missile: [15, 26],
+    drone136: [4, 8],
+    drone238: [5, 10],
+    mirv: [3, 5],
+    stack2: [1, 3],
     stack3: [1, 2],
   },
 ];
@@ -540,6 +559,7 @@ function buildTacticOverrides(
   groupIndex = 0,
   groupCount = 1,
   wave = 1,
+  allowRandomFast = true,
 ): SpawnEntry["overrides"] {
   const overrides: NonNullable<SpawnEntry["overrides"]> = {};
   for (const id of tacticIds) {
@@ -587,7 +607,7 @@ function buildTacticOverrides(
                     : 0),
           ),
         );
-  if (fastChance > 0 && rand(0, 1) < fastChance) {
+  if (allowRandomFast && fastChance > 0 && rand(0, 1) < fastChance) {
     const late = Math.max(0, wave - 7);
     const typeBoost = entryType === "drone238" ? 0.08 : isShahed136SpawnType(entryType) ? 0.04 : 0;
     overrides.variant = "fast";
@@ -609,7 +629,7 @@ function getWaveGroupCount(wave: number): number {
 function addGroupLulls(
   entries: Array<{ tick: number; type: SpawnType; _typeIndex: number }>,
   wave: number,
-): Array<{ tick: number; type: SpawnType; _typeIndex: number; _groupIndex: number; _groupCount: number }> {
+): PlannedEntry[] {
   if (entries.length === 0) return [];
   const groupCount = getWaveGroupCount(wave);
   const sorted = [...entries].sort((a, b) => a.tick - b.tick);
@@ -619,6 +639,140 @@ function addGroupLulls(
     const groupIndex = Math.min(groupCount - 1, Math.floor(index / groupSize));
     return { ...entry, tick: entry.tick + groupIndex * lullBase, _groupIndex: groupIndex, _groupCount: groupCount };
   });
+}
+
+function rolePriority(type: SpawnType): number {
+  if (type === "mirv") return 9;
+  if (type === "stack3") return 8;
+  if (type === "stack2") return 7;
+  if (type === "missile") return 6;
+  if (type === "drone238") return 5;
+  if (type === "shahed-136-dive-bomber") return 4;
+  if (type === "shahed-136-dive") return 3;
+  if (type === "shahed-136-bomber") return 2;
+  return 1;
+}
+
+function cellSizeForTactics(wave: number, tactics: TacticId[]): number {
+  if (wave <= 2) return 0;
+  if (tactics.includes("SATURATION")) return 3;
+  if (tactics.includes("MIXED_AXIS")) return 3;
+  if (tactics.includes("DRONE_SWARM")) return 3;
+  if (tactics.includes("MIRV_STRIKE")) return 3;
+  return 2;
+}
+
+function assignCellRoles(entries: PlannedEntry[]): PlannedEntry[] {
+  if (entries.length === 0) return [];
+  const ranked = entries.map((entry, index) => ({ entry, index, priority: rolePriority(entry.type) }));
+  const anchorIndex = ranked.sort((a, b) => b.priority - a.priority || a.index - b.index)[0].index;
+  return entries.map((entry, index) => {
+    if (index === anchorIndex) return { ...entry, role: "anchor" };
+    const role: CellRole =
+      index === entries.length - 1 && entries.length >= 3
+        ? "punisher"
+        : isDroneLike(entry.type)
+          ? "disruptor"
+          : "screen";
+    return { ...entry, role };
+  });
+}
+
+function sideForCell(cellIndex: number, first: "left" | "right" = "left"): "left" | "right" {
+  const evenSide = first;
+  const oddSide = first === "left" ? "right" : "left";
+  return cellIndex % 2 === 0 ? evenSide : oddSide;
+}
+
+function buildCellOverrides(
+  entry: PlannedEntry,
+  entryIndex: number,
+  cellIndex: number,
+  tactics: TacticId[],
+  wave: number,
+): NonNullable<SpawnEntry["overrides"]> {
+  const overrides: NonNullable<SpawnEntry["overrides"]> = {};
+  const primarySide = tactics.includes("LEFT_FLANK")
+    ? "left"
+    : tactics.includes("RIGHT_FLANK")
+      ? "right"
+      : sideForCell(cellIndex);
+  const oppositeSide = primarySide === "left" ? "right" : "left";
+
+  if (tactics.includes("MIXED_AXIS")) {
+    if (isDroneLike(entry.type)) overrides.side = primarySide;
+    else if (entry.type === "missile" || entry.type === "stack2" || entry.type === "stack3") overrides.side = "top";
+  } else if (tactics.includes("PINCER")) {
+    if (supportsSideOverride(entry.type)) overrides.side = entryIndex % 2 === 0 ? primarySide : oppositeSide;
+  } else if (tactics.includes("TOP_BARRAGE")) {
+    if (entry.type === "missile" || entry.type === "stack2" || entry.type === "stack3") overrides.side = "top";
+    else if (supportsSideOverride(entry.type)) overrides.side = oppositeSide;
+  } else if (tactics.includes("LEFT_FLANK") || tactics.includes("RIGHT_FLANK")) {
+    if (supportsSideOverride(entry.type)) {
+      const useOppositeDisruptor = entry.role === "disruptor" && cellIndex % 3 === 2;
+      overrides.side = useOppositeDisruptor ? oppositeSide : primarySide;
+    }
+  } else if (tactics.includes("MIRV_STRIKE")) {
+    if (entry.type === "missile" || entry.type === "stack2" || entry.type === "stack3")
+      overrides.side = entry.role === "punisher" ? oppositeSide : "top";
+    else if (isDroneLike(entry.type)) overrides.side = primarySide;
+  } else if (supportsSideOverride(entry.type) && wave >= 6) {
+    overrides.side = entryIndex % 2 === 0 ? primarySide : oppositeSide;
+  }
+
+  if (tactics.includes("DRONE_SWARM") && supportsAltitudeOverride(entry.type)) {
+    overrides.side = entryIndex % 2 === 0 ? primarySide : oppositeSide;
+    overrides.yRange = entryIndex % 2 === 0 ? [200, 320] : [40, 120];
+  } else if (tactics.includes("LOW_APPROACH") && supportsAltitudeOverride(entry.type)) {
+    overrides.yRange = [200, 320];
+  } else if (tactics.includes("HIGH_APPROACH") && supportsAltitudeOverride(entry.type)) {
+    overrides.yRange = [40, 120];
+  }
+
+  if (entry.role === "punisher" && wave >= 6 && entry.type !== "mirv") {
+    overrides.variant = "fast";
+    overrides.speedMul = Math.min(1.38, 1.14 + Math.max(0, wave - 7) * 0.025 + cellIndex * 0.01);
+  }
+
+  return overrides;
+}
+
+function applyAttackCells(entries: PlannedEntry[], wave: number, tactics: TacticId[]): PlannedEntry[] {
+  const cellSize = cellSizeForTactics(wave, tactics);
+  if (cellSize <= 0 || entries.length === 0) return entries;
+
+  const byGroup = new Map<number, PlannedEntry[]>();
+  for (const entry of entries) {
+    const group = byGroup.get(entry._groupIndex) ?? [];
+    group.push(entry);
+    byGroup.set(entry._groupIndex, group);
+  }
+
+  const planned: PlannedEntry[] = [];
+  let cellIndex = 0;
+  for (const groupIndex of [...byGroup.keys()].sort((a, b) => a - b)) {
+    const groupEntries = [...(byGroup.get(groupIndex) ?? [])].sort((a, b) => a.tick - b.tick);
+    for (let i = 0; i < groupEntries.length; i += cellSize) {
+      const rawCell = groupEntries.slice(i, i + cellSize);
+      const roles = assignCellRoles(rawCell);
+      const baseTick = Math.min(...roles.map((entry) => entry.tick));
+      const cellId = `w${wave}g${groupIndex}c${cellIndex}`;
+      const cellSpacing = wave >= 7 ? 22 : 30;
+      roles.forEach((entry, entryIndex) => {
+        const roleOffset =
+          entry.role === "disruptor" ? 0 : entry.role === "anchor" ? cellSpacing : cellSpacing * (entryIndex + 1);
+        planned.push({
+          ...entry,
+          tick: baseTick + roleOffset,
+          cellId,
+          cellOverrides: buildCellOverrides(entry, entryIndex, cellIndex, tactics, wave),
+        });
+      });
+      cellIndex++;
+    }
+  }
+
+  return planned.sort((a, b) => a.tick - b.tick);
 }
 
 export function generateWaveSchedule(wave: number, commander: Commander): WaveResult {
@@ -747,7 +901,11 @@ export function generateWaveSchedule(wave: number, commander: Commander): WaveRe
     }
   }
 
-  const groupedEntries = addGroupLulls(entries, wave).sort((a, b) => a.tick - b.tick);
+  const groupedEntries = applyAttackCells(
+    addGroupLulls(entries, wave).sort((a, b) => a.tick - b.tick),
+    wave,
+    tactics,
+  );
 
   // Apply MIXED_AXIS: drones from one side, missiles from other side/top
   const mixedSide = hasMixedAxis ? (rand(0, 1) < 0.5 ? "left" : "right") : null;
@@ -770,8 +928,19 @@ export function generateWaveSchedule(wave: number, commander: Commander): WaveRe
       }
     }
 
-    const overrides = buildTacticOverrides(overrideInput, e.type, globalIdx, e._groupIndex, e._groupCount, wave);
+    const tacticOverrides = buildTacticOverrides(
+      overrideInput,
+      e.type,
+      globalIdx,
+      e._groupIndex,
+      e._groupCount,
+      wave,
+      !e.cellId,
+    );
+    const overrides = mergeOverrides(tacticOverrides, e.cellOverrides);
     const entry: SpawnEntry = { tick: e.tick, type: e.type };
+    if (e.cellId) entry.cellId = e.cellId;
+    if (e.role) entry.role = e.role;
     if (overrides) entry.overrides = overrides;
     return entry;
   });
@@ -816,11 +985,34 @@ export function advanceSpawnSchedule(
     const next = g.schedule[g.scheduleIdx];
     if (next.tick > g.waveTick) break;
     const aliveValue = computeAliveThreatValue(g);
-    if (aliveValue + getThreatValue(next.type) > g.concurrentCap) break;
+    if (aliveValue + getThreatValue(next.type) > g.concurrentCap) {
+      const bypassIndex = findSameCellBypassIndex(g, next, aliveValue);
+      if (bypassIndex === -1) break;
+      const [bypass] = g.schedule.splice(bypassIndex, 1);
+      spawnFn(g, bypass.type, bypass.overrides);
+      continue;
+    }
     spawnFn(g, next.type, next.overrides);
     g.scheduleIdx++;
   }
   g.waveTick += dt;
+}
+
+function findSameCellBypassIndex(
+  g: Pick<GameState, "schedule" | "scheduleIdx" | "waveTick" | "concurrentCap">,
+  blocked: SpawnEntry,
+  aliveValue: number,
+): number {
+  if (!blocked.cellId) return -1;
+  for (let i = g.scheduleIdx + 1; i < g.schedule.length; i++) {
+    const candidate = g.schedule[i];
+    if (candidate.tick > g.waveTick) break;
+    if (candidate.cellId !== blocked.cellId) continue;
+    if (candidate.role !== "disruptor" && candidate.role !== "screen") continue;
+    const value = getThreatValue(candidate.type);
+    if (value <= 1.25 && aliveValue + value <= g.concurrentCap) return i;
+  }
+  return -1;
 }
 
 export function isWaveFullySpawned(g: Pick<GameState, "schedule" | "scheduleIdx">) {

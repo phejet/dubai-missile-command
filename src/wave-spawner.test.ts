@@ -360,8 +360,16 @@ describe("generateWaveSchedule", () => {
       expect(shaheds.every((entry) => entry.overrides?.side === "left" || entry.overrides?.side === "right")).toBe(
         true,
       );
-      if (tactic === "LEFT_FLANK") expect(shaheds.every((entry) => entry.overrides?.side === "left")).toBe(true);
-      if (tactic === "RIGHT_FLANK") expect(shaheds.every((entry) => entry.overrides?.side === "right")).toBe(true);
+      if (tactic === "LEFT_FLANK") {
+        expect(shaheds.filter((entry) => entry.overrides?.side === "left").length).toBeGreaterThan(
+          shaheds.filter((entry) => entry.overrides?.side === "right").length,
+        );
+      }
+      if (tactic === "RIGHT_FLANK") {
+        expect(shaheds.filter((entry) => entry.overrides?.side === "right").length).toBeGreaterThan(
+          shaheds.filter((entry) => entry.overrides?.side === "left").length,
+        );
+      }
     }
   });
 
@@ -397,8 +405,54 @@ describe("generateWaveSchedule", () => {
     expect(shaheds.length).toBeGreaterThan(0);
     expect(jets.length).toBeGreaterThan(0);
     expect(missiles.length).toBeGreaterThan(0);
-    expect([...shaheds, ...jets].every((entry) => entry.overrides?.side === shaheds[0].overrides?.side)).toBe(true);
+    expect(
+      [...shaheds, ...jets].every((entry) => entry.overrides?.side === "left" || entry.overrides?.side === "right"),
+    ).toBe(true);
     expect(missiles.every((entry) => entry.overrides?.side === "top")).toBe(true);
+  });
+
+  it("assigns attack-cell metadata after starter waves", () => {
+    setRng(makeSeededRng(42));
+    const cmdr = createCommander("balanced");
+    generateWaveSchedule(1, cmdr);
+    generateWaveSchedule(2, cmdr);
+
+    const { schedule } = generateWaveSchedule(3, cmdr);
+
+    expect(schedule.every((entry) => entry.cellId)).toBe(true);
+    expect(schedule.some((entry) => entry.role === "anchor")).toBe(true);
+    expect(schedule.some((entry) => entry.role === "disruptor" || entry.role === "screen")).toBe(true);
+  });
+
+  it("builds pincer cells with opposite-side pressure", () => {
+    const schedule = scheduleWithTactic(4, "PINCER");
+    const cells = new Map<string, typeof schedule>();
+    for (const entry of schedule) {
+      if (!entry.cellId) continue;
+      cells.set(entry.cellId, [...(cells.get(entry.cellId) ?? []), entry]);
+    }
+
+    expect(cells.size).toBeGreaterThan(0);
+    expect(
+      [...cells.values()].some((cell) => {
+        const sides = new Set(cell.map((entry) => entry.overrides?.side).filter(Boolean));
+        return sides.has("left") && sides.has("right");
+      }),
+    ).toBe(true);
+  });
+
+  it("assigns fast variants deliberately to punisher roles in cell waves", () => {
+    let fastEntries: ReturnType<typeof generateWaveSchedule>["schedule"] = [];
+    for (let seed = 1; seed <= 100; seed++) {
+      setRng(makeSeededRng(seed));
+      const cmdr = createCommander("balanced");
+      for (let w = 1; w < 8; w++) generateWaveSchedule(w, cmdr);
+      fastEntries = generateWaveSchedule(8, cmdr).schedule.filter((entry) => entry.overrides?.variant === "fast");
+      if (fastEntries.length > 0) break;
+    }
+
+    expect(fastEntries.length).toBeGreaterThan(0);
+    expect(fastEntries.every((entry) => entry.role === "punisher")).toBe(true);
   });
 });
 
@@ -517,6 +571,25 @@ describe("advanceSpawnSchedule", () => {
     advanceSpawnSchedule(g, 1, (_g, type) => spawned.push(type));
     expect(spawned).toEqual([]);
     expect(g.scheduleIdx).toBe(0);
+  });
+
+  it("can bypass a blocked same-cell anchor with a low-value disruptor", () => {
+    const spawned: SpawnType[] = [];
+    const g = makeGameWithSchedule(
+      [
+        { tick: 0, type: "mirv", cellId: "cell-1", role: "anchor" },
+        { tick: 0, type: "shahed-136", cellId: "cell-1", role: "disruptor" },
+      ],
+      2.5,
+    );
+    g.waveTick = 10;
+    g.missiles = [{ alive: true, type: "missile" }] as Missile[];
+
+    advanceSpawnSchedule(g, 1, (_g, type) => spawned.push(type));
+
+    expect(spawned).toEqual(["shahed-136"]);
+    expect(g.scheduleIdx).toBe(0);
+    expect(g.schedule).toEqual([{ tick: 0, type: "mirv", cellId: "cell-1", role: "anchor" }]);
   });
 
   it("spawns while the next entry still fits under concurrent cap", () => {
