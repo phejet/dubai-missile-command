@@ -49,29 +49,29 @@ Run games headlessly for testing and bot tuning.
 
 ```bash
 # Run a single headless game with determinism check
-node src/headless/sim-runner.js [seed]
+npx tsx src/headless/sim-runner.ts [seed]
 
 # Record best game as a replay file
-node src/headless/record.js [--seed=N] [--tries=1000] [--out=replay.json]
+npx tsx src/headless/record.ts [--seed=N] [--tries=1000] [--out=replay.json]
 
 # Play a replay in the browser (requires dev server running)
-node play-replay.mjs replay.json
+npx tsx play-replay.ts replay.json
 ```
 
 ### Bot training
 
-Use the `/train-bot` skill to benchmark and tune the bot. It runs batch games via `src/headless/train.js` and analyzes results to tune `src/headless/bot-config.json`.
+Use the `/train-bot` skill to benchmark and tune the bot. It runs batch games via `src/headless/train.ts` and analyzes results to tune `src/headless/bot-config.json`.
 
 ### Key files
 
-- `src/game-sim.js` — extracted game loop (spawning, upgrades, auto-systems)
-- `src/game-logic.js` — constants, collision, injectable seeded RNG
-- `src/replay.js` — replay runner (action-log based deterministic replay)
-- `src/headless/sim-runner.js` — headless game runner
-- `src/headless/bot-brain.js` — parameterized bot targeting/firing logic
+- `src/game-sim.ts` — extracted game loop (spawning, upgrades, auto-systems)
+- `src/game-logic.ts` — constants, collision, injectable seeded RNG
+- `src/replay.ts` — replay runner (action-log based deterministic replay)
+- `src/headless/sim-runner.ts` — headless game runner
+- `src/headless/bot-brain.ts` — parameterized bot targeting/firing logic
 - `src/headless/bot-config.json` — tunable bot parameters
-- `src/headless/train.js` — batch training benchmark (multi-worker)
-- `src/headless/game-worker.js` — worker thread for parallel game execution
+- `src/headless/train.ts` — batch training benchmark (multi-worker)
+- `src/headless/game-worker.ts` — worker thread for parallel game execution
 
 ### Replay system
 

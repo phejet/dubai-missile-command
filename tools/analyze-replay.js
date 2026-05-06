@@ -1,4 +1,4 @@
-import { setRng, fireInterceptor } from "./src/game-logic.js";
+import { setRng, fireInterceptor } from "../src/game-logic.js";
 import {
   initGame,
   update,
@@ -8,9 +8,9 @@ import {
   repairSite,
   repairLauncher,
   fireEmp,
-} from "./src/game-sim.js";
-import { mulberry32 } from "./src/headless/rng.js";
-import { buildReplayCheckpoint } from "./src/replay-debug.js";
+} from "../src/game-sim.js";
+import { mulberry32 } from "../src/headless/rng.js";
+import { buildReplayCheckpoint } from "../src/replay-debug.js";
 import { readFileSync } from "fs";
 
 const replayFile = process.argv[2];

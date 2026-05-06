@@ -1,6 +1,6 @@
-import { setRng, fireInterceptor } from "./src/game-logic.js";
-import { initGame, update, buyUpgrade, closeShop, fireEmp, repairSite, repairLauncher } from "./src/game-sim.js";
-import { mulberry32 } from "./src/headless/rng.js";
+import { setRng, fireInterceptor } from "../src/game-logic.js";
+import { initGame, update, buyUpgrade, closeShop, fireEmp, repairSite, repairLauncher } from "../src/game-sim.js";
+import { mulberry32 } from "../src/headless/rng.js";
 import { readFileSync } from "fs";
 
 const replayFile = process.argv[2];

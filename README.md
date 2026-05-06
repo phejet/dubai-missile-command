@@ -131,8 +131,8 @@ A Playwright bot that plays the game automatically for testing:
 
 ```bash
 npm run dev                  # start dev server first
-# update GAME_URL in play-bot.mjs to match your port
-node play-bot.mjs            # opens Chromium and plays
+# update GAME_URL in play-bot.ts to match your port (or pass via env)
+GAME_URL=http://localhost:5173/dubai-missile-command/ npx tsx play-bot.ts
 ```
 
 ### Headless Simulation & Training
@@ -141,19 +141,19 @@ Run thousands of games headlessly (~770 games/sec) for automated bot tuning:
 
 ```bash
 # Single headless game with determinism check
-node src/headless/sim-runner.js [seed]
+npx tsx src/headless/sim-runner.ts [seed]
 
 # Learning loop — benchmark, Sonnet analysis, apply changes, repeat
-node src/headless/learn.js --rounds=3 --duration=10000 [--dry-run]
+npx tsx src/headless/learn.ts --rounds=3 --duration=10000 [--dry-run]
 
 # Game balance analysis — get design suggestions from Claude
-node src/headless/balance.js [--focus=all|enemies|upgrades|mechanics|visual]
+npx tsx src/headless/balance.ts [--focus=all|enemies|upgrades|mechanics|visual]
 
 # Batch training — runs games with worker threads, tunes config only
-node src/headless/train.js --games=100 --iterations=10 [--dry-run]
+npx tsx src/headless/train.ts --games=100 --iterations=10 [--dry-run]
 
 # Record best game as a replay file
-node src/headless/record.js [--seed=N] [--tries=1000] [--out=replay.json]
+npx tsx src/headless/record.ts [--seed=N] [--tries=1000] [--out=replay.json]
 ```
 
 Four rounds of Sonnet-driven optimization took the bot from wave 1 to wave 17. See the full [Bot Learning Report](src/headless/learning-reports/round-1-to-4-report.md).
@@ -165,7 +165,7 @@ Replay recorded bot games in the browser with full visual playback:
 ```bash
 # Start dev server, then launch replay in Chromium
 npm run dev
-node play-replay.mjs replay.json
+npx tsx play-replay.ts replay.json
 ```
 
 You can also drag-and-drop a `replay.json` file onto the game canvas, or load via console: `window.__loadReplay(data)`.

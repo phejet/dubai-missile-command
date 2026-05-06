@@ -49,25 +49,25 @@ Treat them as experimental helpers, not authoritative workflow.
 ## Root-Level Utility Probes
 
 - `play-bot.ts`
-- `screenshot-bot.mjs`
-- `analyze-hornets.js`
-- `analyze-replay.js`
-- `gen-sky.mjs`
+- `tools/screenshot-bot.mjs`
+- `tools/analyze-hornets.js`
+- `tools/analyze-replay.js`
+- `tools/gen-sky.mjs`
 
-These are ad hoc utilities.
+These are ad hoc utilities. Run them from the repo root (cwd-relative paths assume that).
 
 Known caveats:
 
 - `play-bot.ts` contains hardcoded gameplay assumptions that can drift from live constants
-- `screenshot-bot.mjs` still assumes an old `900x640` scaling path in one branch
-- `analyze-hornets.js` and `analyze-replay.js` import `.js` source paths and are best treated as legacy unless matching built files exist
+- `tools/screenshot-bot.mjs` still assumes an old `900x640` scaling path in one branch
+- `tools/analyze-hornets.js` and `tools/analyze-replay.js` import `.js` source paths and are best treated as legacy unless matching built files exist
 
 Use them, but inspect them first.
 
 ## Analysis Artifacts
 
-- `normal-bench-all.json`
-- `spawn-analysis-new.json`
+- `tools/analysis-output/normal-bench-all.json`
+- `tools/analysis-output/spawn-analysis-new.json`
 - `src/headless/LLM-ANALYSIS.md`
 - `src/headless/learning-reports/round-1-to-4-report.md`
 
@@ -78,7 +78,7 @@ These are outputs and notes, not runnable workflow entrypoints.
 - Playwright E2E under `e2e/`
 - `play-replay.ts`
 - `play-bot.ts`
-- `screenshot-bot.mjs`
+- `tools/screenshot-bot.mjs`
 
 The E2E tests are the maintained automation path. The standalone scripts are convenience tools.
 
