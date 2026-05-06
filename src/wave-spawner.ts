@@ -5,6 +5,7 @@ import type {
   Commander,
   SpawnEntry,
   WaveResult,
+  WaveSetPiece,
   SpawnType,
   GameState,
   Shahed136Variant,
@@ -95,6 +96,23 @@ export const COMMANDER_STYLES = {
   adaptive: { id: "adaptive", label: "Adaptive", desc: "Avoids repeating tactics, counters player strengths" },
 };
 
+export const WAVE_SET_PIECES: Partial<Record<number, WaveSetPiece>> = {
+  5: {
+    name: "First Split",
+    intel: "A single MIRV probe opens the mid-game.",
+    tactics: ["MIRV_STRIKE"],
+  },
+  10: {
+    name: "Crosswind Raid",
+    intel: "Drones and missiles split attack axes.",
+    tactics: ["MIXED_AXIS"],
+  },
+};
+
+export function getWaveSetPiece(wave: number): WaveSetPiece | null {
+  return WAVE_SET_PIECES[wave] ?? null;
+}
+
 // Style weights per tactic category: [direction, altitude, formation, special]
 const STYLE_WEIGHTS: Record<CommanderStyle, Record<string, number>> = {
   balanced: { direction: 1, altitude: 1, formation: 1, special: 1 },
@@ -138,54 +156,54 @@ const WAVE_TABLE = [
     stack3: [0, 0],
   },
   {
-    budget: 50,
-    cap: 20,
-    missile: [8, 17],
-    drone136: [6, 12],
-    drone238: [3, 8],
+    budget: 40,
+    cap: 18,
+    missile: [7, 12],
+    drone136: [6, 11],
+    drone238: [2, 4],
     mirv: [0, 0],
     stack2: [0, 0],
     stack3: [0, 0],
   },
   {
-    budget: 65,
-    cap: 24,
-    missile: [10, 21],
-    drone136: [6, 12],
-    drone238: [4, 9],
+    budget: 50,
+    cap: 22,
+    missile: [9, 15],
+    drone136: [6, 10],
+    drone238: [3, 5],
+    mirv: [1, 1],
+    stack2: [0, 1],
+    stack3: [0, 0],
+  },
+  {
+    budget: 68,
+    cap: 28,
+    missile: [12, 22],
+    drone136: [5, 11],
+    drone238: [4, 8],
     mirv: [1, 3],
     stack2: [1, 2],
     stack3: [0, 0],
   },
   {
-    budget: 82,
-    cap: 28,
-    missile: [14, 27],
-    drone136: [5, 11],
-    drone238: [5, 11],
+    budget: 88,
+    cap: 34,
+    missile: [15, 26],
+    drone136: [4, 9],
+    drone238: [5, 10],
     mirv: [2, 5],
     stack2: [1, 3],
-    stack3: [0, 0],
+    stack3: [0, 1],
   },
   {
-    budget: 100,
-    cap: 34,
-    missile: [16, 30],
-    drone136: [4, 9],
-    drone238: [6, 12],
-    mirv: [3, 8],
-    stack2: [1, 3],
-    stack3: [1, 2],
-  },
-  {
-    budget: 125,
+    budget: 110,
     cap: 40,
-    missile: [20, 36],
+    missile: [18, 32],
     drone136: [4, 9],
-    drone238: [7, 15],
-    mirv: [4, 9],
-    stack2: [2, 4],
-    stack3: [1, 3],
+    drone238: [6, 13],
+    mirv: [3, 7],
+    stack2: [2, 3],
+    stack3: [1, 2],
   },
 ];
 
@@ -214,10 +232,10 @@ function getShahed136Weights(wave: number): Partial<Record<Shahed136Variant, num
   if (wave === 3) return { "shahed-136": 0.45, "shahed-136-bomber": 0.35, "shahed-136-dive": 0.2 };
   if (wave === 4) {
     return {
-      "shahed-136": 0.25,
-      "shahed-136-bomber": 0.3,
-      "shahed-136-dive": 0.25,
-      "shahed-136-dive-bomber": 0.2,
+      "shahed-136": 0.32,
+      "shahed-136-bomber": 0.4,
+      "shahed-136-dive": 0.28,
+      "shahed-136-dive-bomber": 0,
     };
   }
   if (wave === 5) {
@@ -380,7 +398,7 @@ function getAvailableTactics(wave: number, style: CommanderStyle): TacticId[] {
   // Direction tactics
   if (wave >= 3) pool.push("LEFT_FLANK", "RIGHT_FLANK");
   if (wave >= (style === "methodical" ? 3 : 4)) pool.push("PINCER");
-  if (wave >= 4) pool.push("TOP_BARRAGE");
+  if (wave >= 6) pool.push("TOP_BARRAGE");
   // Altitude tactics
   if (wave >= 3) pool.push("LOW_APPROACH", "HIGH_APPROACH");
   // Formation tactics
@@ -417,6 +435,8 @@ function weightedPick(items: TacticId[], weights: number[]): TacticId | null {
 
 export function commanderPickTactics(commander: Commander, wave: number): TacticId[] {
   if (wave <= 2) return [];
+  const setPiece = getWaveSetPiece(wave);
+  if (setPiece) return [...setPiece.tactics];
 
   const style = commander.style;
   const available = getAvailableTactics(wave, style);
@@ -548,7 +568,7 @@ function buildTacticOverrides(
   }
   const groupPressure = groupCount <= 1 ? 0 : groupIndex / (groupCount - 1);
   const fastChance =
-    wave < 4
+    wave < 6
       ? 0
       : Math.max(
           0,
@@ -601,6 +621,7 @@ function addGroupLulls(
 
 export function generateWaveSchedule(wave: number, commander: Commander): WaveResult {
   const config = getWaveConfig(wave);
+  const setPiece = getWaveSetPiece(wave) ?? undefined;
   const tactics = commanderPickTactics(commander, wave);
 
   // Pick counts per type
@@ -760,7 +781,7 @@ export function generateWaveSchedule(wave: number, commander: Commander): WaveRe
   // Record in commander history
   commander.history.push({ wave, tactics });
 
-  return { schedule, concurrentCap, tactics };
+  return { schedule, concurrentCap, tactics, setPiece };
 }
 
 // ── Runtime helpers ──

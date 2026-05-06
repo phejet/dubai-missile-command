@@ -6,6 +6,7 @@ import {
   TACTICS,
   COMMANDER_STYLES,
   getWaveConfig,
+  getWaveSetPiece,
   createCommander,
   commanderPickTactics,
   generateWaveSchedule,
@@ -96,6 +97,18 @@ describe("getWaveConfig", () => {
 // ── generateWaveSchedule ──
 
 describe("generateWaveSchedule", () => {
+  function averageScheduledThreat(wave: number, samples = 80): number {
+    let total = 0;
+    for (let seed = 1; seed <= samples; seed++) {
+      setRng(makeSeededRng(seed));
+      const cmdr = createCommander("balanced");
+      for (let w = 1; w < wave; w++) generateWaveSchedule(w, cmdr);
+      const { schedule } = generateWaveSchedule(wave, cmdr);
+      total += schedule.reduce((sum, entry) => sum + THREAT_VALUES[entry.type], 0);
+    }
+    return total / samples;
+  }
+
   it("schedule entries sorted by tick", () => {
     setRng(makeSeededRng(100));
     const cmdr = createCommander("balanced");
@@ -160,11 +173,11 @@ describe("generateWaveSchedule", () => {
     expect(Math.max(...gaps)).toBeGreaterThanOrEqual(80);
   });
 
-  it("does not create fast variants before wave 4", () => {
+  it("does not create fast variants before wave 6", () => {
     for (let seed = 1; seed <= 20; seed++) {
       setRng(makeSeededRng(seed));
       const cmdr = createCommander("balanced");
-      for (let w = 1; w <= 3; w++) {
+      for (let w = 1; w <= 5; w++) {
         const { schedule } = generateWaveSchedule(w, cmdr);
         expect(schedule.some((entry) => entry.overrides?.variant === "fast")).toBe(false);
       }
@@ -172,13 +185,13 @@ describe("generateWaveSchedule", () => {
   });
 
   it("leans on fast variants more often in late waves", () => {
-    let wave5Fast = 0;
+    let wave6Fast = 0;
     let wave10Fast = 0;
     for (let seed = 1; seed <= 40; seed++) {
       setRng(makeSeededRng(seed));
       const early = createCommander("balanced");
-      for (let w = 1; w < 5; w++) generateWaveSchedule(w, early);
-      wave5Fast += generateWaveSchedule(5, early).schedule.filter(
+      for (let w = 1; w < 6; w++) generateWaveSchedule(w, early);
+      wave6Fast += generateWaveSchedule(6, early).schedule.filter(
         (entry) => entry.overrides?.variant === "fast",
       ).length;
 
@@ -189,7 +202,16 @@ describe("generateWaveSchedule", () => {
         (entry) => entry.overrides?.variant === "fast",
       ).length;
     }
-    expect(wave10Fast).toBeGreaterThan(wave5Fast * 2);
+    expect(wave10Fast).toBeGreaterThan(wave6Fast * 2);
+  });
+
+  it("keeps early-wave scheduled threat growth gradual", () => {
+    const wave3 = averageScheduledThreat(3);
+    const wave4 = averageScheduledThreat(4);
+    const wave5 = averageScheduledThreat(5);
+
+    expect(wave4).toBeLessThan(wave3 * 1.45);
+    expect(wave5).toBeLessThan(wave4 * 1.55);
   });
 
   it("wave 1-2 stay within their configured starter threat pools", () => {
@@ -228,7 +250,11 @@ describe("generateWaveSchedule", () => {
     expect(wave3.some((entry) => entry.type === "shahed-136-dive-bomber")).toBe(false);
 
     const wave4 = generateWaveSchedule(4, cmdr).schedule;
-    expect(wave4.some((entry) => entry.type === "shahed-136-dive-bomber")).toBe(true);
+    expect(wave4.some((entry) => entry.type === "shahed-136-dive")).toBe(true);
+    expect(wave4.some((entry) => entry.type === "shahed-136-dive-bomber")).toBe(false);
+
+    const wave5 = generateWaveSchedule(5, cmdr).schedule;
+    expect(wave5.some((entry) => entry.type === "shahed-136-dive-bomber")).toBe(true);
   });
 
   it("places the wave 1 diving Shahed near the end of the wave", () => {
@@ -294,6 +320,22 @@ describe("generateWaveSchedule", () => {
       }
     }
     expect(found).toBe(true);
+  });
+
+  it("uses named set-piece plans for key waves", () => {
+    setRng(makeSeededRng(42));
+    const cmdr = createCommander("balanced");
+    for (let w = 1; w < 5; w++) generateWaveSchedule(w, cmdr);
+
+    const wave5 = generateWaveSchedule(5, cmdr);
+    expect(wave5.setPiece).toEqual(getWaveSetPiece(5));
+    expect(wave5.setPiece?.name).toBe("First Split");
+    expect(wave5.tactics).toEqual(["MIRV_STRIKE"]);
+
+    for (let w = 6; w < 10; w++) generateWaveSchedule(w, cmdr);
+    const wave10 = generateWaveSchedule(10, cmdr);
+    expect(wave10.setPiece).toEqual(getWaveSetPiece(10));
+    expect(wave10.tactics).toEqual(["MIXED_AXIS"]);
   });
 });
 

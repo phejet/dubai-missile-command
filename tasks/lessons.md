@@ -67,3 +67,4 @@
 - When tuning variant speed, test relative velocity between variants so the multiplier cannot quietly become a global prop-drone buff.
 - For spawn geometry, constrain the actual trajectory slope, not just spawn zones. Edge spawns plus nearest-edge targets create vertical nonsense even when each input looks individually reasonable.
 - Do not multiply small sprite detail markers by both effect scale and enemy scale unless the desired output is a glowing clown nose visible from orbit.
+- When smoothing difficulty, audit all unlock gates on the same wave, not just the budget row. A spike can come from count, variant mix, tactic availability, and fast modifiers all landing together.

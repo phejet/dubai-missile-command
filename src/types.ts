@@ -425,6 +425,13 @@ export interface WaveResult {
   schedule: SpawnEntry[];
   concurrentCap: number;
   tactics: TacticId[];
+  setPiece?: WaveSetPiece;
+}
+
+export interface WaveSetPiece {
+  name: string;
+  intel: string;
+  tactics: TacticId[];
 }
 
 // ── Game stats ──
