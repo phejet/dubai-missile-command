@@ -12,7 +12,6 @@ Main files:
 - `src/headless/bench.ts`
 - `src/headless/bench-draft.ts`
 - `src/headless/bench-report.ts`
-- `src/headless/learn.ts`
 - `src/headless/learn-local.ts`
 - `src/headless/balance.ts`
 - `src/headless/analyze-with-llm.ts`
@@ -99,15 +98,13 @@ See `.claude/skills/train-bot.md` for the recommended loop. In short:
 
 These scripts call external LLM APIs and should be treated carefully:
 
-- `learn.ts`
-- `learn-local.ts`
+- `learn-local.ts` (LM Studio; current optimization loop)
 - `balance.ts`
 - `analyze-with-llm.ts`
 
 Important warning:
 
 - several prompts and file-path assumptions in these scripts have drifted
-- `learn.ts` still reads `bot-brain.js` / `game-sim.js`
 - `balance.ts` still references `App.tsx`
 
 They can still be useful, but review them before trusting their output.

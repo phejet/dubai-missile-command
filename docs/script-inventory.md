@@ -31,8 +31,7 @@ Older notes and some legacy probes still reference `.js` or `.mjs` names.
 
 ## LLM-Assisted Tooling
 
-- `src/headless/learn.ts`
-- `src/headless/learn-local.ts`
+- `src/headless/learn-local.ts` (LM Studio–driven optimization loop; current)
 - `src/headless/balance.ts`
 - `src/headless/analyze-with-llm.ts`
 
@@ -40,7 +39,6 @@ These are useful, but review them before trusting them.
 
 Known drift:
 
-- `learn.ts` still reads `bot-brain.js` and `game-sim.js`
 - `balance.ts` still references `App.tsx`
 - some prompts still describe old architecture/constants
 
