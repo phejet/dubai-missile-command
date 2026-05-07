@@ -127,9 +127,16 @@ Focused breakdowns:
 | Iron Beam       | Laser burns down threats near Burj                    |
 | Phalanx CIWS    | Rapid-fire autocannon turrets                         |
 | Patriot Battery | Long-range SAM with massive blast radius              |
-| Launcher Kit    | Upgrades launcher HP and ammo capacity                |
+| Launcher Kit    | Tree of four nodes (see below)                        |
 | EMP Shockwave   | Charged area-of-effect pulse that damages all threats |
 | Burj Repair Kit | Consumable that restores 1 Burj HP                    |
+
+The `launcherKit` family expands into a four-node tree (see `UPGRADE_NODES` in `src/game-sim-upgrades.ts`):
+
+- **Rapid Reload** (rank 1) — reload window 30 → 18 ticks
+- **Launcher Armor Kit** (rank 1) — +1 HP per launcher
+- **High Velocity Interceptors** (rank 1) — +40% interceptor speed and acceleration
+- **Double Magazine** (rank 2, requires any rank-1) — +100% burst shots, rounded up
 
 ### F-15 Eagles
 
