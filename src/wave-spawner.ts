@@ -700,13 +700,14 @@ function buildCellOverrides(
   const oppositeSide = primarySide === "left" ? "right" : "left";
 
   if (tactics.includes("MIXED_AXIS")) {
-    if (isDroneLike(entry.type)) overrides.side = primarySide;
+    if (isDroneLike(entry.type)) overrides.side = entryIndex % 2 === 0 ? primarySide : oppositeSide;
     else if (entry.type === "missile" || entry.type === "stack2" || entry.type === "stack3") overrides.side = "top";
   } else if (tactics.includes("PINCER")) {
     if (supportsSideOverride(entry.type)) overrides.side = entryIndex % 2 === 0 ? primarySide : oppositeSide;
   } else if (tactics.includes("TOP_BARRAGE")) {
     if (entry.type === "missile" || entry.type === "stack2" || entry.type === "stack3") overrides.side = "top";
-    else if (supportsSideOverride(entry.type)) overrides.side = oppositeSide;
+    else if (supportsSideOverride(entry.type))
+      overrides.side = entryIndex % 2 === 0 ? oppositeSide : primarySide;
   } else if (tactics.includes("LEFT_FLANK") || tactics.includes("RIGHT_FLANK")) {
     if (supportsSideOverride(entry.type)) {
       const useOppositeDisruptor = entry.role === "disruptor" && cellIndex % 3 === 2;
@@ -715,7 +716,7 @@ function buildCellOverrides(
   } else if (tactics.includes("MIRV_STRIKE")) {
     if (entry.type === "missile" || entry.type === "stack2" || entry.type === "stack3")
       overrides.side = entry.role === "punisher" ? oppositeSide : "top";
-    else if (isDroneLike(entry.type)) overrides.side = primarySide;
+    else if (isDroneLike(entry.type)) overrides.side = entryIndex % 2 === 0 ? primarySide : oppositeSide;
   } else if (supportsSideOverride(entry.type) && wave >= 6) {
     overrides.side = entryIndex % 2 === 0 ? primarySide : oppositeSide;
   }
