@@ -343,7 +343,7 @@ function sampleWaypoints(waypoints: { x: number; y: number }[], pathIndex: numbe
   };
 }
 
-function leadShahed238Target(
+function leadWaypointDrone(
   drone: Drone,
   config: BotConfig,
   interceptorSpeed: number,
@@ -356,7 +356,11 @@ function leadShahed238Target(
   const { x: launcherX, y: launcherY } = pickLauncher(drone.x, drone.y, g);
   const iterations = config.leadShot.iterations;
   const timeScale = config.leadShot.timeScaleFactor;
-  const pathStepPerTick = (drone.empSlowTimer ?? 0) > 0 ? 0.4 : 1;
+  // Shahed-136 divers ramp pathSpeed from 1 to ~4 during the dive (game-sim
+  // multiplies by 1.06/tick, capped at 4). Use the current diveSpeed if known
+  // so we don't under-predict an actively diving drone. EMP halves it ×0.4.
+  const empSlow = (drone.empSlowTimer ?? 0) > 0 ? 0.4 : 1;
+  const pathStepPerTick = (drone.diveSpeed ?? 1) * empSlow;
 
   let aim = { x: drone.x, y: drone.y };
   for (let iter = 0; iter < iterations; iter++) {
@@ -376,8 +380,11 @@ function leadThreatTarget(
   g: GameState | null,
   accel = 1,
 ): { x: number; y: number } {
-  if (targetRef.type === "drone" && targetRef.subtype === "shahed238") {
-    return leadShahed238Target(targetRef, config, interceptorSpeed, g);
+  // All shahed drones (136 cruise + dive, 238 jets) follow precomputed
+  // waypoints spaced 1 unit per tick of motion. Path-aware leading is more
+  // accurate than vx/vy extrapolation, especially across the dive transition.
+  if (targetRef.type === "drone" && (targetRef as Drone).waypoints?.length) {
+    return leadWaypointDrone(targetRef as Drone, config, interceptorSpeed, g);
   }
   return leadTarget(targetRef.x, targetRef.y, targetRef.vx, targetRef.vy, config, interceptorSpeed, g, accel);
 }
