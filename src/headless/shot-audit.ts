@@ -25,6 +25,7 @@ const MAX_TICKS = parseInt(getArg("maxTicks", "60000"));
 
 interface ShotRecord {
   fireTick: number;
+  fireWave: number;
   aimX: number;
   aimY: number;
   targetType: string | null;
@@ -123,6 +124,7 @@ function run(): void {
         const ic = g.interceptors[g.interceptors.length - 1];
         const record: ShotRecord = {
           fireTick: tick,
+          fireWave: g.wave,
           aimX: action.x,
           aimY: action.y,
           ...snapshotThreat(action.targetRef),
@@ -156,9 +158,28 @@ function run(): void {
   const kills = g.stats.missileKills + g.stats.droneKills;
   const eff = kills / Math.max(1, g.stats.shotsFired);
   console.log(
-    `\nGame: wave=${g.wave} score=${g.score} cause=${g.state === "gameover" ? "destroyed" : "timeout"}`,
+    `\nGame: wave=${g.wave} score=${g.score} cause=${g.state === "gameover" ? "destroyed" : "timeout"}  burjHP=${g.burjHealth} launchersAlive=${g.launcherHP.filter((h) => h > 0).length}/3`,
   );
   console.log(`Shots: ${g.stats.shotsFired}, Kills: ${kills}, Eff: ${eff.toFixed(3)}`);
+
+  // Per-wave fire/efficiency
+  const perWave = new Map<number, { fires: number; closeHits: number; aimAvg: number; aimAvgCount: number }>();
+  for (const s of shots) {
+    const w = s.fireWave;
+    if (!perWave.has(w)) perWave.set(w, { fires: 0, closeHits: 0, aimAvg: 0, aimAvgCount: 0 });
+    const p = perWave.get(w)!;
+    p.fires++;
+    if (s.detonationDist !== undefined) {
+      p.aimAvg += s.detonationDist;
+      p.aimAvgCount++;
+      if (s.detonationDist < 80) p.closeHits++;
+    }
+  }
+  console.log(`\nPer-wave:`);
+  for (const [w, p] of [...perWave.entries()].sort((a, b) => a[0] - b[0])) {
+    const avg = p.aimAvgCount > 0 ? p.aimAvg / p.aimAvgCount : 0;
+    console.log(`  wave ${w}: fires=${p.fires}  closeHits<80=${p.closeHits}  avgDetDist=${avg.toFixed(0)}`);
+  }
 
   const detonated = shots.filter((s) => s.detonationDist !== undefined);
   console.log(`\nDetonations: ${detonated.length}/${shots.length} (others still in flight at end)`);
