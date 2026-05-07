@@ -2,6 +2,8 @@ import { SCENIC_BUILDING_LAYOUT } from "../game-logic";
 
 export const HERO_STAR_THRESHOLD = 0.72;
 
+export type SpriteBounds = { x: number; y: number; width: number; height: number };
+
 export interface SkyAssets {
   frames: HTMLCanvasElement[];
   frameCount: number;
