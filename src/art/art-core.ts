@@ -304,6 +304,29 @@ export function drawFlickerWindows(
   }
 }
 
+export function buildStaticSpriteAsset(
+  scale: number,
+  bounds: SpriteBounds,
+  draw: (ctx: CanvasRenderingContext2D) => void,
+): StaticSpriteAsset {
+  const resolutionScale = Math.max(1, Math.ceil(scale * 2));
+  const sprite = createSpriteCanvas(bounds.width * scale, bounds.height * scale, resolutionScale);
+  const ctx = sprite.getContext("2d");
+  if (ctx) {
+    ctx.scale(scale * resolutionScale, scale * resolutionScale);
+    ctx.translate(-bounds.x, -bounds.y);
+    draw(ctx);
+  }
+  return {
+    sprite,
+    offset: { x: bounds.x * scale, y: bounds.y * scale },
+    width: bounds.width * scale,
+    height: bounds.height * scale,
+    resolutionScale,
+    scale,
+  };
+}
+
 export function createSpriteCanvas(width: number, height: number, resolutionScale = 1): HTMLCanvasElement {
   const pixelWidth = Math.max(1, Math.round(width * resolutionScale));
   const pixelHeight = Math.max(1, Math.round(height * resolutionScale));
