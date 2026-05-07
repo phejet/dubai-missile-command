@@ -78,7 +78,7 @@
       }
     },
     "average": {
-      "upgradePriority": ["launcherKit", "wildHornets", "phalanx", "ironBeam", "flare", "roadrunner", "emp", "patriot"],
+      "upgradePriority": ["patriot", "emp", "launcherKit", "wildHornets", "phalanx", "ironBeam", "flare", "roadrunner"],
       "humanization": {
         "enabled": true,
         "startWave": 4,
