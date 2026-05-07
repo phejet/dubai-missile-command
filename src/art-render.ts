@@ -58,6 +58,7 @@ export interface LauncherAssets {
 
 export type ThreatSpriteKind =
   | "missile"
+  | "missile_fast"
   | "mirv"
   | "mirv_warhead"
   | "bomb"
@@ -65,6 +66,7 @@ export type ThreatSpriteKind =
   | "stack_carrier_3"
   | "stack_child"
   | "shahed136"
+  | "shahed136_dive"
   | "shahed238";
 
 export type InterceptorSpriteKind = "playerInterceptor" | "f15Interceptor";
@@ -183,7 +185,9 @@ const STACK2_BOUNDS = { x: -42, y: -16, width: 72, height: 32 } as const;
 const STACK3_BOUNDS = { x: -44, y: -18, width: 76, height: 36 } as const;
 const STACK_CHILD_BOUNDS = { x: -22, y: -10, width: 36, height: 20 } as const;
 const SHAHED_136_BOUNDS = { x: -18, y: -14, width: 36, height: 28 } as const;
+const SHAHED_136_DIVE_BOUNDS = { x: -18, y: -12, width: 38, height: 24 } as const;
 const SHAHED_238_BOUNDS = { x: -28, y: -18, width: 52, height: 36 } as const;
+const MISSILE_FAST_BOUNDS = { x: -32, y: -10, width: 54, height: 20 } as const;
 const PLAYER_INTERCEPTOR_BOUNDS = { x: -40, y: -12, width: 58, height: 24 } as const;
 const F15_INTERCEPTOR_BOUNDS = { x: -14, y: -10, width: 24, height: 20 } as const;
 const WILD_HORNET_BOUNDS = { x: -8, y: -7, width: 16, height: 13 } as const;
@@ -759,6 +763,91 @@ function drawDefaultMissileLocal(ctx: CanvasRenderingContext2D, framePhase: numb
   ctx.fill();
 }
 
+function drawFastMissileLocal(ctx: CanvasRenderingContext2D, framePhase: number) {
+  const bodyGrad = ctx.createLinearGradient(13, 0, -11, 0);
+  bodyGrad.addColorStop(0, "#fbfdff");
+  bodyGrad.addColorStop(0.22, "#dde5ee");
+  bodyGrad.addColorStop(0.6, "#8fa0b3");
+  bodyGrad.addColorStop(1, "#4a5b70");
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath();
+  ctx.moveTo(13, 0);
+  ctx.lineTo(7, -1.3);
+  ctx.lineTo(-7.5, -1.55);
+  ctx.lineTo(-10.6, -0.8);
+  ctx.lineTo(-10.6, 0.8);
+  ctx.lineTo(-7.5, 1.55);
+  ctx.lineTo(7, 1.3);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "rgba(20, 28, 40, 0.7)";
+  ctx.lineWidth = 0.78;
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(244, 250, 255, 0.55)";
+  ctx.lineWidth = 0.52;
+  ctx.stroke();
+
+  const noseGrad = ctx.createLinearGradient(13, 0, 7.4, 0);
+  noseGrad.addColorStop(0, "#fff4c8");
+  noseGrad.addColorStop(0.55, "#f6cf78");
+  noseGrad.addColorStop(1, "#c89a44");
+  ctx.fillStyle = noseGrad;
+  ctx.beginPath();
+  ctx.moveTo(13, 0);
+  ctx.lineTo(7.4, -1.0);
+  ctx.lineTo(7.4, 1.0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "rgba(60, 40, 12, 0.55)";
+  ctx.lineWidth = 0.45;
+  ctx.stroke();
+
+  ctx.fillStyle = "rgba(186, 232, 255, 0.5)";
+  ctx.fillRect(-1.4, -0.95, 6.8, 0.45);
+
+  ctx.fillStyle = "#46586c";
+  ctx.fillRect(-5.6, -0.32, 7.4, 0.66);
+
+  ctx.fillStyle = "#a8b8cc";
+  ctx.beginPath();
+  ctx.moveTo(-6.4, -1.5);
+  ctx.lineTo(-11, -4.6);
+  ctx.lineTo(-8.4, -0.95);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(-6.4, 1.5);
+  ctx.lineTo(-11, 4.6);
+  ctx.lineTo(-8.4, 0.95);
+  ctx.closePath();
+  ctx.fill();
+
+  const exhaustPulse = 0.55 + 0.45 * Math.sin(framePhase * Math.PI * 4);
+  const flameLen = 9 + 10 * exhaustPulse;
+  const flameGlow = ctx.createRadialGradient(-14, 0, 0, -14, 0, 16);
+  flameGlow.addColorStop(0, `rgba(255, 232, 160, ${0.16 + exhaustPulse * 0.2})`);
+  flameGlow.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = flameGlow;
+  ctx.beginPath();
+  ctx.ellipse(-14, 0, 16, 9, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = `rgba(255, 184, 80, ${0.66 + exhaustPulse * 0.22})`;
+  ctx.beginPath();
+  ctx.moveTo(-10.2, -1.4);
+  ctx.lineTo(-11.4 - flameLen, 0);
+  ctx.lineTo(-10.2, 1.4);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = `rgba(255, 248, 210, ${0.7 + exhaustPulse * 0.22})`;
+  ctx.beginPath();
+  ctx.moveTo(-10.0, -0.7);
+  ctx.lineTo(-10.8 - flameLen * 0.55, 0);
+  ctx.lineTo(-10.0, 0.7);
+  ctx.closePath();
+  ctx.fill();
+}
+
 function drawMirvLocal(ctx: CanvasRenderingContext2D, framePhase: number) {
   const glowAlpha = 0.18 + Math.sin(framePhase * Math.PI * 2) * 0.06;
   const pulseGlow = ctx.createRadialGradient(6, 0, 0, 6, 0, 30);
@@ -1135,6 +1224,84 @@ function drawShahed136Local(ctx: CanvasRenderingContext2D, framePhase: number) {
   ctx.fillStyle = propGlow;
   ctx.beginPath();
   ctx.arc(-11, 0, 4.8, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawShahed136DiveLocal(ctx: CanvasRenderingContext2D, framePhase: number) {
+  const bodyGrad = ctx.createLinearGradient(15, 0, -12, 0);
+  bodyGrad.addColorStop(0, "#7a8493");
+  bodyGrad.addColorStop(0.4, "#43495a");
+  bodyGrad.addColorStop(1, "#1f242f");
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath();
+  ctx.moveTo(15, 0);
+  ctx.lineTo(7, -1.6);
+  ctx.lineTo(-6, -1.95);
+  ctx.lineTo(-11.5, -0.85);
+  ctx.lineTo(-11.5, 0.85);
+  ctx.lineTo(-6, 1.95);
+  ctx.lineTo(7, 1.6);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "rgba(6, 9, 14, 0.85)";
+  ctx.lineWidth = 0.78;
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(210, 224, 240, 0.32)";
+  ctx.lineWidth = 0.55;
+  ctx.stroke();
+
+  ctx.fillStyle = "#2c3140";
+  ctx.beginPath();
+  ctx.moveTo(4, -1.2);
+  ctx.lineTo(-9.5, -8.8);
+  ctx.lineTo(-9, -1.5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "rgba(210, 224, 240, 0.34)";
+  ctx.lineWidth = 0.5;
+  ctx.stroke();
+  ctx.fillStyle = "#2c3140";
+  ctx.beginPath();
+  ctx.moveTo(4, 1.2);
+  ctx.lineTo(-9.5, 8.8);
+  ctx.lineTo(-9, 1.5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "rgba(210, 224, 240, 0.34)";
+  ctx.lineWidth = 0.5;
+  ctx.stroke();
+
+  ctx.fillStyle = "rgba(170, 210, 235, 0.32)";
+  ctx.fillRect(2, -0.85, 6, 0.5);
+
+  ctx.fillStyle = "#3a4254";
+  ctx.beginPath();
+  ctx.moveTo(-7, -1.05);
+  ctx.lineTo(-10.4, -3.2);
+  ctx.lineTo(-9, -0.8);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(-7, 1.05);
+  ctx.lineTo(-10.4, 3.2);
+  ctx.lineTo(-9, 0.8);
+  ctx.closePath();
+  ctx.fill();
+
+  const propAngle = Math.cos(framePhase * Math.PI * 2) * 0.85;
+  ctx.strokeStyle = "rgba(200, 212, 226, 0.7)";
+  ctx.lineWidth = 0.55;
+  ctx.beginPath();
+  ctx.moveTo(-11.6 + propAngle, -2.6);
+  ctx.lineTo(-11.6 - propAngle, 2.6);
+  ctx.stroke();
+
+  const propGlow = ctx.createRadialGradient(-11.6, 0, 0, -11.6, 0, 3.4);
+  propGlow.addColorStop(0, "rgba(170, 210, 235, 0.18)");
+  propGlow.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = propGlow;
+  ctx.beginPath();
+  ctx.arc(-11.6, 0, 3.4, 0, Math.PI * 2);
   ctx.fill();
 }
 
@@ -1855,6 +2022,7 @@ export function buildDefenseSiteAssets(): DefenseSiteAssets {
 export function buildThreatSpriteAssets(scale: number): ThreatSpriteAssets {
   return {
     missile: buildProjectileSpriteAsset(scale, DEFAULT_MISSILE_BOUNDS, 0.8, drawDefaultMissileLocal),
+    missile_fast: buildProjectileSpriteAsset(scale, MISSILE_FAST_BOUNDS, 0.5, drawFastMissileLocal),
     mirv: buildProjectileSpriteAsset(scale, MIRV_BOUNDS, 1, drawMirvLocal),
     mirv_warhead: buildProjectileSpriteAsset(scale, MIRV_WARHEAD_BOUNDS, 0.9, drawMirvWarheadLocal),
     bomb: buildProjectileSpriteAsset(scale, BOMB_BOUNDS, 0.9, drawBombLocal),
@@ -1866,6 +2034,7 @@ export function buildThreatSpriteAssets(scale: number): ThreatSpriteAssets {
     ),
     stack_child: buildProjectileSpriteAsset(scale, STACK_CHILD_BOUNDS, 0.8, drawStackChildLocal),
     shahed136: buildProjectileSpriteAsset(scale, SHAHED_136_BOUNDS, 0.6, drawShahed136Local),
+    shahed136_dive: buildProjectileSpriteAsset(scale, SHAHED_136_DIVE_BOUNDS, 0.55, drawShahed136DiveLocal),
     shahed238: buildProjectileSpriteAsset(scale, SHAHED_238_BOUNDS, 0.8, drawShahed238Local),
   };
 }

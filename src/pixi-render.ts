@@ -55,6 +55,7 @@ import type {
   Roadrunner,
   TrailPoint,
 } from "./types";
+import { shahed136HasBomb, shahed136HasDive } from "./types";
 
 type PixiScreen = "title" | "playing" | "gameover";
 type TitleThreatKind = "shahed" | "missile";
@@ -651,7 +652,10 @@ function getThreatSpriteAsset(
   entity: Missile | Drone,
 ): PixiProjectileSpriteAsset {
   if (entity.type === "drone") {
-    return entity.subtype === "shahed238" ? threatAssets.shahed238 : threatAssets.shahed136;
+    if (entity.subtype === "shahed238") return threatAssets.shahed238;
+    return shahed136HasDive(entity.shahedVariant ?? "shahed-136")
+      ? threatAssets.shahed136_dive
+      : threatAssets.shahed136;
   }
 
   switch (entity.type) {
@@ -669,7 +673,7 @@ function getThreatSpriteAsset(
       return threatAssets.stack_child;
     case "missile":
     default:
-      return threatAssets.missile;
+      return entity.variant === "fast" ? threatAssets.missile_fast : threatAssets.missile;
   }
 }
 
@@ -2624,8 +2628,8 @@ export class PixiRenderer implements GameRenderer {
       const pos = getRenderPosition(missile, interpolationAlpha);
       syncProjectileNode(node, asset, pos.x, pos.y, angle, sceneTime, 1, true);
       const isFastMissile = missile.variant === "fast";
-      node.anim.primary.tint = isFastMissile ? 0xfff0c0 : 0xffffff;
-      node.anim.secondary.tint = isFastMissile ? 0xfff0c0 : 0xffffff;
+      node.anim.primary.tint = 0xffffff;
+      node.anim.secondary.tint = 0xffffff;
       node.overlay.clear();
 
       if (
@@ -2660,13 +2664,6 @@ export class PixiRenderer implements GameRenderer {
           1.8 * (isFastMissile ? 1.35 : 1) * GAMEPLAY_EFFECT_SCALE,
           isFastMissile ? 0.36 : 0.24,
         );
-      }
-
-      if (isFastMissile) {
-        const pulse = 1 + Math.sin(game.time * 0.38 + pos.x * 0.02) * 0.18;
-        node.overlay
-          .circle(pos.x, pos.y, 7 * pulse * GAMEPLAY_EFFECT_SCALE)
-          .stroke({ width: 1.3 * GAMEPLAY_EFFECT_SCALE, color: 0xffe45a, alpha: 0.72 });
       }
 
       if (
@@ -2724,11 +2721,10 @@ export class PixiRenderer implements GameRenderer {
       const pos = getRenderPosition(drone, interpolationAlpha);
       syncProjectileNode(node, asset, pos.x, pos.y, spriteAngle, sceneTime, 1, true);
       const isFastDrone = drone.variant === "fast";
-      const isShahedDiveVariant =
-        drone.shahedVariant === "shahed-136-dive" || drone.shahedVariant === "shahed-136-dive-bomber";
-      const isShahedBomber =
-        drone.shahedVariant === "shahed-136-bomber" || drone.shahedVariant === "shahed-136-dive-bomber";
-      const droneTint = isFastDrone ? 0xffe0a8 : isShahedDiveVariant ? 0xa7ebff : 0xffffff;
+      const isShahedDiveVariant = shahed136HasDive(drone.shahedVariant);
+      const hasUndroppedBomb =
+        drone.subtype === "shahed136" && shahed136HasBomb(drone.shahedVariant) && !drone.bombDropped;
+      const droneTint = isFastDrone && drone.subtype === "shahed136" ? 0xffe0a8 : 0xffffff;
       node.anim.primary.tint = droneTint;
       node.anim.secondary.tint = droneTint;
       node.overlay.clear();
@@ -2747,9 +2743,9 @@ export class PixiRenderer implements GameRenderer {
         drawSimpleTrailDots(
           node.trail,
           trail,
-          isShahedDiveVariant ? 0x4bd6ff : isFastDrone ? 0xffc14a : 0x889098,
+          isFastDrone ? 0xffc14a : isShahedDiveVariant ? 0x6c7686 : 0x889098,
           1.2 * (isFastDrone ? 1.35 : 1) * GAMEPLAY_EFFECT_SCALE,
-          isShahedDiveVariant ? 0.42 : isFastDrone ? 0.44 : 0.32,
+          isFastDrone ? 0.44 : isShahedDiveVariant ? 0.36 : 0.32,
         );
       }
 
@@ -2758,14 +2754,6 @@ export class PixiRenderer implements GameRenderer {
         node.overlay
           .circle(pos.x, pos.y, (drone.subtype === "shahed238" ? 9 : 12) * pulse * GAMEPLAY_EFFECT_SCALE)
           .stroke({ width: 1.2 * GAMEPLAY_EFFECT_SCALE, color: 0xffd24a, alpha: 0.7 });
-      }
-
-      if (isShahedDiveVariant) {
-        const stripeLen = 13 * GAMEPLAY_ENEMY_SCALE;
-        node.overlay
-          .moveTo(pos.x - stripeLen, pos.y)
-          .lineTo(pos.x + stripeLen, pos.y)
-          .stroke({ width: 1.5 * GAMEPLAY_EFFECT_SCALE, color: 0x46d9ff, alpha: 0.82 });
       }
 
       if (drone.diveTelegraphing && !drone.diving) {
@@ -2787,8 +2775,20 @@ export class PixiRenderer implements GameRenderer {
           .stroke({ width: GAMEPLAY_EFFECT_SCALE, color: 0xff2200, alpha: 0.5 + Math.sin(game.time * 0.3) * 0.3 });
       }
 
-      if (isShahedBomber && Math.sin(game.time * 0.32) > -0.15) {
-        node.overlay.circle(pos.x, pos.y + 2.4 * GAMEPLAY_ENEMY_SCALE, 1.05 * GAMEPLAY_EFFECT_SCALE).fill(0xff1800);
+      if (hasUndroppedBomb) {
+        const bellyDist = 4.2 * GAMEPLAY_ENEMY_SCALE;
+        const bx = pos.x;
+        const by = pos.y + bellyDist;
+        node.overlay
+          .moveTo(pos.x, pos.y + 1.6 * GAMEPLAY_ENEMY_SCALE)
+          .lineTo(bx, by)
+          .stroke({ width: 0.55 * GAMEPLAY_EFFECT_SCALE, color: 0x1a1a22, alpha: 0.9 });
+        node.overlay
+          .ellipse(bx, by, 1.9 * GAMEPLAY_ENEMY_SCALE, 0.95 * GAMEPLAY_ENEMY_SCALE)
+          .fill({ color: 0x2a2730, alpha: 0.95 });
+        node.overlay
+          .ellipse(bx, by - 0.18 * GAMEPLAY_ENEMY_SCALE, 1.2 * GAMEPLAY_ENEMY_SCALE, 0.42 * GAMEPLAY_ENEMY_SCALE)
+          .fill({ color: 0x4a4654, alpha: 0.55 });
       } else if (Math.sin(game.time * 0.15) > 0) {
         node.overlay
           .circle(pos.x, pos.y, 0.75 * GAMEPLAY_EFFECT_SCALE * GAMEPLAY_ENEMY_SCALE)

@@ -50,6 +50,7 @@ import type {
   SpawnEntry,
   Shahed136Variant,
 } from "./types.js";
+import { shahed136HasBomb, shahed136HasDive } from "./types.js";
 
 function boom(
   g: GameState,
@@ -339,13 +340,7 @@ export function spawnPlane(g: GameState, onEvent?: ((type: string, data?: unknow
 const SAME_SIDE_SPAWN_X_WINDOW = 240;
 const SAME_SIDE_SEP_ATTEMPTS = 5;
 
-function pickSeparatedSpawnY(
-  g: GameState,
-  spawnX: number,
-  yMin: number,
-  yMax: number,
-  minSep = 70,
-): number {
+function pickSeparatedSpawnY(g: GameState, spawnX: number, yMin: number, yMax: number, minSep = 70): number {
   const range = yMax - yMin;
   const targetSep = Math.min(minSep, range * 0.45);
   if (range <= 0) return yMin;
@@ -531,14 +526,6 @@ const SHAHED_136_DIVE_TELEGRAPH_TICKS = 52;
 
 function getShahed136LevelFlightYRange(): [number, number] {
   return [getGameplayBurjCollisionTop(2), GAMEPLAY_SCENIC_BASE_Y - BURJ_H];
-}
-
-function shahed136HasBomb(variant: Shahed136Variant | undefined): boolean {
-  return variant === "shahed-136-bomber" || variant === "shahed-136-dive-bomber";
-}
-
-function shahed136HasDive(variant: Shahed136Variant | undefined): boolean {
-  return variant === "shahed-136-dive" || variant === "shahed-136-dive-bomber";
 }
 
 export function spawnDroneOfType(

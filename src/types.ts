@@ -76,6 +76,14 @@ export interface Drone {
 
 export type Shahed136Variant = "shahed-136" | "shahed-136-bomber" | "shahed-136-dive" | "shahed-136-dive-bomber";
 
+export function shahed136HasBomb(variant: Shahed136Variant | undefined): boolean {
+  return variant === "shahed-136-bomber" || variant === "shahed-136-dive-bomber";
+}
+
+export function shahed136HasDive(variant: Shahed136Variant | undefined): boolean {
+  return variant === "shahed-136-dive" || variant === "shahed-136-dive-bomber";
+}
+
 export interface Interceptor {
   x: number;
   y: number;
