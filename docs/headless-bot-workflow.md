@@ -75,7 +75,7 @@ Important concepts:
 
 ## Common Scripts
 
-Use `npx tsx <file>` for TypeScript scripts unless you have a built JS sibling.
+Use `npx tsx <file>` for TypeScript scripts. The training runner spawns Node workers via a tiny `.mjs` bootstrap (`game-worker-bootstrap.mjs`) that registers tsx so `.ts` worker code resolves correctly.
 
 Typical scripts:
 
@@ -85,6 +85,15 @@ Typical scripts:
 - `src/headless/bench.ts` — fixed-seed benchmark for post-spawn-commander comparisons
 - `src/headless/bench-draft.ts` — draft-mode sweep across presets
 - `src/headless/bench-report.ts` — deterministic benchmark output as JS
+
+## Tuning Workflow
+
+See `.claude/skills/train-bot.md` for the recommended loop. In short:
+
+1. Run `train.ts` per preset to capture baselines.
+2. Use `record.ts` to dump a representative replay.
+3. Skim aggregates (efficiency = kills/shots, median wave, death cause distribution) to identify regressions.
+4. Patch `bot-config.json` (or `bot-brain.ts`), rerun, commit if improved.
 
 ## LLM-Assisted Scripts
 

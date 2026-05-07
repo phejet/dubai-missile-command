@@ -49,7 +49,7 @@ function runBatch(config: Record<string, unknown>, numGames: number) {
         games.push({ seed: startIdx + i + Date.now(), maxTicks: MAX_TICKS });
       }
 
-      const worker = new Worker(join(__dirname, "game-worker.js"), {
+      const worker = new Worker(join(__dirname, "game-worker-bootstrap.mjs"), {
         workerData: { games, config, preset: PRESET, draftMode: DRAFT_MODE },
       });
 

@@ -1,45 +1,71 @@
 # Train Bot
 
-Run headless bot training, get Sonnet analysis, and apply tuning to `src/headless/bot-config.json`.
+Run headless bot training, analyze results, and tune `src/headless/bot-config.json` (and optionally `src/headless/bot-brain.ts`).
 
-## Steps
+## Run a benchmark
 
-1. Run the training benchmark:
+```bash
+# Default preset (resolves to "perfect")
+npx tsx src/headless/train.ts --games=200 --iterations=5
+
+# Specific preset
+npx tsx src/headless/train.ts --games=200 --iterations=3 --preset=good
+npx tsx src/headless/train.ts --games=200 --iterations=3 --preset=average
+npx tsx src/headless/train.ts --games=200 --iterations=3 --preset=novice
+```
+
+Workers default to `min(8, cpus())`; override with `--workers=N`. Each iteration logs to `src/headless/training-log.jsonl` and prints score / wave / efficiency / death-cause aggregates.
+
+The four presets in `bot-config.json` are: `perfect`, `good`, `average`, `novice`. Each preset specifies `upgradePriority` and (for non-`perfect`) a `humanization` block.
+
+## Capture replays for inspection
+
+```bash
+# Record best-of-N games as replay JSON
+npx tsx src/headless/record.ts [--seed=N] [--tries=1000] [--out=replay.json] [--preset=good]
+```
+
+Replays can be played back in the browser by dropping the JSON onto the canvas, or via `node play-replay.mjs <file>` while the dev server is running.
+
+## Inspect leading accuracy
+
+When tuning targeting, watch out for a known failure mode where a bad leading model causes most shots to miss. Useful checks:
+
+- `efficiency` (kills / shots fired) in the train aggregate. `<0.5` for `perfect` preset is suspicious.
+- Eyeball replays: are interceptors detonating ahead of, behind, or on top of fast threats?
+- `src/headless/bot-brain.test.ts` covers `leadTarget` analytically — extend it when you change the model.
+
+## Verify upgrade priority is current
+
+`src/headless/bot-config.json` `upgradePriority` keys must be valid upgrade family ids from `src/types.ts` `UpgradeKey`. The shop resolves a family id to the next eligible node via `resolveRequestedUpgradeNodeId`, so listing the family is enough to chain through tier 1/2/3 over a run.
+
+Current valid keys: `wildHornets`, `roadrunner`, `flare`, `ironBeam`, `phalanx`, `patriot`, `burjRepair`, `launcherKit`, `emp`.
+
+## Bot-brain anatomy
+
+Key entry points in `src/headless/bot-brain.ts`:
+
+- `leadTarget(...)` — iterative aim solver, accel-aware. Used for missiles + horizontal drones.
+- `leadShahed238Target(...)` — waypoint-aware lead for jets (uses path index, not raw vx/vy).
+- `botDecideAction(...)` — picks the next fire target each tick. Threats get a priority (0–3) based on type/altitude/diving and are demoted when already covered by an in-flight interceptor.
+- `botDecideUpgrades(...)` — returns `{ repairs, priority }`. Repair queue covers destroyed launchers and defense sites; `priority` is the preset's `upgradePriority` (filtered when `burjHealth >= 5`).
+
+EMP firing lives in `sim-runner.ts` (not the brain): triggers when ≥ `emp.minImminentThreats` are below `emp.impactY` and within `emp.impactRadius` of the Burj.
+
+## Iteration loop
+
+1. Capture a baseline (`train.ts`) per preset. Note efficiency and median wave.
+2. Record one or two games per preset (`record.ts`) and skim the action log.
+3. Adjust `bot-config.json` (and brain code if needed). Keep edits per-iteration small so the cause of any regression is obvious.
+4. Re-run, compare deltas, commit if improved.
+5. Run unit tests after brain code changes:
 
    ```bash
-   node src/headless/train.js --games=200 --iterations=5
+   npx vitest run src/headless/
    ```
 
-2. Save the benchmark output — you'll need it for the analysis agent.
-
-3. Spawn a Sonnet agent (model: sonnet) to analyze results and produce recommendations. The agent prompt must include:
-   - The full benchmark output from step 1
-   - Tell the agent to read these files for context:
-     - `src/headless/bot-config.json` (current config)
-     - `src/headless/bot-brain.js` (what each parameter does)
-     - `src/game-sim.js` (game mechanics: spawning rates, upgrade effects, damage, ammo economy)
-   - Ask the agent to return a structured analysis with:
-     - **Diagnosis**: what's going wrong (e.g. "dying wave 2 because ammo runs out", "low efficiency from bad lead shots")
-     - **Recommended config changes**: exact JSON patch to apply to bot-config.json, with reasoning for each change
-     - **Recommended code changes to bot-brain.js** (if any): specific behavioral improvements (e.g. "prioritize missiles over drones when ammo < X")
-   - The agent should ONLY research and analyze — it must NOT edit any files
-
-4. Present the Sonnet agent's recommendations to the user clearly:
-   - Show the diagnosis summary
-   - Show each recommended change with its reasoning
-   - Ask: "Accept these recommendations? (all / pick specific ones / reject)"
-
-5. Wait for user response. Apply only the accepted changes.
-
-6. After applying changes, re-run the benchmark to verify improvement:
+6. Run a determinism check on a known seed:
 
    ```bash
-   node src/headless/train.js --games=200 --iterations=3
-   ```
-
-7. Compare before/after metrics and report the delta to the user.
-
-8. Run a determinism check:
-   ```bash
-   node src/headless/sim-runner.js 42
+   npx tsx src/headless/sim-runner.ts 42
    ```
