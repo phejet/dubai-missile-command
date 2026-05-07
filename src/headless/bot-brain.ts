@@ -343,7 +343,7 @@ function sampleWaypoints(waypoints: { x: number; y: number }[], pathIndex: numbe
   };
 }
 
-function leadShahed238Target(
+function leadWaypointDrone(
   drone: Drone,
   config: BotConfig,
   interceptorSpeed: number,
@@ -356,7 +356,11 @@ function leadShahed238Target(
   const { x: launcherX, y: launcherY } = pickLauncher(drone.x, drone.y, g);
   const iterations = config.leadShot.iterations;
   const timeScale = config.leadShot.timeScaleFactor;
-  const pathStepPerTick = (drone.empSlowTimer ?? 0) > 0 ? 0.4 : 1;
+  // Shahed-136 divers ramp pathSpeed from 1 to ~4 during the dive (game-sim
+  // multiplies by 1.06/tick, capped at 4). Use the current diveSpeed if known
+  // so we don't under-predict an actively diving drone. EMP halves it ×0.4.
+  const empSlow = (drone.empSlowTimer ?? 0) > 0 ? 0.4 : 1;
+  const pathStepPerTick = (drone.diveSpeed ?? 1) * empSlow;
 
   let aim = { x: drone.x, y: drone.y };
   for (let iter = 0; iter < iterations; iter++) {
@@ -376,8 +380,11 @@ function leadThreatTarget(
   g: GameState | null,
   accel = 1,
 ): { x: number; y: number } {
-  if (targetRef.type === "drone" && targetRef.subtype === "shahed238") {
-    return leadShahed238Target(targetRef, config, interceptorSpeed, g);
+  // All shahed drones (136 cruise + dive, 238 jets) follow precomputed
+  // waypoints spaced 1 unit per tick of motion. Path-aware leading is more
+  // accurate than vx/vy extrapolation, especially across the dive transition.
+  if (targetRef.type === "drone" && (targetRef as Drone).waypoints?.length) {
+    return leadWaypointDrone(targetRef as Drone, config, interceptorSpeed, g);
   }
   return leadTarget(targetRef.x, targetRef.y, targetRef.vx, targetRef.vy, config, interceptorSpeed, g, accel);
 }
@@ -444,9 +451,12 @@ export function botDecideAction(
   const cfg = config.targeting;
   const human = config.humanization?.enabled ? config.humanization : null;
   const rng = getRng();
-  // Interceptors start at 7.46 px/tick, accelerate to 12.73 over ~18 ticks.
-  // Average across a typical 60-80 tick flight is ~11 px/tick.
-  const interceptorSpeed = 11;
+  // Interceptors start at 7.46 px/tick, multiply by accel=2.5 each tick, capped
+  // at maxSpeed=25 (or 35 with HighVelocity launcher upgrade). They reach max
+  // in ~2 ticks, so the effective average across a typical flight is ~25 px/tick
+  // — measured at 25.5–26 across the full target plane in the bot-brain test.
+  // High-velocity owned: ~35 px/tick.
+  const interceptorSpeed = 25;
 
   // Check if any launcher has ammo
   const hasAmmo = g.ammo.some((a, i) => a > 0 && g.launcherHP[i] > 0);
@@ -575,7 +585,11 @@ export function botDecideAction(
     if ((point.reservationLimit ?? 0) > 0) {
       const { dist } = pickLauncher(result.x, result.y, g);
       const frames = (dist / interceptorSpeed) * config.leadShot.timeScaleFactor;
-      const reserveFraction = point.priority === 0 ? 0.3 : 0.5;
+      // Hold the reservation until ~halfway into the second half of flight —
+      // long enough to avoid double-firing on a target that's already covered,
+      // short enough to refire if the first shot misses near the endgame.
+      // Priority-0 keeps a tighter window so we can react if the first shot fails.
+      const reserveFraction = point.priority === 0 ? 0.45 : 0.7;
       result.targetRef = point.targetRef;
       result.reservationUntil = tick + Math.max(cooldown + 1, Math.ceil(frames * reserveFraction));
     }

@@ -84,7 +84,7 @@ describe("runGame recording", () => {
     };
     const stopCondition = { type: "waveComplete" as const, wave: 4 };
     const original = runGame(null, {
-      seed: 42,
+      seed: 77,
       maxTicks: 20000,
       record: true,
       draftMode: false,
@@ -96,7 +96,7 @@ describe("runGame recording", () => {
     expect(original.wave).toBe(4);
     expect(original.actions!.some((action) => action.type === "fire")).toBe(true);
 
-    const g = replayToCompletion(42, original.actions!, {
+    const g = replayToCompletion(77, original.actions!, {
       bootstrap,
       stopCondition,
       draftMode: false,
@@ -184,8 +184,8 @@ describe("golden-seed canary", () => {
   // to track balance impact.
   it("seed 42 at 5000 ticks produces expected draft-mode score and wave", () => {
     const r = runGame(null, { seed: 42, maxTicks: 5000, draftMode: true });
-    expect(r.score).toBe(2146);
-    expect(r.wave).toBe(3);
-    expect(r.deathCause).toBe("destroyed");
+    expect(r.score).toBe(16970);
+    expect(r.wave).toBe(6);
+    expect(r.deathCause).toBe("timeout");
   });
 });

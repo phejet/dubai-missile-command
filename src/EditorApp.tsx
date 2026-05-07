@@ -55,6 +55,11 @@ function getEditorPositionDefaults(): Record<string, number> {
   };
 }
 
+function getInitialEditorView(): "effects" | "graph" {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("view") === "graph" ? "graph" : "effects";
+}
+
 const GRAPH_OBJECTIVE_IDS = Array.from(
   new Set(getAllUpgradeNodeDefs().flatMap((node) => node.objectives ?? [])),
 ).sort();
@@ -155,7 +160,7 @@ export default function EditorApp() {
   const scrubbingRef = useRef(false);
   const [values, setValues] = useState<Record<string, number | boolean | string>>(getDefaults);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  const [editorView, setEditorView] = useState<"effects" | "graph">("effects");
+  const [editorView, setEditorView] = useState<"effects" | "graph">(getInitialEditorView);
   const [playing, setPlaying] = useState(false);
   const [tick, setTick] = useState(0);
   const [maxTick, setMaxTick] = useState(600);
@@ -216,6 +221,17 @@ export default function EditorApp() {
     const clamped = clampUpgradeGraphViewport(nextViewport, size.width, size.height, graphView.width, graphView.height);
     graphViewportRef.current = clamped;
     setGraphViewport(clamped);
+  }
+
+  function selectEditorView(nextView: "effects" | "graph") {
+    setEditorView(nextView);
+    const url = new URL(window.location.href);
+    if (nextView === "graph") {
+      url.searchParams.set("view", "graph");
+    } else {
+      url.searchParams.delete("view");
+    }
+    window.history.replaceState(null, "", url);
   }
 
   function fitGraphViewport() {
@@ -830,13 +846,13 @@ export default function EditorApp() {
           <h2>Graphics Editor</h2>
           <div className="editor-actions">
             <button
-              onClick={() => setEditorView("effects")}
+              onClick={() => selectEditorView("effects")}
               className={editorView === "effects" ? "play-btn play-btn--active" : "play-btn"}
             >
               Effects
             </button>
             <button
-              onClick={() => setEditorView("graph")}
+              onClick={() => selectEditorView("graph")}
               className={editorView === "graph" ? "play-btn play-btn--active" : "play-btn"}
             >
               Upgrade Graph

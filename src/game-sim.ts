@@ -332,6 +332,54 @@ export function spawnPlane(g: GameState, onEvent?: ((type: string, data?: unknow
   if (onEvent) onEvent("sfx", { name: "planePass" });
 }
 
+// Side spawns reuse a narrow Y band, so back-to-back picks can land on top of
+// each other. Sample a few candidates and pick the one farthest from any
+// threat still loitering near the spawn X — gives vertical breathing room
+// without coupling to the schedule generator.
+const SAME_SIDE_SPAWN_X_WINDOW = 240;
+const SAME_SIDE_SEP_ATTEMPTS = 5;
+
+function pickSeparatedSpawnY(
+  g: GameState,
+  spawnX: number,
+  yMin: number,
+  yMax: number,
+  minSep = 70,
+): number {
+  const range = yMax - yMin;
+  const targetSep = Math.min(minSep, range * 0.45);
+  if (range <= 0) return yMin;
+
+  const nearbyYs: number[] = [];
+  for (const m of g.missiles) {
+    if (m.alive && Math.abs(m.x - spawnX) < SAME_SIDE_SPAWN_X_WINDOW) nearbyYs.push(m.y);
+  }
+  for (const d of g.drones) {
+    if (d.alive && Math.abs(d.x - spawnX) < SAME_SIDE_SPAWN_X_WINDOW) nearbyYs.push(d.y);
+  }
+  if (nearbyYs.length === 0) return rand(yMin, yMax);
+
+  let bestY = rand(yMin, yMax);
+  let bestSep = Infinity;
+  for (const oy of nearbyYs) bestSep = Math.min(bestSep, Math.abs(bestY - oy));
+  if (bestSep >= targetSep) return bestY;
+
+  for (let i = 1; i < SAME_SIDE_SEP_ATTEMPTS; i++) {
+    const y = rand(yMin, yMax);
+    let sep = Infinity;
+    for (const oy of nearbyYs) {
+      const d = Math.abs(y - oy);
+      if (d < sep) sep = d;
+    }
+    if (sep > bestSep) {
+      bestY = y;
+      bestSep = sep;
+      if (sep >= targetSep) break;
+    }
+  }
+  return bestY;
+}
+
 export function spawnMissile(g: GameState, overrides?: SpawnEntry["overrides"]) {
   const _rng = getRng();
   const speedMul = overrides?.speedMul ?? 1;
@@ -343,17 +391,17 @@ export function spawnMissile(g: GameState, overrides?: SpawnEntry["overrides"]) 
   const side = overrides?.side;
   if (side === "left") {
     startX = -10;
-    startY = rand(sideMinY, sideMaxY);
+    startY = pickSeparatedSpawnY(g, startX, sideMinY, sideMaxY);
   } else if (side === "right") {
     startX = CANVAS_W + 10;
-    startY = rand(sideMinY, sideMaxY);
+    startY = pickSeparatedSpawnY(g, startX, sideMinY, sideMaxY);
   } else if (side === "top") {
     startX = rand(50, CANVAS_W - 50);
     startY = topSpawnY;
   } else if (g.wave >= 2 && _rng() < Math.min(0.4, (g.wave - 1) * 0.1)) {
     const fromLeft = _rng() > 0.5;
     startX = fromLeft ? -10 : CANVAS_W + 10;
-    startY = rand(sideMinY, sideMaxY);
+    startY = pickSeparatedSpawnY(g, startX, sideMinY, sideMaxY);
   } else {
     startX = rand(50, CANVAS_W - 50);
     startY = topSpawnY;
@@ -437,17 +485,17 @@ export function spawnStackedMissile(g: GameState, stackCount: 2 | 3, overrides?:
   const side = overrides?.side;
   if (side === "left") {
     startX = -10;
-    startY = rand(sideMinY, sideMaxY);
+    startY = pickSeparatedSpawnY(g, startX, sideMinY, sideMaxY);
   } else if (side === "right") {
     startX = CANVAS_W + 10;
-    startY = rand(sideMinY, sideMaxY);
+    startY = pickSeparatedSpawnY(g, startX, sideMinY, sideMaxY);
   } else if (side === "top") {
     startX = rand(50, CANVAS_W - 50);
     startY = topSpawnY;
   } else if (g.wave >= 2 && _rng() < Math.min(0.4, (g.wave - 1) * 0.1)) {
     const fromLeft = _rng() > 0.5;
     startX = fromLeft ? -10 : CANVAS_W + 10;
-    startY = rand(sideMinY, sideMaxY);
+    startY = pickSeparatedSpawnY(g, startX, sideMinY, sideMaxY);
   } else {
     startX = rand(50, CANVAS_W - 50);
     startY = topSpawnY;
@@ -481,10 +529,8 @@ export function spawnStackedMissile(g: GameState, stackCount: 2 | 3, overrides?:
 
 const SHAHED_136_DIVE_TELEGRAPH_TICKS = 52;
 
-function getShahed136LevelFlightY(): number {
-  const burjTip = getGameplayBurjCollisionTop(2);
-  const burjMid = GAMEPLAY_SCENIC_BASE_Y - BURJ_H;
-  return rand(burjTip, burjMid);
+function getShahed136LevelFlightYRange(): [number, number] {
+  return [getGameplayBurjCollisionTop(2), GAMEPLAY_SCENIC_BASE_Y - BURJ_H];
 }
 
 function shahed136HasBomb(variant: Shahed136Variant | undefined): boolean {
@@ -517,7 +563,8 @@ export function spawnDroneOfType(
   const speed = (baseSpeed + g.wave * 0.05) * 2 * speedMul * shahedLevelSpeedMul;
   const health = 1;
   const spawnX = goingRight ? -20 : CANVAS_W + 20;
-  const spawnY = yRange ? rand(yRange[0], yRange[1]) : getShahed136LevelFlightY();
+  const [yMin, yMax] = yRange ?? getShahed136LevelFlightYRange();
+  const spawnY = pickSeparatedSpawnY(g, spawnX, yMin, yMax);
   const drone: Drone = {
     x: spawnX,
     y: spawnY,

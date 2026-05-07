@@ -6,8 +6,8 @@
     "maxInFlightHigh": 10,
     "highThreatThreshold": 3,
     "cooldownLowAmmo": 60,
-    "cooldownHighThreat": 18,
-    "cooldownNormal": 25,
+    "cooldownHighThreat": 10,
+    "cooldownNormal": 18,
     "fireRecoveryTicks": 8,
     "lowAmmoThreshold": 10,
     "clusterRadius": 50,
@@ -72,13 +72,13 @@
         "sameLaneAttentionMultiplier": 0.6,
         "sameTargetMoveMultiplier": 0.35,
         "retargetAimThreshold": 22,
-        "leadBlendMin": 0.8,
+        "leadBlendMin": 0.92,
         "leadBlendMax": 1,
         "aimJitter": 6
       }
     },
     "average": {
-      "upgradePriority": ["launcherKit", "wildHornets", "phalanx", "ironBeam", "flare", "roadrunner", "emp", "patriot"],
+      "upgradePriority": ["patriot", "emp", "launcherKit", "wildHornets", "phalanx", "ironBeam", "flare", "roadrunner"],
       "humanization": {
         "enabled": true,
         "startWave": 4,
@@ -113,9 +113,9 @@
         "sameLaneAttentionMultiplier": 0.75,
         "sameTargetMoveMultiplier": 0.5,
         "retargetAimThreshold": 28,
-        "leadBlendMin": 0.6,
-        "leadBlendMax": 0.85,
-        "aimJitter": 16
+        "leadBlendMin": 0.78,
+        "leadBlendMax": 0.95,
+        "aimJitter": 14
       }
     },
     "novice": {
@@ -154,9 +154,9 @@
         "sameLaneAttentionMultiplier": 0.9,
         "sameTargetMoveMultiplier": 0.7,
         "retargetAimThreshold": 34,
-        "leadBlendMin": 0.2,
-        "leadBlendMax": 0.5,
-        "aimJitter": 38
+        "leadBlendMin": 0.6,
+        "leadBlendMax": 0.85,
+        "aimJitter": 28
       }
     }
   }
