@@ -143,8 +143,8 @@ Run thousands of games headlessly (~770 games/sec) for automated bot tuning:
 # Single headless game with determinism check
 node src/headless/sim-runner.js [seed]
 
-# Learning loop — benchmark, Sonnet analysis, apply changes, repeat
-node src/headless/learn.js --rounds=3 --duration=10000 [--dry-run]
+# Local LLM-driven learning loop (LM Studio)
+npx tsx src/headless/learn-local.ts
 
 # Game balance analysis — get design suggestions from Claude
 node src/headless/balance.js [--focus=all|enemies|upgrades|mechanics|visual]

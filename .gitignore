@@ -51,6 +51,10 @@ src/headless/training-log.jsonl
 src/headless/learning-log.jsonl
 .playwright-mcp/
 
+# Bench / analysis artifacts (generated, not source)
+/spawn-analysis-new.json
+/normal-bench-all.json
+
 # Capacitor / Xcode
 ios/App/Pods/
 ios/App/App/public/
