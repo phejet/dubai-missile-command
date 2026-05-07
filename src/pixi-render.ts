@@ -183,6 +183,7 @@ interface GameplayProjectileNode {
   trail: Graphics;
   spriteRoot: Container;
   anim: BlendSprites;
+  localOverlay: Graphics;
   overlay: Graphics;
 }
 
@@ -682,11 +683,12 @@ function createProjectileNode(asset: PixiProjectileSpriteAsset): GameplayProject
   const trail = new Graphics();
   const spriteRoot = new Container();
   const anim = createBlendSprites(asset.staticSprite);
+  const localOverlay = new Graphics();
   const overlay = new Graphics();
   positionBlendSprites(anim, asset.offset.x, asset.offset.y);
-  spriteRoot.addChild(anim.primary, anim.secondary);
+  spriteRoot.addChild(anim.primary, anim.secondary, localOverlay);
   container.addChild(trail, spriteRoot, overlay);
-  return { container, trail, spriteRoot, anim, overlay };
+  return { container, trail, spriteRoot, anim, localOverlay, overlay };
 }
 
 function syncProjectileNode(
@@ -711,6 +713,7 @@ function syncProjectileNode(
   node.spriteRoot.position.set(x, y);
   node.spriteRoot.rotation = rotation;
   node.spriteRoot.alpha = alpha;
+  node.localOverlay.clear();
 }
 
 function cleanupEntityMap<T extends object, N>(
@@ -2777,17 +2780,16 @@ export class PixiRenderer implements GameRenderer {
 
       if (hasUndroppedBomb) {
         const bellyDist = 4.2 * GAMEPLAY_ENEMY_SCALE;
-        const bx = pos.x;
-        const by = pos.y + bellyDist;
-        node.overlay
-          .moveTo(pos.x, pos.y + 1.6 * GAMEPLAY_ENEMY_SCALE)
-          .lineTo(bx, by)
+        const by = bellyDist;
+        node.localOverlay
+          .moveTo(0, 1.6 * GAMEPLAY_ENEMY_SCALE)
+          .lineTo(0, by)
           .stroke({ width: 0.55 * GAMEPLAY_EFFECT_SCALE, color: 0x1a1a22, alpha: 0.9 });
-        node.overlay
-          .ellipse(bx, by, 1.9 * GAMEPLAY_ENEMY_SCALE, 0.95 * GAMEPLAY_ENEMY_SCALE)
+        node.localOverlay
+          .ellipse(0, by, 1.9 * GAMEPLAY_ENEMY_SCALE, 0.95 * GAMEPLAY_ENEMY_SCALE)
           .fill({ color: 0x2a2730, alpha: 0.95 });
-        node.overlay
-          .ellipse(bx, by - 0.18 * GAMEPLAY_ENEMY_SCALE, 1.2 * GAMEPLAY_ENEMY_SCALE, 0.42 * GAMEPLAY_ENEMY_SCALE)
+        node.localOverlay
+          .ellipse(0, by - 0.18 * GAMEPLAY_ENEMY_SCALE, 1.2 * GAMEPLAY_ENEMY_SCALE, 0.42 * GAMEPLAY_ENEMY_SCALE)
           .fill({ color: 0x4a4654, alpha: 0.55 });
       } else if (Math.sin(game.time * 0.15) > 0) {
         node.overlay

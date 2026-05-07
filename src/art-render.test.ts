@@ -149,7 +149,13 @@ describe("projectile sprite asset baking", () => {
     ]);
     expect(assets.missile.scale).toBe(3);
     expect(assets.missile.animFrames).toHaveLength(8);
+    expect(assets.missile_fast.staticSprite.width).toBeGreaterThan(0);
+    expect(assets.missile_fast.staticSprite.height).toBeGreaterThan(0);
+    expect(assets.missile_fast.animFrames).toHaveLength(8);
     expect(assets.shahed136.staticSprite.width).toBeGreaterThan(0);
+    expect(assets.shahed136_dive.staticSprite.width).toBeGreaterThan(0);
+    expect(assets.shahed136_dive.staticSprite.height).toBeGreaterThan(0);
+    expect(assets.shahed136_dive.animFrames).toHaveLength(8);
     expect(assets.stack_carrier_3.staticSprite.height).toBeGreaterThan(0);
   });
 
