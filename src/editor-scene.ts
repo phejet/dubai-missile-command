@@ -1,5 +1,5 @@
 // Creates a frozen mock game state for the graphics editor preview
-import { CANVAS_W, CANVAS_H, GROUND_Y, COL, createScenicBuildings } from "./game-logic.js";
+import { CANVAS_W, CANVAS_H, GROUND_Y, COL, createEmptyGameStats, createScenicBuildings } from "./game-logic.js";
 import { createEmptyUpgradeProgression } from "./game-sim-upgrades";
 import type { GameState } from "./types";
 
@@ -13,7 +13,17 @@ export function createEditorScene(): GameState {
     state: "playing",
     score: 12450,
     wave: 3,
-    stats: { missileKills: 12, droneKills: 5, shotsFired: 28 },
+    stats: {
+      ...createEmptyGameStats(),
+      missileKills: 12,
+      droneKills: 5,
+      shotsFired: 28,
+      destroyedByType: {
+        ...createEmptyGameStats().destroyedByType,
+        ballisticMissile: 12,
+        shahed136: 5,
+      },
+    },
     ammo: [8, 11, 5],
     launcherHP: [1, 1, 1],
     missiles: [

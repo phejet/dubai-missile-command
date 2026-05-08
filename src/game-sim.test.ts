@@ -5,6 +5,7 @@ import {
   GROUND_Y,
   CITY_Y,
   GAMEPLAY_SCENIC_BASE_Y,
+  GAMEPLAY_WATERLINE_Y,
   BURJ_X,
   BURJ_H,
   getGameplayBurjCollisionTop,
@@ -14,6 +15,8 @@ import {
   LAUNCHER_RAPID_RELOAD_NODE,
   computeShahed136Path,
   computeShahed238Path,
+  createExplosion,
+  createEmptyGameStats,
 } from "./game-logic.js";
 import {
   buyDraftUpgrade,
@@ -130,6 +133,149 @@ function makeCleanGame(wave = 5) {
   g.particles = [];
   return { sim, g };
 }
+
+function makeMissile(overrides: Partial<Missile> = {}): Missile {
+  return {
+    x: 100,
+    y: 100,
+    vx: 0,
+    vy: 0,
+    accel: 1,
+    trail: [],
+    alive: true,
+    type: "missile",
+    _hitByExplosions: new Set(),
+    ...overrides,
+  };
+}
+
+describe("summary stats", () => {
+  it("tracks destroyed types and counts one player multi-shot per root explosion", () => {
+    const { sim, g } = makeCleanGame();
+    g.schedule = [{ type: "missile", tick: 999999 }];
+    g.scheduleIdx = 0;
+    g.missiles = [makeMissile({ x: 100, y: 100 }), makeMissile({ x: 112, y: 100 })];
+    createExplosion(g, 100, 100, 80, "#fff", true, 80, { visualType: "missile" });
+
+    sim.update(g, 1);
+
+    expect(g.stats.missileKills).toBe(2);
+    expect(g.stats.destroyedByType.ballisticMissile).toBe(2);
+    expect(g.stats.multiShots).toBe(1);
+  });
+
+  it("tracks max combo for the run and current wave", () => {
+    const { sim, g } = makeCleanGame();
+    g.schedule = [{ type: "missile", tick: 999999 }];
+    g.scheduleIdx = 0;
+    g.missiles = [makeMissile({ x: 600, y: 100 })];
+    createExplosion(g, 100, 100, 80, "#fff", true, 80, { visualType: "missile" });
+    g.explosions[0].kills = 1;
+    g.explosions[0].growing = false;
+    g.explosions[0].alpha = 0;
+
+    sim.update(g, 1);
+
+    expect(g.combo).toBe(2);
+    expect(g.stats.maxCombo).toBe(2);
+    expect(g._waveMaxCombo).toBe(2);
+  });
+
+  it("emits wave summary deltas for destroyed types, multi-shots, and max combo", () => {
+    const events: Array<{ type: string; data: unknown }> = [];
+    const sim = createGameSim({ onEvent: (type, data) => events.push({ type, data }) });
+    const g = sim.initGame();
+    g.wave = 5;
+    g.missiles = [];
+    g.drones = [];
+    g.interceptors = [];
+    g.explosions = [];
+    g.particles = [];
+    const baselineStats = createEmptyGameStats();
+    g.stats.missileKills = 5;
+    g.stats.droneKills = 2;
+    g.stats.destroyedByType.ballisticMissile = 5;
+    g.stats.destroyedByType.shahed238 = 2;
+    g.stats.multiShots = 4;
+    g.stats.maxCombo = 8;
+    baselineStats.destroyedByType.ballisticMissile = 3;
+    g._waveStartMissileKills = 3;
+    g._waveStartDroneKills = 0;
+    g._waveStartDestroyedByType = baselineStats.destroyedByType;
+    g._waveStartMultiShots = 1;
+    g._waveMaxCombo = 6;
+    g.waveComplete = true;
+    g.waveClearedTimer = 0;
+
+    sim.update(g, 1);
+
+    const summary = events.find((event) => event.type === "waveBonusStart")!.data as {
+      destroyedByType: { ballisticMissile: number; shahed238: number };
+      multiShots: number;
+      maxCombo: number;
+      missileKills: number;
+      droneKills: number;
+    };
+    expect(summary.destroyedByType.ballisticMissile).toBe(2);
+    expect(summary.destroyedByType.shahed238).toBe(2);
+    expect(summary.multiShots).toBe(3);
+    expect(summary.maxCombo).toBe(6);
+    expect(summary.missileKills).toBe(2);
+    expect(summary.droneKills).toBe(2);
+  });
+});
+
+describe("terminal Burj impacts", () => {
+  it.each([
+    { type: "missile" as const, label: "missile" },
+    { type: "bomb" as const, label: "bomb" },
+    { type: "mirv_warhead" as const, label: "MIRV warhead" },
+    { type: "stack_child" as const, label: "stack child" },
+  ])("damages the Burj when a $label reaches ground at a Burj target", ({ type }) => {
+    const { sim, g } = makeCleanGame();
+    const healthBefore = g.burjHealth;
+    g.schedule = [{ type: "missile", tick: 999999 }];
+    g.scheduleIdx = 0;
+    g.missiles = [
+      makeMissile({
+        type,
+        x: BURJ_X,
+        y: GAMEPLAY_WATERLINE_Y - 2,
+        vx: 0,
+        vy: 8,
+        targetX: BURJ_X,
+        targetY: CITY_Y,
+      }),
+    ];
+
+    sim.update(g, 1);
+
+    expect(g.missiles).toHaveLength(0);
+    expect(g.burjHealth).toBe(healthBefore - 1);
+    expect(g.burjDecals.at(-1)?.kind).toBe("missile");
+  });
+
+  it("does not damage the Burj when a missile ground impact was aimed elsewhere", () => {
+    const { sim, g } = makeCleanGame();
+    const healthBefore = g.burjHealth;
+    g.schedule = [{ type: "missile", tick: 999999 }];
+    g.scheduleIdx = 0;
+    g.missiles = [
+      makeMissile({
+        x: BURJ_X,
+        y: GAMEPLAY_WATERLINE_Y - 2,
+        vx: 0,
+        vy: 8,
+        targetX: BURJ_X + 120,
+        targetY: CITY_Y,
+      }),
+    ];
+
+    sim.update(g, 1);
+
+    expect(g.burjHealth).toBe(healthBefore);
+  });
+});
 
 function expectLevelShahedAltitude(drone: Drone) {
   const burjTip = getGameplayBurjCollisionTop(2);
@@ -765,5 +911,25 @@ describe("Shahed-136 (prop) diving", () => {
     sim.update(g, 1);
     expect(prop.alive).toBe(false);
     expect(g.explosions.length).toBeGreaterThan(0);
+  });
+
+  it("damages the Burj when terminal dive reaches a Burj target below the body hitbox", () => {
+    setRng(() => 0.5);
+    const { sim, g } = makeCleanGame(5);
+    const healthBefore = g.burjHealth;
+    const prop = makePropDrone({
+      diving: true,
+      diveTarget: { x: BURJ_X, y: CITY_Y },
+      diveSpeed: 8,
+      x: BURJ_X,
+      y: CITY_Y - 6,
+    });
+    g.drones.push(prop);
+
+    sim.update(g, 1);
+
+    expect(prop.alive).toBe(false);
+    expect(g.burjHealth).toBe(healthBefore - 1);
+    expect(g.burjDecals.at(-1)?.kind).toBe("drone");
   });
 });

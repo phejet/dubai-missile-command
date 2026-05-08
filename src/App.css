@@ -1294,6 +1294,34 @@
   gap: 8px;
 }
 
+.report-breakdown {
+  border: 1px solid rgba(109, 217, 255, 0.12);
+  background: rgba(7, 14, 25, 0.82);
+  border-radius: 16px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.report-breakdown__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.report-breakdown__rows .bonus-screen__kill-row {
+  min-height: 20px;
+}
+
+.report-breakdown__rows .bonus-screen__kill-type {
+  color: #8ea8b8;
+}
+
+.report-breakdown__rows .bonus-screen__kill-count {
+  color: #effcff;
+}
+
 .launcher-card--down {
   border-color: rgba(255, 96, 96, 0.24);
 }
@@ -1577,11 +1605,25 @@
 }
 
 .game-shell--phonePortrait[data-screen="gameover"] .battlefield-card {
-  aspect-ratio: 900 / 600;
+  aspect-ratio: 900 / 320;
 }
 
 .game-shell--phonePortrait[data-screen="gameover"] .game-canvas {
   height: auto;
+}
+
+.game-shell--phonePortrait[data-screen="gameover"] .portrait-panel {
+  gap: 12px;
+}
+
+.game-shell--phonePortrait[data-screen="gameover"] .portrait-panel__actions {
+  gap: 6px;
+}
+
+.game-shell--phonePortrait[data-screen="gameover"] .action-button {
+  min-height: 40px;
+  padding: 8px 14px;
+  font-size: 11px;
 }
 
 .game-shell--phonePortrait[data-screen="playing"] .battlefield-shell {
@@ -2047,6 +2089,38 @@
   font-weight: 600;
   color: #dffff9;
   text-shadow: 0 0 8px rgba(223, 255, 249, 0.35);
+}
+
+.bonus-screen__stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.bonus-screen__stat {
+  border: 1px solid rgba(0, 255, 200, 0.12);
+  background: rgba(2, 8, 16, 0.42);
+  border-radius: 8px;
+  padding: 8px;
+  min-width: 0;
+}
+
+.bonus-screen__stat-label {
+  display: block;
+  color: #7a98ab;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+
+.bonus-screen__stat-value {
+  display: block;
+  margin-top: 4px;
+  color: #dffff9;
+  font-size: 16px;
+  letter-spacing: 0.04em;
 }
 
 /* bonus rows */

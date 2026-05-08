@@ -21,6 +21,9 @@ import {
   LAUNCHER_RAPID_RELOAD_NODE,
   getLauncherBurstChargeCap,
   getLauncherMaxHp,
+  createEmptyGameStats,
+  recordThreatDestroyed,
+  getDestroyedByTypeDelta,
 } from "./game-logic.js";
 import type { GameState } from "./types.js";
 
@@ -37,7 +40,7 @@ function makeGameState(overrides: Partial<GameState> = {}): GameState {
     particles: [],
     upgrades: { launcherKit: 0 } as GameState["upgrades"],
     ownedUpgradeNodes: new Set(),
-    stats: { missileKills: 0, droneKills: 0, shotsFired: 0 },
+    stats: createEmptyGameStats(),
     shakeTimer: 0,
     shakeIntensity: 0,
     launcherFireTick: [0, 0, 0] as [number, number, number],
@@ -59,6 +62,48 @@ describe("dist", () => {
 
   it("handles negative coordinates", () => {
     expect(dist(-3, -4, 0, 0)).toBe(5);
+  });
+});
+
+describe("destroyed stats", () => {
+  it("records aggregate and per-type destroyed counters", () => {
+    const g = makeGameState();
+    recordThreatDestroyed(g, {
+      x: 0,
+      y: 0,
+      vx: 0,
+      vy: 0,
+      accel: 1,
+      trail: [],
+      alive: false,
+      type: "mirv_warhead",
+    });
+    recordThreatDestroyed(g, {
+      x: 0,
+      y: 0,
+      vx: 0,
+      vy: 0,
+      trail: [],
+      wobble: 0,
+      alive: false,
+      type: "drone",
+      subtype: "shahed238",
+      health: 0,
+      collisionRadius: 14,
+    });
+
+    expect(g.stats.missileKills).toBe(1);
+    expect(g.stats.droneKills).toBe(1);
+    expect(g.stats.destroyedByType.mirvWarhead).toBe(1);
+    expect(g.stats.destroyedByType.shahed238).toBe(1);
+  });
+
+  it("builds clamped destroyed-by-type wave deltas", () => {
+    const delta = getDestroyedByTypeDelta({ ballisticMissile: 4, shahed136: 3 }, { ballisticMissile: 1, shahed136: 5 });
+
+    expect(delta.ballisticMissile).toBe(3);
+    expect(delta.shahed136).toBe(0);
+    expect(delta.mirv).toBe(0);
   });
 });
 

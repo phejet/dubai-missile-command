@@ -11,6 +11,7 @@ import {
   getPixiWaterBandTransform,
   summarizePixiDynamicEntities,
 } from "./pixi-render";
+import { createEmptyGameStats } from "./game-logic";
 
 function projectileAsset() {
   return {
@@ -640,7 +641,7 @@ describe("PixiRenderer game-over routing", () => {
     methods.renderGameOver.call(self, {
       score: 1200,
       wave: 3,
-      stats: { missileKills: 4, droneKills: 2, shotsFired: 9 },
+      stats: { ...createEmptyGameStats(), missileKills: 4, droneKills: 2, shotsFired: 9 },
     });
 
     expect(self.screen).toBe("gameover");

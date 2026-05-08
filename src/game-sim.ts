@@ -25,6 +25,11 @@ import {
   destroyDefenseSite,
   getPhalanxTurrets,
   damageTarget,
+  createEmptyGameStats,
+  cloneDestroyedByTypeStats,
+  getDestroyedByTypeDelta,
+  normalizeGameStats,
+  recordThreatDestroyed,
   getKillReward,
   getMultiKillBonus,
   getRng,
@@ -113,6 +118,32 @@ function addBurjImpactDamage(g: GameState, x: number, y: number, kind: BurjDamag
   g.burjHitFlashY = hitY;
 }
 
+function applyBurjHitDamage(
+  g: GameState,
+  x: number,
+  y: number,
+  kind: BurjDamageKind,
+  onEvent?: ((type: string, data?: unknown) => void) | null,
+): void {
+  if (g._debugMode || !g.burjAlive) return;
+  addBurjImpactDamage(g, x, y, kind);
+  g.burjHealth--;
+  if (onEvent) onEvent("sfx", { name: "burjHit" });
+  if (g.burjHealth <= 0) {
+    g.burjAlive = false;
+    boom(g, BURJ_X, CITY_Y - BURJ_H / 2, 90, "#ff2200", false, onEvent, 50);
+  }
+}
+
+function isBurjImpactTarget(targetX: number | undefined, targetY: number | undefined): boolean {
+  if (targetX === undefined || targetY === undefined) return false;
+  const burjTop = getGameplayBurjCollisionTop(2);
+  return (
+    Math.abs(targetX - BURJ_X) <= 40 &&
+    (targetY >= GAMEPLAY_SCENIC_THREAT_FLOOR_Y || (targetY >= burjTop && targetY <= GAMEPLAY_SCENIC_THREAT_FLOOR_Y))
+  );
+}
+
 function updateBurjDamageFx(g: GameState): void {
   if (g.burjHitFlashTimer > 0) g.burjHitFlashTimer--;
 }
@@ -149,7 +180,7 @@ export function initGame(): GameState {
     state: "playing",
     score: 0,
     wave: 1,
-    stats: { missileKills: 0, droneKills: 0, shotsFired: 0 },
+    stats: createEmptyGameStats(),
     ammo: [11, 11, 11],
     launcherHP: [1, 1, 1],
     launcherFireTick: [0, 0, 0],
@@ -207,6 +238,11 @@ export function initGame(): GameState {
     empRings: [],
     multiKillToast: null,
     combo: 1,
+    _waveMaxCombo: 1,
+    _waveStartMissileKills: 0,
+    _waveStartDroneKills: 0,
+    _waveStartDestroyedByType: createEmptyGameStats().destroyedByType,
+    _waveStartMultiShots: 0,
     comboToast: null,
     // Spawn commander + schedule
     commander,
@@ -1446,14 +1482,14 @@ function updateMissiles(g: GameState, dt: number, onEvent?: ((type: string, data
         const lureDist = steerTowardPoint(m, flareTarget.x, flareTarget.y, dt, 0.2);
         if (lureDist <= flareTarget.hotRadius) {
           m.alive = false;
-          g.stats.missileKills = (g.stats.missileKills || 0) + 1;
+          recordThreatDestroyed(g, m);
           detonateFlare(g, flareTarget, onEvent);
           return;
         }
       } else {
         // Flare already exploded — missile lost guidance, harmless self-destruct
         m.alive = false;
-        g.stats.missileKills = (g.stats.missileKills || 0) + 1;
+        recordThreatDestroyed(g, m);
         boom(g, m.x, m.y, 15, COL.flare, false, onEvent, 0, { harmless: true });
         return;
       }
@@ -1470,7 +1506,7 @@ function updateMissiles(g: GameState, dt: number, onEvent?: ((type: string, data
       const flareTarget = getLiveFlare(g, m.flareTargetId);
       if (flareTarget && dist(m.x, m.y, flareTarget.x, flareTarget.y) <= flareTarget.hotRadius) {
         m.alive = false;
-        g.stats.missileKills = (g.stats.missileKills || 0) + 1;
+        recordThreatDestroyed(g, m);
         detonateFlare(g, flareTarget, onEvent);
         return;
       }
@@ -1496,6 +1532,8 @@ function updateMissiles(g: GameState, dt: number, onEvent?: ((type: string, data
           trail: [],
           alive: true,
           type: "mirv_warhead",
+          targetX: t.x,
+          targetY: t.y,
           variant: m.variant ?? "normal",
           speedMul: childSpeedMul,
           empSlowTimer: 0,
@@ -1559,15 +1597,7 @@ function updateMissiles(g: GameState, dt: number, onEvent?: ((type: string, data
       boom(g, m.x, m.y, 55, "#ff4400", false, onEvent, 30);
       g.shakeTimer = 10;
       g.shakeIntensity = 4;
-      if (!g._debugMode) {
-        addBurjImpactDamage(g, m.x, m.y, "missile");
-        g.burjHealth--;
-        if (onEvent) onEvent("sfx", { name: "burjHit" });
-        if (g.burjHealth <= 0) {
-          g.burjAlive = false;
-          boom(g, BURJ_X, CITY_Y - BURJ_H / 2, 90, "#ff2200", false, onEvent, 50);
-        }
-      }
+      applyBurjHitDamage(g, m.x, m.y, "missile", onEvent);
     }
     // Building collisions — match the shared title-style tower geometry
     if (m.alive) {
@@ -1622,6 +1652,9 @@ function updateMissiles(g: GameState, dt: number, onEvent?: ((type: string, data
     if (m.alive && m.y >= GAMEPLAY_WATERLINE_Y) {
       m.alive = false;
       boom(g, m.x, GAMEPLAY_WATERLINE_Y, 50, "#ff4400", false, onEvent, 25);
+      if (g.burjAlive && isBurjImpactTarget(m.targetX, m.targetY)) {
+        applyBurjHitDamage(g, m.x, GAMEPLAY_SCENIC_THREAT_FLOOR_Y, "missile", onEvent);
+      }
     }
     if (m.x < -50 || m.x > CANVAS_W + 50 || m.y > CANVAS_H + 50) m.alive = false;
   });
@@ -1645,14 +1678,14 @@ function updateDrones(
         steerTowardPoint(d, flareTarget.x, flareTarget.y, dt, 0.15);
         if (dist(d.x, d.y, flareTarget.x, flareTarget.y) <= flareTarget.hotRadius) {
           d.alive = false;
-          g.stats.droneKills = (g.stats.droneKills || 0) + 1;
+          recordThreatDestroyed(g, d);
           detonateFlare(g, flareTarget, onEvent);
           return;
         }
       } else {
         // Flare already exploded — lost guidance, harmless self-destruct
         d.alive = false;
-        g.stats.droneKills = (g.stats.droneKills || 0) + 1;
+        recordThreatDestroyed(g, d);
         boom(g, d.x, d.y, 15, COL.flare, false, onEvent, 0, { harmless: true });
         return;
       }
@@ -1660,7 +1693,7 @@ function updateDrones(
         d.lureDeathTimer = (d.lureDeathTimer ?? 0) - dt;
         if ((d.lureDeathTimer ?? 0) <= 0) {
           d.alive = false;
-          g.stats.droneKills = (g.stats.droneKills || 0) + 1;
+          recordThreatDestroyed(g, d);
           boom(g, d.x, d.y, 15, COL.flare, false, onEvent, 0, { harmless: true });
           return;
         }
@@ -1724,6 +1757,8 @@ function updateDrones(
             trail: [],
             alive: true,
             type: "bomb",
+            targetX: bombT.x,
+            targetY: bombT.y,
             variant: d.variant ?? "normal",
             speedMul: d.speedMul ?? 1,
             _hitByExplosions: new Set(),
@@ -1751,6 +1786,8 @@ function updateDrones(
                 trail: [],
                 alive: true,
                 type: "bomb",
+                targetX: bombT.x,
+                targetY: bombT.y,
                 variant: d.variant ?? "normal",
                 speedMul: d.speedMul ?? 1,
                 _hitByExplosions: new Set(),
@@ -1796,15 +1833,7 @@ function updateDrones(
       boom(g, d.x, d.y, 70, "#ff6600", false, onEvent, 40);
       g.shakeTimer = 15;
       g.shakeIntensity = 6;
-      if (!g._debugMode) {
-        addBurjImpactDamage(g, d.x, d.y, "drone");
-        g.burjHealth--;
-        if (onEvent) onEvent("sfx", { name: "burjHit" });
-        if (g.burjHealth <= 0) {
-          g.burjAlive = false;
-          boom(g, BURJ_X, CITY_Y - BURJ_H / 2, 90, "#ff2200", false, onEvent, 50);
-        }
-      }
+      applyBurjHitDamage(g, d.x, d.y, "drone", onEvent);
     }
     // Shahed impact
     if (d.diveTarget && d.alive) {
@@ -1813,10 +1842,20 @@ function updateDrones(
       const pathDone = d.waypoints && (d.pathIndex ?? 0) >= d.waypoints.length - 1;
       if (hitTarget || hitGround || pathDone) {
         const impactY = hitTarget ? d.y : Math.min(d.y, GAMEPLAY_WATERLINE_Y);
+        const burjTop = getGameplayBurjCollisionTop(2);
+        const targetY = d.diveTarget.y;
+        const targetIsBurj =
+          g.burjAlive &&
+          Math.abs(d.diveTarget.x - BURJ_X) <= Math.max(36, d.collisionRadius) &&
+          (targetY >= GAMEPLAY_SCENIC_THREAT_FLOOR_Y ||
+            (targetY >= burjTop && targetY <= GAMEPLAY_SCENIC_THREAT_FLOOR_Y));
         d.alive = false;
         boom(g, d.x, impactY, 70, "#ff6600", false, onEvent, 40);
         g.shakeTimer = 15;
         g.shakeIntensity = 6;
+        if (targetIsBurj) {
+          applyBurjHitDamage(g, d.x, Math.min(impactY, GAMEPLAY_SCENIC_THREAT_FLOOR_Y), "drone", onEvent);
+        }
         g.buildings.forEach((b) => {
           const bounds = getGameplayBuildingBounds(b);
           if (b.alive && d.x >= bounds.left - 30 && d.x <= bounds.right + 30 && d.y >= bounds.top - 20) {
@@ -1931,7 +1970,7 @@ function updateExplosions(g: GameState, dt: number, onEvent?: ((type: string, da
             if ((m.health ?? 0) <= 0) {
               m.alive = false;
               g.score += getKillReward(m) * g.combo;
-              g.stats.missileKills++;
+              recordThreatDestroyed(g, m);
               rootEx.kills = (rootEx.kills ?? 0) + 1;
               rootEx.heroPulse = Math.min(1.6, 0.65 + (rootEx.kills ?? 0) * 0.18);
               boom(g, m.x, m.y, 45, COL.mirv, ex.playerCaused, onEvent, 45, {
@@ -1948,7 +1987,7 @@ function updateExplosions(g: GameState, dt: number, onEvent?: ((type: string, da
         } else if (dist(m.x, m.y, ex.x, ex.y) < ex.radius) {
           m.alive = false;
           g.score += getKillReward(m) * g.combo;
-          g.stats.missileKills++;
+          recordThreatDestroyed(g, m);
           rootEx.kills = (rootEx.kills ?? 0) + 1;
           rootEx.heroPulse = Math.min(1.6, 0.65 + (rootEx.kills ?? 0) * 0.18);
           boom(g, m.x, m.y, 45, "#ffcc00", ex.playerCaused, onEvent, 45, {
@@ -1969,7 +2008,7 @@ function updateExplosions(g: GameState, dt: number, onEvent?: ((type: string, da
           if (d.health <= 0) {
             d.alive = false;
             g.score += getKillReward(d) * g.combo;
-            g.stats.droneKills++;
+            recordThreatDestroyed(g, d);
             rootEx.kills = (rootEx.kills ?? 0) + 1;
             rootEx.heroPulse = Math.min(1.6, 0.65 + (rootEx.kills ?? 0) * 0.18);
             boom(g, d.x, d.y, 45, "#ff8800", ex.playerCaused, onEvent, 45, {
@@ -1987,6 +2026,11 @@ function updateExplosions(g: GameState, dt: number, onEvent?: ((type: string, da
       // Multi-kill bonus (only check on root explosions)
       if (rootEx === ex && (ex.kills ?? 0) >= 2 && !ex.bonusAwarded) {
         ex.bonusAwarded = true;
+        if (ex.playerCaused && !ex._multiShotCounted) {
+          ex._multiShotCounted = true;
+          g.stats = normalizeGameStats(g.stats);
+          g.stats.multiShots++;
+        }
         const bonus = getMultiKillBonus(ex.kills ?? 0);
         const label = ex.kills === 2 ? "DOUBLE KILL" : ex.kills === 3 ? "TRIPLE KILL" : "MEGA KILL";
         g.score += bonus;
@@ -2131,7 +2175,14 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
     g.gameOverTimer = (g.gameOverTimer ?? 0) - dt;
     if ((g.gameOverTimer ?? 0) <= 0) {
       g.state = "gameover";
-      if (onEvent) onEvent("gameOver", { score: g.score, wave: g.wave, stats: { ...g.stats } });
+      g.stats = normalizeGameStats(g.stats);
+      if (onEvent) {
+        onEvent("gameOver", {
+          score: g.score,
+          wave: g.wave,
+          stats: { ...g.stats, destroyedByType: cloneDestroyedByTypeStats(g.stats.destroyedByType) },
+        });
+      }
     }
     return;
   }
@@ -2152,12 +2203,15 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
       if (!g._bonusScreenStarted) {
         g._bonusScreenStarted = true;
         if (g.burjAlive && onEvent) {
+          g.stats = normalizeGameStats(g.stats);
           onEvent("waveBonusStart", {
             wave: g.wave,
             buildings: g.buildings.filter((b) => b.alive).length,
-            savedAmmo: 0,
             missileKills: g.stats.missileKills - (g._waveStartMissileKills ?? 0),
             droneKills: g.stats.droneKills - (g._waveStartDroneKills ?? 0),
+            destroyedByType: getDestroyedByTypeDelta(g.stats.destroyedByType, g._waveStartDestroyedByType),
+            multiShots: Math.max(0, g.stats.multiShots - (g._waveStartMultiShots ?? 0)),
+            maxCombo: g._waveMaxCombo ?? 1,
           });
         } else {
           g._bonusScreenDone = true;
@@ -2261,6 +2315,9 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
           g.comboToast = { multiplier: next, timer: 70, x: ex.x, y: ex.y - 20, pulse: 1 };
         }
         g.combo = next;
+        g._waveMaxCombo = Math.max(g._waveMaxCombo ?? 1, g.combo);
+        g.stats = normalizeGameStats(g.stats);
+        g.stats.maxCombo = Math.max(g.stats.maxCombo, g.combo);
       } else {
         g.combo = 1;
       }
