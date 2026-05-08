@@ -408,3 +408,21 @@ describe("buildReplayCheckpoint", () => {
     expect(cp).not.toHaveProperty("reason");
   });
 });
+
+describe("F-15 replay action", () => {
+  it("replays an f15 action by spawning two planes and consuming the charge", () => {
+    const actions: ReplayAction[] = [{ tick: 4, type: "f15" }];
+    const rr = createReplayRunner({
+      seed: SEED,
+      actions,
+      bootstrap: { startWave: 4, acquiredUpgrades: ["f15"] },
+    });
+    const g = rr.init();
+    expect(g.upgrades.f15).toBe(1);
+    expect(g.f15Ready).toBe(true);
+    for (let i = 0; i < 6; i++) rr.step();
+    expect(g.planes.length).toBe(2);
+    expect(g.f15Ready).toBe(false);
+    rr.cleanup();
+  });
+});

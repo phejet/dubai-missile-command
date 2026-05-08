@@ -20,6 +20,7 @@ type UpgradeFamilyDef = {
   color: string;
   active?: boolean;
   disabled?: boolean;
+  excludes?: UpgradeKey[];
 };
 
 export type UpgradeNodeDef = {
@@ -92,10 +93,22 @@ export const UPGRADE_FAMILIES: Record<UpgradeKey, UpgradeFamilyDef> = {
     icon: "\uD83C\uDF00",
     color: COL.emp,
     active: true,
+    excludes: ["f15"],
+  },
+  f15: {
+    name: "F-15 Eagle Patrol",
+    icon: "\u2708\uFE0F",
+    color: COL.plane,
+    active: true,
+    excludes: ["emp"],
   },
 };
 
 const OBJECTIVES: Record<UpgradeObjectiveId, ObjectiveDef> = {
+  reach_wave_3: {
+    label: "Reach wave 3 in a previous run",
+    complete: (summary) => summary.wave >= 3,
+  },
   reach_wave_4: {
     label: "Reach wave 4 in a previous run",
     complete: (summary) => summary.wave >= 4,
@@ -408,6 +421,33 @@ export const UPGRADE_NODES: UpgradeNodeDef[] = [
     active: true,
     allOf: ["emp", "empCapacitors"],
   },
+  {
+    id: "f15",
+    family: "f15",
+    rank: 1,
+    name: "F-15 Eagle Patrol",
+    icon: "✈️",
+    desc: "Call in a pair of F-15 Eagles on demand. Charge up, then press SPACE to send the patrol streaking across the map.",
+    cost: 1450,
+    color: COL.plane,
+    statLine: "Pair · 30s charge · auto-engages threats",
+    active: true,
+    objectives: ["reach_wave_3"],
+  },
+  {
+    id: "f15TopGun",
+    family: "f15",
+    rank: 2,
+    name: "Top Gun Squadron",
+    icon: "✈️",
+    desc: "Veteran pilots and faster turnaround keep the Eagle pair on call almost twice as often, with a hotter trigger finger.",
+    cost: 3450,
+    color: COL.plane,
+    statLine: "Pair · 20s charge · faster fire",
+    active: true,
+    anyOf: ["f15"],
+    objectives: ["reach_wave_4"],
+  },
 ];
 
 const UPGRADE_NODE_MAP = new Map(UPGRADE_NODES.map((node) => [node.id, node]));
@@ -423,6 +463,7 @@ export function createEmptyUpgradeLevels(): Upgrades {
     burjRepair: 0,
     launcherKit: 0,
     emp: 0,
+    f15: 0,
   };
 }
 
@@ -527,12 +568,32 @@ function hasAllOwnedPrereqs(ownedNodes: Set<UpgradeNodeId>, allOf: UpgradeNodeId
   return allOf.every((nodeId) => ownedNodes.has(nodeId));
 }
 
+function findExcludedFamily(
+  family: UpgradeKey,
+  ownedNodes: Set<UpgradeNodeId>,
+): UpgradeKey | null {
+  const excludes = UPGRADE_FAMILIES[family]?.excludes;
+  if (!excludes || excludes.length === 0) return null;
+  for (const otherFamily of excludes) {
+    for (const ownedId of ownedNodes) {
+      const ownedNode = UPGRADE_NODE_MAP.get(ownedId);
+      if (ownedNode && ownedNode.family === otherFamily) return otherFamily;
+    }
+  }
+  return null;
+}
+
 export function getNodeLockReason(
   node: UpgradeNodeDef,
   ownedNodes: Set<UpgradeNodeId>,
   progression: UpgradeProgressionState,
 ): string | null {
   if (ownedNodes.has(node.id)) return "Owned";
+  const excluded = findExcludedFamily(node.family, ownedNodes);
+  if (excluded) {
+    const otherName = UPGRADE_FAMILIES[excluded]?.name ?? excluded;
+    return `Locked: chose ${otherName}`;
+  }
   if (!hasCompletedObjectives(progression, node.objectives)) {
     return (node.objectives ?? []).map(getUpgradeObjectiveLabel).join(" · ");
   }

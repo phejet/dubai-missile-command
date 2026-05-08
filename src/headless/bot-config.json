@@ -20,6 +20,7 @@
   },
   "planeAvoidance": { "radius": 30 },
   "emp": { "minImminentThreats": 1, "impactY": 1020, "impactRadius": 250 },
+  "f15": { "minImminentThreats": 3, "impactY": 700, "impactRadius": 400 },
   "mirv": { "cooldownMultiplier": 0.6 },
   "upgradePriority": [
     "wildHornets",
@@ -30,14 +31,15 @@
     "flare",
     "burjRepair",
     "patriot",
+    "f15",
     "emp"
   ],
   "presets": {
     "perfect": {
-      "upgradePriority": ["patriot", "wildHornets", "launcherKit", "ironBeam", "roadrunner", "phalanx", "flare", "emp"]
+      "upgradePriority": ["patriot", "wildHornets", "launcherKit", "ironBeam", "roadrunner", "phalanx", "flare", "f15", "emp"]
     },
     "good": {
-      "upgradePriority": ["wildHornets", "ironBeam", "roadrunner", "launcherKit", "phalanx", "flare", "patriot", "emp"],
+      "upgradePriority": ["wildHornets", "ironBeam", "roadrunner", "launcherKit", "phalanx", "flare", "patriot", "f15", "emp"],
       "humanization": {
         "enabled": true,
         "startWave": 7,
@@ -78,7 +80,7 @@
       }
     },
     "average": {
-      "upgradePriority": ["patriot", "emp", "launcherKit", "wildHornets", "phalanx", "ironBeam", "flare", "roadrunner"],
+      "upgradePriority": ["patriot", "emp", "launcherKit", "wildHornets", "phalanx", "ironBeam", "flare", "roadrunner", "f15"],
       "humanization": {
         "enabled": true,
         "startWave": 4,

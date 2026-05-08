@@ -6,6 +6,7 @@ import {
   buyDraftUpgrade,
   closeShop,
   fireEmp,
+  fireF15Pair,
   repairSite,
   repairLauncher,
 } from "./game-sim";
@@ -110,6 +111,8 @@ export function createReplayRunner(replayData: ReplayData, onEvent: EventCallbac
         fireInterceptor(g, action.x, action.y, tick, !!action.ignoreLauncherReload);
       } else if (action.type === "emp") {
         fireEmp(g, onEvent);
+      } else if (action.type === "f15") {
+        fireF15Pair(g, onEvent);
       }
       actionIdx++;
     }

@@ -230,7 +230,8 @@ export type UpgradeKey =
   | "patriot"
   | "burjRepair"
   | "launcherKit"
-  | "emp";
+  | "emp"
+  | "f15";
 
 export type Upgrades = Record<UpgradeKey, number>;
 export type UpgradeNodeId = string;
@@ -504,8 +505,6 @@ export interface GameState {
   burjHitFlashX: number;
   burjHitFlashY: number;
 
-  planeTimer: number;
-  planeInterval: number;
   waveComplete: boolean;
   crosshairX: number;
   crosshairY: number;
@@ -529,6 +528,10 @@ export interface GameState {
   empChargeMax: number;
   empReady: boolean;
 
+  f15Charge: number;
+  f15ChargeMax: number;
+  f15Ready: boolean;
+
   multiKillToast: MultiKillToast | null;
   combo: number;
   comboToast: ComboToast | null;
@@ -550,7 +553,6 @@ export interface GameState {
   gameOverTimer?: number;
   waveClearedTimer?: number;
   shopOpened?: boolean;
-  planeWarned?: boolean;
   _draftOffers?: string[];
   _bonusScreenStarted?: boolean;
   _bonusScreenDone?: boolean;
@@ -592,7 +594,7 @@ export interface GameState {
 
 // ── Replay ──
 
-export type ReplayActionType = "fire" | "cursor" | "emp" | "shop" | "wave_plan";
+export type ReplayActionType = "fire" | "cursor" | "emp" | "f15" | "shop" | "wave_plan";
 
 export interface FireAction {
   type: "fire";
@@ -614,6 +616,11 @@ export interface EmpAction {
   tick: number;
 }
 
+export interface F15Action {
+  type: "f15";
+  tick: number;
+}
+
 export interface ShopAction {
   type: "shop";
   tick: number;
@@ -629,7 +636,7 @@ export interface WavePlanAction {
   style?: CommanderStyle;
 }
 
-export type ReplayAction = FireAction | CursorAction | EmpAction | ShopAction | WavePlanAction;
+export type ReplayAction = FireAction | CursorAction | EmpAction | F15Action | ShopAction | WavePlanAction;
 
 export interface ReplayBootstrap {
   startWave?: number;

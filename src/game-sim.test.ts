@@ -19,12 +19,15 @@ import {
   buyDraftUpgrade,
   buyUpgrade,
   createGameSim,
+  fireF15Pair,
+  fireEmp,
   spawnMirv,
   spawnDrone,
   spawnDroneOfType,
   spawnMissile,
   spawnStackedMissile,
 } from "./game-sim.js";
+import { buildShopEntries } from "./game-sim-shop.js";
 import type { Drone, Hornet, Missile, PatriotMissile } from "./types.js";
 
 describe("MIRV behavior", () => {
@@ -765,5 +768,167 @@ describe("Shahed-136 (prop) diving", () => {
     sim.update(g, 1);
     expect(prop.alive).toBe(false);
     expect(g.explosions.length).toBeGreaterThan(0);
+  });
+});
+
+describe("F-15 active upgrade", () => {
+  afterEach(() => setRng(Math.random));
+
+  it("does not spawn planes automatically without the f15 upgrade", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.state = "playing";
+    expect(g.planes.length).toBe(0);
+    for (let i = 0; i < 1500; i++) sim.update(g, 1);
+    expect(g.planes.length).toBe(0);
+  });
+
+  it("buying f15 sets charge ready and exposes hud state", () => {
+    const { g } = makeCleanGame(5);
+    g.metaProgression.completedObjectives.push("reach_wave_3");
+    g.score = 5000;
+    expect(buyUpgrade(g, "f15")).toBe(true);
+    expect(g.upgrades.f15).toBe(1);
+    expect(g.f15ChargeMax).toBe(1800);
+    expect(g.f15Charge).toBe(g.f15ChargeMax);
+    expect(g.f15Ready).toBe(true);
+  });
+
+  it("fireF15Pair spawns two planes and consumes the charge", () => {
+    const { g } = makeCleanGame(5);
+    g.metaProgression.completedObjectives.push("reach_wave_3");
+    g.score = 5000;
+    buyUpgrade(g, "f15");
+    expect(fireF15Pair(g, null)).toBe(true);
+    expect(g.planes.length).toBe(2);
+    expect(g.planes[0].vx).toBeGreaterThan(0);
+    expect(g.planes[1].vx).toBeLessThan(0);
+    expect(g.f15Ready).toBe(false);
+    expect(g.f15Charge).toBe(0);
+  });
+
+  it("fireF15Pair fails when not ready or not owned", () => {
+    const { g } = makeCleanGame(5);
+    expect(fireF15Pair(g, null)).toBe(false);
+    g.metaProgression.completedObjectives.push("reach_wave_3");
+    g.score = 5000;
+    buyUpgrade(g, "f15");
+    g.f15Ready = false;
+    expect(fireF15Pair(g, null)).toBe(false);
+  });
+
+  it("rank 2 lowers fireInterval and shortens the charge window", () => {
+    const { g } = makeCleanGame(5);
+    g.metaProgression.completedObjectives.push("reach_wave_3");
+    g.metaProgression.completedObjectives.push("reach_wave_4");
+    g.score = 20000;
+    buyUpgrade(g, "f15");
+    buyUpgrade(g, "f15TopGun");
+    expect(g.upgrades.f15).toBe(2);
+    expect(g.f15ChargeMax).toBe(1200);
+    fireF15Pair(g, null);
+    for (const p of g.planes) {
+      expect(p.fireInterval).toBeLessThan(25);
+    }
+  });
+
+  it("charge accrues during update() and arms when full", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.metaProgression.completedObjectives.push("reach_wave_3");
+    g.score = 5000;
+    buyUpgrade(g, "f15");
+    g.state = "playing";
+    fireF15Pair(g, null);
+    expect(g.f15Ready).toBe(false);
+    for (let i = 0; i < g.f15ChargeMax + 5; i++) sim.update(g, 1);
+    expect(g.f15Ready).toBe(true);
+  });
+});
+
+describe("EMP / F-15 mutual exclusivity", () => {
+  afterEach(() => setRng(Math.random));
+
+  it("buying emp locks the f15 family in the shop", () => {
+    const { g } = makeCleanGame(5);
+    g.metaProgression.completedObjectives.push("reach_wave_3");
+    g.score = 20000;
+    buyUpgrade(g, "emp");
+    const entries = buildShopEntries(g);
+    const f15Entry = entries.find((entry) => entry.id === "f15");
+    expect(f15Entry).toBeDefined();
+    expect(f15Entry!.locked).toBe(true);
+    expect(f15Entry!.statusText).toMatch(/EMP/i);
+  });
+
+  it("buying f15 locks the emp family in the shop", () => {
+    const { g } = makeCleanGame(5);
+    g.metaProgression.completedObjectives.push("reach_wave_3");
+    g.score = 20000;
+    buyUpgrade(g, "f15");
+    const entries = buildShopEntries(g);
+    const empEntry = entries.find((entry) => entry.id === "emp");
+    expect(empEntry).toBeDefined();
+    expect(empEntry!.locked).toBe(true);
+    expect(empEntry!.statusText).toMatch(/F-15/i);
+  });
+
+  it("buyUpgrade refuses to purchase the locked family", () => {
+    const { g } = makeCleanGame(5);
+    g.metaProgression.completedObjectives.push("reach_wave_3");
+    g.score = 50000;
+    expect(buyUpgrade(g, "emp")).toBe(true);
+    expect(buyUpgrade(g, "f15")).toBe(false);
+    expect(g.upgrades.f15).toBe(0);
+  });
+
+  it("ensures at least one active upgrade is available at wave 3", () => {
+    const states = [
+      // Fresh first run: no completed objectives yet.
+      () => {
+        const { g } = makeCleanGame(3);
+        return g;
+      },
+      // Returning player who has reached wave 3 before but not bought anything.
+      () => {
+        const { g } = makeCleanGame(3);
+        g.metaProgression.completedObjectives.push("reach_wave_3");
+        return g;
+      },
+      // EMP path already chosen: F-15 locked, but EMP rank stays buyable/owned.
+      () => {
+        const { g } = makeCleanGame(3);
+        g.metaProgression.completedObjectives.push("reach_wave_3");
+        g.score = 20000;
+        buyUpgrade(g, "emp");
+        return g;
+      },
+      // F-15 path already chosen: EMP locked, but F-15 rank stays buyable/owned.
+      () => {
+        const { g } = makeCleanGame(3);
+        g.metaProgression.completedObjectives.push("reach_wave_3");
+        g.score = 20000;
+        buyUpgrade(g, "f15");
+        return g;
+      },
+    ];
+    for (const make of states) {
+      const g = make();
+      const entries = buildShopEntries(g);
+      const visibleActive = entries.filter((entry) => entry.active && (entry.owned || !entry.locked));
+      expect(visibleActive.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("EMP charge", () => {
+  afterEach(() => setRng(Math.random));
+
+  it("does not change after F-15 is purchased (regression)", () => {
+    const { g } = makeCleanGame(5);
+    g.metaProgression.completedObjectives.push("reach_wave_3");
+    g.score = 20000;
+    buyUpgrade(g, "f15");
+    expect(g.empCharge).toBe(0);
+    expect(g.empReady).toBe(false);
+    expect(fireEmp(g, null)).toBe(false);
   });
 });

@@ -1,5 +1,5 @@
 import { setRng, fireInterceptor } from "../game-logic";
-import { initGame, update, buyUpgrade, buyDraftUpgrade, closeShop, fireEmp } from "../game-sim";
+import { initGame, update, buyUpgrade, buyDraftUpgrade, closeShop, fireEmp, fireF15Pair } from "../game-sim";
 import { getUpgradeNodeDef } from "../game-sim-upgrades";
 import { mulberry32 } from "./rng";
 import { botDecideAction, botDecideUpgrades, resolveBotConfig, reserveBotTarget } from "./bot-brain";
@@ -128,6 +128,25 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
       if (imminent >= minImminent) {
         fireEmp(g, null);
         if (record) actions!.push({ tick, type: "emp" });
+      }
+    }
+
+    // Bot calls in F-15 patrol when threats are massing on screen
+    if (g.f15Ready) {
+      const f15Cfg = config.f15 || {};
+      const impactY = f15Cfg.impactY || 700;
+      const impactRadius = f15Cfg.impactRadius || 400;
+      const minImminent = f15Cfg.minImminentThreats || 3;
+      let imminent = 0;
+      for (const m of g.missiles) {
+        if (m.alive && m.y >= impactY && Math.abs(m.x - 460) < impactRadius) imminent++;
+      }
+      for (const d of g.drones) {
+        if (d.alive && d.y >= impactY && Math.abs(d.x - 460) < impactRadius) imminent++;
+      }
+      if (imminent >= minImminent) {
+        fireF15Pair(g, null);
+        if (record) actions!.push({ tick, type: "f15" });
       }
     }
 

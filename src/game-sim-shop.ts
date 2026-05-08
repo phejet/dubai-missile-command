@@ -67,6 +67,11 @@ function applyNodeSideEffects(g: GameState, nodeId: UpgradeNodeId): void {
     g.empCharge = g.empChargeMax;
     g.empReady = true;
   }
+  if (node.family === "f15") {
+    g.f15ChargeMax = [1800, 1200][g.upgrades.f15 - 1];
+    g.f15Charge = g.f15ChargeMax;
+    g.f15Ready = true;
+  }
 }
 
 function buyBurjRepair(g: GameState, free = false): boolean {
@@ -201,6 +206,8 @@ export function prepareWaveStart(g: GameState): void {
   g.ironBeamTimer = 360;
   g.empCharge = g.empChargeMax;
   g.empReady = g.upgrades.emp > 0;
+  g.f15Charge = g.f15ChargeMax;
+  g.f15Ready = g.upgrades.f15 > 0;
 
   g.scheduleIdx = 0;
   g.waveTick = 0;

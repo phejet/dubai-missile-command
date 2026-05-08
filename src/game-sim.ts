@@ -176,8 +176,6 @@ export function initGame(): GameState {
       size: rand(0.5, 2),
       twinkle: rand(0, Math.PI * 2),
     })),
-    planeTimer: 0,
-    planeInterval: 800,
     waveComplete: false,
     crosshairX: CANVAS_W / 2,
     crosshairY: CANVAS_H / 2,
@@ -205,6 +203,9 @@ export function initGame(): GameState {
     empChargeMax: 0,
     empReady: false,
     empRings: [],
+    f15Charge: 0,
+    f15ChargeMax: 0,
+    f15Ready: false,
     multiKillToast: null,
     combo: 1,
     comboToast: null,
@@ -316,21 +317,36 @@ function spawnMirvWithOverrides(
   if (onEvent) onEvent("sfx", { name: "mirvIncoming" });
 }
 
-export function spawnPlane(g: GameState, onEvent?: ((type: string, data?: unknown) => void) | null) {
+export interface SpawnPlaneOptions {
+  goRight?: boolean;
+  fireIntervalMul?: number;
+  speedMul?: number;
+  yOverride?: number;
+  silent?: boolean;
+}
+
+export function spawnPlane(
+  g: GameState,
+  onEvent?: ((type: string, data?: unknown) => void) | null,
+  opts: SpawnPlaneOptions = {},
+) {
   const _rng = getRng();
-  const goRight = _rng() > 0.5;
+  const goRight = opts.goRight ?? _rng() > 0.5;
+  const speedMul = opts.speedMul ?? 1;
+  const fireIntervalMul = opts.fireIntervalMul ?? 1;
+  const baseSpeed = goRight ? rand(5.6, 8.0) : rand(-8.0, -5.6);
   g.planes.push({
     x: goRight ? -60 : CANVAS_W + 60,
-    y: rand(80, 200),
-    vx: goRight ? rand(5.6, 8.0) : rand(-8.0, -5.6),
+    y: opts.yOverride ?? rand(80, 200),
+    vx: baseSpeed * speedMul,
     vy: 0,
     blinkTimer: 0,
     alive: true,
     fireTimer: 20,
-    fireInterval: 25,
+    fireInterval: Math.max(8, Math.round(25 * fireIntervalMul)),
     evadeTimer: 0,
   });
-  if (onEvent) onEvent("sfx", { name: "planePass" });
+  if (!opts.silent && onEvent) onEvent("sfx", { name: "planePass" });
 }
 
 // Side spawns reuse a narrow Y band, so back-to-back picks can land on top of
@@ -2142,6 +2158,12 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
     if (g.empCharge >= g.empChargeMax) g.empReady = true;
   }
 
+  // F-15 patrol charges even between waves
+  if (g.upgrades.f15 > 0 && !g.f15Ready) {
+    g.f15Charge = Math.min(g.f15Charge + dt, g.f15ChargeMax);
+    if (g.f15Charge >= g.f15ChargeMax) g.f15Ready = true;
+  }
+
   if (g.waveComplete) {
     if (g._laserHandle) {
       g._laserHandle.stop();
@@ -2218,18 +2240,6 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
     else if (type === "mirv") spawnMirvWithOverrides(gs, overrides, onEvent);
   });
 
-  g.planeTimer += dt;
-  // F-15 incoming warning ~2 seconds before arrival
-  if (!g.planeWarned && g.planeTimer >= g.planeInterval - 120) {
-    g.planeWarned = true;
-    if (onEvent) onEvent("sfx", { name: "planeIncoming" });
-  }
-  if (g.planeTimer >= g.planeInterval) {
-    g.planeTimer = 0;
-    g.planeWarned = false;
-    spawnPlane(g, onEvent);
-  }
-
   const allThreats = [...g.missiles.filter((m) => m.alive), ...g.drones.filter((d) => d.alive)];
   // Auto-defense systems only target threats visible on screen
   const visibleThreats = allThreats.filter((t) => t.y >= 0);
@@ -2295,6 +2305,19 @@ export function fireEmp(g: GameState, onEvent?: ((type: string, data?: unknown) 
   g.shakeTimer = 6;
   g.shakeIntensity = 3;
   if (onEvent) onEvent("sfx", { name: "empBlast" });
+  return true;
+}
+
+export function fireF15Pair(g: GameState, onEvent?: ((type: string, data?: unknown) => void) | null) {
+  if (!g.f15Ready || g.upgrades.f15 <= 0) return false;
+  const lvl = g.upgrades.f15;
+  g.f15Charge = 0;
+  g.f15Ready = false;
+  const fireIntervalMul = lvl >= 2 ? 0.7 : 1;
+  const speedMul = lvl >= 2 ? 1.1 : 1;
+  spawnPlane(g, onEvent, { goRight: true, yOverride: rand(80, 140), fireIntervalMul, speedMul });
+  spawnPlane(g, null, { goRight: false, yOverride: rand(160, 220), fireIntervalMul, speedMul, silent: true });
+  if (onEvent) onEvent("sfx", { name: "planeIncoming" });
   return true;
 }
 

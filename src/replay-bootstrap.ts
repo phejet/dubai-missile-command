@@ -1,5 +1,6 @@
 import { buyDraftUpgrade, closeShop } from "./game-sim";
 import { prepareWaveStart } from "./game-sim-shop";
+import { getUpgradeNodeDef } from "./game-sim-upgrades";
 import type { GameState, ReplayData, ReplayStopCondition } from "./types";
 
 function normalizeReplayWave(value: number | undefined, label: string): number {
@@ -59,6 +60,19 @@ export function applyReplayBootstrap(g: GameState, replayData: Pick<ReplayData, 
 
   const upgradeRequests = getReplayBootstrapUpgrades(replayData);
   if (upgradeRequests.length === 0) return;
+
+  // Bootstrap replays past the meta-progression objective gates: any objective
+  // required by a requested upgrade is granted up front so the replay state is
+  // reproducible regardless of the host machine's recorded run history.
+  const completed = new Set(g.metaProgression.completedObjectives);
+  for (const request of upgradeRequests) {
+    const node = getUpgradeNodeDef(request);
+    for (const objective of node?.objectives ?? []) completed.add(objective);
+  }
+  g.metaProgression = {
+    ...g.metaProgression,
+    completedObjectives: Array.from(completed).sort(),
+  };
 
   for (const request of upgradeRequests) {
     if (!buyDraftUpgrade(g, request)) {

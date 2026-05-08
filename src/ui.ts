@@ -40,9 +40,11 @@ export interface HudSnapshot {
   ammo: number[];
   ammoMax: number;
   launcherHP: number[];
-  empCharge: number;
-  empChargeMax: number;
-  empReady: boolean;
+  activeFamily: "emp" | "f15" | null;
+  activeLabel: string;
+  activeCharge: number;
+  activeChargeMax: number;
+  activeReady: boolean;
 }
 
 export interface TransientOverlaySnapshot {
@@ -489,8 +491,9 @@ const hudElements = {
   comboPanel: null as HTMLElement | null,
   comboValue: null as HTMLElement | null,
   comboStatus: null as HTMLElement | null,
-  empButton: null as HTMLButtonElement | null,
-  empMeta: null as HTMLElement | null,
+  activeButton: null as HTMLButtonElement | null,
+  activeLabel: null as HTMLElement | null,
+  activeMeta: null as HTMLElement | null,
   perfRaf: null as HTMLElement | null,
   perfFrame: null as HTMLElement | null,
   perfHudFps: null as HTMLElement | null,
@@ -502,8 +505,9 @@ export function cacheHudElements(): void {
   hudElements.comboPanel = document.getElementById("hud-combo");
   hudElements.comboValue = document.getElementById("hud-combo-value");
   hudElements.comboStatus = document.getElementById("hud-combo-status");
-  hudElements.empButton = document.getElementById("emp-button") as HTMLButtonElement;
-  hudElements.empMeta = document.getElementById("emp-meta");
+  hudElements.activeButton = document.getElementById("active-button") as HTMLButtonElement;
+  hudElements.activeLabel = document.getElementById("active-label");
+  hudElements.activeMeta = document.getElementById("active-meta");
   hudElements.perfRaf = document.getElementById("perf-raf");
   hudElements.perfFrame = document.getElementById("perf-frame");
   hudElements.perfHudFps = document.getElementById("perf-hud-fps");
@@ -525,21 +529,30 @@ export function updateHud(hud: HudSnapshot): void {
         combo >= 8 ? "Overdrive" : combo >= 5 ? "Burning" : combo >= 2 ? "Building" : "Standby";
     }
   }
-  // EMP button
-  if (h.empButton) {
-    if (hud.empChargeMax > 0) {
-      h.empButton.hidden = false;
-      h.empButton.className = `battlefield-emp${hud.empReady ? " battlefield-emp--ready" : ""}`;
-      h.empButton.disabled = !hud.empReady;
-      h.empButton.setAttribute("aria-label", hud.empReady ? "Fire EMP" : "EMP charging");
+  // Active upgrade button (EMP or F-15)
+  if (h.activeButton) {
+    if (hud.activeFamily && hud.activeChargeMax > 0) {
+      h.activeButton.hidden = false;
+      h.activeButton.dataset.family = hud.activeFamily;
+      h.activeButton.className = `battlefield-active${hud.activeReady ? " battlefield-active--ready" : ""}`;
+      h.activeButton.disabled = !hud.activeReady;
+      h.activeButton.setAttribute(
+        "aria-label",
+        hud.activeReady ? `Fire ${hud.activeLabel}` : `${hud.activeLabel} charging`,
+      );
     } else {
-      h.empButton.hidden = true;
+      h.activeButton.hidden = true;
     }
   }
-  if (h.empMeta) {
+  if (h.activeLabel) {
+    h.activeLabel.textContent = hud.activeLabel || "EMP";
+  }
+  if (h.activeMeta) {
     const pct =
-      hud.empChargeMax > 0 ? Math.max(0, Math.min(100, Math.round((hud.empCharge / hud.empChargeMax) * 100))) : 0;
-    h.empMeta.textContent = hud.empReady ? "READY" : `${pct}%`;
+      hud.activeChargeMax > 0
+        ? Math.max(0, Math.min(100, Math.round((hud.activeCharge / hud.activeChargeMax) * 100)))
+        : 0;
+    h.activeMeta.textContent = hud.activeReady ? "READY" : `${pct}%`;
   }
   // Perf overlay
   if (h.perfRaf) h.perfRaf.textContent = hud.rafFps ? `${hud.rafFps.toFixed(1)} fps` : "--";

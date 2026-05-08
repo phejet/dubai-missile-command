@@ -33,6 +33,7 @@ import {
   buyDraftUpgrade as simBuyDraftUpgrade,
   closeShop as simCloseShop,
   fireEmp as simFireEmp,
+  fireF15Pair as simFireF15Pair,
   snapshotPositions,
 } from "./game-sim";
 import { buildShopEntries } from "./game-sim-shop";
@@ -107,9 +108,11 @@ function buildHudSnapshot(game: GameState | null): HudSnapshot {
       ammo: [0, 0, 0],
       ammoMax: 0,
       launcherHP: [0, 0, 0],
-      empCharge: 0,
-      empChargeMax: 0,
-      empReady: false,
+      activeFamily: null,
+      activeLabel: "EMP",
+      activeCharge: 0,
+      activeChargeMax: 0,
+      activeReady: false,
     };
   }
   const ammoMax = getAmmoCapacity(game.wave, game.upgrades.launcherKit);
@@ -129,10 +132,36 @@ function buildHudSnapshot(game: GameState | null): HudSnapshot {
     ammo: [...game.ammo],
     ammoMax,
     launcherHP: [...game.launcherHP],
-    empCharge: game.empCharge,
-    empChargeMax: game.empChargeMax,
-    empReady: game.empReady,
+    ...buildActiveSlotSnapshot(game),
   };
+}
+
+function buildActiveSlotSnapshot(game: GameState): {
+  activeFamily: "emp" | "f15" | null;
+  activeLabel: string;
+  activeCharge: number;
+  activeChargeMax: number;
+  activeReady: boolean;
+} {
+  if (game.upgrades.f15 > 0) {
+    return {
+      activeFamily: "f15",
+      activeLabel: "F-15",
+      activeCharge: game.f15Charge,
+      activeChargeMax: game.f15ChargeMax,
+      activeReady: game.f15Ready,
+    };
+  }
+  if (game.upgrades.emp > 0) {
+    return {
+      activeFamily: "emp",
+      activeLabel: "EMP",
+      activeCharge: game.empCharge,
+      activeChargeMax: game.empChargeMax,
+      activeReady: game.empReady,
+    };
+  }
+  return { activeFamily: null, activeLabel: "EMP", activeCharge: 0, activeChargeMax: 0, activeReady: false };
 }
 
 function emptyTransientOverlaySnapshot(titleCopyVisible = false): TransientOverlaySnapshot {
@@ -305,7 +334,7 @@ export class Game {
   private titleMenuButton: HTMLElement;
   private replayButton: HTMLElement;
   private retryButton: HTMLElement;
-  private empButton: HTMLButtonElement;
+  private activeButton: HTMLButtonElement;
   private optionsButton: HTMLElement;
   private titleOptionsButton: HTMLElement;
   private optionsMenu: HTMLElement;
@@ -358,7 +387,7 @@ export class Game {
     this.titleMenuButton = document.getElementById("title-menu-button")!;
     this.replayButton = document.getElementById("replay-button")!;
     this.retryButton = document.getElementById("retry-button")!;
-    this.empButton = document.getElementById("emp-button") as HTMLButtonElement;
+    this.activeButton = document.getElementById("active-button") as HTMLButtonElement;
     this.optionsButton = document.getElementById("options-button")!;
     this.titleOptionsButton = document.getElementById("title-options-button")!;
     this.optionsMenu = document.getElementById("options-menu")!;
@@ -403,7 +432,7 @@ export class Game {
         void this.startReplay(this.lastReplay);
       }
     });
-    this.empButton.addEventListener("click", () => this.fireEmp());
+    this.activeButton.addEventListener("click", () => this.fireActive());
     this.optionsButton.addEventListener("click", () => this.toggleOptionsMenu());
     this.titleOptionsButton.addEventListener("click", () => this.toggleOptionsMenu());
     document.getElementById("option-sound")!.addEventListener("click", () => void this.toggleMute());
@@ -939,7 +968,7 @@ export class Game {
     if (!game || game.state !== "playing") return;
     if (e.key === " ") {
       e.preventDefault();
-      this.fireEmp();
+      this.fireActive();
       return;
     }
     if (game.crosshairY < GROUND_Y - 20) {
@@ -967,10 +996,16 @@ export class Game {
     reader.readAsText(file);
   }
 
-  private fireEmp(): boolean {
+  private fireActive(): boolean {
     if (this.screen !== "playing" || this.shopOpen || this.replayActive) return false;
     const game = this.gameRef.current;
     if (!game || game.state !== "playing") return false;
+    if (game.upgrades.f15 > 0 && simFireF15Pair(game, (t, d) => this.handleSimEvent(t, d))) {
+      SFX.planeIncoming();
+      if (game._actionLog) game._actionLog.push({ tick: game._replayTick ?? 0, type: "f15" });
+      this.syncHud(true);
+      return true;
+    }
     if (game.upgrades.emp > 0 && simFireEmp(game, (t, d) => this.handleSimEvent(t, d))) {
       SFX.empBlast();
       if (game._actionLog) game._actionLog.push({ tick: game._replayTick ?? 0, type: "emp" });

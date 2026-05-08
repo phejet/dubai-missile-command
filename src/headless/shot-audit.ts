@@ -9,7 +9,7 @@ import { initGame, update } from "../game-sim.js";
 import { mulberry32 } from "./rng.js";
 import { botDecideAction, botDecideUpgrades, resolveBotConfig, reserveBotTarget } from "./bot-brain.js";
 import defaultConfig from "./bot-config.json" with { type: "json" };
-import { buyUpgrade, buyDraftUpgrade, closeShop, fireEmp } from "../game-sim.js";
+import { buyUpgrade, buyDraftUpgrade, closeShop, fireEmp, fireF15Pair } from "../game-sim.js";
 import { getUpgradeNodeDef } from "../game-sim-upgrades.js";
 import type { GameState, Threat, UpgradeKey } from "../types.js";
 
@@ -113,6 +113,17 @@ function run(): void {
       for (const m of g.missiles) if (m.alive && m.y >= impactY && Math.abs(m.x - 460) < impactRadius) imminent++;
       for (const d of g.drones) if (d.alive && d.y >= impactY && Math.abs(d.x - 460) < impactRadius) imminent++;
       if (imminent >= minImminent) fireEmp(g, null);
+    }
+
+    if (g.f15Ready) {
+      const f15Cfg = (config as { f15?: { impactY?: number; impactRadius?: number; minImminentThreats?: number } }).f15 || {};
+      const impactY = f15Cfg.impactY || 700;
+      const impactRadius = f15Cfg.impactRadius || 400;
+      const minImminent = f15Cfg.minImminentThreats || 3;
+      let imminent = 0;
+      for (const m of g.missiles) if (m.alive && m.y >= impactY && Math.abs(m.x - 460) < impactRadius) imminent++;
+      for (const d of g.drones) if (d.alive && d.y >= impactY && Math.abs(d.x - 460) < impactRadius) imminent++;
+      if (imminent >= minImminent) fireF15Pair(g, null);
     }
 
     const action = withBotRng(() => botDecideAction(g, config, lastFireTick, tick));

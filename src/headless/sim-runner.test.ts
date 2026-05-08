@@ -59,7 +59,7 @@ describe("runGame recording", () => {
     const r = runGame(null, { seed: 42, maxTicks: 3000, record: true });
     for (const action of r.actions!) {
       expect(typeof action.tick).toBe("number");
-      expect(["fire", "shop", "emp", "wave_plan", "cursor"]).toContain(action.type);
+      expect(["fire", "shop", "emp", "f15", "wave_plan", "cursor"]).toContain(action.type);
       if (action.type === "fire") {
         expect(typeof action.x).toBe("number");
         expect(typeof action.y).toBe("number");
@@ -184,7 +184,7 @@ describe("golden-seed canary", () => {
   // to track balance impact.
   it("seed 42 at 5000 ticks produces expected draft-mode score and wave", () => {
     const r = runGame(null, { seed: 42, maxTicks: 5000, draftMode: true });
-    expect(r.score).toBe(16970);
+    expect(r.score).toBe(18012);
     expect(r.wave).toBe(6);
     expect(r.deathCause).toBe("timeout");
   });

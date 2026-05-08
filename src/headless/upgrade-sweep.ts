@@ -28,6 +28,7 @@ const FAMILIES = [
   "patriot",
   "launcherKit",
   "emp",
+  "f15",
 ] as const;
 
 type ResultRow = {
