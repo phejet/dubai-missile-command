@@ -42,7 +42,9 @@ interface ShotRecord {
   ttd?: number; // ticks-to-detonate
 }
 
-function snapshotThreat(t: Threat | null | undefined): Pick<ShotRecord, "targetType" | "targetX" | "targetY" | "targetVx" | "targetVy"> {
+function snapshotThreat(
+  t: Threat | null | undefined,
+): Pick<ShotRecord, "targetType" | "targetX" | "targetY" | "targetVx" | "targetVy"> {
   if (!t) return { targetType: null, targetX: null, targetY: null, targetVx: null, targetVy: null };
   return {
     targetType: (t as Threat & { subtype?: string }).subtype ?? t.type ?? "unknown",
@@ -105,7 +107,8 @@ function run(): void {
     }
 
     if (g.empReady) {
-      const empCfg = (config as { emp?: { impactY?: number; impactRadius?: number; minImminentThreats?: number } }).emp || {};
+      const empCfg =
+        (config as { emp?: { impactY?: number; impactRadius?: number; minImminentThreats?: number } }).emp || {};
       const impactY = empCfg.impactY || 420;
       const impactRadius = empCfg.impactRadius || 200;
       const minImminent = empCfg.minImminentThreats || 2;
@@ -196,7 +199,10 @@ function run(): void {
   console.log(`\nDetonations: ${detonated.length}/${shots.length} (others still in flight at end)`);
   if (detonated.length === 0) return;
 
-  const ttds = detonated.map((s) => s.ttd ?? 0).filter((n) => n > 0).sort((a, b) => a - b);
+  const ttds = detonated
+    .map((s) => s.ttd ?? 0)
+    .filter((n) => n > 0)
+    .sort((a, b) => a - b);
   if (ttds.length) {
     const med = ttds[Math.floor(ttds.length / 2)];
     const p10 = ttds[Math.floor(ttds.length * 0.1)];

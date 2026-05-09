@@ -10,6 +10,8 @@ import {
   getAmmoCapacity,
   getLauncherBurstChargeCap,
   getLauncherReloadTicks,
+  createEmptyGameStats,
+  normalizeGameStats,
   setRng,
 } from "./game-logic";
 import type { GameOverSnapshot, GameRenderer, GameScreen } from "./game-renderer";
@@ -366,7 +368,7 @@ export class Game {
   // Final stats for game over
   private finalScore = 0;
   private finalWave = 1;
-  private finalStats = { missileKills: 0, droneKills: 0, shotsFired: 0 };
+  private finalStats = createEmptyGameStats();
   private lastReplay: ReplayData | null = null;
 
   constructor({ canvas, renderer, onScreenChange, onFrameSample, onReplayFinished }: GameOptions) {
@@ -716,7 +718,7 @@ export class Game {
       this.perfOverlay.hidden = true;
       this.finalScore = data.score;
       this.finalWave = data.wave;
-      this.finalStats = { ...data.stats };
+      this.finalStats = normalizeGameStats(data.stats);
       // Replay runs finalize on the next RAF tick after the runner marks itself finished.
       if (this.replayActive && this.replayRunner) {
         return;

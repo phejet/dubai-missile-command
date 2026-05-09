@@ -1,4 +1,11 @@
-import { getDefenseSitePlacement, getAmmoCapacity, getLauncherMaxHp, getRng } from "./game-logic";
+import {
+  cloneDestroyedByTypeStats,
+  getDefenseSitePlacement,
+  getAmmoCapacity,
+  getLauncherMaxHp,
+  getRng,
+  normalizeGameStats,
+} from "./game-logic";
 import { generateWaveSchedule } from "./wave-spawner";
 import {
   computeUpgradeLevelsFromNodes,
@@ -219,8 +226,12 @@ export function prepareWaveStart(g: GameState): void {
   g.launcherReloadUntilTick = [0, 0, 0];
   g._bonusScreenStarted = false;
   g._bonusScreenDone = false;
+  g.stats = normalizeGameStats(g.stats);
   g._waveStartMissileKills = g.stats.missileKills;
   g._waveStartDroneKills = g.stats.droneKills;
+  g._waveStartDestroyedByType = cloneDestroyedByTypeStats(g.stats.destroyedByType);
+  g._waveStartMultiShots = g.stats.multiShots;
+  g._waveMaxCombo = Math.max(1, g.combo ?? 1);
   g.waveComplete = false;
   g.state = "playing";
 }

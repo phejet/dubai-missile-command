@@ -154,6 +154,8 @@ export interface Explosion {
   ringAlpha: number;
   kills?: number;
   bonusAwarded?: boolean;
+  _multiShotCounted?: boolean;
+  _comboProcessed?: boolean;
   chainLevel?: number;
   heroPulse?: number;
   linkFromX?: number;
@@ -447,10 +449,27 @@ export interface WaveSetPiece {
 
 // ── Game stats ──
 
+export const DESTROYED_TYPE_KEYS = [
+  "ballisticMissile",
+  "mirv",
+  "mirvWarhead",
+  "stackedMissile",
+  "bomb",
+  "shahed136",
+  "shahed238",
+  "other",
+] as const;
+
+export type DestroyedTypeKey = (typeof DESTROYED_TYPE_KEYS)[number];
+export type DestroyedByTypeStats = Record<DestroyedTypeKey, number>;
+
 export interface GameStats {
   missileKills: number;
   droneKills: number;
   shotsFired: number;
+  destroyedByType: DestroyedByTypeStats;
+  multiShots: number;
+  maxCombo: number;
 }
 
 // ── Full game state ──
@@ -558,6 +577,9 @@ export interface GameState {
   _bonusScreenDone?: boolean;
   _waveStartMissileKills?: number;
   _waveStartDroneKills?: number;
+  _waveStartDestroyedByType?: DestroyedByTypeStats;
+  _waveStartMultiShots?: number;
+  _waveMaxCombo?: number;
 
   // Replay / recording runtime fields
   _gameSeed?: number;

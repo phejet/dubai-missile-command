@@ -124,11 +124,13 @@ That bridge is intentionally narrow. The sim raises semantic events and the runt
 
 - Sim raises `waveBonusStart`.
 - Controller disables canvas pointer events and shows the animated bonus screen.
+- The payload includes per-wave destroyed-by-type deltas, multi-shot deltas, and max combo.
 - The UI calls back into the controller to add score and mark the bonus sequence done.
 
 ### Game over
 
 - Controller stores final score/wave/stats.
+- Final stats include cumulative destroyed-by-type totals and multi-shots.
 - Progression is updated and saved.
 - Human runs generate a `ReplayData` payload and attempt to `POST` it to `/api/save-replay`.
 - Browser screen changes to `"gameover"`.

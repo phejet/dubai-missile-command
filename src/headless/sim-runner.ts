@@ -10,7 +10,7 @@ import {
   resolveReplayStopWave,
   shouldStopReplayAtWaveComplete,
 } from "../replay-bootstrap";
-import type { ReplayAction, ReplayData, TacticId, CommanderStyle } from "../types";
+import type { GameStats, ReplayAction, ReplayData, TacticId, CommanderStyle } from "../types";
 
 interface RunGameOptions {
   preset?: string | null;
@@ -182,7 +182,7 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
   const result: {
     score: number;
     wave: number;
-    stats: { missileKills: number; droneKills: number; shotsFired: number };
+    stats: GameStats;
     ticks: number;
     deathCause: string;
     seed: number;

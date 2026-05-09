@@ -1,4 +1,16 @@
-import type { RNG, GameState, DefenseSite, Threat, Building, ExplosionVisualType, UpgradeNodeId } from "./types";
+import {
+  DESTROYED_TYPE_KEYS,
+  type RNG,
+  type GameState,
+  type DefenseSite,
+  type Threat,
+  type Building,
+  type ExplosionVisualType,
+  type UpgradeNodeId,
+  type DestroyedByTypeStats,
+  type DestroyedTypeKey,
+  type GameStats,
+} from "./types";
 
 export const CANVAS_W = 900;
 export const CANVAS_H = 1600;
@@ -45,6 +57,73 @@ export const COL = {
   emp: "#cc44ff",
   mirv: "#dd4422",
 };
+
+export function createEmptyDestroyedByTypeStats(): DestroyedByTypeStats {
+  return Object.fromEntries(DESTROYED_TYPE_KEYS.map((key) => [key, 0])) as DestroyedByTypeStats;
+}
+
+export function cloneDestroyedByTypeStats(stats?: Partial<DestroyedByTypeStats>): DestroyedByTypeStats {
+  return {
+    ...createEmptyDestroyedByTypeStats(),
+    ...(stats ?? {}),
+  };
+}
+
+export function createEmptyGameStats(): GameStats {
+  return {
+    missileKills: 0,
+    droneKills: 0,
+    shotsFired: 0,
+    destroyedByType: createEmptyDestroyedByTypeStats(),
+    multiShots: 0,
+    maxCombo: 1,
+  };
+}
+
+export function normalizeGameStats(stats: Partial<GameStats>): GameStats {
+  return {
+    missileKills: stats.missileKills ?? 0,
+    droneKills: stats.droneKills ?? 0,
+    shotsFired: stats.shotsFired ?? 0,
+    destroyedByType: cloneDestroyedByTypeStats(stats.destroyedByType),
+    multiShots: stats.multiShots ?? 0,
+    maxCombo: stats.maxCombo ?? 1,
+  };
+}
+
+export function getDestroyedTypeKey(target: Threat): DestroyedTypeKey {
+  if (target.type === "drone") {
+    return target.subtype === "shahed238" ? "shahed238" : "shahed136";
+  }
+  if (target.type === "mirv") return "mirv";
+  if (target.type === "mirv_warhead") return "mirvWarhead";
+  if (target.type === "stack2" || target.type === "stack3" || target.type === "stack_child") return "stackedMissile";
+  if (target.type === "bomb") return "bomb";
+  if (target.type === "missile") return "ballisticMissile";
+  return "other";
+}
+
+export function getDestroyedByTypeDelta(
+  current: Partial<DestroyedByTypeStats> | undefined,
+  baseline: Partial<DestroyedByTypeStats> | undefined,
+): DestroyedByTypeStats {
+  const currentStats = cloneDestroyedByTypeStats(current);
+  const baselineStats = cloneDestroyedByTypeStats(baseline);
+  return Object.fromEntries(
+    DESTROYED_TYPE_KEYS.map((key) => [key, Math.max(0, currentStats[key] - baselineStats[key])]),
+  ) as DestroyedByTypeStats;
+}
+
+export function recordThreatDestroyed(g: GameState, target: Threat): void {
+  g.stats = normalizeGameStats(g.stats);
+  const typeKey = getDestroyedTypeKey(target);
+  if (target.type === "drone") {
+    g.stats.droneKills++;
+  } else {
+    g.stats.missileKills++;
+  }
+  g.stats.destroyedByType[typeKey]++;
+}
 
 export const SCENIC_BUILDING_LAYOUT = [
   { x: 92, w: 34, h: 198, windows: 2, roof: "roundedCrownL", glow: 0.12, profile: "leftLandmark" },
@@ -219,6 +298,7 @@ export function fireInterceptor(
   const dy = targetY - l.y;
   const len = Math.sqrt(dx * dx + dy * dy);
   if (len < 1) return false;
+  g.stats = normalizeGameStats(g.stats);
   g.stats.shotsFired++;
   g.launcherFireTick[bestIdx] = tick;
   g.launcherReloadUntilTick[bestIdx] = tick + getLauncherReloadTicks(g);
@@ -612,7 +692,7 @@ export function damageTarget(
     if (target.health <= 0) {
       target.alive = false;
       g.score += getKillReward(target);
-      g.stats.droneKills++;
+      recordThreatDestroyed(g, target);
       if (!noExplosion) createExplosion(g, target.x, target.y, radius, color, false, 0, { visualType: "drone" });
     }
   } else if (target.type === "mirv") {
@@ -620,13 +700,13 @@ export function damageTarget(
     if ((target as { health: number }).health <= 0) {
       target.alive = false;
       g.score += getKillReward(target);
-      g.stats.missileKills++;
+      recordThreatDestroyed(g, target);
       if (!noExplosion) createExplosion(g, target.x, target.y, 60, color, false, 0, { visualType: "missile" });
     }
   } else {
     target.alive = false;
     g.score += getKillReward(target);
-    g.stats.missileKills++;
+    recordThreatDestroyed(g, target);
     if (!noExplosion) createExplosion(g, target.x, target.y, radius, color, false, 0, { visualType: "missile" });
   }
 }

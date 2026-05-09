@@ -1,7 +1,7 @@
 // Vanilla DOM UI — shop modal, bonus screen, HUD updates
 // Replaces ShopUI.tsx and BonusScreen.tsx
 
-import { CANVAS_H, CANVAS_W, COL } from "./game-logic";
+import { CANVAS_H, CANVAS_W, COL, cloneDestroyedByTypeStats, normalizeGameStats } from "./game-logic";
 import {
   buildUpgradeGraphViewModel,
   clampUpgradeGraphViewport,
@@ -13,7 +13,7 @@ import {
   zoomUpgradeGraphViewportAtPoint,
 } from "./upgrade-graph";
 import { getUpgradeObjectiveLabel } from "./game-sim-upgrades";
-import type { ShopEntry } from "./types";
+import { DESTROYED_TYPE_KEYS, type DestroyedByTypeStats, type GameStats, type ShopEntry } from "./types";
 import type { UpgradeNodeId, UpgradeProgressionState } from "./types";
 import SFX from "./sound";
 
@@ -233,14 +233,48 @@ export function hideShop(): void {
 // ─── Bonus Screen ───────────────────────────────────────────────────
 
 const BUILDING_PTS_EACH = 100;
-const AMMO_PTS_EACH = 50;
 const TICK_MS_BUILDING = 80;
-const TICK_MS_AMMO = 55;
 
 let bonusCleanup: (() => void) | null = null;
 
+const DESTROYED_TYPE_LABELS: Record<keyof DestroyedByTypeStats, string> = {
+  ballisticMissile: "Missiles",
+  mirv: "MIRVs",
+  mirvWarhead: "MIRV warheads",
+  stackedMissile: "Stacked missiles",
+  bomb: "Bombs",
+  shahed136: "Shahed-136",
+  shahed238: "Shahed-238",
+  other: "Other",
+};
+
+interface WaveSummaryData {
+  wave: number;
+  buildings: number;
+  missileKills: number;
+  droneKills: number;
+  destroyedByType: DestroyedByTypeStats;
+  multiShots: number;
+  maxCombo: number;
+}
+
+function renderDestroyedTypeRows(destroyedByType: Partial<DestroyedByTypeStats>): string {
+  const counts = cloneDestroyedByTypeStats(destroyedByType);
+  const rows = DESTROYED_TYPE_KEYS.filter((key) => counts[key] > 0);
+  const visibleRows = rows.length > 0 ? rows : DESTROYED_TYPE_KEYS.slice(0, 1);
+  return visibleRows
+    .map(
+      (key) => `
+              <div class="bonus-screen__kill-row">
+                <span class="bonus-screen__kill-type">${DESTROYED_TYPE_LABELS[key]}</span>
+                <span class="bonus-screen__kill-count">${counts[key]}</span>
+              </div>`,
+    )
+    .join("");
+}
+
 export function showBonusScreen(
-  data: { wave: number; buildings: number; savedAmmo: number; missileKills: number; droneKills: number },
+  data: WaveSummaryData,
   onScoreAdd: (pts: number) => void,
   onComplete: () => void,
 ): void {
@@ -249,15 +283,14 @@ export function showBonusScreen(
 
   let phase = 0;
   let buildingCount = 0;
-  let ammoCount = 0;
   let totalVisible = false;
   let flashOn = true;
   let done = false;
   const timers: number[] = [];
 
   const buildingBonus = data.buildings * BUILDING_PTS_EACH * data.wave;
-  const ammoBonus = data.savedAmmo * AMMO_PTS_EACH;
-  const totalBonus = buildingBonus + ammoBonus;
+  const totalBonus = buildingBonus;
+  const totalKills = data.missileKills + data.droneKills;
 
   container.innerHTML = `
     <div class="bonus-screen" aria-live="polite">
@@ -271,13 +304,20 @@ export function showBonusScreen(
           <div class="bonus-screen__section bonus-screen__section--kills" hidden>
             <div class="bonus-screen__label">Destroyed this wave</div>
             <div class="bonus-screen__kills">
-              <div class="bonus-screen__kill-row">
-                <span class="bonus-screen__kill-type">Missiles</span>
-                <span class="bonus-screen__kill-count">${data.missileKills}</span>
+              ${renderDestroyedTypeRows(data.destroyedByType)}
+            </div>
+            <div class="bonus-screen__stat-grid">
+              <div class="bonus-screen__stat">
+                <span class="bonus-screen__stat-label">Total kills</span>
+                <strong class="bonus-screen__stat-value">${totalKills}</strong>
               </div>
-              <div class="bonus-screen__kill-row">
-                <span class="bonus-screen__kill-type">Drones</span>
-                <span class="bonus-screen__kill-count">${data.droneKills}</span>
+              <div class="bonus-screen__stat">
+                <span class="bonus-screen__stat-label">Multi shots</span>
+                <strong class="bonus-screen__stat-value">${data.multiShots}</strong>
+              </div>
+              <div class="bonus-screen__stat">
+                <span class="bonus-screen__stat-label">Max combo</span>
+                <strong class="bonus-screen__stat-value">${data.maxCombo}x</strong>
               </div>
             </div>
           </div>
@@ -287,14 +327,6 @@ export function showBonusScreen(
             <div class="bonus-screen__row">
               <span class="bonus-screen__count bonus-screen__count--buildings">0</span>
               <span class="bonus-screen__pts bonus-screen__pts--buildings"></span>
-            </div>
-          </div>
-          <div class="bonus-screen__divider bonus-screen__divider--totals" hidden></div>
-          <div class="bonus-screen__section bonus-screen__section--ammo" hidden>
-            <div class="bonus-screen__label">Missiles saved</div>
-            <div class="bonus-screen__row">
-              <span class="bonus-screen__count bonus-screen__count--ammo">0</span>
-              <span class="bonus-screen__pts bonus-screen__pts--ammo"></span>
             </div>
           </div>
           <div class="bonus-screen__total bonus-screen__total--hidden">
@@ -314,10 +346,6 @@ export function showBonusScreen(
   const buildingsSectionEl = container.querySelector(".bonus-screen__section--buildings") as HTMLDivElement;
   const buildingsCountEl = container.querySelector(".bonus-screen__count--buildings") as HTMLSpanElement;
   const buildingsPtsEl = container.querySelector(".bonus-screen__pts--buildings") as HTMLSpanElement;
-  const totalsDividerEl = container.querySelector(".bonus-screen__divider--totals") as HTMLDivElement;
-  const ammoSectionEl = container.querySelector(".bonus-screen__section--ammo") as HTMLDivElement;
-  const ammoCountEl = container.querySelector(".bonus-screen__count--ammo") as HTMLSpanElement;
-  const ammoPtsEl = container.querySelector(".bonus-screen__pts--ammo") as HTMLSpanElement;
   const totalEl = container.querySelector(".bonus-screen__total") as HTMLDivElement;
 
   function clearTimers() {
@@ -334,14 +362,12 @@ export function showBonusScreen(
 
   function handleTap() {
     if (phase < 2) return;
-    if (phase < 7) {
+    if (phase < 5) {
       const remainingBuilding = (data.buildings - buildingCount) * BUILDING_PTS_EACH * data.wave;
-      const remainingAmmo = (data.savedAmmo - ammoCount) * AMMO_PTS_EACH;
       if (remainingBuilding > 0) onScoreAdd(remainingBuilding);
-      if (remainingAmmo > 0) onScoreAdd(remainingAmmo);
-      phase = 8;
+      phase = 6;
       finish();
-    } else if (phase >= 7) {
+    } else if (phase >= 5) {
       finish();
     }
   }
@@ -358,12 +384,6 @@ export function showBonusScreen(
     buildingsCountEl.textContent = String(phase >= 4 ? buildingCount : 0);
     buildingsPtsEl.textContent =
       phase >= 4 && buildingCount > 0 ? `+ ${(buildingCount * BUILDING_PTS_EACH * data.wave).toLocaleString()}` : "";
-
-    totalsDividerEl.hidden = phase < 3;
-
-    ammoSectionEl.hidden = phase < 5;
-    ammoCountEl.textContent = String(phase >= 6 ? ammoCount : 0);
-    ammoPtsEl.textContent = phase >= 6 && ammoCount > 0 ? `+ ${(ammoCount * AMMO_PTS_EACH).toLocaleString()}` : "";
 
     totalEl.className = `bonus-screen__total ${
       totalVisible ? (flashOn ? "bonus-screen__total--on" : "bonus-screen__total--off") : "bonus-screen__total--hidden"
@@ -394,7 +414,7 @@ export function showBonusScreen(
                     advancePhase(4);
                     // Count buildings
                     if (data.buildings === 0) {
-                      timers.push(window.setTimeout(() => startAmmoPhase(), 300));
+                      timers.push(window.setTimeout(() => showTotal(), 300));
                     } else {
                       let count = 0;
                       const iv = window.setInterval(() => {
@@ -405,7 +425,7 @@ export function showBonusScreen(
                         render();
                         if (count >= data.buildings) {
                           clearInterval(iv);
-                          timers.push(window.setTimeout(() => startAmmoPhase(), 500));
+                          timers.push(window.setTimeout(() => showTotal(), 500));
                         }
                       }, TICK_MS_BUILDING);
                       timers.push(iv as unknown as number);
@@ -420,34 +440,8 @@ export function showBonusScreen(
     );
   }
 
-  function startAmmoPhase() {
-    advancePhase(5);
-    timers.push(
-      window.setTimeout(() => {
-        advancePhase(6);
-        if (data.savedAmmo === 0) {
-          timers.push(window.setTimeout(() => showTotal(), 300));
-        } else {
-          let count = 0;
-          const iv = window.setInterval(() => {
-            count++;
-            ammoCount = count;
-            SFX.bonusTick();
-            onScoreAdd(AMMO_PTS_EACH);
-            render();
-            if (count >= data.savedAmmo) {
-              clearInterval(iv);
-              timers.push(window.setTimeout(() => showTotal(), 500));
-            }
-          }, TICK_MS_AMMO);
-          timers.push(iv as unknown as number);
-        }
-      }, 150),
-    );
-  }
-
   function showTotal() {
-    phase = 7;
+    phase = 5;
     totalVisible = true;
     SFX.bonusTotal();
     render();
@@ -651,18 +645,21 @@ export function updateTransientOverlays(snapshot: TransientOverlaySnapshot): voi
 
 // ─── Game Over ──────────────────────────────────────────────────────
 
-export function showGameOver(
-  score: number,
-  wave: number,
-  stats: { missileKills: number; droneKills: number; shotsFired: number },
-): void {
-  const totalKills = stats.missileKills + stats.droneKills;
-  const hitRatio = stats.shotsFired > 0 ? Math.round((totalKills / stats.shotsFired) * 100) : 0;
+export function showGameOver(score: number, wave: number, stats: GameStats): void {
+  const normalizedStats = normalizeGameStats(stats);
+  const totalKills = normalizedStats.missileKills + normalizedStats.droneKills;
+  const hitRatio = normalizedStats.shotsFired > 0 ? Math.round((totalKills / normalizedStats.shotsFired) * 100) : 0;
   const el = (id: string) => document.getElementById(id);
-  el("go-score")!.textContent = String(score);
+  el("go-score")!.textContent = score.toLocaleString();
   el("go-wave")!.textContent = String(wave);
+  el("go-kills")!.textContent = String(totalKills);
+  el("go-shots")!.textContent = String(normalizedStats.shotsFired);
   el("go-ratio")!.textContent = `${hitRatio}%`;
-  el("go-missiles")!.textContent = String(stats.missileKills);
+  el("go-multi-shots")!.textContent = String(normalizedStats.multiShots);
+  const destroyedTypes = el("go-destroyed-types");
+  if (destroyedTypes) {
+    destroyedTypes.innerHTML = renderDestroyedTypeRows(normalizedStats.destroyedByType);
+  }
 }
 
 // ─── Upgrade Progression ───────────────────────────────────────────

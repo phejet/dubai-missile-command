@@ -124,6 +124,9 @@ These timers belong to sim, but the HUD and bot logic read some of them.
 - `_bonusScreenDone`
 - `_waveStartMissileKills`
 - `_waveStartDroneKills`
+- `_waveStartDestroyedByType`
+- `_waveStartMultiShots`
+- `_waveMaxCombo`
 
 These are runtime helpers, not durable save data.
 

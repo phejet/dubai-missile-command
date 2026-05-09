@@ -49,12 +49,18 @@ The shop UI does not buy anything directly. It only reports selections back to `
 `showBonusScreen(...)`:
 
 - renders the between-wave tally screen
-- animates building and ammo bonus ticks
+- shows destroyed counts by threat type, multi-shot count, and max combo for the wave
+- omits saved-ammo reporting
+- animates building survival bonus ticks
 - plays bonus sounds
 - calls back into the controller to add score
 - calls `onComplete()` when the sequence ends
 
 This is why the controller temporarily disables canvas pointer events during the bonus sequence.
+
+## Game Over
+
+`showGameOver(score, wave, stats)` fills the final run report with score, wave, total kills, shots, hit ratio, multi-shot count, and destroyed-by-type totals.
 
 ## HUD
 

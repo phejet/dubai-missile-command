@@ -706,8 +706,7 @@ function buildCellOverrides(
     if (supportsSideOverride(entry.type)) overrides.side = entryIndex % 2 === 0 ? primarySide : oppositeSide;
   } else if (tactics.includes("TOP_BARRAGE")) {
     if (entry.type === "missile" || entry.type === "stack2" || entry.type === "stack3") overrides.side = "top";
-    else if (supportsSideOverride(entry.type))
-      overrides.side = entryIndex % 2 === 0 ? oppositeSide : primarySide;
+    else if (supportsSideOverride(entry.type)) overrides.side = entryIndex % 2 === 0 ? oppositeSide : primarySide;
   } else if (tactics.includes("LEFT_FLANK") || tactics.includes("RIGHT_FLANK")) {
     if (supportsSideOverride(entry.type)) {
       const useOppositeDisruptor = entry.role === "disruptor" && cellIndex % 3 === 2;

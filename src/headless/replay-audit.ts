@@ -61,12 +61,13 @@ function audit(replay: ReplayData) {
   // Group fires by wave (using wave_plan markers in the action log)
   const reReplay = rerun.actions ?? [];
   let curWave = 1;
-  const fireByWave: Record<number, number> = {};
+  const fireByWave: Record<string, number> = {};
   for (const a of reReplay) {
     if (a.type === "wave_plan" && typeof (a as ReplayAction & { wave?: number }).wave === "number") {
       curWave = (a as ReplayAction & { wave: number }).wave;
     } else if (a.type === "fire") {
-      fireByWave[curWave] = (fireByWave[curWave] || 0) + 1;
+      const waveKey = String(curWave);
+      fireByWave[waveKey] = (fireByWave[waveKey] || 0) + 1;
     }
   }
   console.log(`\nFires per wave:`);

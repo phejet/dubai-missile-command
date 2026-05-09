@@ -1,11 +1,11 @@
-import type { GameState } from "./types";
+import type { GameState, GameStats } from "./types";
 
 export type GameScreen = "title" | "playing" | "gameover";
 
 export interface GameOverSnapshot {
   score: number;
   wave: number;
-  stats: { missileKills: number; droneKills: number; shotsFired: number };
+  stats: GameStats;
 }
 
 export interface GameplayRenderRequest {

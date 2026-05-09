@@ -1,4 +1,61 @@
 import { expect, test } from "@playwright/test";
+import { inflateSync } from "node:zlib";
+
+function hasVisiblePngPixel(png: Buffer): boolean {
+  const signatureBytes = 8;
+  let offset = signatureBytes;
+  let width = 0;
+  let height = 0;
+  let colorType = 0;
+  const idatChunks: Buffer[] = [];
+
+  while (offset < png.length) {
+    const length = png.readUInt32BE(offset);
+    const type = png.toString("ascii", offset + 4, offset + 8);
+    const data = png.subarray(offset + 8, offset + 8 + length);
+    if (type === "IHDR") {
+      width = data.readUInt32BE(0);
+      height = data.readUInt32BE(4);
+      colorType = data[9];
+    } else if (type === "IDAT") {
+      idatChunks.push(data);
+    }
+    offset += length + 12;
+  }
+
+  const bytesPerPixel = colorType === 6 ? 4 : 3;
+  const stride = width * bytesPerPixel;
+  const inflated = inflateSync(Buffer.concat(idatChunks));
+  const pixels = Buffer.alloc(height * stride);
+  let input = 0;
+
+  for (let y = 0; y < height; y++) {
+    const filter = inflated[input++];
+    for (let x = 0; x < stride; x++) {
+      const raw = inflated[input++];
+      const left = x >= bytesPerPixel ? pixels[y * stride + x - bytesPerPixel] : 0;
+      const up = y > 0 ? pixels[(y - 1) * stride + x] : 0;
+      const upperLeft = y > 0 && x >= bytesPerPixel ? pixels[(y - 1) * stride + x - bytesPerPixel] : 0;
+      let predictor = 0;
+      if (filter === 1) predictor = left;
+      else if (filter === 2) predictor = up;
+      else if (filter === 3) predictor = Math.floor((left + up) / 2);
+      else if (filter === 4) {
+        const pa = Math.abs(up - upperLeft);
+        const pb = Math.abs(left - upperLeft);
+        const pc = Math.abs(left + up - 2 * upperLeft);
+        predictor = pa <= pb && pa <= pc ? left : pb <= pc ? up : upperLeft;
+      }
+      pixels[y * stride + x] = (raw + predictor) & 255;
+    }
+  }
+
+  for (let i = 0; i < pixels.length; i += bytesPerPixel) {
+    const alpha = colorType === 6 ? pixels[i + 3] : 255;
+    if (alpha > 0 && pixels[i] + pixels[i + 1] + pixels[i + 2] > 80) return true;
+  }
+  return false;
+}
 
 test.describe("Graphics editor", () => {
   test("boots the effects preview with a visible game renderer", async ({ page }) => {
@@ -13,6 +70,7 @@ test.describe("Graphics editor", () => {
         source?.dataset.editorPreview === "ready" || (source?.dataset.editorPreview === "fallback" && fallbackVisible)
       );
     });
+    await page.waitForTimeout(250);
 
     const previewState = await page.evaluate(() => {
       const source = document.querySelector<HTMLCanvasElement>("canvas.editor-canvas:not(.editor-canvas-fallback)");
@@ -40,24 +98,10 @@ test.describe("Graphics editor", () => {
       expect(previewState.visibleRenderer).toBe("editor-fallback");
     }
 
-    const sampledPixels = await page.evaluate(() => {
-      const fallback = document.querySelector<HTMLCanvasElement>("canvas.editor-canvas-fallback");
-      const source = document.querySelector<HTMLCanvasElement>("canvas.editor-canvas:not(.editor-canvas-fallback)");
-      const sourceCanvas = fallback && getComputedStyle(fallback).display !== "none" ? fallback : source;
-      if (!sourceCanvas) return [];
-      const copy = document.createElement("canvas");
-      copy.width = sourceCanvas.width;
-      copy.height = sourceCanvas.height;
-      const context = copy.getContext("2d");
-      if (!context) return [];
-      context.drawImage(sourceCanvas, 0, 0);
-      return [
-        [350, 350],
-        [700, 550],
-        [460, 1530],
-      ].map(([x, y]) => Array.from(context.getImageData(x, y, 1, 1).data));
-    });
-
-    expect(sampledPixels.some(([r, g, b, a]) => a > 0 && r + g + b > 80)).toBe(true);
+    const previewCanvas =
+      previewState.editorPreview === "fallback"
+        ? page.locator("canvas.editor-canvas-fallback")
+        : page.locator("canvas.editor-canvas:not(.editor-canvas-fallback)");
+    expect(hasVisiblePngPixel(await previewCanvas.screenshot())).toBe(true);
   });
 });
