@@ -7,7 +7,14 @@ import tsparser from "@typescript-eslint/parser";
 import { defineConfig, globalIgnores } from "eslint/config";
 
 export default defineConfig([
-  globalIgnores(["dist", "coverage", "test-results", "playwright-report", "ios/App/App/public"]),
+  globalIgnores([
+    "dist/**",
+    "coverage/**",
+    "test-results/**",
+    "playwright-report/**",
+    "ios/App/App/public/**",
+    "ios/App/build/**",
+  ]),
   {
     files: ["**/*.{ts,tsx}"],
     plugins: { "@typescript-eslint": tseslint },
@@ -42,7 +49,8 @@ export default defineConfig([
     files: ["**/*.{js,jsx,mjs}"],
     extends: [js.configs.recommended],
     languageOptions: {
-      ecmaVersion: 2020,
+      ecmaVersion: "latest",
+      sourceType: "module",
       globals: { ...globals.browser, ...globals.node },
     },
     rules: {

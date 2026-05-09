@@ -62,6 +62,7 @@ type TitleThreatKind = "shahed" | "missile";
 
 interface PixiRendererOptions {
   textures?: PixiTextureResources;
+  preserveDrawingBuffer?: boolean;
 }
 
 interface BlendSprites {
@@ -960,6 +961,7 @@ function getRenderBulletEndpoint(bullet: InterpolatedBullet, alpha: number): { x
 
 export class PixiRenderer implements GameRenderer {
   private readonly app = new Application();
+  private readonly preserveDrawingBuffer: boolean;
   private readonly root = new Container();
   private readonly titleScene = new Container();
   private readonly titleSkyLayer = new Container();
@@ -1024,9 +1026,10 @@ export class PixiRenderer implements GameRenderer {
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
-    { textures = createPixiTextureResources() }: PixiRendererOptions = {},
+    { textures = createPixiTextureResources(), preserveDrawingBuffer = false }: PixiRendererOptions = {},
   ) {
     this.textures = textures;
+    this.preserveDrawingBuffer = preserveDrawingBuffer;
     this.root.label = "pixi-root";
     this.titleScene.label = "title-scene";
     this.titleSkyLayer.label = "title-sky-layer";
@@ -1186,6 +1189,7 @@ export class PixiRenderer implements GameRenderer {
           backgroundAlpha: 0,
           antialias: false,
           autoStart: false,
+          preserveDrawingBuffer: this.preserveDrawingBuffer,
           preference: "webgl",
         }),
       ]);

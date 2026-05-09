@@ -87,7 +87,9 @@ async function runPair(first: string, second: string): Promise<ResultRow> {
 
 async function main() {
   console.log(`\n=== Upgrade pair sweep ===`);
-  console.log(`Preset: ${PRESET}, games per pair: ${NUM_GAMES}, total pairs: ${FAMILIES.length * (FAMILIES.length - 1)}`);
+  console.log(
+    `Preset: ${PRESET}, games per pair: ${NUM_GAMES}, total pairs: ${FAMILIES.length * (FAMILIES.length - 1)}`,
+  );
   console.log(`Seed range: ${SEED_BASE}..${SEED_BASE + NUM_GAMES - 1}\n`);
 
   const results: ResultRow[] = [];
