@@ -181,8 +181,32 @@ describe("summarizePixiDynamicEntities", () => {
       life: 10,
     });
     game.planes.push(
-      { x: 340, y: 360, vx: 1, vy: 0, blinkTimer: 0, alive: true, fireTimer: 0, fireInterval: 30, evadeTimer: 0 },
-      { x: 1, y: 1, vx: 1, vy: 0, blinkTimer: 0, alive: false, fireTimer: 0, fireInterval: 30, evadeTimer: 0 },
+      {
+        x: 340,
+        y: 360,
+        vx: 1,
+        vy: 0,
+        blinkTimer: 0,
+        alive: true,
+        fireTimer: 0,
+        fireInterval: 30,
+        fireRange: 350,
+        interceptorSpeed: 44,
+        evadeTimer: 0,
+      },
+      {
+        x: 1,
+        y: 1,
+        vx: 1,
+        vy: 0,
+        blinkTimer: 0,
+        alive: false,
+        fireTimer: 0,
+        fireInterval: 30,
+        fireRange: 350,
+        interceptorSpeed: 44,
+        evadeTimer: 0,
+      },
     );
     game.flares.push(
       {
@@ -414,6 +438,8 @@ describe("PixiRenderer dynamic entity updates", () => {
       alive: true,
       fireTimer: 0,
       fireInterval: 30,
+      fireRange: 350,
+      interceptorSpeed: 44,
       evadeTimer: 0,
     };
     const flare = {

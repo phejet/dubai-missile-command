@@ -976,17 +976,47 @@ describe("F-15 active upgrade", () => {
     expect(g.f15Ready).toBe(true);
   });
 
-  it("fireF15Pair spawns two planes and consumes the charge", () => {
+  it("fireF15Pair spawns a formation and consumes the charge", () => {
     const { g } = makeCleanGame(5);
     g.metaProgression.completedObjectives.push("reach_wave_3");
     g.score = 5000;
     buyUpgrade(g, "f15");
     expect(fireF15Pair(g, null)).toBe(true);
     expect(g.planes.length).toBe(2);
-    expect(g.planes[0].vx).toBeGreaterThan(0);
-    expect(g.planes[1].vx).toBeLessThan(0);
+    expect(Math.sign(g.planes[0].vx)).toBe(Math.sign(g.planes[1].vx));
+    expect(g.planes[0].x).not.toBe(g.planes[1].x);
+    expect(g.planes[0].y).not.toBe(g.planes[1].y);
     expect(g.f15Ready).toBe(false);
     expect(g.f15Charge).toBe(0);
+  });
+
+  it("rank 2 schedules a return pass from the opposite side", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.metaProgression.completedObjectives.push("reach_wave_3");
+    g.metaProgression.completedObjectives.push("reach_wave_4");
+    g.score = 20000;
+    buyUpgrade(g, "f15");
+    buyUpgrade(g, "f15TopGun");
+    g.state = "playing";
+    g.schedule = [];
+    g.scheduleIdx = 0;
+    fireF15Pair(g, null);
+    expect(g.planes.length).toBe(2);
+    const firstDir = Math.sign(g.planes[0].vx);
+    expect(g.f15ReturnTimer).toBeGreaterThan(0);
+    for (let i = 0; i < 200; i++) sim.update(g, 1);
+    const newPlanes = g.planes.filter((p) => Math.sign(p.vx) === -firstDir);
+    expect(newPlanes.length).toBe(2);
+    expect(g.f15ReturnTimer).toBe(0);
+  });
+
+  it("rank 1 does not schedule a return pass", () => {
+    const { g } = makeCleanGame(5);
+    g.metaProgression.completedObjectives.push("reach_wave_3");
+    g.score = 5000;
+    buyUpgrade(g, "f15");
+    fireF15Pair(g, null);
+    expect(g.f15ReturnTimer).toBe(0);
   });
 
   it("fireF15Pair fails when not ready or not owned", () => {
@@ -1020,6 +1050,8 @@ describe("F-15 active upgrade", () => {
     g.score = 5000;
     buyUpgrade(g, "f15");
     g.state = "playing";
+    g.schedule = [];
+    g.scheduleIdx = 0;
     fireF15Pair(g, null);
     expect(g.f15Ready).toBe(false);
     for (let i = 0; i < g.f15ChargeMax + 5; i++) sim.update(g, 1);

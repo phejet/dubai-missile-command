@@ -237,6 +237,8 @@ export function initGame(): GameState {
     f15Charge: 0,
     f15ChargeMax: 0,
     f15Ready: false,
+    f15ReturnTimer: 0,
+    f15ReturnGoRight: false,
     multiKillToast: null,
     combo: 1,
     _waveMaxCombo: 1,
@@ -358,6 +360,9 @@ export interface SpawnPlaneOptions {
   fireIntervalMul?: number;
   speedMul?: number;
   yOverride?: number;
+  xOffset?: number;
+  fireRangeMul?: number;
+  interceptorSpeedMul?: number;
   silent?: boolean;
 }
 
@@ -370,16 +375,21 @@ export function spawnPlane(
   const goRight = opts.goRight ?? _rng() > 0.5;
   const speedMul = opts.speedMul ?? 1;
   const fireIntervalMul = opts.fireIntervalMul ?? 1;
+  const fireRangeMul = opts.fireRangeMul ?? 1;
+  const interceptorSpeedMul = opts.interceptorSpeedMul ?? 1;
+  const xOffset = opts.xOffset ?? 0;
   const baseSpeed = goRight ? rand(5.6, 8.0) : rand(-8.0, -5.6);
   g.planes.push({
-    x: goRight ? -60 : CANVAS_W + 60,
+    x: (goRight ? -60 : CANVAS_W + 60) + xOffset,
     y: opts.yOverride ?? rand(80, 200),
     vx: baseSpeed * speedMul,
     vy: 0,
     blinkTimer: 0,
     alive: true,
     fireTimer: 20,
-    fireInterval: Math.max(8, Math.round(25 * fireIntervalMul)),
+    fireInterval: Math.max(6, Math.round(25 * fireIntervalMul)),
+    fireRange: 350 * fireRangeMul,
+    interceptorSpeed: 44 * interceptorSpeedMul,
     evadeTimer: 0,
   });
   if (!opts.silent && onEvent) onEvent("sfx", { name: "planePass" });
@@ -2129,7 +2139,7 @@ function updatePlanes(
     p.fireTimer += dt;
     if (p.fireTimer >= p.fireInterval) {
       let closest: Threat | null = null,
-        closestD = 350;
+        closestD = p.fireRange;
       allThreats.forEach((t) => {
         const d2 = dist(p.x, p.y, t.x, t.y);
         if (d2 < closestD) {
@@ -2140,7 +2150,7 @@ function updatePlanes(
       if (closest) {
         const closestT = closest as Threat;
         p.fireTimer = 0;
-        const spd = 44;
+        const spd = p.interceptorSpeed;
         let aimX = closestT.x,
           aimY = closestT.y;
         const accelFactor = (closestT as Missile).accel ? (closestT as Missile).accel ** 8 : 1;
@@ -2235,6 +2245,15 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
   if (g.upgrades.f15 > 0 && !g.f15Ready) {
     g.f15Charge = Math.min(g.f15Charge + dt, g.f15ChargeMax);
     if (g.f15Charge >= g.f15ChargeMax) g.f15Ready = true;
+  }
+
+  // F-15 rank-2 return pass
+  if (g.f15ReturnTimer > 0) {
+    g.f15ReturnTimer -= dt;
+    if (g.f15ReturnTimer <= 0) {
+      g.f15ReturnTimer = 0;
+      spawnF15Formation(g, g.f15ReturnGoRight, g.upgrades.f15, onEvent);
+    }
   }
 
   if (g.waveComplete) {
@@ -2373,15 +2392,50 @@ export function fireEmp(g: GameState, onEvent?: ((type: string, data?: unknown) 
   return true;
 }
 
+function spawnF15Formation(
+  g: GameState,
+  goRight: boolean,
+  lvl: number,
+  onEvent: ((type: string, data?: unknown) => void) | null | undefined,
+) {
+  const fireIntervalMul = lvl >= 2 ? 0.4 : 0.55;
+  const speedMul = lvl >= 2 ? 1.15 : 1.0;
+  const fireRangeMul = 1.8;
+  const interceptorSpeedMul = 1.4;
+  const leadY = rand(95, 130);
+  const wingY = leadY + 45;
+  const leadOffset = goRight ? 100 : -100;
+  spawnPlane(g, onEvent, {
+    goRight,
+    yOverride: leadY,
+    xOffset: leadOffset,
+    fireIntervalMul,
+    speedMul,
+    fireRangeMul,
+    interceptorSpeedMul,
+  });
+  spawnPlane(g, null, {
+    goRight,
+    yOverride: wingY,
+    fireIntervalMul,
+    speedMul,
+    fireRangeMul,
+    interceptorSpeedMul,
+    silent: true,
+  });
+}
+
 export function fireF15Pair(g: GameState, onEvent?: ((type: string, data?: unknown) => void) | null) {
   if (!g.f15Ready || g.upgrades.f15 <= 0) return false;
   const lvl = g.upgrades.f15;
   g.f15Charge = 0;
   g.f15Ready = false;
-  const fireIntervalMul = lvl >= 2 ? 0.7 : 1;
-  const speedMul = lvl >= 2 ? 1.1 : 1;
-  spawnPlane(g, onEvent, { goRight: true, yOverride: rand(80, 140), fireIntervalMul, speedMul });
-  spawnPlane(g, null, { goRight: false, yOverride: rand(160, 220), fireIntervalMul, speedMul, silent: true });
+  const goRight = getRng()() > 0.5;
+  spawnF15Formation(g, goRight, lvl, onEvent);
+  if (lvl >= 2) {
+    g.f15ReturnTimer = 110;
+    g.f15ReturnGoRight = !goRight;
+  }
   if (onEvent) onEvent("sfx", { name: "planeIncoming" });
   return true;
 }

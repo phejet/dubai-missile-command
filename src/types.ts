@@ -193,6 +193,8 @@ export interface Plane {
   alive: boolean;
   fireTimer: number;
   fireInterval: number;
+  fireRange: number;
+  interceptorSpeed: number;
   evadeTimer: number;
 }
 
@@ -550,6 +552,8 @@ export interface GameState {
   f15Charge: number;
   f15ChargeMax: number;
   f15Ready: boolean;
+  f15ReturnTimer: number;
+  f15ReturnGoRight: boolean;
 
   multiKillToast: MultiKillToast | null;
   combo: number;

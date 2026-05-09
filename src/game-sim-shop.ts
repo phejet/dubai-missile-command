@@ -215,6 +215,7 @@ export function prepareWaveStart(g: GameState): void {
   g.empReady = g.upgrades.emp > 0;
   g.f15Charge = g.f15ChargeMax;
   g.f15Ready = g.upgrades.f15 > 0;
+  g.f15ReturnTimer = 0;
 
   g.scheduleIdx = 0;
   g.waveTick = 0;

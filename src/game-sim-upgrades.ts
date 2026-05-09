@@ -427,10 +427,10 @@ export const UPGRADE_NODES: UpgradeNodeDef[] = [
     rank: 1,
     name: "F-15 Eagle Patrol",
     icon: "✈️",
-    desc: "Call in a pair of F-15 Eagles on demand. Charge up, then press SPACE to send the patrol streaking across the map.",
+    desc: "Call in a pair of F-15s flying tight formation across the upper sky, sweeping the top half with high-velocity AAMs.",
     cost: 1450,
     color: COL.plane,
-    statLine: "Pair · 30s charge · auto-engages threats",
+    statLine: "Formation pass · 30s charge · sweeps top half",
     active: true,
     objectives: ["reach_wave_3"],
   },
@@ -440,10 +440,10 @@ export const UPGRADE_NODES: UpgradeNodeDef[] = [
     rank: 2,
     name: "Top Gun Squadron",
     icon: "✈️",
-    desc: "Veteran pilots and faster turnaround keep the Eagle pair on call almost twice as often, with a hotter trigger finger.",
+    desc: "Veteran pilots make a return pass after the first sweep, with faster jets and a hotter trigger finger.",
     cost: 3450,
     color: COL.plane,
-    statLine: "Pair · 20s charge · faster fire",
+    statLine: "Formation + return pass · 20s charge · faster fire",
     active: true,
     anyOf: ["f15"],
     objectives: ["reach_wave_4"],
@@ -568,10 +568,7 @@ function hasAllOwnedPrereqs(ownedNodes: Set<UpgradeNodeId>, allOf: UpgradeNodeId
   return allOf.every((nodeId) => ownedNodes.has(nodeId));
 }
 
-function findExcludedFamily(
-  family: UpgradeKey,
-  ownedNodes: Set<UpgradeNodeId>,
-): UpgradeKey | null {
+function findExcludedFamily(family: UpgradeKey, ownedNodes: Set<UpgradeNodeId>): UpgradeKey | null {
   const excludes = UPGRADE_FAMILIES[family]?.excludes;
   if (!excludes || excludes.length === 0) return null;
   for (const otherFamily of excludes) {
