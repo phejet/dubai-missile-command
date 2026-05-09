@@ -2402,8 +2402,8 @@ function spawnF15Formation(
   const speedMul = lvl >= 2 ? 1.15 : 1.0;
   const fireRangeMul = 1.8;
   const interceptorSpeedMul = 1.4;
-  const leadY = rand(80, 110);
-  const wingY = leadY + 80;
+  const leadY = rand(75, 100);
+  const wingY = leadY + 115;
   const leadOffset = goRight ? 180 : -180;
   spawnPlane(g, onEvent, {
     goRight,
@@ -2423,10 +2423,6 @@ function spawnF15Formation(
     interceptorSpeedMul,
     silent: true,
   });
-  // Lock wingman to lead's speed so the formation stays put across the pass
-  const lead = g.planes[g.planes.length - 2];
-  const wing = g.planes[g.planes.length - 1];
-  if (lead && wing) wing.vx = lead.vx;
 }
 
 export function fireF15Pair(g: GameState, onEvent?: ((type: string, data?: unknown) => void) | null) {
