@@ -2060,6 +2060,28 @@ function updateExplosions(g: GameState, dt: number, onEvent?: ((type: string, da
   });
 }
 
+function processRootExplosionCombo(g: GameState, forceFinalKills = false): void {
+  g.explosions.forEach((ex) => {
+    if (ex._comboProcessed || !ex.playerCaused || ex.rootExplosionId !== null) return;
+    const kills = ex.kills ?? 0;
+    if (forceFinalKills && kills < 1) return;
+    if (!forceFinalKills && ex.alpha > 0) return;
+    ex._comboProcessed = true;
+    if (kills >= 1) {
+      const next = Math.min(10, g.combo + 1);
+      if (next > g.combo) {
+        g.comboToast = { multiplier: next, timer: 70, x: ex.x, y: ex.y - 20, pulse: 1 };
+      }
+      g.combo = next;
+      g._waveMaxCombo = Math.max(g._waveMaxCombo ?? 1, g.combo);
+      g.stats = normalizeGameStats(g.stats);
+      g.stats.maxCombo = Math.max(g.stats.maxCombo, g.combo);
+    } else {
+      g.combo = 1;
+    }
+  });
+}
+
 function updatePlanes(
   g: GameState,
   dt: number,
@@ -2203,6 +2225,7 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
       if (!g._bonusScreenStarted) {
         g._bonusScreenStarted = true;
         if (g.burjAlive && onEvent) {
+          processRootExplosionCombo(g, true);
           g.stats = normalizeGameStats(g.stats);
           onEvent("waveBonusStart", {
             wave: g.wave,
@@ -2307,22 +2330,7 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
   });
 
   // Combo: check dying player-caused root explosions
-  g.explosions.forEach((ex) => {
-    if (ex.alpha <= 0 && ex.playerCaused && ex.rootExplosionId === null) {
-      if ((ex.kills ?? 0) >= 1) {
-        const next = Math.min(10, g.combo + 1);
-        if (next > g.combo) {
-          g.comboToast = { multiplier: next, timer: 70, x: ex.x, y: ex.y - 20, pulse: 1 };
-        }
-        g.combo = next;
-        g._waveMaxCombo = Math.max(g._waveMaxCombo ?? 1, g.combo);
-        g.stats = normalizeGameStats(g.stats);
-        g.stats.maxCombo = Math.max(g.stats.maxCombo, g.combo);
-      } else {
-        g.combo = 1;
-      }
-    }
-  });
+  processRootExplosionCombo(g);
 
   // Cleanup
   g.missiles = g.missiles.filter((m) => m.alive);

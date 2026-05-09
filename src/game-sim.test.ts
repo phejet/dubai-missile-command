@@ -223,6 +223,23 @@ describe("summary stats", () => {
     expect(summary.missileKills).toBe(2);
     expect(summary.droneKills).toBe(2);
   });
+
+  it("includes combo from the final wave-ending explosion before showing the wave summary", () => {
+    const events: Array<{ type: string; data: unknown }> = [];
+    const sim = createGameSim({ onEvent: (type, data) => events.push({ type, data }) });
+    const g = sim.initGame();
+    g.schedule = [];
+    g.scheduleIdx = 0;
+    g.missiles = [makeMissile({ x: 100, y: 100 })];
+    createExplosion(g, 100, 100, 80, "#fff", true, 80, { visualType: "missile" });
+
+    sim.update(g, 1);
+    for (let i = 0; i < 121; i++) sim.update(g, 1);
+
+    const summary = events.find((event) => event.type === "waveBonusStart")!.data as { maxCombo: number };
+    expect(summary.maxCombo).toBe(2);
+    expect(g.stats.maxCombo).toBe(2);
+  });
 });
 
 describe("terminal Burj impacts", () => {
@@ -252,7 +269,7 @@ describe("terminal Burj impacts", () => {
 
     expect(g.missiles).toHaveLength(0);
     expect(g.burjHealth).toBe(healthBefore - 1);
-    expect(g.burjDecals.at(-1)?.kind).toBe("missile");
+    expect(g.burjDecals[g.burjDecals.length - 1]?.kind).toBe("missile");
   });
 
   it("does not damage the Burj when a missile ground impact was aimed elsewhere", () => {
@@ -930,6 +947,6 @@ describe("Shahed-136 (prop) diving", () => {
 
     expect(prop.alive).toBe(false);
     expect(g.burjHealth).toBe(healthBefore - 1);
-    expect(g.burjDecals.at(-1)?.kind).toBe("drone");
+    expect(g.burjDecals[g.burjDecals.length - 1]?.kind).toBe("drone");
   });
 });

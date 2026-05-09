@@ -155,6 +155,7 @@ export interface Explosion {
   kills?: number;
   bonusAwarded?: boolean;
   _multiShotCounted?: boolean;
+  _comboProcessed?: boolean;
   chainLevel?: number;
   heroPulse?: number;
   linkFromX?: number;
