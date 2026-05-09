@@ -106,7 +106,7 @@ function run(): void {
       closeShop(g);
     }
 
-    if (g.empReady) {
+    if (g.empReadyThisWave) {
       const empCfg =
         (config as { emp?: { impactY?: number; impactRadius?: number; minImminentThreats?: number } }).emp || {};
       const impactY = empCfg.impactY || 420;
@@ -118,8 +118,9 @@ function run(): void {
       if (imminent >= minImminent) fireEmp(g, null);
     }
 
-    if (g.f15Ready) {
-      const f15Cfg = (config as { f15?: { impactY?: number; impactRadius?: number; minImminentThreats?: number } }).f15 || {};
+    if (g.f15ReadyThisWave) {
+      const f15Cfg =
+        (config as { f15?: { impactY?: number; impactRadius?: number; minImminentThreats?: number } }).f15 || {};
       const impactY = f15Cfg.impactY || 700;
       const impactRadius = f15Cfg.impactRadius || 400;
       const minImminent = f15Cfg.minImminentThreats || 3;

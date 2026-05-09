@@ -36,6 +36,8 @@ import {
   computeShahed136Path,
   computeShahed136StraightPath,
   computeShahed238Path,
+  getAmmoCapacity,
+  GAMEPLAY_SCENIC_LAUNCHER_Y,
   ov,
 } from "./game-logic.js";
 import { createCommander, generateWaveSchedule, advanceSpawnSchedule, isWaveFullySpawned } from "./wave-spawner.js";
@@ -230,13 +232,9 @@ export function initGame(): GameState {
     patriotTimer: 480,
     flareTimer: 240,
     nextFlareId: 1,
-    empCharge: 0,
-    empChargeMax: 0,
-    empReady: false,
+    empReadyThisWave: false,
     empRings: [],
-    f15Charge: 0,
-    f15ChargeMax: 0,
-    f15Ready: false,
+    f15ReadyThisWave: false,
     f15ReturnTimer: 0,
     f15ReturnGoRight: false,
     multiKillToast: null,
@@ -349,7 +347,6 @@ function spawnMirvWithOverrides(
     splitTriggered: false,
     variant: overrides?.variant ?? "normal",
     speedMul,
-    empSlowTimer: 0,
     _hitByExplosions: new Set(),
   });
   if (onEvent) onEvent("sfx", { name: "mirvIncoming" });
@@ -1451,7 +1448,7 @@ export function updateAutoSystems(
   if (g.empRings.length > 0) {
     // Update active rings
     g.empRings.forEach((ring) => {
-      ring.radius += 10 * dt;
+      ring.radius += 10 * (ring.expandRate ?? 1) * dt;
       if (ring.radius > ring.maxRadius) {
         ring.alive = false;
         return;
@@ -1481,10 +1478,6 @@ export function updateAutoSystems(
               color: _rng() > 0.4 ? "#cc44ff" : _rng() > 0.5 ? "#aa66ff" : "#ffffff",
               size: rand(1.5, 4),
             });
-          }
-          // L3 slow effect on survivors
-          if (ring.applySlow && t.alive) {
-            t.empSlowTimer = 120;
           }
         }
       });
@@ -1520,9 +1513,8 @@ function updateMissiles(g: GameState, dt: number, onEvent?: ((type: string, data
         return;
       }
     }
-    const mSlow = (m.empSlowTimer ?? 0) > 0 ? ((m.empSlowTimer = (m.empSlowTimer ?? 0) - dt), 0.4) : 1;
-    const stepX = m.vx * dt * mSlow;
-    const stepY = m.vy * dt * mSlow;
+    const stepX = m.vx * dt;
+    const stepY = m.vy * dt;
     m.x += stepX;
     m.y += stepY;
     if (m.type === "stack2" || m.type === "stack3") {
@@ -1562,7 +1554,6 @@ function updateMissiles(g: GameState, dt: number, onEvent?: ((type: string, data
           targetY: t.y,
           variant: m.variant ?? "normal",
           speedMul: childSpeedMul,
-          empSlowTimer: 0,
           _hitByExplosions: new Set(),
         });
       }
@@ -1603,7 +1594,6 @@ function updateMissiles(g: GameState, dt: number, onEvent?: ((type: string, data
           targetY: t.y,
           variant: m.variant ?? "normal",
           speedMul: m.speedMul ?? 1,
-          empSlowTimer: 0,
           _hitByExplosions: new Set(),
         });
       }
@@ -1725,8 +1715,6 @@ function updateDrones(
         }
       }
     }
-    if ((d.empSlowTimer ?? 0) > 0) d.empSlowTimer = (d.empSlowTimer ?? 0) - dt;
-    const dSlow = (d.empSlowTimer ?? 0) > 0 ? 0.4 : 1;
     d.wobble += 0.05 * dt;
     if (d.waypoints && d.waypoints.length >= 2) {
       // Follow precomputed trajectory (skip when lured by flare)
@@ -1735,8 +1723,8 @@ function updateDrones(
         return;
       }
       if (d.luredByFlare) {
-        d.x += d.vx * dt * dSlow;
-        d.y += d.vy * dt * dSlow;
+        d.x += d.vx * dt;
+        d.y += d.vy * dt;
         return;
       }
       const prevX = d.x;
@@ -1755,7 +1743,7 @@ function updateDrones(
         d.diveSpeed = Math.min(4.0, d.diveSpeed * 1.06 ** dt);
         pathSpeed = d.diveSpeed;
       }
-      d.pathIndex = Math.min((d.pathIndex ?? 0) + dt * dSlow * pathSpeed, d.waypoints.length - 1);
+      d.pathIndex = Math.min((d.pathIndex ?? 0) + dt * pathSpeed, d.waypoints.length - 1);
       const i0 = Math.floor(d.pathIndex);
       const frac = d.pathIndex - i0;
       const i1 = Math.min(i0 + 1, d.waypoints.length - 1);
@@ -1794,8 +1782,8 @@ function updateDrones(
       }
     } else {
       if (!d.diving) {
-        d.x += d.vx * dt * dSlow;
-        d.y += (d.vy + Math.sin(d.wobble) * 0.3) * dt * dSlow;
+        d.x += d.vx * dt;
+        d.y += (d.vy + Math.sin(d.wobble) * 0.3) * dt;
         const nearMid = (d.vx > 0 && d.x > CANVAS_W * 0.35) || (d.vx < 0 && d.x < CANVAS_W * 0.65);
         if (nearMid) {
           if (shahed136HasBomb(d.shahedVariant ?? "shahed-136-dive-bomber") && !d.bombDropped) {
@@ -1840,8 +1828,8 @@ function updateDrones(
           if (!d.diveSpeed) d.diveSpeed = Math.max(Math.abs(d.vx), 1.0) * 2.7;
           d.vx = (dx / len) * d.diveSpeed;
           d.vy = (dy / len) * d.diveSpeed;
-          d.x += d.vx * dt * dSlow;
-          d.y += d.vy * dt * dSlow;
+          d.x += d.vx * dt;
+          d.y += d.vy * dt;
         }
       }
     }
@@ -2235,18 +2223,6 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
     return;
   }
 
-  // EMP charges even between waves
-  if (g.upgrades.emp > 0 && !g.empReady) {
-    g.empCharge = Math.min(g.empCharge + dt, g.empChargeMax);
-    if (g.empCharge >= g.empChargeMax) g.empReady = true;
-  }
-
-  // F-15 patrol charges even between waves
-  if (g.upgrades.f15 > 0 && !g.f15Ready) {
-    g.f15Charge = Math.min(g.f15Charge + dt, g.f15ChargeMax);
-    if (g.f15Charge >= g.f15ChargeMax) g.f15Ready = true;
-  }
-
   // F-15 rank-2 return pass
   if (g.f15ReturnTimer > 0) {
     g.f15ReturnTimer -= dt;
@@ -2370,22 +2346,46 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
   g.planes = g.planes.filter((p) => p.alive);
 }
 
+const EMP_BURJ_X = 462;
+const EMP_BURJ_Y = 1047;
+const EMP_BURJ_MAX_RADIUS = [650, 1040];
+const EMP_LAUNCHER_MAX_RADIUS = 500;
+const EMP_RANK2_EXPAND_RATE = 1.5;
+
 export function fireEmp(g: GameState, onEvent?: ((type: string, data?: unknown) => void) | null) {
-  if (!g.empReady || g.upgrades.emp <= 0) return false;
+  if (!g.empReadyThisWave || g.upgrades.emp <= 0) return false;
   const lvl = g.upgrades.emp;
-  g.empCharge = 0;
-  g.empReady = false;
+  g.empReadyThisWave = false;
+  const expandRate = lvl >= 2 ? EMP_RANK2_EXPAND_RATE : 1;
   g.empRings.push({
-    x: 462,
-    y: 1047,
+    x: EMP_BURJ_X,
+    y: EMP_BURJ_Y,
     radius: 0,
-    maxRadius: [650, 1040, 1430][lvl - 1],
+    maxRadius: EMP_BURJ_MAX_RADIUS[lvl - 1],
     damage: lvl,
-    applySlow: lvl >= 3,
+    expandRate,
     hitSet: new Set(),
     alive: true,
     alpha: 1,
   });
+  if (lvl >= 2) {
+    const ammoCap = getAmmoCapacity(g.wave, g.upgrades.launcherKit);
+    for (let i = 0; i < LAUNCHERS.length; i++) {
+      if (g.launcherHP[i] <= 0) continue;
+      g.empRings.push({
+        x: LAUNCHERS[i].x,
+        y: GAMEPLAY_SCENIC_LAUNCHER_Y,
+        radius: 0,
+        maxRadius: EMP_LAUNCHER_MAX_RADIUS,
+        damage: lvl,
+        expandRate,
+        hitSet: new Set(),
+        alive: true,
+        alpha: 1,
+      });
+      g.ammo[i] = ammoCap;
+    }
+  }
   g.shakeTimer = 6;
   g.shakeIntensity = 3;
   if (onEvent) onEvent("sfx", { name: "empBlast" });
@@ -2402,9 +2402,9 @@ function spawnF15Formation(
   const speedMul = lvl >= 2 ? 1.15 : 1.0;
   const fireRangeMul = 1.8;
   const interceptorSpeedMul = 1.4;
-  const leadY = rand(95, 130);
-  const wingY = leadY + 45;
-  const leadOffset = goRight ? 100 : -100;
+  const leadY = rand(80, 110);
+  const wingY = leadY + 80;
+  const leadOffset = goRight ? 180 : -180;
   spawnPlane(g, onEvent, {
     goRight,
     yOverride: leadY,
@@ -2423,13 +2423,16 @@ function spawnF15Formation(
     interceptorSpeedMul,
     silent: true,
   });
+  // Lock wingman to lead's speed so the formation stays put across the pass
+  const lead = g.planes[g.planes.length - 2];
+  const wing = g.planes[g.planes.length - 1];
+  if (lead && wing) wing.vx = lead.vx;
 }
 
 export function fireF15Pair(g: GameState, onEvent?: ((type: string, data?: unknown) => void) | null) {
-  if (!g.f15Ready || g.upgrades.f15 <= 0) return false;
+  if (!g.f15ReadyThisWave || g.upgrades.f15 <= 0) return false;
   const lvl = g.upgrades.f15;
-  g.f15Charge = 0;
-  g.f15Ready = false;
+  g.f15ReadyThisWave = false;
   const goRight = getRng()() > 0.5;
   spawnF15Formation(g, goRight, lvl, onEvent);
   if (lvl >= 2) {

@@ -70,14 +70,10 @@ function applyNodeSideEffects(g: GameState, nodeId: UpgradeNodeId): void {
   }
   reviveOrRegisterDefenseSite(g, node.family);
   if (node.family === "emp") {
-    g.empChargeMax = [1200, 900, 720][g.upgrades.emp - 1];
-    g.empCharge = g.empChargeMax;
-    g.empReady = true;
+    g.empReadyThisWave = true;
   }
   if (node.family === "f15") {
-    g.f15ChargeMax = [1800, 1200][g.upgrades.f15 - 1];
-    g.f15Charge = g.f15ChargeMax;
-    g.f15Ready = true;
+    g.f15ReadyThisWave = true;
   }
 }
 
@@ -211,10 +207,8 @@ export function prepareWaveStart(g: GameState): void {
   g.patriotTimer = 480;
   g.flareTimer = 240;
   g.ironBeamTimer = 360;
-  g.empCharge = g.empChargeMax;
-  g.empReady = g.upgrades.emp > 0;
-  g.f15Charge = g.f15ChargeMax;
-  g.f15Ready = g.upgrades.f15 > 0;
+  g.empReadyThisWave = g.upgrades.emp > 0;
+  g.f15ReadyThisWave = g.upgrades.f15 > 0;
   g.f15ReturnTimer = 0;
 
   g.scheduleIdx = 0;

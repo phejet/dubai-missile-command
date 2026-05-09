@@ -99,7 +99,7 @@ describe("createReplayRunner lifecycle", () => {
     expect(g.upgrades.wildHornets).toBe(1);
     expect(g.upgrades.emp).toBe(1);
     expect(g.upgrades.patriot).toBe(1);
-    expect(g.empReady).toBe(true);
+    expect(g.empReadyThisWave).toBe(true);
     expect(g.scheduleIdx).toBe(0);
     expect(g.waveTick).toBe(0);
     rr.cleanup();
@@ -419,10 +419,10 @@ describe("F-15 replay action", () => {
     });
     const g = rr.init();
     expect(g.upgrades.f15).toBe(1);
-    expect(g.f15Ready).toBe(true);
+    expect(g.f15ReadyThisWave).toBe(true);
     for (let i = 0; i < 6; i++) rr.step();
     expect(g.planes.length).toBe(2);
-    expect(g.f15Ready).toBe(false);
+    expect(g.f15ReadyThisWave).toBe(false);
     rr.cleanup();
   });
 });

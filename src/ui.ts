@@ -42,8 +42,6 @@ export interface HudSnapshot {
   launcherHP: number[];
   activeFamily: "emp" | "f15" | null;
   activeLabel: string;
-  activeCharge: number;
-  activeChargeMax: number;
   activeReady: boolean;
 }
 
@@ -525,14 +523,14 @@ export function updateHud(hud: HudSnapshot): void {
   }
   // Active upgrade button (EMP or F-15)
   if (h.activeButton) {
-    if (hud.activeFamily && hud.activeChargeMax > 0) {
+    if (hud.activeFamily) {
       h.activeButton.hidden = false;
       h.activeButton.dataset.family = hud.activeFamily;
       h.activeButton.className = `battlefield-active${hud.activeReady ? " battlefield-active--ready" : ""}`;
       h.activeButton.disabled = !hud.activeReady;
       h.activeButton.setAttribute(
         "aria-label",
-        hud.activeReady ? `Fire ${hud.activeLabel}` : `${hud.activeLabel} charging`,
+        hud.activeReady ? `Fire ${hud.activeLabel}` : `${hud.activeLabel} used this wave`,
       );
     } else {
       h.activeButton.hidden = true;
@@ -542,11 +540,7 @@ export function updateHud(hud: HudSnapshot): void {
     h.activeLabel.textContent = hud.activeLabel || "EMP";
   }
   if (h.activeMeta) {
-    const pct =
-      hud.activeChargeMax > 0
-        ? Math.max(0, Math.min(100, Math.round((hud.activeCharge / hud.activeChargeMax) * 100)))
-        : 0;
-    h.activeMeta.textContent = hud.activeReady ? "READY" : `${pct}%`;
+    h.activeMeta.textContent = hud.activeReady ? "READY" : "USED";
   }
   // Perf overlay
   if (h.perfRaf) h.perfRaf.textContent = hud.rafFps ? `${hud.rafFps.toFixed(1)} fps` : "--";

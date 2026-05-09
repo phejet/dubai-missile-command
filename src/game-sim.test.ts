@@ -323,7 +323,6 @@ function makePropDrone(overrides: Partial<Drone> = {}): Drone {
     health: 2,
     collisionRadius: 30,
     _hitByExplosions: new Set(),
-    empSlowTimer: 0,
     ...overrides,
   } as Drone;
 }
@@ -345,7 +344,6 @@ function makeJetDrone(overrides: Partial<Drone> = {}): Drone {
     health: 1,
     collisionRadius: 10,
     _hitByExplosions: new Set(),
-    empSlowTimer: 0,
     waypoints: path.waypoints,
     pathIndex: 0,
     bombIndices: path.bombIndices,
@@ -965,18 +963,16 @@ describe("F-15 active upgrade", () => {
     expect(g.planes.length).toBe(0);
   });
 
-  it("buying f15 sets charge ready and exposes hud state", () => {
+  it("buying f15 marks it ready for the wave", () => {
     const { g } = makeCleanGame(5);
     g.metaProgression.completedObjectives.push("reach_wave_3");
     g.score = 5000;
     expect(buyUpgrade(g, "f15")).toBe(true);
     expect(g.upgrades.f15).toBe(1);
-    expect(g.f15ChargeMax).toBe(1800);
-    expect(g.f15Charge).toBe(g.f15ChargeMax);
-    expect(g.f15Ready).toBe(true);
+    expect(g.f15ReadyThisWave).toBe(true);
   });
 
-  it("fireF15Pair spawns a formation and consumes the charge", () => {
+  it("fireF15Pair spawns a formation and consumes the cast", () => {
     const { g } = makeCleanGame(5);
     g.metaProgression.completedObjectives.push("reach_wave_3");
     g.score = 5000;
@@ -986,8 +982,7 @@ describe("F-15 active upgrade", () => {
     expect(Math.sign(g.planes[0].vx)).toBe(Math.sign(g.planes[1].vx));
     expect(g.planes[0].x).not.toBe(g.planes[1].x);
     expect(g.planes[0].y).not.toBe(g.planes[1].y);
-    expect(g.f15Ready).toBe(false);
-    expect(g.f15Charge).toBe(0);
+    expect(g.f15ReadyThisWave).toBe(false);
   });
 
   it("rank 2 schedules a return pass from the opposite side", () => {
@@ -1019,17 +1014,17 @@ describe("F-15 active upgrade", () => {
     expect(g.f15ReturnTimer).toBe(0);
   });
 
-  it("fireF15Pair fails when not ready or not owned", () => {
+  it("fireF15Pair fails when used or not owned", () => {
     const { g } = makeCleanGame(5);
     expect(fireF15Pair(g, null)).toBe(false);
     g.metaProgression.completedObjectives.push("reach_wave_3");
     g.score = 5000;
     buyUpgrade(g, "f15");
-    g.f15Ready = false;
+    g.f15ReadyThisWave = false;
     expect(fireF15Pair(g, null)).toBe(false);
   });
 
-  it("rank 2 lowers fireInterval and shortens the charge window", () => {
+  it("rank 2 lowers plane fireInterval", () => {
     const { g } = makeCleanGame(5);
     g.metaProgression.completedObjectives.push("reach_wave_3");
     g.metaProgression.completedObjectives.push("reach_wave_4");
@@ -1037,25 +1032,19 @@ describe("F-15 active upgrade", () => {
     buyUpgrade(g, "f15");
     buyUpgrade(g, "f15TopGun");
     expect(g.upgrades.f15).toBe(2);
-    expect(g.f15ChargeMax).toBe(1200);
     fireF15Pair(g, null);
     for (const p of g.planes) {
       expect(p.fireInterval).toBeLessThan(25);
     }
   });
 
-  it("charge accrues during update() and arms when full", () => {
-    const { sim, g } = makeCleanGame(5);
+  it("a single cast cannot fire twice in the same wave", () => {
+    const { g } = makeCleanGame(5);
     g.metaProgression.completedObjectives.push("reach_wave_3");
     g.score = 5000;
     buyUpgrade(g, "f15");
-    g.state = "playing";
-    g.schedule = [];
-    g.scheduleIdx = 0;
-    fireF15Pair(g, null);
-    expect(g.f15Ready).toBe(false);
-    for (let i = 0; i < g.f15ChargeMax + 5; i++) sim.update(g, 1);
-    expect(g.f15Ready).toBe(true);
+    expect(fireF15Pair(g, null)).toBe(true);
+    expect(fireF15Pair(g, null)).toBe(false);
   });
 });
 
@@ -1134,16 +1123,98 @@ describe("EMP / F-15 mutual exclusivity", () => {
   });
 });
 
-describe("EMP charge", () => {
+describe("EMP active upgrade", () => {
   afterEach(() => setRng(Math.random));
 
-  it("does not change after F-15 is purchased (regression)", () => {
+  it("buying F-15 does not arm EMP (regression)", () => {
     const { g } = makeCleanGame(5);
     g.metaProgression.completedObjectives.push("reach_wave_3");
     g.score = 20000;
     buyUpgrade(g, "f15");
-    expect(g.empCharge).toBe(0);
-    expect(g.empReady).toBe(false);
+    expect(g.empReadyThisWave).toBe(false);
+    expect(fireEmp(g, null)).toBe(false);
+  });
+
+  it("rank 1 spawns one ring at the Burj and consumes the cast", () => {
+    const { g } = makeCleanGame(5);
+    g.score = 5000;
+    buyUpgrade(g, "emp");
+    expect(g.empReadyThisWave).toBe(true);
+    expect(fireEmp(g, null)).toBe(true);
+    expect(g.empRings.length).toBe(1);
+    expect(g.empReadyThisWave).toBe(false);
+    expect(fireEmp(g, null)).toBe(false);
+  });
+
+  it("rank 2 spawns Burj ring + one extra ring per alive launcher", () => {
+    const { g } = makeCleanGame(5);
+    g.metaProgression.completedObjectives.push("reach_wave_6");
+    g.score = 20000;
+    buyUpgrade(g, "emp");
+    buyUpgrade(g, "empCapacitors");
+    expect(g.upgrades.emp).toBe(2);
+    g.launcherHP = [1, 1, 1];
+    fireEmp(g, null);
+    expect(g.empRings.length).toBe(4);
+  });
+
+  it("rank 2 skips dead-launcher anchors", () => {
+    const { g } = makeCleanGame(5);
+    g.metaProgression.completedObjectives.push("reach_wave_6");
+    g.score = 20000;
+    buyUpgrade(g, "emp");
+    buyUpgrade(g, "empCapacitors");
+    g.launcherHP = [1, 0, 1];
+    fireEmp(g, null);
+    expect(g.empRings.length).toBe(3);
+  });
+
+  it("rank 2 launcher rings are smaller than the Burj ring", () => {
+    const { g } = makeCleanGame(5);
+    g.metaProgression.completedObjectives.push("reach_wave_6");
+    g.score = 20000;
+    buyUpgrade(g, "emp");
+    buyUpgrade(g, "empCapacitors");
+    g.launcherHP = [1, 1, 1];
+    fireEmp(g, null);
+    const burjRing = g.empRings[0];
+    const launcherRings = g.empRings.slice(1);
+    for (const ring of launcherRings) {
+      expect(ring.maxRadius).toBeLessThan(burjRing.maxRadius);
+    }
+  });
+
+  it("rank 2 refills ammo on alive launchers and skips dead ones", () => {
+    const { g } = makeCleanGame(5);
+    g.metaProgression.completedObjectives.push("reach_wave_6");
+    g.score = 20000;
+    buyUpgrade(g, "emp");
+    buyUpgrade(g, "empCapacitors");
+    g.launcherHP = [1, 0, 1];
+    g.ammo = [0, 0, 0];
+    fireEmp(g, null);
+    expect(g.ammo[0]).toBeGreaterThan(0);
+    expect(g.ammo[1]).toBe(0);
+    expect(g.ammo[2]).toBeGreaterThan(0);
+  });
+
+  it("rank 2 rings expand faster than rank 1", () => {
+    const { g } = makeCleanGame(5);
+    g.metaProgression.completedObjectives.push("reach_wave_6");
+    g.score = 20000;
+    buyUpgrade(g, "emp");
+    buyUpgrade(g, "empCapacitors");
+    fireEmp(g, null);
+    for (const ring of g.empRings) {
+      expect(ring.expandRate).toBeGreaterThan(1);
+    }
+  });
+
+  it("EMP cannot fire twice in the same wave", () => {
+    const { g } = makeCleanGame(5);
+    g.score = 5000;
+    buyUpgrade(g, "emp");
+    expect(fireEmp(g, null)).toBe(true);
     expect(fireEmp(g, null)).toBe(false);
   });
 });

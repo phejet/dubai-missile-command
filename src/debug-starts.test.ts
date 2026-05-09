@@ -6,8 +6,11 @@ import { DEBUG_START_PRESETS, applyDebugStartPreset, getDebugStartPreset } from 
 describe("debug start presets", () => {
   afterEach(() => setRng(Math.random));
 
-  it("defines the requested wave 3-7 starts", () => {
-    expect(DEBUG_START_PRESETS.map((preset) => preset.wave)).toEqual([3, 4, 5, 6, 7]);
+  it("defines the requested wave 3-7 starts (EMP and F-15 variants)", () => {
+    expect(DEBUG_START_PRESETS.map((preset) => preset.wave)).toEqual([3, 4, 5, 6, 7, 3, 4, 5, 6, 7]);
+    expect(DEBUG_START_PRESETS.filter((preset) => preset.variant === "f15").map((preset) => preset.wave)).toEqual([
+      3, 4, 5, 6, 7,
+    ]);
   });
 
   it("bootstraps each preset into a clean playing wave", () => {
@@ -47,7 +50,7 @@ describe("debug start presets", () => {
 
     expect(g.upgrades.emp).toBe(2);
     expect(g.upgrades.patriot).toBe(2);
-    expect(g.empReady).toBe(true);
+    expect(g.empReadyThisWave).toBe(true);
     expect(g.defenseSites.some((site) => site.key === "patriot" && site.alive)).toBe(true);
   });
 });

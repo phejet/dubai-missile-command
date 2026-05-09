@@ -76,7 +76,7 @@ Important effects:
 - resync `g.upgrades`
 - revive or register defense sites tied to upgrade families
 - launcher branch nodes apply independently: Rapid Reload shortens player reload, Armor raises launcher HP, High Velocity boosts player interceptors, and Double Magazine doubles burst capacity
-- if `emp` is bought or upgraded, charge values are initialized immediately
+- if `emp` or `f15` is bought or upgraded, the matching `*ReadyThisWave` flag is set so the freshly-purchased active can fire in the current wave
 
 ## Shop Entries
 
@@ -118,7 +118,7 @@ It:
 - restores destroyed launchers and sites
 - clears in-flight support entities between waves
 - resets upgrade timers
-- refills EMP
+- re-arms EMP / F-15 for the new wave (`empReadyThisWave` / `f15ReadyThisWave` set true if owned)
 - increments the wave
 - generates the next spawn schedule
 - refills legacy launcher ammo for HUD/bot compatibility

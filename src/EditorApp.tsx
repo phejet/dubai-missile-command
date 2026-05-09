@@ -442,9 +442,7 @@ export default function EditorApp() {
       ]) {
         scene.defenseSites.push({ key: "phalanx", ...pos, alive: true, hw: 10, hh: 15, savedLevel: 3 });
       }
-      scene.empChargeMax = 720;
-      scene.empCharge = 720;
-      scene.empReady = true;
+      scene.empReadyThisWave = true;
       scene.launcherHP = [2, 2, 2];
     } else {
       // Reset upgrades
@@ -460,9 +458,7 @@ export default function EditorApp() {
       ] as const;
       for (const k of keys) scene.upgrades[k] = 0;
       scene.defenseSites = [];
-      scene.empChargeMax = 0;
-      scene.empCharge = 0;
-      scene.empReady = false;
+      scene.empReadyThisWave = false;
       scene.launcherHP = [1, 1, 1];
     }
   }, [showUpgrades]);

@@ -30,7 +30,6 @@ export interface Missile {
   travelDist?: number;
   targetX?: number;
   targetY?: number;
-  empSlowTimer?: number;
   luredByFlare?: boolean;
   luredFlareId?: number | null;
   flareTargetId?: number;
@@ -63,7 +62,6 @@ export interface Drone {
   diving?: boolean;
   diveTelegraphing?: boolean;
   diveSpeed?: number;
-  empSlowTimer?: number;
   luredByFlare?: boolean;
   luredFlareId?: number | null;
   flareTargetId?: number;
@@ -377,7 +375,7 @@ export interface EmpRing {
   alpha: number;
   alive?: boolean;
   damage?: number;
-  applySlow?: boolean;
+  expandRate?: number;
   hitSet?: Set<Threat>;
 }
 
@@ -545,13 +543,9 @@ export interface GameState {
   flareTimer: number;
   nextFlareId: number;
 
-  empCharge: number;
-  empChargeMax: number;
-  empReady: boolean;
+  empReadyThisWave: boolean;
 
-  f15Charge: number;
-  f15ChargeMax: number;
-  f15Ready: boolean;
+  f15ReadyThisWave: boolean;
   f15ReturnTimer: number;
   f15ReturnGoRight: boolean;
 

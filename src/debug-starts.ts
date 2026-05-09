@@ -9,9 +9,15 @@ export interface DebugStartPreset {
   label: string;
   wave: number;
   upgrades: DebugStartUpgradeTargets;
+  variant?: "emp" | "f15";
 }
 
-const DEBUG_COMPLETED_OBJECTIVES: UpgradeObjectiveId[] = ["kill_25_drones", "reach_wave_4", "reach_wave_6"];
+const DEBUG_COMPLETED_OBJECTIVES: UpgradeObjectiveId[] = [
+  "kill_25_drones",
+  "reach_wave_3",
+  "reach_wave_4",
+  "reach_wave_6",
+];
 
 export const DEBUG_START_PRESETS: DebugStartPreset[] = [
   {
@@ -60,7 +66,7 @@ export const DEBUG_START_PRESETS: DebugStartPreset[] = [
       ironBeam: 1,
       patriot: 1,
       launcherKit: 2,
-      emp: 1,
+      emp: 2,
     },
   },
   {
@@ -76,6 +82,75 @@ export const DEBUG_START_PRESETS: DebugStartPreset[] = [
       patriot: 2,
       launcherKit: 2,
       emp: 2,
+    },
+  },
+  {
+    id: "wave-3-f15",
+    label: "Wave 3 (F-15)",
+    wave: 3,
+    variant: "f15",
+    upgrades: {
+      wildHornets: 1,
+      launcherKit: 1,
+      f15: 1,
+    },
+  },
+  {
+    id: "wave-4-f15",
+    label: "Wave 4 (F-15)",
+    wave: 4,
+    variant: "f15",
+    upgrades: {
+      wildHornets: 1,
+      roadrunner: 1,
+      flare: 1,
+      launcherKit: 1,
+      f15: 1,
+    },
+  },
+  {
+    id: "wave-5-f15",
+    label: "Wave 5 (F-15)",
+    wave: 5,
+    variant: "f15",
+    upgrades: {
+      wildHornets: 2,
+      roadrunner: 1,
+      flare: 1,
+      patriot: 1,
+      launcherKit: 1,
+      f15: 1,
+    },
+  },
+  {
+    id: "wave-6-f15",
+    label: "Wave 6 (F-15)",
+    wave: 6,
+    variant: "f15",
+    upgrades: {
+      wildHornets: 2,
+      roadrunner: 2,
+      flare: 1,
+      ironBeam: 1,
+      patriot: 1,
+      launcherKit: 2,
+      f15: 2,
+    },
+  },
+  {
+    id: "wave-7-f15",
+    label: "Wave 7 (F-15)",
+    wave: 7,
+    variant: "f15",
+    upgrades: {
+      wildHornets: 2,
+      roadrunner: 2,
+      flare: 2,
+      ironBeam: 1,
+      phalanx: 1,
+      patriot: 2,
+      launcherKit: 2,
+      f15: 2,
     },
   },
 ];

@@ -113,7 +113,7 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
     }
 
     // Bot fires EMP when threats are about to hit Burj
-    if (g.empReady) {
+    if (g.empReadyThisWave) {
       const empCfg = config.emp || {};
       const impactY = empCfg.impactY || 420;
       const impactRadius = empCfg.impactRadius || 200;
@@ -132,7 +132,7 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
     }
 
     // Bot calls in F-15 patrol when threats are massing on screen
-    if (g.f15Ready) {
+    if (g.f15ReadyThisWave) {
       const f15Cfg = config.f15 || {};
       const impactY = f15Cfg.impactY || 700;
       const impactRadius = f15Cfg.impactRadius || 400;

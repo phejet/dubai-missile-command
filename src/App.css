@@ -631,6 +631,17 @@
   background: rgba(58, 18, 18, 0.82);
 }
 
+.battlefield-debug-starts__button--f15 {
+  border-color: rgba(255, 255, 255, 0.32);
+  background: rgba(28, 32, 38, 0.72);
+  color: #f5f7fa;
+}
+
+.battlefield-debug-starts__button--f15:hover {
+  border-color: rgba(255, 255, 255, 0.6);
+  background: rgba(48, 54, 62, 0.82);
+}
+
 .battlefield-stage {
   position: relative;
   flex: 1;

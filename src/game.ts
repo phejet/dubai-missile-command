@@ -112,8 +112,6 @@ function buildHudSnapshot(game: GameState | null): HudSnapshot {
       launcherHP: [0, 0, 0],
       activeFamily: null,
       activeLabel: "EMP",
-      activeCharge: 0,
-      activeChargeMax: 0,
       activeReady: false,
     };
   }
@@ -141,29 +139,23 @@ function buildHudSnapshot(game: GameState | null): HudSnapshot {
 function buildActiveSlotSnapshot(game: GameState): {
   activeFamily: "emp" | "f15" | null;
   activeLabel: string;
-  activeCharge: number;
-  activeChargeMax: number;
   activeReady: boolean;
 } {
   if (game.upgrades.f15 > 0) {
     return {
       activeFamily: "f15",
       activeLabel: "F-15",
-      activeCharge: game.f15Charge,
-      activeChargeMax: game.f15ChargeMax,
-      activeReady: game.f15Ready,
+      activeReady: game.f15ReadyThisWave,
     };
   }
   if (game.upgrades.emp > 0) {
     return {
       activeFamily: "emp",
       activeLabel: "EMP",
-      activeCharge: game.empCharge,
-      activeChargeMax: game.empChargeMax,
-      activeReady: game.empReady,
+      activeReady: game.empReadyThisWave,
     };
   }
-  return { activeFamily: null, activeLabel: "EMP", activeCharge: 0, activeChargeMax: 0, activeReady: false };
+  return { activeFamily: null, activeLabel: "EMP", activeReady: false };
 }
 
 function emptyTransientOverlaySnapshot(titleCopyVisible = false): TransientOverlaySnapshot {
@@ -528,7 +520,8 @@ export class Game {
       ...DEBUG_START_PRESETS.map((preset) => {
         const button = document.createElement("button");
         button.type = "button";
-        button.className = "battlefield-debug-starts__button";
+        const variantClass = preset.variant ? ` battlefield-debug-starts__button--${preset.variant}` : "";
+        button.className = `battlefield-debug-starts__button${variantClass}`;
         button.dataset.debugStartId = preset.id;
         button.textContent = `W${preset.wave}`;
         button.setAttribute("aria-label", `Start ${preset.label}`);
@@ -543,8 +536,10 @@ export class Game {
     this.gameRef.current = simInitGame();
     const game = this.gameRef.current;
     game.metaProgression = loadUpgradeProgression();
-    simBuyUpgrade(game, "wildHornets");
-    simBuyUpgrade(game, "emp");
+    if (!debugStart) {
+      simBuyUpgrade(game, "wildHornets");
+      simBuyUpgrade(game, "emp");
+    }
     game._gameSeed = seed;
     game._draftMode = this.draftMode;
     game._actionLog = [];

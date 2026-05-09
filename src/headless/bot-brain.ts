@@ -358,9 +358,8 @@ function leadWaypointDrone(
   const timeScale = config.leadShot.timeScaleFactor;
   // Shahed-136 divers ramp pathSpeed from 1 to ~4 during the dive (game-sim
   // multiplies by 1.06/tick, capped at 4). Use the current diveSpeed if known
-  // so we don't under-predict an actively diving drone. EMP halves it ×0.4.
-  const empSlow = (drone.empSlowTimer ?? 0) > 0 ? 0.4 : 1;
-  const pathStepPerTick = (drone.diveSpeed ?? 1) * empSlow;
+  // so we don't under-predict an actively diving drone.
+  const pathStepPerTick = drone.diveSpeed ?? 1;
 
   let aim = { x: drone.x, y: drone.y };
   for (let iter = 0; iter < iterations; iter++) {

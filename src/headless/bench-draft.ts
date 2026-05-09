@@ -73,7 +73,7 @@ function runGameDraft(botConfig: Record<string, unknown>, seed: number, preset: 
     }
 
     // EMP
-    if (g.empReady) {
+    if (g.empReadyThisWave) {
       const threats = g.missiles.filter((m) => m.alive).length + g.drones.filter((d) => d.alive).length;
       if (threats >= (config.emp?.minThreatsToFire || 4)) fireEmp(g, null);
     }
