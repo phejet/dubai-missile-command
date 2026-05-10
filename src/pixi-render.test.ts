@@ -7,6 +7,7 @@ import {
   __createPixiWaterSurfaceForTest,
   __updatePixiWaterSurfaceForTest,
   createBurjBeaconGlow,
+  getPixiBurjBaseHealthLayout,
   getPixiBurjBeaconLayout,
   getPixiWaterBandTransform,
   summarizePixiDynamicEntities,
@@ -336,6 +337,31 @@ describe("getPixiBurjBeaconLayout", () => {
       glowX: 460,
       glowY: 652,
     });
+  });
+});
+
+describe("getPixiBurjBaseHealthLayout", () => {
+  it("integrates five equal health segments into the Burj base footprint", () => {
+    const towerBaseY = 1404;
+
+    const layout = getPixiBurjBaseHealthLayout(towerBaseY, 2);
+
+    expect(layout.maxHealth).toBe(5);
+    expect(layout.segmentRects).toHaveLength(5);
+    expect(layout.frameX).toBeLessThan(layout.segmentRects[0].x);
+    expect(layout.frameX + layout.frameW).toBeGreaterThan(layout.segmentRects[4].x + layout.segmentRects[4].w);
+    expect(layout.frameY).toBeLessThan(towerBaseY);
+    expect(layout.frameY + layout.frameH).toBeGreaterThan(towerBaseY - 1);
+    expect(layout.centerSpireX).toBe(460);
+
+    const widths = layout.segmentRects.map((segment) => segment.w);
+    expect(new Set(widths.map((width) => width.toFixed(3))).size).toBe(1);
+
+    for (let index = 1; index < layout.segmentRects.length; index += 1) {
+      expect(layout.segmentRects[index].x).toBeGreaterThan(
+        layout.segmentRects[index - 1].x + layout.segmentRects[index - 1].w,
+      );
+    }
   });
 });
 

@@ -72,3 +72,10 @@
 ## 2026-05-07
 
 - When asked to review a specific branch plan, list the exact `.plans` filenames first and confirm the intended file before giving architectural judgment. Branch names are not plan names, despite their heroic attempts at cosplay.
+
+## 2026-05-11
+
+- When the user asks for a world object to become UI, style the object itself first and the UI second. A health display mounted on a flat placeholder base still reads as HUD chrome, not diegetic game art.
+- For subjective visual styling changes, run structural tests and then ask the user to visually check the running game. Do not burn time on extra screenshot archaeology unless the user asks for it or a render is obviously broken.
+- Diegetic health styling still has to be readable at gameplay scale. If architectural slits or tiny details make state unclear, keep the stronger segmented read and use color, framing, and hit effects to integrate it.
+- Keep non-informational foundation mass subordinate to the readable health bay; oversized shoulders make the base feel heavy without adding gameplay signal.
