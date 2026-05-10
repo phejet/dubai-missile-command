@@ -17,6 +17,7 @@ import {
   getGameplayBuildingBounds,
   getGameplayBurjCollisionTop,
   getGameplayBurjHalfW,
+  getShahed136LevelFlightYRange,
   getGameplayLauncherPosition,
   getLauncherMaxHp,
   getPhalanxTurrets,
@@ -2524,9 +2525,52 @@ export class PixiRenderer implements GameRenderer {
     });
   }
 
+  private drawSpawnBands(graphic: Graphics): void {
+    const STRIPE_W = 16;
+    const drawBand = (xStart: number, yMin: number, yMax: number, color: number) => {
+      const h = yMax - yMin;
+      if (h <= 0) return;
+      graphic.rect(xStart, yMin, STRIPE_W, h).fill({ color, alpha: 0.18 });
+      graphic.rect(xStart, yMin, STRIPE_W, h).stroke({ width: 1, color, alpha: 0.9 });
+    };
+
+    // shahed-136 level-flight Y range — single source of truth in game-logic
+    const [levelTop, levelBot] = getShahed136LevelFlightYRange();
+
+    // Color key:
+    //   red    = side missile band   y ∈ [20, 722]
+    //   orange = shahed-136 dive     y ∈ [45, 255]
+    //   magenta= shahed-238 jet      y ∈ [80, 590]
+    //   yellow = shahed-136 level    y ∈ [levelTop, levelBot]
+    //   cyan   = top missile strip   x ∈ [50, 850], y ≈ -10
+    const COLOR_SIDE_MISSILE = 0xff3333;
+    const COLOR_DIVE = 0xff8800;
+    const COLOR_JET = 0xff44ff;
+    const COLOR_LEVEL = 0xffee00;
+    const COLOR_TOP = 0x33ddff;
+
+    // Left side stripes (x=-20 / x=-10 spawn → drawn from x=0 outward)
+    drawBand(0, 20, 722, COLOR_SIDE_MISSILE);
+    drawBand(18, 45, 255, COLOR_DIVE);
+    drawBand(36, 80, 590, COLOR_JET);
+    drawBand(54, levelTop, levelBot, COLOR_LEVEL);
+
+    // Right side stripes (mirror)
+    drawBand(CANVAS_W - 16, 20, 722, COLOR_SIDE_MISSILE);
+    drawBand(CANVAS_W - 34, 45, 255, COLOR_DIVE);
+    drawBand(CANVAS_W - 52, 80, 590, COLOR_JET);
+    drawBand(CANVAS_W - 70, levelTop, levelBot, COLOR_LEVEL);
+
+    // Top missile spawn strip — startY = -10, startX ∈ [50, 850]
+    graphic.rect(50, 0, 800, 12).fill({ color: COLOR_TOP, alpha: 0.18 });
+    graphic.rect(50, 0, 800, 12).stroke({ width: 1, color: COLOR_TOP, alpha: 0.9 });
+  }
+
   private updateCollisionOverlay(graphic: Graphics, game: GameState, interpolationAlpha = 1): void {
     graphic.clear();
     if (!game._showColliders) return;
+
+    this.drawSpawnBands(graphic);
 
     if (game.burjAlive) {
       const burjTop = getGameplayBurjCollisionTop(2);

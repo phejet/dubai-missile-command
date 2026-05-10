@@ -5,7 +5,6 @@ import {
   CITY_Y,
   GAMEPLAY_WATERLINE_Y,
   GAMEPLAY_SCENIC_THREAT_FLOOR_Y,
-  GAMEPLAY_SCENIC_BASE_Y,
   COL,
   BURJ_X,
   BURJ_H,
@@ -16,6 +15,7 @@ import {
   getGameplayBuildingBounds,
   getGameplayBurjCollisionTop,
   getGameplayBurjHalfW,
+  getShahed136LevelFlightYRange,
   getGameplayLauncherPosition,
   dist,
   rand,
@@ -439,7 +439,7 @@ export function spawnMissile(g: GameState, overrides?: SpawnEntry["overrides"]) 
   const speedMul = overrides?.speedMul ?? 1;
   const speed = (rand(0.5, 1.0) + g.wave * 0.08) * 2 * speedMul;
   const sideMinY = 20,
-    sideMaxY = 200;
+    sideMaxY = 722;
   const topSpawnY = -10;
   let startX, startY;
   const side = overrides?.side;
@@ -533,7 +533,7 @@ export function spawnStackedMissile(g: GameState, stackCount: 2 | 3, overrides?:
   const speedMul = overrides?.speedMul ?? 1;
   const speed = (rand(0.5, 1.0) + g.wave * 0.08) * 2 * speedMul;
   const sideMinY = 20;
-  const sideMaxY = 200;
+  const sideMaxY = 722;
   const topSpawnY = -10;
   let startX, startY;
   const side = overrides?.side;
@@ -583,10 +583,6 @@ export function spawnStackedMissile(g: GameState, stackCount: 2 | 3, overrides?:
 
 const SHAHED_136_DIVE_TELEGRAPH_TICKS = 52;
 
-function getShahed136LevelFlightYRange(): [number, number] {
-  return [getGameplayBurjCollisionTop(2), GAMEPLAY_SCENIC_BASE_Y - BURJ_H];
-}
-
 export function spawnDroneOfType(
   g: GameState,
   subtype: "shahed136" | "shahed238",
@@ -598,7 +594,7 @@ export function spawnDroneOfType(
   const hasDive = !isJet && shahed136HasDive(shahedVariant);
   const hasBomb = !isJet && shahed136HasBomb(shahedVariant);
   const side = overrides?.side;
-  const yRange = overrides?.yRange || (isJet ? [80, 250] : hasDive ? [45, 150] : undefined);
+  const yRange = overrides?.yRange || (isJet ? [80, 590] : hasDive ? [45, 255] : undefined);
   let goingRight;
   if (side === "left") goingRight = true;
   else if (side === "right") goingRight = false;

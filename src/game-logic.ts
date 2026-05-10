@@ -228,6 +228,17 @@ export function getGameplayBurjHalfW(py: number, artScale = 2): number {
   return burjHalfW(canonicalY) * artScale;
 }
 
+// Default Y range for Shahed-136 level-flight spawns. Inset by ±5% of the raw
+// Burj-bracketed band so spawns aren't pinned to the visual silhouette edges.
+export function getShahed136LevelFlightYRange(): [number, number] {
+  const top = getGameplayBurjCollisionTop(2);
+  const bot = GAMEPLAY_SCENIC_BASE_Y - BURJ_H;
+  const half = (bot - top) / 2;
+  const center = (top + bot) / 2;
+  const expanded = half * 1.1;
+  return [center - expanded, center + expanded];
+}
+
 let _rng: RNG = Math.random;
 export function setRng(fn: RNG): void {
   _rng = fn;
