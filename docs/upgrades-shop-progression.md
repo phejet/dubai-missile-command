@@ -94,6 +94,8 @@ Behavior:
 `draftPick3(g)`:
 
 - gets currently eligible nodes only
+- holds rank-1 active choices (`emp` / `f15`) out of the draft pool until the wave 3 shop
+- forces the wave 3 shop to include exactly one active choice plus up to two non-active choices
 - chooses up to 3 using the seeded RNG already active for the run
 - returns node ids, not family ids
 

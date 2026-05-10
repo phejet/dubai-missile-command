@@ -20,7 +20,10 @@ import {
   resolveRequestedUpgradeNodeId,
   UPGRADE_NODES,
 } from "./game-sim-upgrades";
-import type { GameState, ShopEntry, UpgradeKey, UpgradeNodeId } from "./types";
+import type { GameState, ShopEntry, UpgradeKey, UpgradeNodeId, UpgradeProgressionState } from "./types";
+
+const ACTIVE_CHOICE_WAVE = 3;
+const ACTIVE_CHOICE_OBJECTIVE = "reach_wave_3";
 
 function syncUpgradeLevels(g: GameState): void {
   const burjRepair = g.upgrades?.burjRepair ?? 0;
@@ -32,6 +35,48 @@ function ensureUpgradeRuntimeState(g: GameState): void {
   if (!g.ownedUpgradeNodes) g.ownedUpgradeNodes = new Set();
   if (!g.metaProgression) g.metaProgression = createEmptyUpgradeProgression();
   if (!g.upgrades) g.upgrades = createEmptyUpgradeLevels();
+}
+
+function getWaveAwareProgression(g: GameState): UpgradeProgressionState {
+  const progression = g.metaProgression ?? createEmptyUpgradeProgression();
+  if (g.wave < ACTIVE_CHOICE_WAVE || progression.completedObjectives.includes(ACTIVE_CHOICE_OBJECTIVE)) {
+    return progression;
+  }
+  return {
+    version: progression.version,
+    completedObjectives: [...progression.completedObjectives, ACTIVE_CHOICE_OBJECTIVE].sort(),
+  };
+}
+
+function isInitialActiveChoiceNode(node: { family: UpgradeKey; rank: number; active?: boolean }): boolean {
+  return node.rank === 1 && (node.active || getUpgradeFamilyDef(node.family).active === true);
+}
+
+function getActiveChoiceWaveLockReason(
+  g: GameState,
+  node: { family: UpgradeKey; rank: number; active?: boolean },
+): string | null {
+  if (!isInitialActiveChoiceNode(node)) return null;
+  return g.wave < ACTIVE_CHOICE_WAVE ? `Available after wave ${ACTIVE_CHOICE_WAVE}` : null;
+}
+
+function pickRandomIds(ids: string[], count: number, rng: () => number): string[] {
+  if (ids.length <= count) return [...ids];
+  const pool = [...ids];
+  for (let i = 0; i < count; i++) {
+    const j = i + Math.floor(rng() * (pool.length - i));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, count);
+}
+
+function shuffleIds(ids: string[], rng: () => number): string[] {
+  const pool = [...ids];
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool;
 }
 
 function reviveOrRegisterDefenseSite(g: GameState, key: UpgradeKey): void {
@@ -94,6 +139,7 @@ function buyBurjRepair(g: GameState, free = false): boolean {
 
 export function buildShopEntries(g: GameState): ShopEntry[] {
   ensureUpgradeRuntimeState(g);
+  const progression = getWaveAwareProgression(g);
   const nodeIds = g._draftMode && g._draftOffers ? g._draftOffers : UPGRADE_NODES.map((node) => node.id);
   return nodeIds.reduce<ShopEntry[]>((entries, nodeId) => {
     const node = getUpgradeNodeDef(nodeId);
@@ -101,7 +147,8 @@ export function buildShopEntries(g: GameState): ShopEntry[] {
     const familyDef = getUpgradeFamilyDef(node.family);
     const familyNodes = getFamilyNodes(node.family);
     const owned = g.ownedUpgradeNodes.has(node.id);
-    const lockReason = getNodeLockReason(node, g.ownedUpgradeNodes, g.metaProgression);
+    const lockReason =
+      getActiveChoiceWaveLockReason(g, node) ?? getNodeLockReason(node, g.ownedUpgradeNodes, progression);
     entries.push({
       id: node.id,
       family: node.family,
@@ -126,23 +173,42 @@ export function buildShopEntries(g: GameState): ShopEntry[] {
 export function draftPick3(g: GameState): string[] {
   ensureUpgradeRuntimeState(g);
   const rng = getRng();
-  const available = getEligibleUpgradeNodes(g.ownedUpgradeNodes, g.metaProgression);
-  if (available.length <= 3) return available.map((node) => node.id);
-  const pool = available.map((node) => node.id);
-  for (let i = 0; i < 3; i++) {
-    const j = i + Math.floor(rng() * (pool.length - i));
-    [pool[i], pool[j]] = [pool[j], pool[i]];
+  const progression = getWaveAwareProgression(g);
+  const available = getEligibleUpgradeNodes(g.ownedUpgradeNodes, progression).filter(
+    (node) => !getActiveChoiceWaveLockReason(g, node),
+  );
+  if (g.wave === ACTIVE_CHOICE_WAVE) {
+    const activeChoices = available.filter(isInitialActiveChoiceNode);
+    if (activeChoices.length > 0) {
+      const activeOffer = pickRandomIds(
+        activeChoices.map((node) => node.id),
+        1,
+        rng,
+      );
+      const supportOffers = pickRandomIds(
+        available.filter((node) => !isInitialActiveChoiceNode(node)).map((node) => node.id),
+        2,
+        rng,
+      );
+      return shuffleIds([...activeOffer, ...supportOffers], rng);
+    }
   }
-  return pool.slice(0, 3);
+  if (available.length <= 3) return available.map((node) => node.id);
+  return pickRandomIds(
+    available.map((node) => node.id),
+    3,
+    rng,
+  );
 }
 
 export function buyUpgrade(g: GameState, request: string): boolean {
   ensureUpgradeRuntimeState(g);
   if (request === "burjRepair") return buyBurjRepair(g);
-  const nodeId = resolveRequestedUpgradeNodeId(g.ownedUpgradeNodes, g.metaProgression, request);
+  const nodeId = resolveRequestedUpgradeNodeId(g.ownedUpgradeNodes, getWaveAwareProgression(g), request);
   if (!nodeId) return false;
   const node = getUpgradeNodeDef(nodeId);
   if (!node) return false;
+  if (getActiveChoiceWaveLockReason(g, node)) return false;
   if (g.score < node.cost) return false;
   g.score -= node.cost;
   g.ownedUpgradeNodes.add(nodeId);
@@ -153,8 +219,10 @@ export function buyUpgrade(g: GameState, request: string): boolean {
 export function buyDraftUpgrade(g: GameState, request: string): boolean {
   ensureUpgradeRuntimeState(g);
   if (request === "burjRepair") return buyBurjRepair(g, true);
-  const nodeId = resolveRequestedUpgradeNodeId(g.ownedUpgradeNodes, g.metaProgression, request);
+  const nodeId = resolveRequestedUpgradeNodeId(g.ownedUpgradeNodes, getWaveAwareProgression(g), request);
   if (!nodeId) return false;
+  const node = getUpgradeNodeDef(nodeId);
+  if (!node || getActiveChoiceWaveLockReason(g, node)) return false;
   g.ownedUpgradeNodes.add(nodeId);
   applyNodeSideEffects(g, nodeId);
   return true;

@@ -41,6 +41,7 @@ describe("debug start presets", () => {
     setRng(() => 0.5);
     const g = initGame();
     const preset = getDebugStartPreset("wave-7")!;
+    g.wave = 3;
     g.score = 100000;
 
     expect(buyUpgrade(g, "emp")).toBe(true);

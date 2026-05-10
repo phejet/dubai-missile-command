@@ -22,6 +22,7 @@ import {
   buyDraftUpgrade,
   buyUpgrade,
   createGameSim,
+  draftPick3,
   fireF15Pair,
   fireEmp,
   spawnMirv,
@@ -1082,6 +1083,46 @@ describe("EMP / F-15 mutual exclusivity", () => {
     expect(buyUpgrade(g, "emp")).toBe(true);
     expect(buyUpgrade(g, "f15")).toBe(false);
     expect(g.upgrades.f15).toBe(0);
+  });
+
+  it("excludes active upgrades from draft offers before wave 3 is complete", () => {
+    setRng(() => 0);
+    const { g } = makeCleanGame(1);
+    g.metaProgression.completedObjectives.push("reach_wave_3");
+
+    for (const wave of [1, 2]) {
+      g.wave = wave;
+      const offers = draftPick3(g);
+      expect(offers).toHaveLength(3);
+      expect(offers).not.toContain("emp");
+      expect(offers).not.toContain("f15");
+    }
+  });
+
+  it("forces exactly one active upgrade into the wave 3 draft offer", () => {
+    setRng(() => 0);
+    const { g } = makeCleanGame(3);
+
+    const offers = draftPick3(g);
+    const activeOffers = offers.filter((offer) => offer === "emp" || offer === "f15");
+
+    expect(offers).toHaveLength(3);
+    expect(activeOffers).toHaveLength(1);
+    expect(offers.filter((offer) => offer !== "emp" && offer !== "f15")).toHaveLength(2);
+  });
+
+  it("prevents direct active-upgrade draft purchases before wave 3", () => {
+    const { g } = makeCleanGame(1);
+    g.metaProgression.completedObjectives.push("reach_wave_3");
+
+    expect(buyDraftUpgrade(g, "emp")).toBe(false);
+    expect(buyDraftUpgrade(g, "f15")).toBe(false);
+    expect(g.upgrades.emp).toBe(0);
+    expect(g.upgrades.f15).toBe(0);
+
+    g.wave = 3;
+    expect(buyDraftUpgrade(g, "f15")).toBe(true);
+    expect(g.upgrades.f15).toBe(1);
   });
 
   it("ensures at least one active upgrade is available at wave 3", () => {
