@@ -164,7 +164,7 @@ const WAVE_TABLE = [
     budget: 14,
     cap: 10,
     missile: [4, 6],
-    drone136: [5, 8],
+    drone136: [3, 4],
     drone238: [0, 0],
     mirv: [0, 0],
     stack2: [0, 0],
@@ -307,8 +307,14 @@ function allocateShahed136Variants(wave: number, total: number): Record<Shahed13
   };
   if (total <= 0) return counts;
   if (wave === 1) {
-    counts["shahed-136"] = Math.max(0, total - 1);
-    counts["shahed-136-dive"] = 1;
+    // Tutorial wave: exactly 2 dives + 1 bomber, rest base. Establishes the
+    // three core drone behaviours (level flight, dive, bomb-drop) on day one
+    // without burying the variety under a slog of base shaheds.
+    const dives = Math.min(2, total);
+    const bombers = total >= 3 ? 1 : 0;
+    counts["shahed-136-dive"] = dives;
+    counts["shahed-136-bomber"] = bombers;
+    counts["shahed-136"] = Math.max(0, total - dives - bombers);
     return counts;
   }
 
@@ -359,9 +365,9 @@ function getShahed136Ranges(
 ): Record<Shahed136Variant, { min: number; max: number }> {
   if (wave === 1) {
     return {
-      "shahed-136": { min: Math.max(0, minTotal - 1), max: Math.max(0, maxTotal - 1) },
-      "shahed-136-bomber": { min: 0, max: 0 },
-      "shahed-136-dive": { min: 1, max: 1 },
+      "shahed-136": { min: Math.max(0, minTotal - 3), max: Math.max(0, maxTotal - 3) },
+      "shahed-136-bomber": { min: minTotal >= 3 ? 1 : 0, max: maxTotal >= 3 ? 1 : 0 },
+      "shahed-136-dive": { min: Math.min(2, minTotal), max: Math.min(2, maxTotal) },
       "shahed-136-dive-bomber": { min: 0, max: 0 },
     };
   }
@@ -833,8 +839,12 @@ export function generateWaveSchedule(wave: number, commander: Commander): WaveRe
 
   const WAVE_DURATION_SCALE = 1.5;
   const lateFloor = Math.max(0, wave - 10) * 2; // shrinks floors on late waves
-  const missileInterval = Math.max(Math.max(3, 7 - lateFloor), 63 - wave * 5) * WAVE_DURATION_SCALE;
-  const droneInterval = Math.max(Math.max(4, 10 - lateFloor), 84 - wave * 8) * WAVE_DURATION_SCALE;
+  // Wave 1 is the tutorial — keep the threat *count* low (see drone136 range +
+  // allocateShahed136Variants special case) but pull the spawns closer together
+  // so it doesn't drag once the player knows what they're doing.
+  const earlyWaveScale = wave === 1 ? 0.65 : 1;
+  const missileInterval = Math.max(Math.max(3, 7 - lateFloor), 63 - wave * 5) * WAVE_DURATION_SCALE * earlyWaveScale;
+  const droneInterval = Math.max(Math.max(4, 10 - lateFloor), 84 - wave * 8) * WAVE_DURATION_SCALE * earlyWaveScale;
   function spacedTicks(count: number, interval: number, jitterFrac: number, offset: number) {
     const ticks = [];
     const jitter = Math.floor(interval * jitterFrac);
@@ -870,10 +880,25 @@ export function generateWaveSchedule(wave: number, commander: Commander): WaveRe
   const d136Interval = hasDroneSwarm ? Math.max(8, droneInterval * 0.3) : droneInterval;
   let shahedTickOffset = 0;
   for (const variant of SHAHED_136_VARIANTS) {
-    const offset =
-      wave === 1 && variant === "shahed-136-dive"
-        ? 50 + counts["shahed-136"] * d136Interval + 36
-        : 50 + shahedTickOffset;
+    if (wave === 1 && (variant === "shahed-136-dive" || variant === "shahed-136-bomber") && counts[variant] > 0) {
+      // Wave 1: place the bomber and the dives across the wave so the player
+      // hits all three drone behaviours in sequence — base shaheds early,
+      // bomber mid, first dive mid, second dive as the closing flourish.
+      const baseCount = Math.max(1, counts["shahed-136"]);
+      const span = baseCount * d136Interval;
+      const bomberFraction = 0.5;
+      const diveFractions = [0.55, 0.95];
+      for (let i = 0; i < counts[variant]; i++) {
+        const fraction =
+          variant === "shahed-136-bomber"
+            ? bomberFraction
+            : (diveFractions[i] ?? diveFractions[diveFractions.length - 1]);
+        entries.push({ tick: Math.round(50 + span * fraction), type: variant, _typeIndex: i });
+      }
+      shahedTickOffset += 12;
+      continue;
+    }
+    const offset = 50 + shahedTickOffset;
     const variantTicks = spacedTicks(counts[variant], d136Interval, 0.15, offset);
     shahedTickOffset += 12;
     for (let i = 0; i < variantTicks.length; i++) {

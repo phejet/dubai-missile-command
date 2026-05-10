@@ -220,7 +220,7 @@ describe("generateWaveSchedule", () => {
 
     const { schedule: wave1 } = generateWaveSchedule(1, cmdr);
     for (const entry of wave1) {
-      expect(["missile", "shahed-136", "shahed-136-dive"]).toContain(entry.type);
+      expect(["missile", "shahed-136", "shahed-136-bomber", "shahed-136-dive"]).toContain(entry.type);
     }
     expect(wave1.some((entry) => entry.type === "stack2")).toBe(false);
     expect(wave1.some((entry) => entry.type === "missile")).toBe(true);
@@ -236,9 +236,8 @@ describe("generateWaveSchedule", () => {
     const cmdr = createCommander("balanced");
 
     const wave1 = generateWaveSchedule(1, cmdr).schedule;
-    expect(wave1.some((entry) => entry.type === "shahed-136")).toBe(true);
-    expect(wave1.some((entry) => entry.type === "shahed-136-bomber")).toBe(false);
-    expect(wave1.filter((entry) => entry.type === "shahed-136-dive")).toHaveLength(1);
+    expect(wave1.some((entry) => entry.type === "shahed-136-bomber")).toBe(true);
+    expect(wave1.filter((entry) => entry.type === "shahed-136-dive")).toHaveLength(2);
     expect(wave1.some((entry) => entry.type === "shahed-136-dive-bomber")).toBe(false);
 
     const wave2 = generateWaveSchedule(2, cmdr).schedule;
@@ -257,18 +256,23 @@ describe("generateWaveSchedule", () => {
     expect(wave5.some((entry) => entry.type === "shahed-136-dive-bomber")).toBe(true);
   });
 
-  it("places the wave 1 diving Shahed near the end of the wave", () => {
+  it("spreads the wave 1 dives so one lands mid-wave and the other closes it out", () => {
     setRng(makeSeededRng(42));
     const cmdr = createCommander("balanced");
 
     const wave1 = generateWaveSchedule(1, cmdr).schedule;
-    const dive = wave1.find((entry) => entry.type === "shahed-136-dive");
+    const dives = wave1.filter((entry) => entry.type === "shahed-136-dive").sort((a, b) => a.tick - b.tick);
+    const bomber = wave1.find((entry) => entry.type === "shahed-136-bomber");
     const lastBaselineShahedTick = Math.max(
+      0,
       ...wave1.filter((entry) => entry.type === "shahed-136").map((entry) => entry.tick),
     );
 
-    expect(dive).toBeDefined();
-    expect(dive!.tick).toBeGreaterThan(lastBaselineShahedTick);
+    expect(dives).toHaveLength(2);
+    expect(bomber).toBeDefined();
+    // First dive sits mid-wave, second pulls past the level-flight tail.
+    expect(dives[0].tick).toBeLessThan(dives[1].tick);
+    expect(dives[1].tick).toBeGreaterThan(lastBaselineShahedTick);
   });
 
   it("replaces the old drone136 budget with more dangerous late-wave Shahed mix", () => {
@@ -285,7 +289,7 @@ describe("generateWaveSchedule", () => {
         (entry) => entry.type === "shahed-136-dive" || entry.type === "shahed-136-dive-bomber",
       ).length;
     }
-    expect(wave1Dangerous).toBe(30);
+    expect(wave1Dangerous).toBe(60);
     expect(wave8Dangerous).toBeGreaterThan(40);
   });
 

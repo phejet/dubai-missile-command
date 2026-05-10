@@ -435,7 +435,7 @@ describe("Shahed-238 (jet) diving", () => {
     expect(g.missiles.filter((m) => m.type === "bomb")).toHaveLength(1);
   });
 
-  it("makes baseline and bomber Shahed-136 25% faster than dive variants before overrides", () => {
+  it("makes baseline and bomber Shahed-136 45% faster than dive variants before overrides", () => {
     const { g } = makeCleanGame(5);
 
     setRng(() => 0.5);
@@ -446,8 +446,8 @@ describe("Shahed-238 (jet) diving", () => {
     spawnDroneOfType(g, "shahed136", undefined, "shahed-136-dive");
 
     const [basic, bomber, dive] = g.drones;
-    expect(Math.abs(basic.vx)).toBeCloseTo(Math.abs(dive.vx) * 1.25);
-    expect(Math.abs(bomber.vx)).toBeCloseTo(Math.abs(dive.vx) * 1.25);
+    expect(Math.abs(basic.vx)).toBeCloseTo(Math.abs(dive.vx) * 1.45);
+    expect(Math.abs(bomber.vx)).toBeCloseTo(Math.abs(dive.vx) * 1.45);
   });
 
   it("telegraphs Shahed-136 dive variants before the terminal dive", () => {

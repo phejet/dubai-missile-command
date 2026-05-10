@@ -612,7 +612,7 @@ export function spawnDroneOfType(
   else if (side === "right") goingRight = false;
   else goingRight = _rng() > 0.5;
   const baseSpeed = isJet ? rand(2.5, 3.9) : rand(0.42, 0.84);
-  const shahedLevelSpeedMul = !isJet && !hasDive ? 1.25 : 1;
+  const shahedLevelSpeedMul = !isJet && !hasDive ? 1.45 : 1;
   const speedMul = overrides?.speedMul ?? 1;
   const speed = (baseSpeed + g.wave * 0.05) * 2 * speedMul * shahedLevelSpeedMul;
   const health = 1;
