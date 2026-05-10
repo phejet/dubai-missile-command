@@ -3049,20 +3049,20 @@ export class PixiRenderer implements GameRenderer {
       node.liveFx.clear();
       const abLen = 5 + 4 * pulse(sceneTime, 0.35, pos.x * 0.04 + pos.y * 0.02);
       node.liveFx
-        .moveTo(-22, -3)
-        .lineTo(-22 - abLen, -2)
-        .lineTo(-22, -1)
+        .moveTo(-24, -3)
+        .lineTo(-24 - abLen, -2)
+        .lineTo(-24, -1)
         .closePath()
         .fill(0xff8844);
       node.liveFx
-        .moveTo(-22, 1)
-        .lineTo(-22 - abLen, 2)
-        .lineTo(-22, 3)
+        .moveTo(-24, 1)
+        .lineTo(-24 - abLen, 2)
+        .lineTo(-24, 3)
         .closePath()
         .fill(0xff8844);
       if (Math.sin(plane.blinkTimer * 0.15) > 0) {
-        node.liveFx.circle(-10, -14, 1.5).fill(0xff0000);
-        node.liveFx.circle(-10, 14, 1.5).fill(0x00ff00);
+        node.liveFx.circle(-10, -17, 1.5).fill(0xff0000);
+        node.liveFx.circle(-10, 17, 1.5).fill(0x00ff00);
       }
     }
   }
