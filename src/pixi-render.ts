@@ -3033,7 +3033,7 @@ export class PixiRenderer implements GameRenderer {
       let node = state.planes.get(plane);
       if (!node) {
         const container = new Container();
-        const airframe = createStaticAssetSprite(state.planeAssets.f15Airframe);
+        const airframe = createStaticAssetSprite(state.planeAssets.f15AirframeRight);
         const liveFx = new Graphics();
         container.addChild(airframe, liveFx);
         node = { container, airframe, liveFx };
@@ -3041,28 +3041,24 @@ export class PixiRenderer implements GameRenderer {
         this.gameplayEffectsLayer.addChild(container);
       }
       const pos = getRenderPosition(plane, interpolationAlpha);
+      const facingLeft = plane.vx < 0;
+      const dir = facingLeft ? -1 : 1;
+      const airframeAsset = facingLeft ? state.planeAssets.f15AirframeLeft : state.planeAssets.f15AirframeRight;
       node.container.position.set(pos.x, pos.y);
-      node.container.scale.set(plane.vx < 0 ? -GAMEPLAY_PLANE_SCALE : GAMEPLAY_PLANE_SCALE, GAMEPLAY_PLANE_SCALE);
+      node.container.scale.set(GAMEPLAY_PLANE_SCALE, GAMEPLAY_PLANE_SCALE);
       node.container.rotation = plane.evadeTimer > 0 ? (plane.vy > 0 ? 0.3 : -0.3) : 0;
-      node.airframe.texture = state.planeAssets.f15Airframe.sprite;
-      node.airframe.position.set(state.planeAssets.f15Airframe.offset.x, state.planeAssets.f15Airframe.offset.y);
+      node.airframe.texture = airframeAsset.sprite;
+      node.airframe.position.set(airframeAsset.offset.x, airframeAsset.offset.y);
       node.liveFx.clear();
       const abLen = 5 + 4 * pulse(sceneTime, 0.35, pos.x * 0.04 + pos.y * 0.02);
-      node.liveFx
-        .moveTo(-24, -3)
-        .lineTo(-24 - abLen, -2)
-        .lineTo(-24, -1)
-        .closePath()
-        .fill(0xff8844);
-      node.liveFx
-        .moveTo(-24, 1)
-        .lineTo(-24 - abLen, 2)
-        .lineTo(-24, 3)
-        .closePath()
-        .fill(0xff8844);
+      const tailX = -24 * dir;
+      const trailTipX = tailX - abLen * dir;
+      node.liveFx.moveTo(tailX, -3).lineTo(trailTipX, -2).lineTo(tailX, -1).closePath().fill(0xff8844);
+      node.liveFx.moveTo(tailX, 1).lineTo(trailTipX, 2).lineTo(tailX, 3).closePath().fill(0xff8844);
       if (Math.sin(plane.blinkTimer * 0.15) > 0) {
-        node.liveFx.circle(-10, -17, 1.5).fill(0xff0000);
-        node.liveFx.circle(-10, 17, 1.5).fill(0x00ff00);
+        const wingMidX = -10 * dir;
+        node.liveFx.circle(wingMidX, -17, 1.5).fill(0xff0000);
+        node.liveFx.circle(wingMidX, 17, 1.5).fill(0x00ff00);
       }
     }
   }

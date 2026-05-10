@@ -45,7 +45,7 @@ export interface PixiProjectileSpriteAsset extends Omit<CanvasProjectileSpriteAs
   animFrames: Texture[];
 }
 
-type CanvasStaticSpriteAsset = PlaneAssets["f15Airframe"];
+type CanvasStaticSpriteAsset = PlaneAssets["f15AirframeRight"];
 
 export interface PixiStaticSpriteAsset extends Omit<CanvasStaticSpriteAsset, "sprite"> {
   sprite: Texture;
@@ -65,7 +65,8 @@ export interface PixiDefenseSiteAssets {
 }
 
 export interface PixiPlaneAssets {
-  f15Airframe: PixiStaticSpriteAsset;
+  f15AirframeRight: PixiStaticSpriteAsset;
+  f15AirframeLeft: PixiStaticSpriteAsset;
 }
 
 export interface PixiExplosionGlowAssets {
@@ -245,7 +246,8 @@ class DefaultPixiTextureResources implements PixiTextureResources {
     const source = this.canvasResources.getPlaneAssets();
     if (this.planeAssets?.source === source) return this.planeAssets.assets;
     const assets = {
-      f15Airframe: this.mapStaticSpriteAsset(source.f15Airframe, "plane:f15Airframe"),
+      f15AirframeRight: this.mapStaticSpriteAsset(source.f15AirframeRight, "plane:f15AirframeRight"),
+      f15AirframeLeft: this.mapStaticSpriteAsset(source.f15AirframeLeft, "plane:f15AirframeLeft"),
     };
     this.planeAssets = { source, assets };
     return assets;

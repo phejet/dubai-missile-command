@@ -63,7 +63,8 @@ function dynamicState() {
       patriotSam: upgrade,
     },
     planeAssets: {
-      f15Airframe: staticAsset(),
+      f15AirframeRight: staticAsset(),
+      f15AirframeLeft: staticAsset(),
     },
     effectAssets: {
       explosion: {

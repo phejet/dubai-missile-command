@@ -97,7 +97,8 @@ export interface StaticSpriteAsset {
 }
 
 export interface PlaneAssets {
-  f15Airframe: StaticSpriteAsset;
+  f15AirframeRight: StaticSpriteAsset;
+  f15AirframeLeft: StaticSpriteAsset;
 }
 
 export interface DefenseSiteAssets {
@@ -1911,65 +1912,95 @@ function drawEmpEmitterLocal(ctx: CanvasRenderingContext2D, level: number) {
   ctx.fill();
 }
 
-const F15_AIRFRAME_BOUNDS = { x: -26, y: -19, width: 60, height: 38 } as const;
+// Right-facing bake: nose at +x. Left bounds is the x-mirror so the left bake
+// covers the same content with origin still at plane center.
+const F15_AIRFRAME_RIGHT_BOUNDS = { x: -26, y: -19, width: 60, height: 38 } as const;
+const F15_AIRFRAME_LEFT_BOUNDS = { x: -34, y: -19, width: 60, height: 38 } as const;
 const F15_AIRFRAME_SCALE = 1;
 
-function drawF15AirframeLocal(ctx: CanvasRenderingContext2D) {
-  // Wing shadow underplate (wider, slightly behind topface)
-  ctx.fillStyle = "#39424f";
+function drawF15AirframeRightLocal(ctx: CanvasRenderingContext2D) {
+  // 3/4 view: camera above + south of the plane. North = upper screen (far),
+  // south = lower screen (near). Near wing reads bigger and shows an underside
+  // hint; far wing is shrunk a touch. Body gets a south-side panel below the
+  // top silhouette to fake fuselage thickness.
+
+  // ---- Far wing (north / upper) ----
+  ctx.fillStyle = "#2e3744";
   ctx.beginPath();
-  ctx.moveTo(4, -3);
-  ctx.lineTo(-10, -18);
-  ctx.lineTo(-17, -16);
-  ctx.lineTo(-6, -3);
+  ctx.moveTo(3, -3);
+  ctx.lineTo(-9, -16);
+  ctx.lineTo(-14, -14.5);
+  ctx.lineTo(-7, -3);
   ctx.closePath();
   ctx.fill();
+  ctx.fillStyle = "#586a80";
   ctx.beginPath();
-  ctx.moveTo(4, 3);
-  ctx.lineTo(-10, 18);
-  ctx.lineTo(-17, 16);
+  ctx.moveTo(2.5, -3.4);
+  ctx.lineTo(-9, -15.5);
+  ctx.lineTo(-13, -14);
+  ctx.lineTo(-7, -3.4);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "#7c8da3";
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(2.5, -4);
+  ctx.lineTo(-8, -15.5);
+  ctx.stroke();
+
+  // ---- Near wing (south / lower) ----
+  // Underside sliver (between body and wing topface) — reads as wing thickness.
+  ctx.fillStyle = "#1d232e";
+  ctx.beginPath();
+  ctx.moveTo(5, 4);
+  ctx.lineTo(-9, 19);
+  ctx.lineTo(-11, 19);
+  ctx.lineTo(-7, 4);
+  ctx.closePath();
+  ctx.fill();
+  // Shadow underplate (full wing footprint, slightly larger than far wing).
+  ctx.fillStyle = "#363f4d";
+  ctx.beginPath();
+  ctx.moveTo(5, 3);
+  ctx.lineTo(-10, 19);
+  ctx.lineTo(-19, 17.5);
   ctx.lineTo(-6, 3);
   ctx.closePath();
   ctx.fill();
-  // Wing topface, inset
-  ctx.fillStyle = "#5a6b80";
+  // Topface.
+  ctx.fillStyle = "#62758f";
   ctx.beginPath();
-  ctx.moveTo(3, -3.5);
-  ctx.lineTo(-10, -17);
-  ctx.lineTo(-15, -15.5);
-  ctx.lineTo(-7, -3.5);
+  ctx.moveTo(4, 2.4);
+  ctx.lineTo(-10, 18.2);
+  ctx.lineTo(-17, 16.7);
+  ctx.lineTo(-7, 2.4);
   ctx.closePath();
   ctx.fill();
+  // Bright leading-edge highlight (camera-facing side gets more light).
+  ctx.strokeStyle = "#a4b4c8";
+  ctx.lineWidth = 1.1;
   ctx.beginPath();
-  ctx.moveTo(3, 3.5);
-  ctx.lineTo(-10, 17);
-  ctx.lineTo(-15, 15.5);
-  ctx.lineTo(-7, 3.5);
-  ctx.closePath();
-  ctx.fill();
-  // Leading-edge highlight
-  ctx.strokeStyle = "#90a0b8";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(3.5, -4);
-  ctx.lineTo(-9, -17);
+  ctx.moveTo(4, 3);
+  ctx.lineTo(-9, 18.2);
   ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(3.5, 4);
-  ctx.lineTo(-9, 17);
-  ctx.stroke();
-  // Underwing AAM stores
-  ctx.fillStyle = "#3a4252";
-  for (const sy of [-10, 10]) {
-    ctx.fillRect(-8, sy - 0.8, 9, 1.6);
+
+  // ---- Underwing AAM stores (only on near wing — far wing's underside is hidden) ----
+  ctx.fillStyle = "#2a323e";
+  for (const offset of [-1, 4]) {
+    const baseX = -7 + offset;
+    const tipX = baseX + 8;
+    const sy = 9.5 + offset * 0.25;
+    ctx.fillRect(baseX, sy - 0.9, 8, 1.8);
     ctx.beginPath();
-    ctx.moveTo(1, sy - 0.8);
-    ctx.lineTo(3.5, sy);
-    ctx.lineTo(1, sy + 0.8);
+    ctx.moveTo(tipX, sy - 0.9);
+    ctx.lineTo(tipX + 2.4, sy);
+    ctx.lineTo(tipX, sy + 0.9);
     ctx.closePath();
     ctx.fill();
   }
-  // Fuselage shadow silhouette
+
+  // ---- Fuselage ----
+  // Top silhouette.
   ctx.fillStyle = "#3d4756";
   ctx.beginPath();
   ctx.moveTo(24, 0);
@@ -1981,23 +2012,39 @@ function drawF15AirframeLocal(ctx: CanvasRenderingContext2D) {
   ctx.lineTo(12, 3.4);
   ctx.closePath();
   ctx.fill();
-  // Fuselage centerline highlight
+  // Centerline highlight (biased slightly NORTH because south side rolls off into shadow).
   ctx.fillStyle = "#8090a8";
   ctx.beginPath();
-  ctx.moveTo(22, 0);
-  ctx.lineTo(11, -1.6);
-  ctx.lineTo(-18, -2);
-  ctx.lineTo(-22, -1);
-  ctx.lineTo(-22, 1);
-  ctx.lineTo(-18, 2);
-  ctx.lineTo(11, 1.6);
+  ctx.moveTo(22, -0.3);
+  ctx.lineTo(11, -1.9);
+  ctx.lineTo(-18, -2.3);
+  ctx.lineTo(-22, -1.3);
+  ctx.lineTo(-22, 0.6);
+  ctx.lineTo(-18, 1.4);
+  ctx.lineTo(11, 1);
   ctx.closePath();
   ctx.fill();
-  // Intake shoulders
-  ctx.fillStyle = "#52607a";
+  // South-side panel — thin darker strip BELOW the top silhouette, fakes body thickness.
+  ctx.fillStyle = "#262c37";
+  ctx.beginPath();
+  ctx.moveTo(24, 0.1);
+  ctx.lineTo(12, 3.5);
+  ctx.lineTo(-19, 4.1);
+  ctx.lineTo(-24, 2.4);
+  ctx.lineTo(-24, 3.2);
+  ctx.lineTo(-19, 5.1);
+  ctx.lineTo(12, 4.5);
+  ctx.lineTo(24, 1.1);
+  ctx.closePath();
+  ctx.fill();
+
+  // ---- Intake shoulders ----
+  ctx.fillStyle = "#465469";
+  ctx.fillRect(-4, 2.6, 13, 1.4);
+  ctx.fillStyle = "#3f4c5e";
   ctx.fillRect(-4, -3.8, 12, 1);
-  ctx.fillRect(-4, 2.8, 12, 1);
-  // Nose cone (long, pointed)
+
+  // ---- Nose ----
   ctx.fillStyle = "#5a6a80";
   ctx.beginPath();
   ctx.moveTo(24, -1.6);
@@ -2005,7 +2052,15 @@ function drawF15AirframeLocal(ctx: CanvasRenderingContext2D) {
   ctx.lineTo(24, 1.6);
   ctx.closePath();
   ctx.fill();
-  // Pitot tip
+  // South-side shading on the nose to match the side panel.
+  ctx.fillStyle = "#2c333f";
+  ctx.beginPath();
+  ctx.moveTo(24, 0.6);
+  ctx.lineTo(33, 0.2);
+  ctx.lineTo(24, 1.6);
+  ctx.closePath();
+  ctx.fill();
+  // Pitot.
   ctx.fillStyle = "#2a3140";
   ctx.beginPath();
   ctx.moveTo(31, -0.6);
@@ -2013,56 +2068,79 @@ function drawF15AirframeLocal(ctx: CanvasRenderingContext2D) {
   ctx.lineTo(31, 0.6);
   ctx.closePath();
   ctx.fill();
-  // Twin vertical stabilizers
-  ctx.fillStyle = "#4a5668";
+
+  // ---- Twin vertical stabilizers ----
+  // Far (north) tail — slightly recessed silhouette.
+  ctx.fillStyle = "#3f4858";
   ctx.beginPath();
-  ctx.moveTo(-15, -3.5);
-  ctx.lineTo(-20, -11);
-  ctx.lineTo(-23, -10.5);
-  ctx.lineTo(-21, -3.5);
+  ctx.moveTo(-14, -3.5);
+  ctx.lineTo(-19, -11);
+  ctx.lineTo(-22, -10.5);
+  ctx.lineTo(-20.5, -3.5);
   ctx.closePath();
   ctx.fill();
-  ctx.beginPath();
-  ctx.moveTo(-15, 3.5);
-  ctx.lineTo(-20, 11);
-  ctx.lineTo(-23, 10.5);
-  ctx.lineTo(-21, 3.5);
-  ctx.closePath();
-  ctx.fill();
-  // Tail tip beacon caps
   ctx.fillStyle = "#c43a3a";
-  ctx.fillRect(-21, -11.4, 2, 1.2);
-  ctx.fillRect(-21, 10.2, 2, 1.2);
-  // Engine nozzles
+  ctx.fillRect(-20.5, -11.6, 1.8, 1.2);
+  // Near (south) tail — drawn slightly bigger / closer to camera, base lower in screen.
+  ctx.fillStyle = "#4d5a6e";
+  ctx.beginPath();
+  ctx.moveTo(-14, 3);
+  ctx.lineTo(-20, -10);
+  ctx.lineTo(-23.5, -9.5);
+  ctx.lineTo(-21, 3);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#d44";
+  ctx.fillRect(-22.5, -10.6, 2, 1.4);
+
+  // ---- Engine nozzles (3D cans: ring of shadow + hot mouth) ----
+  ctx.fillStyle = "#0f1216";
+  // Forward shadow ring fakes nacelle depth.
+  ctx.fillRect(-26.5, -4.4, 4, 1.0);
+  ctx.fillRect(-26.5, 3.4, 4, 1.0);
   ctx.fillStyle = "#1a1d22";
   ctx.beginPath();
-  ctx.ellipse(-23, -2.1, 3.2, 2.2, 0, 0, Math.PI * 2);
+  ctx.ellipse(-23.5, -2.4, 3.4, 2.4, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.beginPath();
-  ctx.ellipse(-23, 2.1, 3.2, 2.2, 0, 0, Math.PI * 2);
+  ctx.ellipse(-23.5, 2.4, 3.4, 2.4, 0, 0, Math.PI * 2);
   ctx.fill();
-  // Hot afterburner mouth
   ctx.fillStyle = "#ffd9a0";
   ctx.beginPath();
-  ctx.ellipse(-23, -2.1, 1.6, 1.1, 0, 0, Math.PI * 2);
+  ctx.ellipse(-23.5, -2.4, 1.6, 1.2, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.beginPath();
-  ctx.ellipse(-23, 2.1, 1.6, 1.1, 0, 0, Math.PI * 2);
+  ctx.ellipse(-23.5, 2.4, 1.6, 1.2, 0, 0, Math.PI * 2);
   ctx.fill();
-  // Cockpit canopy
+
+  // ---- Cockpit canopy (bigger 3D bubble with top highlight) ----
   ctx.fillStyle = "#0d1a2c";
   ctx.beginPath();
-  ctx.ellipse(14, 0, 5.5, 2.2, 0, 0, Math.PI * 2);
+  ctx.ellipse(14, 0, 5.8, 2.6, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = "rgba(180,220,255,0.55)";
+  // Top crown highlight.
+  ctx.fillStyle = "rgba(180,220,255,0.6)";
   ctx.beginPath();
-  ctx.ellipse(15.5, -0.5, 3.2, 0.7, 0, 0, Math.PI * 2);
+  ctx.ellipse(15.4, -0.9, 3.2, 0.7, 0, 0, Math.PI * 2);
   ctx.fill();
+  // South-side dark fade on canopy (shadow on the side away from key light).
+  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  ctx.beginPath();
+  ctx.ellipse(13, 1.1, 3.4, 0.9, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawF15AirframeLeftLocal(ctx: CanvasRenderingContext2D) {
+  ctx.save();
+  ctx.scale(-1, 1);
+  drawF15AirframeRightLocal(ctx);
+  ctx.restore();
 }
 
 export function buildPlaneAssets(): PlaneAssets {
   return {
-    f15Airframe: buildStaticSpriteAsset(F15_AIRFRAME_SCALE, F15_AIRFRAME_BOUNDS, drawF15AirframeLocal),
+    f15AirframeRight: buildStaticSpriteAsset(F15_AIRFRAME_SCALE, F15_AIRFRAME_RIGHT_BOUNDS, drawF15AirframeRightLocal),
+    f15AirframeLeft: buildStaticSpriteAsset(F15_AIRFRAME_SCALE, F15_AIRFRAME_LEFT_BOUNDS, drawF15AirframeLeftLocal),
   };
 }
 

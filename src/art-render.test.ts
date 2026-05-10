@@ -187,10 +187,13 @@ describe("projectile sprite asset baking", () => {
 
     const assets = buildPlaneAssets();
 
-    expect(assets.f15Airframe.sprite.width).toBeGreaterThan(0);
-    expect(assets.f15Airframe.sprite.height).toBeGreaterThan(0);
-    expect(Number.isFinite(assets.f15Airframe.offset.x)).toBe(true);
-    expect(Number.isFinite(assets.f15Airframe.offset.y)).toBe(true);
+    for (const variant of [assets.f15AirframeRight, assets.f15AirframeLeft]) {
+      expect(variant.sprite.width).toBeGreaterThan(0);
+      expect(variant.sprite.height).toBeGreaterThan(0);
+      expect(Number.isFinite(variant.offset.x)).toBe(true);
+      expect(Number.isFinite(variant.offset.y)).toBe(true);
+    }
+    expect(assets.f15AirframeLeft.offset.x).toBe(-(assets.f15AirframeRight.offset.x + assets.f15AirframeRight.width));
   });
 
   it("builds defense site sprite variants in headless mode", () => {
