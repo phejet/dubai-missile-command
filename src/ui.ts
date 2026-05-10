@@ -43,7 +43,10 @@ export interface HudSnapshot {
   activeFamily: "emp" | "f15" | null;
   activeLabel: string;
   activeReady: boolean;
+  activePhase: ActiveButtonPhase;
 }
+
+export type ActiveButtonPhase = "ready" | "active" | "complete" | "spent";
 
 export interface TransientOverlaySnapshot {
   titleCopyVisible: boolean;
@@ -495,6 +498,50 @@ const hudElements = {
   perfHudFps: null as HTMLElement | null,
 };
 
+const ACTIVE_COMPLETION_MS = 1050;
+
+const activeButtonVisual = {
+  family: null as "emp" | "f15" | null,
+  previousRawPhase: "spent" as ActiveButtonPhase,
+  completionUntil: 0,
+  completionFamily: null as "emp" | "f15" | null,
+};
+
+function resolveActiveButtonPhase(hud: HudSnapshot): ActiveButtonPhase {
+  const family = hud.activeFamily;
+  if (!family) {
+    activeButtonVisual.family = null;
+    activeButtonVisual.previousRawPhase = "spent";
+    activeButtonVisual.completionUntil = 0;
+    activeButtonVisual.completionFamily = null;
+    return "spent";
+  }
+
+  const now = performance.now();
+  const sameFamily = activeButtonVisual.family === family;
+  const rawPhase = hud.activePhase;
+
+  if (!sameFamily || rawPhase === "ready") {
+    activeButtonVisual.family = family;
+    activeButtonVisual.completionUntil = 0;
+    activeButtonVisual.completionFamily = null;
+  }
+
+  if (rawPhase === "spent" && sameFamily && activeButtonVisual.previousRawPhase === "active") {
+    activeButtonVisual.completionUntil = now + ACTIVE_COMPLETION_MS;
+    activeButtonVisual.completionFamily = family;
+  }
+
+  const visualPhase =
+    rawPhase === "spent" && activeButtonVisual.completionFamily === family && now < activeButtonVisual.completionUntil
+      ? "complete"
+      : rawPhase;
+
+  activeButtonVisual.family = family;
+  activeButtonVisual.previousRawPhase = rawPhase;
+  return visualPhase;
+}
+
 export function cacheHudElements(): void {
   hudElements.progressFill = document.getElementById("hud-progress-fill");
   hudElements.score = document.getElementById("hud-score");
@@ -528,23 +575,42 @@ export function updateHud(hud: HudSnapshot): void {
   // Active upgrade button (EMP or F-15)
   if (h.activeButton) {
     if (hud.activeFamily) {
-      h.activeButton.hidden = false;
+      const visualPhase = resolveActiveButtonPhase(hud);
+      h.activeButton.hidden = visualPhase === "spent";
       h.activeButton.dataset.family = hud.activeFamily;
-      h.activeButton.className = `battlefield-active${hud.activeReady ? " battlefield-active--ready" : ""}`;
-      h.activeButton.disabled = !hud.activeReady;
+      h.activeButton.dataset.phase = visualPhase;
+      h.activeButton.className = `battlefield-active battlefield-active--${visualPhase}`;
+      h.activeButton.disabled = visualPhase !== "ready";
       h.activeButton.setAttribute(
         "aria-label",
-        hud.activeReady ? `Fire ${hud.activeLabel}` : `${hud.activeLabel} used this wave`,
+        visualPhase === "ready"
+          ? `Fire ${hud.activeLabel}`
+          : visualPhase === "active"
+            ? `${hud.activeLabel} active`
+            : visualPhase === "complete"
+              ? `${hud.activeLabel} complete`
+              : `${hud.activeLabel} used this wave`,
       );
     } else {
+      resolveActiveButtonPhase(hud);
       h.activeButton.hidden = true;
+      delete h.activeButton.dataset.family;
+      delete h.activeButton.dataset.phase;
     }
   }
   if (h.activeLabel) {
     h.activeLabel.textContent = hud.activeLabel || "EMP";
   }
   if (h.activeMeta) {
-    h.activeMeta.textContent = hud.activeReady ? "READY" : "USED";
+    const visualPhase = h.activeButton?.dataset.phase as ActiveButtonPhase | undefined;
+    h.activeMeta.textContent =
+      visualPhase === "ready"
+        ? "READY"
+        : visualPhase === "active"
+          ? "ACTIVE"
+          : visualPhase === "complete"
+            ? "COMPLETE"
+            : "USED";
   }
   // Perf overlay
   if (h.perfRaf) h.perfRaf.textContent = hud.rafFps ? `${hud.rafFps.toFixed(1)} fps` : "--";

@@ -113,6 +113,7 @@ function buildHudSnapshot(game: GameState | null): HudSnapshot {
       activeFamily: null,
       activeLabel: "EMP",
       activeReady: false,
+      activePhase: "spent",
     };
   }
   const ammoMax = getAmmoCapacity(game.wave, game.upgrades.launcherKit);
@@ -140,22 +141,29 @@ function buildActiveSlotSnapshot(game: GameState): {
   activeFamily: "emp" | "f15" | null;
   activeLabel: string;
   activeReady: boolean;
+  activePhase: "ready" | "active" | "spent";
 } {
   if (game.upgrades.f15 > 0) {
+    const activeReady = game.f15ReadyThisWave;
+    const sortieActive = game.planes.some((plane) => plane.alive) || game.f15ReturnTimer > 0;
     return {
       activeFamily: "f15",
       activeLabel: "F-15",
-      activeReady: game.f15ReadyThisWave,
+      activeReady,
+      activePhase: activeReady ? "ready" : sortieActive ? "active" : "spent",
     };
   }
   if (game.upgrades.emp > 0) {
+    const activeReady = game.empReadyThisWave;
+    const blastActive = game.empRings.some((ring) => ring.alive !== false);
     return {
       activeFamily: "emp",
       activeLabel: "EMP",
-      activeReady: game.empReadyThisWave,
+      activeReady,
+      activePhase: activeReady ? "ready" : blastActive ? "active" : "spent",
     };
   }
-  return { activeFamily: null, activeLabel: "EMP", activeReady: false };
+  return { activeFamily: null, activeLabel: "EMP", activeReady: false, activePhase: "spent" };
 }
 
 function emptyTransientOverlaySnapshot(titleCopyVisible = false): TransientOverlaySnapshot {
