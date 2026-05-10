@@ -1675,7 +1675,6 @@
   --active-core: #f8e6ff;
   --active-hot: #ffffff;
   --active-meta: #d7b3ff;
-  --active-ring: rgba(204, 68, 255, 0.36);
   position: absolute;
   left: 51.1%;
   top: 91.7%;
@@ -1686,9 +1685,7 @@
   padding: 8px 14px;
   border-radius: 16px;
   border: 1px solid rgba(204, 68, 255, 0.28);
-  background:
-    linear-gradient(180deg, rgba(75, 19, 99, 0.36), rgba(20, 8, 30, 0.82)),
-    radial-gradient(circle at 50% 18%, rgba(var(--active-rgb), 0.28), transparent 56%);
+  background: linear-gradient(180deg, rgba(75, 19, 99, 0.36), rgba(20, 8, 30, 0.82));
   color: var(--active-core);
   display: flex;
   flex-direction: column;
@@ -1698,11 +1695,10 @@
   font: inherit;
   cursor: pointer;
   isolation: isolate;
-  overflow: hidden;
   opacity: 0.96;
   box-shadow:
     0 10px 20px rgba(0, 0, 0, 0.24),
-    0 0 22px rgba(var(--active-rgb), 0.12);
+    0 0 18px rgba(var(--active-rgb), 0.12);
   transition:
     transform 160ms ease,
     opacity 160ms ease,
@@ -1714,38 +1710,24 @@
 .battlefield-active::after {
   content: "";
   position: absolute;
-  inset: -24%;
-  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
   pointer-events: none;
+  z-index: -1;
+  opacity: 0;
 }
 
 .battlefield-active::before {
-  opacity: 0;
-  background:
-    repeating-conic-gradient(
-      from 0deg,
-      rgba(var(--active-rgb), 0) 0deg,
-      rgba(var(--active-rgb), 0) 20deg,
-      rgba(255, 255, 255, 0.34) 28deg,
-      rgba(var(--active-rgb), 0.18) 34deg,
-      rgba(var(--active-rgb), 0) 44deg
-    ),
-    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.74), transparent 9%),
-    radial-gradient(circle at 50% 50%, rgba(var(--active-rgb), 0.62), transparent 52%);
-  transform: scale(0.7);
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(255, 255, 255, 0.55),
+    rgba(var(--active-rgb), 0.5) 30%,
+    transparent 72%
+  );
 }
 
 .battlefield-active::after {
-  opacity: 0;
-  background: linear-gradient(
-    115deg,
-    transparent 25%,
-    rgba(var(--active-rgb), 0.16) 38%,
-    rgba(255, 255, 255, 0.82) 48%,
-    rgba(var(--active-rgb), 0.56) 53%,
-    transparent 72%
-  );
-  transform: translateX(-42%);
+  border: 2px solid rgba(var(--active-rgb), 0.9);
 }
 
 .battlefield-active[data-family="f15"] {
@@ -1753,23 +1735,23 @@
   --active-core: #eaf4ff;
   --active-hot: #ffffff;
   --active-meta: #b6d6ff;
-  --active-ring: rgba(120, 180, 255, 0.38);
   border-color: rgba(180, 220, 255, 0.32);
   background: linear-gradient(180deg, rgba(20, 50, 92, 0.5), rgba(8, 16, 32, 0.85));
   box-shadow:
     0 10px 20px rgba(0, 0, 0, 0.24),
-    0 0 28px rgba(120, 180, 255, 0.12);
+    0 0 22px rgba(120, 180, 255, 0.14);
 }
 
 .battlefield-active--ready {
-  border-color: rgba(204, 68, 255, 0.5);
+  border-color: rgba(var(--active-rgb), 0.55);
   box-shadow:
     0 10px 20px rgba(0, 0, 0, 0.24),
-    0 0 28px rgba(var(--active-rgb), 0.2);
+    0 0 24px rgba(var(--active-rgb), 0.28);
+  animation: active-button-charge 2400ms ease-in-out infinite alternate;
 }
 
 .battlefield-active[data-family="f15"].battlefield-active--ready {
-  border-color: rgba(180, 220, 255, 0.55);
+  border-color: rgba(180, 220, 255, 0.6);
 }
 
 .battlefield-active:disabled {
@@ -1777,78 +1759,68 @@
 }
 
 .battlefield-active--active {
-  border-color: rgba(var(--active-rgb), 0.8);
+  border-color: rgba(var(--active-rgb), 0.95);
   opacity: 1;
   color: var(--active-hot);
   text-shadow:
-    0 0 5px rgba(255, 255, 255, 0.5),
-    0 0 14px rgba(var(--active-rgb), 0.62);
+    0 0 6px rgba(255, 255, 255, 0.65),
+    0 0 16px rgba(var(--active-rgb), 0.78);
   box-shadow:
-    0 12px 24px rgba(0, 0, 0, 0.28),
-    0 0 0 1px rgba(255, 255, 255, 0.24) inset,
-    0 0 18px rgba(var(--active-rgb), 0.46),
-    0 0 44px rgba(var(--active-rgb), 0.28);
-  animation:
-    active-button-breathe 720ms ease-in-out infinite alternate,
-    active-button-rings 1350ms ease-out infinite;
+    0 12px 24px rgba(0, 0, 0, 0.32),
+    0 0 0 1px rgba(255, 255, 255, 0.32) inset,
+    0 0 26px rgba(var(--active-rgb), 0.6),
+    0 0 56px rgba(var(--active-rgb), 0.32);
+  animation: active-button-alive 1400ms ease-in-out infinite;
 }
 
 .battlefield-active--active::before {
-  animation:
-    active-button-core 720ms ease-in-out infinite alternate,
-    active-button-spin 1600ms linear infinite;
+  animation: active-button-pulse 900ms ease-in-out infinite alternate;
 }
 
 .battlefield-active--active::after {
-  opacity: 0.62;
-  animation: active-button-sweep 900ms linear infinite;
+  border: 2px solid rgba(var(--active-rgb), 0.95);
+  animation: active-button-sonar 1300ms ease-out infinite;
 }
 
 .battlefield-active--complete {
-  border-color: rgba(255, 255, 255, 0.72);
+  border-color: rgba(255, 255, 255, 0.95);
   opacity: 0;
   pointer-events: none;
   color: #ffffff;
   text-shadow:
-    0 0 6px rgba(255, 255, 255, 0.9),
-    0 0 18px rgba(var(--active-rgb), 0.86);
-  box-shadow:
-    0 10px 20px rgba(0, 0, 0, 0.2),
-    0 0 36px rgba(var(--active-rgb), 0.3);
+    0 0 10px rgba(255, 255, 255, 1),
+    0 0 22px rgba(var(--active-rgb), 0.95);
   animation:
-    active-button-complete 1050ms ease-out forwards,
-    active-button-detonate 1050ms ease-out forwards;
+    active-button-recoil 820ms cubic-bezier(0.18, 0.7, 0.32, 1) forwards,
+    active-button-detonate 820ms ease-out forwards;
 }
 
 .battlefield-active--complete::before {
-  background:
-    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.96), transparent 11%),
-    radial-gradient(circle at 50% 50%, rgba(var(--active-rgb), 0.8), transparent 34%),
-    repeating-conic-gradient(
-      from 0deg,
-      rgba(255, 255, 255, 0.72) 0deg 9deg,
-      rgba(var(--active-rgb), 0.14) 9deg 18deg,
-      transparent 18deg 35deg
-    );
-  animation: active-button-burst 1050ms ease-out forwards;
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(255, 255, 255, 1),
+    rgba(255, 255, 255, 0.6) 18%,
+    rgba(var(--active-rgb), 0.85) 38%,
+    transparent 72%
+  );
+  animation: active-button-flash 820ms ease-out forwards;
 }
 
 .battlefield-active--complete::after {
-  opacity: 0.82;
-  animation: active-button-finish-sweep 640ms ease-out 1;
+  animation: active-button-shockwave 820ms cubic-bezier(0.2, 0.6, 0.3, 1) forwards;
 }
 
 .battlefield-active:hover:not(:disabled) {
   transform: translate(-50%, -1px);
   box-shadow:
     0 12px 24px rgba(0, 0, 0, 0.28),
-    0 0 32px rgba(var(--active-rgb), 0.2);
+    0 0 28px rgba(var(--active-rgb), 0.32);
 }
 
 .battlefield-active[data-family="f15"]:hover:not(:disabled) {
   box-shadow:
     0 12px 24px rgba(0, 0, 0, 0.28),
-    0 0 34px rgba(120, 180, 255, 0.22);
+    0 0 30px rgba(120, 180, 255, 0.32);
 }
 
 .battlefield-active__label {
@@ -1864,142 +1836,149 @@
   color: var(--active-meta);
 }
 
-@keyframes active-button-breathe {
+@keyframes active-button-charge {
   from {
-    transform: translate(-50%, 0) scale(1);
-  }
-  to {
-    transform: translate(-50%, -2px) scale(1.055);
-  }
-}
-
-@keyframes active-button-core {
-  from {
-    opacity: 0.42;
-    transform: scale(0.72) rotate(0deg);
-  }
-  to {
-    opacity: 0.88;
-    transform: scale(1.14) rotate(16deg);
-  }
-}
-
-@keyframes active-button-spin {
-  to {
-    rotate: 360deg;
-  }
-}
-
-@keyframes active-button-rings {
-  0% {
     box-shadow:
-      0 12px 24px rgba(0, 0, 0, 0.28),
-      0 0 0 0 var(--active-ring),
-      0 0 18px rgba(var(--active-rgb), 0.46),
-      0 0 44px rgba(var(--active-rgb), 0.28);
+      0 10px 20px rgba(0, 0, 0, 0.24),
+      0 0 18px rgba(var(--active-rgb), 0.18);
   }
-  70% {
+  to {
     box-shadow:
-      0 12px 24px rgba(0, 0, 0, 0.28),
-      0 0 0 12px rgba(var(--active-rgb), 0),
-      0 0 20px rgba(var(--active-rgb), 0.5),
-      0 0 48px rgba(var(--active-rgb), 0.3);
+      0 10px 20px rgba(0, 0, 0, 0.24),
+      0 0 32px rgba(var(--active-rgb), 0.42);
   }
+}
+
+@keyframes active-button-alive {
+  0%,
   100% {
     box-shadow:
-      0 12px 24px rgba(0, 0, 0, 0.28),
-      0 0 0 16px rgba(var(--active-rgb), 0),
-      0 0 18px rgba(var(--active-rgb), 0.46),
-      0 0 44px rgba(var(--active-rgb), 0.28);
+      0 12px 24px rgba(0, 0, 0, 0.32),
+      0 0 0 1px rgba(255, 255, 255, 0.32) inset,
+      0 0 22px rgba(var(--active-rgb), 0.55),
+      0 0 50px rgba(var(--active-rgb), 0.28);
+  }
+  50% {
+    box-shadow:
+      0 12px 24px rgba(0, 0, 0, 0.32),
+      0 0 0 1px rgba(255, 255, 255, 0.4) inset,
+      0 0 32px rgba(var(--active-rgb), 0.78),
+      0 0 64px rgba(var(--active-rgb), 0.4);
   }
 }
 
-@keyframes active-button-sweep {
+@keyframes active-button-pulse {
   from {
-    transform: translateX(-46%);
+    opacity: 0.45;
+    transform: scale(0.88);
   }
   to {
-    transform: translateX(46%);
+    opacity: 0.95;
+    transform: scale(1.08);
   }
 }
 
-@keyframes active-button-burst {
+@keyframes active-button-sonar {
   0% {
-    opacity: 0.98;
-    transform: scale(0.36) rotate(0deg);
+    opacity: 0.95;
+    transform: scale(1);
+    border-width: 2px;
   }
-  36% {
-    opacity: 0.72;
-    transform: scale(1.02) rotate(28deg);
-  }
-  68% {
-    opacity: 0.28;
-    transform: scale(1.34) rotate(42deg);
+  70% {
+    opacity: 0.18;
+    border-width: 1px;
   }
   100% {
     opacity: 0;
-    transform: scale(1.68) rotate(52deg);
+    transform: scale(1.7);
+    border-width: 1px;
   }
 }
 
-@keyframes active-button-complete {
+@keyframes active-button-recoil {
   0% {
     opacity: 1;
-    transform: translate(-50%, -2px) scale(1.08);
+    transform: translate(-50%, 0);
   }
   18% {
     opacity: 1;
-    transform: translate(-50%, -4px) scale(1.14);
-  }
-  52% {
-    opacity: 0.74;
-    transform: translate(-50%, -2px) scale(1.02);
+    transform: translate(-50%, -3px);
   }
   100% {
     opacity: 0;
-    transform: translate(-50%, 8px) scale(0.9);
+    transform: translate(-50%, 10px);
   }
 }
 
 @keyframes active-button-detonate {
   0% {
     box-shadow:
-      0 10px 20px rgba(0, 0, 0, 0.2),
-      0 0 0 0 rgba(255, 255, 255, 0.78),
-      0 0 0 0 rgba(var(--active-rgb), 0.54),
-      0 0 34px rgba(var(--active-rgb), 0.5);
+      0 12px 24px rgba(0, 0, 0, 0.32),
+      0 0 0 0 rgba(255, 255, 255, 0.95),
+      0 0 0 0 rgba(var(--active-rgb), 0.7),
+      0 0 0 0 rgba(var(--active-rgb), 0.45),
+      0 0 36px rgba(var(--active-rgb), 0.85);
   }
-  42% {
+  35% {
     box-shadow:
-      0 10px 20px rgba(0, 0, 0, 0.2),
-      0 0 0 5px rgba(255, 255, 255, 0.22),
-      0 0 0 18px rgba(var(--active-rgb), 0.18),
-      0 0 54px rgba(var(--active-rgb), 0.64);
+      0 12px 24px rgba(0, 0, 0, 0.28),
+      0 0 0 6px rgba(255, 255, 255, 0.4),
+      0 0 0 18px rgba(var(--active-rgb), 0.34),
+      0 0 0 32px rgba(var(--active-rgb), 0.18),
+      0 0 60px rgba(var(--active-rgb), 0.85);
+  }
+  70% {
+    box-shadow:
+      0 12px 24px rgba(0, 0, 0, 0.18),
+      0 0 0 14px rgba(255, 255, 255, 0.08),
+      0 0 0 32px rgba(var(--active-rgb), 0.1),
+      0 0 0 56px rgba(var(--active-rgb), 0.04),
+      0 0 70px rgba(var(--active-rgb), 0.32);
   }
   100% {
     box-shadow:
-      0 10px 20px rgba(0, 0, 0, 0),
-      0 0 0 12px rgba(255, 255, 255, 0),
-      0 0 0 34px rgba(var(--active-rgb), 0),
-      0 0 20px rgba(var(--active-rgb), 0);
+      0 12px 24px rgba(0, 0, 0, 0),
+      0 0 0 24px rgba(255, 255, 255, 0),
+      0 0 0 48px rgba(var(--active-rgb), 0),
+      0 0 0 76px rgba(var(--active-rgb), 0),
+      0 0 80px rgba(var(--active-rgb), 0);
   }
 }
 
-@keyframes active-button-finish-sweep {
+@keyframes active-button-flash {
   0% {
-    opacity: 0;
-    transform: translateX(-62%) skewX(-12deg);
+    opacity: 1;
+    transform: scale(0.85);
   }
-  24% {
-    opacity: 0.9;
+  30% {
+    opacity: 0.95;
+    transform: scale(1.18);
   }
   100% {
     opacity: 0;
-    transform: translateX(62%) skewX(-12deg);
+    transform: scale(1.55);
+  }
+}
+
+@keyframes active-button-shockwave {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+    border-width: 3px;
+  }
+  60% {
+    opacity: 0.5;
+    border-width: 2px;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.4);
+    border-width: 1px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .battlefield-active--ready,
   .battlefield-active--active,
   .battlefield-active--active::before,
   .battlefield-active--active::after,
@@ -2010,8 +1989,12 @@
   }
 
   .battlefield-active--active::before {
-    opacity: 0.48;
+    opacity: 0.7;
     transform: scale(1);
+  }
+
+  .battlefield-active--active::after {
+    opacity: 0;
   }
 
   .battlefield-active--complete {
