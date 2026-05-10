@@ -45,6 +45,10 @@ async function runReplayHeadless(page: Page, replayData: ReplayData) {
     for (let i = 0; i < MAX_TICKS; i++) {
       if (rr.isFinished()) break;
       if (rr.isShopPaused()) rr.resumeFromShop();
+      if (rr.isBonusPaused()) {
+        g._bonusScreenDone = true;
+        rr.resumeFromBonusScreen();
+      }
       rr.step();
     }
     const result = {
@@ -113,5 +117,55 @@ test.describe("Replay", () => {
 
     const tickDuring = await page.evaluate(() => window.__gameRef!.current!._replayTick);
     expect(tickDuring).toBe(tickBefore);
+  });
+
+  test("watched replay auto-advances through wave summary", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForFunction(() => window.__loadReplay != null, { timeout: 5000 });
+
+    const replayData: ReplayData = {
+      seed: 2468,
+      actions: [
+        { tick: 900, type: "cursor", x: 120, y: 120 },
+        { tick: 950, type: "cursor", x: 180, y: 180 },
+        { tick: 1000, type: "shop", bought: [] },
+        { tick: 1010, type: "fire", x: 450, y: 300, ignoreLauncherReload: true },
+      ],
+      isHuman: true,
+    };
+
+    await page.evaluate((data: ReplayData) => window.__loadReplay!(data), replayData);
+    await page.waitForFunction(() => window.__gameRef?.current?._replay === true);
+
+    await page.evaluate(() => {
+      const g = window.__gameRef!.current!;
+      g.state = "playing";
+      g.waveComplete = true;
+      g.waveClearedTimer = 0;
+      g._bonusScreenStarted = false;
+      g._bonusScreenDone = false;
+      g.schedule = [];
+      g.scheduleIdx = 0;
+      g.missiles = [];
+      g.drones = [];
+      g.interceptors = [];
+    });
+
+    await expect(page.locator(".bonus-screen")).toBeVisible({ timeout: 3000 });
+    await page.waitForFunction(
+      () => {
+        const g = window.__gameRef?.current;
+        return g?.state === "playing" && g.wave >= 2 && !document.querySelector(".bonus-screen");
+      },
+      { timeout: 7000 },
+    );
+
+    await page.waitForFunction(
+      () => {
+        const g = window.__gameRef?.current;
+        return g?.wave === 2 && g.stats.shotsFired > 0;
+      },
+      { timeout: 3000 },
+    );
   });
 });

@@ -275,6 +275,7 @@ export function showBonusScreen(
   data: WaveSummaryData,
   onScoreAdd: (pts: number) => void,
   onComplete: () => void,
+  options: { autoCompleteAfterTotalMs?: number } = {},
 ): void {
   hideBonusScreen();
   const container = document.getElementById("bonus-container")!;
@@ -443,6 +444,9 @@ export function showBonusScreen(
     totalVisible = true;
     SFX.bonusTotal();
     render();
+    if (options.autoCompleteAfterTotalMs !== undefined) {
+      timers.push(window.setTimeout(() => finish(), options.autoCompleteAfterTotalMs));
+    }
     let flashes = 0;
     const iv = window.setInterval(() => {
       flashes++;

@@ -2496,4 +2496,12 @@ export function createGameSim(options: { onEvent?: ((type: string, data?: unknow
   };
 }
 
-export { buyUpgrade, buyDraftUpgrade, closeShop, draftPick3, repairLauncher, repairSite } from "./game-sim-shop.js";
+export {
+  buyUpgrade,
+  buyDraftUpgrade,
+  closeShop,
+  draftPick3,
+  grantReplayUpgrade,
+  repairLauncher,
+  repairSite,
+} from "./game-sim-shop.js";

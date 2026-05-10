@@ -228,6 +228,21 @@ export function buyDraftUpgrade(g: GameState, request: string): boolean {
   return true;
 }
 
+export function grantReplayUpgrade(g: GameState, request: string): boolean {
+  ensureUpgradeRuntimeState(g);
+  if (request === "burjRepair") return buyBurjRepair(g, true);
+  const directNode = getUpgradeNodeDef(request);
+  const nodeId = directNode
+    ? directNode.id
+    : resolveRequestedUpgradeNodeId(g.ownedUpgradeNodes, getWaveAwareProgression(g), request);
+  if (!nodeId || g.ownedUpgradeNodes.has(nodeId)) return false;
+  const node = getUpgradeNodeDef(nodeId);
+  if (!node) return false;
+  g.ownedUpgradeNodes.add(nodeId);
+  applyNodeSideEffects(g, nodeId);
+  return true;
+}
+
 export function repairCost(wave: number): number {
   return 200 + 50 * wave;
 }

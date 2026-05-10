@@ -46,6 +46,13 @@ describe("createReplayRunner lifecycle", () => {
     rr.cleanup();
   });
 
+  it("isBonusPaused() starts false", () => {
+    const rr = createReplayRunner({ seed: SEED, actions: [] });
+    rr.init();
+    expect(rr.isBonusPaused()).toBe(false);
+    rr.cleanup();
+  });
+
   it("step() advances tick by 1", () => {
     const rr = createReplayRunner({ seed: SEED, actions: [] });
     rr.init();
@@ -245,6 +252,22 @@ describe("createReplayRunner shop handling", () => {
     rr.cleanup();
   });
 
+  it("resumeFromShop() applies recorded direct node purchases even when meta progression would lock them", () => {
+    const actions = [{ tick: 0, type: "shop", bought: ["f15TopGun"] }] as ReplayAction[];
+    const rr = createReplayRunner({ seed: SEED, actions });
+    const g = rr.init();
+    g.ownedUpgradeNodes.add("f15");
+    g.upgrades.f15 = 1;
+    g.state = "shop";
+
+    rr.step();
+    rr.resumeFromShop();
+
+    expect(g.ownedUpgradeNodes.has("f15TopGun")).toBe(true);
+    expect(g.upgrades.f15).toBe(2);
+    rr.cleanup();
+  });
+
   it("resumeFromShop() with empty shop action still closes shop", () => {
     const actions = [{ tick: 0, type: "shop" as const, bought: [] }];
     const rr = createReplayRunner({ seed: SEED, actions });
@@ -255,6 +278,32 @@ describe("createReplayRunner shop handling", () => {
     rr.resumeFromShop();
     expect(g.state).toBe("playing");
     expect(rr.isShopPaused()).toBe(false);
+    rr.cleanup();
+  });
+
+  it("fast-forwards to the recorded shop tick before starting the next wave", () => {
+    const actions = [
+      { tick: 900, type: "cursor" as const, x: 100, y: 100 },
+      { tick: 950, type: "cursor" as const, x: 150, y: 150 },
+      { tick: 1000, type: "shop" as const, bought: [] },
+      { tick: 1010, type: "fire" as const, x: 450, y: 200 },
+    ];
+    const rr = createReplayRunner({ seed: SEED, actions });
+    const g = rr.init();
+    g.state = "shop";
+
+    rr.step();
+    expect(rr.isShopPaused()).toBe(true);
+    expect(rr.getTick()).toBe(1000);
+    expect(g._replayTick).toBe(1000);
+
+    rr.resumeFromShop();
+    expect(g.state).toBe("playing");
+    expect(g.wave).toBe(2);
+    rr.step();
+    expect(g.stats.shotsFired).toBe(0);
+    for (let i = 0; i < 10; i++) rr.step();
+    expect(g.stats.shotsFired).toBe(1);
     rr.cleanup();
   });
 
@@ -275,6 +324,31 @@ describe("createReplayRunner shop handling", () => {
     expect(rr.isShopPaused()).toBe(true);
     rr.resumeFromShop();
     expect(g.state).toBe("playing");
+    rr.cleanup();
+  });
+});
+
+// ── Wave summary handling ──
+
+describe("createReplayRunner wave summary handling", () => {
+  it("pauses replay ticks while the wave summary is waiting to complete", () => {
+    const rr = createReplayRunner({ seed: SEED, actions: [] }, () => {});
+    const g = rr.init();
+    g.waveComplete = true;
+    g.waveClearedTimer = 0;
+
+    rr.step();
+    expect(rr.isBonusPaused()).toBe(true);
+    const tickAtSummary = rr.getTick();
+
+    rr.step();
+    rr.step();
+    expect(rr.getTick()).toBe(tickAtSummary);
+
+    g._bonusScreenDone = true;
+    rr.resumeFromBonusScreen();
+    expect(rr.isBonusPaused()).toBe(false);
+
     rr.cleanup();
   });
 });

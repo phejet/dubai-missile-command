@@ -772,6 +772,7 @@ export class Game {
           this.canvas.style.pointerEvents = "";
           hideBonusScreen();
         },
+        this.replayActive ? { autoCompleteAfterTotalMs: 500 } : undefined,
       );
     } else if (type === "shopOpen") {
       const game = this.gameRef.current;
@@ -1120,7 +1121,11 @@ export class Game {
 
         if (this.replayRunner) {
           const runner = this.replayRunner;
-          if (runner.isShopPaused()) {
+          if (runner.isBonusPaused()) {
+            if (game._bonusScreenDone) {
+              runner.resumeFromBonusScreen();
+            }
+          } else if (runner.isShopPaused()) {
             if (!game._replayShopTimer) {
               game._replayShopTimer = performance.now();
               const bought = game._replayShopBought || [];

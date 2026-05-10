@@ -20,6 +20,12 @@ function replayToCompletion(seed: number, actions: ReplayAction[], options: Reco
       rr.resumeFromShop();
       continue;
     }
+    if (rr.isBonusPaused()) {
+      const g = rr.getState();
+      if (g) g._bonusScreenDone = true;
+      rr.resumeFromBonusScreen();
+      continue;
+    }
     rr.step();
   }
   const g = rr.getState();
@@ -139,6 +145,12 @@ describe("replay round-trip", () => {
         if (rr.isFinished()) break;
         if (rr.isShopPaused()) {
           rr.resumeFromShop();
+          continue;
+        }
+        if (rr.isBonusPaused()) {
+          const g = rr.getState();
+          if (g) g._bonusScreenDone = true;
+          rr.resumeFromBonusScreen();
           continue;
         }
         rr.step();

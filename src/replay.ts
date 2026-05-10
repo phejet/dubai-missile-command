@@ -3,7 +3,7 @@ import {
   initGame,
   update,
   buyUpgrade,
-  buyDraftUpgrade,
+  grantReplayUpgrade,
   closeShop,
   fireEmp,
   fireF15Pair,
@@ -34,6 +34,7 @@ export function createReplayRunner(replayData: ReplayData, onEvent: EventCallbac
   let g: GameState | null = null;
   let finished = false;
   let shopPaused = false;
+  let bonusPaused = false;
   let pendingShopAction: ShopAction | null = null;
 
   function shouldStopReplay() {
@@ -50,12 +51,13 @@ export function createReplayRunner(replayData: ReplayData, onEvent: EventCallbac
     tick = 0;
     finished = false;
     shopPaused = false;
+    bonusPaused = false;
     pendingShopAction = null;
     return g;
   }
 
   function step() {
-    if (finished || !g || shopPaused) return;
+    if (finished || !g || shopPaused || bonusPaused) return;
 
     if (g.state === "gameover") {
       finished = true;
@@ -68,24 +70,21 @@ export function createReplayRunner(replayData: ReplayData, onEvent: EventCallbac
 
     // When game enters shop state, find and apply the next shop action immediately
     if (g.state === "shop") {
-      // Discard any stale combat actions that were recorded before the shop opened.
-      while (actionIdx < actions.length && actions[actionIdx].type !== "shop" && actions[actionIdx].tick <= tick) {
+      // Discard non-shop input recorded during the wave-summary/shop UI gap.
+      while (actionIdx < actions.length && actions[actionIdx].type !== "shop") {
         actionIdx++;
       }
 
       let shopAction: ShopAction | null = null;
-      while (actionIdx < actions.length) {
-        if (actions[actionIdx].type === "shop") {
-          shopAction = actions[actionIdx] as ShopAction;
-          actionIdx++;
-          break;
-        }
-        if (actions[actionIdx].tick > tick) break;
+      if (actionIdx < actions.length && actions[actionIdx].type === "shop") {
+        shopAction = actions[actionIdx] as ShopAction;
         actionIdx++;
       }
       if (shopAction) {
         pendingShopAction = shopAction;
         g._replayShopBought = shopAction.bought;
+        tick = Math.max(tick, shopAction.tick);
+        g._replayTick = tick;
       }
       shopPaused = true;
       return;
@@ -135,6 +134,10 @@ export function createReplayRunner(replayData: ReplayData, onEvent: EventCallbac
     update(g, 1, onEvent);
     tick++;
     g._replayTick = tick;
+    if (g._bonusScreenStarted && !g._bonusScreenDone) {
+      bonusPaused = true;
+      return;
+    }
     if (shouldStopReplay()) {
       finished = true;
     }
@@ -149,9 +152,11 @@ export function createReplayRunner(replayData: ReplayData, onEvent: EventCallbac
         } else if (key.startsWith("repair_")) {
           repairSite(g, key.replace("repair_", ""));
         } else if (draftMode) {
-          buyDraftUpgrade(g, key as import("./types").UpgradeKey);
+          grantReplayUpgrade(g, key);
         } else {
-          buyUpgrade(g, key as import("./types").UpgradeKey);
+          if (!grantReplayUpgrade(g, key)) {
+            buyUpgrade(g, key as import("./types").UpgradeKey);
+          }
         }
       }
       pendingShopAction = null;
@@ -162,6 +167,15 @@ export function createReplayRunner(replayData: ReplayData, onEvent: EventCallbac
 
   function isShopPaused() {
     return shopPaused;
+  }
+
+  function resumeFromBonusScreen() {
+    if (!bonusPaused || !g || !g._bonusScreenDone) return;
+    bonusPaused = false;
+  }
+
+  function isBonusPaused() {
+    return bonusPaused;
   }
 
   function getState() {
@@ -180,5 +194,16 @@ export function createReplayRunner(replayData: ReplayData, onEvent: EventCallbac
     setRng(Math.random);
   }
 
-  return { init, step, getState, getTick, isFinished, isShopPaused, resumeFromShop, cleanup };
+  return {
+    init,
+    step,
+    getState,
+    getTick,
+    isFinished,
+    isShopPaused,
+    resumeFromShop,
+    isBonusPaused,
+    resumeFromBonusScreen,
+    cleanup,
+  };
 }
