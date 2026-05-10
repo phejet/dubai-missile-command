@@ -1007,13 +1007,11 @@ export class Game {
     const game = this.gameRef.current;
     if (!game || game.state !== "playing") return false;
     if (game.upgrades.f15 > 0 && simFireF15Pair(game, (t, d) => this.handleSimEvent(t, d))) {
-      SFX.planeIncoming();
       if (game._actionLog) game._actionLog.push({ tick: game._replayTick ?? 0, type: "f15" });
       this.syncHud(true);
       return true;
     }
     if (game.upgrades.emp > 0 && simFireEmp(game, (t, d) => this.handleSimEvent(t, d))) {
-      SFX.empBlast();
       if (game._actionLog) game._actionLog.push({ tick: game._replayTick ?? 0, type: "emp" });
       this.syncHud(true);
       return true;

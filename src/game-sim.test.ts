@@ -1176,13 +1176,15 @@ describe("EMP active upgrade", () => {
     expect(fireEmp(g, null)).toBe(false);
   });
 
-  it("rank 1 spawns one ring at the Burj and consumes the cast", () => {
+  it("rank 1 spawns a three-layer Burj ring and consumes the cast", () => {
     const { g } = makeCleanGame(5);
     g.score = 5000;
     buyUpgrade(g, "emp");
     expect(g.empReadyThisWave).toBe(true);
     expect(fireEmp(g, null)).toBe(true);
-    expect(g.empRings.length).toBe(1);
+    expect(g.empRings.length).toBe(3);
+    expect(g.empRings.every((ring) => ring.kind === "burj")).toBe(true);
+    expect(g.empRings.filter((ring) => (ring.damage ?? 0) > 0)).toHaveLength(1);
     expect(g.empReadyThisWave).toBe(false);
     expect(fireEmp(g, null)).toBe(false);
   });
@@ -1196,7 +1198,8 @@ describe("EMP active upgrade", () => {
     expect(g.upgrades.emp).toBe(2);
     g.launcherHP = [1, 1, 1];
     fireEmp(g, null);
-    expect(g.empRings.length).toBe(4);
+    expect(g.empRings.length).toBe(12);
+    expect(g.empLauncherFlares.length).toBe(3);
   });
 
   it("rank 2 skips dead-launcher anchors", () => {
@@ -1207,7 +1210,8 @@ describe("EMP active upgrade", () => {
     buyUpgrade(g, "empCapacitors");
     g.launcherHP = [1, 0, 1];
     fireEmp(g, null);
-    expect(g.empRings.length).toBe(3);
+    expect(g.empRings.length).toBe(9);
+    expect(g.empLauncherFlares.length).toBe(2);
   });
 
   it("rank 2 launcher rings are smaller than the Burj ring", () => {
@@ -1219,7 +1223,7 @@ describe("EMP active upgrade", () => {
     g.launcherHP = [1, 1, 1];
     fireEmp(g, null);
     const burjRing = g.empRings[0];
-    const launcherRings = g.empRings.slice(1);
+    const launcherRings = g.empRings.filter((ring) => ring.kind === "launcher");
     for (const ring of launcherRings) {
       expect(ring.maxRadius).toBeLessThan(burjRing.maxRadius);
     }
@@ -1237,6 +1241,18 @@ describe("EMP active upgrade", () => {
     expect(g.ammo[0]).toBeGreaterThan(0);
     expect(g.ammo[1]).toBe(0);
     expect(g.ammo[2]).toBeGreaterThan(0);
+  });
+
+  it("EMP arms punch-frame feedback state", () => {
+    const { g } = makeCleanGame(5);
+    g.score = 5000;
+    buyUpgrade(g, "emp");
+    fireEmp(g, null);
+    expect(g.shakeTimer).toBeGreaterThan(6);
+    expect(g.shakeIntensity).toBeGreaterThan(3);
+    expect(g.empScrubTicks).toBeGreaterThan(0);
+    expect(g.empGlitchTimer).toBeGreaterThan(0);
+    expect(g.empZoomTimer).toBeGreaterThan(0);
   });
 
   it("rank 2 rings expand faster than rank 1", () => {

@@ -45,6 +45,10 @@ import {
 import type {
   DefenseSite,
   Drone,
+  EmpArc,
+  EmpBurstFlash,
+  EmpLauncherFlare,
+  EmpRing,
   Explosion,
   Flare,
   GameState,
@@ -215,6 +219,7 @@ interface GameplayEmpRingNode {
   container: Container;
   flash: Graphics;
   wash: Sprite;
+  trails: Sprite[];
   ring: Sprite;
 }
 
@@ -241,6 +246,9 @@ interface GameplayDynamicState {
   flares: Map<Flare, GameplayFlareNode>;
   explosions: Map<Explosion, GameplayExplosionNode>;
   empRingPool: GameplayEmpRingNode[];
+  empArcPool: Graphics[];
+  empBurstFlashPool: Graphics[];
+  empLauncherFlarePool: Graphics[];
   laserPool: Sprite[];
   phalanxPool: Sprite[];
   particlePool: Graphics[];
@@ -267,6 +275,7 @@ interface GameplaySceneState {
   crosshairOverlay: Graphics;
   upgradeRangeOverlay: Graphics;
   collisionOverlay: Graphics;
+  empScreenFxOverlay: Graphics;
   water: PixiWaterSurface | null;
   waterShade: Graphics;
   dynamic: GameplayDynamicState;
@@ -308,6 +317,14 @@ const GAMEPLAY_EFFECT_SCALE = 2;
 const GAMEPLAY_PLANE_SCALE = 3;
 const GAMEPLAY_FLARE_VISUAL_Y = GROUND_Y - BURJ_H * 0.97;
 const GAMEPLAY_EMP_VISUAL_Y = GROUND_Y - BURJ_H * 0.67;
+const EMP_FLASH_WHITE_PROGRESS = 0.04;
+const EMP_FLASH_PURPLE_PROGRESS = 0.1;
+const EMP_FLASH_FADE_PROGRESS = 0.18;
+const EMP_SHAKE_TIMER = 22;
+const EMP_ZOOM_SCALE = 0.04;
+const EMP_RING_SPEED_INITIAL = 40;
+const EMP_RING_SPEED_MID = 25;
+const EMP_RING_SPEED_TAIL = 12;
 const GAMEOVER_GROUND_Y = 560;
 const GAMEOVER_TOWER_BASE_Y = GAMEOVER_GROUND_Y - 6;
 const GAMEOVER_WATER_TOP = GAMEOVER_GROUND_Y + 18;
@@ -351,6 +368,20 @@ function lerpHex(a: number, b: number, t: number): number {
   const g = Math.round(ag + (bg - ag) * tt);
   const bch = Math.round(ab + (bb - ab) * tt);
   return (r << 16) | (g << 8) | bch;
+}
+
+function getEmpVisualRadius(ring: EmpRing): number {
+  const age = Math.max(0, ring.age ?? 0);
+  const expandRate = ring.expandRate ?? 1;
+  let radius = 0;
+  if (age <= 3) {
+    radius = age * EMP_RING_SPEED_INITIAL;
+  } else if (age <= 8) {
+    radius = 3 * EMP_RING_SPEED_INITIAL + (age - 3) * EMP_RING_SPEED_MID;
+  } else {
+    radius = 3 * EMP_RING_SPEED_INITIAL + 5 * EMP_RING_SPEED_MID + (age - 8) * EMP_RING_SPEED_TAIL;
+  }
+  return Math.min(ring.maxRadius * (ring.radiusMul ?? 1), radius * expandRate);
 }
 
 function createBlendSprites(initialTexture: Texture): BlendSprites {
@@ -797,9 +828,10 @@ function createEmpRingNode(assets: PixiEffectSpriteAssets): GameplayEmpRingNode 
   const container = new Container();
   const flash = new Graphics();
   const wash = createEffectSprite(assets.emp.wash);
+  const trails = Array.from({ length: 3 }, () => createEffectSprite(assets.emp.ring));
   const ring = createEffectSprite(assets.emp.ring);
-  container.addChild(flash, wash, ring);
-  return { container, flash, wash, ring };
+  container.addChild(flash, wash, ...trails, ring);
+  return { container, flash, wash, trails, ring };
 }
 
 function getPooledEmpRingNode(
@@ -1411,6 +1443,9 @@ export class PixiRenderer implements GameRenderer {
       flares: new Map(),
       explosions: new Map(),
       empRingPool: [],
+      empArcPool: [],
+      empBurstFlashPool: [],
+      empLauncherFlarePool: [],
       laserPool: [],
       phalanxPool: [],
       particlePool: [],
@@ -1609,11 +1644,13 @@ export class PixiRenderer implements GameRenderer {
     const crosshairOverlay = new Graphics();
     const upgradeRangeOverlay = new Graphics();
     const collisionOverlay = new Graphics();
+    const empScreenFxOverlay = new Graphics();
     this.gameplayOverlayLayer.addChild(
       defenseStatusOverlay,
       burjWarningPlate,
       upgradeRangeOverlay,
       collisionOverlay,
+      empScreenFxOverlay,
       crosshairOverlay,
     );
 
@@ -1649,6 +1686,7 @@ export class PixiRenderer implements GameRenderer {
       crosshairOverlay,
       upgradeRangeOverlay,
       collisionOverlay,
+      empScreenFxOverlay,
       water,
       waterShade,
       dynamic,
@@ -1924,6 +1962,7 @@ export class PixiRenderer implements GameRenderer {
     showShop: boolean,
     interpolationAlpha: number,
   ): void {
+    this.updateGameplayImpactTransform(game);
     const skyAssets = this.textures.getGameplaySkyAssets(game.stars, GAMEPLAY_SCENIC_GROUND_Y);
     state.skyAssets = skyAssets;
     const skyFrameProgress = getFrameProgress(sceneTime, skyAssets.period, skyAssets.frameCount);
@@ -1945,6 +1984,7 @@ export class PixiRenderer implements GameRenderer {
     this.updateGameplayLaunchers(state, game, sceneTime);
     this.updateGameplayDefenseSites(state, game, sceneTime);
     this.updateGameplayOverlays(state, game, sceneTime, showShop, interpolationAlpha);
+    this.updateEmpScreenFxOverlay(state.empScreenFxOverlay, game);
 
     this.canvas.dataset.pixiGameplayStatic = "ready";
     this.canvas.dataset.pixiDynamicCounts = summarizePixiDynamicEntities(game).summary;
@@ -1953,6 +1993,49 @@ export class PixiRenderer implements GameRenderer {
       `launchers:${game.launcherHP.filter((hp) => hp > 0).length}`,
       `sites:${game.defenseSites.filter((site) => site.alive).length}`,
     ].join(",");
+  }
+
+  private updateGameplayImpactTransform(game: GameState): void {
+    const shakeT = game.shakeTimer > 0 ? Math.max(0, Math.min(1, game.shakeTimer / EMP_SHAKE_TIMER)) : 0;
+    const shakeAmp = (game.shakeIntensity ?? 0) * shakeT * shakeT;
+    const tick = game.time;
+    const shakeX = shakeAmp > 0 ? (Math.sin(tick * 2.17) * 0.65 + Math.sin(tick * 5.03 + 1.7) * 0.35) * shakeAmp : 0;
+    const shakeY =
+      shakeAmp > 0 ? (Math.cos(tick * 2.41 + 0.4) * 0.55 + Math.sin(tick * 4.31 + 2.4) * 0.45) * shakeAmp : 0;
+
+    let zoom = 1;
+    if ((game.empZoomTimer ?? 0) > 0 && (game.empZoomMax ?? 0) > 0) {
+      const elapsed = game.empZoomMax - game.empZoomTimer;
+      const attack = 3;
+      const release = Math.max(1, game.empZoomMax - attack);
+      const amount = elapsed < attack ? elapsed / attack : 1 - (elapsed - attack) / release;
+      zoom += EMP_ZOOM_SCALE * Math.max(0, Math.min(1, amount));
+    }
+
+    this.gameplayScene.pivot.set(CANVAS_W / 2, CANVAS_H / 2);
+    this.gameplayScene.position.set(CANVAS_W / 2 + shakeX, CANVAS_H / 2 + shakeY);
+    this.gameplayScene.scale.set(zoom);
+  }
+
+  private updateEmpScreenFxOverlay(graphic: Graphics, game: GameState): void {
+    graphic.clear();
+    const max = game.empGlitchMax || 0;
+    const timer = game.empGlitchTimer || 0;
+    if (max <= 0 || timer <= 0) return;
+
+    const t = Math.max(0, Math.min(1, timer / max));
+    graphic.rect(0, 0, CANVAS_W, CANVAS_H).fill({ color: 0x88f6ff, alpha: 0.08 * t });
+    graphic.rect(0, 0, CANVAS_W, CANVAS_H).fill({ color: COL_HEX.emp, alpha: 0.06 * t });
+
+    const bandCount = 8;
+    const frame = Math.floor(game.time);
+    for (let i = 0; i < bandCount; i++) {
+      const y = hash01(frame, i, 17) * CANVAS_H;
+      const h = 4 + hash01(frame, i, 29) * 18;
+      const xShift = (hash01(frame, i, 41) - 0.5) * 36;
+      const color = i % 3 === 0 ? 0xffffff : i % 3 === 1 ? 0x66ddff : COL_HEX.emp;
+      graphic.rect(xShift, y, CANVAS_W + 80, h).fill({ color, alpha: (0.05 + hash01(frame, i, 53) * 0.1) * t });
+    }
   }
 
   private updateGameplayBuildings(state: GameplaySceneState, game: GameState, sceneTime: number): void {
@@ -2642,6 +2725,9 @@ export class PixiRenderer implements GameRenderer {
     this.updateGameplayPlanes(state, game, sceneTime, interpolationAlpha);
     this.updateGameplayLasers(state, game);
     this.updateGameplayEmpRings(state, game);
+    this.updateGameplayEmpArcs(state, game);
+    this.updateGameplayEmpBurstFlashes(state, game);
+    this.updateGameplayEmpLauncherFlares(state, game);
     this.updateGameplayPhalanxBullets(state, game, interpolationAlpha);
     state.trailBatch.beginFrame();
     this.updateGameplayMissiles(state, game, sceneTime, interpolationAlpha);
@@ -3138,25 +3224,127 @@ export class PixiRenderer implements GameRenderer {
     let used = 0;
     for (const ring of game.empRings) {
       if (ring.alive === false) continue;
-      const progress = ring.maxRadius > 0 ? Math.max(0, Math.min(1, ring.radius / ring.maxRadius)) : 1;
+      const effectiveMaxRadius = ring.maxRadius * (ring.radiusMul ?? 1);
+      const visualRadius = Math.max(ring.radius, getEmpVisualRadius(ring));
+      const progress = effectiveMaxRadius > 0 ? Math.max(0, Math.min(1, visualRadius / effectiveMaxRadius)) : 1;
       const node = getPooledEmpRingNode(state.empRingPool, this.gameplayEffectsLayer, used++, state.effectAssets);
-      if (progress < 0.15) {
+      const tint = ring.tint ?? COL_HEX.emp;
+      const burjCore = ring.kind === "burj" && (ring.visualRole ?? "core") === "core";
+      const impactHold = burjCore && (game.empScrubTicks ?? 0) > 4;
+      if (burjCore && (impactHold || progress < EMP_FLASH_FADE_PROGRESS)) {
+        const flash =
+          impactHold || progress < EMP_FLASH_WHITE_PROGRESS
+            ? { color: 0xffffff, alpha: 0.85 }
+            : progress < EMP_FLASH_PURPLE_PROGRESS
+              ? { color: COL_HEX.emp, alpha: 0.5 }
+              : {
+                  color: COL_HEX.emp,
+                  alpha:
+                    0.3 *
+                    ((EMP_FLASH_FADE_PROGRESS - progress) / (EMP_FLASH_FADE_PROGRESS - EMP_FLASH_PURPLE_PROGRESS)),
+                };
         node.flash.rect(0, 0, CANVAS_W, CANVAS_H).fill({
-          color: COL_HEX.emp,
-          alpha: (1 - progress / 0.15) * 0.18,
+          color: flash.color,
+          alpha: flash.alpha,
         });
       }
-      syncCenteredSprite(node.wash, ring.x, ring.y, ring.radius * 2, ring.alpha * 0.2, COL_HEX.emp);
+      const visualAlpha = Math.max(0, 1 - progress);
+      syncCenteredSprite(node.wash, ring.x, ring.y, visualRadius * 2, visualAlpha * 0.2, tint);
+      const trailScales = [0.96, 0.92, 0.88];
+      const trailAlphas = [0.3, 0.15, 0.05];
+      node.trails.forEach((trail, index) => {
+        syncCenteredSprite(
+          trail,
+          ring.x,
+          ring.y,
+          visualRadius * 2.16 * trailScales[index],
+          visualAlpha * trailAlphas[index],
+          tint,
+        );
+      });
       syncCenteredSprite(
         node.ring,
         ring.x,
         ring.y,
-        ring.radius * 2.16,
-        ring.alpha * (0.8 + (1 - progress) * 0.18),
-        COL_HEX.emp,
+        visualRadius * 2.16,
+        visualAlpha * (0.8 + (1 - progress) * 0.18),
+        tint,
       );
     }
     hideUnusedEmpRingNodes(state.empRingPool, used);
+  }
+
+  private updateGameplayEmpArcs(state: GameplayDynamicState, game: GameState): void {
+    let used = 0;
+    for (const arc of game.empArcs) {
+      if (arc.alive === false) continue;
+      const graphic = getPooledGraphic(state.empArcPool, this.gameplayEffectsLayer, used++);
+      this.drawEmpArc(graphic, arc);
+    }
+    hideUnusedGraphics(state.empArcPool, used);
+  }
+
+  private drawEmpArc(graphic: Graphics, arc: EmpArc): void {
+    const alpha = arc.maxLife > 0 ? Math.max(0, Math.min(1, arc.life / arc.maxLife)) : 1;
+    const points: Array<{ x: number; y: number }> = [{ x: arc.x1, y: arc.y1 }];
+    const dx = arc.x2 - arc.x1;
+    const dy = arc.y2 - arc.y1;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const nx = -dy / len;
+    const ny = dx / len;
+    for (let i = 1; i < 6; i++) {
+      const t = i / 6;
+      const jitter = (hash01(arc.seed, i, Math.floor(arc.life * 10)) - 0.5) * 58;
+      points.push({
+        x: arc.x1 + dx * t + nx * jitter,
+        y: arc.y1 + dy * t + ny * jitter,
+      });
+    }
+    points.push({ x: arc.x2, y: arc.y2 });
+
+    const strokePath = (width: number, color: number, strokeAlpha: number) => {
+      graphic.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length; i++) graphic.lineTo(points[i].x, points[i].y);
+      graphic.stroke({ width, color, alpha: strokeAlpha, cap: "round", join: "round" });
+    };
+    strokePath(7, COL_HEX.emp, alpha * 0.22);
+    strokePath(3, 0x66ddff, alpha * 0.64);
+    strokePath(1.2, 0xffffff, alpha);
+  }
+
+  private updateGameplayEmpBurstFlashes(state: GameplayDynamicState, game: GameState): void {
+    let used = 0;
+    for (const flash of game.empBurstFlashes) {
+      if (flash.alive === false) continue;
+      const graphic = getPooledGraphic(state.empBurstFlashPool, this.gameplayEffectsLayer, used++);
+      const t = flash.maxLife > 0 ? Math.max(0, Math.min(1, flash.life / flash.maxLife)) : 1;
+      const growth = 1 - t;
+      const radius = 18 + growth * 46;
+      graphic.circle(flash.x, flash.y, radius).fill({ color: 0xffffff, alpha: 0.52 * t });
+      graphic.circle(flash.x, flash.y, radius * 1.45).stroke({ width: 3, color: COL_HEX.emp, alpha: 0.72 * t });
+      graphic.circle(flash.x, flash.y, radius * 0.42).fill({ color: 0x66ddff, alpha: 0.5 * t });
+    }
+    hideUnusedGraphics(state.empBurstFlashPool, used);
+  }
+
+  private updateGameplayEmpLauncherFlares(state: GameplayDynamicState, game: GameState): void {
+    let used = 0;
+    for (const flare of game.empLauncherFlares) {
+      if (flare.alive === false) continue;
+      const graphic = getPooledGraphic(state.empLauncherFlarePool, this.gameplayEffectsLayer, used++);
+      const t = flare.maxLife > 0 ? Math.max(0, Math.min(1, flare.life / flare.maxLife)) : 1;
+      const growth = 1 - t;
+      const radius = 18 + growth * 74;
+      graphic.circle(flare.x, flare.y, radius).fill({ color: 0xffffff, alpha: 0.32 * t });
+      graphic.circle(flare.x, flare.y, radius * 1.15).stroke({ width: 5, color: 0x66ddff, alpha: 0.58 * t });
+      graphic
+        .moveTo(flare.x - radius * 1.3, flare.y)
+        .lineTo(flare.x + radius * 1.3, flare.y)
+        .moveTo(flare.x, flare.y - radius * 0.75)
+        .lineTo(flare.x, flare.y + radius * 0.75)
+        .stroke({ width: 2.2, color: 0xffffff, alpha: 0.78 * t, cap: "round" });
+    }
+    hideUnusedGraphics(state.empLauncherFlarePool, used);
   }
 
   private updateGameplayPhalanxBullets(state: GameplayDynamicState, game: GameState, interpolationAlpha = 1): void {

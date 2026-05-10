@@ -59,6 +59,13 @@ export function buildReplayCheckpoint(g: GameState, tick: number, reason: string
     g.planes || [],
     (p) => `${roundCoord(p.x)}:${roundCoord(p.y)}:${roundCoord(p.vx)}:${roundCoord(p.vy)}:${p.fireTimer ?? 0}`,
   );
+  const empRings = (g.empRings || [])
+    .filter((ring) => ring.alive !== false)
+    .map(
+      (ring) =>
+        `${ring.kind || "emp"}:${ring.visualRole || "core"}:${roundCoord(ring.x)}:${roundCoord(ring.y)}:${roundCoord(ring.radius)}:${roundCoord(ring.age)}:${ring.damage ?? 0}`,
+    )
+    .sort(sortStrings);
   const defenseSites = [...(g.defenseSites || [])].map((site) => `${site.key}:${site.alive ? 1 : 0}`).sort(sortStrings);
 
   const signature = {
@@ -81,6 +88,7 @@ export function buildReplayCheckpoint(g: GameState, tick: number, reason: string
       roadrunners: roadrunners.length,
       patriotMissiles: patriots.length,
       planes: planes.length,
+      empRings: empRings.length,
     },
     missiles,
     drones,
@@ -89,6 +97,8 @@ export function buildReplayCheckpoint(g: GameState, tick: number, reason: string
     roadrunners,
     patriots,
     planes,
+    empRings,
+    empScrubTicks: roundCoord(g.empScrubTicks),
   };
 
   const checkpoint: ReplayCheckpoint = {

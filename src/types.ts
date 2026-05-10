@@ -182,6 +182,38 @@ export interface Particle {
   drag?: number;
 }
 
+export interface EmpArc {
+  id: number;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  life: number;
+  maxLife: number;
+  seed: number;
+  alive?: boolean;
+}
+
+export interface EmpBurstFlash {
+  id: number;
+  x: number;
+  y: number;
+  life: number;
+  maxLife: number;
+  seed: number;
+  alive?: boolean;
+}
+
+export interface EmpLauncherFlare {
+  id: number;
+  x: number;
+  y: number;
+  life: number;
+  maxLife: number;
+  seed: number;
+  alive?: boolean;
+}
+
 export interface Plane {
   x: number;
   y: number;
@@ -376,6 +408,11 @@ export interface EmpRing {
   alive?: boolean;
   damage?: number;
   expandRate?: number;
+  age?: number;
+  kind?: "burj" | "launcher";
+  visualRole?: "core" | "cyan" | "magenta";
+  tint?: number;
+  radiusMul?: number;
   hitSet?: Set<Threat>;
 }
 
@@ -514,6 +551,14 @@ export interface GameState {
   patriotMissiles: PatriotMissile[];
   flares: Flare[];
   empRings: EmpRing[];
+  empArcs: EmpArc[];
+  empBurstFlashes: EmpBurstFlash[];
+  empLauncherFlares: EmpLauncherFlare[];
+  empGlitchTimer: number;
+  empGlitchMax: number;
+  empZoomTimer: number;
+  empZoomMax: number;
+  empScrubTicks: number;
 
   burjAlive: boolean;
   burjHealth: number;

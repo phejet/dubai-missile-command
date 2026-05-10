@@ -851,6 +851,23 @@ const SFX = {
   empBlast() {
     if (!ensureCtx() || !trackVoice()) return;
     const t = now();
+    // Impact kick: short sub-bass drop before the old electric chirp.
+    const kick = getCtx().createOscillator();
+    kick.type = "sine";
+    kick.frequency.setValueAtTime(80, t);
+    kick.frequency.exponentialRampToValueAtTime(35, t + 0.05);
+    const kickGain = getCtx().createGain();
+    kickGain.gain.setValueAtTime(0.45, t);
+    kickGain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+    kick.connect(kickGain);
+    kickGain.connect(getMaster());
+    kick.start(t);
+    kick.stop(t + 0.15);
+
+    const hitNoise = noise(0.08, "bandpass", 1200, 0.7);
+    hitNoise.gain.gain.setValueAtTime(0.25, t);
+    hitNoise.gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+
     // Charge release chirp
     const o1 = getCtx().createOscillator();
     o1.type = "sine";
