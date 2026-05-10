@@ -448,8 +448,61 @@ export function createExplosion(
       gravity: 0.02,
     });
   }
-  g.shakeTimer = 8;
-  g.shakeIntensity = radius / 10;
+  applyShake(g, 8, radius / 10);
+}
+
+// Shake envelope decay normalises against the peak timer of the current event,
+// so a quick 8-tick rumble decays as fast as it should and a 22-tick EMP rumble
+// decays slow. Without this, a fixed renderer-side normalizer (e.g. divide by
+// EMP_SHAKE_TIMER) silently makes short shakes feel like a typo.
+export function applyShake(
+  g: Pick<GameState, "shakeTimer" | "shakeIntensity" | "shakePeakTimer">,
+  timer: number,
+  intensity: number,
+): void {
+  if (timer >= g.shakeTimer) {
+    g.shakeTimer = timer;
+    g.shakePeakTimer = timer;
+  }
+  g.shakeIntensity = Math.max(g.shakeIntensity, intensity);
+}
+
+export interface GameplayViewTransform {
+  shakeX: number;
+  shakeY: number;
+  zoom: number;
+}
+
+const EMP_ZOOM_SCALE_VIEW = 0.04;
+const EMP_ZOOM_ATTACK_TICKS = 3;
+
+// Single source of truth for the gameplay-scene transform. Used by the Pixi
+// renderer to position the gameplay container, and by the input handler to
+// invert the transform when mapping pointer events to game-space coordinates.
+export function getGameplayViewTransform(
+  game: Pick<GameState, "time" | "shakeTimer" | "shakeIntensity" | "shakePeakTimer" | "empZoomTimer" | "empZoomMax">,
+): GameplayViewTransform {
+  const peak = Math.max(1, game.shakePeakTimer || 0);
+  const shakeT = game.shakeTimer > 0 ? Math.max(0, Math.min(1, game.shakeTimer / peak)) : 0;
+  const shakeAmp = (game.shakeIntensity ?? 0) * shakeT * shakeT;
+  const tick = game.time;
+  const shakeX = shakeAmp > 0 ? (Math.sin(tick * 2.17) * 0.65 + Math.sin(tick * 5.03 + 1.7) * 0.35) * shakeAmp : 0;
+  const shakeY =
+    shakeAmp > 0 ? (Math.cos(tick * 2.41 + 0.4) * 0.55 + Math.sin(tick * 4.31 + 2.4) * 0.45) * shakeAmp : 0;
+
+  let zoom = 1;
+  const zoomMax = game.empZoomMax ?? 0;
+  const zoomTimer = game.empZoomTimer ?? 0;
+  if (zoomTimer > 0 && zoomMax > 0) {
+    const elapsed = zoomMax - zoomTimer;
+    const release = Math.max(1, zoomMax - EMP_ZOOM_ATTACK_TICKS);
+    const amount =
+      elapsed < EMP_ZOOM_ATTACK_TICKS
+        ? elapsed / EMP_ZOOM_ATTACK_TICKS
+        : 1 - (elapsed - EMP_ZOOM_ATTACK_TICKS) / release;
+    zoom += EMP_ZOOM_SCALE_VIEW * Math.max(0, Math.min(1, amount));
+  }
+  return { shakeX, shakeY, zoom };
 }
 
 export function destroyDefenseSite(g: GameState, site: DefenseSite): void {

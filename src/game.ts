@@ -8,6 +8,7 @@ import {
   GROUND_Y,
   fireInterceptor,
   getAmmoCapacity,
+  getGameplayViewTransform,
   getLauncherBurstChargeCap,
   getLauncherReloadTicks,
   createEmptyGameStats,
@@ -867,9 +868,22 @@ export class Game {
 
   private getCanvasCoords(clientX: number, clientY: number): { x: number; y: number } | null {
     const rect = this.canvas.getBoundingClientRect();
-    const x = (clientX - rect.left) * (CANVAS_W / rect.width);
-    const y = (clientY - rect.top) * (CANVAS_H / rect.height);
-    return { x, y };
+    const canvasX = (clientX - rect.left) * (CANVAS_W / rect.width);
+    const canvasY = (clientY - rect.top) * (CANVAS_H / rect.height);
+    // Invert the gameplay scene's pivot+scale+shake so a click on a visually
+    // shaken / zoomed missile maps to its actual sim coordinates. Without this
+    // the EMP zoom-punch silently shifts crosshair-to-target by ~4% near the
+    // edges, and shake events offset clicks by their amplitude.
+    const game = this.gameRef.current;
+    if (game && this.screen === "playing") {
+      const { shakeX, shakeY, zoom } = getGameplayViewTransform(game);
+      const cx = CANVAS_W / 2;
+      const cy = CANVAS_H / 2;
+      const x = (canvasX - (cx + shakeX)) / zoom + cx;
+      const y = (canvasY - (cy + shakeY)) / zoom + cy;
+      return { x, y };
+    }
+    return { x: canvasX, y: canvasY };
   }
 
   private launchPlayerShot(game: GameState, x: number, y: number, silentOnFail = false): boolean {

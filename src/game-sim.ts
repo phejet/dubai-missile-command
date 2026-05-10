@@ -15,6 +15,7 @@ import {
   getGameplayBuildingBounds,
   getGameplayBurjCollisionTop,
   getGameplayBurjHalfW,
+  applyShake,
   getShahed136LevelFlightYRange,
   getGameplayLauncherPosition,
   dist,
@@ -217,6 +218,7 @@ export function initGame(): GameState {
     time: 0,
     shakeTimer: 0,
     shakeIntensity: 0,
+    shakePeakTimer: 0,
     upgrades: createEmptyUpgradeLevels(),
     ownedUpgradeNodes: new Set(),
     metaProgression: createEmptyUpgradeProgression(),
@@ -1722,8 +1724,7 @@ function updateMissiles(g: GameState, dt: number, onEvent?: ((type: string, data
     ) {
       m.alive = false;
       boom(g, m.x, m.y, 55, "#ff4400", false, onEvent, 30);
-      g.shakeTimer = 10;
-      g.shakeIntensity = 4;
+      applyShake(g, 10, 4);
       applyBurjHitDamage(g, m.x, m.y, "missile", onEvent);
     }
     // Building collisions — match the shared title-style tower geometry
@@ -1751,8 +1752,7 @@ function updateMissiles(g: GameState, dt: number, onEvent?: ((type: string, data
           m.alive = false;
           destroyDefenseSite(g, site);
           boom(g, m.x, m.y, 60, "#ff4400", false, onEvent, 30);
-          g.shakeTimer = 12;
-          g.shakeIntensity = 5;
+          applyShake(g, 12, 5);
         }
       });
     }
@@ -1763,8 +1763,7 @@ function updateMissiles(g: GameState, dt: number, onEvent?: ((type: string, data
         if (g.launcherHP[i] > 0 && m.alive && Math.abs(m.x - l.x) < 45 && m.y >= l.y - 36) {
           m.alive = false;
           boom(g, m.x, m.y, 50, "#ff4400", false, onEvent, 25);
-          g.shakeTimer = 10;
-          g.shakeIntensity = 4;
+          applyShake(g, 10, 4);
           if (!g._debugMode) {
             g.launcherHP[i]--;
             if (g.launcherHP[i] <= 0) {
@@ -1956,8 +1955,7 @@ function updateDrones(
     ) {
       d.alive = false;
       boom(g, d.x, d.y, 70, "#ff6600", false, onEvent, 40);
-      g.shakeTimer = 15;
-      g.shakeIntensity = 6;
+      applyShake(g, 15, 6);
       applyBurjHitDamage(g, d.x, d.y, "drone", onEvent);
     }
     // Shahed impact
@@ -1976,8 +1974,7 @@ function updateDrones(
             (targetY >= burjTop && targetY <= GAMEPLAY_SCENIC_THREAT_FLOOR_Y));
         d.alive = false;
         boom(g, d.x, impactY, 70, "#ff6600", false, onEvent, 40);
-        g.shakeTimer = 15;
-        g.shakeIntensity = 6;
+        applyShake(g, 15, 6);
         if (targetIsBurj) {
           applyBurjHitDamage(g, d.x, Math.min(impactY, GAMEPLAY_SCENIC_THREAT_FLOOR_Y), "drone", onEvent);
         }
@@ -2161,8 +2158,7 @@ function updateExplosions(g: GameState, dt: number, onEvent?: ((type: string, da
         g.score += bonus;
         g.multiKillToast = { label, bonus, kills: ex.kills, x: ex.x, y: ex.y, timer: 90, pulse: 1 };
         ex.heroPulse = Math.max(ex.heroPulse ?? 0, 1.2);
-        g.shakeTimer = Math.max(g.shakeTimer, 10 + (ex.kills ?? 0) * 2);
-        g.shakeIntensity = Math.max(g.shakeIntensity, 4 + (ex.kills ?? 0));
+        applyShake(g, 10 + (ex.kills ?? 0) * 2, 4 + (ex.kills ?? 0));
         if (onEvent) onEvent("sfx", { name: "multiKill" });
       }
     }
@@ -2176,8 +2172,7 @@ function updateExplosions(g: GameState, dt: number, onEvent?: ((type: string, da
         const label = ex.kills === 2 ? "DOUBLE KILL" : ex.kills === 3 ? "TRIPLE KILL" : "MEGA KILL";
         g.multiKillToast = { label, bonus: newBonus, kills: ex.kills, x: ex.x, y: ex.y, timer: 90, pulse: 1 };
         ex.heroPulse = Math.max(ex.heroPulse ?? 0, 1.25);
-        g.shakeTimer = Math.max(g.shakeTimer, 10 + (ex.kills ?? 0) * 2);
-        g.shakeIntensity = Math.max(g.shakeIntensity, 4 + (ex.kills ?? 0));
+        applyShake(g, 10 + (ex.kills ?? 0) * 2, 4 + (ex.kills ?? 0));
         if (onEvent) onEvent("sfx", { name: "multiKill" });
       }
     }
@@ -2296,7 +2291,13 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
   dt = simDt;
   g.time += rawDt;
   updateEmpVisualFx(g, rawDt);
-  if (g.shakeTimer > 0) g.shakeTimer = Math.max(0, g.shakeTimer - dt);
+  if (g.shakeTimer > 0) {
+    g.shakeTimer = Math.max(0, g.shakeTimer - dt);
+    if (g.shakeTimer === 0) {
+      g.shakeIntensity = 0;
+      g.shakePeakTimer = 0;
+    }
+  }
   if ((g.waveClearedTimer ?? 0) > 0) g.waveClearedTimer = (g.waveClearedTimer ?? 0) - dt;
   if (g.multiKillToast && g.multiKillToast.timer > 0) {
     g.multiKillToast.timer -= dt;
@@ -2506,8 +2507,7 @@ export function fireEmp(g: GameState, onEvent?: ((type: string, data?: unknown) 
       g.ammo[i] = ammoCap;
     }
   }
-  g.shakeTimer = Math.max(g.shakeTimer, EMP_SHAKE_TIMER);
-  g.shakeIntensity = Math.max(g.shakeIntensity, EMP_SHAKE_INTENSITY);
+  applyShake(g, EMP_SHAKE_TIMER, EMP_SHAKE_INTENSITY);
   g.empScrubTicks = Math.max(g.empScrubTicks, EMP_SCRUB_TICKS);
   g.empGlitchTimer = EMP_GLITCH_TICKS;
   g.empGlitchMax = EMP_GLITCH_TICKS;

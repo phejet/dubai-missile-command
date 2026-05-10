@@ -17,6 +17,7 @@ import {
   getGameplayBuildingBounds,
   getGameplayBurjCollisionTop,
   getGameplayBurjHalfW,
+  getGameplayViewTransform,
   getShahed136LevelFlightYRange,
   getGameplayLauncherPosition,
   getLauncherMaxHp,
@@ -320,8 +321,6 @@ const GAMEPLAY_EMP_VISUAL_Y = GROUND_Y - BURJ_H * 0.67;
 const EMP_FLASH_WHITE_PROGRESS = 0.04;
 const EMP_FLASH_PURPLE_PROGRESS = 0.1;
 const EMP_FLASH_FADE_PROGRESS = 0.18;
-const EMP_SHAKE_TIMER = 22;
-const EMP_ZOOM_SCALE = 0.04;
 const EMP_RING_SPEED_INITIAL = 40;
 const EMP_RING_SPEED_MID = 25;
 const EMP_RING_SPEED_TAIL = 12;
@@ -1996,22 +1995,7 @@ export class PixiRenderer implements GameRenderer {
   }
 
   private updateGameplayImpactTransform(game: GameState): void {
-    const shakeT = game.shakeTimer > 0 ? Math.max(0, Math.min(1, game.shakeTimer / EMP_SHAKE_TIMER)) : 0;
-    const shakeAmp = (game.shakeIntensity ?? 0) * shakeT * shakeT;
-    const tick = game.time;
-    const shakeX = shakeAmp > 0 ? (Math.sin(tick * 2.17) * 0.65 + Math.sin(tick * 5.03 + 1.7) * 0.35) * shakeAmp : 0;
-    const shakeY =
-      shakeAmp > 0 ? (Math.cos(tick * 2.41 + 0.4) * 0.55 + Math.sin(tick * 4.31 + 2.4) * 0.45) * shakeAmp : 0;
-
-    let zoom = 1;
-    if ((game.empZoomTimer ?? 0) > 0 && (game.empZoomMax ?? 0) > 0) {
-      const elapsed = game.empZoomMax - game.empZoomTimer;
-      const attack = 3;
-      const release = Math.max(1, game.empZoomMax - attack);
-      const amount = elapsed < attack ? elapsed / attack : 1 - (elapsed - attack) / release;
-      zoom += EMP_ZOOM_SCALE * Math.max(0, Math.min(1, amount));
-    }
-
+    const { shakeX, shakeY, zoom } = getGameplayViewTransform(game);
     this.gameplayScene.pivot.set(CANVAS_W / 2, CANVAS_H / 2);
     this.gameplayScene.position.set(CANVAS_W / 2 + shakeX, CANVAS_H / 2 + shakeY);
     this.gameplayScene.scale.set(zoom);

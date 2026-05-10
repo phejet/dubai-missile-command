@@ -575,6 +575,7 @@ export interface GameState {
   time: number;
   shakeTimer: number;
   shakeIntensity: number;
+  shakePeakTimer: number;
 
   upgrades: Upgrades;
   ownedUpgradeNodes: Set<UpgradeNodeId>;

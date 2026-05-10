@@ -321,6 +321,7 @@ export function createEditorScene(): GameState {
     time: 100,
     shakeTimer: 0,
     shakeIntensity: 0,
+    shakePeakTimer: 0,
     upgrades: {
       wildHornets: 0,
       roadrunner: 0,
