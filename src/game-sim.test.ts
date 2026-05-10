@@ -1255,6 +1255,54 @@ describe("EMP active upgrade", () => {
     expect(g.empZoomTimer).toBeGreaterThan(0);
   });
 
+  it("EMP scrub freezes gameplay while the impact hold counts down", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.score = 5000;
+    buyUpgrade(g, "emp");
+    g.missiles.push(makeMissile({ x: 100, y: 100, vx: 4, vy: 0 }));
+    fireEmp(g, null);
+    const coreRing = g.empRings[0];
+    const initialShakeTimer = g.shakeTimer;
+
+    sim.update(g, 1);
+
+    expect(g.missiles[0].x).toBe(100);
+    expect(coreRing.radius).toBe(0);
+    expect(g.empScrubTicks).toBe(6);
+    expect(g.shakeTimer).toBe(initialShakeTimer);
+  });
+
+  it("EMP scrub releases into quarter-speed before returning to normal", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.empScrubTicks = 4;
+    g.shakeTimer = 10;
+    g.missiles.push(makeMissile({ x: 100, y: 100, vx: 4, vy: 0 }));
+
+    sim.update(g, 1);
+
+    expect(g.missiles[0].x).toBe(101);
+    expect(g.empScrubTicks).toBe(3);
+    expect(g.shakeTimer).toBeCloseTo(9.75);
+  });
+
+  it("EMP rings use the front-loaded shockwave expansion curve", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.score = 5000;
+    buyUpgrade(g, "emp");
+    fireEmp(g, null);
+    g.empScrubTicks = 0;
+    const coreRing = g.empRings[0];
+
+    sim.update(g, 1);
+    expect(coreRing.radius).toBe(40);
+    sim.update(g, 1);
+    expect(coreRing.radius).toBe(80);
+    sim.update(g, 1);
+    expect(coreRing.radius).toBe(120);
+    sim.update(g, 1);
+    expect(coreRing.radius).toBe(145);
+  });
+
   it("rank 2 rings expand faster than rank 1", () => {
     const { g } = makeCleanGame(5);
     g.metaProgression.completedObjectives.push("reach_wave_6");

@@ -979,6 +979,9 @@ const EMP_SHAKE_INTENSITY = 14;
 const EMP_SCRUB_TICKS = 7;
 const EMP_GLITCH_TICKS = 12;
 const EMP_ZOOM_TICKS = 10;
+const EMP_RING_SPEED_INITIAL = 40;
+const EMP_RING_SPEED_MID = 25;
+const EMP_RING_SPEED_TAIL = 12;
 const EMP_RING_LAYERS: ReadonlyArray<{
   visualRole: NonNullable<EmpRing["visualRole"]>;
   tint: number;
@@ -990,6 +993,18 @@ const EMP_RING_LAYERS: ReadonlyArray<{
   { visualRole: "cyan", tint: 0x66ddff, radiusMul: 0.92, ageOffset: -2, damages: false },
   { visualRole: "magenta", tint: 0xff66ff, radiusMul: 0.84, ageOffset: -4, damages: false },
 ];
+
+function empScrubScale(remainingTicks: number): number {
+  if (remainingTicks <= 0) return 1;
+  if (remainingTicks > 4) return 0;
+  return 0.25;
+}
+
+function empRingExpansionSpeed(age: number): number {
+  if (age <= 3) return EMP_RING_SPEED_INITIAL;
+  if (age <= 8) return EMP_RING_SPEED_MID;
+  return EMP_RING_SPEED_TAIL;
+}
 
 function updateEmpVisualFx(g: GameState, dt: number): void {
   if (g.empScrubTicks > 0) g.empScrubTicks = Math.max(0, g.empScrubTicks - dt);
@@ -1556,7 +1571,7 @@ export function updateAutoSystems(
     g.empRings.forEach((ring) => {
       ring.age = (ring.age ?? 0) + dt;
       if (ring.age > 0) {
-        ring.radius += 10 * (ring.expandRate ?? 1) * dt;
+        ring.radius += empRingExpansionSpeed(ring.age) * (ring.expandRate ?? 1) * dt;
       }
       const effectiveMaxRadius = ring.maxRadius * (ring.radiusMul ?? 1);
       if (ring.radius > effectiveMaxRadius) {
@@ -2277,9 +2292,11 @@ function updatePlanes(
 export function update(g: GameState, dt: number, onEvent?: ((type: string, data?: unknown) => void) | null) {
   const _rng = getRng();
   const rawDt = dt;
-  g.time += dt;
+  const simDt = dt * empScrubScale(g.empScrubTicks ?? 0);
+  dt = simDt;
+  g.time += rawDt;
   updateEmpVisualFx(g, rawDt);
-  if (g.shakeTimer > 0) g.shakeTimer = Math.max(0, g.shakeTimer - rawDt);
+  if (g.shakeTimer > 0) g.shakeTimer = Math.max(0, g.shakeTimer - dt);
   if ((g.waveClearedTimer ?? 0) > 0) g.waveClearedTimer = (g.waveClearedTimer ?? 0) - dt;
   if (g.multiKillToast && g.multiKillToast.timer > 0) {
     g.multiKillToast.timer -= dt;
