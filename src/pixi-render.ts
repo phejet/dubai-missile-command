@@ -26,6 +26,7 @@ import {
 } from "./game-logic";
 import type { GameOverSnapshot, GameRenderer, GameplayRenderRequest } from "./game-renderer";
 import { PIXI_PNG_ASSET_KEYS, loadPixiPngBundles, type PixiPngAssetMap } from "./pixi-assets";
+import { BURJ_BRIGHT_BANDS } from "./art-render";
 import { UPGRADE_FAMILIES } from "./game-sim-upgrades";
 import {
   createPixiTextureResources,
@@ -121,15 +122,20 @@ export interface PixiBurjBeaconLayout {
   glowY: number;
 }
 
+export interface PixiBurjBaseHealthFloor {
+  y: number;
+  h: number;
+  cx: number;
+  halfW: number;
+}
+
 export interface PixiBurjBaseHealthLayout {
   maxHealth: number;
   frameX: number;
   frameY: number;
   frameW: number;
   frameH: number;
-  segmentRects: Array<{ x: number; y: number; w: number; h: number }>;
-  centerSpireX: number;
-  centerSpireY: number;
+  floors: PixiBurjBaseHealthFloor[];
 }
 
 interface TitleSceneState {
@@ -528,155 +534,24 @@ function createRect(fill: number, alpha: number, x: number, y: number, width: nu
   return graphic;
 }
 
-function traceChamferedRect(
-  graphic: Graphics,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  cut: number,
-): Graphics {
-  const c = Math.min(cut, width / 2, height / 2);
-  return graphic
-    .moveTo(x + c, y)
-    .lineTo(x + width - c, y)
-    .lineTo(x + width, y + c)
-    .lineTo(x + width, y + height - c)
-    .lineTo(x + width - c, y + height)
-    .lineTo(x + c, y + height)
-    .lineTo(x, y + height - c)
-    .lineTo(x, y + c)
-    .closePath();
-}
-
-function drawChamferedPanel(
-  graphic: Graphics,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  cut: number,
-  fill: { color: number; alpha: number },
-  stroke?: { color: number; alpha: number; width: number },
-): void {
-  traceChamferedRect(graphic, x, y, width, height, cut).fill(fill);
-  if (stroke) {
-    traceChamferedRect(graphic, x, y, width, height, cut).stroke(stroke);
-  }
-}
-
-function drawBurjFoundation(graphic: Graphics, towerBaseY: number, groundY: number, artScale = 2): void {
-  const layout = getPixiBurjBaseHealthLayout(towerBaseY, artScale);
+function drawBurjFoundation(graphic: Graphics, towerBaseY: number, groundY: number): void {
+  void groundY;
 
   graphic
-    .ellipse(BURJ_X, groundY - 5, 90, 18)
-    .fill({ color: 0x04070d, alpha: 0.34 })
-    .ellipse(BURJ_X, groundY - 18, 78, 34)
-    .fill({ color: 0x6ccfff, alpha: 0.05 });
+    .moveTo(BURJ_X - 96, towerBaseY + 2)
+    .lineTo(BURJ_X - 82, towerBaseY - 12)
+    .lineTo(BURJ_X - 56, towerBaseY - 15)
+    .lineTo(BURJ_X - 34, towerBaseY - 8)
+    .lineTo(BURJ_X - 16, towerBaseY - 3)
+    .lineTo(BURJ_X + 16, towerBaseY - 3)
+    .lineTo(BURJ_X + 34, towerBaseY - 8)
+    .lineTo(BURJ_X + 56, towerBaseY - 15)
+    .lineTo(BURJ_X + 82, towerBaseY - 12)
+    .lineTo(BURJ_X + 96, towerBaseY + 2)
+    .fill({ color: 0x161c28, alpha: 0.9 });
 
-  graphic
-    .moveTo(BURJ_X - 88, towerBaseY + 4)
-    .lineTo(BURJ_X - 74, towerBaseY - 12)
-    .lineTo(BURJ_X - 52, towerBaseY - 17)
-    .lineTo(BURJ_X - 32, towerBaseY - 11)
-    .lineTo(BURJ_X - 18, towerBaseY - 5)
-    .lineTo(BURJ_X + 18, towerBaseY - 5)
-    .lineTo(BURJ_X + 32, towerBaseY - 11)
-    .lineTo(BURJ_X + 52, towerBaseY - 17)
-    .lineTo(BURJ_X + 74, towerBaseY - 12)
-    .lineTo(BURJ_X + 88, towerBaseY + 4)
-    .lineTo(BURJ_X + 66, towerBaseY + 12)
-    .lineTo(BURJ_X - 66, towerBaseY + 12)
-    .closePath()
-    .fill({ color: 0x111827, alpha: 0.94 })
-    .stroke({ width: 1.4, color: 0x8bbbe8, alpha: 0.18 });
-
-  graphic
-    .moveTo(BURJ_X - 74, towerBaseY + 3)
-    .lineTo(BURJ_X - 61, towerBaseY - 8)
-    .lineTo(BURJ_X - 43, towerBaseY - 11)
-    .lineTo(BURJ_X - 28, towerBaseY - 6)
-    .lineTo(BURJ_X - 15, towerBaseY - 1)
-    .lineTo(BURJ_X + 15, towerBaseY - 1)
-    .lineTo(BURJ_X + 28, towerBaseY - 6)
-    .lineTo(BURJ_X + 43, towerBaseY - 11)
-    .lineTo(BURJ_X + 61, towerBaseY - 8)
-    .lineTo(BURJ_X + 74, towerBaseY + 3)
-    .lineTo(BURJ_X + 54, towerBaseY + 9)
-    .lineTo(BURJ_X - 54, towerBaseY + 9)
-    .closePath()
-    .fill({ color: 0x1c2638, alpha: 0.88 });
-
-  graphic
-    .moveTo(BURJ_X - 56, towerBaseY + 8)
-    .lineTo(BURJ_X - 44, towerBaseY + 1)
-    .lineTo(BURJ_X + 44, towerBaseY + 1)
-    .lineTo(BURJ_X + 56, towerBaseY + 8)
-    .lineTo(BURJ_X + 48, towerBaseY + 15)
-    .lineTo(BURJ_X - 48, towerBaseY + 15)
-    .closePath()
-    .fill({ color: 0x070c14, alpha: 0.72 });
-
-  graphic
-    .moveTo(layout.frameX - 2, layout.frameY + layout.frameH)
-    .lineTo(layout.frameX - 5, layout.frameY + 2)
-    .lineTo(layout.frameX + 11, layout.frameY + 2)
-    .lineTo(layout.frameX + 4, layout.frameY + layout.frameH)
-    .closePath()
-    .fill({ color: 0x283244, alpha: 0.92 })
-    .stroke({ width: 1, color: 0xd6ebff, alpha: 0.14 });
-  graphic
-    .moveTo(layout.frameX + layout.frameW + 2, layout.frameY + layout.frameH)
-    .lineTo(layout.frameX + layout.frameW + 5, layout.frameY + 2)
-    .lineTo(layout.frameX + layout.frameW - 11, layout.frameY + 2)
-    .lineTo(layout.frameX + layout.frameW - 4, layout.frameY + layout.frameH)
-    .closePath()
-    .fill({ color: 0x283244, alpha: 0.92 })
-    .stroke({ width: 1, color: 0xd6ebff, alpha: 0.14 });
-
-  drawChamferedPanel(
-    graphic,
-    layout.frameX - 2,
-    layout.frameY - 1,
-    layout.frameW + 4,
-    layout.frameH + 4,
-    8,
-    { color: 0x060b13, alpha: 0.88 },
-    { color: 0x719fd0, alpha: 0.25, width: 1.4 },
-  );
-  drawChamferedPanel(
-    graphic,
-    layout.frameX + 8,
-    layout.frameY + 4,
-    layout.frameW - 16,
-    layout.frameH - 5,
-    4,
-    { color: 0x111a27, alpha: 0.82 },
-    { color: 0x03070c, alpha: 0.52, width: 1 },
-  );
-
-  layout.segmentRects.forEach((segment) => {
-    drawChamferedPanel(
-      graphic,
-      segment.x - 1,
-      segment.y - 1,
-      segment.w + 2,
-      segment.h + 2,
-      2.8,
-      { color: 0x03070d, alpha: 0.84 },
-      { color: 0x80bff0, alpha: 0.09, width: 0.8 },
-    );
-  });
-
-  graphic
-    .rect(BURJ_X - 58, towerBaseY - 15, 116, 2.2)
-    .fill({ color: 0xffd696, alpha: 0.3 })
-    .rect(BURJ_X - 33, groundY - 10, 66, 8)
-    .fill({ color: 0xdff4ff, alpha: 0.24 })
-    .rect(BURJ_X - 21, groundY - 15, 42, 5)
-    .fill({ color: 0x9ddfff, alpha: 0.2 })
-    .rect(BURJ_X - 4, layout.centerSpireY + 3, 8, layout.frameY - layout.centerSpireY + 5)
-    .fill({ color: 0xe8f6ff, alpha: 0.16 });
+  graphic.rect(BURJ_X - 78, towerBaseY - 9, 156, 0.8).fill({ color: 0x2a3344, alpha: 0.32 });
+  graphic.rect(BURJ_X - 88, towerBaseY - 4, 176, 0.8).fill({ color: 0x2a3344, alpha: 0.32 });
 }
 
 export function getPixiBurjBeaconLayout(towerBaseY: number, artScale = 2): PixiBurjBeaconLayout {
@@ -691,26 +566,31 @@ export function getPixiBurjBeaconLayout(towerBaseY: number, artScale = 2): PixiB
   };
 }
 
-export function getPixiBurjBaseHealthLayout(
-  towerBaseY = GAMEPLAY_TOWER_BASE_Y,
-  artScale = 2,
-): PixiBurjBaseHealthLayout {
-  const frameW = 88 * artScale;
-  const frameH = 14 * artScale;
-  const frameX = BURJ_X - frameW / 2;
-  const frameY = towerBaseY - 10 * artScale;
-  const barInsetX = 10 * artScale;
-  const barY = frameY + 5 * artScale;
-  const barW = frameW - barInsetX * 2;
-  const segmentGap = 1.8 * artScale;
-  const segmentH = 4.4 * artScale;
-  const segmentW = (barW - segmentGap * (BURJ_MAX_HEALTH - 1)) / BURJ_MAX_HEALTH;
-  const segmentRects = Array.from({ length: BURJ_MAX_HEALTH }, (_, index) => ({
-    x: frameX + barInsetX + index * (segmentW + segmentGap),
-    y: barY,
-    w: segmentW,
-    h: segmentH,
-  }));
+const PIXI_BURJ_BASE_HEALTH_TRUNK_FRACTION = 0.88;
+const PIXI_BURJ_SPRITE_SCALE = 2;
+
+export function getPixiBurjBaseHealthLayout(towerBaseY = GAMEPLAY_TOWER_BASE_Y): PixiBurjBaseHealthLayout {
+  const floors: PixiBurjBaseHealthFloor[] = Array.from({ length: BURJ_MAX_HEALTH }, (_, index) => {
+    const band = BURJ_BRIGHT_BANDS[index];
+    const stripeTopY = towerBaseY - BURJ_H * band.ht * PIXI_BURJ_SPRITE_SCALE;
+    const stripeH = band.thickness * PIXI_BURJ_SPRITE_SCALE;
+    const stripeCenterY = stripeTopY + stripeH / 2;
+    const halfW = getGameplayBurjHalfW(stripeCenterY, 2) * PIXI_BURJ_BASE_HEALTH_TRUNK_FRACTION;
+    return {
+      y: stripeTopY,
+      h: stripeH,
+      cx: BURJ_X,
+      halfW,
+    };
+  });
+
+  const topFloor = floors[floors.length - 1];
+  const bottomFloor = floors[0];
+  const frameY = topFloor.y - 2;
+  const frameH = bottomFloor.y + bottomFloor.h + 2 - frameY;
+  const maxHalfW = floors.reduce((acc, floor) => Math.max(acc, floor.halfW), 0);
+  const frameX = BURJ_X - maxHalfW;
+  const frameW = maxHalfW * 2;
 
   return {
     maxHealth: BURJ_MAX_HEALTH,
@@ -718,9 +598,7 @@ export function getPixiBurjBaseHealthLayout(
     frameY,
     frameW,
     frameH,
-    segmentRects,
-    centerSpireX: BURJ_X,
-    centerSpireY: towerBaseY - 18 * artScale,
+    floors,
   };
 }
 
@@ -2097,7 +1975,7 @@ export class PixiRenderer implements GameRenderer {
     decor.addChild(horizonGlow);
 
     const foundation = new Graphics();
-    drawBurjFoundation(foundation, towerBaseY, groundY, 2);
+    drawBurjFoundation(foundation, towerBaseY, groundY);
     decor.addChild(foundation);
 
     return decor;
@@ -2631,102 +2509,160 @@ export class PixiRenderer implements GameRenderer {
     graphic.clear();
     if (!game.burjAlive) return;
 
-    const layout = getPixiBurjBaseHealthLayout(GAMEPLAY_TOWER_BASE_Y, 2);
+    const layout = getPixiBurjBaseHealthLayout(GAMEPLAY_TOWER_BASE_Y);
     const health = Math.max(0, Math.min(layout.maxHealth, Math.round(game.burjHealth)));
-    const critical = health <= 1;
     const flashT =
       game.burjHitFlashMax > 0 ? Math.max(0, Math.min(1, game.burjHitFlashTimer / game.burjHitFlashMax)) : 0;
-    const pulse = 0.5 + 0.5 * Math.sin(sceneTime * 7.2);
-    const flashPulse = 0.55 + 0.45 * Math.sin(sceneTime * 11);
-    const frameStroke = critical ? 0xff6c58 : flashT > 0 ? 0xffc078 : 0x92d8ff;
-    const frameStrokeAlpha = critical ? 0.62 + pulse * 0.22 : 0.34 + flashT * 0.32;
-    const warning = health <= 2;
-    const lostSegment = flashT > 0 ? Math.max(0, Math.min(layout.maxHealth - 1, health)) : -1;
+    const justLostIndex = flashT > 0 ? Math.max(0, Math.min(layout.maxHealth - 1, health)) : -1;
 
-    drawChamferedPanel(
-      graphic,
-      layout.frameX - 2,
-      layout.frameY - 1,
-      layout.frameW + 4,
-      layout.frameH + 4,
-      7,
-      { color: critical ? 0xff2e2a : 0x8fd8ff, alpha: critical ? 0.05 + pulse * 0.05 : flashT * 0.06 },
-      { color: frameStroke, alpha: frameStrokeAlpha, width: 1.4 },
-    );
+    layout.floors.forEach((floor, floorIndex) => {
+      if (floorIndex < health) return;
 
-    graphic
-      .rect(layout.frameX + 15, layout.frameY + 4, layout.frameW - 30, 2)
-      .fill({ color: critical ? 0xffb49c : 0xd8f2ff, alpha: critical ? 0.12 + pulse * 0.08 : 0.08 + flashT * 0.08 });
-    graphic
-      .rect(BURJ_X - 3.2, layout.centerSpireY + 2, 6.4, layout.frameY - layout.centerSpireY + 4)
-      .fill({ color: critical ? 0xff5a48 : 0x9edfff, alpha: critical ? 0.18 + pulse * 0.12 : 0.16 });
+      const seed = floorIndex * 7.13 + 1.9;
+      const isJustLost = floorIndex === justLostIndex;
+      const intensity = isJustLost ? 1 + flashT * 0.45 : 1;
+      this.drawBurjFloorFire(graphic, floor, sceneTime, seed, intensity);
 
-    layout.segmentRects.forEach((segment, index) => {
-      const active = index < health;
-      const hitSegment = index === lostSegment;
-      const activeColor = critical ? 0xff5548 : warning ? 0xffc15a : 0x62d9ff;
-      const lowerColor = critical ? 0x9c1c24 : warning ? 0xa04d1d : 0x1f78a8;
-      const emptyColor = critical ? 0x351015 : 0x182232;
-      const segmentAlpha = active ? 0.94 : 0.78;
-
-      drawChamferedPanel(
-        graphic,
-        segment.x,
-        segment.y,
-        segment.w,
-        segment.h,
-        2.4,
-        { color: active ? activeColor : emptyColor, alpha: segmentAlpha },
-        {
-          color: critical ? 0xff8a76 : warning ? 0xffd095 : 0x96cfff,
-          alpha: active ? 0.34 : hitSegment ? flashT * 0.42 : 0.16,
-          width: 1,
-        },
-      );
-      if (active) {
+      if (isJustLost) {
+        const stripeLeftX = BURJ_X - floor.halfW;
+        const stripeW = floor.halfW * 2;
+        const ignitePulse = 0.55 + 0.45 * Math.sin(sceneTime * 13);
         graphic
-          .rect(segment.x + 1.5, segment.y + segment.h * 0.54, segment.w - 3, segment.h * 0.32)
-          .fill({ color: lowerColor, alpha: 0.62 });
-        graphic.rect(segment.x + 2, segment.y + 1.2, segment.w - 4, 1.1).fill({
-          color: 0xffffff,
-          alpha: critical ? 0.2 + pulse * 0.14 : warning ? 0.2 + pulse * 0.08 : 0.16,
-        });
-      }
-      if (hitSegment) {
-        drawChamferedPanel(
-          graphic,
-          segment.x - 3.2,
-          segment.y - 2.8,
-          segment.w + 6.4,
-          segment.h + 5.6,
-          3.4,
-          { color: 0xffa15a, alpha: flashT * (0.18 + flashPulse * 0.1) },
-          { color: 0xffd090, alpha: flashT * 0.48, width: 1.2 },
-        );
-        graphic
-          .rect(segment.x + 1.5, segment.y + 1.2, segment.w - 3, segment.h - 2.4)
-          .fill({ color: 0xff7a3d, alpha: flashT * 0.24 });
-      } else if (critical && active) {
-        drawChamferedPanel(graphic, segment.x - 2.6, segment.y - 2.4, segment.w + 5.2, segment.h + 4.8, 3.4, {
-          color: 0xff4038,
-          alpha: 0.12 + pulse * 0.12,
-        });
+          .rect(stripeLeftX - 1.6, floor.y - 1.4, stripeW + 3.2, floor.h + 2.8)
+          .fill({ color: 0xfff0c8, alpha: flashT * (0.32 + ignitePulse * 0.2) })
+          .stroke({ color: 0xffd080, alpha: flashT * 0.7, width: 1 });
       }
     });
 
-    if (flashT > 0) {
-      graphic.rect(layout.frameX - 11, layout.frameY + layout.frameH + 1.5, layout.frameW + 22, 2.2).fill({
-        color: 0xffa15a,
-        alpha: flashT * 0.24,
-      });
+    if (health < layout.maxHealth) {
+      const lostFloors = layout.floors.filter((_, index) => index >= health);
+      const topLost = lostFloors[lostFloors.length - 1];
+      const bottomLost = lostFloors[0];
+      const haloHalfW = Math.max(topLost.halfW, bottomLost.halfW) * 1.8;
+      const haloCY = (topLost.y + bottomLost.y + bottomLost.h) * 0.5;
+      const haloHalfH = (bottomLost.y + bottomLost.h - topLost.y) * 0.65;
+      const haloPulse = 0.5 + 0.5 * Math.sin(sceneTime * 4.2);
+      graphic.ellipse(BURJ_X, haloCY, haloHalfW, haloHalfH).fill({ color: 0xff7028, alpha: 0.08 + haloPulse * 0.06 });
+      if (flashT > 0) {
+        graphic
+          .ellipse(BURJ_X, haloCY, haloHalfW * 1.15, haloHalfH * 1.1)
+          .fill({ color: 0xffc070, alpha: flashT * 0.14 });
+      }
     }
 
-    if (critical || flashT > 0) {
-      drawChamferedPanel(graphic, layout.frameX - 5, layout.frameY - 4, layout.frameW + 10, layout.frameH + 8, 9, {
-        color: critical ? 0xff3c32 : 0xffd090,
-        alpha: critical ? 0.1 + pulse * 0.12 : flashT * 0.16,
-      });
+    if (health <= 1) {
+      const bottom = layout.floors[0];
+      const critPulse = 0.5 + 0.5 * Math.sin(sceneTime * 7.2);
+      graphic
+        .rect(BURJ_X - bottom.halfW - 1, bottom.y - 1, bottom.halfW * 2 + 2, bottom.h + 2)
+        .stroke({ color: 0xff5444, alpha: 0.36 + critPulse * 0.32, width: 0.9 });
     }
+  }
+
+  private drawBurjFloorFire(
+    graphic: Graphics,
+    floor: PixiBurjBaseHealthFloor,
+    sceneTime: number,
+    seed: number,
+    intensity: number,
+  ): void {
+    const halfW = floor.halfW;
+    const charHalfW = halfW * 1.08;
+    const leftX = BURJ_X - charHalfW;
+    const stripeW = charHalfW * 2;
+    const charTopY = floor.y - 2.4;
+    const charBottomY = floor.y + floor.h + 3.2;
+    const charH = charBottomY - charTopY;
+    const corePulse = 0.6 + 0.4 * Math.sin(sceneTime * 8.4 + seed);
+    const emberPulse = 0.5 + 0.5 * Math.sin(sceneTime * 4.7 + seed * 1.3);
+
+    graphic.rect(leftX, charTopY, stripeW, charH).fill({ color: 0x07050a, alpha: 0.95 });
+    graphic.rect(leftX + 0.6, charTopY + 0.6, stripeW - 1.2, charH - 1.2).fill({ color: 0x1a0c08, alpha: 0.78 });
+
+    graphic
+      .rect(leftX + 1.5, floor.y - 1, stripeW - 3, floor.h + 2)
+      .fill({ color: 0x6e1a0a, alpha: 0.55 + corePulse * 0.3 });
+    graphic.rect(leftX + 2.5, floor.y, stripeW - 5, floor.h).fill({ color: 0xc83a1c, alpha: 0.55 + corePulse * 0.35 });
+    graphic
+      .rect(leftX + 4, floor.y + floor.h * 0.25, stripeW - 8, floor.h * 0.55)
+      .fill({ color: 0xff8a30, alpha: 0.55 + corePulse * 0.3 });
+    graphic
+      .rect(leftX + 5, floor.y + floor.h * 0.4, stripeW - 10, floor.h * 0.28)
+      .fill({ color: 0xffd968, alpha: 0.4 + corePulse * 0.32 });
+
+    const segmentCount = 5;
+    for (let s = 0; s < segmentCount; s++) {
+      const segSeed = seed + s * 3.07;
+      const segLit = 0.4 + 0.6 * Math.sin(sceneTime * 8.1 + segSeed);
+      if (segLit < 0.25) continue;
+      const segLeft = leftX + 2 + (s / segmentCount) * (stripeW - 4);
+      const segWidth = ((stripeW - 4) / segmentCount) * (0.55 + Math.sin(segSeed) * 0.25);
+      graphic
+        .rect(segLeft, floor.y + floor.h * 0.35, segWidth, floor.h * 0.3)
+        .fill({ color: 0xffe8a8, alpha: 0.35 + emberPulse * 0.4 });
+    }
+
+    const nTongues = 6;
+    for (let t = 0; t < nTongues; t++) {
+      const tongueSeed = seed + t * 1.71;
+      const baseX = BURJ_X - halfW + (halfW * 2 * (t + 0.5)) / nTongues;
+      const sway = Math.sin(sceneTime * 5.6 + tongueSeed) * 2.4;
+      const flick = 0.45 + 0.55 * Math.sin(sceneTime * 9.4 + tongueSeed * 1.31);
+      const tongueH = (10 + flick * 16) * intensity;
+      const tongueHW = 2.4 + Math.sin(tongueSeed * 0.7) * 0.8;
+
+      graphic
+        .moveTo(baseX - tongueHW * 1.25, floor.y + floor.h)
+        .lineTo(baseX + sway * 0.8, floor.y - tongueH * 1.08)
+        .lineTo(baseX + tongueHW * 1.25, floor.y + floor.h)
+        .closePath()
+        .fill({ color: 0xc23012, alpha: 0.45 + flick * 0.2 });
+
+      graphic
+        .moveTo(baseX - tongueHW, floor.y + floor.h * 0.6)
+        .lineTo(baseX + sway, floor.y - tongueH)
+        .lineTo(baseX + tongueHW, floor.y + floor.h * 0.6)
+        .closePath()
+        .fill({ color: 0xff6420, alpha: 0.7 + flick * 0.2 });
+
+      graphic
+        .moveTo(baseX - tongueHW * 0.55, floor.y + floor.h * 0.55)
+        .lineTo(baseX + sway * 0.65, floor.y - tongueH * 0.72)
+        .lineTo(baseX + tongueHW * 0.55, floor.y + floor.h * 0.55)
+        .closePath()
+        .fill({ color: 0xffd060, alpha: 0.65 + flick * 0.3 });
+
+      graphic
+        .circle(baseX + sway * 0.5, floor.y - tongueH * 0.85, 1.2)
+        .fill({ color: 0xfff4dc, alpha: 0.45 + flick * 0.45 });
+    }
+
+    const dropSeed = seed * 0.73 + 4;
+    for (let d = 0; d < 3; d++) {
+      const dripSeed = dropSeed + d * 2.3;
+      const dripX = leftX + ((d + 0.5) / 3) * stripeW + Math.sin(sceneTime * 3.1 + dripSeed) * 1.6;
+      const dripPulse = 0.4 + 0.6 * Math.sin(sceneTime * 6.7 + dripSeed);
+      graphic
+        .ellipse(dripX, charBottomY - 0.5, 1.4, 2.4 + dripPulse * 1.1)
+        .fill({ color: 0xff5a18, alpha: 0.45 + dripPulse * 0.35 });
+      graphic
+        .ellipse(dripX + Math.sin(sceneTime * 4.3 + dripSeed) * 0.4, charBottomY + 1.8, 0.6, 1.6 + dripPulse * 0.9)
+        .fill({ color: 0xff8c2c, alpha: 0.25 + dripPulse * 0.3 });
+    }
+
+    const smokeDrift = Math.sin(sceneTime * 0.9 + seed) * 2.4;
+    graphic
+      .ellipse(BURJ_X - halfW * 0.45 + smokeDrift, floor.y - 14, halfW * 0.78, 6)
+      .fill({ color: 0x6a584c, alpha: 0.42 * intensity });
+    graphic
+      .ellipse(BURJ_X + halfW * 0.4 + smokeDrift * 0.7, floor.y - 20, halfW * 0.82, 6.8)
+      .fill({ color: 0x554539, alpha: 0.34 * intensity });
+    graphic
+      .ellipse(BURJ_X + smokeDrift * 0.45, floor.y - 26, halfW * 0.95, 7.4)
+      .fill({ color: 0x453831, alpha: 0.26 * intensity });
+    graphic
+      .ellipse(BURJ_X + smokeDrift * 0.6, floor.y - 33, halfW * 1.05, 7.2)
+      .fill({ color: 0x3a2f29, alpha: 0.18 * intensity });
   }
 
   private updateCrosshairOverlay(graphic: Graphics, game: GameState, showShop: boolean): void {

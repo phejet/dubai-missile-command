@@ -2876,6 +2876,22 @@ export function burjPath(ctx: CanvasRenderingContext2D, burjBaseY: number, burjX
   ctx.closePath();
 }
 
+export interface BurjBrightBand {
+  ht: number;
+  alpha: number;
+  thickness: number;
+}
+
+export const BURJ_BRIGHT_BANDS: readonly BurjBrightBand[] = [
+  { ht: 0.11, alpha: 0.96, thickness: 3.1 },
+  { ht: 0.2, alpha: 0.92, thickness: 2.6 },
+  { ht: 0.31, alpha: 0.88, thickness: 2.3 },
+  { ht: 0.44, alpha: 0.82, thickness: 2.1 },
+  { ht: 0.59, alpha: 0.76, thickness: 1.9 },
+  { ht: 0.75, alpha: 0.68, thickness: 1.7 },
+  { ht: 0.88, alpha: 0.6, thickness: 1.45 },
+];
+
 export function halfWidthsAt(ht: number) {
   let left = burjLeftSections[burjLeftSections.length - 1].w;
   let right = burjRightSections[burjRightSections.length - 1].w;
@@ -2982,16 +2998,7 @@ function drawBurjAnimFrame(ctx: CanvasRenderingContext2D, groundY: number, time:
     ctx.fillRect(BURJ_X - lw, ly, lw + rw, 0.72);
   }
 
-  const brightBands = [
-    { ht: 0.11, alpha: 0.96, thickness: 3.1 },
-    { ht: 0.2, alpha: 0.92, thickness: 2.6 },
-    { ht: 0.31, alpha: 0.88, thickness: 2.3 },
-    { ht: 0.44, alpha: 0.82, thickness: 2.1 },
-    { ht: 0.59, alpha: 0.76, thickness: 1.9 },
-    { ht: 0.75, alpha: 0.68, thickness: 1.7 },
-    { ht: 0.88, alpha: 0.6, thickness: 1.45 },
-  ];
-  brightBands.forEach((band, index) => {
+  BURJ_BRIGHT_BANDS.forEach((band, index) => {
     const ly = burjBaseY - BURJ_H * band.ht;
     const { left, right } = halfWidthsAt(band.ht);
     const bandFlicker = getLightFlicker(time, 83.1 + index * 1.9);

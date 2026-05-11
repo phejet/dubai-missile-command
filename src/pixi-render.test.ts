@@ -341,27 +341,32 @@ describe("getPixiBurjBeaconLayout", () => {
 });
 
 describe("getPixiBurjBaseHealthLayout", () => {
-  it("integrates five equal health segments into the Burj base footprint", () => {
+  it("anchors five HP bands to the lowest baked Burj bright stripes", () => {
     const towerBaseY = 1404;
 
-    const layout = getPixiBurjBaseHealthLayout(towerBaseY, 2);
+    const layout = getPixiBurjBaseHealthLayout(towerBaseY);
 
     expect(layout.maxHealth).toBe(5);
-    expect(layout.segmentRects).toHaveLength(5);
-    expect(layout.frameX).toBeLessThan(layout.segmentRects[0].x);
-    expect(layout.frameX + layout.frameW).toBeGreaterThan(layout.segmentRects[4].x + layout.segmentRects[4].w);
-    expect(layout.frameY).toBeLessThan(towerBaseY);
-    expect(layout.frameY + layout.frameH).toBeGreaterThan(towerBaseY - 1);
-    expect(layout.centerSpireX).toBe(460);
+    expect(layout.floors).toHaveLength(5);
 
-    const widths = layout.segmentRects.map((segment) => segment.w);
-    expect(new Set(widths.map((width) => width.toFixed(3))).size).toBe(1);
-
-    for (let index = 1; index < layout.segmentRects.length; index += 1) {
-      expect(layout.segmentRects[index].x).toBeGreaterThan(
-        layout.segmentRects[index - 1].x + layout.segmentRects[index - 1].w,
-      );
+    for (let index = 1; index < layout.floors.length; index += 1) {
+      const prev = layout.floors[index - 1];
+      const curr = layout.floors[index];
+      expect(curr.y + curr.h).toBeLessThanOrEqual(prev.y);
+      expect(curr.halfW).toBeLessThanOrEqual(prev.halfW + 1e-6);
+      expect(curr.h).toBeLessThanOrEqual(prev.h + 1e-6);
+      expect(curr.cx).toBe(460);
+      expect(curr.halfW).toBeGreaterThan(0);
     }
+
+    expect(layout.floors[0].y).toBeLessThan(towerBaseY);
+    expect(layout.floors[0].y).toBeGreaterThan(towerBaseY - 100);
+    expect(layout.floors[layout.floors.length - 1].y).toBeLessThan(towerBaseY - 350);
+
+    expect(layout.frameY).toBeLessThanOrEqual(layout.floors[layout.floors.length - 1].y);
+    expect(layout.frameY + layout.frameH).toBeGreaterThanOrEqual(layout.floors[0].y + layout.floors[0].h);
+    expect(layout.frameX).toBeLessThanOrEqual(layout.floors[0].cx - layout.floors[0].halfW);
+    expect(layout.frameX + layout.frameW).toBeGreaterThanOrEqual(layout.floors[0].cx + layout.floors[0].halfW);
   });
 });
 
