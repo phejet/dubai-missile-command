@@ -341,13 +341,13 @@ describe("getPixiBurjBeaconLayout", () => {
 });
 
 describe("getPixiBurjBaseHealthLayout", () => {
-  it("anchors five HP bands to the lowest baked Burj bright stripes", () => {
+  it("anchors seven HP bands to the baked Burj bright stripes", () => {
     const towerBaseY = 1404;
 
     const layout = getPixiBurjBaseHealthLayout(towerBaseY);
 
-    expect(layout.maxHealth).toBe(5);
-    expect(layout.floors).toHaveLength(5);
+    expect(layout.maxHealth).toBe(7);
+    expect(layout.floors).toHaveLength(7);
 
     for (let index = 1; index < layout.floors.length; index += 1) {
       const prev = layout.floors[index - 1];
@@ -361,7 +361,7 @@ describe("getPixiBurjBaseHealthLayout", () => {
 
     expect(layout.floors[0].y).toBeLessThan(towerBaseY);
     expect(layout.floors[0].y).toBeGreaterThan(towerBaseY - 100);
-    expect(layout.floors[layout.floors.length - 1].y).toBeLessThan(towerBaseY - 350);
+    expect(layout.floors[layout.floors.length - 1].y).toBeCloseTo(towerBaseY - 340 * 0.88 * 2, 0);
 
     expect(layout.frameY).toBeLessThanOrEqual(layout.floors[layout.floors.length - 1].y);
     expect(layout.frameY + layout.frameH).toBeGreaterThanOrEqual(layout.floors[0].y + layout.floors[0].h);

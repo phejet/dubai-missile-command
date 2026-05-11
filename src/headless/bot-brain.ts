@@ -710,7 +710,7 @@ export function botDecideUpgrades(
     priority = shuffled;
   } else {
     priority = (config.upgradePriority as string[]).filter((key: string) => {
-      if (key === "burjRepair" && g.burjHealth >= 5) return false;
+      if (key === "burjRepair" && g.burjHealth >= 7) return false;
       return true;
     });
   }

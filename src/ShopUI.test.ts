@@ -31,7 +31,7 @@ function makeShopData(overrides = {}) {
       makeEntry("ironBeam", { family: "ironBeam", name: "Iron Beam", icon: "\u26A1", color: "#ffee66" }),
       makeEntry("phalanx", { family: "phalanx", name: "Phalanx", icon: "\uD83D\uDD2B", color: "#ff9955" }),
     ],
-    burjHealth: 5,
+    burjHealth: 7,
     ...overrides,
   };
 }

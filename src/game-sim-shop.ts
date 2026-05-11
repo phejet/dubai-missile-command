@@ -130,7 +130,7 @@ function buyBurjRepair(g: GameState, free = false): boolean {
   if (!free && g.score < cost) return false;
   if (!free) g.score -= cost;
   g.upgrades.burjRepair++;
-  g.burjHealth = Math.min(5, g.burjHealth + 1);
+  g.burjHealth = Math.min(7, g.burjHealth + 1);
   if (g.burjHealth > 0) g.burjAlive = true;
   if (g.burjDecals.length > 0) g.burjDecals.shift();
   if (g.burjDamageFx.length > 0) g.burjDamageFx.shift();

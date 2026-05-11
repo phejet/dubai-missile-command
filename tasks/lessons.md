@@ -79,3 +79,8 @@
 - For subjective visual styling changes, run structural tests and then ask the user to visually check the running game. Do not burn time on extra screenshot archaeology unless the user asks for it or a render is obviously broken.
 - Diegetic health styling still has to be readable at gameplay scale. If architectural slits or tiny details make state unclear, keep the stronger segmented read and use color, framing, and hit effects to integrate it.
 - Keep non-informational foundation mass subordinate to the readable health bay; oversized shoulders make the base feel heavy without adding gameplay signal.
+
+## 2026-05-12
+
+- For graphics and game-feel work, prioritize a running feel-check build over extra headless/browser automation once structural tests pass. Automated probes are useful plumbing checks, not proof that the art reads well.
+- Do not make `CRITICAL` a post-death label. In this game it should mean a playable last stand: the Burj is still alive, the player can still act, and the screen state creates urgency before failure.

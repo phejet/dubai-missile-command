@@ -302,7 +302,7 @@ export function createEditorScene(): GameState {
     buildings: allBuildings,
     buildingDestroyFx: [],
     burjAlive: true,
-    burjHealth: 5,
+    burjHealth: 7,
     burjDecals: [],
     burjDamageFx: [],
     burjHitFlashTimer: 0,

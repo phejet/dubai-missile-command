@@ -33,6 +33,8 @@ describe("buildBurjAssets", () => {
     expect(assets.staticSprite.width).toBeGreaterThan(0);
     expect(assets.staticSprite.height).toBeGreaterThan(0);
     expect(assets.animFrames).toHaveLength(8);
+    expect(assets.damagedBandSprites).toHaveLength(7);
+    expect(assets.damagedBandOffsets).toHaveLength(7);
     expect(assets.frameCount).toBe(8);
     expect(assets.period).toBe(20);
     expect(Number.isFinite(assets.offset.x)).toBe(true);
@@ -41,6 +43,10 @@ describe("buildBurjAssets", () => {
     for (const frame of assets.animFrames) {
       expect(frame.width).toBe(assets.staticSprite.width);
       expect(frame.height).toBe(assets.staticSprite.height);
+    }
+    for (const sprite of assets.damagedBandSprites) {
+      expect(sprite.width).toBeGreaterThan(0);
+      expect(sprite.height).toBeGreaterThan(0);
     }
   });
 

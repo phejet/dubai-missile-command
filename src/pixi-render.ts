@@ -1,4 +1,4 @@
-import { Application, Container, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
+import { Application, Container, Graphics, Rectangle, Sprite, Text, Texture } from "pixi.js";
 import { TrailBatch } from "./pixi-trails";
 import { DEFAULT_GAMEPLAY_LAUNCHER_SCALE, TITLE_SKYLINE_TOWERS } from "./canvas-render-resources";
 import {
@@ -170,6 +170,7 @@ interface GameplayBurjNode {
   container: Container;
   staticSprite: Sprite;
   anim: BlendSprites;
+  damagedBandSprites: Sprite[];
   damageUnderlay: Graphics;
   decalLayer: Container;
   damageFxLayer: Container;
@@ -290,6 +291,7 @@ interface GameplaySceneState {
   defenseSiteNodes: Map<string, GameplayDefenseSiteNode>;
   defenseStatusOverlay: Graphics;
   burjBaseHealthBar: Graphics;
+  criticalText: Text;
   crosshairOverlay: Graphics;
   upgradeRangeOverlay: Graphics;
   collisionOverlay: Graphics;
@@ -333,7 +335,7 @@ const GAMEPLAY_ENEMY_SCALE = 3;
 const GAMEPLAY_PROJECTILE_SCALE = 2;
 const GAMEPLAY_EFFECT_SCALE = 2;
 const GAMEPLAY_PLANE_SCALE = 3;
-const BURJ_MAX_HEALTH = 5;
+const BURJ_MAX_HEALTH = 7;
 const GAMEPLAY_FLARE_VISUAL_Y = GROUND_Y - BURJ_H * 0.97;
 const GAMEPLAY_EMP_VISUAL_Y = GROUND_Y - BURJ_H * 0.67;
 const EMP_FLASH_WHITE_PROGRESS = 0.04;
@@ -1556,6 +1558,13 @@ export class PixiRenderer implements GameRenderer {
     burjStatic.position.set(burjAssets.offset.x - BURJ_X, burjAssets.offset.y - GAMEPLAY_TOWER_BASE_Y);
     const burjAnim = createBlendSprites(burjAssets.animFrames[0] ?? Texture.EMPTY);
     positionBlendSprites(burjAnim, burjAssets.offset.x - BURJ_X, burjAssets.offset.y - GAMEPLAY_TOWER_BASE_Y);
+    const damagedBandSprites = burjAssets.damagedBandSprites.map((texture, index) => {
+      const sprite = new Sprite(texture);
+      const offset = burjAssets.damagedBandOffsets[index] ?? { x: 0, y: 0 };
+      sprite.position.set(offset.x, offset.y);
+      sprite.visible = false;
+      return sprite;
+    });
     const damageUnderlay = new Graphics();
     const decalLayer = new Container();
     const damageFxLayer = new Container();
@@ -1575,6 +1584,7 @@ export class PixiRenderer implements GameRenderer {
       damageUnderlay,
       burjAnim.primary,
       burjAnim.secondary,
+      ...damagedBandSprites,
       decalLayer,
       damageFxLayer,
       hitFlashGlow,
@@ -1714,6 +1724,26 @@ export class PixiRenderer implements GameRenderer {
 
     const defenseStatusOverlay = new Graphics();
     const burjBaseHealthBar = new Graphics();
+    const criticalText = new Text({
+      text: "CRITICAL",
+      style: {
+        fontFamily: "'Courier New', monospace",
+        fontSize: 34,
+        fontWeight: "900",
+        fill: 0xff2a20,
+        stroke: { color: 0x3a0505, width: 5 },
+        dropShadow: {
+          color: 0x160000,
+          alpha: 0.9,
+          distance: 3,
+          blur: 0,
+          angle: Math.PI / 2,
+        },
+      },
+    });
+    criticalText.anchor.set(0.5);
+    criticalText.position.set(BURJ_X, GAMEPLAY_TOWER_BASE_Y - BURJ_H * 2 - 60);
+    criticalText.visible = false;
     const crosshairOverlay = new Graphics();
     const upgradeRangeOverlay = new Graphics();
     const collisionOverlay = new Graphics();
@@ -1721,6 +1751,7 @@ export class PixiRenderer implements GameRenderer {
     this.gameplayOverlayLayer.addChild(
       defenseStatusOverlay,
       burjBaseHealthBar,
+      criticalText,
       upgradeRangeOverlay,
       collisionOverlay,
       empScreenFxOverlay,
@@ -1738,6 +1769,7 @@ export class PixiRenderer implements GameRenderer {
         container: burjContainer,
         staticSprite: burjStatic,
         anim: burjAnim,
+        damagedBandSprites,
         damageUnderlay,
         decalLayer,
         damageFxLayer,
@@ -1756,6 +1788,7 @@ export class PixiRenderer implements GameRenderer {
       defenseSiteNodes,
       defenseStatusOverlay,
       burjBaseHealthBar,
+      criticalText,
       crosshairOverlay,
       upgradeRangeOverlay,
       collisionOverlay,
@@ -2123,18 +2156,27 @@ export class PixiRenderer implements GameRenderer {
   private updateGameplayBurj(state: GameplaySceneState, game: GameState, sceneTime: number): void {
     const burj = state.burj;
     const alive = game.burjAlive;
-    burj.container.visible = alive;
-    burj.beaconStem.visible = alive;
-    burj.beaconGlow.visible = alive;
-    burj.wreckage.visible = !alive;
+    const terminalWindow = !alive && (game.gameOverTimer ?? 0) > 0;
+    const standing = alive || terminalWindow;
+    burj.container.visible = standing;
+    burj.beaconStem.visible = standing;
+    burj.beaconGlow.visible = standing;
+    burj.wreckage.visible = !standing;
 
-    if (!alive) return;
+    const rawHealth = Math.max(0, Math.min(BURJ_MAX_HEALTH, Math.round(game.burjHealth)));
+    const lastStand = alive && rawHealth <= 1;
+    const bandHealth = standing ? (lastStand ? 0 : rawHealth) : BURJ_MAX_HEALTH;
+    burj.damagedBandSprites.forEach((sprite, index) => {
+      sprite.visible = standing && index >= bandHealth;
+    });
+
+    if (!standing) return;
 
     const burjFrameProgress = getFrameProgress(sceneTime, state.burjAssets.period, state.burjAssets.frameCount);
     syncBlendSprites(burj.anim, state.burjAssets.animFrames, burjFrameProgress, 1, true);
 
-    const damageLevel = Math.max(0, Math.min(1, (5 - game.burjHealth) / 4));
-    const critical = game.burjHealth <= 1;
+    const damageLevel = Math.max(0, Math.min(1, (BURJ_MAX_HEALTH - game.burjHealth) / (BURJ_MAX_HEALTH - 1)));
+    const critical = lastStand || terminalWindow;
     burj.staticSprite.tint = critical ? 0xffd7d0 : damageLevel > 0.45 ? 0xffece4 : 0xffffff;
     burj.damageUnderlay.clear();
     if (damageLevel > 0) {
@@ -2500,6 +2542,7 @@ export class PixiRenderer implements GameRenderer {
     interpolationAlpha: number,
   ): void {
     this.updateBurjBaseHealthBar(state.burjBaseHealthBar, game, sceneTime);
+    this.updateCriticalIndicator(state.criticalText, game, sceneTime);
     this.updateCrosshairOverlay(state.crosshairOverlay, game, showShop);
     this.updateUpgradeRangeOverlay(state.upgradeRangeOverlay, game);
     this.updateCollisionOverlay(state.collisionOverlay, game, interpolationAlpha);
@@ -2507,10 +2550,13 @@ export class PixiRenderer implements GameRenderer {
 
   private updateBurjBaseHealthBar(graphic: Graphics, game: GameState, sceneTime: number): void {
     graphic.clear();
-    if (!game.burjAlive) return;
+    const terminalWindow = !game.burjAlive && (game.gameOverTimer ?? 0) > 0;
+    if (!game.burjAlive && !terminalWindow) return;
 
     const layout = getPixiBurjBaseHealthLayout(GAMEPLAY_TOWER_BASE_Y);
-    const health = Math.max(0, Math.min(layout.maxHealth, Math.round(game.burjHealth)));
+    const rawHealth = Math.max(0, Math.min(layout.maxHealth, Math.round(game.burjHealth)));
+    const lastStand = game.burjAlive && rawHealth <= 1;
+    const health = terminalWindow || lastStand ? 0 : rawHealth;
     const flashT =
       game.burjHitFlashMax > 0 ? Math.max(0, Math.min(1, game.burjHitFlashTimer / game.burjHitFlashMax)) : 0;
     const justLostIndex = flashT > 0 ? Math.max(0, Math.min(layout.maxHealth - 1, health)) : -1;
@@ -2534,22 +2580,6 @@ export class PixiRenderer implements GameRenderer {
       }
     });
 
-    if (health < layout.maxHealth) {
-      const lostFloors = layout.floors.filter((_, index) => index >= health);
-      const topLost = lostFloors[lostFloors.length - 1];
-      const bottomLost = lostFloors[0];
-      const haloHalfW = Math.max(topLost.halfW, bottomLost.halfW) * 1.8;
-      const haloCY = (topLost.y + bottomLost.y + bottomLost.h) * 0.5;
-      const haloHalfH = (bottomLost.y + bottomLost.h - topLost.y) * 0.65;
-      const haloPulse = 0.5 + 0.5 * Math.sin(sceneTime * 4.2);
-      graphic.ellipse(BURJ_X, haloCY, haloHalfW, haloHalfH).fill({ color: 0xff7028, alpha: 0.08 + haloPulse * 0.06 });
-      if (flashT > 0) {
-        graphic
-          .ellipse(BURJ_X, haloCY, haloHalfW * 1.15, haloHalfH * 1.1)
-          .fill({ color: 0xffc070, alpha: flashT * 0.14 });
-      }
-    }
-
     if (health <= 1) {
       const bottom = layout.floors[0];
       const critPulse = 0.5 + 0.5 * Math.sin(sceneTime * 7.2);
@@ -2557,6 +2587,19 @@ export class PixiRenderer implements GameRenderer {
         .rect(BURJ_X - bottom.halfW - 1, bottom.y - 1, bottom.halfW * 2 + 2, bottom.h + 2)
         .stroke({ color: 0xff5444, alpha: 0.36 + critPulse * 0.32, width: 0.9 });
     }
+  }
+
+  private updateCriticalIndicator(label: Text, game: GameState, sceneTime: number): void {
+    const health = Math.max(0, Math.min(BURJ_MAX_HEALTH, Math.round(game.burjHealth)));
+    const lastStand = game.burjAlive && health <= 1;
+    const terminalWindow = !game.burjAlive && (game.gameOverTimer ?? 0) > 0;
+    const active = lastStand || terminalWindow;
+    label.visible = active;
+    if (!active) return;
+
+    const pulse = 0.35 + 0.65 * Math.abs(Math.sin(sceneTime * 5));
+    label.alpha = pulse;
+    label.scale.set(0.96 + pulse * 0.08);
   }
 
   private drawBurjFloorFire(
@@ -2570,27 +2613,10 @@ export class PixiRenderer implements GameRenderer {
     const charHalfW = halfW * 1.08;
     const leftX = BURJ_X - charHalfW;
     const stripeW = charHalfW * 2;
-    const charTopY = floor.y - 2.4;
     const charBottomY = floor.y + floor.h + 3.2;
-    const charH = charBottomY - charTopY;
-    const corePulse = 0.6 + 0.4 * Math.sin(sceneTime * 8.4 + seed);
     const emberPulse = 0.5 + 0.5 * Math.sin(sceneTime * 4.7 + seed * 1.3);
 
-    graphic.rect(leftX, charTopY, stripeW, charH).fill({ color: 0x07050a, alpha: 0.95 });
-    graphic.rect(leftX + 0.6, charTopY + 0.6, stripeW - 1.2, charH - 1.2).fill({ color: 0x1a0c08, alpha: 0.78 });
-
-    graphic
-      .rect(leftX + 1.5, floor.y - 1, stripeW - 3, floor.h + 2)
-      .fill({ color: 0x6e1a0a, alpha: 0.55 + corePulse * 0.3 });
-    graphic.rect(leftX + 2.5, floor.y, stripeW - 5, floor.h).fill({ color: 0xc83a1c, alpha: 0.55 + corePulse * 0.35 });
-    graphic
-      .rect(leftX + 4, floor.y + floor.h * 0.25, stripeW - 8, floor.h * 0.55)
-      .fill({ color: 0xff8a30, alpha: 0.55 + corePulse * 0.3 });
-    graphic
-      .rect(leftX + 5, floor.y + floor.h * 0.4, stripeW - 10, floor.h * 0.28)
-      .fill({ color: 0xffd968, alpha: 0.4 + corePulse * 0.32 });
-
-    const segmentCount = 5;
+    const segmentCount = 6;
     for (let s = 0; s < segmentCount; s++) {
       const segSeed = seed + s * 3.07;
       const segLit = 0.4 + 0.6 * Math.sin(sceneTime * 8.1 + segSeed);
@@ -2599,17 +2625,17 @@ export class PixiRenderer implements GameRenderer {
       const segWidth = ((stripeW - 4) / segmentCount) * (0.55 + Math.sin(segSeed) * 0.25);
       graphic
         .rect(segLeft, floor.y + floor.h * 0.35, segWidth, floor.h * 0.3)
-        .fill({ color: 0xffe8a8, alpha: 0.35 + emberPulse * 0.4 });
+        .fill({ color: 0xffe8a8, alpha: 0.22 + emberPulse * 0.34 });
     }
 
-    const nTongues = 6;
+    const nTongues = 8;
     for (let t = 0; t < nTongues; t++) {
       const tongueSeed = seed + t * 1.71;
       const baseX = BURJ_X - halfW + (halfW * 2 * (t + 0.5)) / nTongues;
-      const sway = Math.sin(sceneTime * 5.6 + tongueSeed) * 2.4;
+      const sway = Math.sin(sceneTime * 5.6 + tongueSeed) * 3.2;
       const flick = 0.45 + 0.55 * Math.sin(sceneTime * 9.4 + tongueSeed * 1.31);
-      const tongueH = (10 + flick * 16) * intensity;
-      const tongueHW = 2.4 + Math.sin(tongueSeed * 0.7) * 0.8;
+      const tongueH = (15 + flick * 23) * intensity;
+      const tongueHW = 3.2 + Math.sin(tongueSeed * 0.7) * 1.05;
 
       graphic
         .moveTo(baseX - tongueHW * 1.25, floor.y + floor.h)
@@ -2633,36 +2659,36 @@ export class PixiRenderer implements GameRenderer {
         .fill({ color: 0xffd060, alpha: 0.65 + flick * 0.3 });
 
       graphic
-        .circle(baseX + sway * 0.5, floor.y - tongueH * 0.85, 1.2)
+        .circle(baseX + sway * 0.5, floor.y - tongueH * 0.85, 1.65)
         .fill({ color: 0xfff4dc, alpha: 0.45 + flick * 0.45 });
     }
 
     const dropSeed = seed * 0.73 + 4;
-    for (let d = 0; d < 3; d++) {
+    for (let d = 0; d < 4; d++) {
       const dripSeed = dropSeed + d * 2.3;
-      const dripX = leftX + ((d + 0.5) / 3) * stripeW + Math.sin(sceneTime * 3.1 + dripSeed) * 1.6;
+      const dripX = leftX + ((d + 0.5) / 4) * stripeW + Math.sin(sceneTime * 3.1 + dripSeed) * 1.9;
       const dripPulse = 0.4 + 0.6 * Math.sin(sceneTime * 6.7 + dripSeed);
       graphic
-        .ellipse(dripX, charBottomY - 0.5, 1.4, 2.4 + dripPulse * 1.1)
+        .ellipse(dripX, charBottomY - 0.5, 1.8, 3.1 + dripPulse * 1.5)
         .fill({ color: 0xff5a18, alpha: 0.45 + dripPulse * 0.35 });
       graphic
-        .ellipse(dripX + Math.sin(sceneTime * 4.3 + dripSeed) * 0.4, charBottomY + 1.8, 0.6, 1.6 + dripPulse * 0.9)
+        .ellipse(dripX + Math.sin(sceneTime * 4.3 + dripSeed) * 0.5, charBottomY + 2.4, 0.85, 2 + dripPulse * 1.2)
         .fill({ color: 0xff8c2c, alpha: 0.25 + dripPulse * 0.3 });
     }
 
-    const smokeDrift = Math.sin(sceneTime * 0.9 + seed) * 2.4;
+    const smokeDrift = Math.sin(sceneTime * 0.9 + seed) * 3.4;
     graphic
-      .ellipse(BURJ_X - halfW * 0.45 + smokeDrift, floor.y - 14, halfW * 0.78, 6)
-      .fill({ color: 0x6a584c, alpha: 0.42 * intensity });
+      .ellipse(BURJ_X - halfW * 0.45 + smokeDrift, floor.y - 17, halfW * 0.95, 7.5)
+      .fill({ color: 0x6a584c, alpha: 0.48 * intensity });
     graphic
-      .ellipse(BURJ_X + halfW * 0.4 + smokeDrift * 0.7, floor.y - 20, halfW * 0.82, 6.8)
-      .fill({ color: 0x554539, alpha: 0.34 * intensity });
+      .ellipse(BURJ_X + halfW * 0.4 + smokeDrift * 0.7, floor.y - 25, halfW * 1.02, 8.4)
+      .fill({ color: 0x554539, alpha: 0.38 * intensity });
     graphic
-      .ellipse(BURJ_X + smokeDrift * 0.45, floor.y - 26, halfW * 0.95, 7.4)
-      .fill({ color: 0x453831, alpha: 0.26 * intensity });
+      .ellipse(BURJ_X + smokeDrift * 0.45, floor.y - 34, halfW * 1.16, 9.2)
+      .fill({ color: 0x453831, alpha: 0.28 * intensity });
     graphic
-      .ellipse(BURJ_X + smokeDrift * 0.6, floor.y - 33, halfW * 1.05, 7.2)
-      .fill({ color: 0x3a2f29, alpha: 0.18 * intensity });
+      .ellipse(BURJ_X + smokeDrift * 0.6, floor.y - 43, halfW * 1.28, 9)
+      .fill({ color: 0x3a2f29, alpha: 0.2 * intensity });
   }
 
   private updateCrosshairOverlay(graphic: Graphics, game: GameState, showShop: boolean): void {

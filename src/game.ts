@@ -103,7 +103,7 @@ function buildHudSnapshot(game: GameState | null): HudSnapshot {
       combo: 1,
       wave: 1,
       waveProgress: 0,
-      burjHealth: 5,
+      burjHealth: 7,
       burjAlive: true,
       fps: 0,
       rafFps: 0,

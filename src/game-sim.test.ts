@@ -619,7 +619,7 @@ describe("Burj damage presentation", () => {
 
     sim.update(g, 2);
 
-    expect(g.burjHealth).toBe(4);
+    expect(g.burjHealth).toBe(6);
     expect(g.burjDecals).toHaveLength(1);
     expect(g.burjDecals[0].kind).toBe("missile");
     expect(g.burjDamageFx).toHaveLength(1);
@@ -634,7 +634,7 @@ describe("Burj damage presentation", () => {
 
     sim.update(g, 2);
 
-    expect(g.burjHealth).toBe(4);
+    expect(g.burjHealth).toBe(6);
     expect(g.burjDecals).toHaveLength(1);
     expect(g.burjDecals[0].kind).toBe("drone");
     expect(g.burjDamageFx).toHaveLength(1);
@@ -643,7 +643,7 @@ describe("Burj damage presentation", () => {
     expect(g.burjDamageFx).toHaveLength(1);
 
     expect(sim.buyUpgrade(g, "burjRepair")).toBe(true);
-    expect(g.burjHealth).toBe(5);
+    expect(g.burjHealth).toBe(7);
     expect(g.burjDecals).toHaveLength(0);
     expect(g.burjDamageFx).toHaveLength(0);
   });

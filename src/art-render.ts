@@ -27,6 +27,8 @@ export interface SkyAssets {
 export interface BurjAssets {
   staticSprite: HTMLCanvasElement;
   animFrames: HTMLCanvasElement[];
+  damagedBandSprites: HTMLCanvasElement[];
+  damagedBandOffsets: Array<{ x: number; y: number }>;
   offset: { x: number; y: number };
   frameCount: number;
   period: number;
@@ -2892,6 +2894,8 @@ export const BURJ_BRIGHT_BANDS: readonly BurjBrightBand[] = [
   { ht: 0.88, alpha: 0.6, thickness: 1.45 },
 ];
 
+export const BURJ_DAMAGED_BAND_COUNT = 7;
+
 export function halfWidthsAt(ht: number) {
   let left = burjLeftSections[burjLeftSections.length - 1].w;
   let right = burjRightSections[burjRightSections.length - 1].w;
@@ -3031,6 +3035,60 @@ function drawBurjAnimFrame(ctx: CanvasRenderingContext2D, groundY: number, time:
   });
 }
 
+export function drawBurjDamagedBandSprite(ctx: CanvasRenderingContext2D, halfW: number, thickness: number): void {
+  const charHalfW = halfW * 1.08;
+  const width = charHalfW * 2;
+  const charTopY = 0;
+  const bandY = 3;
+  const charH = thickness + 6.5;
+
+  ctx.fillStyle = "rgba(7, 5, 10, 0.95)";
+  ctx.fillRect(0, charTopY, width, charH);
+  ctx.fillStyle = "rgba(26, 12, 8, 0.78)";
+  ctx.fillRect(0.6, charTopY + 0.6, width - 1.2, charH - 1.2);
+
+  ctx.fillStyle = "rgba(110, 26, 10, 0.72)";
+  ctx.fillRect(1.5, bandY + 1.4, width - 3, Math.max(1, thickness + 1.4));
+  ctx.fillStyle = "rgba(200, 58, 28, 0.68)";
+  ctx.fillRect(2.5, bandY + 2.1, width - 5, Math.max(1, thickness * 0.9));
+  ctx.fillStyle = "rgba(255, 138, 48, 0.5)";
+  ctx.fillRect(4, bandY + 2.4 + thickness * 0.25, width - 8, Math.max(0.8, thickness * 0.55));
+  ctx.fillStyle = "rgba(255, 217, 104, 0.38)";
+  ctx.fillRect(5, bandY + 2.6 + thickness * 0.42, width - 10, Math.max(0.6, thickness * 0.28));
+
+  const segmentCount = 5;
+  for (let index = 0; index < segmentCount; index += 1) {
+    const segmentSeed = index * 3.07 + halfW * 0.13;
+    const segmentLeft = 2 + (index / segmentCount) * (width - 4);
+    const segmentWidth = ((width - 4) / segmentCount) * (0.42 + Math.abs(Math.sin(segmentSeed)) * 0.3);
+    ctx.fillStyle = index % 2 === 0 ? "rgba(255, 232, 168, 0.42)" : "rgba(255, 120, 44, 0.34)";
+    ctx.fillRect(segmentLeft, bandY + 2.2 + thickness * 0.35, segmentWidth, Math.max(0.8, thickness * 0.3));
+  }
+}
+
+function buildBurjDamagedBandSprite(band: BurjBrightBand, resolutionScale: number) {
+  const { left, right } = halfWidthsAt(band.ht);
+  const halfW = Math.max(left, right) * 0.88;
+  const charHalfW = halfW * 1.08;
+  const overshootTop = 3;
+  const overshootBottom = 3.5;
+  const width = charHalfW * 2;
+  const height = band.thickness + overshootTop + overshootBottom;
+  const canvas = createSpriteCanvas(width, height, resolutionScale);
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    ctx.scale(resolutionScale, resolutionScale);
+    drawBurjDamagedBandSprite(ctx, halfW, band.thickness);
+  }
+  return {
+    canvas,
+    offset: {
+      x: -charHalfW,
+      y: -BURJ_H * band.ht - overshootTop,
+    },
+  };
+}
+
 export function buildBurjAssets(groundY: number, artScale: number): BurjAssets {
   const bounds = getBurjSpriteBounds(groundY, artScale);
   const resolutionScale = getBurjBakeResolution(artScale);
@@ -3053,9 +3111,15 @@ export function buildBurjAssets(groundY: number, artScale: number): BurjAssets {
     return canvas;
   });
 
+  const damagedBands = BURJ_BRIGHT_BANDS.slice(0, BURJ_DAMAGED_BAND_COUNT).map((band) =>
+    buildBurjDamagedBandSprite(band, resolutionScale),
+  );
+
   return {
     staticSprite,
     animFrames,
+    damagedBandSprites: damagedBands.map((band) => band.canvas),
+    damagedBandOffsets: damagedBands.map((band) => band.offset),
     offset: bounds.offset,
     frameCount: BURJ_ANIM_FRAME_COUNT,
     period: BURJ_ANIM_PERIOD_SECONDS,
