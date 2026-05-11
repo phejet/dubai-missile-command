@@ -291,6 +291,7 @@ interface GameplaySceneState {
   defenseSiteNodes: Map<string, GameplayDefenseSiteNode>;
   defenseStatusOverlay: Graphics;
   burjBaseHealthBar: Graphics;
+  burjSmokeOverlay: Graphics;
   burjBaseHealthMask: Graphics;
   criticalText: Text;
   crosshairOverlay: Graphics;
@@ -1743,6 +1744,7 @@ export class PixiRenderer implements GameRenderer {
 
     const defenseStatusOverlay = new Graphics();
     const burjBaseHealthBar = new Graphics();
+    const burjSmokeOverlay = new Graphics();
     const burjBaseHealthMask = createGameplayBurjOverlayMask();
     burjBaseHealthBar.mask = burjBaseHealthMask;
     const criticalText = new Text({
@@ -1771,6 +1773,7 @@ export class PixiRenderer implements GameRenderer {
     const empScreenFxOverlay = new Graphics();
     this.gameplayOverlayLayer.addChild(
       defenseStatusOverlay,
+      burjSmokeOverlay,
       burjBaseHealthMask,
       burjBaseHealthBar,
       criticalText,
@@ -1810,6 +1813,7 @@ export class PixiRenderer implements GameRenderer {
       defenseSiteNodes,
       defenseStatusOverlay,
       burjBaseHealthBar,
+      burjSmokeOverlay,
       burjBaseHealthMask,
       criticalText,
       crosshairOverlay,
@@ -2564,15 +2568,16 @@ export class PixiRenderer implements GameRenderer {
     showShop: boolean,
     interpolationAlpha: number,
   ): void {
-    this.updateBurjBaseHealthBar(state.burjBaseHealthBar, game, sceneTime);
+    this.updateBurjBaseHealthBar(state.burjBaseHealthBar, state.burjSmokeOverlay, game, sceneTime);
     this.updateCriticalIndicator(state.criticalText, game, sceneTime);
     this.updateCrosshairOverlay(state.crosshairOverlay, game, showShop);
     this.updateUpgradeRangeOverlay(state.upgradeRangeOverlay, game);
     this.updateCollisionOverlay(state.collisionOverlay, game, interpolationAlpha);
   }
 
-  private updateBurjBaseHealthBar(graphic: Graphics, game: GameState, sceneTime: number): void {
+  private updateBurjBaseHealthBar(graphic: Graphics, smokeGraphic: Graphics, game: GameState, sceneTime: number): void {
     graphic.clear();
+    smokeGraphic.clear();
     const terminalWindow = !game.burjAlive && (game.gameOverTimer ?? 0) > 0;
     if (!game.burjAlive && !terminalWindow) return;
 
@@ -2590,6 +2595,7 @@ export class PixiRenderer implements GameRenderer {
       const seed = floorIndex * 7.13 + 1.9;
       const isJustLost = floorIndex === justLostIndex;
       const intensity = isJustLost ? 1 + flashT * 0.45 : 1;
+      this.drawBurjFloorSmoke(smokeGraphic, floor, sceneTime, seed, intensity);
       this.drawBurjFloorFire(graphic, floor, sceneTime, seed, intensity);
 
       if (isJustLost) {
@@ -2637,7 +2643,18 @@ export class PixiRenderer implements GameRenderer {
     const leftX = BURJ_X - charHalfW;
     const stripeW = charHalfW * 2;
     const charBottomY = floor.y + floor.h + 3.2;
+    const corePulse = 0.55 + 0.45 * Math.sin(sceneTime * 7.8 + seed);
     const emberPulse = 0.5 + 0.5 * Math.sin(sceneTime * 4.7 + seed * 1.3);
+
+    graphic
+      .ellipse(BURJ_X, floor.y + floor.h * 0.48, halfW * 1.05, 12 + corePulse * 5)
+      .fill({ color: 0xff4a18, alpha: 0.18 + corePulse * 0.14 });
+    graphic
+      .ellipse(BURJ_X, floor.y + floor.h * 0.34, halfW * 0.72, 7 + corePulse * 3)
+      .fill({ color: 0xff9a32, alpha: 0.18 + corePulse * 0.16 });
+    graphic
+      .rect(BURJ_X - halfW * 0.72, floor.y - 1.4, halfW * 1.44, floor.h + 4.2)
+      .fill({ color: 0xff6a20, alpha: 0.12 + corePulse * 0.08 });
 
     const segmentCount = 6;
     for (let s = 0; s < segmentCount; s++) {
@@ -2651,14 +2668,15 @@ export class PixiRenderer implements GameRenderer {
         .fill({ color: 0xffe8a8, alpha: 0.22 + emberPulse * 0.34 });
     }
 
-    const nTongues = 8;
+    const nTongues = halfW < 8 ? 4 : 6;
     for (let t = 0; t < nTongues; t++) {
       const tongueSeed = seed + t * 1.71;
-      const baseX = BURJ_X - halfW + (halfW * 2 * (t + 0.5)) / nTongues;
-      const sway = Math.sin(sceneTime * 5.6 + tongueSeed) * 3.2;
+      const tongueSpan = halfW * 1.28;
+      const baseX = BURJ_X - tongueSpan * 0.5 + (tongueSpan * (t + 0.5)) / nTongues;
+      const sway = Math.sin(sceneTime * 5.6 + tongueSeed) * 2.1;
       const flick = 0.45 + 0.55 * Math.sin(sceneTime * 9.4 + tongueSeed * 1.31);
-      const tongueH = (15 + flick * 23) * intensity;
-      const tongueHW = 3.2 + Math.sin(tongueSeed * 0.7) * 1.05;
+      const tongueH = (9 + flick * 15) * intensity;
+      const tongueHW = 2.25 + Math.sin(tongueSeed * 0.7) * 0.65;
 
       graphic
         .moveTo(baseX - tongueHW * 1.25, floor.y + floor.h)
@@ -2682,8 +2700,8 @@ export class PixiRenderer implements GameRenderer {
         .fill({ color: 0xffd060, alpha: 0.65 + flick * 0.3 });
 
       graphic
-        .circle(baseX + sway * 0.5, floor.y - tongueH * 0.85, 1.65)
-        .fill({ color: 0xfff4dc, alpha: 0.45 + flick * 0.45 });
+        .circle(baseX + sway * 0.5, floor.y - tongueH * 0.78, 1.25)
+        .fill({ color: 0xfff4dc, alpha: 0.35 + flick * 0.38 });
     }
 
     const dropSeed = seed * 0.73 + 4;
@@ -2698,20 +2716,42 @@ export class PixiRenderer implements GameRenderer {
         .ellipse(dripX + Math.sin(sceneTime * 4.3 + dripSeed) * 0.5, charBottomY + 2.4, 0.85, 2 + dripPulse * 1.2)
         .fill({ color: 0xff8c2c, alpha: 0.25 + dripPulse * 0.3 });
     }
+  }
 
-    const smokeDrift = Math.sin(sceneTime * 0.9 + seed) * 3.4;
+  private drawBurjFloorSmoke(
+    graphic: Graphics,
+    floor: PixiBurjBaseHealthFloor,
+    sceneTime: number,
+    seed: number,
+    intensity: number,
+  ): void {
+    const halfW = floor.halfW;
+    const smokeDrift = Math.sin(sceneTime * 0.9 + seed) * 5.2;
+    const smokePulse = 0.5 + 0.5 * Math.sin(sceneTime * 1.35 + seed * 0.7);
+    for (let plume = 0; plume < 4; plume += 1) {
+      const plumeSeed = seed + plume * 2.41;
+      const plumeX = BURJ_X - halfW * 0.95 + (halfW * 1.9 * (plume + 0.5)) / 4;
+      const plumeDrift = smokeDrift + Math.sin(sceneTime * 0.72 + plumeSeed) * (4.2 + plume);
+      const plumeRise = 16 + plume * 16 + smokePulse * 11;
+      graphic
+        .ellipse(plumeX + plumeDrift * 0.8, floor.y - plumeRise, halfW * (0.82 + plume * 0.14), 13 + plume * 3.2)
+        .fill({ color: 0x6f675f, alpha: (0.22 + smokePulse * 0.12) * intensity });
+      graphic
+        .ellipse(plumeX + plumeDrift * 1.1, floor.y - plumeRise - 12, halfW * (0.95 + plume * 0.16), 15 + plume * 3.4)
+        .fill({ color: 0x474849, alpha: (0.16 + smokePulse * 0.1) * intensity });
+    }
     graphic
-      .ellipse(BURJ_X - halfW * 0.45 + smokeDrift, floor.y - 17, halfW * 0.95, 7.5)
-      .fill({ color: 0x6a584c, alpha: 0.48 * intensity });
+      .ellipse(BURJ_X - halfW * 0.45 + smokeDrift, floor.y - 17, halfW * 1.1, 9.5)
+      .fill({ color: 0x7a6b5d, alpha: 0.52 * intensity });
     graphic
-      .ellipse(BURJ_X + halfW * 0.4 + smokeDrift * 0.7, floor.y - 25, halfW * 1.02, 8.4)
-      .fill({ color: 0x554539, alpha: 0.38 * intensity });
+      .ellipse(BURJ_X + halfW * 0.4 + smokeDrift * 0.7, floor.y - 27, halfW * 1.22, 10.5)
+      .fill({ color: 0x5c554f, alpha: 0.42 * intensity });
     graphic
-      .ellipse(BURJ_X + smokeDrift * 0.45, floor.y - 34, halfW * 1.16, 9.2)
-      .fill({ color: 0x453831, alpha: 0.28 * intensity });
+      .ellipse(BURJ_X + smokeDrift * 0.45, floor.y - 39, halfW * 1.38, 12)
+      .fill({ color: 0x414345, alpha: 0.32 * intensity });
     graphic
-      .ellipse(BURJ_X + smokeDrift * 0.6, floor.y - 43, halfW * 1.28, 9)
-      .fill({ color: 0x3a2f29, alpha: 0.2 * intensity });
+      .ellipse(BURJ_X + smokeDrift * 0.6, floor.y - 53, halfW * 1.5, 12)
+      .fill({ color: 0x303235, alpha: 0.24 * intensity });
   }
 
   private updateCrosshairOverlay(graphic: Graphics, game: GameState, showShop: boolean): void {

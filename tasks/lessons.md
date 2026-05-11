@@ -84,3 +84,4 @@
 
 - For graphics and game-feel work, prioritize a running feel-check build over extra headless/browser automation once structural tests pass. Automated probes are useful plumbing checks, not proof that the art reads well.
 - Do not make `CRITICAL` a post-death label. In this game it should mean a playable last stand: the Burj is still alive, the player can still act, and the screen state creates urgency before failure.
+- When increasing clipped fire on a narrow silhouette, do not just scale flame tongues taller. The mask will chop them into ugly shards; make the core/band fire read larger and keep tongue height moderate.
