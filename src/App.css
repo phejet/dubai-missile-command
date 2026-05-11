@@ -1677,7 +1677,7 @@
   --active-meta: #d7b3ff;
   position: absolute;
   left: 51.1%;
-  top: 91.7%;
+  top: calc(87.2% + 8px);
   transform: translate(-50%, 0);
   z-index: 4;
   min-width: 104px;
@@ -2051,7 +2051,7 @@
 }
 
 .game-shell--compactPortrait .battlefield-active {
-  top: 91.9%;
+  top: calc(87.2% + 8px);
   min-width: 100px;
   min-height: 52px;
 }
@@ -2154,7 +2154,7 @@
   }
 
   .battlefield-active {
-    top: 91.9%;
+    top: calc(87.2% + 8px);
     min-width: 98px;
     min-height: 50px;
   }

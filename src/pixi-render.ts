@@ -291,6 +291,7 @@ interface GameplaySceneState {
   defenseSiteNodes: Map<string, GameplayDefenseSiteNode>;
   defenseStatusOverlay: Graphics;
   burjBaseHealthBar: Graphics;
+  burjBaseHealthMask: Graphics;
   criticalText: Text;
   crosshairOverlay: Graphics;
   upgradeRangeOverlay: Graphics;
@@ -655,6 +656,21 @@ function createGameplayBurjDamageMask(): Graphics {
   }
   for (let y = baseY; y >= topY + 8; y -= 14) {
     mask.lineTo(-getGameplayBurjHalfW(y, 2) / 2, (y - GAMEPLAY_TOWER_BASE_Y) / 2);
+  }
+  mask.closePath().fill(0xffffff);
+  return mask;
+}
+
+function createGameplayBurjOverlayMask(): Graphics {
+  const mask = new Graphics();
+  const topY = getGameplayBurjCollisionTop(2);
+  const baseY = GAMEPLAY_SCENIC_GROUND_Y - 6;
+  mask.moveTo(BURJ_X, topY);
+  for (let y = topY + 8; y <= baseY; y += 14) {
+    mask.lineTo(BURJ_X + getGameplayBurjHalfW(y, 2), y);
+  }
+  for (let y = baseY; y >= topY + 8; y -= 14) {
+    mask.lineTo(BURJ_X - getGameplayBurjHalfW(y, 2), y);
   }
   mask.closePath().fill(0xffffff);
   return mask;
@@ -1574,6 +1590,9 @@ export class PixiRenderer implements GameRenderer {
     const hitFlash = new Graphics();
     const damageMask = createGameplayBurjDamageMask();
     damageUnderlay.mask = damageMask;
+    damagedBandSprites.forEach((sprite) => {
+      sprite.mask = damageMask;
+    });
     decalLayer.mask = damageMask;
     damageFxLayer.mask = damageMask;
     hitFlashGlow.mask = damageMask;
@@ -1724,6 +1743,8 @@ export class PixiRenderer implements GameRenderer {
 
     const defenseStatusOverlay = new Graphics();
     const burjBaseHealthBar = new Graphics();
+    const burjBaseHealthMask = createGameplayBurjOverlayMask();
+    burjBaseHealthBar.mask = burjBaseHealthMask;
     const criticalText = new Text({
       text: "CRITICAL",
       style: {
@@ -1750,6 +1771,7 @@ export class PixiRenderer implements GameRenderer {
     const empScreenFxOverlay = new Graphics();
     this.gameplayOverlayLayer.addChild(
       defenseStatusOverlay,
+      burjBaseHealthMask,
       burjBaseHealthBar,
       criticalText,
       upgradeRangeOverlay,
@@ -1788,6 +1810,7 @@ export class PixiRenderer implements GameRenderer {
       defenseSiteNodes,
       defenseStatusOverlay,
       burjBaseHealthBar,
+      burjBaseHealthMask,
       criticalText,
       crosshairOverlay,
       upgradeRangeOverlay,
