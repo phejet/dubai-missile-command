@@ -1,4 +1,4 @@
-import { CANVAS_W, BURJ_H, BURJ_X, SCENIC_BUILDING_LAYOUT } from "./game-logic";
+import { CANVAS_W, BURJ_H, BURJ_X, SCENIC_BUILDING_LAYOUT, getGameplayBurjHalfW } from "./game-logic";
 import type { Building, Star } from "./types";
 
 const SKY_FRAME_COUNT = 8;
@@ -2895,6 +2895,25 @@ export const BURJ_BRIGHT_BANDS: readonly BurjBrightBand[] = [
 ];
 
 export const BURJ_DAMAGED_BAND_COUNT = 7;
+
+export interface BurjBaseHealthFloor {
+  y: number;
+  h: number;
+  halfW: number;
+}
+
+const BURJ_BASE_HEALTH_SPRITE_SCALE = 2;
+const BURJ_BASE_HEALTH_TRUNK_FRACTION = 0.88;
+
+export function getBurjBaseHealthFloorLayout(towerBaseY: number): BurjBaseHealthFloor[] {
+  return BURJ_BRIGHT_BANDS.map((band) => {
+    const stripeTopY = towerBaseY - BURJ_H * band.ht * BURJ_BASE_HEALTH_SPRITE_SCALE;
+    const stripeH = band.thickness * BURJ_BASE_HEALTH_SPRITE_SCALE;
+    const stripeCenterY = stripeTopY + stripeH / 2;
+    const halfW = getGameplayBurjHalfW(stripeCenterY, BURJ_BASE_HEALTH_SPRITE_SCALE) * BURJ_BASE_HEALTH_TRUNK_FRACTION;
+    return { y: stripeTopY, h: stripeH, halfW };
+  });
+}
 
 export function halfWidthsAt(ht: number) {
   let left = burjLeftSections[burjLeftSections.length - 1].w;

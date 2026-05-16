@@ -39,6 +39,7 @@ import {
   computeShahed238Path,
   getAmmoCapacity,
   GAMEPLAY_SCENIC_LAUNCHER_Y,
+  GAMEPLAY_SCENIC_BASE_Y,
   ov,
 } from "./game-logic.js";
 import { createCommander, generateWaveSchedule, advanceSpawnSchedule, isWaveFullySpawned } from "./wave-spawner.js";
@@ -60,6 +61,148 @@ import type {
   EmpRing,
 } from "./types.js";
 import { shahed136HasBomb, shahed136HasDive } from "./types.js";
+import { getBurjBaseHealthFloorLayout } from "./art-render";
+
+const BURJ_FIRE_MAX_HEALTH = 7;
+const BURJ_FIRE_TOWER_BASE_Y = GAMEPLAY_SCENIC_BASE_Y;
+
+export function updateBurjFireParticles(g: GameState, dt: number): void {
+  if (!g.burjAlive) return;
+  const rawHealth = Math.max(0, Math.min(BURJ_FIRE_MAX_HEALTH, Math.round(g.burjHealth)));
+  const lastStand = rawHealth <= 1;
+  const effectiveHealth = lastStand ? 0 : rawHealth;
+  const lostCount = BURJ_FIRE_MAX_HEALTH - effectiveHealth;
+  if (lostCount <= 0) return;
+
+  const floors = getBurjBaseHealthFloorLayout(BURJ_FIRE_TOWER_BASE_Y);
+  const lostFloors = floors.filter((_, i) => i >= effectiveHealth);
+  const damageRatio = lostCount / BURJ_FIRE_MAX_HEALTH;
+
+  const flameRate = ov("burjFire.flameRate", 2.4);
+  const emberRate = ov("burjFire.emberRate", 0.7);
+  const smokeRate = ov("burjFire.smokeRate", 0.55);
+  const flameLife = ov("burjFire.flameLife", 16);
+  const emberLife = ov("burjFire.emberLife", 30);
+  const smokeLife = ov("burjFire.smokeLife", 220);
+  const smokeRise = ov("burjFire.smokeRise", 0.7);
+  const smokeDrift = ov("burjFire.smokeDrift", 0.18);
+  const flameSize = ov("burjFire.flameSize", 10);
+  const smokeSize = ov("burjFire.smokeSize", 14);
+  const emberSize = ov("burjFire.emberSize", 2.2);
+  const hotspotSpread = ov("burjFire.hotspotSpread", 0.62);
+  const smokeDamageMul = ov("burjFire.smokeDamageMul", 2.4);
+  const smokeRiseDamageBoost = ov("burjFire.smokeRiseDamageBoost", 0.5);
+  const smokeBase = ov("burjFire.smokeBase", 0.35);
+  const ignite = g.burjHitFlashMax > 0 ? Math.max(0, Math.min(1, g.burjHitFlashTimer / g.burjHitFlashMax)) : 0;
+
+  // Three discrete "burning window" anchors per floor — reads as localized fire on
+  // the structure rather than a uniform gas cloud across the silhouette.
+  const HOTSPOTS = [-hotspotSpread, 0.0, hotspotSpread];
+
+  // Per-floor color: topmost floor is fresh (bright yellow-white), bottom is old (dull red).
+  // ageFrac = 1 at the bottom-most lost floor, 0 at the topmost (most recently lost).
+  const FLAME_FRESH = "#ffe1a8";
+  const FLAME_OLD = "#cc4a1a";
+  const EMBER_FRESH = "#ffb060";
+  const EMBER_OLD = "#c84818";
+
+  for (let i = 0; i < lostFloors.length; i += 1) {
+    const floor = lostFloors[i];
+    const halfW = Math.max(4, floor.halfW);
+    const isTop = i === lostFloors.length - 1;
+    const ageFrac = lostFloors.length > 1 ? 1 - i / (lostFloors.length - 1) : 0;
+    // Flames lick UP out of the damaged band. Anchor to the top of the band, jitter
+    // mostly downward into the band, only a little above.
+    const flameAnchorY = floor.y - floor.h * 0.2;
+    const emberAnchorY = floor.y - floor.h * 0.1;
+    const flameColor = lerpHex(FLAME_OLD, FLAME_FRESH, ageFrac);
+    const emberColor = lerpHex(EMBER_OLD, EMBER_FRESH, ageFrac);
+    const igniteBoost = isTop ? 1 + ignite * 0.8 : 1;
+    const ageDensity = 0.55 + ageFrac * 0.55;
+
+    spawnPoisson(g, flameRate * dt * (0.6 + damageRatio * 0.4) * ageDensity * igniteBoost, () => {
+      const hotspot = HOTSPOTS[Math.floor(rand(0, HOTSPOTS.length))];
+      g.particles.push({
+        x: BURJ_X + hotspot * halfW + rand(-halfW * 0.18, halfW * 0.18),
+        y: flameAnchorY + rand(-floor.h * 0.1, floor.h * 0.55),
+        vx: rand(-0.2, 0.2),
+        vy: -rand(0.7, 1.35),
+        life: rand(flameLife * 0.65, flameLife),
+        maxLife: flameLife,
+        color: flameColor,
+        size: rand(flameSize * 0.85, flameSize * 1.6),
+        type: "fireFlame",
+        gravity: 0,
+        drag: 0.955,
+      });
+    });
+
+    spawnPoisson(g, emberRate * dt * (0.55 + damageRatio * 0.55) * ageDensity * igniteBoost, () => {
+      const hotspot = HOTSPOTS[Math.floor(rand(0, HOTSPOTS.length))];
+      const ang = rand(-Math.PI * 0.75, -Math.PI * 0.25);
+      const sp = rand(0.7, 1.8);
+      g.particles.push({
+        x: BURJ_X + hotspot * halfW * 0.85 + rand(-halfW * 0.12, halfW * 0.12),
+        y: emberAnchorY + rand(-floor.h * 0.2, floor.h * 0.2),
+        vx: Math.cos(ang) * sp * 0.6,
+        vy: Math.sin(ang) * sp,
+        life: rand(emberLife * 0.55, emberLife),
+        maxLife: emberLife,
+        color: emberColor,
+        size: rand(emberSize * 0.7, emberSize * 1.3),
+        type: "fireEmber",
+        gravity: 0.012,
+        drag: 0.965,
+      });
+    });
+
+    if (isTop) {
+      const smokeVyBoost = 1 + damageRatio * smokeRiseDamageBoost;
+      spawnPoisson(g, smokeRate * dt * (smokeBase + damageRatio * smokeDamageMul), () =>
+        g.particles.push({
+          x: BURJ_X + rand(-halfW * 0.5, halfW * 0.5),
+          y: floor.y - 8,
+          vx: rand(-smokeDrift, smokeDrift),
+          vy: -rand(smokeRise * 0.6, smokeRise) * smokeVyBoost,
+          life: rand(smokeLife * 0.7, smokeLife),
+          maxLife: smokeLife,
+          // Smoke at high damage darkens (more soot near a big fire).
+          color: damageRatio > 0.55 ? "#3a3a3e" : "#6c6e74",
+          size: rand(smokeSize, smokeSize * 1.7),
+          type: "fireSmoke",
+          gravity: -0.004,
+          drag: 0.992,
+        }),
+      );
+    }
+  }
+}
+
+function lerpHex(fromHex: string, toHex: string, t: number): string {
+  const tc = Math.max(0, Math.min(1, t));
+  const f = parseHexColor(fromHex);
+  const o = parseHexColor(toHex);
+  const r = Math.round(f.r + (o.r - f.r) * tc);
+  const g = Math.round(f.g + (o.g - f.g) * tc);
+  const b = Math.round(f.b + (o.b - f.b) * tc);
+  return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
+}
+
+function parseHexColor(hex: string): { r: number; g: number; b: number } {
+  const clean = hex.startsWith("#") ? hex.slice(1) : hex;
+  const value = parseInt(clean, 16);
+  return { r: (value >> 16) & 0xff, g: (value >> 8) & 0xff, b: value & 0xff };
+}
+
+function spawnPoisson(g: GameState, expected: number, spawn: () => void): void {
+  if (g.particles.length >= MAX_PARTICLES) return;
+  let count = Math.floor(expected);
+  if (rand(0, 1) < expected - count) count += 1;
+  for (let i = 0; i < count; i += 1) {
+    if (g.particles.length >= MAX_PARTICLES) return;
+    spawn();
+  }
+}
 
 function boom(
   g: GameState,
@@ -2437,6 +2580,7 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
   updateInterceptors(g, dt, onEvent);
   updateExplosions(g, dt, onEvent);
   updatePlanes(g, dt, allThreats, onEvent);
+  updateBurjFireParticles(g, dt);
 
   g.particles.forEach((p) => {
     if (p.drag) {

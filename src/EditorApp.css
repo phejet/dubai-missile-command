@@ -104,6 +104,29 @@
   color: #ff6688 !important;
 }
 
+.editor-burj-damage {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid #2a3a55;
+  background: #141b2e;
+  border-radius: 4px;
+  color: #8899aa;
+  font-size: 12px;
+}
+
+.editor-burj-damage input[type="range"] {
+  width: 90px;
+}
+
+.editor-burj-damage-value {
+  min-width: 28px;
+  text-align: right;
+  color: #cc88ff;
+  font-variant-numeric: tabular-nums;
+}
+
 .export-btn {
   background: #1a3530 !important;
   border-color: #2a5545 !important;
@@ -132,6 +155,18 @@
 
 .editor-group-body {
   padding: 0 14px 10px;
+}
+
+.editor-burj-fire-hp {
+  margin: 0 0 10px;
+  padding: 7px 9px;
+  border: 1px solid #29364f;
+  background: #10192b;
+  border-radius: 4px;
+}
+
+.editor-burj-fire-hp .editor-value {
+  color: #ffb35c;
 }
 
 .editor-param {

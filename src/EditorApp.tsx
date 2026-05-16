@@ -2,6 +2,8 @@ import React, { useRef, useEffect, useState, useCallback } from "react";
 import { CANVAS_W, CANVAS_H, GROUND_Y, BURJ_X, BURJ_H, COL, createExplosion, ov } from "./game-logic.js";
 import { createEditorScene } from "./editor-scene.js";
 import { createPixiEditorPreviewRenderer, type PixiEditorPreviewRenderer } from "./editor-render.js";
+import { BURJ_MAX_HEALTH } from "./pixi-render";
+import { updateBurjFireParticles } from "./game-sim";
 import { PARAM_GROUPS, getDefaults } from "./editor-params.js";
 import { createEmptyUpgradeProgression, getAllUpgradeNodeDefs, getUpgradeObjectiveLabel } from "./game-sim-upgrades";
 import {
@@ -129,8 +131,10 @@ function simTick(scene: GameState, dt: number): void {
   });
   const dragByType: Record<string, number> = { debris: debrisDrag, spark: sparkDrag };
   scene.particles.forEach((p: Particle) => {
-    const drag = (p.type ? dragByType[p.type] : undefined) ?? 1;
-    const gravity = p.type === "debris" ? debrisGravity : (p.gravity ?? 0.05);
+    // Per-particle drag wins (matches game-sim); fall back to type-based drag from sliders for legacy particles.
+    const drag = p.drag ?? (p.type ? dragByType[p.type] : undefined) ?? 1;
+    const defaultGravity = p.type === "debris" ? debrisGravity : 0.05;
+    const gravity = p.gravity ?? defaultGravity;
     if (drag < 1) {
       p.vx *= drag;
       p.vy *= drag;
@@ -144,6 +148,26 @@ function simTick(scene: GameState, dt: number): void {
   scene.shakeTimer = 0;
   scene.shakeIntensity = 0;
   scene.explosions = scene.explosions.filter((ex: Explosion) => ex.alpha > 0);
+  scene.particles = scene.particles.filter((p: Particle) => p.life > 0);
+}
+
+// Continuous Burj fire/smoke emitter + physics step.
+// Runs every frame regardless of explosion-playback state so the damaged-floors slider
+// produces particles immediately without forcing Play.
+function tickBurjFire(scene: GameState, dt: number): void {
+  updateBurjFireParticles(scene, dt);
+  scene.particles.forEach((p: Particle) => {
+    if (p.type !== "fireFlame" && p.type !== "fireEmber" && p.type !== "fireSmoke") return;
+    const drag = p.drag ?? 1;
+    if (drag < 1) {
+      p.vx *= drag;
+      p.vy *= drag;
+    }
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vy += (p.gravity ?? 0) * dt;
+    p.life -= dt;
+  });
   scene.particles = scene.particles.filter((p: Particle) => p.life > 0);
 }
 
@@ -166,6 +190,8 @@ export default function EditorApp() {
   const [maxTick, setMaxTick] = useState(600);
   const [hasPlayed, setHasPlayed] = useState(true);
   const [showUpgrades, setShowUpgrades] = useState(false);
+  const [damagedFloors, setDamagedFloors] = useState(0);
+  const damagedFloorsRef = useRef(0);
   const [positionOverrides, setPositionOverrides] = useState<Record<string, number>>(getEditorPositionDefaults);
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{ key: string; offsetX: number; offsetY: number } | null>(null);
@@ -298,6 +324,11 @@ export default function EditorApp() {
       }
       // Always advance scene time for ambient animations (sky, stars)
       if (!scrubbingRef.current) scene.time += 1;
+      // Re-apply damaged-floor preview every frame so scene resets don't snap back to full HP
+      scene.burjHealth = BURJ_MAX_HEALTH - damagedFloorsRef.current;
+      scene.burjAlive = true;
+      // Always tick Burj fire/smoke — independent of explosion playback gating.
+      if (!scrubbingRef.current) tickBurjFire(scene, 1);
       // Only advance simulation when playing
       if (playingRef.current && !scrubbingRef.current) {
         tickRef.current += 1;
@@ -687,6 +718,22 @@ export default function EditorApp() {
     requestAnimationFrame(() => fitGraphViewport());
   }
 
+  useEffect(() => {
+    damagedFloorsRef.current = Math.max(0, Math.min(BURJ_MAX_HEALTH, damagedFloors));
+    const scene = sceneRef.current;
+    if (scene) {
+      scene.burjHealth = BURJ_MAX_HEALTH - damagedFloorsRef.current;
+      scene.burjAlive = true;
+    }
+  }, [damagedFloors]);
+
+  const pulseBurjHit = useCallback(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    scene.burjHitFlashMax = 30;
+    scene.burjHitFlashTimer = 30;
+  }, []);
+
   // "A" key hotkey for play/pause
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -719,6 +766,7 @@ export default function EditorApp() {
     { owned: 0, available: 0, locked: 0, metaLocked: 0 },
   );
   const selectedGraphOwned = selectedGraphNodeId ? graphOwnedNodes.includes(selectedGraphNodeId) : false;
+  const currentBurjHitpoints = Math.max(0, Math.min(BURJ_MAX_HEALTH, BURJ_MAX_HEALTH - damagedFloors));
 
   return (
     <div className="editor-root">
@@ -871,6 +919,26 @@ export default function EditorApp() {
                 >
                   Colliders
                 </button>
+                <label
+                  className="editor-burj-damage"
+                  title="Number of Burj base floors lost (drives smoke/fire damage column)"
+                >
+                  <span>Burj damage</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={BURJ_MAX_HEALTH}
+                    step={1}
+                    value={damagedFloors}
+                    onChange={(e) => setDamagedFloors(Number(e.target.value))}
+                  />
+                  <span className="editor-burj-damage-value">
+                    {damagedFloors}/{BURJ_MAX_HEALTH}
+                  </span>
+                </label>
+                <button onClick={pulseBurjHit} className="play-btn" disabled={damagedFloors === 0}>
+                  Pulse Hit
+                </button>
               </>
             )}
             <button onClick={() => window.open("sprites.html", "_blank")}>Sprite Catalog</button>
@@ -890,6 +958,27 @@ export default function EditorApp() {
               </div>
               {!collapsed[group.name] && (
                 <div className="editor-group-body">
+                  {group.name === "Burj Fire" && (
+                    <div className="editor-param editor-burj-fire-hp" title="Current Burj HP for the damage preview">
+                      <label className="editor-label" htmlFor="editor-burj-hitpoints">
+                        Current Burj HP
+                      </label>
+                      <div className="editor-control">
+                        <input
+                          id="editor-burj-hitpoints"
+                          type="range"
+                          min={0}
+                          max={BURJ_MAX_HEALTH}
+                          step={1}
+                          value={currentBurjHitpoints}
+                          onChange={(e) => setDamagedFloors(BURJ_MAX_HEALTH - Number(e.target.value))}
+                        />
+                        <span className="editor-value">
+                          {currentBurjHitpoints}/{BURJ_MAX_HEALTH}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                   {group.params.map((p) => (
                     <div key={p.key} className="editor-param">
                       <label className="editor-label">{p.label}</label>

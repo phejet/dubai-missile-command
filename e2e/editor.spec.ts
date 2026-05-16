@@ -62,6 +62,20 @@ test.describe("Graphics editor", () => {
     await page.goto("/dubai-missile-command/editor.html");
 
     await expect(page.locator("canvas.editor-canvas").first()).toBeVisible();
+    const burjFireGroup = page.locator(".editor-group").filter({ hasText: "Burj Fire" });
+    const burjFireHp = burjFireGroup.getByLabel("Current Burj HP");
+    const burjFireHpValue = burjFireGroup.locator(".editor-burj-fire-hp .editor-value");
+    const burjDamageValue = page.locator(".editor-burj-damage-value");
+    await expect(burjFireGroup.getByText("Current Burj HP")).toBeVisible();
+    await expect(burjFireHpValue).toHaveText("7/7");
+
+    await page.locator(".editor-burj-damage input[type='range']").fill("2");
+    await expect(burjFireHpValue).toHaveText("5/7");
+
+    await burjFireHp.fill("6");
+    await expect(burjFireHpValue).toHaveText("6/7");
+    await expect(burjDamageValue).toHaveText("1/7");
+
     await page.waitForFunction(() => {
       const source = document.querySelector<HTMLCanvasElement>("canvas.editor-canvas:not(.editor-canvas-fallback)");
       const fallback = document.querySelector<HTMLCanvasElement>("canvas.editor-canvas-fallback");
