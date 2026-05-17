@@ -674,19 +674,17 @@ describe("Burj fire particle presentation", () => {
     expect(spawnFireAtHealth(7)).toHaveLength(0);
   });
 
-  it("emits live fire from each damaged band", () => {
-    const particles = spawnFireAtHealth(1, 24);
+  it("exposes one fire site per damaged band under sparse flame defaults", () => {
+    const particles = spawnFireAtHealth(1, 260);
     const layout = getBurjDamageFireLayout(GAMEPLAY_SCENIC_BASE_Y, 1, { gameSeed: 1234 });
     const flames = particles.filter((particle) => particle.type === "fireFlame");
+    const smoke = particles.filter((particle) => particle.type === "fireSmoke");
 
     expect(layout.topBand).not.toBeNull();
     expect(layout.fireSites).toHaveLength(7);
+    expect(layout.fireSites.map((site) => site.band.index)).toEqual([0, 1, 2, 3, 4, 5, 6]);
     expect(flames.length).toBeGreaterThan(0);
-    for (const site of layout.fireSites) {
-      expect(
-        flames.some((particle) => particle.y >= site.sectionTopY - 2 && particle.y <= site.sectionBottomY + 2),
-      ).toBe(true);
-    }
+    expect(smoke.length).toBeGreaterThan(0);
   });
 
   it("increases particle pressure across the damage tiers", () => {
@@ -713,7 +711,7 @@ describe("Burj fire particle presentation", () => {
   });
 
   it("assigns runtime texture variants to flame, ember, and smoke particles", () => {
-    const particles = spawnFireAtHealth(1, 24);
+    const particles = spawnFireAtHealth(1, 260);
     const flames = particles.filter((particle) => particle.type === "fireFlame");
     const embers = particles.filter((particle) => particle.type === "fireEmber");
     const smoke = particles.filter((particle) => particle.type === "fireSmoke");
@@ -724,13 +722,14 @@ describe("Burj fire particle presentation", () => {
     expect(flames.every((particle) => particle.textureVariant?.startsWith("flame-"))).toBe(true);
     expect(embers.every((particle) => particle.textureVariant?.startsWith("ember-"))).toBe(true);
     expect(smoke.every((particle) => particle.textureVariant?.startsWith("blackSmoke"))).toBe(true);
+    expect(smoke.some((particle) => particle.color === "#8f969a" || particle.color === "#9da1a3")).toBe(true);
   });
 
   it("applies smoke Y offset without moving flame particles", () => {
     globalWithWindow.window = { __editorOverrides: { "burjFire.smokeYOffset": 0 } };
-    const baseline = spawnFireAtHealth(1, 24);
+    const baseline = spawnFireAtHealth(1, 260);
     globalWithWindow.window = { __editorOverrides: { "burjFire.smokeYOffset": 36 } };
-    const shifted = spawnFireAtHealth(1, 24);
+    const shifted = spawnFireAtHealth(1, 260);
 
     const baselineFlame = baseline.find((particle) => particle.type === "fireFlame")!;
     const shiftedFlame = shifted.find((particle) => particle.type === "fireFlame")!;

@@ -98,3 +98,4 @@
 - Before reporting an editor URL, fetch the page body or title, not just headers. A stale server can return `200 OK` while serving the game entrypoint at the editor path, because apparently HTTP status codes have chosen chaos.
 - For animated damage overlays, keep ember positions stable between frames and animate brightness/size. Randomizing positions per frame reads as blinking noise, not heat.
 - For Burj scorch embers, keep glow spots tiny at gameplay scale. Large radial halos read as blobs pasted onto the tower instead of hot windows or small exposed fires.
+- For Burj building-fire smoke, keep one smoke particle family for visual coherence and adjust tint/color for material read. Mixing white puff PNGs with black smoke PNGs looks mismatched instead of like believable gray smoke.

@@ -99,24 +99,24 @@ export function updateBurjFireParticles(g: GameState, dt: number): void {
     layout.tier === "critical" ? 1.7 : layout.tier === "burning" ? 1.15 + damageRatio * 0.4 : 0.45 + damageRatio * 0.36;
   const tierSizeMul = layout.tier === "critical" ? 1.12 : layout.tier === "burning" ? 0.96 : 0.68;
   const smokeDamageMul = ov("burjFire.smokeDamageMul", 2.4);
-  const flameRate = Math.min(8.5, ov("burjFire.flameRate", 5.2) * tierMul);
-  const emberRate = Math.min(8.2, ov("burjFire.emberRate", 1.8) * (0.78 + tierMul * 0.7));
+  const flameRate = Math.min(8.5, ov("burjFire.flameRate", 0.1) * tierMul);
+  const emberRate = Math.min(8.2, ov("burjFire.emberRate", 0.7) * (0.78 + tierMul * 0.7));
   const smokeRate = Math.min(
     2.2,
-    ov("burjFire.smokeRate", 0.4) * (0.4 + tierMul * 0.55 + damageRatio * smokeDamageMul * 0.16),
+    ov("burjFire.smokeRate", 0.75) * (0.4 + tierMul * 0.55 + damageRatio * smokeDamageMul * 0.16),
   );
-  const flameLife = ov("burjFire.flameLife", 20);
-  const emberLife = ov("burjFire.emberLife", 30);
-  const smokeLife = ov("burjFire.smokeLife", 330);
-  const smokeRise = ov("burjFire.smokeRise", 0.7);
+  const flameLife = ov("burjFire.flameLife", 51);
+  const emberLife = ov("burjFire.emberLife", 100);
+  const smokeLife = ov("burjFire.smokeLife", 225);
+  const smokeRise = ov("burjFire.smokeRise", 1.35);
   const smokeDrift = ov("burjFire.smokeDrift", 0.44);
-  const flameSize = ov("burjFire.flameSize", 8.5);
+  const flameSize = ov("burjFire.flameSize", 7.5);
   const smokeSize = ov("burjFire.smokeSize", 7.5);
-  const emberSize = ov("burjFire.emberSize", 0.9);
+  const emberSize = ov("burjFire.emberSize", 2.5);
   const hotspotSpread = ov("burjFire.hotspotSpread", 0.62);
   const smokeRiseDamageBoost = ov("burjFire.smokeRiseDamageBoost", 0.5);
   const smokeBase = ov("burjFire.smokeBase", 0.35);
-  const smokeYOffset = ov("burjFire.smokeYOffset", -15);
+  const smokeYOffset = ov("burjFire.smokeYOffset", 17);
   const hitFlashFlameMul = ov("burjFire.hitFlashFlameMul", 3.4);
   const hitFlashSmokeMul = ov("burjFire.hitFlashSmokeMul", 2.4);
   const ignite = g.burjHitFlashMax > 0 ? Math.max(0, Math.min(1, g.burjHitFlashTimer / g.burjHitFlashMax)) : 0;
@@ -201,7 +201,7 @@ export function updateBurjFireParticles(g: GameState, dt: number): void {
         vy: -rand(smokeRise * 0.6, smokeRise) * smokeVyBoost,
         life,
         maxLife: smokeLife,
-        color: layout.tier === "critical" ? "#36363a" : layout.tier === "burning" ? "#55575d" : "#76797f",
+        color: layout.tier === "critical" ? "#8f969a" : layout.tier === "burning" ? "#9da1a3" : "#aeb0ae",
         size,
         type: "fireSmoke",
         textureVariant: pickBurjSmokeParticleVariant(x, y, life, size),
@@ -223,7 +223,7 @@ export function updateBurjFireParticles(g: GameState, dt: number): void {
         vy: -rand(smokeRise * 0.35, smokeRise * 0.65) * smokeVyBoost,
         life,
         maxLife: smokeLife * 0.34,
-        color: "#9a5535",
+        color: "#6c6260",
         size,
         type: "fireSmoke",
         textureVariant: pickBurjSmokeParticleVariant(x, y, life, size, 1),

@@ -3896,13 +3896,13 @@ export class PixiRenderer implements GameRenderer {
     let flameCoreCount = 0;
     let emberCount = 0;
     let smokeCount = 0;
-    const flameAlphaMul = ov("burjFire.flameAlphaMul", 1.1);
+    const flameAlphaMul = ov("burjFire.flameAlphaMul", 0.98);
     const emberAlphaMul = ov("burjFire.emberAlphaMul", 0.95);
     const smokeAlphaMul = ov("burjFire.smokeAlphaMul", 0.26);
-    const smokeGrowth = ov("burjFire.smokeGrowth", 1.4);
-    const flameSizeMul = ov("burjFire.flameSizeMul", 0.8);
+    const smokeGrowth = ov("burjFire.smokeGrowth", 2);
+    const flameSizeMul = ov("burjFire.flameSizeMul", 0.75);
     const smokeSizeMul = ov("burjFire.smokeSizeMul", 1.3);
-    const flameFlicker = ov("burjFire.flicker", 0.18);
+    const flameFlicker = ov("burjFire.flicker", 0);
     const timeS = game.time * 0.06;
 
     for (const particle of game.particles) {

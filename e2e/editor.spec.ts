@@ -170,6 +170,7 @@ test.describe("Graphics editor", () => {
     await expect(atlas.locator("[data-sprite-id='effect:burj-fire:smoke']")).toBeVisible();
     await expect(atlas.locator("[data-sprite-id='effect:burj-smoke:blackSmoke00']")).toBeVisible();
     await expect(atlas.locator("[data-sprite-id^='effect:burj-smoke:blackSmoke']")).toHaveCount(25);
+    await expect(atlas.locator("[data-sprite-id^='effect:burj-smoke:whitePuff']")).toHaveCount(0);
     const smokeCanvasHasPaint = await atlas
       .locator("[data-sprite-id='effect:burj-fire:smoke'] canvas")
       .evaluate((canvas) => {
