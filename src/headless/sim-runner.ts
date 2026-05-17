@@ -1,5 +1,14 @@
 import { setRng, fireInterceptor } from "../game-logic";
-import { initGame, update, buyUpgrade, buyDraftUpgrade, closeShop, fireEmp, fireF15Pair } from "../game-sim";
+import {
+  initGame,
+  update,
+  buyUpgrade,
+  buyDraftUpgrade,
+  closeShop,
+  fireEmp,
+  fireF15Pair,
+  fireFlareSalvo,
+} from "../game-sim";
 import { getUpgradeNodeDef } from "../game-sim-upgrades";
 import { mulberry32 } from "./rng";
 import { botDecideAction, botDecideUpgrades, resolveBotConfig, reserveBotTarget } from "./bot-brain";
@@ -110,6 +119,17 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
       }
       // Fall through to update() below — matches how the replay runner
       // processes the first step() after resumeFromShop()
+    }
+
+    if (g.flareReadyThisWave) {
+      const flareCfg = config.flare || {};
+      const minThreats = g.upgrades.flare >= 2 ? flareCfg.minThreatsL2 || 4 : flareCfg.minThreatsL1 || 6;
+      const threats =
+        g.missiles.filter((m) => m.alive && m.y <= 800).length + g.drones.filter((d) => d.alive && d.y <= 800).length;
+      if (threats >= minThreats) {
+        fireFlareSalvo(g, null);
+        if (record) actions!.push({ tick, type: "flare" });
+      }
     }
 
     // Bot fires EMP when threats are about to hit Burj

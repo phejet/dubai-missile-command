@@ -5,6 +5,7 @@ import {
   buyUpgrade,
   grantReplayUpgrade,
   closeShop,
+  fireFlareSalvo,
   fireEmp,
   fireF15Pair,
   repairSite,
@@ -112,6 +113,8 @@ export function createReplayRunner(replayData: ReplayData, onEvent: EventCallbac
         fireEmp(g, onEvent);
       } else if (action.type === "f15") {
         fireF15Pair(g, onEvent);
+      } else if (action.type === "flare") {
+        fireFlareSalvo(g, onEvent);
       }
       actionIdx++;
     }

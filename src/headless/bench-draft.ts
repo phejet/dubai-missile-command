@@ -13,7 +13,7 @@
 
 import { writeFileSync } from "fs";
 import { setRng, fireInterceptor } from "../game-logic.js";
-import { initGame, update, closeShop, repairSite, repairLauncher, fireEmp } from "../game-sim.js";
+import { initGame, update, closeShop, repairSite, repairLauncher, fireEmp, fireFlareSalvo } from "../game-sim.js";
 import { buyDraftUpgrade, draftPick3 } from "../game-sim-shop.js";
 import { getUpgradeNodeDef } from "../game-sim-upgrades.js";
 import { mulberry32 } from "./rng.js";
@@ -73,6 +73,13 @@ function runGameDraft(botConfig: Record<string, unknown>, seed: number, preset: 
     }
 
     // EMP
+    if (g.flareReadyThisWave) {
+      const threats =
+        g.missiles.filter((m) => m.alive && m.y <= 800).length + g.drones.filter((d) => d.alive && d.y <= 800).length;
+      const minThreats = g.upgrades.flare >= 2 ? config.flare?.minThreatsL2 || 4 : config.flare?.minThreatsL1 || 6;
+      if (threats >= minThreats) fireFlareSalvo(g, null);
+    }
+
     if (g.empReadyThisWave) {
       const threats = g.missiles.filter((m) => m.alive).length + g.drones.filter((d) => d.alive).length;
       if (threats >= (config.emp?.minThreatsToFire || 4)) fireEmp(g, null);

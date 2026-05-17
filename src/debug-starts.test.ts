@@ -6,9 +6,12 @@ import { DEBUG_START_PRESETS, applyDebugStartPreset, getDebugStartPreset } from 
 describe("debug start presets", () => {
   afterEach(() => setRng(Math.random));
 
-  it("defines the requested wave 3-7 starts (EMP and F-15 variants)", () => {
-    expect(DEBUG_START_PRESETS.map((preset) => preset.wave)).toEqual([3, 4, 5, 6, 7, 3, 4, 5, 6, 7]);
+  it("defines the requested wave 3-7 starts (EMP, F-15, and flare variants)", () => {
+    expect(DEBUG_START_PRESETS.map((preset) => preset.wave)).toEqual([3, 4, 5, 6, 7, 3, 4, 5, 6, 7, 3, 4, 5, 6, 7]);
     expect(DEBUG_START_PRESETS.filter((preset) => preset.variant === "f15").map((preset) => preset.wave)).toEqual([
+      3, 4, 5, 6, 7,
+    ]);
+    expect(DEBUG_START_PRESETS.filter((preset) => preset.variant === "flare").map((preset) => preset.wave)).toEqual([
       3, 4, 5, 6, 7,
     ]);
   });

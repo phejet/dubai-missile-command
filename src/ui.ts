@@ -40,7 +40,7 @@ export interface HudSnapshot {
   ammo: number[];
   ammoMax: number;
   launcherHP: number[];
-  activeFamily: "emp" | "f15" | null;
+  activeFamily: "emp" | "f15" | "flare" | null;
   activeLabel: string;
   activeReady: boolean;
   activePhase: ActiveButtonPhase;
@@ -501,10 +501,10 @@ const hudElements = {
 const ACTIVE_COMPLETION_MS = 1050;
 
 const activeButtonVisual = {
-  family: null as "emp" | "f15" | null,
+  family: null as "emp" | "f15" | "flare" | null,
   previousRawPhase: "spent" as ActiveButtonPhase,
   completionUntil: 0,
-  completionFamily: null as "emp" | "f15" | null,
+  completionFamily: null as "emp" | "f15" | "flare" | null,
 };
 
 function resolveActiveButtonPhase(hud: HudSnapshot): ActiveButtonPhase {
@@ -572,7 +572,7 @@ export function updateHud(hud: HudSnapshot): void {
         combo >= 8 ? "Overdrive" : combo >= 5 ? "Burning" : combo >= 2 ? "Building" : "Standby";
     }
   }
-  // Active upgrade button (EMP or F-15)
+  // Active upgrade button
   if (h.activeButton) {
     if (hud.activeFamily) {
       const visualPhase = resolveActiveButtonPhase(hud);

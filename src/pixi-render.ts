@@ -2953,7 +2953,7 @@ export class PixiRenderer implements GameRenderer {
         x: ov("upgrade.flares.x", BURJ_X),
         y: ov("upgrade.flares.y", 837),
         color: COL_HEX.flare,
-        range: ov("upgrade.flareActivationRange", 320),
+        range: ov("flare.lureRadius", 600),
       },
       { x: ov("upgrade.hornets.x", 206), y: ov("upgrade.hornets.y", 1511), color: COL_HEX.hornet },
       {
@@ -3143,8 +3143,9 @@ export class PixiRenderer implements GameRenderer {
       const pos = getRenderPosition(missile, interpolationAlpha);
       syncProjectileNode(node, asset, pos.x, pos.y, angle, sceneTime, 1, true);
       const isFastMissile = missile.variant === "fast";
-      node.anim.primary.tint = 0xffffff;
-      node.anim.secondary.tint = 0xffffff;
+      const flareTint = missile.redirected ? 0xff9a2f : missile.luredByFlare ? 0xffd36a : 0xffffff;
+      node.anim.primary.tint = flareTint;
+      node.anim.secondary.tint = flareTint;
       node.overlay.clear();
 
       if (
@@ -3198,10 +3199,18 @@ export class PixiRenderer implements GameRenderer {
           .fill(ratio > 0.5 ? 0x44ff44 : ratio > 0.25 ? 0xffaa00 : 0xff2222);
       }
 
-      if (missile.luredByFlare) {
+      if (missile.luredByFlare || missile.redirected) {
         node.overlay
-          .circle(pos.x, pos.y, (8 + Math.sin(game.time * 0.22 + pos.x * 0.01) * 1.5) * GAMEPLAY_EFFECT_SCALE)
-          .stroke({ width: 1.5 * GAMEPLAY_EFFECT_SCALE, color: 0xffb45a, alpha: 0.75 });
+          .circle(
+            pos.x,
+            pos.y,
+            ((missile.redirected ? 12 : 8) + Math.sin(game.time * 0.22 + pos.x * 0.01) * 1.5) * GAMEPLAY_EFFECT_SCALE,
+          )
+          .stroke({
+            width: (missile.redirected ? 2.2 : 1.5) * GAMEPLAY_EFFECT_SCALE,
+            color: missile.redirected ? 0xff7a18 : 0xffb45a,
+            alpha: missile.redirected ? 0.9 : 0.75,
+          });
       }
     }
   }
@@ -3238,7 +3247,13 @@ export class PixiRenderer implements GameRenderer {
       const isShahedDiveVariant = shahed136HasDive(drone.shahedVariant);
       const hasUndroppedBomb =
         drone.subtype === "shahed136" && shahed136HasBomb(drone.shahedVariant) && !drone.bombDropped;
-      const droneTint = isFastDrone && drone.subtype === "shahed136" ? 0xffe0a8 : 0xffffff;
+      const droneTint = drone.redirected
+        ? 0xff9a2f
+        : drone.luredByFlare
+          ? 0xffd36a
+          : isFastDrone && drone.subtype === "shahed136"
+            ? 0xffe0a8
+            : 0xffffff;
       node.anim.primary.tint = droneTint;
       node.anim.secondary.tint = droneTint;
       node.overlay.clear();
@@ -3267,6 +3282,15 @@ export class PixiRenderer implements GameRenderer {
         node.overlay
           .circle(pos.x, pos.y, (drone.subtype === "shahed238" ? 9 : 12) * pulse * GAMEPLAY_EFFECT_SCALE)
           .stroke({ width: 1.2 * GAMEPLAY_EFFECT_SCALE, color: 0xffd24a, alpha: 0.7 });
+      }
+
+      if (drone.luredByFlare || drone.redirected) {
+        const pulse = 1 + Math.sin(game.time * 0.28 + pos.x * 0.012) * 0.14;
+        node.overlay.circle(pos.x, pos.y, (drone.redirected ? 15 : 11) * pulse * GAMEPLAY_EFFECT_SCALE).stroke({
+          width: (drone.redirected ? 2.1 : 1.4) * GAMEPLAY_EFFECT_SCALE,
+          color: drone.redirected ? 0xff7a18 : 0xffb45a,
+          alpha: drone.redirected ? 0.88 : 0.7,
+        });
       }
 
       if (drone.diveTelegraphing && !drone.diving) {

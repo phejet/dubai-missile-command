@@ -1742,6 +1742,18 @@
     0 0 22px rgba(120, 180, 255, 0.14);
 }
 
+.battlefield-active[data-family="flare"] {
+  --active-rgb: 255, 136, 51;
+  --active-core: #fff1c4;
+  --active-hot: #fffaf0;
+  --active-meta: #ffd38f;
+  border-color: rgba(255, 184, 91, 0.36);
+  background: linear-gradient(180deg, rgba(102, 50, 18, 0.5), rgba(35, 17, 8, 0.86));
+  box-shadow:
+    0 10px 20px rgba(0, 0, 0, 0.24),
+    0 0 22px rgba(255, 136, 51, 0.16);
+}
+
 .battlefield-active--ready {
   border-color: rgba(var(--active-rgb), 0.55);
   box-shadow:
@@ -1752,6 +1764,10 @@
 
 .battlefield-active[data-family="f15"].battlefield-active--ready {
   border-color: rgba(180, 220, 255, 0.6);
+}
+
+.battlefield-active[data-family="flare"].battlefield-active--ready {
+  border-color: rgba(255, 184, 91, 0.68);
 }
 
 .battlefield-active:disabled {
@@ -1821,6 +1837,12 @@
   box-shadow:
     0 12px 24px rgba(0, 0, 0, 0.28),
     0 0 30px rgba(120, 180, 255, 0.32);
+}
+
+.battlefield-active[data-family="flare"]:hover:not(:disabled) {
+  box-shadow:
+    0 12px 24px rgba(0, 0, 0, 0.28),
+    0 0 30px rgba(255, 136, 51, 0.34);
 }
 
 .battlefield-active__label {

@@ -196,8 +196,6 @@ export function getDefenseSitePlacement(key: string): { x: number; y: number; hw
       return { x: 553, y: GAMEPLAY_SUPPORT_SITE_Y - 13, hw: 10, hh: 15 };
     case "launcherKit":
       return { x: 772, y: GAMEPLAY_SUPPORT_SITE_Y + 2, hw: 30, hh: 24 };
-    case "flare":
-      return { x: BURJ_X, y: 837, hw: 8, hh: 10 };
     case "ironBeam":
       return { x: BURJ_X, y: 959, hw: 10, hh: 15 };
     default:

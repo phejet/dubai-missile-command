@@ -35,6 +35,7 @@ import {
   buyUpgrade as simBuyUpgrade,
   buyDraftUpgrade as simBuyDraftUpgrade,
   closeShop as simCloseShop,
+  fireFlareSalvo as simFireFlareSalvo,
   fireEmp as simFireEmp,
   fireF15Pair as simFireF15Pair,
   snapshotPositions,
@@ -139,11 +140,25 @@ function buildHudSnapshot(game: GameState | null): HudSnapshot {
 }
 
 function buildActiveSlotSnapshot(game: GameState): {
-  activeFamily: "emp" | "f15" | null;
+  activeFamily: "emp" | "f15" | "flare" | null;
   activeLabel: string;
   activeReady: boolean;
   activePhase: "ready" | "active" | "spent";
 } {
+  if (game.upgrades.flare > 0) {
+    const activeReady = game.flareReadyThisWave;
+    const flareActive =
+      game.flares.some((flare) => flare.alive) ||
+      game.flareSalvoQueue.length > 0 ||
+      game.missiles.some((missile) => missile.redirected) ||
+      game.drones.some((drone) => drone.redirected);
+    return {
+      activeFamily: "flare",
+      activeLabel: game.upgrades.flare >= 2 ? "Counter-Salvo" : "Flares",
+      activeReady,
+      activePhase: activeReady ? "ready" : flareActive ? "active" : "spent",
+    };
+  }
   if (game.upgrades.f15 > 0) {
     const activeReady = game.f15ReadyThisWave;
     const sortieActive = game.planes.some((plane) => plane.alive) || game.f15ReturnTimer > 0;
@@ -1020,6 +1035,11 @@ export class Game {
     if (this.screen !== "playing" || this.shopOpen || this.replayActive) return false;
     const game = this.gameRef.current;
     if (!game || game.state !== "playing") return false;
+    if (game.upgrades.flare > 0 && simFireFlareSalvo(game, (t, d) => this.handleSimEvent(t, d))) {
+      if (game._actionLog) game._actionLog.push({ tick: game._replayTick ?? 0, type: "flare" });
+      this.syncHud(true);
+      return true;
+    }
     if (game.upgrades.f15 > 0 && simFireF15Pair(game, (t, d) => this.handleSimEvent(t, d))) {
       if (game._actionLog) game._actionLog.push({ tick: game._replayTick ?? 0, type: "f15" });
       this.syncHud(true);

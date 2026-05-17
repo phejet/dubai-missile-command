@@ -23,6 +23,7 @@ import {
   buyUpgrade,
   createGameSim,
   draftPick3,
+  fireFlareSalvo,
   fireF15Pair,
   fireEmp,
   spawnMirv,
@@ -32,7 +33,7 @@ import {
   spawnStackedMissile,
   updateBurjFireParticles,
 } from "./game-sim.js";
-import { buildShopEntries } from "./game-sim-shop.js";
+import { buildShopEntries, normalizeLegacyFlareActiveState } from "./game-sim-shop.js";
 import { getBurjDamageFireLayout } from "./art-render.js";
 import type { Drone, Hornet, Missile, PatriotMissile } from "./types.js";
 
@@ -775,23 +776,38 @@ describe("Building destruction presentation", () => {
 describe("Decoy flares", () => {
   afterEach(() => setRng(Math.random));
 
-  it("only launches when an interceptable missile is in the flare response window", () => {
+  it("only launches from an active cast", () => {
     const { sim, g } = makeCleanGame(5);
     g.upgrades.flare = 1;
-    g.flareTimer = 239;
-
-    sim.updateAutoSystems(g, 1, []);
-    expect(g.flares).toHaveLength(0);
-
-    const droneOnly = makePropDrone();
-    g.drones.push(droneOnly);
-    sim.updateAutoSystems(g, 1, [droneOnly]);
-    expect(g.flares).toHaveLength(0);
-
+    g.flareReadyThisWave = false;
     const missile = makeBallisticMissile({ x: BURJ_X + 30, y: GROUND_Y - 200 });
     g.missiles.push(missile);
-    sim.updateAutoSystems(g, 1, [missile]);
-    expect(g.flares.length).toBeGreaterThan(0);
+
+    expect(fireFlareSalvo(g)).toBe(false);
+    expect(g.flares).toHaveLength(0);
+
+    sim.updateAutoSystems(g, 240, [missile]);
+    expect(g.flares).toHaveLength(0);
+
+    g.flareReadyThisWave = true;
+    expect(fireFlareSalvo(g)).toBe(true);
+    expect(g.flareReadyThisWave).toBe(false);
+    expect(g.flares).toHaveLength(6);
+  });
+
+  it("lures missiles inside the cast radius and leaves outside threats alone", () => {
+    const { g } = makeCleanGame(5);
+    g.upgrades.flare = 1;
+    g.flareReadyThisWave = true;
+    const inside = makeBallisticMissile({ x: BURJ_X - 100, y: 850, vx: 1, vy: 1, accel: 1 });
+    const outside = makeBallisticMissile({ x: 30, y: 80, vx: 1, vy: 1, accel: 1 });
+    g.missiles.push(inside, outside);
+
+    expect(fireFlareSalvo(g)).toBe(true);
+
+    expect(inside.luredByFlare).toBe(true);
+    expect(inside.flareTargetId).toBeDefined();
+    expect(outside.luredByFlare).not.toBe(true);
   });
 
   it("keeps a lured missile tracking its assigned flare", () => {
@@ -816,8 +832,9 @@ describe("Decoy flares", () => {
     g.flares.push(flare);
     g.nextFlareId = 2;
     g.missiles.push(missile);
+    missile.luredByFlare = true;
+    missile.flareTargetId = flare.id;
 
-    sim.updateAutoSystems(g, 1, [missile]);
     expect(missile.luredByFlare).toBe(true);
     expect(missile.flareTargetId).toBe(flare.id);
 
@@ -829,6 +846,120 @@ describe("Decoy flares", () => {
 
     expect(afterDist).toBeLessThan(beforeDist);
     expect(missile.vx).toBeGreaterThan(0);
+  });
+
+  it("rank 2 queues staggered drops and refills alive launcher ammo", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.flare = 2;
+    g.flareReadyThisWave = true;
+    g.ammo = [0, 1, 2];
+    g.launcherHP = [1, 0, 1];
+
+    expect(fireFlareSalvo(g)).toBe(true);
+
+    expect(g.flares).toHaveLength(4);
+    expect(g.flareSalvoQueue).toHaveLength(2);
+    expect(g.ammo[0]).toBeGreaterThan(0);
+    expect(g.ammo[1]).toBe(1);
+    expect(g.ammo[2]).toBeGreaterThan(2);
+
+    sim.update(g, 60);
+    expect(g.flareSalvoQueue).toHaveLength(1);
+    expect(g.flares.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it("rank 2 redirects lured threats to distinct reserved targets", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.flare = 2;
+    const flareA = {
+      id: 1,
+      x: 200,
+      y: 300,
+      vx: 0,
+      vy: 0,
+      anchorX: 200,
+      drag: 0.988,
+      life: 120,
+      maxLife: 120,
+      alive: true,
+      luresLeft: 999,
+      hotRadius: 60,
+      trail: [],
+    };
+    const flareB = { ...flareA, id: 2, x: 260, anchorX: 260 };
+    const attackerA = makeBallisticMissile({
+      x: 200,
+      y: 300,
+      vx: 1,
+      vy: 0,
+      accel: 1,
+      luredByFlare: true,
+      flareTargetId: 1,
+    });
+    const attackerB = makeBallisticMissile({
+      x: 260,
+      y: 300,
+      vx: 1,
+      vy: 0,
+      accel: 1,
+      luredByFlare: true,
+      flareTargetId: 2,
+    });
+    const targetA = makeBallisticMissile({ x: 650, y: 260, vx: 0, vy: 1, accel: 1 });
+    const targetB = makePropDrone({ x: 720, y: 320, vx: -1, vy: 0 });
+    g.flares.push(flareA, flareB);
+    g.missiles.push(attackerA, attackerB, targetA);
+    g.drones.push(targetB);
+
+    sim.update(g, 1);
+
+    expect(attackerA.redirected).toBe(true);
+    expect(attackerB.redirected).toBe(true);
+    expect(attackerA.redirectTargetId).toBeDefined();
+    expect(attackerB.redirectTargetId).toBeDefined();
+    expect(attackerA.redirectTargetId).not.toBe(attackerB.redirectTargetId);
+  });
+
+  it("rank 2 redirected projectile detonates with its target", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.flare = 2;
+    const flare = {
+      id: 1,
+      x: 200,
+      y: 300,
+      vx: 0,
+      vy: 0,
+      anchorX: 200,
+      drag: 0.988,
+      life: 120,
+      maxLife: 120,
+      alive: true,
+      luresLeft: 999,
+      hotRadius: 60,
+      trail: [],
+    };
+    const attacker = makeBallisticMissile({
+      x: 200,
+      y: 300,
+      vx: 1,
+      vy: 0,
+      accel: 1,
+      luredByFlare: true,
+      flareTargetId: 1,
+    });
+    const target = makeBallisticMissile({ x: 300, y: 300, vx: 0, vy: 1, accel: 1 });
+    g.flares.push(flare);
+    g.missiles.push(attacker, target);
+
+    sim.update(g, 1);
+    expect(attacker.redirected).toBe(true);
+    attacker.x = target.x;
+    attacker.y = target.y;
+    sim.update(g, 1);
+
+    expect(attacker.alive).toBe(false);
+    expect(target.alive).toBe(false);
+    expect(g.explosions.some((ex) => ex.color === "#ff8833")).toBe(true);
   });
 });
 
@@ -1149,7 +1280,7 @@ describe("F-15 active upgrade", () => {
   });
 });
 
-describe("EMP / F-15 mutual exclusivity", () => {
+describe("active upgrade mutual exclusivity", () => {
   afterEach(() => setRng(Math.random));
 
   it("buying emp locks the f15 family in the shop", () => {
@@ -1159,9 +1290,13 @@ describe("EMP / F-15 mutual exclusivity", () => {
     buyUpgrade(g, "emp");
     const entries = buildShopEntries(g);
     const f15Entry = entries.find((entry) => entry.id === "f15");
+    const flareEntry = entries.find((entry) => entry.id === "flare");
     expect(f15Entry).toBeDefined();
     expect(f15Entry!.locked).toBe(true);
     expect(f15Entry!.statusText).toMatch(/EMP/i);
+    expect(flareEntry).toBeDefined();
+    expect(flareEntry!.locked).toBe(true);
+    expect(flareEntry!.statusText).toMatch(/EMP/i);
   });
 
   it("buying f15 locks the emp family in the shop", () => {
@@ -1171,9 +1306,13 @@ describe("EMP / F-15 mutual exclusivity", () => {
     buyUpgrade(g, "f15");
     const entries = buildShopEntries(g);
     const empEntry = entries.find((entry) => entry.id === "emp");
+    const flareEntry = entries.find((entry) => entry.id === "flare");
     expect(empEntry).toBeDefined();
     expect(empEntry!.locked).toBe(true);
     expect(empEntry!.statusText).toMatch(/F-15/i);
+    expect(flareEntry).toBeDefined();
+    expect(flareEntry!.locked).toBe(true);
+    expect(flareEntry!.statusText).toMatch(/F-15/i);
   });
 
   it("buyUpgrade refuses to purchase the locked family", () => {
@@ -1182,7 +1321,9 @@ describe("EMP / F-15 mutual exclusivity", () => {
     g.score = 50000;
     expect(buyUpgrade(g, "emp")).toBe(true);
     expect(buyUpgrade(g, "f15")).toBe(false);
+    expect(buyUpgrade(g, "flare")).toBe(false);
     expect(g.upgrades.f15).toBe(0);
+    expect(g.upgrades.flare).toBe(0);
   });
 
   it("excludes active upgrades from draft offers before wave 3 is complete", () => {
@@ -1196,6 +1337,7 @@ describe("EMP / F-15 mutual exclusivity", () => {
       expect(offers).toHaveLength(3);
       expect(offers).not.toContain("emp");
       expect(offers).not.toContain("f15");
+      expect(offers).not.toContain("flare");
     }
   });
 
@@ -1204,11 +1346,11 @@ describe("EMP / F-15 mutual exclusivity", () => {
     const { g } = makeCleanGame(3);
 
     const offers = draftPick3(g);
-    const activeOffers = offers.filter((offer) => offer === "emp" || offer === "f15");
+    const activeOffers = offers.filter((offer) => offer === "emp" || offer === "f15" || offer === "flare");
 
     expect(offers).toHaveLength(3);
     expect(activeOffers).toHaveLength(1);
-    expect(offers.filter((offer) => offer !== "emp" && offer !== "f15")).toHaveLength(2);
+    expect(offers.filter((offer) => offer !== "emp" && offer !== "f15" && offer !== "flare")).toHaveLength(2);
   });
 
   it("prevents direct active-upgrade draft purchases before wave 3", () => {
@@ -1217,8 +1359,10 @@ describe("EMP / F-15 mutual exclusivity", () => {
 
     expect(buyDraftUpgrade(g, "emp")).toBe(false);
     expect(buyDraftUpgrade(g, "f15")).toBe(false);
+    expect(buyDraftUpgrade(g, "flare")).toBe(false);
     expect(g.upgrades.emp).toBe(0);
     expect(g.upgrades.f15).toBe(0);
+    expect(g.upgrades.flare).toBe(0);
 
     g.wave = 3;
     expect(buyDraftUpgrade(g, "f15")).toBe(true);
@@ -1261,6 +1405,22 @@ describe("EMP / F-15 mutual exclusivity", () => {
       const visibleActive = entries.filter((entry) => entry.active && (entry.owned || !entry.locked));
       expect(visibleActive.length).toBeGreaterThan(0);
     }
+  });
+
+  it("normalizes legacy flare conflicts and stale flare defense sites", () => {
+    const { g } = makeCleanGame(5);
+    g.ownedUpgradeNodes.add("flare");
+    g.ownedUpgradeNodes.add("flareCluster");
+    g.ownedUpgradeNodes.add("flareCarpet");
+    g.ownedUpgradeNodes.add("emp");
+    g.defenseSites.push({ key: "flare", x: BURJ_X, y: 837, alive: true });
+
+    normalizeLegacyFlareActiveState(g);
+
+    expect(g.ownedUpgradeNodes.has("flare")).toBe(false);
+    expect(g.ownedUpgradeNodes.has("flareCluster")).toBe(true);
+    expect(g.ownedUpgradeNodes.has("flareCarpet")).toBe(true);
+    expect(g.defenseSites.some((site) => site.key === "flare")).toBe(false);
   });
 });
 

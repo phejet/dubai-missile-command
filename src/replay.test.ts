@@ -102,7 +102,7 @@ describe("createReplayRunner lifecycle", () => {
     const g = rr.init();
 
     expect(g.wave).toBe(4);
-    expect(g.upgrades.flare).toBe(1);
+    expect(g.upgrades.flare).toBe(0);
     expect(g.upgrades.wildHornets).toBe(1);
     expect(g.upgrades.emp).toBe(1);
     expect(g.upgrades.patriot).toBe(1);
@@ -497,6 +497,24 @@ describe("F-15 replay action", () => {
     for (let i = 0; i < 6; i++) rr.step();
     expect(g.planes.length).toBe(2);
     expect(g.f15ReadyThisWave).toBe(false);
+    rr.cleanup();
+  });
+});
+
+describe("flare replay action", () => {
+  it("replays a flare action by spawning flares and consuming the charge", () => {
+    const actions: ReplayAction[] = [{ tick: 4, type: "flare" }];
+    const rr = createReplayRunner({
+      seed: SEED,
+      actions,
+      bootstrap: { startWave: 4, acquiredUpgrades: ["flare"] },
+    });
+    const g = rr.init();
+    expect(g.upgrades.flare).toBe(1);
+    expect(g.flareReadyThisWave).toBe(true);
+    for (let i = 0; i < 6; i++) rr.step();
+    expect(g.flares.length).toBeGreaterThan(0);
+    expect(g.flareReadyThisWave).toBe(false);
     rr.cleanup();
   });
 });

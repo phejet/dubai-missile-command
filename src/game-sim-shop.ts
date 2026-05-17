@@ -31,10 +31,29 @@ function syncUpgradeLevels(g: GameState): void {
   g.upgrades = { ...createEmptyUpgradeLevels(), ...levels, burjRepair };
 }
 
+export function normalizeLegacyFlareActiveState(g: GameState): void {
+  if (!g.ownedUpgradeNodes) g.ownedUpgradeNodes = new Set();
+  const hasFlare = g.ownedUpgradeNodes.has("flare") || g.ownedUpgradeNodes.has("flareCounterSalvo");
+  const hasOtherActive =
+    g.ownedUpgradeNodes.has("emp") ||
+    g.ownedUpgradeNodes.has("empCapacitors") ||
+    g.ownedUpgradeNodes.has("f15") ||
+    g.ownedUpgradeNodes.has("f15TopGun");
+  if (hasFlare && hasOtherActive) {
+    g.ownedUpgradeNodes.delete("flare");
+    g.ownedUpgradeNodes.delete("flareCounterSalvo");
+  }
+  if (Array.isArray(g.defenseSites)) {
+    g.defenseSites = g.defenseSites.filter((site) => site.key !== "flare");
+  }
+}
+
 function ensureUpgradeRuntimeState(g: GameState): void {
   if (!g.ownedUpgradeNodes) g.ownedUpgradeNodes = new Set();
   if (!g.metaProgression) g.metaProgression = createEmptyUpgradeProgression();
   if (!g.upgrades) g.upgrades = createEmptyUpgradeLevels();
+  normalizeLegacyFlareActiveState(g);
+  syncUpgradeLevels(g);
 }
 
 function getWaveAwareProgression(g: GameState): UpgradeProgressionState {
@@ -119,6 +138,9 @@ function applyNodeSideEffects(g: GameState, nodeId: UpgradeNodeId): void {
   }
   if (node.family === "f15") {
     g.f15ReadyThisWave = true;
+  }
+  if (node.family === "flare") {
+    g.flareReadyThisWave = true;
   }
 }
 
@@ -283,14 +305,16 @@ export function prepareWaveStart(g: GameState): void {
   g.roadrunners = [];
   g.patriotMissiles = [];
   g.flares = [];
+  g.flareSalvoQueue = [];
+  g.flareSalvoClaims = new Set();
   g.planes = [];
 
   g.hornetTimer = 360;
   g.roadrunnerTimer = 480;
   g.patriotTimer = 480;
-  g.flareTimer = 240;
   g.ironBeamTimer = 360;
   g.empReadyThisWave = g.upgrades.emp > 0;
+  g.flareReadyThisWave = g.upgrades.flare > 0;
   g.f15ReadyThisWave = g.upgrades.f15 > 0;
   g.f15ReturnTimer = 0;
 

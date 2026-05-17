@@ -9,7 +9,7 @@ import { initGame, update } from "../game-sim.js";
 import { mulberry32 } from "./rng.js";
 import { botDecideAction, botDecideUpgrades, resolveBotConfig, reserveBotTarget } from "./bot-brain.js";
 import defaultConfig from "./bot-config.json" with { type: "json" };
-import { buyUpgrade, buyDraftUpgrade, closeShop, fireEmp, fireF15Pair } from "../game-sim.js";
+import { buyUpgrade, buyDraftUpgrade, closeShop, fireEmp, fireF15Pair, fireFlareSalvo } from "../game-sim.js";
 import { getUpgradeNodeDef } from "../game-sim-upgrades.js";
 import type { GameState, Threat, UpgradeKey } from "../types.js";
 
@@ -104,6 +104,14 @@ function run(): void {
         }
       }
       closeShop(g);
+    }
+
+    if (g.flareReadyThisWave) {
+      const flareCfg = (config as { flare?: { minThreatsL1?: number; minThreatsL2?: number } }).flare || {};
+      const minThreats = g.upgrades.flare >= 2 ? flareCfg.minThreatsL2 || 4 : flareCfg.minThreatsL1 || 6;
+      const threats =
+        g.missiles.filter((m) => m.alive && m.y <= 800).length + g.drones.filter((d) => d.alive && d.y <= 800).length;
+      if (threats >= minThreats) fireFlareSalvo(g, null);
     }
 
     if (g.empReadyThisWave) {

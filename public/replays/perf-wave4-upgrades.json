@@ -3100,7 +3100,6 @@
   "bootstrap": {
     "startWave": 4,
     "acquiredUpgrades": [
-      "flare",
       "wildHornets",
       "emp",
       "patriot"

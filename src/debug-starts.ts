@@ -9,7 +9,7 @@ export interface DebugStartPreset {
   label: string;
   wave: number;
   upgrades: DebugStartUpgradeTargets;
-  variant?: "emp" | "f15";
+  variant?: "emp" | "f15" | "flare";
 }
 
 const DEBUG_COMPLETED_OBJECTIVES: UpgradeObjectiveId[] = [
@@ -37,7 +37,6 @@ export const DEBUG_START_PRESETS: DebugStartPreset[] = [
     upgrades: {
       wildHornets: 1,
       roadrunner: 1,
-      flare: 1,
       launcherKit: 1,
       emp: 1,
     },
@@ -49,7 +48,6 @@ export const DEBUG_START_PRESETS: DebugStartPreset[] = [
     upgrades: {
       wildHornets: 2,
       roadrunner: 1,
-      flare: 1,
       patriot: 1,
       launcherKit: 1,
       emp: 1,
@@ -62,7 +60,6 @@ export const DEBUG_START_PRESETS: DebugStartPreset[] = [
     upgrades: {
       wildHornets: 2,
       roadrunner: 2,
-      flare: 1,
       ironBeam: 1,
       patriot: 1,
       launcherKit: 2,
@@ -76,7 +73,6 @@ export const DEBUG_START_PRESETS: DebugStartPreset[] = [
     upgrades: {
       wildHornets: 2,
       roadrunner: 2,
-      flare: 2,
       ironBeam: 1,
       phalanx: 1,
       patriot: 2,
@@ -103,7 +99,6 @@ export const DEBUG_START_PRESETS: DebugStartPreset[] = [
     upgrades: {
       wildHornets: 1,
       roadrunner: 1,
-      flare: 1,
       launcherKit: 1,
       f15: 1,
     },
@@ -116,7 +111,6 @@ export const DEBUG_START_PRESETS: DebugStartPreset[] = [
     upgrades: {
       wildHornets: 2,
       roadrunner: 1,
-      flare: 1,
       patriot: 1,
       launcherKit: 1,
       f15: 1,
@@ -130,7 +124,6 @@ export const DEBUG_START_PRESETS: DebugStartPreset[] = [
     upgrades: {
       wildHornets: 2,
       roadrunner: 2,
-      flare: 1,
       ironBeam: 1,
       patriot: 1,
       launcherKit: 2,
@@ -145,12 +138,76 @@ export const DEBUG_START_PRESETS: DebugStartPreset[] = [
     upgrades: {
       wildHornets: 2,
       roadrunner: 2,
-      flare: 2,
       ironBeam: 1,
       phalanx: 1,
       patriot: 2,
       launcherKit: 2,
       f15: 2,
+    },
+  },
+  {
+    id: "wave-3-flare",
+    label: "Wave 3 (Flare)",
+    wave: 3,
+    variant: "flare",
+    upgrades: {
+      wildHornets: 1,
+      launcherKit: 1,
+      flare: 1,
+    },
+  },
+  {
+    id: "wave-4-flare",
+    label: "Wave 4 (Flare)",
+    wave: 4,
+    variant: "flare",
+    upgrades: {
+      wildHornets: 1,
+      roadrunner: 1,
+      launcherKit: 1,
+      flare: 1,
+    },
+  },
+  {
+    id: "wave-5-flare",
+    label: "Wave 5 (Flare)",
+    wave: 5,
+    variant: "flare",
+    upgrades: {
+      wildHornets: 2,
+      roadrunner: 1,
+      patriot: 1,
+      launcherKit: 1,
+      flare: 1,
+    },
+  },
+  {
+    id: "wave-6-flare",
+    label: "Wave 6 (Flare)",
+    wave: 6,
+    variant: "flare",
+    upgrades: {
+      wildHornets: 2,
+      roadrunner: 2,
+      ironBeam: 1,
+      patriot: 1,
+      launcherKit: 2,
+      flare: 2,
+    },
+  },
+  {
+    id: "wave-7-flare",
+    label: "Wave 7 (Flare)",
+    wave: 7,
+    variant: "flare",
+    upgrades: {
+      wildHornets: 2,
+      roadrunner: 2,
+      ironBeam: 1,
+      phalanx: 1,
+      patriot: 2,
+      launcherKit: 2,
+      flare: 2,
     },
   },
 ];

@@ -53,12 +53,24 @@ function getReplayBootstrapUpgrades(replayData: Pick<ReplayData, "bootstrap">): 
   });
 }
 
+function normalizeReplayBootstrapUpgrades(requests: string[]): string[] {
+  const requestSet = new Set(requests);
+  const hasFlare = requestSet.has("flare") || requestSet.has("flareCounterSalvo");
+  const hasOtherActive =
+    requestSet.has("emp") || requestSet.has("empCapacitors") || requestSet.has("f15") || requestSet.has("f15TopGun");
+  return requests.filter((request) => {
+    if (request === "flareCluster" || request === "flareCarpet") return false;
+    if (hasFlare && hasOtherActive && (request === "flare" || request === "flareCounterSalvo")) return false;
+    return true;
+  });
+}
+
 export function applyReplayBootstrap(g: GameState, replayData: Pick<ReplayData, "bootstrap">, startWave: number): void {
   while (g.wave < startWave) {
     closeShop(g);
   }
 
-  const upgradeRequests = getReplayBootstrapUpgrades(replayData);
+  const upgradeRequests = normalizeReplayBootstrapUpgrades(getReplayBootstrapUpgrades(replayData));
   if (upgradeRequests.length === 0) return;
 
   // Bootstrap replays past the meta-progression objective gates: any objective

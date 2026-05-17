@@ -31,8 +31,9 @@ export interface Missile {
   targetX?: number;
   targetY?: number;
   luredByFlare?: boolean;
-  luredFlareId?: number | null;
   flareTargetId?: number;
+  redirected?: boolean;
+  redirectTargetId?: number;
   variant?: "normal" | "fast";
   speedMul?: number;
   _hitByExplosions?: Set<number>;
@@ -63,8 +64,9 @@ export interface Drone {
   diveTelegraphing?: boolean;
   diveSpeed?: number;
   luredByFlare?: boolean;
-  luredFlareId?: number | null;
   flareTargetId?: number;
+  redirected?: boolean;
+  redirectTargetId?: number;
   lureDeathTimer?: number;
   bombDropped?: boolean;
   variant?: "normal" | "fast";
@@ -587,8 +589,10 @@ export interface GameState {
   ironBeamTimer: number;
   phalanxTimer: number;
   patriotTimer: number;
-  flareTimer: number;
   nextFlareId: number;
+  flareReadyThisWave: boolean;
+  flareSalvoQueue: Array<{ fireAt: number; count: number }>;
+  flareSalvoClaims: Set<number>;
 
   empReadyThisWave: boolean;
 
@@ -661,7 +665,7 @@ export interface GameState {
 
 // ── Replay ──
 
-export type ReplayActionType = "fire" | "cursor" | "emp" | "f15" | "shop" | "wave_plan";
+export type ReplayActionType = "fire" | "cursor" | "emp" | "f15" | "flare" | "shop" | "wave_plan";
 
 export interface FireAction {
   type: "fire";
@@ -688,6 +692,11 @@ export interface F15Action {
   tick: number;
 }
 
+export interface FlareAction {
+  type: "flare";
+  tick: number;
+}
+
 export interface ShopAction {
   type: "shop";
   tick: number;
@@ -703,7 +712,14 @@ export interface WavePlanAction {
   style?: CommanderStyle;
 }
 
-export type ReplayAction = FireAction | CursorAction | EmpAction | F15Action | ShopAction | WavePlanAction;
+export type ReplayAction =
+  | FireAction
+  | CursorAction
+  | EmpAction
+  | F15Action
+  | FlareAction
+  | ShopAction
+  | WavePlanAction;
 
 export interface ReplayBootstrap {
   startWave?: number;
