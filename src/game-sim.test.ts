@@ -792,7 +792,7 @@ describe("Decoy flares", () => {
     g.flareReadyThisWave = true;
     expect(fireFlareSalvo(g)).toBe(true);
     expect(g.flareReadyThisWave).toBe(false);
-    expect(g.flares).toHaveLength(6);
+    expect(g.flares).toHaveLength(8);
   });
 
   it("lures missiles inside the cast radius and leaves outside threats alone", () => {
@@ -857,7 +857,7 @@ describe("Decoy flares", () => {
 
     expect(fireFlareSalvo(g)).toBe(true);
 
-    expect(g.flares).toHaveLength(4);
+    expect(g.flares).toHaveLength(6);
     expect(g.flareSalvoQueue).toHaveLength(2);
     expect(g.ammo[0]).toBeGreaterThan(0);
     expect(g.ammo[1]).toBe(1);
@@ -865,7 +865,7 @@ describe("Decoy flares", () => {
 
     sim.update(g, 60);
     expect(g.flareSalvoQueue).toHaveLength(1);
-    expect(g.flares.length).toBeGreaterThanOrEqual(8);
+    expect(g.flares.length).toBeGreaterThanOrEqual(12);
   });
 
   it("rank 2 redirects lured threats to distinct reserved targets", () => {
@@ -915,9 +915,9 @@ describe("Decoy flares", () => {
 
     expect(attackerA.redirected).toBe(true);
     expect(attackerB.redirected).toBe(true);
-    expect(attackerA.redirectTargetId).toBeDefined();
-    expect(attackerB.redirectTargetId).toBeDefined();
-    expect(attackerA.redirectTargetId).not.toBe(attackerB.redirectTargetId);
+    expect(attackerA.redirectTarget).toBeDefined();
+    expect(attackerB.redirectTarget).toBeDefined();
+    expect(attackerA.redirectTarget).not.toBe(attackerB.redirectTarget);
   });
 
   it("rank 2 redirected projectile detonates with its target", () => {
@@ -959,6 +959,58 @@ describe("Decoy flares", () => {
 
     expect(attacker.alive).toBe(false);
     expect(target.alive).toBe(false);
+    expect(g.explosions.some((ex) => ex.color === "#ff8833")).toBe(true);
+  });
+
+  it("cast with no airborne threats spawns flares that expire without lingering claims", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.flare = 1;
+    g.flareReadyThisWave = true;
+
+    expect(fireFlareSalvo(g)).toBe(true);
+    expect(g.flares.length).toBeGreaterThan(0);
+    expect(g.flareSalvoClaims.size).toBe(0);
+
+    for (let i = 0; i < 400; i++) sim.update(g, 1);
+    expect(g.flares.every((f) => !f.alive) || g.flares.length === 0).toBe(true);
+    expect(g.flareSalvoClaims.size).toBe(0);
+  });
+
+  it("rank 2 lone attacker with no other threats consumes itself at the flare", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.flare = 2;
+    const flare = {
+      id: 1,
+      x: 200,
+      y: 300,
+      vx: 0,
+      vy: 0,
+      anchorX: 200,
+      drag: 0.988,
+      life: 120,
+      maxLife: 120,
+      alive: true,
+      luresLeft: 999,
+      hotRadius: 60,
+      trail: [],
+    };
+    const attacker = makeBallisticMissile({
+      x: 200,
+      y: 300,
+      vx: 1,
+      vy: 0,
+      accel: 1,
+      luredByFlare: true,
+      flareTargetId: 1,
+    });
+    g.flares.push(flare);
+    g.missiles.push(attacker);
+
+    sim.update(g, 1);
+
+    expect(attacker.alive).toBe(false);
+    expect(attacker.redirected).not.toBe(true);
+    expect(flare.alive).toBe(false);
     expect(g.explosions.some((ex) => ex.color === "#ff8833")).toBe(true);
   });
 });

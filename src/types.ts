@@ -33,7 +33,7 @@ export interface Missile {
   luredByFlare?: boolean;
   flareTargetId?: number;
   redirected?: boolean;
-  redirectTargetId?: number;
+  redirectTarget?: Missile | Drone;
   variant?: "normal" | "fast";
   speedMul?: number;
   _hitByExplosions?: Set<number>;
@@ -66,7 +66,7 @@ export interface Drone {
   luredByFlare?: boolean;
   flareTargetId?: number;
   redirected?: boolean;
-  redirectTargetId?: number;
+  redirectTarget?: Missile | Drone;
   lureDeathTimer?: number;
   bombDropped?: boolean;
   variant?: "normal" | "fast";
@@ -592,7 +592,7 @@ export interface GameState {
   nextFlareId: number;
   flareReadyThisWave: boolean;
   flareSalvoQueue: Array<{ fireAt: number; count: number }>;
-  flareSalvoClaims: Set<number>;
+  flareSalvoClaims: Set<Missile | Drone>;
 
   empReadyThisWave: boolean;
 

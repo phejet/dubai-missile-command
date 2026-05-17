@@ -389,8 +389,8 @@ export const PARAM_GROUPS = [
         step: 10,
         default: 600,
       },
-      { key: "flare.salvoCountL1", label: "Flare L1 Count", type: "range", min: 1, max: 12, step: 1, default: 6 },
-      { key: "flare.salvoCountL2", label: "Flare L2 Drop Count", type: "range", min: 1, max: 8, step: 1, default: 4 },
+      { key: "flare.salvoCountL1", label: "Flare L1 Count", type: "range", min: 1, max: 14, step: 1, default: 8 },
+      { key: "flare.salvoCountL2", label: "Flare L2 Drop Count", type: "range", min: 1, max: 10, step: 1, default: 6 },
       { key: "flare.salvoDrops", label: "Flare L2 Drops", type: "range", min: 1, max: 5, step: 1, default: 3 },
       {
         key: "flare.salvoSpacingTicks",
