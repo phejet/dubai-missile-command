@@ -94,3 +94,7 @@
 - For fire visuals, bigger sprites are usually the lazy failure mode. Use smaller overlapping, irregular, rotated tongues with separate hot cores; a single large symmetric flame reads as clip art no matter how expensive the renderer is.
 - Damage art needs continuity around the source of an effect. If flames emerge from a tower that still looks pristine immediately around the emitter, the viewer reads it as pasted-on VFX instead of structural damage.
 - For environmental effects, direction controls should encode a coherent physical direction. If the user chooses wind to the right, particle drift should be rightward-only with magnitude variation, not a symmetric left/right jitter masquerading as weather.
+- When damage should cover whole tower sections, do not compose it from small per-band strips. Bake a full overlay and reveal it with a section mask so coverage is structural instead of decorative soot confetti.
+- Before reporting an editor URL, fetch the page body or title, not just headers. A stale server can return `200 OK` while serving the game entrypoint at the editor path, because apparently HTTP status codes have chosen chaos.
+- For animated damage overlays, keep ember positions stable between frames and animate brightness/size. Randomizing positions per frame reads as blinking noise, not heat.
+- For Burj scorch embers, keep glow spots tiny at gameplay scale. Large radial halos read as blobs pasted onto the tower instead of hot windows or small exposed fires.

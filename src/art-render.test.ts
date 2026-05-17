@@ -34,10 +34,12 @@ describe("buildBurjAssets", () => {
     expect(assets.staticSprite.width).toBeGreaterThan(0);
     expect(assets.staticSprite.height).toBeGreaterThan(0);
     expect(assets.animFrames).toHaveLength(8);
-    expect(assets.damagedBandSprites).toHaveLength(7);
-    expect(assets.damagedBandOffsets).toHaveLength(7);
+    expect(assets.damageOverlayFrames).toHaveLength(4);
+    expect(assets.damageOverlayOffset).toEqual(assets.offset);
     expect(assets.frameCount).toBe(8);
     expect(assets.period).toBe(20);
+    expect(assets.damageOverlayFrameCount).toBe(4);
+    expect(assets.damageOverlayPeriod).toBeGreaterThan(0);
     expect(Number.isFinite(assets.offset.x)).toBe(true);
     expect(Number.isFinite(assets.offset.y)).toBe(true);
 
@@ -45,9 +47,9 @@ describe("buildBurjAssets", () => {
       expect(frame.width).toBe(assets.staticSprite.width);
       expect(frame.height).toBe(assets.staticSprite.height);
     }
-    for (const sprite of assets.damagedBandSprites) {
-      expect(sprite.width).toBeGreaterThan(0);
-      expect(sprite.height).toBeGreaterThan(40);
+    for (const frame of assets.damageOverlayFrames) {
+      expect(frame.width).toBe(assets.staticSprite.width);
+      expect(frame.height).toBe(assets.staticSprite.height);
     }
   });
 

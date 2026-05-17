@@ -7,6 +7,8 @@ const GAME_TITLE_STARFIELD_DENSITY = 260;
 const HERO_STAR_THRESHOLD = 0.72;
 const BURJ_ANIM_FRAME_COUNT = 8;
 const BURJ_ANIM_PERIOD_SECONDS = 20;
+const BURJ_DAMAGE_OVERLAY_FRAME_COUNT = 4;
+const BURJ_DAMAGE_OVERLAY_PERIOD_SECONDS = 0.64;
 const LAUNCHER_ANIM_FRAME_COUNT = 8;
 const LAUNCHER_ANIM_PERIOD_SECONDS = 10;
 const GLOW_MARGIN = 80;
@@ -27,11 +29,13 @@ export interface SkyAssets {
 export interface BurjAssets {
   staticSprite: HTMLCanvasElement;
   animFrames: HTMLCanvasElement[];
-  damagedBandSprites: HTMLCanvasElement[];
-  damagedBandOffsets: Array<{ x: number; y: number }>;
+  damageOverlayFrames: HTMLCanvasElement[];
+  damageOverlayOffset: { x: number; y: number };
   offset: { x: number; y: number };
   frameCount: number;
   period: number;
+  damageOverlayFrameCount: number;
+  damageOverlayPeriod: number;
   resolutionScale: number;
 }
 
@@ -3162,110 +3166,70 @@ function drawBurjAnimFrame(ctx: CanvasRenderingContext2D, groundY: number, time:
   });
 }
 
-export function drawBurjDamagedBandSprite(
+export function drawBurjDamageOverlayFrame(
   ctx: CanvasRenderingContext2D,
-  halfW: number,
-  thickness: number,
-  blockH: number,
-  bandY: number,
+  groundY: number,
+  _artScale: number,
+  frameIndex: number,
 ): void {
-  const charHalfW = halfW * 1.2;
-  const width = charHalfW * 2;
-  const charTopY = 0;
-  const charH = Math.max(24, blockH);
+  const burjBaseY = groundY - 6;
+  const framePhase = (frameIndex / BURJ_DAMAGE_OVERLAY_FRAME_COUNT) * Math.PI * 2;
+  ctx.save();
+  burjPath(ctx, burjBaseY);
+  ctx.clip();
 
-  const scorch = ctx.createLinearGradient(0, charTopY, 0, charTopY + charH);
-  scorch.addColorStop(0, "rgba(9, 8, 10, 0.38)");
-  scorch.addColorStop(0.18, "rgba(13, 9, 9, 0.68)");
-  scorch.addColorStop(0.5, "rgba(20, 11, 9, 0.78)");
-  scorch.addColorStop(0.82, "rgba(35, 14, 9, 0.58)");
-  scorch.addColorStop(1, "rgba(7, 7, 10, 0.26)");
-  ctx.fillStyle = scorch;
-  ctx.fillRect(0, charTopY, width, charH);
+  const soot = ctx.createLinearGradient(BURJ_X, burjBaseY - BURJ_H, BURJ_X, burjBaseY);
+  soot.addColorStop(0, "rgba(16, 20, 27, 0.24)");
+  soot.addColorStop(0.18, "rgba(15, 17, 22, 0.4)");
+  soot.addColorStop(0.5, "rgba(17, 13, 13, 0.52)");
+  soot.addColorStop(0.74, "rgba(28, 17, 13, 0.48)");
+  soot.addColorStop(1, "rgba(14, 16, 21, 0.34)");
+  ctx.fillStyle = soot;
+  ctx.fillRect(BURJ_X - 90, burjBaseY - BURJ_H - 48, 180, BURJ_H + 58);
 
-  ctx.fillStyle = "rgba(2, 2, 4, 0.24)";
-  ctx.fillRect(0, charTopY, width, 1.6);
-  ctx.fillRect(0, charTopY + charH - 2.1, width, 2.1);
+  BURJ_BRIGHT_BANDS.slice(0, BURJ_DAMAGED_BAND_COUNT).forEach((band, index) => {
+    const y = burjBaseY - BURJ_H * band.ht;
+    const { left, right } = halfWidthsAt(band.ht);
+    const pulse = 0.5 + 0.5 * Math.sin(framePhase + index * 1.73);
+    ctx.fillStyle = `rgba(2, 4, 7, ${0.16 + pulse * 0.07})`;
+    ctx.fillRect(BURJ_X - left * 1.06, y - band.thickness * 1.7, (left + right) * 1.06, band.thickness * 3.8);
+    ctx.fillStyle = `rgba(210, 66, 28, ${0.08 + pulse * 0.08})`;
+    ctx.fillRect(BURJ_X - left * 0.96, y - 0.4, (left + right) * 0.96, Math.max(1, band.thickness * 0.75));
+  });
 
-  const glow = ctx.createRadialGradient(
-    width * 0.5,
-    bandY + thickness * 0.7,
-    0,
-    width * 0.5,
-    bandY + thickness,
-    width * 0.62,
-  );
-  glow.addColorStop(0, "rgba(255, 126, 38, 0.48)");
-  glow.addColorStop(0.45, "rgba(146, 41, 14, 0.24)");
-  glow.addColorStop(1, "rgba(0, 0, 0, 0)");
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, charTopY, width, charH);
-
-  for (let row = 0; row < 5; row += 1) {
-    const y = charTopY + charH * (0.16 + row * 0.17);
-    const seed = row * 4.71 + halfW * 0.17;
-    const leftInset = 3 + Math.abs(Math.sin(seed)) * width * 0.12;
-    const rightInset = 3 + Math.abs(Math.cos(seed)) * width * 0.16;
-    ctx.fillStyle = row % 2 === 0 ? "rgba(0, 0, 0, 0.22)" : "rgba(75, 35, 25, 0.18)";
-    ctx.fillRect(leftInset, y, Math.max(2, width - leftInset - rightInset), 1.1 + Math.abs(Math.sin(seed + 1)) * 1.1);
+  for (let row = 0; row < 34; row += 1) {
+    const ht = 0.04 + row * 0.028;
+    const y = burjBaseY - BURJ_H * ht;
+    const { left, right } = halfWidthsAt(ht);
+    const seed = row * 8.23;
+    const x = BURJ_X - left * 0.82 + seededUnit(seed) * (left * 0.82 + right * 0.82);
+    const w = 1 + seededUnit(seed + 1.9) * 4.8;
+    const alpha = 0.04 + seededUnit(seed + 3.7) * 0.08;
+    ctx.fillStyle = `rgba(2, 3, 6, ${alpha})`;
+    ctx.fillRect(x, y, w, 0.8 + seededUnit(seed + 4.1) * 1.8);
   }
 
-  ctx.fillStyle = "rgba(110, 26, 10, 0.72)";
-  ctx.fillRect(1.5, bandY + 1.1, width - 3, Math.max(1, thickness + 2.4));
-  ctx.fillStyle = "rgba(200, 58, 28, 0.68)";
-  ctx.fillRect(2.5, bandY + 2.1, width - 5, Math.max(1, thickness * 1.05));
-  ctx.fillStyle = "rgba(255, 138, 48, 0.5)";
-  ctx.fillRect(4, bandY + 2.4 + thickness * 0.25, width - 8, Math.max(0.8, thickness * 0.55));
-  ctx.fillStyle = "rgba(255, 217, 104, 0.38)";
-  ctx.fillRect(5, bandY + 2.6 + thickness * 0.42, width - 10, Math.max(0.6, thickness * 0.28));
-
-  const segmentCount = 7;
-  for (let index = 0; index < segmentCount; index += 1) {
-    const segmentSeed = index * 3.07 + halfW * 0.13;
-    const segmentLeft = 2 + (index / segmentCount) * (width - 4) + Math.sin(segmentSeed) * 1.2;
-    const segmentWidth = ((width - 4) / segmentCount) * (0.28 + Math.abs(Math.sin(segmentSeed)) * 0.32);
-    const windowY = charTopY + 4 + Math.abs(Math.cos(segmentSeed)) * (charH - 9);
-    ctx.fillStyle = index % 2 === 0 ? "rgba(255, 210, 132, 0.35)" : "rgba(255, 94, 32, 0.28)";
-    ctx.fillRect(segmentLeft, windowY, segmentWidth, Math.max(0.7, thickness * 0.34));
+  for (let ember = 0; ember < 28; ember += 1) {
+    const seed = ember * 11.71;
+    const ht = 0.08 + seededUnit(seed) * 0.84;
+    const y = burjBaseY - BURJ_H * ht;
+    const { left, right } = halfWidthsAt(ht);
+    const x = BURJ_X - left * 0.78 + seededUnit(seed + 4.7) * (left * 0.78 + right * 0.78);
+    const pulse = 0.5 + 0.5 * Math.sin(framePhase + seededUnit(seed + 9.2) * Math.PI * 2);
+    const glow = 0.08 + pulse * (0.12 + seededUnit(seed + 10.6) * 0.12);
+    const size = 0.75 + seededUnit(seed + 13.4) * 1.25 + pulse * 0.34;
+    const haloRadius = size * 1.7;
+    const emberGlow = ctx.createRadialGradient(x, y, 0, x, y, haloRadius);
+    emberGlow.addColorStop(0, `rgba(255, 188, 92, ${glow * 0.66})`);
+    emberGlow.addColorStop(0.28, `rgba(255, 76, 28, ${glow})`);
+    emberGlow.addColorStop(1, "rgba(255, 28, 12, 0)");
+    ctx.fillStyle = emberGlow;
+    ctx.fillRect(x - haloRadius, y - haloRadius, haloRadius * 2, haloRadius * 2);
+    ctx.fillStyle = `rgba(255, 209, 126, ${glow * 0.5})`;
+    ctx.fillRect(x - size * 0.16, y - size * 0.16, Math.max(0.35, size * 0.32), Math.max(0.35, size * 0.32));
   }
 
-  for (let index = 0; index < 7; index += 1) {
-    const seed = index * 5.23 + halfW * 0.31;
-    const x = width * (0.12 + index * 0.12) + Math.sin(seed) * 2.2;
-    const y = charTopY + 2.5 + Math.abs(Math.cos(seed)) * (charH - 5.5);
-    ctx.fillStyle = "rgba(0, 0, 0, 0.34)";
-    ctx.fillRect(x, y, Math.max(1.2, width * 0.08), 1.4 + Math.abs(Math.sin(seed)) * 2.2);
-  }
-}
-
-function buildBurjDamagedBandSprite(band: BurjBrightBand, index: number, resolutionScale: number) {
-  const centerUp = BURJ_H * band.ht;
-  const lowerUp = index === 0 ? Math.max(0, centerUp - 20) : (BURJ_H * BURJ_BRIGHT_BANDS[index - 1].ht + centerUp) / 2;
-  const upperUp =
-    index === BURJ_DAMAGED_BAND_COUNT - 1
-      ? Math.min(BURJ_H, centerUp + 28)
-      : (centerUp + BURJ_H * BURJ_BRIGHT_BANDS[index + 1].ht) / 2;
-  const lowerHt = lowerUp / BURJ_H;
-  const upperHt = upperUp / BURJ_H;
-  const widths = [halfWidthsAt(band.ht), halfWidthsAt(lowerHt), halfWidthsAt(upperHt)];
-  const halfW = Math.max(...widths.flatMap((width) => [width.left, width.right])) * 0.9;
-  const charHalfW = halfW * 1.2;
-  const width = charHalfW * 2;
-  const height = upperUp - lowerUp;
-  const bandY = upperUp - centerUp;
-  const canvas = createSpriteCanvas(width, height, resolutionScale);
-  const ctx = canvas.getContext("2d");
-  if (ctx) {
-    ctx.scale(resolutionScale, resolutionScale);
-    drawBurjDamagedBandSprite(ctx, halfW, band.thickness, height, bandY);
-  }
-  return {
-    canvas,
-    offset: {
-      x: -charHalfW,
-      y: -upperUp,
-    },
-  };
+  ctx.restore();
 }
 
 export function buildBurjAssets(groundY: number, artScale: number): BurjAssets {
@@ -3290,18 +3254,27 @@ export function buildBurjAssets(groundY: number, artScale: number): BurjAssets {
     return canvas;
   });
 
-  const damagedBands = BURJ_BRIGHT_BANDS.slice(0, BURJ_DAMAGED_BAND_COUNT).map((band, index) =>
-    buildBurjDamagedBandSprite(band, index, resolutionScale),
-  );
+  const damageOverlayFrames = Array.from({ length: BURJ_DAMAGE_OVERLAY_FRAME_COUNT }, (_, frameIndex) => {
+    const canvas = createSpriteCanvas(bounds.width, bounds.height, resolutionScale);
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.scale(resolutionScale, resolutionScale);
+      ctx.translate(-bounds.offset.x, -bounds.offset.y);
+      drawBurjDamageOverlayFrame(ctx, groundY, artScale, frameIndex);
+    }
+    return canvas;
+  });
 
   return {
     staticSprite,
     animFrames,
-    damagedBandSprites: damagedBands.map((band) => band.canvas),
-    damagedBandOffsets: damagedBands.map((band) => band.offset),
+    damageOverlayFrames,
+    damageOverlayOffset: bounds.offset,
     offset: bounds.offset,
     frameCount: BURJ_ANIM_FRAME_COUNT,
     period: BURJ_ANIM_PERIOD_SECONDS,
+    damageOverlayFrameCount: BURJ_DAMAGE_OVERLAY_FRAME_COUNT,
+    damageOverlayPeriod: BURJ_DAMAGE_OVERLAY_PERIOD_SECONDS,
     resolutionScale,
   };
 }

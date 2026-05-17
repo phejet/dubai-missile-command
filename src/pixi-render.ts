@@ -41,7 +41,7 @@ import {
   loadPixiSmokeParticleTextures,
   type PixiPngAssetMap,
 } from "./pixi-assets";
-import { getBurjBaseHealthFloorLayout } from "./art-render";
+import { getBurjBaseHealthFloorLayout, getBurjDamageFireLayout } from "./art-render";
 import {
   BURJ_FIRE_CORE_VARIANTS,
   BURJ_FIRE_EMBER_VARIANTS,
@@ -199,7 +199,9 @@ interface GameplayBurjNode {
   container: Container;
   staticSprite: Sprite;
   anim: BlendSprites;
-  damagedBandSprites: Sprite[];
+  damageOverlay: BlendSprites;
+  damageOverlayLayer: Container;
+  damageRevealMask: Graphics;
   damageUnderlay: Graphics;
   decalLayer: Container;
   damageFxLayer: Container;
@@ -856,6 +858,37 @@ function createGameplayBurjDamageMask(): Graphics {
   }
   mask.closePath().fill(0xffffff);
   return mask;
+}
+
+export function getPixiBurjDamageRevealRects(
+  burjHealth: number,
+  towerBaseY = GAMEPLAY_TOWER_BASE_Y,
+): Array<{ x: number; y: number; w: number; h: number; kind: "body" | "transition" }> {
+  const health = Math.max(0, Math.min(BURJ_MAX_HEALTH, Math.round(burjHealth)));
+  const layout = getBurjDamageFireLayout(towerBaseY, health, { maxHealth: BURJ_MAX_HEALTH });
+  const rects: Array<{ x: number; y: number; w: number; h: number; kind: "body" | "transition" }> = [];
+  for (const site of layout.fireSites) {
+    const topY = (site.sectionTopY - towerBaseY) / 2;
+    const bodyH = (site.sectionBottomY - site.sectionTopY) / 2;
+    rects.push({ x: -90, y: topY, w: 180, h: bodyH, kind: "body" });
+
+    if (site.band.index <= 0) continue;
+    const transitionSeed = site.band.index * 13.71;
+    for (let strip = 0; strip < 7; strip += 1) {
+      const stripT = strip / 6;
+      const width = 32 + (1 - stripT) * 118 + hash01(site.band.index, strip, 3) * 18;
+      const xJitter = (hash01(site.band.index, strip, 7) - 0.5) * 24;
+      const y = topY - 14 + strip * 2.5 + (hash01(site.band.index, strip, 11) - 0.5) * 1.4;
+      rects.push({
+        x: -width / 2 + xJitter + Math.sin(transitionSeed + strip) * 5,
+        y,
+        w: width,
+        h: 2.3 + hash01(site.band.index, strip, 17) * 2.6,
+        kind: "transition",
+      });
+    }
+  }
+  return rects;
 }
 
 function createGameplayBurjOverlayMask(): Graphics {
@@ -1822,13 +1855,17 @@ export class PixiRenderer implements GameRenderer {
     burjStatic.position.set(burjAssets.offset.x - BURJ_X, burjAssets.offset.y - GAMEPLAY_TOWER_BASE_Y);
     const burjAnim = createBlendSprites(burjAssets.animFrames[0] ?? Texture.EMPTY);
     positionBlendSprites(burjAnim, burjAssets.offset.x - BURJ_X, burjAssets.offset.y - GAMEPLAY_TOWER_BASE_Y);
-    const damagedBandSprites = burjAssets.damagedBandSprites.map((texture, index) => {
-      const sprite = new Sprite(texture);
-      const offset = burjAssets.damagedBandOffsets[index] ?? { x: 0, y: 0 };
-      sprite.position.set(offset.x, offset.y);
-      sprite.visible = false;
-      return sprite;
-    });
+    const damageOverlay = createBlendSprites(burjAssets.damageOverlayFrames[0] ?? Texture.EMPTY);
+    positionBlendSprites(
+      damageOverlay,
+      burjAssets.damageOverlayOffset.x - BURJ_X,
+      burjAssets.damageOverlayOffset.y - GAMEPLAY_TOWER_BASE_Y,
+    );
+    const damageRevealMask = new Graphics();
+    const damageOverlayLayer = new Container();
+    damageOverlayLayer.visible = false;
+    damageOverlayLayer.mask = damageRevealMask;
+    damageOverlayLayer.addChild(damageOverlay.primary, damageOverlay.secondary);
     const damageUnderlay = new Graphics();
     const decalLayer = new Container();
     const damageFxLayer = new Container();
@@ -1838,9 +1875,6 @@ export class PixiRenderer implements GameRenderer {
     const hitFlash = new Graphics();
     const damageMask = createGameplayBurjDamageMask();
     damageUnderlay.mask = damageMask;
-    damagedBandSprites.forEach((sprite) => {
-      sprite.mask = damageMask;
-    });
     decalLayer.mask = damageMask;
     damageFxLayer.mask = damageMask;
     hitFlashGlow.mask = damageMask;
@@ -1848,10 +1882,11 @@ export class PixiRenderer implements GameRenderer {
     burjContainer.addChild(
       burjStatic,
       damageMask,
+      damageRevealMask,
       damageUnderlay,
       burjAnim.primary,
       burjAnim.secondary,
-      ...damagedBandSprites,
+      damageOverlayLayer,
       decalLayer,
       damageFxLayer,
       hitFlashGlow,
@@ -2041,7 +2076,9 @@ export class PixiRenderer implements GameRenderer {
         container: burjContainer,
         staticSprite: burjStatic,
         anim: burjAnim,
-        damagedBandSprites,
+        damageOverlay,
+        damageOverlayLayer,
+        damageRevealMask,
         damageUnderlay,
         decalLayer,
         damageFxLayer,
@@ -2439,15 +2476,25 @@ export class PixiRenderer implements GameRenderer {
 
     const rawHealth = Math.max(0, Math.min(BURJ_MAX_HEALTH, Math.round(game.burjHealth)));
     const lastStand = alive && rawHealth <= 1;
-    const bandHealth = standing ? (lastStand ? 0 : rawHealth) : BURJ_MAX_HEALTH;
-    burj.damagedBandSprites.forEach((sprite, index) => {
-      sprite.visible = standing && index >= bandHealth;
-    });
+    const overlayHealth = standing ? (lastStand ? 0 : rawHealth) : BURJ_MAX_HEALTH;
+    const revealRects = standing ? getPixiBurjDamageRevealRects(overlayHealth, GAMEPLAY_TOWER_BASE_Y) : [];
+    burj.damageRevealMask.clear();
+    for (const rect of revealRects) {
+      burj.damageRevealMask.rect(rect.x, rect.y, rect.w, rect.h).fill(0xffffff);
+    }
+    const showDamageOverlay = revealRects.length > 0;
+    burj.damageOverlayLayer.visible = showDamageOverlay;
 
     if (!standing) return;
 
     const burjFrameProgress = getFrameProgress(sceneTime, state.burjAssets.period, state.burjAssets.frameCount);
     syncBlendSprites(burj.anim, state.burjAssets.animFrames, burjFrameProgress, 1, true);
+    const damageOverlayFrameProgress = getFrameProgress(
+      sceneTime,
+      state.burjAssets.damageOverlayPeriod,
+      state.burjAssets.damageOverlayFrameCount,
+    );
+    syncBlendSprites(burj.damageOverlay, state.burjAssets.damageOverlayFrames, damageOverlayFrameProgress, 1, false);
 
     const damageLevel = Math.max(0, Math.min(1, (BURJ_MAX_HEALTH - game.burjHealth) / (BURJ_MAX_HEALTH - 1)));
     const critical = lastStand || terminalWindow;

@@ -7,6 +7,7 @@ import {
   __createPixiWaterSurfaceForTest,
   __updatePixiWaterSurfaceForTest,
   createBurjBeaconGlow,
+  getPixiBurjDamageRevealRects,
   getPixiBurjBaseHealthLayout,
   getPixiBurjBeaconLayout,
   getPixiWaterBandTransform,
@@ -367,6 +368,33 @@ describe("getPixiBurjBaseHealthLayout", () => {
     expect(layout.frameY + layout.frameH).toBeGreaterThanOrEqual(layout.floors[0].y + layout.floors[0].h);
     expect(layout.frameX).toBeLessThanOrEqual(layout.floors[0].cx - layout.floors[0].halfW);
     expect(layout.frameX + layout.frameW).toBeGreaterThanOrEqual(layout.floors[0].cx + layout.floors[0].halfW);
+  });
+});
+
+describe("getPixiBurjDamageRevealRects", () => {
+  it("reveals one full scorch mask block for every damaged tower section", () => {
+    const towerBaseY = 1404;
+
+    expect(getPixiBurjDamageRevealRects(7, towerBaseY)).toHaveLength(0);
+
+    const wounded = getPixiBurjDamageRevealRects(5, towerBaseY);
+    const critical = getPixiBurjDamageRevealRects(1, towerBaseY);
+    const woundedBodies = wounded.filter((rect) => rect.kind === "body");
+    const criticalBodies = critical.filter((rect) => rect.kind === "body");
+    const criticalTransition = critical.filter((rect) => rect.kind === "transition");
+
+    expect(woundedBodies).toHaveLength(2);
+    expect(criticalBodies).toHaveLength(7);
+    expect(criticalTransition.length).toBeGreaterThan(0);
+    for (const rect of criticalBodies) {
+      expect(rect.x).toBe(-90);
+      expect(rect.w).toBe(180);
+      expect(rect.h).toBeGreaterThan(20);
+    }
+    expect(criticalTransition.some((rect) => rect.w < 150 && rect.y < criticalBodies[1].y)).toBe(true);
+    for (let index = 1; index < criticalBodies.length; index += 1) {
+      expect(criticalBodies[index].y + criticalBodies[index].h).toBeLessThanOrEqual(criticalBodies[index - 1].y);
+    }
   });
 });
 

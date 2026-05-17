@@ -19,10 +19,10 @@ export interface PixiSkyAssets extends Omit<SkyAssets, "frames"> {
   frames: Texture[];
 }
 
-export interface PixiBurjAssets extends Omit<BurjAssets, "staticSprite" | "animFrames" | "damagedBandSprites"> {
+export interface PixiBurjAssets extends Omit<BurjAssets, "staticSprite" | "animFrames" | "damageOverlayFrames"> {
   staticSprite: Texture;
   animFrames: Texture[];
-  damagedBandSprites: Texture[];
+  damageOverlayFrames: Texture[];
 }
 
 export interface PixiBuildingAssets extends Omit<BuildingAssets, "staticSprites" | "animFrames"> {
@@ -303,8 +303,8 @@ class DefaultPixiTextureResources implements PixiTextureResources {
       animFrames: source.animFrames.map((frame, index) =>
         this.textureFromCanvas(frame, `${label}:anim:${index}`, source.resolutionScale),
       ),
-      damagedBandSprites: source.damagedBandSprites.map((sprite, index) =>
-        this.textureFromCanvas(sprite, `${label}:damaged-band:${index}`, source.resolutionScale),
+      damageOverlayFrames: source.damageOverlayFrames.map((frame, index) =>
+        this.textureFromCanvas(frame, `${label}:damage-overlay:${index}`, source.resolutionScale),
       ),
     };
   }

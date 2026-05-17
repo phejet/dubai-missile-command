@@ -153,7 +153,7 @@ export function collectStartupSpriteCatalog(
     const note = `groundY ${groundY}, art scale ${STARTUP_BURJ_ART_SCALE}`;
     addCanvas(items, "burj", `burj:${label}:static`, `${label} Burj static`, burj.staticSprite, note);
     addFrames(items, "burj", `burj:${label}:anim`, `${label} Burj anim`, burj.animFrames, note);
-    addFrames(items, "burj", `burj:${label}:damaged-band`, `${label} damaged band`, burj.damagedBandSprites, note);
+    addFrames(items, "burj", `burj:${label}:damage-overlay`, `${label} damage overlay`, burj.damageOverlayFrames, note);
   }
 
   addLauncherAssets(items, "defense", "launcher:title:intact", "title launcher", resources.getLauncherAssets(1, false));
