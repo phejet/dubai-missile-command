@@ -71,7 +71,18 @@ export function applyReplayBootstrap(g: GameState, replayData: Pick<ReplayData, 
   }
 
   const upgradeRequests = normalizeReplayBootstrapUpgrades(getReplayBootstrapUpgrades(replayData));
-  if (upgradeRequests.length === 0) return;
+  const startBurjHealth = replayData.bootstrap?.startBurjHealth;
+  const applyBurjHealth = (): void => {
+    if (typeof startBurjHealth !== "number" || !Number.isFinite(startBurjHealth)) return;
+    const clamped = Math.max(0, Math.min(g.burjHealth, Math.floor(startBurjHealth)));
+    g.burjHealth = clamped;
+    if (clamped <= 0) g.burjAlive = false;
+  };
+
+  if (upgradeRequests.length === 0) {
+    applyBurjHealth();
+    return;
+  }
 
   // Bootstrap replays past the meta-progression objective gates: any objective
   // required by a requested upgrade is granted up front so the replay state is
@@ -93,6 +104,7 @@ export function applyReplayBootstrap(g: GameState, replayData: Pick<ReplayData, 
   }
 
   prepareWaveStart(g);
+  applyBurjHealth();
 }
 
 export function shouldStopReplayAtWaveComplete(

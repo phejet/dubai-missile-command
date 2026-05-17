@@ -724,6 +724,7 @@ export type ReplayAction =
 export interface ReplayBootstrap {
   startWave?: number;
   acquiredUpgrades?: string[];
+  startBurjHealth?: number;
 }
 
 export interface ReplayStopCondition {

@@ -1,0 +1,24 @@
+{
+  "seed": 314159,
+  "version": 2,
+  "draftMode": true,
+  "bootstrap": {
+    "startWave": 5,
+    "startBurjHealth": 2,
+    "acquiredUpgrades": [
+      "wildHornets",
+      "tridentFpvCell",
+      "roadrunner",
+      "roadrunnerWingman",
+      "patriot",
+      "ironBeam",
+      "phalanx",
+      "launcherRapidReload",
+      "launcherArmorKit"
+    ]
+  },
+  "stopCondition": { "type": "waveComplete", "wave": 5 },
+  "actions": [
+    { "tick": 0, "type": "wave_plan", "wave": 5, "tactics": [], "style": "balanced" }
+  ]
+}
