@@ -243,15 +243,6 @@ export const PARAM_GROUPS = [
         default: 0.62,
       },
       {
-        key: "burjFire.anchorHeightMin",
-        label: "Anchor Height Min",
-        type: "range",
-        min: 0.65,
-        max: 0.95,
-        step: 0.01,
-        default: 0.82,
-      },
-      {
         key: "burjFire.hitFlashFlameMul",
         label: "Hit Flame Kick",
         type: "range",

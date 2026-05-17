@@ -12,7 +12,7 @@ import {
   createSpriteCanvas,
   getBurjDamageFireLayout,
 } from "./art-render.js";
-import { BURJ_H, GAMEPLAY_SCENIC_BASE_Y, GROUND_Y } from "./game-logic.js";
+import { BURJ_X, GAMEPLAY_SCENIC_BASE_Y, GROUND_Y } from "./game-logic.js";
 
 const originalDocument = globalThis.document;
 
@@ -47,7 +47,7 @@ describe("buildBurjAssets", () => {
     }
     for (const sprite of assets.damagedBandSprites) {
       expect(sprite.width).toBeGreaterThan(0);
-      expect(sprite.height).toBeGreaterThan(0);
+      expect(sprite.height).toBeGreaterThan(40);
     }
   });
 
@@ -84,32 +84,63 @@ describe("getBurjDamageFireLayout", () => {
 
     expect(layout.tier).toBe("pristine");
     expect(layout.topBand).toBeNull();
+    expect(layout.fireSites).toHaveLength(0);
     expect(layout.flameAnchors).toHaveLength(0);
     expect(layout.smokeAnchor).toBeNull();
   });
 
-  it("keeps live fire anchored to the upper spire as damage worsens", () => {
+  it("creates one fire site per damaged band with extra anchors on wide bands", () => {
     const wounded = getBurjDamageFireLayout(GAMEPLAY_SCENIC_BASE_Y, 5, { gameSeed: 123, anchorHeightMin: 0.82 });
     const critical = getBurjDamageFireLayout(GAMEPLAY_SCENIC_BASE_Y, 1, { gameSeed: 123, anchorHeightMin: 0.82 });
-    const minY = GAMEPLAY_SCENIC_BASE_Y - BURJ_H * 2 * 0.82;
 
     expect(wounded.tier).toBe("wounded");
     expect(critical.tier).toBe("critical");
     expect(wounded.topBand?.index).toBe(6);
     expect(critical.topBand?.index).toBe(6);
-    expect(critical.olderBands.length).toBeGreaterThan(wounded.olderBands.length);
-    expect(wounded.flameAnchors.length).toBeGreaterThanOrEqual(3);
+    expect(wounded.fireSites.map((site) => site.band.index)).toEqual([5, 6]);
+    expect(critical.fireSites.map((site) => site.band.index)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(critical.fireSites).toHaveLength(7);
+    expect(critical.fireSites.filter((site) => site.flameAnchors.length === 2).map((site) => site.band.index)).toEqual([
+      0, 1, 2,
+    ]);
+    expect(critical.fireSites.filter((site) => site.flameAnchors.length === 1).map((site) => site.band.index)).toEqual([
+      3, 4, 5, 6,
+    ]);
     expect(critical.flameAnchors.length).toBeGreaterThan(wounded.flameAnchors.length);
-    expect(Math.max(...critical.flameAnchors.map((anchor) => anchor.x))).toBeGreaterThan(
-      Math.min(...critical.flameAnchors.map((anchor) => anchor.x)) + 6,
+    expect(
+      critical.fireSites.every((site) => site.flameAnchors.every((anchor) => Math.abs(anchor.x - BURJ_X) > 1)),
+    ).toBe(true);
+    expect(
+      critical.fireSites.every((site) =>
+        site.flameAnchors.every((anchor) => anchor.y >= site.sectionTopY && anchor.y <= site.sectionBottomY),
+      ),
+    ).toBe(true);
+    const anchorsNearOldLevel = critical.fireSites.flatMap((site) =>
+      site.flameAnchors.filter((anchor) => Math.abs(anchor.y - (site.band.y + site.band.h * 0.42)) <= site.band.h),
     );
-    expect(critical.flameAnchors.every((anchor) => anchor.y <= minY + 6)).toBe(true);
+    expect(anchorsNearOldLevel.length).toBeLessThan(critical.flameAnchors.length / 2);
+    const uniqueAnchorRows = new Set(
+      critical.fireSites.flatMap((site) => site.flameAnchors.map((anchor) => Math.round(anchor.y))),
+    );
+    expect(uniqueAnchorRows.size).toBeGreaterThan(critical.fireSites.length);
+    const roundedAnchorColumns = new Set(critical.flameAnchors.map((anchor) => Math.round(anchor.x - BURJ_X)));
+    expect(roundedAnchorColumns.size).toBe(critical.flameAnchors.length);
+    const pairedSites = critical.fireSites.filter((site) => site.flameAnchors.length === 2);
+    const leftColumnSpread =
+      Math.max(...pairedSites.map((site) => BURJ_X - site.flameAnchors[0].x)) -
+      Math.min(...pairedSites.map((site) => BURJ_X - site.flameAnchors[0].x));
+    const rightColumnSpread =
+      Math.max(...pairedSites.map((site) => site.flameAnchors[1].x - BURJ_X)) -
+      Math.min(...pairedSites.map((site) => site.flameAnchors[1].x - BURJ_X));
+    expect(leftColumnSpread).toBeGreaterThan(2.5);
+    expect(rightColumnSpread).toBeGreaterThan(2.5);
   });
 
   it("is deterministic for the same band and seed", () => {
     const a = getBurjDamageFireLayout(GAMEPLAY_SCENIC_BASE_Y, 3, { gameSeed: 4242 });
     const b = getBurjDamageFireLayout(GAMEPLAY_SCENIC_BASE_Y, 3, { gameSeed: 4242 });
 
+    expect(b.fireSites).toEqual(a.fireSites);
     expect(b.flameAnchors).toEqual(a.flameAnchors);
     expect(b.smokeAnchor).toEqual(a.smokeAnchor);
   });

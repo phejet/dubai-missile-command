@@ -674,15 +674,19 @@ describe("Burj fire particle presentation", () => {
     expect(spawnFireAtHealth(7)).toHaveLength(0);
   });
 
-  it("emits live fire only from the topmost damaged band", () => {
-    const particles = spawnFireAtHealth(1, 12);
+  it("emits live fire from each damaged band", () => {
+    const particles = spawnFireAtHealth(1, 24);
     const layout = getBurjDamageFireLayout(GAMEPLAY_SCENIC_BASE_Y, 1, { gameSeed: 1234 });
+    const flames = particles.filter((particle) => particle.type === "fireFlame");
 
     expect(layout.topBand).not.toBeNull();
-    expect(layout.olderBands.length).toBeGreaterThan(0);
-    expect(particles.length).toBeGreaterThan(0);
-    expect(particles.every((particle) => particle.y <= layout.topBand!.y + layout.topBand!.h + 12)).toBe(true);
-    expect(particles.some((particle) => particle.y > layout.olderBands[0].y)).toBe(false);
+    expect(layout.fireSites).toHaveLength(7);
+    expect(flames.length).toBeGreaterThan(0);
+    for (const site of layout.fireSites) {
+      expect(
+        flames.some((particle) => particle.y >= site.sectionTopY - 2 && particle.y <= site.sectionBottomY + 2),
+      ).toBe(true);
+    }
   });
 
   it("increases particle pressure across the damage tiers", () => {

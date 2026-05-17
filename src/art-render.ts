@@ -2908,9 +2908,18 @@ export interface BurjFireAnchor {
   seed: number;
 }
 
+export interface BurjFireSite {
+  band: BurjBaseHealthFloor & { index: number };
+  sectionTopY: number;
+  sectionBottomY: number;
+  flameAnchors: BurjFireAnchor[];
+  smokeAnchor: BurjFireAnchor;
+}
+
 export interface BurjDamageFireLayout {
   topBand: (BurjBaseHealthFloor & { index: number }) | null;
   olderBands: Array<BurjBaseHealthFloor & { index: number }>;
+  fireSites: BurjFireSite[];
   flameAnchors: BurjFireAnchor[];
   smokeAnchor: BurjFireAnchor | null;
   lostCount: number;
@@ -2919,7 +2928,6 @@ export interface BurjDamageFireLayout {
 
 const BURJ_BASE_HEALTH_SPRITE_SCALE = 2;
 const BURJ_BASE_HEALTH_TRUNK_FRACTION = 0.88;
-const DEFAULT_BURJ_FIRE_ANCHOR_HEIGHT_MIN = 0.82;
 
 export function getBurjBaseHealthFloorLayout(towerBaseY: number): BurjBaseHealthFloor[] {
   return BURJ_BRIGHT_BANDS.map((band) => {
@@ -2934,6 +2942,22 @@ export function getBurjBaseHealthFloorLayout(towerBaseY: number): BurjBaseHealth
 function seededUnit(seed: number): number {
   const s = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
   return s - Math.floor(s);
+}
+
+function getBurjDamagedSectionBounds(towerBaseY: number, index: number): { topY: number; bottomY: number; h: number } {
+  const band = BURJ_BRIGHT_BANDS[index];
+  const centerUp = BURJ_H * band.ht * BURJ_BASE_HEALTH_SPRITE_SCALE;
+  const lowerUp =
+    index === 0
+      ? Math.max(0, centerUp - 20 * BURJ_BASE_HEALTH_SPRITE_SCALE)
+      : ((BURJ_H * BURJ_BRIGHT_BANDS[index - 1].ht + BURJ_H * band.ht) * BURJ_BASE_HEALTH_SPRITE_SCALE) / 2;
+  const upperUp =
+    index === BURJ_DAMAGED_BAND_COUNT - 1
+      ? Math.min(BURJ_H * BURJ_BASE_HEALTH_SPRITE_SCALE, centerUp + 28 * BURJ_BASE_HEALTH_SPRITE_SCALE)
+      : ((BURJ_H * band.ht + BURJ_H * BURJ_BRIGHT_BANDS[index + 1].ht) * BURJ_BASE_HEALTH_SPRITE_SCALE) / 2;
+  const topY = towerBaseY - upperUp;
+  const bottomY = towerBaseY - lowerUp;
+  return { topY, bottomY, h: bottomY - topY };
 }
 
 export function getBurjDamageFireLayout(
@@ -2951,39 +2975,49 @@ export function getBurjDamageFireLayout(
   const topBand = damaged.length > 0 ? damaged[damaged.length - 1] : null;
   const olderBands = topBand ? damaged.slice(0, -1) : [];
   if (!topBand) {
-    return { topBand: null, olderBands: [], flameAnchors: [], smokeAnchor: null, lostCount: 0, tier };
+    return { topBand: null, olderBands: [], fireSites: [], flameAnchors: [], smokeAnchor: null, lostCount: 0, tier };
   }
 
-  const anchorHeightMin = Math.max(0, Math.min(1, options.anchorHeightMin ?? DEFAULT_BURJ_FIRE_ANCHOR_HEIGHT_MIN));
-  const minAnchorY = towerBaseY - BURJ_H * BURJ_BASE_HEALTH_SPRITE_SCALE * anchorHeightMin;
-  const anchorY = Math.min(topBand.y + topBand.h * 0.28, minAnchorY);
-  const anchorHalfW = Math.max(5, getGameplayBurjHalfW(anchorY, BURJ_BASE_HEALTH_SPRITE_SCALE) * 0.72);
-  const severity = tier === "critical" ? 3 : tier === "burning" ? 2 : 1;
-  const anchorCount = Math.max(3, Math.min(5, severity + 2));
   const gameSeed = options.gameSeed ?? 0;
-  const flameAnchors = Array.from({ length: anchorCount }, (_, anchorIndex) => {
-    const seed = (topBand.index + 1) * 101.3 + (anchorIndex + 1) * 17.7 + gameSeed * 0.0001;
-    const rankT = anchorCount === 1 ? 0.5 : anchorIndex / (anchorCount - 1);
-    const spreadX = (rankT - 0.5) * anchorHalfW * 1.85;
-    const jitterX = (seededUnit(seed) - 0.5) * anchorHalfW * 0.58;
-    const staggerY = (anchorIndex % 2 === 0 ? -0.25 : 0.55) * topBand.h;
-    const jitterY = staggerY + (seededUnit(seed + 3.7) - 0.5) * topBand.h * 1.15;
-    return {
-      x: BURJ_X + spreadX + jitterX,
-      y: anchorY + jitterY,
-      seed,
+  const fireSites = damaged.map((band) => {
+    const section = getBurjDamagedSectionBounds(towerBaseY, band.index);
+    const siteSeed = (band.index + 1) * 73.7 + gameSeed * 0.00017;
+    const siteY = section.topY + section.h * (0.32 + seededUnit(siteSeed) * 0.36);
+    const anchorHalfW = Math.max(5, getGameplayBurjHalfW(siteY, BURJ_BASE_HEALTH_SPRITE_SCALE) * 0.72);
+    const siteSkewX = (seededUnit(siteSeed + 19.3) - 0.5) * anchorHalfW * 0.52;
+    const flameCount = band.halfW >= 20 ? 2 : 1;
+    const flameAnchors = Array.from({ length: flameCount }, (_, anchorIndex) => {
+      const seed = (band.index + 1) * 101.3 + (anchorIndex + 1) * 17.7 + gameSeed * 0.0001;
+      const side = flameCount === 2 ? (anchorIndex === 0 ? -1 : 1) : seededUnit(seed + 5.1) > 0.5 ? 1 : -1;
+      const baseOffset =
+        flameCount === 2
+          ? anchorHalfW * (0.34 + seededUnit(seed + 8.9) * 0.3)
+          : anchorHalfW * (0.34 + seededUnit(seed + 8.9) * 0.28);
+      const jitterX = (seededUnit(seed) - 0.5) * anchorHalfW * 0.26;
+      const jitterY = (seededUnit(seed + 3.7) - 0.5) * section.h * 0.24;
+      const lateralOffset = side * baseOffset + siteSkewX + jitterX;
+      return {
+        x: BURJ_X + (Math.abs(lateralOffset) < 2.5 ? side * 2.5 : lateralOffset),
+        y: Math.max(section.topY + 3, Math.min(section.bottomY - 3, siteY + jitterY)),
+        seed,
+      };
+    });
+    const smokeSeed = (band.index + 1) * 211.9 + gameSeed * 0.00013;
+    const smokeSide = seededUnit(smokeSeed + 4.3) > 0.5 ? 1 : -1;
+    const smokeAnchor = {
+      x: BURJ_X + smokeSide * anchorHalfW * (0.12 + seededUnit(smokeSeed) * 0.12),
+      y: Math.max(section.topY + 2, Math.min(section.bottomY - 2, siteY - section.h * 0.18)),
+      seed: smokeSeed,
     };
+    return { band, sectionTopY: section.topY, sectionBottomY: section.bottomY, flameAnchors, smokeAnchor };
   });
-  const smokeSeed = (topBand.index + 1) * 211.9 + gameSeed * 0.00013;
+  const flameAnchors = fireSites.flatMap((site) => site.flameAnchors);
   return {
     topBand,
     olderBands,
+    fireSites,
     flameAnchors,
-    smokeAnchor: {
-      x: BURJ_X + (seededUnit(smokeSeed) - 0.5) * anchorHalfW * 0.36,
-      y: anchorY - topBand.h * 0.8,
-      seed: smokeSeed,
-    },
+    smokeAnchor: fireSites[fireSites.length - 1]?.smokeAnchor ?? null,
     lostCount: damaged.length,
     tier,
   };
@@ -3128,24 +3162,30 @@ function drawBurjAnimFrame(ctx: CanvasRenderingContext2D, groundY: number, time:
   });
 }
 
-export function drawBurjDamagedBandSprite(ctx: CanvasRenderingContext2D, halfW: number, thickness: number): void {
-  const charHalfW = halfW * 1.18;
+export function drawBurjDamagedBandSprite(
+  ctx: CanvasRenderingContext2D,
+  halfW: number,
+  thickness: number,
+  blockH: number,
+  bandY: number,
+): void {
+  const charHalfW = halfW * 1.2;
   const width = charHalfW * 2;
   const charTopY = 0;
-  const bandY = 8;
-  const charH = Math.max(18, thickness + 18);
+  const charH = Math.max(24, blockH);
 
   const scorch = ctx.createLinearGradient(0, charTopY, 0, charTopY + charH);
-  scorch.addColorStop(0, "rgba(11, 8, 11, 0.68)");
-  scorch.addColorStop(0.35, "rgba(18, 9, 8, 0.88)");
-  scorch.addColorStop(0.74, "rgba(42, 14, 8, 0.78)");
-  scorch.addColorStop(1, "rgba(8, 6, 9, 0.5)");
+  scorch.addColorStop(0, "rgba(9, 8, 10, 0.38)");
+  scorch.addColorStop(0.18, "rgba(13, 9, 9, 0.68)");
+  scorch.addColorStop(0.5, "rgba(20, 11, 9, 0.78)");
+  scorch.addColorStop(0.82, "rgba(35, 14, 9, 0.58)");
+  scorch.addColorStop(1, "rgba(7, 7, 10, 0.26)");
   ctx.fillStyle = scorch;
   ctx.fillRect(0, charTopY, width, charH);
 
-  ctx.fillStyle = "rgba(2, 2, 4, 0.42)";
-  ctx.fillRect(0, charTopY, width, 2.2);
-  ctx.fillRect(0, charTopY + charH - 2.4, width, 2.4);
+  ctx.fillStyle = "rgba(2, 2, 4, 0.24)";
+  ctx.fillRect(0, charTopY, width, 1.6);
+  ctx.fillRect(0, charTopY + charH - 2.1, width, 2.1);
 
   const glow = ctx.createRadialGradient(
     width * 0.5,
@@ -3161,6 +3201,15 @@ export function drawBurjDamagedBandSprite(ctx: CanvasRenderingContext2D, halfW: 
   ctx.fillStyle = glow;
   ctx.fillRect(0, charTopY, width, charH);
 
+  for (let row = 0; row < 5; row += 1) {
+    const y = charTopY + charH * (0.16 + row * 0.17);
+    const seed = row * 4.71 + halfW * 0.17;
+    const leftInset = 3 + Math.abs(Math.sin(seed)) * width * 0.12;
+    const rightInset = 3 + Math.abs(Math.cos(seed)) * width * 0.16;
+    ctx.fillStyle = row % 2 === 0 ? "rgba(0, 0, 0, 0.22)" : "rgba(75, 35, 25, 0.18)";
+    ctx.fillRect(leftInset, y, Math.max(2, width - leftInset - rightInset), 1.1 + Math.abs(Math.sin(seed + 1)) * 1.1);
+  }
+
   ctx.fillStyle = "rgba(110, 26, 10, 0.72)";
   ctx.fillRect(1.5, bandY + 1.1, width - 3, Math.max(1, thickness + 2.4));
   ctx.fillStyle = "rgba(200, 58, 28, 0.68)";
@@ -3175,39 +3224,46 @@ export function drawBurjDamagedBandSprite(ctx: CanvasRenderingContext2D, halfW: 
     const segmentSeed = index * 3.07 + halfW * 0.13;
     const segmentLeft = 2 + (index / segmentCount) * (width - 4) + Math.sin(segmentSeed) * 1.2;
     const segmentWidth = ((width - 4) / segmentCount) * (0.28 + Math.abs(Math.sin(segmentSeed)) * 0.32);
-    const windowY = charTopY + 3.2 + Math.abs(Math.cos(segmentSeed)) * (charH - 8);
+    const windowY = charTopY + 4 + Math.abs(Math.cos(segmentSeed)) * (charH - 9);
     ctx.fillStyle = index % 2 === 0 ? "rgba(255, 210, 132, 0.35)" : "rgba(255, 94, 32, 0.28)";
     ctx.fillRect(segmentLeft, windowY, segmentWidth, Math.max(0.7, thickness * 0.34));
   }
 
-  for (let index = 0; index < 4; index += 1) {
+  for (let index = 0; index < 7; index += 1) {
     const seed = index * 5.23 + halfW * 0.31;
-    const x = width * (0.18 + index * 0.19) + Math.sin(seed) * 2.2;
+    const x = width * (0.12 + index * 0.12) + Math.sin(seed) * 2.2;
     const y = charTopY + 2.5 + Math.abs(Math.cos(seed)) * (charH - 5.5);
     ctx.fillStyle = "rgba(0, 0, 0, 0.34)";
     ctx.fillRect(x, y, Math.max(1.2, width * 0.08), 1.4 + Math.abs(Math.sin(seed)) * 2.2);
   }
 }
 
-function buildBurjDamagedBandSprite(band: BurjBrightBand, resolutionScale: number) {
-  const { left, right } = halfWidthsAt(band.ht);
-  const halfW = Math.max(left, right) * 0.88;
-  const charHalfW = halfW * 1.18;
-  const overshootTop = 8;
-  const overshootBottom = 10;
+function buildBurjDamagedBandSprite(band: BurjBrightBand, index: number, resolutionScale: number) {
+  const centerUp = BURJ_H * band.ht;
+  const lowerUp = index === 0 ? Math.max(0, centerUp - 20) : (BURJ_H * BURJ_BRIGHT_BANDS[index - 1].ht + centerUp) / 2;
+  const upperUp =
+    index === BURJ_DAMAGED_BAND_COUNT - 1
+      ? Math.min(BURJ_H, centerUp + 28)
+      : (centerUp + BURJ_H * BURJ_BRIGHT_BANDS[index + 1].ht) / 2;
+  const lowerHt = lowerUp / BURJ_H;
+  const upperHt = upperUp / BURJ_H;
+  const widths = [halfWidthsAt(band.ht), halfWidthsAt(lowerHt), halfWidthsAt(upperHt)];
+  const halfW = Math.max(...widths.flatMap((width) => [width.left, width.right])) * 0.9;
+  const charHalfW = halfW * 1.2;
   const width = charHalfW * 2;
-  const height = band.thickness + overshootTop + overshootBottom;
+  const height = upperUp - lowerUp;
+  const bandY = upperUp - centerUp;
   const canvas = createSpriteCanvas(width, height, resolutionScale);
   const ctx = canvas.getContext("2d");
   if (ctx) {
     ctx.scale(resolutionScale, resolutionScale);
-    drawBurjDamagedBandSprite(ctx, halfW, band.thickness);
+    drawBurjDamagedBandSprite(ctx, halfW, band.thickness, height, bandY);
   }
   return {
     canvas,
     offset: {
       x: -charHalfW,
-      y: -BURJ_H * band.ht - overshootTop,
+      y: -upperUp,
     },
   };
 }
@@ -3234,8 +3290,8 @@ export function buildBurjAssets(groundY: number, artScale: number): BurjAssets {
     return canvas;
   });
 
-  const damagedBands = BURJ_BRIGHT_BANDS.slice(0, BURJ_DAMAGED_BAND_COUNT).map((band) =>
-    buildBurjDamagedBandSprite(band, resolutionScale),
+  const damagedBands = BURJ_BRIGHT_BANDS.slice(0, BURJ_DAMAGED_BAND_COUNT).map((band, index) =>
+    buildBurjDamagedBandSprite(band, index, resolutionScale),
   );
 
   return {
