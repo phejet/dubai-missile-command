@@ -261,12 +261,15 @@ interface GameplayEmpRingNode {
 // ParticleContainer remains deferred until particle/bullet textures are baked, otherwise we'd merely batch wishful thinking.
 interface BurjFireParticleSystem {
   flameContainer: ParticleContainer;
+  flameCoreContainer: ParticleContainer;
   emberContainer: ParticleContainer;
   smokeContainer: ParticleContainer;
   flamePool: Particle[];
+  flameCorePool: Particle[];
   emberPool: Particle[];
   smokePool: Particle[];
   flameTexture: Texture;
+  flameCoreTexture: Texture;
   emberTexture: Texture;
   smokeTexture: Texture;
 }
@@ -661,63 +664,97 @@ function getBurjHitFlashTexture(): Texture {
 }
 
 let burjFireParticleTexture: Texture | null = null;
+let burjFireCoreTexture: Texture | null = null;
 
-// Vertical flame tongue: wide hot base tapering to a narrow tip. Anchored near the
-// base so the flame body extends upward from spawn. Rendered in normal blend (not
-// additive) so each tongue stays a distinct shape instead of summing into a glow.
+// Ragged vertical flame tongue. The sprite is intentionally asymmetric; stacked
+// particles should read as moving fire, not a single laminated warning icon.
 function getBurjFireParticleTexture(): Texture {
   if (burjFireParticleTexture) return burjFireParticleTexture;
   if (typeof document === "undefined") return Texture.WHITE;
-  const w = 64;
-  const h = 96;
+  const w = 72;
+  const h = 104;
   const cx = w / 2;
-  const tipY = 4;
-  const baseY = 86;
+  const tipY = 8;
+  const baseY = 92;
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext("2d");
   if (!ctx) return Texture.WHITE;
 
-  // Soft outer halo for an air-shimmer ring around the tongue.
   ctx.globalCompositeOperation = "source-over";
-  const halo = ctx.createRadialGradient(cx, (tipY + baseY) / 2 + 8, 0, cx, (tipY + baseY) / 2 + 8, 32);
-  halo.addColorStop(0, "rgba(255,140,50,0.32)");
-  halo.addColorStop(0.55, "rgba(255,90,30,0.12)");
+  const halo = ctx.createRadialGradient(cx, baseY - 18, 0, cx, baseY - 24, 34);
+  halo.addColorStop(0, "rgba(255,126,34,0.34)");
+  halo.addColorStop(0.48, "rgba(255,74,18,0.14)");
   halo.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = halo;
   ctx.fillRect(0, 0, w, h);
 
-  // Flame tongue body — bezier teardrop, wide base, narrow tip.
-  ctx.beginPath();
-  ctx.moveTo(cx, tipY);
-  ctx.bezierCurveTo(cx + 10, 22, cx + 22, 58, cx + 18, baseY);
-  ctx.quadraticCurveTo(cx, baseY + 6, cx - 18, baseY);
-  ctx.bezierCurveTo(cx - 22, 58, cx - 10, 22, cx, tipY);
-  ctx.closePath();
-  const body = ctx.createLinearGradient(0, tipY, 0, baseY);
-  body.addColorStop(0, "rgba(255,80,30,0)");
-  body.addColorStop(0.15, "rgba(255,110,40,0.6)");
-  body.addColorStop(0.45, "rgba(255,165,60,0.9)");
-  body.addColorStop(0.78, "rgba(255,225,140,0.97)");
-  body.addColorStop(1, "rgba(255,250,225,1)");
-  ctx.fillStyle = body;
-  ctx.fill();
-
-  // Inner hot streak — narrow elliptical white-yellow core down the centerline.
-  ctx.globalCompositeOperation = "lighter";
-  ctx.beginPath();
-  ctx.ellipse(cx, (tipY + baseY) / 2 + 10, 6, (baseY - tipY) / 2 - 14, 0, 0, Math.PI * 2);
-  const core = ctx.createLinearGradient(0, tipY + 8, 0, baseY - 6);
-  core.addColorStop(0, "rgba(255,150,60,0)");
-  core.addColorStop(0.5, "rgba(255,225,150,0.5)");
-  core.addColorStop(1, "rgba(255,252,228,0.9)");
-  ctx.fillStyle = core;
-  ctx.fill();
-  ctx.globalCompositeOperation = "source-over";
+  const lobes = [
+    { ox: -9, tip: tipY + 18, base: baseY, w: 16, alpha: 0.62, hue: "255,78,20" },
+    { ox: 2, tip: tipY, base: baseY + 2, w: 22, alpha: 0.74, hue: "255,112,28" },
+    { ox: 12, tip: tipY + 27, base: baseY - 4, w: 13, alpha: 0.48, hue: "255,54,16" },
+  ];
+  for (const lobe of lobes) {
+    ctx.beginPath();
+    ctx.moveTo(cx + lobe.ox, lobe.tip);
+    ctx.bezierCurveTo(
+      cx + lobe.ox + lobe.w * 0.75,
+      lobe.tip + 20,
+      cx + lobe.ox + lobe.w,
+      lobe.base - 22,
+      cx + lobe.ox + lobe.w * 0.55,
+      lobe.base,
+    );
+    ctx.quadraticCurveTo(cx + lobe.ox, lobe.base + 8, cx + lobe.ox - lobe.w * 0.72, lobe.base);
+    ctx.bezierCurveTo(
+      cx + lobe.ox - lobe.w,
+      lobe.base - 24,
+      cx + lobe.ox - lobe.w * 0.56,
+      lobe.tip + 20,
+      cx + lobe.ox,
+      lobe.tip,
+    );
+    ctx.closePath();
+    const body = ctx.createLinearGradient(0, lobe.tip, 0, lobe.base);
+    body.addColorStop(0, `rgba(${lobe.hue},0)`);
+    body.addColorStop(0.22, `rgba(${lobe.hue},${lobe.alpha * 0.52})`);
+    body.addColorStop(0.62, `rgba(255,128,32,${lobe.alpha})`);
+    body.addColorStop(1, `rgba(255,188,72,${lobe.alpha * 0.92})`);
+    ctx.fillStyle = body;
+    ctx.fill();
+  }
 
   burjFireParticleTexture = Texture.from(canvas);
   return burjFireParticleTexture;
+}
+
+function getBurjFireCoreTexture(): Texture {
+  if (burjFireCoreTexture) return burjFireCoreTexture;
+  if (typeof document === "undefined") return Texture.WHITE;
+  const w = 48;
+  const h = 88;
+  const cx = w / 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return Texture.WHITE;
+  const core = ctx.createRadialGradient(cx, h * 0.82, 0, cx, h * 0.55, h * 0.48);
+  core.addColorStop(0, "rgba(255,255,238,1)");
+  core.addColorStop(0.28, "rgba(255,226,110,0.82)");
+  core.addColorStop(0.68, "rgba(255,134,34,0.24)");
+  core.addColorStop(1, "rgba(255,80,20,0)");
+  ctx.fillStyle = core;
+  ctx.beginPath();
+  ctx.moveTo(cx - 1, 18);
+  ctx.bezierCurveTo(cx + 4, 30, cx + 7, 58, cx + 5, 78);
+  ctx.quadraticCurveTo(cx, 84, cx - 6, 78);
+  ctx.bezierCurveTo(cx - 8, 56, cx - 4, 31, cx - 1, 18);
+  ctx.closePath();
+  ctx.fill();
+  burjFireCoreTexture = Texture.from(canvas);
+  return burjFireCoreTexture;
 }
 
 let burjFireEmberTexture: Texture | null = null;
@@ -770,6 +807,7 @@ function getBurjSmokeParticleTexture(): Texture {
 
 function createBurjFireParticleSystem(): BurjFireParticleSystem {
   const flameTexture = getBurjFireParticleTexture();
+  const flameCoreTexture = getBurjFireCoreTexture();
   const emberTexture = getBurjFireEmberTexture();
   const smokeTexture = getBurjSmokeParticleTexture();
   // Flame container: normal blend so individual tongues stay distinct shapes
@@ -779,6 +817,12 @@ function createBurjFireParticleSystem(): BurjFireParticleSystem {
     boundsArea: new Rectangle(0, 0, CANVAS_W, CANVAS_H),
   });
   flameContainer.label = "burj-fire-flames";
+  const flameCoreContainer = new ParticleContainer({
+    dynamicProperties: { position: true, scale: true, rotation: true, color: true },
+    boundsArea: new Rectangle(0, 0, CANVAS_W, CANVAS_H),
+  });
+  flameCoreContainer.label = "burj-fire-cores";
+  flameCoreContainer.blendMode = "add";
   // Embers stay additive for sparkle.
   const emberContainer = new ParticleContainer({
     dynamicProperties: { position: true, scale: true, rotation: false, color: true },
@@ -793,12 +837,15 @@ function createBurjFireParticleSystem(): BurjFireParticleSystem {
   smokeContainer.label = "burj-fire-smoke";
   return {
     flameContainer,
+    flameCoreContainer,
     emberContainer,
     smokeContainer,
     flameTexture,
+    flameCoreTexture,
     emberTexture,
     smokeTexture,
     flamePool: [],
+    flameCorePool: [],
     emberPool: [],
     smokePool: [],
   };
@@ -1770,10 +1817,10 @@ export class PixiRenderer implements GameRenderer {
     if (dynamic.trailBatch) {
       this.gameplayTrailLayer.addChild(dynamic.trailBatch.displayObject);
     }
-    // Smoke drawn behind flames; both sit on the particle layer so they composite over the Burj.
-    this.gameplayParticleLayer.addChild(dynamic.burjFire.smokeContainer);
     this.gameplayParticleLayer.addChild(dynamic.burjFire.flameContainer);
+    this.gameplayParticleLayer.addChild(dynamic.burjFire.flameCoreContainer);
     this.gameplayParticleLayer.addChild(dynamic.burjFire.emberContainer);
+    this.gameplayParticleLayer.addChild(dynamic.burjFire.smokeContainer);
 
     const projectileMask = new Graphics();
     projectileMask.rect(0, 0, CANVAS_W, GAMEPLAY_WATERLINE_Y).fill(0xffffff);
@@ -2517,32 +2564,6 @@ export class PixiRenderer implements GameRenderer {
         alpha: glowAlpha,
       });
       graphic.circle(localX, localY - 1, 3.2 + flicker).fill({ color: 0xfff0c8, alpha: 0.58 });
-      for (let i = 0; i < 3; i++) {
-        const phase = fx.seed + i * 0.9;
-        const flameH = (9 + i * 3.4) * (0.82 + 0.28 * Math.sin(sceneTime * 7 + phase) + damageLevel * 0.14);
-        const flameW = 3.4 + i * 1.15;
-        const baseX = localX + Math.sin(phase) * 1.8;
-        const baseY = localY + 1.5;
-        graphic
-          .moveTo(baseX, baseY)
-          .quadraticCurveTo(
-            localX - flameW * 0.65 + Math.cos(phase) * 1.2,
-            localY - flameH * 0.45,
-            localX + Math.sin(phase + 0.25) * 0.8,
-            localY - flameH,
-          )
-          .quadraticCurveTo(localX + flameW * 0.65 + Math.sin(phase) * 1.1, localY - flameH * 0.35, baseX, baseY)
-          .fill({
-            color: i === 0 ? 0xfff0c8 : i === 1 ? 0xffb458 : 0xff6e2f,
-            alpha: 0.82 - i * 0.13,
-          });
-      }
-      if (damageLevel >= 0.5) {
-        graphic.ellipse(localX + Math.sin(fx.seed * 1.7 + sceneTime * 0.03) * 4, localY - 15, 8, 14).fill({
-          color: 0x221a1c,
-          alpha: (0.1 + damageLevel * 0.11 + (critical ? 0.06 : 0)) * (0.72 + 0.28 * flicker),
-        });
-      }
     }
 
     for (const [id, graphic] of burj.damageFx) {
@@ -3855,11 +3876,12 @@ export class PixiRenderer implements GameRenderer {
   private updateBurjFireParticles(state: GameplayDynamicState, game: GameState, interpolationAlpha = 1): void {
     const system = state.burjFire;
     let flameCount = 0;
+    let flameCoreCount = 0;
     let emberCount = 0;
     let smokeCount = 0;
-    const flameAlphaMul = ov("burjFire.flameAlphaMul", 0.85);
+    const flameAlphaMul = ov("burjFire.flameAlphaMul", 1.1);
     const emberAlphaMul = ov("burjFire.emberAlphaMul", 0.95);
-    const smokeAlphaMul = ov("burjFire.smokeAlphaMul", 0.55);
+    const smokeAlphaMul = ov("burjFire.smokeAlphaMul", 0.38);
     const smokeGrowth = ov("burjFire.smokeGrowth", 2.1);
     const flameSizeMul = ov("burjFire.flameSizeMul", 1.0);
     const smokeSizeMul = ov("burjFire.smokeSizeMul", 1.0);
@@ -3908,6 +3930,14 @@ export class PixiRenderer implements GameRenderer {
           0.5,
           0.92,
         );
+        const coreNode = ensureParticle(
+          system.flameCorePool,
+          system.flameCoreContainer,
+          flameCoreCount++,
+          system.flameCoreTexture,
+          0.5,
+          0.92,
+        );
         const baseSize = particle.size;
         // Flames shrink as they die.
         const sizeT = 0.6 + lifeT * 0.8;
@@ -3919,15 +3949,24 @@ export class PixiRenderer implements GameRenderer {
         particleNode.y = pos.y;
         particleNode.scaleX = baseScale * flickerX;
         particleNode.scaleY = baseScale * flickerY;
-        particleNode.rotation = Math.sin(timeS * 3.1 + phase) * 0.08;
+        const baseRotation = particle.angle ?? 0;
+        particleNode.rotation = baseRotation + Math.sin(timeS * 3.1 + phase) * 0.08;
         // Flames fade in very fast then ride high alpha until death.
         const alphaCurve = Math.min(1, lifeT * 2.6);
-        particleNode.alpha = Math.min(1, alphaCurve * flameAlphaMul);
+        particleNode.alpha = Math.min(1, alphaCurve * flameAlphaMul * 0.88);
         particleNode.tint = memoCssColorToNumber(particle.color, 0xffb84a);
+        coreNode.x = pos.x + Math.sin(phase) * baseScale * 2.5;
+        coreNode.y = pos.y + baseScale * 3.2;
+        coreNode.scaleX = baseScale * 0.52 * flickerX;
+        coreNode.scaleY = baseScale * 0.72 * flickerY;
+        coreNode.rotation = particleNode.rotation;
+        coreNode.alpha = Math.min(1, alphaCurve * flameAlphaMul);
+        coreNode.tint = 0xfff0bc;
       }
     }
 
     trimParticlePool(system.flamePool, system.flameContainer, flameCount);
+    trimParticlePool(system.flameCorePool, system.flameCoreContainer, flameCoreCount);
     trimParticlePool(system.emberPool, system.emberContainer, emberCount);
     trimParticlePool(system.smokePool, system.smokeContainer, smokeCount);
   }

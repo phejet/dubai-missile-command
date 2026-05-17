@@ -10,8 +10,9 @@ import {
   buildTitleBuildingAssets,
   buildUpgradeProjectileSpriteAssets,
   createSpriteCanvas,
+  getBurjDamageFireLayout,
 } from "./art-render.js";
-import { GAMEPLAY_SCENIC_BASE_Y, GROUND_Y } from "./game-logic.js";
+import { BURJ_H, GAMEPLAY_SCENIC_BASE_Y, GROUND_Y } from "./game-logic.js";
 
 const originalDocument = globalThis.document;
 
@@ -74,6 +75,43 @@ describe("buildBurjAssets", () => {
     expect(typeof ctx?.quadraticCurveTo).toBe("function");
     expect(typeof ctx?.setTransform).toBe("function");
     expect(ctx?.globalCompositeOperation).toBe("source-over");
+  });
+});
+
+describe("getBurjDamageFireLayout", () => {
+  it("returns no live fire anchors for pristine health", () => {
+    const layout = getBurjDamageFireLayout(GAMEPLAY_SCENIC_BASE_Y, 7, { gameSeed: 123 });
+
+    expect(layout.tier).toBe("pristine");
+    expect(layout.topBand).toBeNull();
+    expect(layout.flameAnchors).toHaveLength(0);
+    expect(layout.smokeAnchor).toBeNull();
+  });
+
+  it("keeps live fire anchored to the upper spire as damage worsens", () => {
+    const wounded = getBurjDamageFireLayout(GAMEPLAY_SCENIC_BASE_Y, 5, { gameSeed: 123, anchorHeightMin: 0.82 });
+    const critical = getBurjDamageFireLayout(GAMEPLAY_SCENIC_BASE_Y, 1, { gameSeed: 123, anchorHeightMin: 0.82 });
+    const minY = GAMEPLAY_SCENIC_BASE_Y - BURJ_H * 2 * 0.82;
+
+    expect(wounded.tier).toBe("wounded");
+    expect(critical.tier).toBe("critical");
+    expect(wounded.topBand?.index).toBe(6);
+    expect(critical.topBand?.index).toBe(6);
+    expect(critical.olderBands.length).toBeGreaterThan(wounded.olderBands.length);
+    expect(wounded.flameAnchors.length).toBeGreaterThanOrEqual(3);
+    expect(critical.flameAnchors.length).toBeGreaterThan(wounded.flameAnchors.length);
+    expect(Math.max(...critical.flameAnchors.map((anchor) => anchor.x))).toBeGreaterThan(
+      Math.min(...critical.flameAnchors.map((anchor) => anchor.x)) + 6,
+    );
+    expect(critical.flameAnchors.every((anchor) => anchor.y <= minY + 6)).toBe(true);
+  });
+
+  it("is deterministic for the same band and seed", () => {
+    const a = getBurjDamageFireLayout(GAMEPLAY_SCENIC_BASE_Y, 3, { gameSeed: 4242 });
+    const b = getBurjDamageFireLayout(GAMEPLAY_SCENIC_BASE_Y, 3, { gameSeed: 4242 });
+
+    expect(b.flameAnchors).toEqual(a.flameAnchors);
+    expect(b.smokeAnchor).toEqual(a.smokeAnchor);
   });
 });
 

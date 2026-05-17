@@ -90,3 +90,6 @@
 
 - Before giving local editor/game URLs, verify the exact running port and route with HTTP. A stale port note is not a URL; it is a tiny productivity tax wearing a hat.
 - In an editor panel, "include X" usually means make X adjustable unless the user explicitly asks for a readout. Read-only values in tuning sections need a reason, not just vibes and a border.
+- When visual feedback says an effect is too subtle, treat the screenshot as the failing test. Check the default editor values and the visual hierarchy between competing layers; particle counts can be correct while the visible read is still wrong.
+- For fire visuals, bigger sprites are usually the lazy failure mode. Use smaller overlapping, irregular, rotated tongues with separate hot cores; a single large symmetric flame reads as clip art no matter how expensive the renderer is.
+- Damage art needs continuity around the source of an effect. If flames emerge from a tower that still looks pristine immediately around the emitter, the viewer reads it as pasted-on VFX instead of structural damage.

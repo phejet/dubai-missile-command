@@ -30,8 +30,10 @@ import {
   spawnDroneOfType,
   spawnMissile,
   spawnStackedMissile,
+  updateBurjFireParticles,
 } from "./game-sim.js";
 import { buildShopEntries } from "./game-sim-shop.js";
+import { getBurjDamageFireLayout } from "./art-render.js";
 import type { Drone, Hornet, Missile, PatriotMissile } from "./types.js";
 
 describe("MIRV behavior", () => {
@@ -646,6 +648,57 @@ describe("Burj damage presentation", () => {
     expect(g.burjHealth).toBe(7);
     expect(g.burjDecals).toHaveLength(0);
     expect(g.burjDamageFx).toHaveLength(0);
+  });
+});
+
+describe("Burj fire particle presentation", () => {
+  afterEach(() => setRng(Math.random));
+
+  function spawnFireAtHealth(health: number, dt = 10) {
+    const { g } = makeCleanGame(5);
+    g.burjHealth = health;
+    g._gameSeed = 1234;
+    setRng(() => 0.5);
+    updateBurjFireParticles(g, dt);
+    return g.particles.filter((particle) => particle.type?.startsWith("fire"));
+  }
+
+  it("does not spawn fire, smoke, or embers while pristine", () => {
+    expect(spawnFireAtHealth(7)).toHaveLength(0);
+  });
+
+  it("emits live fire only from the topmost damaged band", () => {
+    const particles = spawnFireAtHealth(1, 12);
+    const layout = getBurjDamageFireLayout(GAMEPLAY_SCENIC_BASE_Y, 1, { gameSeed: 1234 });
+
+    expect(layout.topBand).not.toBeNull();
+    expect(layout.olderBands.length).toBeGreaterThan(0);
+    expect(particles.length).toBeGreaterThan(0);
+    expect(particles.every((particle) => particle.y <= layout.topBand!.y + layout.topBand!.h + 12)).toBe(true);
+    expect(particles.some((particle) => particle.y > layout.olderBands[0].y)).toBe(false);
+  });
+
+  it("increases particle pressure across the damage tiers", () => {
+    const wounded = spawnFireAtHealth(5, 8).length;
+    const burning = spawnFireAtHealth(3, 8).length;
+    const critical = spawnFireAtHealth(1, 8).length;
+
+    expect(wounded).toBeGreaterThan(0);
+    expect(burning).toBeGreaterThan(wounded);
+    expect(critical).toBeGreaterThan(burning);
+  });
+
+  it("uses the existing hit-flash timer as a temporary fire and smoke kick", () => {
+    const baseline = spawnFireAtHealth(5, 8).length;
+    const { g } = makeCleanGame(5);
+    g.burjHealth = 5;
+    g._gameSeed = 1234;
+    g.burjHitFlashMax = 48;
+    g.burjHitFlashTimer = 48;
+    setRng(() => 0.5);
+    updateBurjFireParticles(g, 8);
+
+    expect(g.particles.filter((particle) => particle.type?.startsWith("fire")).length).toBeGreaterThan(baseline);
   });
 });
 
