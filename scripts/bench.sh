@@ -41,18 +41,37 @@ normalize_replay_key() {
   echo "$value"
 }
 
+detect_lan_ip() {
+  local iface ip
+  for iface in en0 en1 en2 en3; do
+    ip="$(ipconfig getifaddr "$iface" 2>/dev/null)"
+    if [[ -n "$ip" ]]; then
+      printf '%s' "$ip"
+      return 0
+    fi
+  done
+  return 1
+}
+
 require_env_file() {
   if [[ ! -f ".env.local" ]]; then
-    echo "[bench] Missing .env.local. Start from .env.local.example and fill in MAC_HOSTNAME, IPHONE_UDID, and BUNDLE_ID." >&2
+    echo "[bench] Missing .env.local. Start from .env.local.example and fill in IPHONE_UDID and BUNDLE_ID." >&2
     exit 1
   fi
 
   # shellcheck disable=SC1091
   source ".env.local"
 
-  : "${MAC_HOSTNAME:?MAC_HOSTNAME is required in .env.local}"
   : "${IPHONE_UDID:?IPHONE_UDID is required in .env.local}"
   : "${BUNDLE_ID:?BUNDLE_ID is required in .env.local}"
+
+  if [[ -z "${MAC_HOSTNAME:-}" ]]; then
+    if ! MAC_HOSTNAME="$(detect_lan_ip)"; then
+      echo "[bench] Could not auto-detect Mac LAN IP from en0/en1/en2/en3. Set MAC_HOSTNAME in .env.local explicitly." >&2
+      exit 1
+    fi
+    echo "[bench] Auto-detected MAC_HOSTNAME=${MAC_HOSTNAME}"
+  fi
 
   if [[ -z "${BASELINE_DIR}" && -n "${PERF_BASELINE_DIR:-}" ]]; then
     BASELINE_DIR="${PERF_BASELINE_DIR}"

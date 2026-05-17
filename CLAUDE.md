@@ -178,14 +178,13 @@ The iPhone perf workflow assumes port `5173`. If Vite silently drifts to `5174+`
 2. Create `.env.local` from `.env.local.example` and fill in:
 
 ```bash
-MAC_HOSTNAME=YourMacHostName
 IPHONE_UDID=00000000-0000000000000000
 BUNDLE_ID=com.phejet.dubaicmd
 # optional pinned baseline root for compare output
 PERF_BASELINE_DIR=perf-results/baselines/<buildId>
 ```
 
-`MAC_HOSTNAME` can be a LocalHostName such as `MyMac`, or a literal LAN IP if `.local` mDNS is blocked on the network.
+`scripts/bench.sh` auto-detects the Mac's LAN IP via `ipconfig getifaddr en0` (with `en1`/`en2`/`en3` fallback), so no `MAC_HOSTNAME` is needed by default. Override with `MAC_HOSTNAME=YourMacName.local` or a literal IP only if auto-detect picks the wrong interface or you need a stable hostname.
 
 3. Install the iPhone build you want to measure:
 
