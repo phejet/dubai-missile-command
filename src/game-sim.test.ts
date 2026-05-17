@@ -792,7 +792,8 @@ describe("Decoy flares", () => {
     g.flareReadyThisWave = true;
     expect(fireFlareSalvo(g)).toBe(true);
     expect(g.flareReadyThisWave).toBe(false);
-    expect(g.flares).toHaveLength(8);
+    expect(g.flares).toHaveLength(3);
+    expect(g.flareSalvoQueue.length).toBeGreaterThan(0);
   });
 
   it("lures missiles inside the cast radius and leaves outside threats alone", () => {
@@ -947,7 +948,7 @@ describe("Decoy flares", () => {
       luredByFlare: true,
       flareTargetId: 1,
     });
-    const target = makeBallisticMissile({ x: 300, y: 300, vx: 0, vy: 1, accel: 1 });
+    const target = makeBallisticMissile({ x: 700, y: 300, vx: 0, vy: 1, accel: 1 });
     g.flares.push(flare);
     g.missiles.push(attacker, target);
 

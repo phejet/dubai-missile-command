@@ -3198,20 +3198,6 @@ export class PixiRenderer implements GameRenderer {
           .rect(pos.x - barW / 2, pos.y - 16 * GAMEPLAY_ENEMY_SCALE, barW * ratio, barH)
           .fill(ratio > 0.5 ? 0x44ff44 : ratio > 0.25 ? 0xffaa00 : 0xff2222);
       }
-
-      if (missile.luredByFlare || missile.redirected) {
-        node.overlay
-          .circle(
-            pos.x,
-            pos.y,
-            ((missile.redirected ? 12 : 8) + Math.sin(game.time * 0.22 + pos.x * 0.01) * 1.5) * GAMEPLAY_EFFECT_SCALE,
-          )
-          .stroke({
-            width: (missile.redirected ? 2.2 : 1.5) * GAMEPLAY_EFFECT_SCALE,
-            color: missile.redirected ? 0xff7a18 : 0xffb45a,
-            alpha: missile.redirected ? 0.9 : 0.75,
-          });
-      }
     }
   }
 
@@ -3282,15 +3268,6 @@ export class PixiRenderer implements GameRenderer {
         node.overlay
           .circle(pos.x, pos.y, (drone.subtype === "shahed238" ? 9 : 12) * pulse * GAMEPLAY_EFFECT_SCALE)
           .stroke({ width: 1.2 * GAMEPLAY_EFFECT_SCALE, color: 0xffd24a, alpha: 0.7 });
-      }
-
-      if (drone.luredByFlare || drone.redirected) {
-        const pulse = 1 + Math.sin(game.time * 0.28 + pos.x * 0.012) * 0.14;
-        node.overlay.circle(pos.x, pos.y, (drone.redirected ? 15 : 11) * pulse * GAMEPLAY_EFFECT_SCALE).stroke({
-          width: (drone.redirected ? 2.1 : 1.4) * GAMEPLAY_EFFECT_SCALE,
-          color: drone.redirected ? 0xff7a18 : 0xffb45a,
-          alpha: drone.redirected ? 0.88 : 0.7,
-        });
       }
 
       if (drone.diveTelegraphing && !drone.diving) {
@@ -3536,9 +3513,6 @@ export class PixiRenderer implements GameRenderer {
           alpha: alpha * flicker,
         });
       node.glow.circle(pos.x, pos.y, 2.4 * GAMEPLAY_PROJECTILE_SCALE).fill({ color: 0xfff4d0, alpha });
-      node.glow
-        .circle(pos.x, pos.y, (8 + Math.sin(game.time * 0.16 + flare.id) * 1.2) * GAMEPLAY_PROJECTILE_SCALE)
-        .stroke({ width: 1.2 * GAMEPLAY_PROJECTILE_SCALE, color: 0xffe6b4, alpha: alpha * 0.65 });
     }
   }
 
