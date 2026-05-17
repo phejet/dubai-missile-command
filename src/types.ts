@@ -180,6 +180,7 @@ export interface Particle {
   w?: number;
   h?: number;
   drag?: number;
+  textureVariant?: string;
 }
 
 export interface EmpArc {

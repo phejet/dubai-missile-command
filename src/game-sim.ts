@@ -62,9 +62,28 @@ import type {
 } from "./types.js";
 import { shahed136HasBomb, shahed136HasDive } from "./types.js";
 import { getBurjDamageFireLayout } from "./art-render.js";
+import { getBurjFireEmberVariantId, getBurjFireFlameVariantId } from "./burj-fire-textures.js";
+import { getBurjSmokeParticleVariantId } from "./smoke-particle-assets.js";
 
 const BURJ_FIRE_MAX_HEALTH = 7;
 const BURJ_FIRE_TOWER_BASE_Y = GAMEPLAY_SCENIC_BASE_Y;
+
+function pickBurjParticleVariantIndex(x: number, y: number, life: number, size: number, salt = 0): number {
+  const value = Math.sin(x * 0.173 + y * 0.097 + life * 0.231 + size * 0.419 + salt * 2.113) * 10000;
+  return Math.floor(Math.abs(value));
+}
+
+function pickBurjSmokeParticleVariant(x: number, y: number, life: number, size: number, salt = 0): string {
+  return getBurjSmokeParticleVariantId(pickBurjParticleVariantIndex(x, y, life, size, salt));
+}
+
+function pickBurjFireFlameVariant(x: number, y: number, life: number, size: number, salt = 0): string {
+  return getBurjFireFlameVariantId(pickBurjParticleVariantIndex(x, y, life, size, salt));
+}
+
+function pickBurjFireEmberVariant(x: number, y: number, life: number, size: number, salt = 0): string {
+  return getBurjFireEmberVariantId(pickBurjParticleVariantIndex(x, y, life, size, salt));
+}
 
 export function updateBurjFireParticles(g: GameState, dt: number): void {
   if (!g.burjAlive) return;
@@ -86,19 +105,20 @@ export function updateBurjFireParticles(g: GameState, dt: number): void {
   const emberRate = Math.min(8.2, ov("burjFire.emberRate", 1.8) * (0.78 + tierMul * 0.7));
   const smokeRate = Math.min(
     2.2,
-    ov("burjFire.smokeRate", 0.42) * (0.4 + tierMul * 0.55 + damageRatio * smokeDamageMul * 0.16),
+    ov("burjFire.smokeRate", 0.4) * (0.4 + tierMul * 0.55 + damageRatio * smokeDamageMul * 0.16),
   );
   const flameLife = ov("burjFire.flameLife", 20);
   const emberLife = ov("burjFire.emberLife", 30);
-  const smokeLife = ov("burjFire.smokeLife", 220);
+  const smokeLife = ov("burjFire.smokeLife", 330);
   const smokeRise = ov("burjFire.smokeRise", 0.7);
-  const smokeDrift = ov("burjFire.smokeDrift", 0.18);
+  const smokeDrift = ov("burjFire.smokeDrift", 0.44);
   const flameSize = ov("burjFire.flameSize", 8.5);
-  const smokeSize = ov("burjFire.smokeSize", 14);
-  const emberSize = ov("burjFire.emberSize", 2.8);
+  const smokeSize = ov("burjFire.smokeSize", 7.5);
+  const emberSize = ov("burjFire.emberSize", 0.9);
   const hotspotSpread = ov("burjFire.hotspotSpread", 0.62);
   const smokeRiseDamageBoost = ov("burjFire.smokeRiseDamageBoost", 0.5);
   const smokeBase = ov("burjFire.smokeBase", 0.35);
+  const smokeYOffset = ov("burjFire.smokeYOffset", -15);
   const hitFlashFlameMul = ov("burjFire.hitFlashFlameMul", 3.4);
   const hitFlashSmokeMul = ov("burjFire.hitFlashSmokeMul", 2.4);
   const ignite = g.burjHitFlashMax > 0 ? Math.max(0, Math.min(1, g.burjHitFlashTimer / g.burjHitFlashMax)) : 0;
@@ -113,16 +133,21 @@ export function updateBurjFireParticles(g: GameState, dt: number): void {
     const anchorSizeMul = 0.78 + 0.22 * Math.sin(anchor.seed);
     spawnPoisson(g, (flameRate * dt * flameKick) / layout.flameAnchors.length, () => {
       const lean = (anchorT - 0.5) * 0.28 + rand(-0.12, 0.12);
+      const x = anchor.x + rand(-halfW * hotspotSpread * 0.2, halfW * hotspotSpread * 0.2);
+      const y = anchor.y + rand(-topBand.h * 0.1, topBand.h * 1.25);
+      const life = rand(flameLife * 0.65, flameLife);
+      const size = rand(flameSize * 0.78, flameSize * 1.45) * anchorSizeMul * tierSizeMul * flameSizeKick;
       g.particles.push({
-        x: anchor.x + rand(-halfW * hotspotSpread * 0.2, halfW * hotspotSpread * 0.2),
-        y: anchor.y + rand(-topBand.h * 0.1, topBand.h * 1.25),
+        x,
+        y,
         vx: rand(-0.16, 0.16) + (anchorT - 0.5) * 0.05,
         vy: -rand(0.52, 1.08),
-        life: rand(flameLife * 0.65, flameLife),
+        life,
         maxLife: flameLife,
         color: layout.tier === "wounded" ? "#ff7a24" : "#ff8f32",
-        size: rand(flameSize * 0.78, flameSize * 1.45) * anchorSizeMul * tierSizeMul * flameSizeKick,
+        size,
         type: "fireFlame",
+        textureVariant: pickBurjFireFlameVariant(x, y, life, size, anchor.seed),
         angle: lean,
         spin: rand(-0.018, 0.018),
         gravity: 0,
@@ -133,16 +158,23 @@ export function updateBurjFireParticles(g: GameState, dt: number): void {
     spawnPoisson(g, (emberRate * dt * flameKick) / layout.flameAnchors.length, () => {
       const ang = rand(-Math.PI * 0.75, -Math.PI * 0.25);
       const sp = rand(0.55, layout.tier === "critical" ? 2.1 : 1.55);
+      const x = anchor.x + rand(-halfW * 0.18, halfW * 0.18);
+      const y = anchor.y + rand(-topBand.h * 0.2, topBand.h * 0.95);
+      const life = rand(emberLife * 0.55, emberLife);
+      const size = rand(emberSize * 0.7, emberSize * 1.3);
       g.particles.push({
-        x: anchor.x + rand(-halfW * 0.18, halfW * 0.18),
-        y: anchor.y + rand(-topBand.h * 0.2, topBand.h * 0.95),
+        x,
+        y,
         vx: Math.cos(ang) * sp * 0.6,
         vy: Math.sin(ang) * sp,
-        life: rand(emberLife * 0.55, emberLife),
+        life,
         maxLife: emberLife,
         color: layout.tier === "wounded" ? "#ff9d48" : "#ffc06a",
-        size: rand(emberSize * 0.7, emberSize * 1.3),
+        size,
         type: "fireEmber",
+        textureVariant: pickBurjFireEmberVariant(x, y, life, size, anchor.seed),
+        angle: ang + Math.PI / 2,
+        spin: rand(-0.09, 0.09),
         gravity: 0.012,
         drag: 0.965,
       });
@@ -153,37 +185,49 @@ export function updateBurjFireParticles(g: GameState, dt: number): void {
   if (!smokeAnchor) return;
   const smokeVyBoost = 1 + damageRatio * smokeRiseDamageBoost;
   const narrowSmokeW = halfW * 0.2;
-  spawnPoisson(g, smokeRate * dt * smokeKick * smokeBase, () =>
+  spawnPoisson(g, smokeRate * dt * smokeKick * smokeBase, () => {
+    const x = smokeAnchor.x + rand(-narrowSmokeW, narrowSmokeW);
+    const y = smokeAnchor.y + smokeYOffset + rand(-4, 5);
+    const life = rand(smokeLife * 0.7, smokeLife);
+    const size = rand(smokeSize, smokeSize * 1.55);
     g.particles.push({
-      x: smokeAnchor.x + rand(-narrowSmokeW, narrowSmokeW),
-      y: smokeAnchor.y + rand(-4, 5),
-      vx: rand(-smokeDrift, smokeDrift) + 0.035,
+      x,
+      y,
+      vx: 0.035 + rand(smokeDrift * 0.35, smokeDrift),
       vy: -rand(smokeRise * 0.6, smokeRise) * smokeVyBoost,
-      life: rand(smokeLife * 0.7, smokeLife),
+      life,
       maxLife: smokeLife,
       color: layout.tier === "critical" ? "#36363a" : layout.tier === "burning" ? "#55575d" : "#76797f",
-      size: rand(smokeSize, smokeSize * 1.55),
+      size,
       type: "fireSmoke",
+      textureVariant: pickBurjSmokeParticleVariant(x, y, life, size),
+      angle: rand(-Math.PI, Math.PI),
       gravity: -0.004,
       drag: 0.992,
-    }),
-  );
+    });
+  });
 
-  spawnPoisson(g, smokeRate * dt * smokeKick * 0.28, () =>
+  spawnPoisson(g, smokeRate * dt * smokeKick * 0.28, () => {
+    const x = smokeAnchor.x + rand(-narrowSmokeW * 0.7, narrowSmokeW * 0.7);
+    const y = smokeAnchor.y + smokeYOffset + rand(-2, 6);
+    const life = rand(smokeLife * 0.18, smokeLife * 0.34);
+    const size = rand(smokeSize * 0.7, smokeSize * 1.05);
     g.particles.push({
-      x: smokeAnchor.x + rand(-narrowSmokeW * 0.7, narrowSmokeW * 0.7),
-      y: smokeAnchor.y + rand(-2, 6),
-      vx: rand(-smokeDrift * 0.45, smokeDrift * 0.45),
+      x,
+      y,
+      vx: rand(smokeDrift * 0.12, smokeDrift * 0.45),
       vy: -rand(smokeRise * 0.35, smokeRise * 0.65) * smokeVyBoost,
-      life: rand(smokeLife * 0.18, smokeLife * 0.34),
+      life,
       maxLife: smokeLife * 0.34,
       color: "#9a5535",
-      size: rand(smokeSize * 0.7, smokeSize * 1.05),
+      size,
       type: "fireSmoke",
+      textureVariant: pickBurjSmokeParticleVariant(x, y, life, size, 1),
+      angle: rand(-Math.PI, Math.PI),
       gravity: -0.003,
       drag: 0.99,
-    }),
-  );
+    });
+  });
 }
 
 function spawnPoisson(g: GameState, expected: number, spawn: () => void): void {

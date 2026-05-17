@@ -119,13 +119,12 @@ export default defineConfig({
     rollupOptions: {
       input: {
         // For Capacitor, only build the main entry point
-        // (editor.html and sprites.html are dev tools, not needed in the app)
+        // (editor.html is dev tooling, not needed in the app)
         ...(isCapacitor
           ? { main: resolve(__dirname, "index.html") }
           : {
               main: resolve(__dirname, "index.html"),
               editor: resolve(__dirname, "editor.html"),
-              sprites: resolve(__dirname, "sprites.html"),
             }),
       },
     },

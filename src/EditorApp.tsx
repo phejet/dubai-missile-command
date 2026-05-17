@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback } from "react";
+import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { CANVAS_W, CANVAS_H, GROUND_Y, BURJ_X, BURJ_H, COL, createExplosion, ov } from "./game-logic.js";
 import { createEditorScene } from "./editor-scene.js";
 import { createPixiEditorPreviewRenderer, type PixiEditorPreviewRenderer } from "./editor-render.js";
@@ -18,6 +18,13 @@ import {
   zoomUpgradeGraphViewportAtPoint,
 } from "./upgrade-graph";
 import type { UpgradeGraphViewportState } from "./upgrade-graph";
+import {
+  SPRITE_CATALOG_GROUPS,
+  collectStartupSpriteCatalog,
+  type SpriteCatalogGroup,
+  type SpriteCatalogGroupId,
+  type SpriteCatalogItem,
+} from "./sprite-catalog";
 import type { GameState, Explosion, Particle } from "./types";
 import "./EditorApp.css";
 import "./UpgradeGraph.css";
@@ -57,9 +64,13 @@ function getEditorPositionDefaults(): Record<string, number> {
   };
 }
 
-function getInitialEditorView(): "effects" | "graph" {
+type EditorView = "effects" | "graph";
+type SpriteAtlasScale = "fit" | 1 | 2 | 4;
+
+function getInitialEditorView(): EditorView {
   const params = new URLSearchParams(window.location.search);
-  return params.get("view") === "graph" ? "graph" : "effects";
+  const view = params.get("view");
+  return view === "graph" ? "graph" : "effects";
 }
 
 const GRAPH_OBJECTIVE_IDS = Array.from(
@@ -78,6 +89,140 @@ function canvasToGame(canvas: HTMLCanvasElement, clientX: number, clientY: numbe
 window.__editorOverrides = null;
 
 type SceneSnapshot = { explosions: Explosion[]; particles: Particle[]; time: number };
+
+function SpritePreviewCanvas({ item, displayScale }: { item: SpriteCatalogItem; displayScale: SpriteAtlasScale }) {
+  const frameRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const width = item.source.width;
+  const height = item.source.height;
+  const [fitWidth, setFitWidth] = useState(0);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+    const redraw = () => {
+      ctx.clearRect(0, 0, width, height);
+      ctx.drawImage(item.source, 0, 0);
+    };
+    redraw();
+    item.source.addEventListener("sprite-catalog-source-updated", redraw);
+    return () => item.source.removeEventListener("sprite-catalog-source-updated", redraw);
+  }, [height, item.source, width]);
+
+  useEffect(() => {
+    if (displayScale !== "fit") return;
+    const frame = frameRef.current;
+    if (!frame) return;
+    const readWidth = () => setFitWidth(frame.clientWidth);
+    readWidth();
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", readWidth);
+      return () => window.removeEventListener("resize", readWidth);
+    }
+    const observer = new ResizeObserver(readWidth);
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, [displayScale]);
+
+  const resolvedScale = displayScale === "fit" ? Math.min(fitWidth > 0 ? fitWidth / width : 1, 1) : displayScale;
+
+  return (
+    <div ref={frameRef} className="sprite-card__preview-frame">
+      <canvas
+        ref={canvasRef}
+        width={width}
+        height={height}
+        style={{
+          width: `${Math.max(1, Math.round(width * resolvedScale))}px`,
+          height: `${Math.max(1, Math.round(height * resolvedScale))}px`,
+        }}
+      />
+    </div>
+  );
+}
+
+function SpriteAtlasPanel({
+  groups,
+  activeGroup,
+  displayScale,
+  onGroupChange,
+  onDisplayScaleChange,
+}: {
+  groups: SpriteCatalogGroup[];
+  activeGroup: SpriteCatalogGroupId;
+  displayScale: SpriteAtlasScale;
+  onGroupChange: (group: SpriteCatalogGroupId) => void;
+  onDisplayScaleChange: (scale: SpriteAtlasScale) => void;
+}) {
+  const groupMap = useMemo(() => new Map(groups.map((group) => [group.id, group])), [groups]);
+  const visibleGroup = groupMap.get(activeGroup) ?? groups[0];
+  const totalSprites = groups.reduce((count, group) => count + group.items.length, 0);
+
+  return (
+    <aside className="sprite-atlas-rail" data-testid="sprite-atlas" data-sprite-group={visibleGroup?.id ?? activeGroup}>
+      <div className="sprite-atlas-rail__header">
+        <div>
+          <div className="sprite-atlas-rail__eyebrow">Startup Assets</div>
+          <h2>Sprites</h2>
+        </div>
+        <div className="sprite-atlas-rail__meta">
+          <strong>{totalSprites}</strong>
+          <span>sprites</span>
+        </div>
+      </div>
+      <div className="sprite-atlas-tabs" role="tablist" aria-label="Sprite groups">
+        {SPRITE_CATALOG_GROUPS.map((groupDef) => {
+          const group = groupMap.get(groupDef.id);
+          if (!group) return null;
+          const active = visibleGroup?.id === groupDef.id;
+          return (
+            <button
+              key={groupDef.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              className={`sprite-atlas-tab${active ? " sprite-atlas-tab--active" : ""}`}
+              onClick={() => onGroupChange(groupDef.id)}
+            >
+              <span>{groupDef.label}</span>
+              <strong>{group.items.length}</strong>
+            </button>
+          );
+        })}
+      </div>
+      <div className="sprite-atlas-scale" aria-label="Sprite display scale">
+        {(["fit", 1, 2, 4] as const).map((scale) => (
+          <button
+            key={scale}
+            type="button"
+            className={displayScale === scale ? "play-btn play-btn--active" : "play-btn"}
+            onClick={() => onDisplayScaleChange(scale)}
+          >
+            {scale === "fit" ? "Fit" : `${scale}x`}
+          </button>
+        ))}
+      </div>
+      <div className="sprite-atlas-list">
+        {visibleGroup?.items.map((item) => (
+          <article key={item.id} className="sprite-card" data-sprite-id={item.id}>
+            <div className="sprite-card__preview">
+              <SpritePreviewCanvas item={item} displayScale={displayScale} />
+            </div>
+            <div className="sprite-card__label">{item.label}</div>
+            <div className="sprite-card__details">
+              {item.width}x{item.height}
+              {item.kind === "frame" && item.frameIndex !== undefined && item.frameCount
+                ? ` / frame ${item.frameIndex + 1}/${item.frameCount}`
+                : ""}
+              {item.note ? ` / ${item.note}` : ""}
+            </div>
+          </article>
+        ))}
+      </div>
+    </aside>
+  );
+}
 
 // Snapshot/restore for timeline scrubbing (only explosions + particles matter)
 function snapshotScene(scene: GameState): SceneSnapshot {
@@ -184,7 +329,7 @@ export default function EditorApp() {
   const scrubbingRef = useRef(false);
   const [values, setValues] = useState<Record<string, number | boolean | string>>(getDefaults);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  const [editorView, setEditorView] = useState<"effects" | "graph">(getInitialEditorView);
+  const [editorView, setEditorView] = useState<EditorView>(getInitialEditorView);
   const [playing, setPlaying] = useState(false);
   const [tick, setTick] = useState(0);
   const [maxTick, setMaxTick] = useState(600);
@@ -223,6 +368,10 @@ export default function EditorApp() {
   const [graphSelection, setGraphSelection] = useState<string | null>(null);
   const [graphProgression, setGraphProgression] = useState(createEmptyUpgradeProgression);
   const [graphViewport, setGraphViewport] = useState<UpgradeGraphViewportState>(DEFAULT_GRAPH_VIEWPORT);
+  const [spriteAtlasOpen, setSpriteAtlasOpen] = useState(false);
+  const [spriteAtlasGroup, setSpriteAtlasGroup] = useState<SpriteCatalogGroupId>("burj");
+  const [spriteAtlasScale, setSpriteAtlasScale] = useState<SpriteAtlasScale>("fit");
+  const spriteCatalog = useMemo(() => (spriteAtlasOpen ? collectStartupSpriteCatalog() : null), [spriteAtlasOpen]);
   const graphOwnedSet = new Set(graphOwnedNodes);
   const graphView = buildUpgradeGraphViewModel({
     progression: graphProgression,
@@ -249,13 +398,13 @@ export default function EditorApp() {
     setGraphViewport(clamped);
   }
 
-  function selectEditorView(nextView: "effects" | "graph") {
+  function selectEditorView(nextView: EditorView) {
     setEditorView(nextView);
     const url = new URL(window.location.href);
-    if (nextView === "graph") {
-      url.searchParams.set("view", "graph");
-    } else {
+    if (nextView === "effects") {
       url.searchParams.delete("view");
+    } else {
+      url.searchParams.set("view", nextView);
     }
     window.history.replaceState(null, "", url);
   }
@@ -767,9 +916,19 @@ export default function EditorApp() {
   );
   const selectedGraphOwned = selectedGraphNodeId ? graphOwnedNodes.includes(selectedGraphNodeId) : false;
   const currentBurjHitpoints = Math.max(0, Math.min(BURJ_MAX_HEALTH, BURJ_MAX_HEALTH - damagedFloors));
+  const showSpriteAtlas = editorView === "effects" && spriteAtlasOpen && spriteCatalog !== null;
 
   return (
-    <div className="editor-root">
+    <div className={`editor-root${showSpriteAtlas ? " editor-root--atlas-open" : ""}`}>
+      {showSpriteAtlas && (
+        <SpriteAtlasPanel
+          groups={spriteCatalog ?? []}
+          activeGroup={spriteAtlasGroup}
+          displayScale={spriteAtlasScale}
+          onGroupChange={setSpriteAtlasGroup}
+          onDisplayScaleChange={setSpriteAtlasScale}
+        />
+      )}
       <div className="editor-canvas-wrap">
         {editorView === "effects" ? (
           <>
@@ -903,6 +1062,12 @@ export default function EditorApp() {
             </button>
             {editorView === "effects" && (
               <>
+                <button
+                  onClick={() => setSpriteAtlasOpen((open) => !open)}
+                  className={spriteAtlasOpen ? "play-btn play-btn--active" : "play-btn"}
+                >
+                  Sprites
+                </button>
                 <button onClick={playExplosions} className={playing ? "play-btn play-btn--active" : "play-btn"}>
                   {playing ? "\u25A0 Pause" : "\u25B6 Play"}
                 </button>
@@ -941,7 +1106,6 @@ export default function EditorApp() {
                 </button>
               </>
             )}
-            <button onClick={() => window.open("sprites.html", "_blank")}>Sprite Catalog</button>
             <button onClick={resetAll}>Reset All</button>
             <button onClick={exportValues} className="export-btn">
               Export

@@ -19,7 +19,8 @@ Non-Capacitor builds include:
 
 - `index.html` -> main game
 - `editor.html` -> internal editor
-- `sprites.html` -> sprite/art helper page
+
+The sprite atlas now lives inside the editor as a sidecar panel rather than a separate HTML entrypoint.
 
 The base path is:
 

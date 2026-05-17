@@ -12,10 +12,7 @@ const isCapacitor = process.env.CAPACITOR === "1";
 const appBase = isCapacitor ? "./" : "/dubai-missile-command/";
 
 function devHtmlEntryAliases(base: string): Plugin {
-  const entries = new Map([
-    [`${base}editor.html`, resolve(__dirname, "editor.html")],
-    [`${base}sprites.html`, resolve(__dirname, "sprites.html")],
-  ]);
+  const entries = new Map([[`${base}editor.html`, resolve(__dirname, "editor.html")]]);
 
   return {
     name: "dev-html-entry-aliases",
@@ -65,7 +62,6 @@ export default defineConfig({
         : {
             main: resolve(__dirname, "index.html"),
             editor: resolve(__dirname, "editor.html"),
-            sprites: resolve(__dirname, "sprites.html"),
           },
     },
   },

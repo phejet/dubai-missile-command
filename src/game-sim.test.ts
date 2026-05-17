@@ -652,7 +652,14 @@ describe("Burj damage presentation", () => {
 });
 
 describe("Burj fire particle presentation", () => {
-  afterEach(() => setRng(Math.random));
+  const globalWithWindow = globalThis as unknown as { window?: { __editorOverrides?: Record<string, unknown> } };
+  const originalWindow = globalWithWindow.window;
+
+  afterEach(() => {
+    setRng(Math.random);
+    if (originalWindow === undefined) delete globalWithWindow.window;
+    else globalWithWindow.window = originalWindow;
+  });
 
   function spawnFireAtHealth(health: number, dt = 10) {
     const { g } = makeCleanGame(5);
@@ -699,6 +706,43 @@ describe("Burj fire particle presentation", () => {
     updateBurjFireParticles(g, 8);
 
     expect(g.particles.filter((particle) => particle.type?.startsWith("fire")).length).toBeGreaterThan(baseline);
+  });
+
+  it("assigns runtime texture variants to flame, ember, and smoke particles", () => {
+    const particles = spawnFireAtHealth(1, 24);
+    const flames = particles.filter((particle) => particle.type === "fireFlame");
+    const embers = particles.filter((particle) => particle.type === "fireEmber");
+    const smoke = particles.filter((particle) => particle.type === "fireSmoke");
+
+    expect(flames.length).toBeGreaterThan(0);
+    expect(embers.length).toBeGreaterThan(0);
+    expect(smoke.length).toBeGreaterThan(0);
+    expect(flames.every((particle) => particle.textureVariant?.startsWith("flame-"))).toBe(true);
+    expect(embers.every((particle) => particle.textureVariant?.startsWith("ember-"))).toBe(true);
+    expect(smoke.every((particle) => particle.textureVariant?.startsWith("blackSmoke"))).toBe(true);
+  });
+
+  it("applies smoke Y offset without moving flame particles", () => {
+    globalWithWindow.window = { __editorOverrides: { "burjFire.smokeYOffset": 0 } };
+    const baseline = spawnFireAtHealth(1, 24);
+    globalWithWindow.window = { __editorOverrides: { "burjFire.smokeYOffset": 36 } };
+    const shifted = spawnFireAtHealth(1, 24);
+
+    const baselineFlame = baseline.find((particle) => particle.type === "fireFlame")!;
+    const shiftedFlame = shifted.find((particle) => particle.type === "fireFlame")!;
+    const baselineSmoke = baseline.find((particle) => particle.type === "fireSmoke")!;
+    const shiftedSmoke = shifted.find((particle) => particle.type === "fireSmoke")!;
+
+    expect(shiftedFlame.y).toBe(baselineFlame.y);
+    expect(shiftedSmoke.y).toBeCloseTo(baselineSmoke.y + 36, 5);
+  });
+
+  it("drifts smoke only to the selected rightward wind direction", () => {
+    const particles = spawnFireAtHealth(1, 24);
+    const smoke = particles.filter((particle) => particle.type === "fireSmoke");
+
+    expect(smoke.length).toBeGreaterThan(0);
+    expect(smoke.every((particle) => particle.vx >= 0)).toBe(true);
   });
 });
 

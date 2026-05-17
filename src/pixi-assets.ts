@@ -1,4 +1,5 @@
 import { Assets, type Texture } from "pixi.js";
+import { BURJ_SMOKE_PARTICLE_ASSETS, type BurjSmokeParticleVariantId } from "./smoke-particle-assets";
 
 export const PIXI_PNG_ASSET_KEYS = {
   skyNebula: "skyNebula",
@@ -43,6 +44,8 @@ const PIXI_PNG_BUNDLES: Record<PixiPngBundleName, PixiPngAssetKey[]> = {
 
 const loadedAssets: PixiPngAssetMap = {};
 let bundlesRegistered = false;
+let smokeParticleBundleRegistered = false;
+let smokeParticleTextures: Partial<Record<BurjSmokeParticleVariantId, Texture>> = {};
 
 function bundleId(bundleName: PixiPngBundleName): string {
   return `dmc:${bundleName}:pngs`;
@@ -68,6 +71,24 @@ export function registerPixiPngAssetBundles(): void {
   bundlesRegistered = true;
 }
 
+function smokeParticleBundleAlias(id: BurjSmokeParticleVariantId): string {
+  return `dmc:gameplay:burjSmoke:${id}`;
+}
+
+export function registerPixiSmokeParticleBundle(): void {
+  if (smokeParticleBundleRegistered) return;
+
+  Assets.addBundle(
+    "dmc:gameplay:burj-smoke-particles",
+    BURJ_SMOKE_PARTICLE_ASSETS.map((asset) => ({
+      alias: smokeParticleBundleAlias(asset.id),
+      src: asset.src,
+    })),
+  );
+
+  smokeParticleBundleRegistered = true;
+}
+
 export async function loadPixiPngBundle(bundleName: PixiPngBundleName): Promise<PixiPngAssetMap> {
   registerPixiPngAssetBundles();
   const loaded = (await Assets.loadBundle(bundleId(bundleName))) as Record<string, Texture>;
@@ -88,6 +109,25 @@ export async function loadPixiPngBundles(bundleNames: PixiPngBundleName[]): Prom
   const bundles = await Promise.all(bundleNames.map((bundleName) => loadPixiPngBundle(bundleName)));
   for (const bundle of bundles) Object.assign(loaded, bundle);
   return loaded;
+}
+
+export async function loadPixiSmokeParticleTextures(): Promise<Partial<Record<BurjSmokeParticleVariantId, Texture>>> {
+  registerPixiSmokeParticleBundle();
+  const loaded = (await Assets.loadBundle("dmc:gameplay:burj-smoke-particles")) as Record<string, Texture>;
+  const textures: Partial<Record<BurjSmokeParticleVariantId, Texture>> = {};
+
+  for (const asset of BURJ_SMOKE_PARTICLE_ASSETS) {
+    const texture = loaded[smokeParticleBundleAlias(asset.id)];
+    if (!texture) continue;
+    textures[asset.id] = texture;
+  }
+
+  smokeParticleTextures = { ...smokeParticleTextures, ...textures };
+  return textures;
+}
+
+export function getPixiSmokeParticleTexture(id: BurjSmokeParticleVariantId): Texture | undefined {
+  return smokeParticleTextures[id];
 }
 
 export function getPixiPngAsset(key: PixiPngAssetKey): Texture | undefined {

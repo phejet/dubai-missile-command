@@ -93,3 +93,4 @@
 - When visual feedback says an effect is too subtle, treat the screenshot as the failing test. Check the default editor values and the visual hierarchy between competing layers; particle counts can be correct while the visible read is still wrong.
 - For fire visuals, bigger sprites are usually the lazy failure mode. Use smaller overlapping, irregular, rotated tongues with separate hot cores; a single large symmetric flame reads as clip art no matter how expensive the renderer is.
 - Damage art needs continuity around the source of an effect. If flames emerge from a tower that still looks pristine immediately around the emitter, the viewer reads it as pasted-on VFX instead of structural damage.
+- For environmental effects, direction controls should encode a coherent physical direction. If the user chooses wind to the right, particle drift should be rightward-only with magnitude variation, not a symmetric left/right jitter masquerading as weather.

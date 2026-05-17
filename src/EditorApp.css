@@ -71,6 +71,8 @@
 .editor-actions {
   display: flex;
   gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .editor-actions button {
@@ -264,4 +266,209 @@
 .editor-canvas-wrap .upgrade-graph-shell__body {
   min-height: 0;
   flex: 1;
+}
+
+.sprite-atlas-rail {
+  width: clamp(320px, 24vw, 420px);
+  min-width: 300px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #080c14;
+  border-right: 1px solid #1a2a44;
+  overflow: hidden;
+}
+
+.sprite-atlas-rail__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 12px 10px;
+  border-bottom: 1px solid #18243a;
+}
+
+.sprite-atlas-rail__eyebrow {
+  color: #667990;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sprite-atlas-rail__header h2 {
+  margin: 1px 0 0;
+  color: #e7f4ff;
+  font-size: 16px;
+  letter-spacing: 0;
+}
+
+.sprite-atlas-rail__meta {
+  min-width: 64px;
+  padding: 6px 8px;
+  border: 1px solid #253450;
+  background: #101827;
+  border-radius: 4px;
+  text-align: right;
+}
+
+.sprite-atlas-rail__meta strong {
+  display: block;
+  color: #00ffcc;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.sprite-atlas-rail__meta span {
+  color: #8190a4;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.sprite-atlas-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+  padding: 10px 10px 8px;
+  border-bottom: 1px solid #18243a;
+}
+
+.sprite-atlas-tab {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 5px 7px;
+  border: 1px solid #253450;
+  background: #111827;
+  color: #9aa8bb;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.sprite-atlas-tab:hover {
+  background: #172239;
+  color: #d4dde9;
+}
+
+.sprite-atlas-tab--active {
+  border-color: #5a2a44;
+  background: #221626;
+  color: #ff88a2;
+}
+
+.sprite-atlas-tab span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sprite-atlas-tab strong {
+  color: #00ffcc;
+  font-family: monospace;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.sprite-atlas-scale {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #18243a;
+}
+
+.sprite-atlas-scale button {
+  flex: 1;
+  padding: 5px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.sprite-atlas-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  align-content: start;
+  gap: 8px;
+  padding: 10px;
+}
+
+.sprite-card {
+  min-width: 0;
+  border: 1px solid #1d2b42;
+  background: #0f1624;
+  border-radius: 5px;
+  padding: 7px;
+}
+
+.sprite-card__preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 84px;
+  overflow: auto;
+  border: 1px solid #1b263a;
+  border-radius: 4px;
+  background-color: #080c14;
+  background-image:
+    linear-gradient(45deg, rgba(255, 255, 255, 0.045) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(255, 255, 255, 0.045) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, 0.045) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(255, 255, 255, 0.045) 75%);
+  background-position:
+    0 0,
+    0 8px,
+    8px -8px,
+    -8px 0;
+  background-size: 16px 16px;
+}
+
+.sprite-card__preview-frame {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sprite-card__preview canvas {
+  display: block;
+  image-rendering: pixelated;
+}
+
+.sprite-card__label {
+  margin-top: 7px;
+  color: #d4dde9;
+  font-size: 12px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.sprite-card__details {
+  margin-top: 3px;
+  color: #728198;
+  font-family: monospace;
+  font-size: 10px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1040px) {
+  .editor-root--atlas-open {
+    position: relative;
+  }
+
+  .editor-root--atlas-open .sprite-atlas-rail {
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: 20;
+    width: min(360px, calc(100vw - 56px));
+    min-width: 0;
+    box-shadow: 14px 0 30px rgba(0, 0, 0, 0.45);
+  }
 }
