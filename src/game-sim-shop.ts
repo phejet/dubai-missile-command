@@ -185,8 +185,13 @@ export function buildShopEntries(g: GameState): ShopEntry[] {
       locked: !owned && !!lockReason,
       disabled: owned || !!lockReason,
       statusText: owned ? "OWNED" : (lockReason ?? undefined),
-      level: familyNodes.filter((familyNode) => g.ownedUpgradeNodes.has(familyNode.id)).length,
-      maxLevel: familyNodes.length,
+      level:
+        node.family === "launcherKit"
+          ? owned
+            ? 1
+            : 0
+          : familyNodes.filter((familyNode) => g.ownedUpgradeNodes.has(familyNode.id)).length,
+      maxLevel: node.family === "launcherKit" ? 1 : familyNodes.length,
     });
     return entries;
   }, []);
