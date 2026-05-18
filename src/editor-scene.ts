@@ -309,6 +309,7 @@ export function createEditorScene(): GameState {
     burjHitFlashMax: 0,
     burjHitFlashX: CANVAS_W / 2,
     burjHitFlashY: GROUND_Y - 170,
+    burjInvulnTimer: 0,
     stars: Array.from({ length: 200 }, () => ({
       x: Math.random() * CANVAS_W,
       y: -CANVAS_H * 1.2 + Math.random() * CANVAS_H * 1.8,

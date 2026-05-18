@@ -278,6 +278,7 @@ let _burjDecalId = 0;
 let _burjDamageFxId = 0;
 let _buildingDestroyFxId = 0;
 let _empFxId = 0;
+const BURJ_INVULN_TICKS = 30;
 
 function addBurjImpactDamage(g: GameState, x: number, y: number, kind: BurjDamageKind) {
   const jitterX = rand(-3, 3);
@@ -315,8 +316,10 @@ function applyBurjHitDamage(
   onEvent?: ((type: string, data?: unknown) => void) | null,
 ): void {
   if (g._debugMode || !g.burjAlive) return;
+  if (g.burjInvulnTimer > 0) return;
   addBurjImpactDamage(g, x, y, kind);
   g.burjHealth--;
+  g.burjInvulnTimer = BURJ_INVULN_TICKS;
   if (onEvent) onEvent("sfx", { name: "burjHit" });
   if (g.burjHealth <= 0) {
     g.burjAlive = false;
@@ -335,6 +338,7 @@ function isBurjImpactTarget(targetX: number | undefined, targetY: number | undef
 
 function updateBurjDamageFx(g: GameState): void {
   if (g.burjHitFlashTimer > 0) g.burjHitFlashTimer--;
+  if (g.burjInvulnTimer > 0) g.burjInvulnTimer--;
 }
 
 function addBuildingDestroyFx(g: GameState, building: { x: number; w: number; h: number }) {
@@ -390,6 +394,7 @@ export function initGame(): GameState {
     burjHitFlashMax: 0,
     burjHitFlashX: BURJ_X,
     burjHitFlashY: GROUND_Y - BURJ_H * 0.45,
+    burjInvulnTimer: 0,
     stars: Array.from({ length: 120 }, () => ({
       x: rand(0, CANVAS_W),
       y: rand(0, CANVAS_H * 0.6),
@@ -1526,7 +1531,7 @@ export function updateAutoSystems(
           x: (hornetSite?.x ?? 206) + rand(-12, 12),
           y: (hornetSite?.y ?? GROUND_Y) - 20,
           targetRef: targets[i],
-          speed: rand(2.87, 4.31),
+          speed: rand(3.73, 5.6),
           trail: [],
           alive: true,
           blastRadius: blastR,

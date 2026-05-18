@@ -571,6 +571,7 @@ export interface GameState {
   burjHitFlashMax: number;
   burjHitFlashX: number;
   burjHitFlashY: number;
+  burjInvulnTimer: number;
 
   waveComplete: boolean;
   crosshairX: number;
