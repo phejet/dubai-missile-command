@@ -6,11 +6,19 @@ Two coupled changes to fix a mobile-first prediction problem and reduce
 late-wave screen saturation.
 
 **Change A — Geometry.** Remove the center launcher. Keep only left
-(x=60) and right (x=860). Firing rule becomes deterministic by tap
-x-coordinate: `tap.x < CANVAS_W/2` → left launcher; `tap.x >= 450` →
-right launcher. If the chosen side is reloading or destroyed, the shot
-is **lost** (no fallback). The tap location itself is the indicator —
-the only feedback channel that works on touch.
+(x=60) and right (x=860). **Firing rule stays "closest primed
+launcher"** — with two launchers symmetric across the canvas, this
+degenerates to "side under the tap" most of the time, which gives the
+predictable mental model we wanted, while preserving the existing
+fallback behavior when the natural side is reloading (the player asked
+for a shot, they get a shot — no dead-tap on mobile). The 3-launcher
+prediction problem was caused by the center launcher's off-axis x=560
+geometry, not by the closest-primed rule itself.
+
+**Burst cap: hardcoded floor of 3.** The natural
+`activeLauncherCount * multiplier` math would drop the base burst from
+3 → 2 with two launchers; we floor it at 3 (and 6 with Double Mag) so
+burst feel is preserved. Burst is a shared pool across both launchers.
 
 **Change B — Difficulty rebalance.** Flatten the late-wave quadratic
 budget so late waves stop relying on "throw a lot of stuff." Shift
@@ -183,69 +191,47 @@ Order matters: lift the tuple typing first so the rest type-checks.
 - `src/editor-scene.ts:27, 28, 369, 370` → length-2 values.
 - `src/game.ts:112-114` → HUD default `[0, 0]`.
 
-### Step 1.4 — `fireInterceptor` rule swap
-- `src/game-logic.ts:281-330`. Replace lines 288-299 (`bestIdx` loop)
-  with:
+### Step 1.4 — Burst-cap floor
+- `src/game-logic.ts:556-562`. `getLauncherBurstChargeCap` currently
+  returns `Math.ceil(activeLauncherCount * multiplier)`. With 2
+  launchers alive, base cap would drop to 2 (default multiplier=1) or
+  4 (Double Mag multiplier=2). We don't want that.
+- Change to:
   ```ts
-  const desiredIdx = targetX < CANVAS_W / 2 ? 0 : 1;
-  if (g.launcherHP[desiredIdx] <= 0) return false;
-  if (!ignoreLauncherReload && tick < g.launcherReloadUntilTick[desiredIdx]) return false;
-  const bestIdx = desiredIdx;
+  const naturalCap = Math.ceil(activeLauncherCount * multiplier);
+  const floor = hasDoubleMag(g) ? 6 : 3;
+  return Math.max(floor, naturalCap);
   ```
-- Preserves `fireInterceptor` returning `false` when the side is
-  unavailable; existing callers treat that as "shot lost" (e.g.
-  `game.ts:908` plays `SFX.emptyClick()`).
-- The `ignoreLauncherReload=true` path from `launchPlayerShot`
-  (`game.ts:907`) still bypasses the reload check — under the new rule
-  that means "if the side is *destroyed*, lost; otherwise burst-charge
-  governs cadence." Matches design: tactile, no throttling.
-- Bot/replay/headless call with `ignoreLauncherReload=false`, so they
-  see "shot lost on chosen side if still reloading" — also intended.
+  Or equivalently apply a different multiplier when launcher count
+  drops. The intent is: base burst stays at 3, Double Mag stays at 6,
+  regardless of how many launchers are alive.
+- The closest-primed rule at `fireInterceptor:288-299` stays as-is and
+  inherits the geometry change automatically (it now picks between 2
+  launchers instead of 3). No rule swap needed.
 
-### Step 1.5 — User-facing "shot lost" feedback
-Three options; recommend **A** for v1.
+### Step 1.5 — Bot-brain `pickLauncher`
+- `src/headless/bot-brain.ts:319-333`. **No change needed.** The
+  existing closest-distance loop continues to mirror the sim's
+  closest-primed rule. Both sides now select between 2 launchers
+  instead of 3 — the logic is identical.
 
-- **(A) Silent skip + soft "no-go" click.** Reuse `SFX.emptyClick()`
-  (already wired at `game.ts:908`). Smallest code, consistent with the
-  existing no-ammo case. **Recommended.**
-- **(B) Distinguish side-locked vs no-launchers.** New
-  `SFX.sideReloading()`. Needs richer failure code from `fireInterceptor`
-  or duplicate the check in `launchPlayerShot`.
-- **(C) Visual nudge on the dead-side launcher chassis.** Brief tint/shake
-  in pixi. More work; skip for v1.
-
-Muzzle flash: `pixi-render.ts:2692-2703` ties muzzleFlash to
-`launcherFireTick[index]`. When a shot is lost the tick doesn't update,
-so no flash plays. Zero extra work. Confirm during smoke.
-
-### Step 1.6 — Bot-brain `pickLauncher` alignment
-- `src/headless/bot-brain.ts:319-333`. Replace closest-distance loop
-  with deterministic side pick by `tx`:
-  ```ts
-  const desired = tx < CANVAS_W / 2 ? 0 : 1;
-  const idx = (g && g.launcherHP[desired] <= 0)
-    ? (g.launcherHP[1 - desired] > 0 ? 1 - desired : desired)
-    : desired;
-  ```
-  Rationale: when leading, the bot needs *some* origin to compute. If
-  the desired side is dead, fall back to the live launcher for lead
-  math even though the actual fire will be lost. The bot's higher-level
-  scheduler should skip the shot via `getLauncherReadiness`.
-- `CANVAS_W` already imported at line 1.
-
-### Step 1.7 — Tests in `game-logic.test.ts`
+### Step 1.6 — Tests in `game-logic.test.ts`
 - 34-47: length-2 tuple defaults.
-- 160-202: rewrite `pickTarget` cases referencing `LAUNCHERS[1]`/[2].
-- 204-272: rewrite `fireInterceptor` suite:
-  - "picks closest" → "picks left for tx < 450, right for tx >= 450".
-  - "skips destroyed launchers even if another has zero ammo" →
-    "returns false when chosen side is destroyed" (no fallback).
-  - "allows a short burst across ready launchers" — burst cap is now
-    2 (was 3) with default; adjust expectations.
-  - "skips launchers that are still reloading" → returns false when
-    chosen side is reloading.
+- 160-202: rewrite `pickTarget` cases referencing `LAUNCHERS[1]`/[2]
+  (the center entry no longer exists).
+- 204-272: `fireInterceptor` "closest primed" suite **mostly stays as
+  written** — the rule is unchanged, only the launcher count differs.
+  Specific touch-ups:
+  - The case at ~line 250 ("picks closer launcher when both ready"):
+    update expected coordinates from x=60/560/860 to x=60/860.
+  - "skips destroyed launchers even if another has zero ammo" — still
+    valid; verify expected fallback target with 2-launcher pool.
+  - "allows a short burst across ready launchers" — burst cap stays at
+    3 due to the floor in step 1.4; assertion math should *not* need
+    to change. Verify.
+  - "skips launchers that are still reloading" — still valid.
 
-### Step 1.8 — Other test files
+### Step 1.7 — Other test files
 - `src/game-sim.test.ts:852-870, 1505-1557` — length-2; recount EMP
   ring magic numbers (line 1514 expects 12, line 1526 expects 9 — both
   depend on alive-launcher count, recompute against
@@ -260,7 +246,7 @@ so no flash plays. Zero extra work. Confirm during smoke.
   center entry; replace `leadTarget`'s closest-launcher loop with the
   same deterministic side pick used by sim+bot.
 
-### Step 1.9 — Replay version bump
+### Step 1.8 — Replay version bump
 - `src/game.ts:763` — bump `version: 2` → `version: 3`.
 - `src/replay.ts` — early-log if `replayData.version < 3`; do not throw,
   so manual debug playback still works. Checkpoint hash mismatch will
@@ -312,16 +298,22 @@ so no flash plays. Zero extra work. Confirm during smoke.
 
 ## Phase 3 — Coupled rebalance
 
-### Step 3.1 — Launcher Kit / Armor Kit (decision point)
-- **Option A:** cheaper Armor Kit, keep base HP=1. Update node at
-  `src/game-sim-upgrades.ts:344-354`. Pro: no power-creep; Armor stays a
-  meaningful choice. Con: Armor effectively *required* mid-game.
-- **Option B (recommended):** base HP=2 default, Armor 2→3. Update
-  `getLauncherMaxHp` at `src/game-logic.ts:552-554`; initializer at
-  `src/game-sim.ts:378` to `[2, 2]`. Pairs symmetrically with Phase 2
-  (less threats, more passive durability). Without this, losing 1 of 2
-  is too punishing and the loss spirals.
-- Revisit `repairCost` at `game-sim-shop.ts:289` if going with B.
+### Step 3.1 — Launcher Kit / Armor Kit (decided: base HP=1)
+- **Decision:** ship with base HP=1, Armor Kit unchanged (1→2). Sharper
+  stakes, Armor stays meaningful from day one. Reasoning: HP 1→2 is an
+  easy live tuning bump if playtest shows runs are too brittle; the
+  reverse feels like a nerf.
+- No code changes required for base HP — the existing
+  `getLauncherMaxHp` at `src/game-logic.ts:552-554` and initializer at
+  `src/game-sim.ts:378` already produce `[1, 1]` once the tuple is
+  collapsed in Step 1.3.
+- Watch in playtest: if a launcher dies wave 3-4 in a typical bot run
+  and the run never recovers, bump base to 2 and shift Armor to 2→3.
+- **Repair-cost re-tune likely.** `repairCost(wave)` at
+  `src/game-sim-shop.ts:289-297` is currently tuned for "lose 1 of 3
+  launchers" frequency. With 2 launchers + HP=1, repair becomes a more
+  common shop choice. May need a small cost reduction; flag for
+  post-bot-benchmark tuning.
 
 ### Step 3.2 — `pickTarget` tuning
 - `src/game-logic.ts:261-279`. Knobs:
@@ -350,10 +342,8 @@ so no flash plays. Zero extra work. Confirm during smoke.
   These are seeds.
 
 ### Step 3.5 — Active-launcher count in burst-charge math
-- `src/game-logic.ts:556-562` — `getLauncherBurstChargeCap` already
-  scales with `activeLauncherCount`. With 2 alive: base cap 2 (was 3),
-  Double Mag 4 (was 6). Intentional; no code change. Flag for bot
-  retuning and Phase 4 smoke.
+- Resolved in Step 1.4. Burst cap is hardcoded to a floor of 3 (and 6
+  with Double Mag) so it doesn't sag with the launcher count drop.
 
 ---
 
@@ -372,21 +362,27 @@ so no flash plays. Zero extra work. Confirm during smoke.
 
 ### 4.2 New tests to add
 In `src/game-logic.test.ts`:
-- "tap left of center fires only left launcher": `fireInterceptor(g,
-  200, 300)` → expect interceptor at `LAUNCHERS[0].x`.
-- "tap right of center fires only right launcher": `fireInterceptor(g,
-  700, 300)` → expect interceptor at `LAUNCHERS[1].x`.
-- "tap exactly at center (x = CANVAS_W/2) fires right launcher":
-  documents `< vs >=` boundary.
-- "shot lost when chosen side is reloading": `launcherReloadUntilTick[0]
-  = 50`, call with `tick=10`, no `ignoreLauncherReload` → expect false,
-  no interceptor.
-- "shot lost when chosen side is destroyed (no fallback)": `launcherHP
-  = [0, 1]`, `fireInterceptor(g, 100, 300)` → expect false.
+- "tap on the left half fires from left launcher (closest)":
+  `fireInterceptor(g, 200, 300)` → expect interceptor at
+  `LAUNCHERS[0].x` (x=60).
+- "tap on the right half fires from right launcher (closest)":
+  `fireInterceptor(g, 700, 300)` → expect interceptor at
+  `LAUNCHERS[1].x` (x=860).
+- "tap near center falls through to whichever side is primed":
+  `launcherReloadUntilTick[0] = 50` (left reloading), tap at x=400
+  (closer to left), `tick=10` without `ignoreLauncherReload` → expect
+  fire from right (x=860) because left is busy. Documents the fallback
+  feature.
+- "burst cap remains 3 with two launchers": query
+  `getLauncherBurstChargeCap(g)` with `launcherHP=[1,1]` → expect 3
+  (regression test for the floor).
+- "burst cap is 6 with Double Mag and two launchers": same setup
+  with Double Mag node owned → expect 6.
 
 In `e2e/smoke.spec.ts`: click at x<450 → assert interceptor.x === 60;
 click at x>=450 → assert interceptor.x === 860 (after canvas-coord
-scaling).
+scaling). Note: this assumes both launchers are ready, which is the
+typical state at the moment of first click.
 
 ### 4.3 Headless sim plan
 - Before any code: `node src/headless/sim-runner.js 12345`. Save
@@ -436,11 +432,10 @@ scaling).
    and 1526 (`toBe(9)`) bake in 3-launcher arithmetic. Careful recount
    against `pushEmpRingBurst`, not blind decrement.
 
-5. **Boundary tap UX edge case.** `tap.x === 450` maps to right under
-   `< / >=`. On high-DPR sub-pixel taps near center may feel arbitrary.
-   Consider a 4-6px dead zone (e.g. `< 446` left, `>= 454` right,
-   in-between picks closest live) only if smoke surfaces it as a real
-   complaint. v1: keep clean `< / >=` rule.
+5. **Boundary tap UX edge case.** Resolved by retaining closest-primed
+   rule — there is no hard boundary; ties at x=450 are decided by the
+   first launcher in `LAUNCHERS` order, and reload state naturally
+   smooths the experience. No special handling required.
 
 6. **Manual-bot-replay-convergence spec drift.** Spec at line 16-19
    already had `x: 550` not 560 — pre-existing minor divergence.
@@ -463,14 +458,21 @@ scaling).
    visual feedback; reconsider only if smoke testing strongly suggests
    a one-time hint is needed.
 
-10. **Burst-charge cap drop hidden in active-launcher math.**
-    `getLauncherBurstChargeCap` returns `ceil(activeLauncherCount *
-    multiplier)`. Going 3 → 2: default opening burst drops 3 → 2 taps
-    before the limiter kicks in. Noticeable nerf on top of geometry.
-    **Decision point:** keep the natural 2-launcher math (accept burst
-    drop as part of the difficulty curve), or hardcode a minimum of 3.
-    v1 recommendation: keep natural math; verify wave 1 still feels
-    snappy.
+10. **Burst-charge cap drop hidden in active-launcher math.** Resolved
+    in Step 1.4: cap is floored at 3 (and 6 with Double Mag) so it
+    doesn't sag with the launcher count drop.
+
+11. **Repair-cost may need a small reduction.** `repairCost(wave)` at
+    `game-sim-shop.ts:289-297` was tuned for 1-of-3 loss frequency.
+    With 2 launchers + HP=1, launcher repairs become more common.
+    Watch bot/playtest data; reduce by ~15-25% if repair shop choice
+    starves the upgrade economy.
+
+12. **Base HP=1 sensitivity.** Starting at HP=1 is the sharper choice
+    (Armor Kit meaningful from day one). If playtest shows runs
+    routinely die wave 3-5 to a single early launcher loss, bump base
+    to 2 and shift Armor to 2→3 — a small `getLauncherMaxHp` change
+    plus initializer update. Document this as a live-tunable.
 
 ---
 
