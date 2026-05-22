@@ -3,8 +3,7 @@ export interface BufferedPlayerShot {
   y: number;
 }
 
-export interface PlayerFireLimiterState {
-  bufferedShot: BufferedPlayerShot | null;
+export interface FireChargeState {
   burstCharges: number;
   burstChargeCap: number;
   nextRechargeTick: number | null;
@@ -21,9 +20,8 @@ function getRechargeDelay(streak: number, baseTicks: number): number {
   return Math.max(1, Math.floor(baseTicks / 6));
 }
 
-export function createPlayerFireLimiterState(): PlayerFireLimiterState {
+export function createFireChargeState(): FireChargeState {
   return {
-    bufferedShot: null,
     burstCharges: 0,
     burstChargeCap: 0,
     nextRechargeTick: null,
@@ -31,28 +29,19 @@ export function createPlayerFireLimiterState(): PlayerFireLimiterState {
   };
 }
 
-export function resetPlayerFireLimiter(state: PlayerFireLimiterState): void {
-  state.bufferedShot = null;
+export function resetFireChargeState(state: FireChargeState): void {
   state.burstCharges = 0;
   state.burstChargeCap = 0;
   state.nextRechargeTick = null;
   state.regenStreak = 0;
 }
 
-export function bufferPlayerFire(state: PlayerFireLimiterState, shot: BufferedPlayerShot): void {
-  state.bufferedShot = shot;
-}
-
-export function getBufferedPlayerFire(state: PlayerFireLimiterState): BufferedPlayerShot | null {
-  return state.bufferedShot;
-}
-
-export function getPlayerBurstChargeCount(state: PlayerFireLimiterState): number {
+export function getFireChargeCount(state: FireChargeState): number {
   return state.burstCharges;
 }
 
-export function syncPlayerFireLimiter(
-  state: PlayerFireLimiterState,
+export function syncFireChargeState(
+  state: FireChargeState,
   tick: number,
   burstChargeCap: number,
   rechargeTicks: number,
@@ -100,7 +89,7 @@ export function syncPlayerFireLimiter(
   }
 }
 
-export function spendPlayerBurstCharge(state: PlayerFireLimiterState, tick: number, rechargeTicks: number): boolean {
+export function spendFireCharge(state: FireChargeState, tick: number, rechargeTicks: number): boolean {
   if (state.burstCharges <= 0) return false;
   state.burstCharges--;
   state.regenStreak = 0;
@@ -111,11 +100,4 @@ export function spendPlayerBurstCharge(state: PlayerFireLimiterState, tick: numb
     state.nextRechargeTick = null;
   }
   return true;
-}
-
-export function consumeBufferedPlayerFire(state: PlayerFireLimiterState): BufferedPlayerShot | null {
-  if (!state.bufferedShot) return null;
-  const shot = state.bufferedShot;
-  state.bufferedShot = null;
-  return shot;
 }

@@ -1,6 +1,7 @@
 // Creates a frozen mock game state for the graphics editor preview
 import { CANVAS_W, CANVAS_H, GROUND_Y, COL, createEmptyGameStats, createScenicBuildings } from "./game-logic.js";
 import { createEmptyUpgradeProgression } from "./game-sim-upgrades";
+import { createFireChargeState } from "./player-fire-limiter";
 import type { GameState } from "./types";
 
 export function createEditorScene(): GameState {
@@ -26,6 +27,7 @@ export function createEditorScene(): GameState {
     },
     ammo: [8, 11],
     launcherHP: [1, 1],
+    fireChargeState: createFireChargeState(),
     missiles: [
       {
         x: 300,
@@ -367,7 +369,6 @@ export function createEditorScene(): GameState {
     combo: 1,
     comboToast: null,
     launcherFireTick: [0, 0],
-    launcherReloadUntilTick: [0, 0],
     _replayTick: 100,
     commander: { style: "balanced", history: [] },
     schedule: [],

@@ -45,6 +45,7 @@ import {
 import { createCommander, generateWaveSchedule, advanceSpawnSchedule, isWaveFullySpawned } from "./wave-spawner.js";
 import { createEmptyUpgradeLevels, createEmptyUpgradeProgression } from "./game-sim-upgrades.js";
 import { buyUpgrade, closeShop, draftPick3 } from "./game-sim-shop.js";
+import { createFireChargeState } from "./player-fire-limiter.js";
 import type {
   GameState,
   Threat,
@@ -376,8 +377,8 @@ export function initGame(): GameState {
     stats: createEmptyGameStats(),
     ammo: [11, 11],
     launcherHP: [1, 1],
+    fireChargeState: createFireChargeState(),
     launcherFireTick: [0, 0],
-    launcherReloadUntilTick: [0, 0],
     missiles: [],
     drones: [],
     interceptors: [],

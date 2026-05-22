@@ -169,6 +169,17 @@ describe("createReplayRunner action application", () => {
     expect(rr.getState()!.stats.shotsFired).toBe(2);
     rr.cleanup();
   });
+
+  it("tolerates legacy fire actions with ignoreLauncherReload", () => {
+    const actions = [{ tick: 1, type: "fire", x: 450, y: 200, ignoreLauncherReload: true }] as ReplayAction[];
+    const rr = createReplayRunner({ seed: SEED, version: 3, actions });
+    rr.init();
+
+    expect(() => rr.step()).not.toThrow();
+    rr.step();
+    expect(rr.getState()!.stats.shotsFired).toBe(1);
+    rr.cleanup();
+  });
 });
 
 // ── Shop handling ──
@@ -459,7 +470,7 @@ describe("buildReplayCheckpoint", () => {
     expect(cp).toHaveProperty("burjHealth");
     expect(cp).toHaveProperty("ammo");
     expect(cp).toHaveProperty("launcherHP");
-    expect(cp).toHaveProperty("launcherReloadUntilTick");
+    expect(cp).toHaveProperty("fireChargeState");
     expect(cp).toHaveProperty("upgrades");
     expect(cp).toHaveProperty("stats");
     expect(cp).toHaveProperty("counts");

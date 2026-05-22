@@ -43,10 +43,10 @@ export function createReplayRunner(replayData: ReplayData, onEvent: EventCallbac
   }
 
   function init() {
-    if ((replayData.version ?? 1) < 3) {
+    if ((replayData.version ?? 1) < 4) {
       onEvent?.("replay_version_warning", {
         version: replayData.version ?? 1,
-        message: "Replay was recorded before the two-launcher side-locked firing model; checkpoint hashes may diverge.",
+        message: "Replay was recorded before the shared fire-pool model; checkpoint hashes may diverge.",
       });
     }
     const rng = mulberry32(seed);
@@ -114,7 +114,7 @@ export function createReplayRunner(replayData: ReplayData, onEvent: EventCallbac
       if (action.type === "fire") {
         g.crosshairX = action.x;
         g.crosshairY = action.y;
-        fireInterceptor(g, action.x, action.y, tick, !!action.ignoreLauncherReload);
+        fireInterceptor(g, action.x, action.y, tick);
       } else if (action.type === "emp") {
         fireEmp(g, onEvent);
       } else if (action.type === "f15") {

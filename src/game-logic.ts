@@ -11,6 +11,7 @@ import {
   type DestroyedTypeKey,
   type GameStats,
 } from "./types";
+import { getFireChargeCount, spendFireCharge, syncFireChargeState } from "./player-fire-limiter";
 
 export const CANVAS_W = 900;
 export const CANVAS_H = 1600;
@@ -277,18 +278,11 @@ export function pickTarget(g: GameState, fromX: number): { x: number; y: number 
   return all[pick];
 }
 
-export function fireInterceptor(
-  g: GameState,
-  targetX: number,
-  targetY: number,
-  tick = g._replayTick ?? 0,
-  ignoreLauncherReload = false,
-): boolean {
+export function fireInterceptor(g: GameState, targetX: number, targetY: number, tick = g._replayTick ?? 0): boolean {
   const selectedIdx = targetX < CANVAS_W / 2 ? 0 : 1;
   const fallbackIdx = selectedIdx === 0 ? 1 : 0;
   const bestIdx = g.launcherHP[selectedIdx] > 0 ? selectedIdx : g.launcherHP[fallbackIdx] > 0 ? fallbackIdx : -1;
   if (bestIdx === -1) return false;
-  if (!ignoreLauncherReload && tick < g.launcherReloadUntilTick[bestIdx]) return false;
   const l = getGameplayLauncherPosition(bestIdx);
   const targetAngle = Math.atan2(targetY - l.y, targetX - l.x);
   const launchAngle = -Math.PI / 2 + (targetAngle + Math.PI / 2) * 0.32;
@@ -298,10 +292,13 @@ export function fireInterceptor(
   const dy = targetY - l.y;
   const len = Math.sqrt(dx * dx + dy * dy);
   if (len < 1) return false;
+  syncFireChargeForTick(g, tick);
+  if (getFireChargeCount(g.fireChargeState) <= 0) return false;
+  if (!spendFireCharge(g.fireChargeState, tick, getLauncherReloadTicks(g))) return false;
   g.stats = normalizeGameStats(g.stats);
   g.stats.shotsFired++;
+  // Render-only: Pixi uses this for muzzle flash decay.
   g.launcherFireTick[bestIdx] = tick;
-  g.launcherReloadUntilTick[bestIdx] = tick + getLauncherReloadTicks(g);
   g.interceptors.push({
     x: l.x,
     y: l.y,
@@ -555,6 +552,20 @@ export function getLauncherBurstChargeCap(
   return Math.max(floor, naturalCap);
 }
 
+export function countAliveLaunchers(g: Pick<GameState, "launcherHP">): number {
+  let count = 0;
+  for (let i = 0; i < g.launcherHP.length; i++) {
+    if (g.launcherHP[i] > 0) count++;
+  }
+  return count;
+}
+
+export function syncFireChargeForTick(g: GameState, tick: number): void {
+  const activeLauncherCount = countAliveLaunchers(g);
+  const cap = getLauncherBurstChargeCap(g, activeLauncherCount);
+  syncFireChargeState(g.fireChargeState, tick, cap, getLauncherReloadTicks(g));
+}
+
 function getInterceptorVelocityMultiplier(g: Pick<GameState, "ownedUpgradeNodes">): number {
   return hasOwnedLauncherNode(g, LAUNCHER_HIGH_VELOCITY_NODE) ? LAUNCHER_HIGH_VELOCITY_MULTIPLIER : 1;
 }
@@ -571,8 +582,9 @@ export function getLauncherReadiness(
   for (let i = 0; i < LAUNCHERS.length; i++) {
     if (g.launcherHP[i] <= 0) continue;
     availableCount++;
-    if (tick >= g.launcherReloadUntilTick[i]) readyCount++;
   }
+  syncFireChargeForTick(g, tick);
+  readyCount = Math.min(availableCount, getFireChargeCount(g.fireChargeState));
   return { readyCount, availableCount };
 }
 

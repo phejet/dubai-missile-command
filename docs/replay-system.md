@@ -41,10 +41,11 @@ This means replays are sensitive to gameplay code drift.
 - optional `isHuman`
 - optional metadata such as `_buildId` and `_savedAt`
 
-Current recording version is `3`.
+Current recording version is `4`.
 
 Version notes:
 
+- `version: 4` records under the shared fire-pool model. `ignoreLauncherReload` on old fire actions is tolerated but ignored.
 - `version: 3` records under the two-launcher, side-locked firing model.
 - `version < 3` used the old three-launcher origin selection. Shape is still compatible, but fire actions do not encode the actual launcher origin, so old replays are best-effort and checkpoint hashes may diverge.
 

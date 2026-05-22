@@ -24,7 +24,9 @@ import {
   createEmptyGameStats,
   recordThreatDestroyed,
   getDestroyedByTypeDelta,
+  getLauncherReloadTicks,
 } from "./game-logic.js";
+import { createFireChargeState, getFireChargeCount } from "./player-fire-limiter.js";
 import type { GameState } from "./types.js";
 
 function makeGameState(overrides: Partial<GameState> = {}): GameState {
@@ -43,8 +45,8 @@ function makeGameState(overrides: Partial<GameState> = {}): GameState {
     stats: createEmptyGameStats(),
     shakeTimer: 0,
     shakeIntensity: 0,
+    fireChargeState: createFireChargeState(),
     launcherFireTick: [0, 0] as [number, number],
-    launcherReloadUntilTick: [0, 0] as [number, number],
     ...overrides,
   } as GameState;
 }
@@ -225,18 +227,18 @@ describe("fireInterceptor", () => {
     expect(g.interceptors[0].x).toBe(LAUNCHERS[1].x);
   });
 
-  it("increments shotsFired without consuming ammo", () => {
+  it("increments shotsFired, drains the shared pool, and does not consume ammo", () => {
     const g = makeGameState();
     fireInterceptor(g, 700, 300, 10);
     expect(g.ammo[1]).toBe(22);
     expect(g.stats.shotsFired).toBe(1);
-    expect(g.launcherReloadUntilTick[1]).toBe(40);
+    expect(getFireChargeCount(g.fireChargeState)).toBe(2);
   });
 
-  it("uses rapid reload for launcher timers", () => {
+  it("uses rapid reload for shared pool refill timing", () => {
     const g = makeGameState({ ownedUpgradeNodes: new Set([LAUNCHER_RAPID_RELOAD_NODE]) });
     fireInterceptor(g, 700, 300, 10);
-    expect(g.launcherReloadUntilTick[1]).toBe(28);
+    expect(g.fireChargeState.nextRechargeTick).toBe(10 + getLauncherReloadTicks(g));
   });
 
   it("uses high velocity interceptor stats", () => {
@@ -266,17 +268,35 @@ describe("fireInterceptor", () => {
     expect(g.stats.shotsFired).toBe(0);
   });
 
-  it("does not fall back to the opposite origin when the selected launcher is reloading", () => {
-    const g = makeGameState({ launcherReloadUntilTick: [20, 0] as [number, number] });
-    expect(fireInterceptor(g, 200, 300, 10)).toBe(false);
-    expect(g.interceptors).toHaveLength(0);
+  it("consecutive taps from the same side drain the shared pool", () => {
+    const g = makeGameState();
+    expect(fireInterceptor(g, 200, 300, 10)).toBe(true);
+    expect(fireInterceptor(g, 220, 320, 11)).toBe(true);
+    expect(fireInterceptor(g, 240, 340, 12)).toBe(true);
+    expect(fireInterceptor(g, 260, 360, 13)).toBe(false);
+    expect(g.interceptors).toHaveLength(3);
+    expect(g.interceptors.every((interceptor) => interceptor.x === LAUNCHERS[0].x)).toBe(true);
+    expect(getFireChargeCount(g.fireChargeState)).toBe(0);
   });
 
-  it("keeps side-locked origin for player-style reload bypass", () => {
-    const g = makeGameState({ launcherReloadUntilTick: [20, 0] as [number, number] });
-    expect(fireInterceptor(g, 200, 300, 10, true)).toBe(true);
-    expect(g.interceptors).toHaveLength(1);
+  it("tap left then right both fire if shared pool has charges", () => {
+    const g = makeGameState();
+    expect(fireInterceptor(g, 200, 300, 10)).toBe(true);
+    expect(fireInterceptor(g, 700, 300, 11)).toBe(true);
+    expect(g.interceptors).toHaveLength(2);
     expect(g.interceptors[0].x).toBe(LAUNCHERS[0].x);
+    expect(g.interceptors[1].x).toBe(LAUNCHERS[1].x);
+    expect(getFireChargeCount(g.fireChargeState)).toBe(1);
+  });
+
+  it("pool refills at reload cadence regardless of which side last fired", () => {
+    const g = makeGameState();
+    expect(fireInterceptor(g, 200, 300, 10)).toBe(true);
+    expect(fireInterceptor(g, 220, 300, 10)).toBe(true);
+    expect(fireInterceptor(g, 240, 300, 10)).toBe(true);
+    expect(fireInterceptor(g, 700, 300, 39)).toBe(false);
+    expect(fireInterceptor(g, 700, 300, 40)).toBe(true);
+    expect(g.interceptors[g.interceptors.length - 1].x).toBe(LAUNCHERS[1].x);
   });
 
   it("floors burst charge cap at the old three-shot feel with two launchers", () => {

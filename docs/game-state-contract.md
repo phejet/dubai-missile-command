@@ -26,16 +26,17 @@ These are the top-level values most systems care about.
 
 - `ammo`
 - `launcherHP`
+- `fireChargeState`
 - `launcherFireTick`
-- `launcherReloadUntilTick`
 - `crosshairX`
 - `crosshairY`
 
 Invariants:
 
-- these are always 3-element tuples
-- index `0..2` maps directly to `LAUNCHERS`
-- player burst capacity is controlled by the runtime fire limiter; Double Magazine doubles that burst pool rather than per-wave ammo
+- `ammo`, `launcherHP`, and `launcherFireTick` are always 2-element tuples
+- index `0..1` maps directly to `LAUNCHERS`
+- shared fire rate is controlled by `fireChargeState`; side selection chooses shot origin, not readiness
+- `launcherFireTick` is render-only muzzle-flash timing
 
 ## Active Combat Arrays
 

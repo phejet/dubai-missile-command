@@ -1,5 +1,7 @@
 // ── Core types for Dubai Missile Command ──
 
+import type { FireChargeState } from "./player-fire-limiter";
+
 export type RNG = () => number;
 
 // ── Game object shapes ──
@@ -533,8 +535,9 @@ export interface GameState {
 
   ammo: [number, number];
   launcherHP: [number, number];
+  fireChargeState: FireChargeState;
+  // Render-only muzzle flash timestamps. Gameplay fire rate lives in fireChargeState.
   launcherFireTick: [number, number];
-  launcherReloadUntilTick: [number, number];
 
   missiles: Missile[];
   drones: Drone[];
@@ -639,6 +642,7 @@ export interface GameState {
     x?: number;
     y?: number;
     bought?: string[];
+    /** Deprecated replay compatibility field; ignored by the current fire model. */
     ignoreLauncherReload?: boolean;
   }>;
   _replayCheckpoints?: ReplayCheckpoint[];
@@ -673,6 +677,7 @@ export interface FireAction {
   tick: number;
   x: number;
   y: number;
+  /** Deprecated replay compatibility field; ignored by the current fire model. */
   ignoreLauncherReload?: boolean;
 }
 
@@ -759,7 +764,7 @@ export interface ReplayCheckpoint {
   burjHealth: number;
   ammo: number[];
   launcherHP: number[];
-  launcherReloadUntilTick: number[];
+  fireChargeState: FireChargeState;
   upgrades: Upgrades;
   stats: GameStats;
   counts: Record<string, number>;

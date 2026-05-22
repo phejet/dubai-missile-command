@@ -5,8 +5,10 @@ import {
   getLauncherMaxHp,
   getRng,
   normalizeGameStats,
+  syncFireChargeForTick,
 } from "./game-logic";
 import { generateWaveSchedule } from "./wave-spawner";
+import { resetFireChargeState } from "./player-fire-limiter";
 import {
   computeUpgradeLevelsFromNodes,
   createEmptyUpgradeLevels,
@@ -292,7 +294,7 @@ export function repairLauncher(g: GameState, index: number): boolean {
   g.score -= cost;
   const baseHP = getLauncherMaxHp(g);
   g.launcherHP[index] = baseHP;
-  g.launcherReloadUntilTick[index] = 0;
+  syncFireChargeForTick(g, g._replayTick ?? 0);
   return true;
 }
 
@@ -329,7 +331,8 @@ export function prepareWaveStart(g: GameState): void {
     number,
     number,
   ];
-  g.launcherReloadUntilTick = [0, 0];
+  resetFireChargeState(g.fireChargeState);
+  syncFireChargeForTick(g, g._replayTick ?? 0);
   g._bonusScreenStarted = false;
   g._bonusScreenDone = false;
   g.stats = normalizeGameStats(g.stats);
