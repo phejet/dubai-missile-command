@@ -66,18 +66,30 @@ See Phase 4.
 
 ### 0.5 Pool ownership decision
 
-The `playerFireState` struct currently lives on the `Game` class
-(`src/game.ts`, not `GameState`). It is **not serialized with replay
-checkpoints**.
+The `playerFireState` struct (`src/player-fire-limiter.ts:7`) currently
+lives on the `Game` class and is **not serialized with replay
+checkpoints**. It carries two distinct concerns on one struct:
 
-We need it on `GameState` so:
+- **Charge / refill state** — `burstCharges`, `burstChargeCap`,
+  `nextRechargeTick`, `regenStreak`. Deterministic sim state.
+- **`bufferedShot`** — input UX state. The "queue a tap until the pool
+  refills" feature only exists during live play; recorded replays log
+  successful fires only.
 
-1. Replay determinism is automatic (snapshot includes pool state).
-2. The bot and sim-runner share it without a parallel implementation.
-3. Wave resets / save-load handle it via existing `GameState` lifecycle.
+Move only the charge half onto `GameState`. The buffered shot stays
+owned by `Game` / input code (or is explicitly excluded from
+checkpoints + hashes). Moving the whole struct as-is would let an
+in-flight buffered tap during recording diverge from replay state and
+poison checkpoint hashes — a UI convenience leaking into determinism is
+exactly the bug shape this plan exists to avoid.
 
-Rename: `playerFireState` → `fireChargeState` (drops the "player"
-adjective now that bot and player share it).
+Split the type accordingly:
+
+- `FireChargeState` on `GameState` — the four charge fields above.
+- `BufferedPlayerShot` — stays on `Game`, excluded from checkpoints.
+
+Rename the charge-only state to `fireChargeState` (the "player"
+adjective no longer fits now that bot and player share the rate-limit).
 
 ### 0.6 `getLauncherBurstChargeCap` is already correct
 
@@ -97,14 +109,24 @@ adjective now that bot and player share it).
 
 ## Phase 1 — Move pool onto `GameState`
 
-### Step 1.1 — Add `fireChargeState` to `GameState`
+### Step 1.1 — Split the limiter type, then add `fireChargeState`
 
-- `src/types.ts:531+` — add `fireChargeState: PlayerFireLimiterState`
-  field. Import the type from `src/player-fire-limiter.ts`.
-- `src/player-fire-limiter.ts` — exports stay; consider renaming the
-  state type (`PlayerFireLimiterState` → `FireChargeState`) and the
-  helpers (`syncPlayerFireLimiter` → `syncFireChargeState`, etc.).
-  Mechanical rename; do in one pass.
+Order matters: split before renaming. A pure rename without the split
+quietly drags input buffering into sim state.
+
+1. In `src/player-fire-limiter.ts`, split `PlayerFireLimiterState`:
+   - `FireChargeState` — `burstCharges`, `burstChargeCap`,
+     `nextRechargeTick`, `regenStreak`. Sim state.
+   - `BufferedPlayerShot | null` — separate field/type owned by
+     `Game`. Not on `GameState`.
+2. Rename charge-only helpers to match: `syncPlayerFireLimiter` →
+   `syncFireChargeState`, `getPlayerBurstChargeCount` →
+   `getFireChargeCount`, `spendPlayerBurstCharge` → `spendFireCharge`.
+   `bufferPlayerFire` / `getBufferedPlayerFire` /
+   `consumeBufferedPlayerFire` stay (input-side), but operate on the
+   `Game`-owned buffer field instead of the old combined struct.
+3. `src/types.ts:531+` — add `fireChargeState: FireChargeState` to
+   `GameState`. Import from `src/player-fire-limiter.ts`.
 
 ### Step 1.2 — Initialize & reset
 
@@ -115,18 +137,23 @@ adjective now that bot and player share it).
   every wave starts with a full charge bar.
 - `src/editor-scene.ts:366-368` — fake state needs the field too.
 
-### Step 1.3 — Drop the field from `Game`
+### Step 1.3 — Re-wire `Game`
 
-- `src/game.ts` — delete `this.playerFireState`.
+- `src/game.ts` — delete `this.playerFireState` (the combined struct).
+  Replace with a small `private bufferedPlayerShot: BufferedPlayerShot
+| null = null` field for queued taps.
 - `requestPlayerFire`, `releaseBufferedPlayerFire`, `handlePointerDown`:
-  swap `this.playerFireState` → `game.fireChargeState`. All other call
-  shapes unchanged.
+  charge sync/spend goes through `game.fireChargeState`; buffered-shot
+  storage goes through `this.bufferedPlayerShot`.
 
-### Step 1.4 — Replay snapshot includes pool
+### Step 1.4 — Replay snapshot includes the pool
 
-- `src/replay-debug.ts:77-79, 111-113` — checkpoint serializer.
-  Add `fireChargeState: { ...g.fireChargeState }`. Length-agnostic; no
-  hash assumption to update beyond version bookkeeping.
+- `src/replay-debug.ts:77-79, 111-113` — checkpoint serializer adds
+  `fireChargeState: { ...g.fireChargeState }`. Safe to include only
+  _after_ Phase 1.1 split — otherwise the snapshot leaks `bufferedShot`
+  and poisons checkpoint hashes.
+- Length-agnostic; no hash math change beyond version bookkeeping
+  (see 6.5).
 
 ---
 
@@ -142,6 +169,12 @@ export function fireInterceptor(g: GameState, targetX: number, targetY: number, 
   const fallbackIdx = selectedIdx === 0 ? 1 : 0;
   const bestIdx = g.launcherHP[selectedIdx] > 0 ? selectedIdx : g.launcherHP[fallbackIdx] > 0 ? fallbackIdx : -1;
   if (bestIdx === -1) return false;
+
+  const l = getGameplayLauncherPosition(bestIdx);
+  const dx = targetX - l.x;
+  const dy = targetY - l.y;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 1) return false;
 
   const activeLauncherCount = countAliveLaunchers(g);
   const cap = getLauncherBurstChargeCap(g, activeLauncherCount);
@@ -162,10 +195,12 @@ Notes:
 
 - The `ignoreLauncherReload` parameter is **removed**. No caller needs
   to bypass anything because there's no per-launcher gate left.
-- `countAliveLaunchers(g)` — small helper, or inline. Already exists in
-  `Game.getActiveLauncherCount`; lift to `game-logic.ts`.
-- Order matters: select side **first**, then drain pool. If the side
-  is dead AND the fallback is dead, return early without spending.
+- `countAliveLaunchers(g)` — small helper, or inline. Already exists
+  in `Game.getActiveLauncherCount`; lift to `game-logic.ts`.
+- Order is load-bearing: pick side → validate geometry (`len < 1`
+  rejects clicks exactly on the launcher) → only then drain the pool.
+  Reversing pool-spend and geometry would let a degenerate click pay
+  a charge without producing an interceptor.
 
 ### Step 2.2 — Caller cleanup
 
@@ -179,6 +214,12 @@ Notes:
 - `src/replay.ts:117` — drop `!!action.ignoreLauncherReload`.
 - `src/headless/sim-runner.ts:178`, `src/headless/shot-audit.ts:143` —
   signature shrinks; no logic change.
+- Add a non-firing sync helper `syncFireChargeForTick(g, tick)` that
+  advances refill state without attempting a shot. Call it from
+  `fireInterceptor`, from buffered-fire release, and from HUD snapshot
+  construction. Without this helper the displayed charge bar sits
+  stale between taps — time would only advance when someone clicked,
+  which is the kind of HUD bug players notice and engineers don't.
 
 ### Step 2.3 — Render coupling on `launcherFireTick`
 
@@ -229,18 +270,23 @@ nothing actually reads it, in which case go with option (2)/(3).
 
 Recommendation:
 
-- **Drop** `cooldownNormal`, `cooldownLowAmmo`, `cooldownHighThreat`,
-  `fireRecoveryTicks`. The shared pool naturally throttles to
-  `cap / reloadTicks` shots/tick.
+- **Keep** a conservative global `cooldownNormal` at first. The shared pool is
+  now the hard rate-limit, but the bot cooldown also feeds target reservation
+  windows and anti-waste behavior. Removing it in the same change makes the
+  retune harder to diagnose.
+- **Trim or remove** `cooldownLowAmmo`, `cooldownHighThreat`, and
+  `fireRecoveryTicks` only after the canary and small training batch show the
+  bot is not over-firing.
 - **Keep** a single cluster-suppression cooldown: "don't tap within
   `clusterRadius` of a previous tap inside the last N ticks." Rename
   to `clusterCooldownTicks` (~12-18 ticks) to make intent clear.
-- Pool size & refill cadence become the primary tuning surface; cluster
-  cooldown is a secondary "don't waste shots" knob.
+- Pool size & refill cadence become the primary gameplay tuning surface;
+  cooldown remains a bot-behavior knob until proven redundant.
 
-Alternative (more conservative): keep `cooldownNormal` as a global
-between-shots tick floor. Less elegant but avoids over-firing while we
-learn the new behavior. Trim the threat-tier cooldowns either way.
+Cleanup target for a later diff: once retraining proves reservations
+plus cluster suppression are enough, remove `cooldownNormal`. One axis
+at a time — the bot is hard enough to debug without changing six knobs
+in the same pass.
 
 ### Step 4.2 — Sanity-run + canary update
 
@@ -273,6 +319,8 @@ learn the new behavior. Trim the threat-tier cooldowns either way.
 - Add `fireChargeCount` / `fireChargeCap` if the HUD needs to render the
   pool.
 - `src/game.ts:buildHudSnapshot` — update accordingly.
+- Before building the snapshot, call the shared non-firing sync helper so
+  passive recharge is visible even when the player is not actively tapping.
 
 ---
 
@@ -325,14 +373,11 @@ In `src/replay.test.ts`:
 ### 6.5 Replay version
 
 - Already on v3. Adding `fireChargeState` to checkpoints **bumps shape**
-  but not the firing model. Options:
-  - Bump to v4 to disambiguate "two-launcher (v3)" from
-    "two-launcher + shared pool (v4)". Cleanest.
-  - Stay on v3, gate `fireChargeState` checkpoint read on its presence
-    in the snapshot. Cheaper if no v3 replays are committed yet.
-- Recommendation: **bump to v4** if any v3 replay exists in
-  `perf-results/` or fixtures; otherwise stay on v3 and treat the change
-  as part of the v3 contract.
+  and changes the firing model.
+- Recommendation: **bump to v4 unconditionally**. This repo already has v3
+  replay fixtures under `public/replays/`, and the writer currently emits v3.
+  Do not leave this as a maybe. Maybe is where compatibility bugs go to breed.
+- Re-record or migrate committed perf replay fixtures after the implementation.
 
 ---
 
