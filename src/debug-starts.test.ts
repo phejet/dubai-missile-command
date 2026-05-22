@@ -32,7 +32,6 @@ describe("debug start presets", () => {
       expect(g.ammo).toEqual([
         getAmmoCapacity(preset.wave, g.upgrades.launcherKit),
         getAmmoCapacity(preset.wave, g.upgrades.launcherKit),
-        getAmmoCapacity(preset.wave, g.upgrades.launcherKit),
       ]);
       for (const [key, level] of Object.entries(preset.upgrades)) {
         expect(g.upgrades[key as keyof typeof g.upgrades]).toBeGreaterThanOrEqual(level ?? 0);

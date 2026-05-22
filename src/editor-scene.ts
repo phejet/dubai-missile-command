@@ -24,8 +24,8 @@ export function createEditorScene(): GameState {
         shahed136: 5,
       },
     },
-    ammo: [8, 11, 5],
-    launcherHP: [1, 1, 1],
+    ammo: [8, 11],
+    launcherHP: [1, 1],
     missiles: [
       {
         x: 300,
@@ -366,8 +366,8 @@ export function createEditorScene(): GameState {
     multiKillToast: null,
     combo: 1,
     comboToast: null,
-    launcherFireTick: [0, 0, 0],
-    launcherReloadUntilTick: [0, 0, 0],
+    launcherFireTick: [0, 0],
+    launcherReloadUntilTick: [0, 0],
     _replayTick: 100,
     commander: { style: "balanced", history: [] },
     schedule: [],

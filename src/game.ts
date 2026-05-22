@@ -109,9 +109,9 @@ function buildHudSnapshot(game: GameState | null): HudSnapshot {
       fps: 0,
       rafFps: 0,
       rafFrameMs: 0,
-      ammo: [0, 0, 0],
+      ammo: [0, 0],
       ammoMax: 0,
-      launcherHP: [0, 0, 0],
+      launcherHP: [0, 0],
       activeFamily: null,
       activeLabel: "EMP",
       activeReady: false,
@@ -760,7 +760,7 @@ export class Game {
           tickOverride: (game._replayTick ?? 0) + 1,
         });
         const replay: ReplayData = {
-          version: 2,
+          version: 3,
           seed: game._gameSeed ?? 0,
           actions: game._actionLog as ReplayData["actions"],
           checkpoints: game._replayCheckpoints || [],

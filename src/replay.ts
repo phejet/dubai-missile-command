@@ -43,6 +43,12 @@ export function createReplayRunner(replayData: ReplayData, onEvent: EventCallbac
   }
 
   function init() {
+    if ((replayData.version ?? 1) < 3) {
+      onEvent?.("replay_version_warning", {
+        version: replayData.version ?? 1,
+        message: "Replay was recorded before the two-launcher side-locked firing model; checkpoint hashes may diverge.",
+      });
+    }
     const rng = mulberry32(seed);
     setRng(rng);
     g = initGame();

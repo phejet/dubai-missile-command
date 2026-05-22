@@ -328,9 +328,8 @@ export function prepareWaveStart(g: GameState): void {
   g.ammo = g.ammo.map((_, i) => (g.launcherHP[i] > 0 ? getAmmoCapacity(g.wave, g.upgrades.launcherKit) : 0)) as [
     number,
     number,
-    number,
   ];
-  g.launcherReloadUntilTick = [0, 0, 0];
+  g.launcherReloadUntilTick = [0, 0];
   g._bonusScreenStarted = false;
   g._bonusScreenDone = false;
   g.stats = normalizeGameStats(g.stats);

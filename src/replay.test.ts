@@ -160,7 +160,7 @@ describe("createReplayRunner action application", () => {
   it("multiple fire actions at same tick all execute", () => {
     const actions = [
       { tick: 3, type: "fire", x: 200, y: 200 },
-      { tick: 3, type: "fire", x: 400, y: 200 },
+      { tick: 3, type: "fire", x: 700, y: 200 },
     ] as ReplayAction[];
     const rr = createReplayRunner({ seed: SEED, actions });
     rr.init();

@@ -2,12 +2,12 @@
   "defaultPreset": "perfect",
   "targeting": {
     "minThreatY": 35,
-    "maxInFlightBase": 6,
-    "maxInFlightHigh": 10,
+    "maxInFlightBase": 4,
+    "maxInFlightHigh": 7,
     "highThreatThreshold": 3,
     "cooldownLowAmmo": 60,
     "cooldownHighThreat": 10,
-    "cooldownNormal": 18,
+    "cooldownNormal": 24,
     "fireRecoveryTicks": 8,
     "lowAmmoThreshold": 10,
     "clusterRadius": 50,
@@ -23,9 +23,9 @@
   "f15": { "minImminentThreats": 3, "impactY": 700, "impactRadius": 400 },
   "mirv": { "cooldownMultiplier": 0.6 },
   "upgradePriority": [
+    "launcherKit",
     "wildHornets",
     "ironBeam",
-    "launcherKit",
     "roadrunner",
     "phalanx",
     "flare",
@@ -36,10 +36,30 @@
   ],
   "presets": {
     "perfect": {
-      "upgradePriority": ["patriot", "wildHornets", "launcherKit", "ironBeam", "roadrunner", "phalanx", "flare", "f15", "emp"]
+      "upgradePriority": [
+        "patriot",
+        "launcherKit",
+        "wildHornets",
+        "ironBeam",
+        "roadrunner",
+        "phalanx",
+        "flare",
+        "f15",
+        "emp"
+      ]
     },
     "good": {
-      "upgradePriority": ["wildHornets", "ironBeam", "roadrunner", "launcherKit", "phalanx", "flare", "patriot", "f15", "emp"],
+      "upgradePriority": [
+        "wildHornets",
+        "launcherKit",
+        "ironBeam",
+        "roadrunner",
+        "phalanx",
+        "flare",
+        "patriot",
+        "f15",
+        "emp"
+      ],
       "humanization": {
         "enabled": true,
         "startWave": 7,
@@ -80,7 +100,17 @@
       }
     },
     "average": {
-      "upgradePriority": ["patriot", "emp", "launcherKit", "wildHornets", "phalanx", "ironBeam", "flare", "roadrunner", "f15"],
+      "upgradePriority": [
+        "patriot",
+        "launcherKit",
+        "emp",
+        "wildHornets",
+        "phalanx",
+        "ironBeam",
+        "flare",
+        "roadrunner",
+        "f15"
+      ],
       "humanization": {
         "enabled": true,
         "startWave": 4,

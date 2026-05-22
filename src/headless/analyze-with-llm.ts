@@ -103,7 +103,7 @@ console.log("\n--- Sending to LLM for analysis ---\n");
 const systemPrompt = `You are a game balance analyst for "Dubai Missile Command", a canvas-based missile defense game inspired by Atari's Missile Command.
 
 The game has:
-- 3 launchers that fire player-aimed interceptors
+- 2 side-locked launchers that fire player-aimed interceptors
 - Waves of missiles, drones (Shahed-136 slow, Shahed-238 fast jets), and MIRVs (wave 5+)
 - Auto-defense upgrades: Wild Hornets (FPV drones), Roadrunner (guided interceptors), Decoy Flares, Iron Beam (laser), Phalanx CIWS, Patriot SAM, EMP Shockwave
 - Launcher Kit upgrade (+ammo), Burj Repair Kit

@@ -176,7 +176,6 @@ export function burjHalfW(py: number): number {
 
 export const LAUNCHERS: { x: number; y: number }[] = [
   { x: 60, y: GROUND_Y - 5 },
-  { x: 560, y: GROUND_Y - 5 },
   { x: 860, y: GROUND_Y - 5 },
 ];
 
@@ -285,19 +284,11 @@ export function fireInterceptor(
   tick = g._replayTick ?? 0,
   ignoreLauncherReload = false,
 ): boolean {
-  let bestIdx = -1,
-    bestDist = Infinity;
-  for (let i = 0; i < LAUNCHERS.length; i++) {
-    if (g.launcherHP[i] <= 0) continue;
-    if (!ignoreLauncherReload && tick < g.launcherReloadUntilTick[i]) continue;
-    const launcher = getGameplayLauncherPosition(i);
-    const d = dist(launcher.x, launcher.y, targetX, targetY);
-    if (d < bestDist) {
-      bestDist = d;
-      bestIdx = i;
-    }
-  }
+  const selectedIdx = targetX < CANVAS_W / 2 ? 0 : 1;
+  const fallbackIdx = selectedIdx === 0 ? 1 : 0;
+  const bestIdx = g.launcherHP[selectedIdx] > 0 ? selectedIdx : g.launcherHP[fallbackIdx] > 0 ? fallbackIdx : -1;
   if (bestIdx === -1) return false;
+  if (!ignoreLauncherReload && tick < g.launcherReloadUntilTick[bestIdx]) return false;
   const l = getGameplayLauncherPosition(bestIdx);
   const targetAngle = Math.atan2(targetY - l.y, targetX - l.x);
   const launchAngle = -Math.PI / 2 + (targetAngle + Math.PI / 2) * 0.32;
@@ -557,8 +548,11 @@ export function getLauncherBurstChargeCap(
   g: Pick<GameState, "ownedUpgradeNodes">,
   activeLauncherCount: number,
 ): number {
+  if (activeLauncherCount <= 0) return 0;
   const multiplier = hasOwnedLauncherNode(g, LAUNCHER_DOUBLE_MAGAZINE_NODE) ? 2 : 1;
-  return Math.ceil(Math.max(0, activeLauncherCount) * multiplier);
+  const naturalCap = Math.ceil(activeLauncherCount * multiplier);
+  const floor = hasOwnedLauncherNode(g, LAUNCHER_DOUBLE_MAGAZINE_NODE) ? 6 : 3;
+  return Math.max(floor, naturalCap);
 }
 
 function getInterceptorVelocityMultiplier(g: Pick<GameState, "ownedUpgradeNodes">): number {

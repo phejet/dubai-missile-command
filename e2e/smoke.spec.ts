@@ -71,7 +71,7 @@ test.describe("Smoke tests", () => {
     expect(state.score).toBe(0);
     expect(state.wave).toBe(1);
     expect(state.burjAlive).toBe(true);
-    expect(state.launcherCount).toBe(3);
+    expect(state.launcherCount).toBe(2);
     expect(state.hasAmmo).toBe(true);
     expect(state.hasMissileArray).toBe(true);
     expect(state.hasDroneArray).toBe(true);
@@ -82,7 +82,7 @@ test.describe("Smoke tests", () => {
     await startGameFromScreen(page);
 
     // Click above ground to fire interceptor
-    await clickCanvasAt(page, 0.5, 0.3);
+    await clickCanvasAt(page, 0.85, 0.3);
 
     // Wait briefly for the interceptor to be created
     await page.waitForFunction(
@@ -95,9 +95,10 @@ test.describe("Smoke tests", () => {
 
     const stats = await page.evaluate(() => {
       const g = window.__gameRef!.current!;
-      return { shotsFired: g.stats.shotsFired };
+      return { shotsFired: g.stats.shotsFired, interceptorX: g.interceptors[0]?.x };
     });
     expect(stats.shotsFired).toBeGreaterThanOrEqual(1);
+    expect(stats.interceptorX).toBeGreaterThan(450);
   });
 
   test("clicking canvas does not fire while sim is in shop state", async ({ page }) => {

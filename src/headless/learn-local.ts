@@ -144,7 +144,7 @@ async function queryQwen(
   const prompt = `You are an expert game AI tuner for "Dubai Missile Command", a missile defense game.
 
 ## Game summary
-- 3 launchers fire interceptors; enemies: ballistic missiles, Shahed-136 drones, Shahed-238 jet drones, MIRVs (wave 5+)
+- 2 side-locked launchers fire interceptors; enemies: ballistic missiles, Shahed-136 drones, Shahed-238 jet drones, MIRVs (wave 5+)
 - Auto-defense upgrades bought in priority order each wave: patriot, wildHornets, launcherKit, ironBeam, roadrunner, phalanx, flare, emp
 - Bot preset being optimized: "${PRESET}"
 

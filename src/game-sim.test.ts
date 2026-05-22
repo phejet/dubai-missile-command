@@ -853,16 +853,15 @@ describe("Decoy flares", () => {
     const { sim, g } = makeCleanGame(5);
     g.upgrades.flare = 2;
     g.flareReadyThisWave = true;
-    g.ammo = [0, 1, 2];
-    g.launcherHP = [1, 0, 1];
+    g.ammo = [0, 2];
+    g.launcherHP = [1, 1];
 
     expect(fireFlareSalvo(g)).toBe(true);
 
     expect(g.flares).toHaveLength(6);
     expect(g.flareSalvoQueue).toHaveLength(2);
     expect(g.ammo[0]).toBeGreaterThan(0);
-    expect(g.ammo[1]).toBe(1);
-    expect(g.ammo[2]).toBeGreaterThan(2);
+    expect(g.ammo[1]).toBeGreaterThan(2);
 
     sim.update(g, 60);
     expect(g.flareSalvoQueue).toHaveLength(1);
@@ -1509,10 +1508,10 @@ describe("EMP active upgrade", () => {
     buyUpgrade(g, "emp");
     buyUpgrade(g, "empCapacitors");
     expect(g.upgrades.emp).toBe(2);
-    g.launcherHP = [1, 1, 1];
+    g.launcherHP = [1, 1];
     fireEmp(g, null);
-    expect(g.empRings.length).toBe(12);
-    expect(g.empLauncherFlares.length).toBe(3);
+    expect(g.empRings.length).toBe(9);
+    expect(g.empLauncherFlares.length).toBe(2);
   });
 
   it("rank 2 skips dead-launcher anchors", () => {
@@ -1521,10 +1520,10 @@ describe("EMP active upgrade", () => {
     g.score = 20000;
     buyUpgrade(g, "emp");
     buyUpgrade(g, "empCapacitors");
-    g.launcherHP = [1, 0, 1];
+    g.launcherHP = [1, 0];
     fireEmp(g, null);
-    expect(g.empRings.length).toBe(9);
-    expect(g.empLauncherFlares.length).toBe(2);
+    expect(g.empRings.length).toBe(6);
+    expect(g.empLauncherFlares.length).toBe(1);
   });
 
   it("rank 2 launcher rings are smaller than the Burj ring", () => {
@@ -1533,7 +1532,7 @@ describe("EMP active upgrade", () => {
     g.score = 20000;
     buyUpgrade(g, "emp");
     buyUpgrade(g, "empCapacitors");
-    g.launcherHP = [1, 1, 1];
+    g.launcherHP = [1, 1];
     fireEmp(g, null);
     const burjRing = g.empRings[0];
     const launcherRings = g.empRings.filter((ring) => ring.kind === "launcher");
@@ -1548,12 +1547,11 @@ describe("EMP active upgrade", () => {
     g.score = 20000;
     buyUpgrade(g, "emp");
     buyUpgrade(g, "empCapacitors");
-    g.launcherHP = [1, 0, 1];
-    g.ammo = [0, 0, 0];
+    g.launcherHP = [1, 0];
+    g.ammo = [0, 0];
     fireEmp(g, null);
     expect(g.ammo[0]).toBeGreaterThan(0);
     expect(g.ammo[1]).toBe(0);
-    expect(g.ammo[2]).toBeGreaterThan(0);
   });
 
   it("EMP arms punch-frame feedback state", () => {

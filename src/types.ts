@@ -531,10 +531,10 @@ export interface GameState {
   wave: number;
   stats: GameStats;
 
-  ammo: [number, number, number];
-  launcherHP: [number, number, number];
-  launcherFireTick: [number, number, number];
-  launcherReloadUntilTick: [number, number, number];
+  ammo: [number, number];
+  launcherHP: [number, number];
+  launcherFireTick: [number, number];
+  launcherReloadUntilTick: [number, number];
 
   missiles: Missile[];
   drones: Drone[];

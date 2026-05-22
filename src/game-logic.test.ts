@@ -31,8 +31,8 @@ function makeGameState(overrides: Partial<GameState> = {}): GameState {
   return {
     burjAlive: true,
     defenseSites: [],
-    launcherHP: [2, 2, 2],
-    ammo: [22, 22, 22],
+    launcherHP: [2, 2],
+    ammo: [22, 22],
     missiles: [],
     drones: [],
     interceptors: [],
@@ -43,8 +43,8 @@ function makeGameState(overrides: Partial<GameState> = {}): GameState {
     stats: createEmptyGameStats(),
     shakeTimer: 0,
     shakeIntensity: 0,
-    launcherFireTick: [0, 0, 0] as [number, number, number],
-    launcherReloadUntilTick: [0, 0, 0] as [number, number, number],
+    launcherFireTick: [0, 0] as [number, number],
+    launcherReloadUntilTick: [0, 0] as [number, number],
     ...overrides,
   } as GameState;
 }
@@ -174,14 +174,14 @@ describe("pickTarget", () => {
 
   it("falls back to Burj when no defenses alive", () => {
     setRng(() => 0.5);
-    const g = makeGameState({ launcherHP: [0, 0, 0] });
+    const g = makeGameState({ launcherHP: [0, 0] });
     const target = pickTarget(g, 100);
     expect(target).toEqual({ x: BURJ_X, y: CITY_Y });
   });
 
   it("returns null when nothing alive and Burj dead", () => {
     setRng(() => 0.5);
-    const g = makeGameState({ burjAlive: false, launcherHP: [0, 0, 0] });
+    const g = makeGameState({ burjAlive: false, launcherHP: [0, 0] });
     const target = pickTarget(g, 100);
     expect(target).toBeNull();
   });
@@ -194,27 +194,40 @@ describe("pickTarget", () => {
       return callCount === 1 ? 0.5 : 0.8;
     });
     const g = makeGameState();
-    // fromX=500: closest launcher is #1 (x=550), second is #2 (x=860)
+    // fromX=500: closest launcher is the right side, second is the left side.
     const target = pickTarget(g, 500);
     // With random >= 0.7, picks index 1 (second closest)
-    expect(target!.x).not.toBe(LAUNCHERS[1].x); // not the closest
+    expect(target!.x).toBe(LAUNCHERS[0].x);
   });
 });
 
 // ── fireInterceptor ──
 
 describe("fireInterceptor", () => {
-  it("picks closest launcher with ammo+HP and creates interceptor", () => {
+  it("fires from the left launcher for left-half targets", () => {
     const g = makeGameState();
-    fireInterceptor(g, 500, 300);
+    fireInterceptor(g, 200, 300);
     expect(g.interceptors).toHaveLength(1);
-    // Closest launcher to (500,300) is #1 at x=550
+    expect(g.interceptors[0].x).toBe(LAUNCHERS[0].x);
+  });
+
+  it("fires from the right launcher for right-half targets", () => {
+    const g = makeGameState();
+    fireInterceptor(g, 700, 300);
+    expect(g.interceptors).toHaveLength(1);
+    expect(g.interceptors[0].x).toBe(LAUNCHERS[1].x);
+  });
+
+  it("assigns the center boundary to the right launcher", () => {
+    const g = makeGameState();
+    fireInterceptor(g, CANVAS_W / 2, 300);
+    expect(g.interceptors).toHaveLength(1);
     expect(g.interceptors[0].x).toBe(LAUNCHERS[1].x);
   });
 
   it("increments shotsFired without consuming ammo", () => {
     const g = makeGameState();
-    fireInterceptor(g, 500, 300, 10);
+    fireInterceptor(g, 700, 300, 10);
     expect(g.ammo[1]).toBe(22);
     expect(g.stats.shotsFired).toBe(1);
     expect(g.launcherReloadUntilTick[1]).toBe(40);
@@ -222,7 +235,7 @@ describe("fireInterceptor", () => {
 
   it("uses rapid reload for launcher timers", () => {
     const g = makeGameState({ ownedUpgradeNodes: new Set([LAUNCHER_RAPID_RELOAD_NODE]) });
-    fireInterceptor(g, 500, 300, 10);
+    fireInterceptor(g, 700, 300, 10);
     expect(g.launcherReloadUntilTick[1]).toBe(28);
   });
 
@@ -237,37 +250,44 @@ describe("fireInterceptor", () => {
   it("derives launcher armor and double magazine effects from owned nodes", () => {
     const g = makeGameState({ ownedUpgradeNodes: new Set([LAUNCHER_ARMOR_NODE, LAUNCHER_DOUBLE_MAGAZINE_NODE]) });
     expect(getLauncherMaxHp(g)).toBe(2);
-    expect(getLauncherBurstChargeCap(g, 3)).toBe(6);
+    expect(getLauncherBurstChargeCap(g, 2)).toBe(6);
   });
 
-  it("skips destroyed launchers even if another launcher has zero ammo", () => {
-    const g = makeGameState({ launcherHP: [0, 2, 2], ammo: [22, 0, 22] });
-    fireInterceptor(g, 500, 300);
+  it("falls back to the surviving launcher when the selected side is destroyed", () => {
+    const g = makeGameState({ launcherHP: [0, 2], ammo: [22, 0] });
+    fireInterceptor(g, 200, 300);
     expect(g.interceptors[0].x).toBe(LAUNCHERS[1].x);
   });
 
   it("does nothing when no launcher available", () => {
-    const g = makeGameState({ launcherHP: [0, 0, 0] });
+    const g = makeGameState({ launcherHP: [0, 0] });
     fireInterceptor(g, 500, 300);
     expect(g.interceptors).toHaveLength(0);
     expect(g.stats.shotsFired).toBe(0);
   });
 
-  it("allows a short burst across ready launchers before all are reloading", () => {
-    const g = makeGameState();
-    expect(fireInterceptor(g, 500, 300, 0)).toBe(true);
-    expect(fireInterceptor(g, 500, 300, 0)).toBe(true);
-    expect(fireInterceptor(g, 500, 300, 0)).toBe(true);
-    expect(fireInterceptor(g, 500, 300, 0)).toBe(false);
-    expect(g.interceptors).toHaveLength(3);
-    expect(g.stats.shotsFired).toBe(3);
+  it("does not fall back to the opposite origin when the selected launcher is reloading", () => {
+    const g = makeGameState({ launcherReloadUntilTick: [20, 0] as [number, number] });
+    expect(fireInterceptor(g, 200, 300, 10)).toBe(false);
+    expect(g.interceptors).toHaveLength(0);
   });
 
-  it("skips launchers that are still reloading", () => {
-    const g = makeGameState({ launcherReloadUntilTick: [0, 20, 0] as [number, number, number] });
-    fireInterceptor(g, 500, 300, 10);
+  it("keeps side-locked origin for player-style reload bypass", () => {
+    const g = makeGameState({ launcherReloadUntilTick: [20, 0] as [number, number] });
+    expect(fireInterceptor(g, 200, 300, 10, true)).toBe(true);
     expect(g.interceptors).toHaveLength(1);
-    expect(g.interceptors[0].x).toBe(LAUNCHERS[2].x);
+    expect(g.interceptors[0].x).toBe(LAUNCHERS[0].x);
+  });
+
+  it("floors burst charge cap at the old three-shot feel with two launchers", () => {
+    const g = makeGameState();
+    expect(getLauncherBurstChargeCap(g, 2)).toBe(3);
+    expect(getLauncherBurstChargeCap(g, 0)).toBe(0);
+  });
+
+  it("floors double magazine burst charge cap at six with two launchers", () => {
+    const g = makeGameState({ ownedUpgradeNodes: new Set([LAUNCHER_DOUBLE_MAGAZINE_NODE]) });
+    expect(getLauncherBurstChargeCap(g, 2)).toBe(6);
   });
 });
 

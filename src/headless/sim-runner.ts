@@ -223,11 +223,13 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
   return result;
 }
 
-// Allow running directly: node src/headless/sim-runner.js
+// Allow running directly with compiled JS or via tsx in the source tree.
 const isMain =
   typeof process !== "undefined" &&
   process.argv[1] &&
-  (process.argv[1].endsWith("sim-runner.js") || process.argv[1].endsWith("sim-runner.mjs"));
+  (process.argv[1].endsWith("sim-runner.js") ||
+    process.argv[1].endsWith("sim-runner.mjs") ||
+    process.argv[1].endsWith("sim-runner.ts"));
 
 if (isMain) {
   const seed = parseInt(process.argv[2]) || 42;

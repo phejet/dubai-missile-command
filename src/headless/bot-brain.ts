@@ -317,18 +317,13 @@ export function leadTarget(
 }
 
 function pickLauncher(tx: number, ty: number, g: GameState | null = null): { x: number; y: number; dist: number } {
-  let launcherX = 450;
-  let launcherY = GROUND_Y;
-  let bestDist = Infinity;
-  for (let i = 0; i < LAUNCHERS.length; i++) {
-    if (g && g.launcherHP[i] <= 0) continue;
-    const d = Math.sqrt((tx - LAUNCHERS[i].x) ** 2 + (ty - LAUNCHERS[i].y) ** 2);
-    if (d < bestDist) {
-      bestDist = d;
-      launcherX = LAUNCHERS[i].x;
-      launcherY = LAUNCHERS[i].y;
-    }
-  }
+  const selectedIdx = tx < CANVAS_W / 2 ? 0 : 1;
+  const fallbackIdx = selectedIdx === 0 ? 1 : 0;
+  const bestIdx =
+    !g || g.launcherHP[selectedIdx] > 0 ? selectedIdx : g.launcherHP[fallbackIdx] > 0 ? fallbackIdx : selectedIdx;
+  const launcherX = LAUNCHERS[bestIdx].x;
+  const launcherY = LAUNCHERS[bestIdx].y;
+  const bestDist = Math.sqrt((tx - launcherX) ** 2 + (ty - launcherY) ** 2);
   return { x: launcherX, y: launcherY, dist: bestDist };
 }
 

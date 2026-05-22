@@ -623,7 +623,7 @@ export default function EditorApp() {
         scene.defenseSites.push({ key: "phalanx", ...pos, alive: true, hw: 10, hh: 15, savedLevel: 3 });
       }
       scene.empReadyThisWave = true;
-      scene.launcherHP = [2, 2, 2];
+      scene.launcherHP = [2, 2];
     } else {
       // Reset upgrades
       const keys = [
@@ -639,7 +639,7 @@ export default function EditorApp() {
       for (const k of keys) scene.upgrades[k] = 0;
       scene.defenseSites = [];
       scene.empReadyThisWave = false;
-      scene.launcherHP = [1, 1, 1];
+      scene.launcherHP = [1, 1];
     }
   }, [showUpgrades]);
 

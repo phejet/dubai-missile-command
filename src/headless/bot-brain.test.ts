@@ -6,8 +6,8 @@ import type { GameState } from "../types";
 function makeGame(): GameState {
   return {
     wave: 5,
-    ammo: [10, 10, 10] as [number, number, number],
-    launcherHP: [1, 1, 1] as [number, number, number],
+    ammo: [10, 10] as [number, number],
+    launcherHP: [1, 1] as [number, number],
     interceptors: [],
     missiles: [
       {
@@ -161,8 +161,8 @@ describe("botDecideAction jet reservations", () => {
     };
     const g = {
       wave: 7,
-      ammo: [10, 10, 10],
-      launcherHP: [1, 1, 1],
+      ammo: [10, 10],
+      launcherHP: [1, 1],
       interceptors: [],
       missiles: [],
       drones: [jet],

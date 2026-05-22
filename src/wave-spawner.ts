@@ -243,7 +243,7 @@ const WAVE_TABLE = [
 ];
 
 function threatValueCapForBudget(budget: number, wave: number): number {
-  const ratio = wave <= 2 ? 0.92 : wave <= 5 ? 0.88 : 0.82;
+  const ratio = wave <= 2 ? 0.78 : wave <= 5 ? 0.72 : 0.65;
   return Math.round(budget * ratio);
 }
 
@@ -407,9 +407,10 @@ export function getWaveConfig(wave: number) {
       types,
     };
   }
-  // Wave 9+: exponential pressure — overwhelm defenses by wave 12-15
+  // Wave 9+: linear pressure with capped quadratic load to avoid screen saturation.
   const w = wave - 8;
-  const budget = 105 + w * 40 + w * w * 8;
+  const cappedQuad = Math.min(w, 4);
+  const budget = 105 + w * 40 + cappedQuad * cappedQuad * 8;
   const shahed136Total = { min: 3 + w, max: 8 + w * 2 };
   const types = emptySpawnTypeRanges();
   const shahedRanges = getShahed136Ranges(wave, shahed136Total.min, shahed136Total.max);
@@ -421,7 +422,7 @@ export function getWaveConfig(wave: number) {
   for (const variant of SHAHED_136_VARIANTS) types[variant] = shahedRanges[variant];
   return {
     budget,
-    concurrentCap: Math.max(35 + w * 10 + w * w * 2, threatValueCapForBudget(budget, wave)),
+    concurrentCap: Math.max(35 + w * 8 + w * w * 1.2, threatValueCapForBudget(budget, wave)),
     shahed136Total,
     types,
   };
@@ -640,7 +641,7 @@ function addGroupLulls(
   const groupCount = getWaveGroupCount(wave);
   const sorted = [...entries].sort((a, b) => a.tick - b.tick);
   const groupSize = Math.ceil(sorted.length / groupCount);
-  const lullBase = Math.max(90, 150 - Math.min(45, wave * 5));
+  const lullBase = Math.max(110, 165 - Math.min(45, wave * 5));
   return sorted.map((entry, index) => {
     const groupIndex = Math.min(groupCount - 1, Math.floor(index / groupSize));
     return { ...entry, tick: entry.tick + groupIndex * lullBase, _groupIndex: groupIndex, _groupCount: groupCount };

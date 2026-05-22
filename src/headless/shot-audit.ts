@@ -181,7 +181,7 @@ function run(): void {
   const kills = g.stats.missileKills + g.stats.droneKills;
   const eff = kills / Math.max(1, g.stats.shotsFired);
   console.log(
-    `\nGame: wave=${g.wave} score=${g.score} cause=${g.state === "gameover" ? "destroyed" : "timeout"}  burjHP=${g.burjHealth} launchersAlive=${g.launcherHP.filter((h) => h > 0).length}/3`,
+    `\nGame: wave=${g.wave} score=${g.score} cause=${g.state === "gameover" ? "destroyed" : "timeout"}  burjHP=${g.burjHealth} launchersAlive=${g.launcherHP.filter((h) => h > 0).length}/${g.launcherHP.length}`,
   );
   console.log(`Shots: ${g.stats.shotsFired}, Kills: ${kills}, Eff: ${eff.toFixed(3)}`);
 

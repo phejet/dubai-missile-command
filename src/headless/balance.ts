@@ -157,7 +157,7 @@ ${appTsx}
 
 ## Key Game Facts
 - Canvas: 900x640, ground at y=570, Burj at x=460 (340px tall)
-- 3 launchers at x=60, 550, 860 with 2HP each
+- 2 launchers at x=60 and x=860 with 1HP each
 - Burj has 5 HP total
 - Interceptor speed 5, blast radius 49px
 - Missiles accelerate via \`accel = 1.003 + wave*0.0006\`

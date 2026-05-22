@@ -11,11 +11,11 @@ declare global {
 }
 
 const GROUND_Y = 1530;
+const CANVAS_W = 900;
 const CANVAS_H = 1600;
 const INTERCEPTOR_SPEED = 5;
 const LAUNCHERS = [
   { x: 60, y: 1525 },
-  { x: 550, y: 1525 },
   { x: 860, y: 1525 },
 ];
 
@@ -44,15 +44,7 @@ test.skip(
 test.setTimeout(180_000);
 
 function leadTarget(x: number, y: number, vx: number, vy: number): { x: number; y: number } {
-  let bestLauncher = LAUNCHERS[0];
-  let bestDist = Infinity;
-  for (const launcher of LAUNCHERS) {
-    const d = Math.hypot(x - launcher.x, y - launcher.y);
-    if (d < bestDist) {
-      bestDist = d;
-      bestLauncher = launcher;
-    }
-  }
+  const bestLauncher = x < CANVAS_W / 2 ? LAUNCHERS[0] : LAUNCHERS[1];
   const dist = Math.hypot(x - bestLauncher.x, y - bestLauncher.y);
   const t = Math.min(120, dist / INTERCEPTOR_SPEED);
   return { x: x + vx * t * 0.5, y: y + vy * t * 0.5 };
