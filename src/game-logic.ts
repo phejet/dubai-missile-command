@@ -570,24 +570,6 @@ function getInterceptorVelocityMultiplier(g: Pick<GameState, "ownedUpgradeNodes"
   return hasOwnedLauncherNode(g, LAUNCHER_HIGH_VELOCITY_NODE) ? LAUNCHER_HIGH_VELOCITY_MULTIPLIER : 1;
 }
 
-export function getLauncherReadiness(
-  g: GameState,
-  tick: number,
-): {
-  readyCount: number;
-  availableCount: number;
-} {
-  let readyCount = 0;
-  let availableCount = 0;
-  for (let i = 0; i < LAUNCHERS.length; i++) {
-    if (g.launcherHP[i] <= 0) continue;
-    availableCount++;
-  }
-  syncFireChargeForTick(g, tick);
-  readyCount = Math.min(availableCount, getFireChargeCount(g.fireChargeState));
-  return { readyCount, availableCount };
-}
-
 export function getMultiKillBonus(kills: number): number {
   if (kills >= 4) return 700;
   if (kills === 3) return 350;
