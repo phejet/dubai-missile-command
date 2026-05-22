@@ -513,9 +513,14 @@ export class Game {
     this.hudEl.hidden = s !== "playing";
     this.titleOverlay.hidden = s !== "title";
     this.titleOverlay.setAttribute("aria-hidden", s === "title" ? "false" : "true");
+    this.titleOverlay.inert = s !== "title";
     this.titleProgressionButton.hidden = true;
-    this.gameoverPanel.hidden = s !== "gameover" || this.progressionOpen;
-    this.progressionPanel.hidden = !this.progressionOpen || s !== "gameover";
+    const gameoverHidden = s !== "gameover" || this.progressionOpen;
+    this.gameoverPanel.hidden = gameoverHidden;
+    this.gameoverPanel.inert = gameoverHidden;
+    const progressionHidden = !this.progressionOpen || s !== "gameover";
+    this.progressionPanel.hidden = progressionHidden;
+    this.progressionPanel.inert = progressionHidden;
     this.battlefieldCard.classList.toggle("battlefield-card--portraitSky", s === "playing");
     if (s === "title") {
       void SFX.playTitleTheme();
@@ -632,6 +637,7 @@ export class Game {
   }
 
   private returnToTitle(): void {
+    if (this.screen !== "gameover") return;
     this.clearPointerCapture();
     this.resetPlayerFireState();
     if (this.replayRunner) {
