@@ -1,5 +1,11 @@
 # Lessons
 
+## 2026-05-23
+
+- When asked what skills are available in this repo, include both the Codex session skills and repo-local `.claude/skills/*.md`; the local Claude skills are part of the project workflow even if they are not exposed as Codex skill entries.
+- For Codex slash-menu visibility, a symlinked `SKILL.md` is not enough; add `agents/openai.yaml` with UI metadata, and use `user_invocable: true` for Claude-side explicit skill invocation when the skill should appear in menus.
+- Per current Codex docs, repo-scoped Codex skills belong under `.agents/skills/<skill-name>/SKILL.md`; `~/.codex/skills` is not the documented user-skill root. Codex supports symlinked skill folders in those scanned locations, so link the whole skill folder, not just an individual `SKILL.md`.
+
 ## 2026-04-17
 
 - Trust the runtime entrypoints over stale prose. The live game is driven by `src/game.ts` and `src/main.ts`, not by old references to `App.jsx`.
