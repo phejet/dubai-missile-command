@@ -188,7 +188,7 @@ export function getDefenseSitePlacement(key: string): { x: number; y: number; hw
   switch (key) {
     case "patriot":
       return { x: 334, y: GAMEPLAY_SUPPORT_SITE_Y, hw: 38, hh: 24 };
-    case "wildHornets":
+    case "wildHornetsLeft":
       return { x: 206, y: GAMEPLAY_SUPPORT_SITE_Y, hw: 30, hh: 24 };
     case "wildHornetsRight":
       return { x: 622, y: GAMEPLAY_SUPPORT_SITE_Y, hw: 30, hh: 24 };

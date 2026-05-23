@@ -249,17 +249,17 @@ describe("createReplayRunner shop handling", () => {
   });
 
   it("resumeFromShop() handles repair_site purchases", () => {
-    const actions = [{ tick: 0, type: "shop", bought: ["repair_wildHornets"] }] as ReplayAction[];
+    const actions = [{ tick: 0, type: "shop", bought: ["repair_wildHornetsLeft"] }] as ReplayAction[];
     const rr = createReplayRunner({ seed: SEED, actions });
     const g = rr.init();
     g.score = 10000;
     // Create a destroyed defense site
-    g.defenseSites = [{ key: "wildHornets", x: 100, y: 500, alive: false }];
+    g.defenseSites = [{ key: "wildHornetsLeft", x: 100, y: 500, alive: false }];
     g.state = "shop";
 
     rr.step();
     rr.resumeFromShop();
-    expect(g.defenseSites.find((s) => s.key === "wildHornets")!.alive).toBe(true);
+    expect(g.defenseSites.find((s) => s.key === "wildHornetsLeft")!.alive).toBe(true);
     rr.cleanup();
   });
 

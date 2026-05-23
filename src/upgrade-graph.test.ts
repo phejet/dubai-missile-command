@@ -14,24 +14,26 @@ describe("upgrade graph view model", () => {
       ownedNodes: new Set(),
     });
 
-    expect(emptyView.nodes.find((node) => node.id === "wildHornets")?.state).toBe("available");
-    expect(emptyView.nodes.find((node) => node.id === "tridentFpvCell")?.state).toBe("locked");
+    expect(emptyView.nodes.find((node) => node.id === "wildHornetsLeft")?.state).toBe("available");
+    expect(emptyView.nodes.find((node) => node.id === "wildHornetsRight")?.state).toBe("available");
+    expect(emptyView.nodes.find((node) => node.id === "skyHunterMesh")?.state).toBe("locked");
     expect(emptyView.nodes.find((node) => node.id === "patriotRapidBattery")?.state).toBe("metaLocked");
 
     const progressedView = buildUpgradeGraphViewModel({
       progression: { version: 1, completedObjectives: ["reach_wave_4"] },
-      ownedNodes: new Set(["wildHornets", "patriot"]),
+      ownedNodes: new Set(["wildHornetsLeft", "patriot"]),
     });
 
-    expect(progressedView.nodes.find((node) => node.id === "wildHornets")?.state).toBe("owned");
-    expect(progressedView.nodes.find((node) => node.id === "tridentFpvCell")?.state).toBe("available");
+    expect(progressedView.nodes.find((node) => node.id === "wildHornetsLeft")?.state).toBe("owned");
+    expect(progressedView.nodes.find((node) => node.id === "wildHornetsRight")?.state).toBe("available");
+    expect(progressedView.nodes.find((node) => node.id === "skyHunterMesh")?.state).toBe("available");
     expect(progressedView.nodes.find((node) => node.id === "patriotRapidBattery")?.state).toBe("available");
   });
 
   it("prefers available nodes for default selection", () => {
     const view = buildUpgradeGraphViewModel({
       progression: createEmptyUpgradeProgression(),
-      ownedNodes: new Set(["wildHornets"]),
+      ownedNodes: new Set(["wildHornetsLeft"]),
     });
 
     const selectedNodeId = getDefaultSelectedUpgradeNodeId(view);

@@ -27,7 +27,7 @@ import type { GameState, HornetSiteKey, ShopEntry, UpgradeKey, UpgradeNodeId, Up
 const ACTIVE_CHOICE_WAVE = 3;
 const ACTIVE_CHOICE_OBJECTIVE = "reach_wave_3";
 export const HORNET_SITE_CAPACITY = 2;
-type DefenseSiteKey = UpgradeKey | "wildHornetsRight";
+type DefenseSiteKey = Exclude<UpgradeKey, "wildHornets"> | "wildHornetsLeft" | "wildHornetsRight";
 
 function syncUpgradeLevels(g: GameState): void {
   const burjRepair = g.upgrades?.burjRepair ?? 0;
@@ -105,7 +105,7 @@ function shuffleIds(ids: string[], rng: () => number): string[] {
 function reviveOrRegisterDefenseSite(g: GameState, key: DefenseSiteKey): void {
   const siteDef = getDefenseSitePlacement(key);
   if (!siteDef) return;
-  const ownerKey: UpgradeKey = key === "wildHornetsRight" ? "wildHornets" : key;
+  const ownerKey: UpgradeKey = key === "wildHornetsLeft" || key === "wildHornetsRight" ? "wildHornets" : key;
   const existingSite = g.defenseSites.find((site) => site.key === key);
   if (existingSite) {
     existingSite.x = siteDef.x;
@@ -127,13 +127,15 @@ function reviveOrRegisterDefenseSite(g: GameState, key: DefenseSiteKey): void {
   });
 }
 
-export function getActiveHornetSiteKeys(level: number): HornetSiteKey[] {
-  if (level <= 0) return [];
-  return level >= 2 ? ["wildHornets", "wildHornetsRight"] : ["wildHornets"];
+export function getActiveHornetSiteKeys(g: GameState): HornetSiteKey[] {
+  const keys: HornetSiteKey[] = [];
+  if (g.ownedUpgradeNodes.has("wildHornetsLeft")) keys.push("wildHornetsLeft");
+  if (g.ownedUpgradeNodes.has("wildHornetsRight")) keys.push("wildHornetsRight");
+  return keys;
 }
 
-export function syncHornetSitesForLevel(g: GameState, options: { reset?: boolean } = {}): void {
-  const activeKeys = getActiveHornetSiteKeys(g.upgrades.wildHornets);
+export function syncHornetSitesForOwnership(g: GameState, options: { reset?: boolean } = {}): void {
+  const activeKeys = getActiveHornetSiteKeys(g);
   const existing = new Map((g.hornetSites ?? []).map((site) => [site.key, site]));
   g.hornetSites = activeKeys.map((key) => {
     const site = existing.get(key);
@@ -154,10 +156,18 @@ function applyNodeSideEffects(g: GameState, nodeId: UpgradeNodeId): void {
       if (g.launcherHP[i] > 0) g.launcherHP[i] = Math.max(g.launcherHP[i], maxHp);
     }
   }
-  reviveOrRegisterDefenseSite(g, node.family);
-  if (nodeId === "tridentFpvCell") {
+  // wildHornets family name is NOT a valid site key — sites are owned by
+  // wildHornetsLeft / wildHornetsRight node IDs. Other families share family name with site key.
+  if (node.family !== "wildHornets") {
+    reviveOrRegisterDefenseSite(g, node.family);
+  }
+  if (nodeId === "wildHornetsLeft") {
+    reviveOrRegisterDefenseSite(g, "wildHornetsLeft");
+  }
+  if (nodeId === "wildHornetsRight") {
     reviveOrRegisterDefenseSite(g, "wildHornetsRight");
   }
+  // skyHunterMesh adds no site — purely a behavior unlock.
   if (node.family === "emp") {
     g.empReadyThisWave = true;
   }
@@ -229,12 +239,32 @@ export function draftPick3(g: GameState): string[] {
   const available = getEligibleUpgradeNodes(g.ownedUpgradeNodes, progression).filter(
     (node) => !getActiveChoiceWaveLockReason(g, node),
   );
-  // Debug/feel-check: always include the eligible roadrunner family node when one exists.
-  const roadrunnerNode = available.find((node) => node.family === "roadrunner");
-  const forceRoadrunner = (picks: string[]): string[] => {
-    if (!roadrunnerNode || picks.includes(roadrunnerNode.id)) return picks;
-    if (picks.length === 0) return [roadrunnerNode.id];
-    return [...picks.slice(0, -1), roadrunnerNode.id];
+  // Debug/feel-check: always include the eligible Roadrunner and Wild Hornets
+  // family nodes when one exists. Helps surface the two upgrade trees under
+  // active design iteration.
+  const FORCED_FAMILIES: UpgradeKey[] = ["roadrunner", "wildHornets"];
+  const forceFamilies = (picks: string[]): string[] => {
+    const result = [...picks];
+    for (const family of FORCED_FAMILIES) {
+      const eligibleInFamily = available.filter((n) => n.family === family);
+      if (eligibleInFamily.length === 0) continue;
+      if (eligibleInFamily.some((n) => result.includes(n.id))) continue;
+      // Random pick across eligible siblings using seeded rng for replay safety.
+      const node = eligibleInFamily[Math.floor(rng() * eligibleInFamily.length)];
+      if (result.length === 0) {
+        result.push(node.id);
+        continue;
+      }
+      // Replace the last slot that isn't already a forced family.
+      for (let i = result.length - 1; i >= 0; i--) {
+        const slotNode = available.find((n) => n.id === result[i]);
+        if (!slotNode || !FORCED_FAMILIES.includes(slotNode.family)) {
+          result[i] = node.id;
+          break;
+        }
+      }
+    }
+    return result;
   };
 
   if (g.wave === ACTIVE_CHOICE_WAVE) {
@@ -250,11 +280,11 @@ export function draftPick3(g: GameState): string[] {
         2,
         rng,
       );
-      return shuffleIds(forceRoadrunner([...activeOffer, ...supportOffers]), rng);
+      return shuffleIds(forceFamilies([...activeOffer, ...supportOffers]), rng);
     }
   }
   if (available.length <= 3) return available.map((node) => node.id);
-  return forceRoadrunner(
+  return forceFamilies(
     pickRandomIds(
       available.map((node) => node.id),
       3,
@@ -349,7 +379,7 @@ export function prepareWaveStart(g: GameState): void {
   g.flareSalvoClaims = new Set();
   g.planes = [];
 
-  syncHornetSitesForLevel(g, { reset: true });
+  syncHornetSitesForOwnership(g, { reset: true });
   const rrCapacity = [0, 1, 2, 3][g.upgrades.roadrunner] ?? 0;
   g.roadrunnerAmmo = rrCapacity;
   g.roadrunnerReloadTimer = 0;

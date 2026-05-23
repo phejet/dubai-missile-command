@@ -1,5 +1,6 @@
 import { closeShop, buyDraftUpgrade } from "./game-sim";
 import { prepareWaveStart } from "./game-sim-shop";
+import { getUpgradeNodeDef } from "./game-sim-upgrades";
 import type { GameState, UpgradeKey, UpgradeObjectiveId } from "./types";
 
 export type DebugStartUpgradeTargets = Partial<Record<UpgradeKey, number>>;
@@ -231,7 +232,13 @@ function grantDebugObjectives(g: GameState): void {
 function applyUpgradeTargets(g: GameState, targets: DebugStartUpgradeTargets): void {
   for (const [key, level] of Object.entries(targets) as Array<[UpgradeKey, number | undefined]>) {
     const targetLevel = Math.max(0, Math.floor(level ?? 0));
-    while ((g.upgrades[key] ?? 0) < targetLevel) {
+    // wildHornets is a flat family of rank-1 siblings — progress is "owned node count."
+    // All other families ladder by rank, so g.upgrades[key] is the right gauge.
+    const progress =
+      key === "wildHornets"
+        ? () => Array.from(g.ownedUpgradeNodes).filter((id) => getUpgradeNodeDef(id)?.family === "wildHornets").length
+        : () => g.upgrades[key] ?? 0;
+    while (progress() < targetLevel) {
       if (!buyDraftUpgrade(g, key)) {
         throw new Error(`Debug start could not apply ${key} level ${targetLevel}`);
       }

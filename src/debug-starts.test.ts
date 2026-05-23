@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { setRng, getAmmoCapacity } from "./game-logic.js";
 import { initGame, buyUpgrade } from "./game-sim.js";
 import { DEBUG_START_PRESETS, applyDebugStartPreset, getDebugStartPreset } from "./debug-starts.js";
+import { getUpgradeNodeDef } from "./game-sim-upgrades.js";
 
 describe("debug start presets", () => {
   afterEach(() => setRng(Math.random));
@@ -34,7 +35,17 @@ describe("debug start presets", () => {
         getAmmoCapacity(preset.wave, g.upgrades.launcherKit),
       ]);
       for (const [key, level] of Object.entries(preset.upgrades)) {
-        expect(g.upgrades[key as keyof typeof g.upgrades]).toBeGreaterThanOrEqual(level ?? 0);
+        // The wildHornets family is now three rank-1 siblings (left/right/skyHunterMesh),
+        // so g.upgrades.wildHornets stays at 1 regardless of how many nodes you own.
+        // Treat the preset value as "this many family nodes should be owned."
+        if (key === "wildHornets") {
+          const ownedInFamily = Array.from(g.ownedUpgradeNodes).filter(
+            (id) => getUpgradeNodeDef(id)?.family === "wildHornets",
+          ).length;
+          expect(ownedInFamily).toBeGreaterThanOrEqual(level ?? 0);
+        } else {
+          expect(g.upgrades[key as keyof typeof g.upgrades]).toBeGreaterThanOrEqual(level ?? 0);
+        }
       }
     }
   });

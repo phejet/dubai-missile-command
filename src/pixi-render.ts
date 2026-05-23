@@ -952,7 +952,7 @@ function requireDefenseSitePlacement(key: string): { x: number; y: number; hw: n
 
 const GAMEPLAY_DEFENSE_SITE_PLACEMENTS = {
   patriot: requireDefenseSitePlacement("patriot"),
-  wildHornets: requireDefenseSitePlacement("wildHornets"),
+  wildHornetsLeft: requireDefenseSitePlacement("wildHornetsLeft"),
   wildHornetsRight: requireDefenseSitePlacement("wildHornetsRight"),
   roadrunner: requireDefenseSitePlacement("roadrunner"),
 } as const;
@@ -2001,10 +2001,10 @@ export class PixiRenderer implements GameRenderer {
       GAMEPLAY_DEFENSE_SITE_PLACEMENTS.patriot.y,
     );
     addDefenseSiteNode(
-      "wildHornets",
+      "wildHornetsLeft",
       defenseSiteAssets.wildHornetsHive[0],
-      GAMEPLAY_DEFENSE_SITE_PLACEMENTS.wildHornets.x,
-      GAMEPLAY_DEFENSE_SITE_PLACEMENTS.wildHornets.y,
+      GAMEPLAY_DEFENSE_SITE_PLACEMENTS.wildHornetsLeft.x,
+      GAMEPLAY_DEFENSE_SITE_PLACEMENTS.wildHornetsLeft.y,
     );
     addDefenseSiteNode(
       "wildHornetsRight",
@@ -2745,19 +2745,18 @@ export class PixiRenderer implements GameRenderer {
       COL_HEX.patriot,
     );
 
-    const hornetLevel = Math.max(1, Math.min(3, game.upgrades.wildHornets));
     updateNode(
-      "wildHornets",
-      game.upgrades.wildHornets > 0,
-      state.defenseSiteAssets.wildHornetsHive[hornetLevel - 1],
-      GAMEPLAY_DEFENSE_SITE_PLACEMENTS.wildHornets.x,
-      GAMEPLAY_DEFENSE_SITE_PLACEMENTS.wildHornets.y,
+      "wildHornetsLeft",
+      game.ownedUpgradeNodes.has("wildHornetsLeft"),
+      state.defenseSiteAssets.wildHornetsHive[0],
+      GAMEPLAY_DEFENSE_SITE_PLACEMENTS.wildHornetsLeft.x,
+      GAMEPLAY_DEFENSE_SITE_PLACEMENTS.wildHornetsLeft.y,
       COL_HEX.hornet,
     );
     updateNode(
       "wildHornetsRight",
-      game.upgrades.wildHornets >= 2,
-      state.defenseSiteAssets.wildHornetsHive[hornetLevel - 1],
+      game.ownedUpgradeNodes.has("wildHornetsRight"),
+      state.defenseSiteAssets.wildHornetsHive[0],
       GAMEPLAY_DEFENSE_SITE_PLACEMENTS.wildHornetsRight.x,
       GAMEPLAY_DEFENSE_SITE_PLACEMENTS.wildHornetsRight.y,
       COL_HEX.hornet,
@@ -2970,7 +2969,7 @@ export class PixiRenderer implements GameRenderer {
         color: COL_HEX.flare,
         range: ov("flare.lureRadius", 600),
       },
-      { x: ov("upgrade.hornets.x", 206), y: ov("upgrade.hornets.y", 1511), color: COL_HEX.hornet },
+      { x: ov("upgrade.hornetsLeft.x", 206), y: ov("upgrade.hornetsLeft.y", 1511), color: COL_HEX.hornet },
       { x: ov("upgrade.hornetsRight.x", 622), y: ov("upgrade.hornetsRight.y", 1511), color: COL_HEX.hornet },
       {
         x: ov("upgrade.roadrunner.x", 711),

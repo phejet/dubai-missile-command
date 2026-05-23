@@ -43,7 +43,7 @@ const UPGRADE_POSITIONS = {
   "upgrade.patriot": { x: 334, y: 1511 },
   "upgrade.emp": { x: 462, y: 1047 },
   "upgrade.flares": { x: BURJ_X, y: 837 },
-  "upgrade.hornets": { x: 206, y: 1511 },
+  "upgrade.hornetsLeft": { x: 206, y: 1511 },
   "upgrade.roadrunner": { x: 711, y: GROUND_Y - 15 },
   "upgrade.launcherKit": { x: 800, y: 1513 },
 };
@@ -608,7 +608,7 @@ export default function EditorApp() {
         patriot: { x: 334, y: 1511, hw: 38, hh: 24 },
         flare: { x: BURJ_X, y: 837, hw: 8, hh: 10 },
         ironBeam: { x: BURJ_X, y: 959, hw: 10, hh: 15 },
-        wildHornets: { x: 206, y: 1511, hw: 30, hh: 24 },
+        wildHornetsLeft: { x: 206, y: 1511, hw: 30, hh: 24 },
         wildHornetsRight: { x: 622, y: 1511, hw: 30, hh: 24 },
         roadrunner: { x: 711, y: GROUND_Y - 15, hw: 30, hh: 24 },
         launcherKit: { x: 800, y: 1513, hw: 30, hh: 24 },

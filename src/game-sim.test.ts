@@ -77,18 +77,35 @@ describe("MIRV behavior", () => {
 describe("Upgrade graph", () => {
   afterEach(() => setRng(Math.random));
 
-  it("maps legacy family purchases to sequential graph nodes and derived levels", () => {
+  it("buys independent hornet siblings in declaration order; each site spawns a defense pad", () => {
     const { g } = makeCleanGame(5);
     g.score = 10000;
 
     expect(buyUpgrade(g, "wildHornets")).toBe(true);
-    expect(g.ownedUpgradeNodes.has("wildHornets")).toBe(true);
+    expect(g.ownedUpgradeNodes.has("wildHornetsLeft")).toBe(true);
     expect(g.upgrades.wildHornets).toBe(1);
+    expect(g.defenseSites.some((site) => site.key === "wildHornetsLeft")).toBe(true);
 
     expect(buyUpgrade(g, "wildHornets")).toBe(true);
-    expect(g.ownedUpgradeNodes.has("tridentFpvCell")).toBe(true);
-    expect(g.upgrades.wildHornets).toBe(2);
-    expect(g.defenseSites.some((site) => site.key === "wildHornetsRight" && site.savedLevel === 2)).toBe(true);
+    expect(g.ownedUpgradeNodes.has("wildHornetsRight")).toBe(true);
+    expect(g.upgrades.wildHornets).toBe(1); // still rank 1 — siblings, not a ladder
+    expect(g.defenseSites.some((site) => site.key === "wildHornetsRight")).toBe(true);
+
+    expect(buyUpgrade(g, "wildHornets")).toBe(true);
+    expect(g.ownedUpgradeNodes.has("skyHunterMesh")).toBe(true);
+  });
+
+  it("unlocks skyHunterMesh as soon as either hornet site is owned (anyOf prereq)", () => {
+    const { g } = makeCleanGame(5);
+    g.score = 10000;
+
+    // Without any hornet site, skyHunterMesh should not be purchasable.
+    expect(buyUpgrade(g, "skyHunterMesh")).toBe(false);
+
+    // After buying just the left site, the retarget upgrade is eligible.
+    expect(buyUpgrade(g, "wildHornetsLeft")).toBe(true);
+    expect(buyUpgrade(g, "skyHunterMesh")).toBe(true);
+    expect(g.ownedUpgradeNodes.has("skyHunterMesh")).toBe(true);
   });
 
   it("requires completed objectives before gated graph nodes can be purchased", () => {
@@ -1132,10 +1149,11 @@ describe("Decoy flares", () => {
 describe("Auto-defense targeting spread", () => {
   afterEach(() => setRng(Math.random));
 
-  it("launches L1 hornets from a single-site magazine across separate threats", () => {
+  it("launches hornets from the left site only when wildHornetsLeft is the sole purchase", () => {
     const { sim, g } = makeCleanGame(5);
     g.upgrades.wildHornets = 1;
-    g.hornetSites = [{ key: "wildHornets", ammo: 2, reloadTimer: 0, launchCooldown: 0 }];
+    g.ownedUpgradeNodes.add("wildHornetsLeft");
+    g.hornetSites = [{ key: "wildHornetsLeft", ammo: 2, reloadTimer: 0, launchCooldown: 0 }];
     const threats = [
       makeBallisticMissile({ x: 140, y: 240, vx: 0, vy: 1 }),
       makeBallisticMissile({ x: 460, y: 240, vx: 0, vy: 1 }),
@@ -1144,17 +1162,36 @@ describe("Auto-defense targeting spread", () => {
 
     for (let i = 0; i < 30; i++) sim.updateAutoSystems(g, 1, threats);
 
-    expect(g.hornets).toHaveLength(2);
-    const targets = g.hornets.map((h) => h.targetRef);
-    expect(new Set(targets).size).toBe(2);
-    expect(Math.abs(targets[0]!.x - targets[1]!.x)).toBeGreaterThan(200);
+    expect(g.hornets.length).toBeGreaterThanOrEqual(1);
+    // All launches should originate near x=206 (left pad).
+    expect(g.hornets.every((h) => h.x < 350)).toBe(true);
   });
 
-  it("launches L2 hornets from left and right sites with same-half target bias", () => {
+  it("launches hornets from the right site only when wildHornetsRight is the sole purchase", () => {
     const { sim, g } = makeCleanGame(5);
-    g.upgrades.wildHornets = 2;
+    g.upgrades.wildHornets = 1;
+    g.ownedUpgradeNodes.add("wildHornetsRight");
+    g.hornetSites = [{ key: "wildHornetsRight", ammo: 2, reloadTimer: 0, launchCooldown: 0 }];
+    const threats = [
+      makeBallisticMissile({ x: 140, y: 240, vx: 0, vy: 1 }),
+      makeBallisticMissile({ x: 460, y: 240, vx: 0, vy: 1 }),
+      makeBallisticMissile({ x: 780, y: 240, vx: 0, vy: 1 }),
+    ];
+
+    for (let i = 0; i < 30; i++) sim.updateAutoSystems(g, 1, threats);
+
+    expect(g.hornets.length).toBeGreaterThanOrEqual(1);
+    // All launches should originate near x=622 (right pad).
+    expect(g.hornets.every((h) => h.x > 550)).toBe(true);
+  });
+
+  it("dual-site ownership fires from both pads with same-half target bias", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.wildHornets = 1;
+    g.ownedUpgradeNodes.add("wildHornetsLeft");
+    g.ownedUpgradeNodes.add("wildHornetsRight");
     g.hornetSites = [
-      { key: "wildHornets", ammo: 2, reloadTimer: 0, launchCooldown: 0 },
+      { key: "wildHornetsLeft", ammo: 2, reloadTimer: 0, launchCooldown: 0 },
       { key: "wildHornetsRight", ammo: 2, reloadTimer: 0, launchCooldown: 0 },
     ];
     const threats = [
@@ -1172,6 +1209,21 @@ describe("Auto-defense targeting spread", () => {
     expect(rightSiteHornets.length).toBeGreaterThanOrEqual(1);
     expect(leftSiteHornets.every((h) => h.targetRef && h.targetRef.x < BURJ_X)).toBe(true);
     expect(rightSiteHornets.every((h) => h.targetRef && h.targetRef.x >= BURJ_X)).toBe(true);
+  });
+
+  it("holds hornet fire when the only available target is already reserved", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.wildHornets = 1;
+    g.ownedUpgradeNodes.add("wildHornetsLeft");
+    g.hornetSites = [{ key: "wildHornetsLeft", ammo: 2, reloadTimer: 0, launchCooldown: 0 }];
+    const loneBomb = makeBallisticMissile({ x: 200, y: 240, vx: 0, vy: 1 });
+
+    // Run past the launch-gap cooldown — only one hornet should launch,
+    // the second slot stays in the magazine because the only target is reserved.
+    for (let i = 0; i < 40; i++) sim.updateAutoSystems(g, 1, [loneBomb]);
+
+    expect(g.hornets).toHaveLength(1);
+    expect(g.hornetSites[0].ammo).toBe(1);
   });
 
   it("spreads roadrunner launch targets across separate threats", () => {
@@ -1229,60 +1281,79 @@ describe("Auto-defense targeting spread", () => {
     expect(Math.abs(targets[0]!.x - targets[1]!.x)).toBeGreaterThan(200);
   });
 
-  it("lets an L3 hornet retarget once, then crash when its second target dies", () => {
+  it("hornets without skyHunterMesh crash when their target dies", () => {
     const { sim, g } = makeCleanGame(5);
-    g.upgrades.wildHornets = 3;
-    g.hornetSites = [
-      { key: "wildHornets", ammo: 0, reloadTimer: 0, launchCooldown: 0 },
-      { key: "wildHornetsRight", ammo: 0, reloadTimer: 0, launchCooldown: 0 },
-    ];
+    g.upgrades.wildHornets = 1;
+    g.ownedUpgradeNodes.add("wildHornetsLeft");
+    g.hornetSites = [{ key: "wildHornetsLeft", ammo: 0, reloadTimer: 0, launchCooldown: 0 }];
     const deadTarget = makeBallisticMissile({ x: 200, y: 220, alive: false });
-    const reservedTarget = makeBallisticMissile({ x: 420, y: 230, vx: 0, vy: 1 });
     const fallbackTarget = makeBallisticMissile({ x: 760, y: 230, vx: 0, vy: 1 });
-    const retargetingHornet = {
+    const dumbHornet = {
       x: 210,
       y: 480,
       targetRef: deadTarget,
       speed: 5,
       trail: [],
       alive: true,
-      blastRadius: 25,
+      blastRadius: 30,
       wobble: 0,
       life: 600,
       maxLife: 600,
-      retargetsRemaining: 1,
+      retargetsRemaining: 0,
     };
-    g.hornets.push(retargetingHornet);
-    g.hornets.push({
-      x: 240,
-      y: 470,
-      targetRef: reservedTarget,
+    g.hornets.push(dumbHornet);
+
+    sim.updateAutoSystems(g, 1, [fallbackTarget]);
+
+    expect(dumbHornet.alive).toBe(false);
+    expect(g.hornets).not.toContain(dumbHornet);
+  });
+
+  it("skyHunterMesh hornets retarget indefinitely until life expires", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.wildHornets = 1;
+    g.ownedUpgradeNodes.add("wildHornetsLeft");
+    g.ownedUpgradeNodes.add("skyHunterMesh");
+    g.hornetSites = [{ key: "wildHornetsLeft", ammo: 0, reloadTimer: 0, launchCooldown: 0 }];
+    const t1 = makeBallisticMissile({ x: 200, y: 220, alive: false });
+    const t2 = makeBallisticMissile({ x: 350, y: 240, vx: 0, vy: 1 });
+    const t3 = makeBallisticMissile({ x: 500, y: 240, vx: 0, vy: 1 });
+    const smartHornet = {
+      x: 210,
+      y: 480,
+      targetRef: t1,
       speed: 5,
       trail: [],
       alive: true,
-      blastRadius: 25,
+      blastRadius: 30,
       wobble: 0,
       life: 600,
       maxLife: 600,
-      retargetsRemaining: 1,
-    });
+      retargetsRemaining: Number.POSITIVE_INFINITY,
+    };
+    g.hornets.push(smartHornet);
 
-    sim.updateAutoSystems(g, 1, [reservedTarget, fallbackTarget]);
+    // First tick: t1 already dead → should retarget to t2 or t3 (whichever the picker scores higher).
+    sim.updateAutoSystems(g, 1, [t2, t3]);
+    expect(smartHornet.alive).toBe(true);
+    expect([t2, t3]).toContain(smartHornet.targetRef);
+    expect(smartHornet.retargetsRemaining).toBe(Number.POSITIVE_INFINITY);
 
-    expect(retargetingHornet.targetRef).toBe(fallbackTarget);
-    expect(retargetingHornet.retargetsRemaining).toBe(0);
-
-    fallbackTarget.alive = false;
-    sim.updateAutoSystems(g, 1, [reservedTarget, fallbackTarget]);
-
-    expect(retargetingHornet.alive).toBe(false);
-    expect(g.hornets).not.toContain(retargetingHornet);
+    // Kill whichever target was picked → should retarget to the other one.
+    const firstPick = smartHornet.targetRef!;
+    firstPick.alive = false;
+    sim.updateAutoSystems(g, 1, [t2, t3]);
+    expect(smartHornet.alive).toBe(true);
+    expect(smartHornet.targetRef).not.toBe(firstPick);
+    expect(smartHornet.targetRef!.alive).toBe(true);
+    expect(smartHornet.retargetsRemaining).toBe(Number.POSITIVE_INFINITY);
   });
 
   it("does not treat a live below-hornet target as a dead-target crash", () => {
     const { sim, g } = makeCleanGame(5);
     g.upgrades.wildHornets = 1;
-    g.hornetSites = [{ key: "wildHornets", ammo: 0, reloadTimer: 0, launchCooldown: 0 }];
+    g.ownedUpgradeNodes.add("wildHornetsLeft");
+    g.hornetSites = [{ key: "wildHornetsLeft", ammo: 0, reloadTimer: 0, launchCooldown: 0 }];
     const lowTarget = makeBallisticMissile({ x: 210, y: 520, vx: 0, vy: 1 });
     g.hornets.push({
       x: 210,

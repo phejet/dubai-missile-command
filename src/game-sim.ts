@@ -50,7 +50,7 @@ import {
   draftPick3,
   getActiveHornetSiteKeys,
   HORNET_SITE_CAPACITY,
-  syncHornetSitesForLevel,
+  syncHornetSitesForOwnership,
 } from "./game-sim-shop.js";
 import { createFireChargeState } from "./player-fire-limiter.js";
 import type {
@@ -978,12 +978,7 @@ function pickHornetTarget(
   return topBand[randInt(0, topBand.length - 1)].target;
 }
 
-function pickHornetLaunchTarget(
-  allThreats: Threat[],
-  activeHornets: Hornet[],
-  lvl: number,
-  siteKey: HornetSiteKey,
-): Threat | null {
+function pickHornetLaunchTarget(allThreats: Threat[], activeHornets: Hornet[], siteKey: HornetSiteKey): Threat | null {
   const aliveThreats = allThreats.filter((t) => t.alive);
   if (aliveThreats.length === 0) return null;
 
@@ -992,13 +987,15 @@ function pickHornetLaunchTarget(
   const assignmentCounts = getHornetAssignmentCounts(activeHornets);
   const activeTargets = Array.from(assignmentCounts.keys());
 
+  // Hold-fire on reserved: if every live target is already being chased by another
+  // hornet, keep this slot in the magazine rather than launching a wasted second.
   const unassigned = aliveThreats.filter((t) => !assignmentCounts.has(t));
-  const pool = unassigned.length > 0 ? unassigned : aliveThreats;
+  if (unassigned.length === 0) return null;
   const localHalf =
-    siteKey === "wildHornets"
-      ? pool.filter((target) => target.x < BURJ_X)
-      : pool.filter((target) => target.x >= BURJ_X);
-  const spatialPool = localHalf.length > 0 ? localHalf : pool;
+    siteKey === "wildHornetsLeft"
+      ? unassigned.filter((target) => target.x < BURJ_X)
+      : unassigned.filter((target) => target.x >= BURJ_X);
+  const spatialPool = localHalf.length > 0 ? localHalf : unassigned;
 
   const scored = spatialPool
     .map((target) => {
@@ -1007,7 +1004,7 @@ function pickHornetLaunchTarget(
       return {
         target,
         score:
-          hornetTargetScore(target, lvl, assigned) + getSpreadBonus(target, activeTargets, 340, 0.16) - spatialPenalty,
+          hornetTargetScore(target, 1, assigned) + getSpreadBonus(target, activeTargets, 340, 0.16) - spatialPenalty,
       };
     })
     .sort((a, b) => b.score - a.score);
@@ -1566,16 +1563,17 @@ export function updateAutoSystems(
   const _rng = getRng();
   // ── WILD HORNETS ──
   // Per-site progressive magazine: each launch site reloads one drone at a time.
+  // Sites and retargeting are independent purchases — read directly from owned nodes.
   if (g.upgrades.wildHornets > 0) {
-    const lvl = g.upgrades.wildHornets;
+    const hasRetarget = g.ownedUpgradeNodes.has("skyHunterMesh");
     const reloadPerSlot = 60;
     const launchGap = 24;
-    const blastR = [25, 30, 40][lvl - 1];
-    const retargetBudget = lvl >= 3 ? 1 : 0;
-    const siteKeys = getActiveHornetSiteKeys(lvl);
+    const blastR = 30;
+    const retargetBudget = hasRetarget ? Number.POSITIVE_INFINITY : 0;
+    const siteKeys = getActiveHornetSiteKeys(g);
 
     if (!g.hornetSites || g.hornetSites.some((site) => !siteKeys.includes(site.key))) {
-      syncHornetSitesForLevel(g);
+      syncHornetSitesForOwnership(g);
     }
     for (const key of siteKeys) {
       if (!g.hornetSites.some((site) => site.key === key)) {
@@ -1599,7 +1597,7 @@ export function updateAutoSystems(
       }
 
       if (siteAlive && siteState.ammo > 0 && siteState.launchCooldown <= 0 && allThreats.length > 0) {
-        const target = pickHornetLaunchTarget(allThreats, g.hornets, lvl, siteState.key);
+        const target = pickHornetLaunchTarget(allThreats, g.hornets, siteState.key);
         if (target) {
           const hornetSite = getDefenseSitePlacement(siteState.key);
           g.hornets.push({
@@ -1648,7 +1646,8 @@ export function updateAutoSystems(
       });
     }
     const t = h.targetRef;
-    // Hornets are kamikaze drones. L1/L2 are fire-and-forget; L3 can recover once.
+    // Hornets are kamikaze drones. Without Sky Hunter Mesh they crash when their
+    // target dies; with it they keep retargeting until life expires (Infinity budget).
     if (!t || !t.alive) {
       if ((h.retargetsRemaining ?? 0) <= 0) {
         h.alive = false;

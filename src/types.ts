@@ -275,7 +275,7 @@ export type UpgradeKey =
 export type Upgrades = Record<UpgradeKey, number>;
 export type UpgradeNodeId = string;
 export type UpgradeObjectiveId = string;
-export type HornetSiteKey = "wildHornets" | "wildHornetsRight";
+export type HornetSiteKey = "wildHornetsLeft" | "wildHornetsRight";
 
 export interface HornetSiteState {
   key: HornetSiteKey;
