@@ -318,6 +318,32 @@ describe("createReplayRunner shop handling", () => {
     rr.cleanup();
   });
 
+  it("drains stale same-tick wave plan markers after a delayed shop pause", () => {
+    const actions = [
+      { tick: 5, type: "shop" as const, bought: [] },
+      { tick: 5, type: "wave_plan" as const, wave: 2 },
+      { tick: 8, type: "fire" as const, x: 450, y: 200 },
+    ];
+    const rr = createReplayRunner({ seed: SEED, actions, draftMode: true });
+    const g = rr.init();
+
+    for (let i = 0; i < 6; i++) rr.step();
+    expect(rr.getTick()).toBe(6);
+
+    g.state = "shop";
+    rr.step();
+    expect(rr.isShopPaused()).toBe(true);
+    expect(rr.getTick()).toBe(6);
+
+    rr.resumeFromShop();
+    expect(g.state).toBe("playing");
+    expect(g.wave).toBe(2);
+
+    for (let i = 0; i < 4; i++) rr.step();
+    expect(g.stats.shotsFired).toBe(1);
+    rr.cleanup();
+  });
+
   it("stale combat actions before shop are discarded", () => {
     // Fire action and shop action both at tick 5; shop should take precedence
     const actions = [

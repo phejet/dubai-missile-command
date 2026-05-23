@@ -97,8 +97,10 @@ export function createReplayRunner(replayData: ReplayData, onEvent: EventCallbac
       return;
     }
 
-    // Process all actions at this tick
-    while (actionIdx < actions.length && actions[actionIdx].tick === tick) {
+    // Process all actions due by this tick. Browser-only UI pauses can resume one
+    // tick after same-tick markers such as wave_plan, so stale non-shop actions
+    // must drain instead of wedging the queue.
+    while (actionIdx < actions.length && actions[actionIdx].tick <= tick) {
       const action = actions[actionIdx];
       if (action.type === "shop") break;
       if (action.type === "wave_plan") {

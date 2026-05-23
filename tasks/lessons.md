@@ -2,6 +2,7 @@
 
 ## 2026-05-23
 
+- For replay bugs, distinguish local symptom recovery from full replay convergence. If the acceptance question is convergence, compare final wave/score/stats, not just the first previously stuck action stream.
 - When asked what skills are available in this repo, include both the Codex session skills and repo-local `.claude/skills/*.md`; the local Claude skills are part of the project workflow even if they are not exposed as Codex skill entries.
 - For Codex skill troubleshooting, verify with `codex debug prompt-input` before blaming file layout. Codex docs say symlinked skill folders are supported; if a skill is loaded but not visible in `/`, the issue is the app composer/indexer layer, not the skill directory.
 - A skill can be invocable by typing `$skill-name` exactly even when `$` autocomplete does not suggest it. Treat exact `$name` resolution, `$` autocomplete, and `/` slash-menu visibility as separate UI behaviors.
