@@ -36,7 +36,7 @@ import {
 } from "./game-sim.js";
 import { buildShopEntries, normalizeLegacyFlareActiveState } from "./game-sim-shop.js";
 import { getBurjDamageFireLayout } from "./art-render.js";
-import type { Drone, Hornet, Interceptor, Missile, PatriotMissile } from "./types.js";
+import type { Drone, Interceptor, Missile, PatriotMissile } from "./types.js";
 
 describe("MIRV behavior", () => {
   afterEach(() => setRng(Math.random));
@@ -88,6 +88,7 @@ describe("Upgrade graph", () => {
     expect(buyUpgrade(g, "wildHornets")).toBe(true);
     expect(g.ownedUpgradeNodes.has("tridentFpvCell")).toBe(true);
     expect(g.upgrades.wildHornets).toBe(2);
+    expect(g.defenseSites.some((site) => site.key === "wildHornetsRight" && site.savedLevel === 2)).toBe(true);
   });
 
   it("requires completed objectives before gated graph nodes can be purchased", () => {
@@ -1131,22 +1132,46 @@ describe("Decoy flares", () => {
 describe("Auto-defense targeting spread", () => {
   afterEach(() => setRng(Math.random));
 
-  it("spreads hornet launch targets across separate threats", () => {
+  it("launches L1 hornets from a single-site magazine across separate threats", () => {
     const { sim, g } = makeCleanGame(5);
     g.upgrades.wildHornets = 1;
-    g.hornetTimer = 149;
+    g.hornetSites = [{ key: "wildHornets", ammo: 2, reloadTimer: 0, launchCooldown: 0 }];
     const threats = [
       makeBallisticMissile({ x: 140, y: 240, vx: 0, vy: 1 }),
       makeBallisticMissile({ x: 460, y: 240, vx: 0, vy: 1 }),
       makeBallisticMissile({ x: 780, y: 240, vx: 0, vy: 1 }),
     ];
 
-    sim.updateAutoSystems(g, 1, threats);
+    for (let i = 0; i < 30; i++) sim.updateAutoSystems(g, 1, threats);
 
     expect(g.hornets).toHaveLength(2);
     const targets = g.hornets.map((h) => h.targetRef);
     expect(new Set(targets).size).toBe(2);
     expect(Math.abs(targets[0]!.x - targets[1]!.x)).toBeGreaterThan(200);
+  });
+
+  it("launches L2 hornets from left and right sites with same-half target bias", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.wildHornets = 2;
+    g.hornetSites = [
+      { key: "wildHornets", ammo: 2, reloadTimer: 0, launchCooldown: 0 },
+      { key: "wildHornetsRight", ammo: 2, reloadTimer: 0, launchCooldown: 0 },
+    ];
+    const threats = [
+      makeBallisticMissile({ x: 160, y: 240, vx: 0, vy: 1 }),
+      makeBallisticMissile({ x: 260, y: 250, vx: 0, vy: 1 }),
+      makeBallisticMissile({ x: 650, y: 240, vx: 0, vy: 1 }),
+      makeBallisticMissile({ x: 760, y: 250, vx: 0, vy: 1 }),
+    ];
+
+    for (let i = 0; i < 30; i++) sim.updateAutoSystems(g, 1, threats);
+
+    const leftSiteHornets = g.hornets.filter((h) => h.x < 350);
+    const rightSiteHornets = g.hornets.filter((h) => h.x > 550);
+    expect(leftSiteHornets.length).toBeGreaterThanOrEqual(1);
+    expect(rightSiteHornets.length).toBeGreaterThanOrEqual(1);
+    expect(leftSiteHornets.every((h) => h.targetRef && h.targetRef.x < BURJ_X)).toBe(true);
+    expect(rightSiteHornets.every((h) => h.targetRef && h.targetRef.x >= BURJ_X)).toBe(true);
   });
 
   it("spreads roadrunner launch targets across separate threats", () => {
@@ -1204,14 +1229,17 @@ describe("Auto-defense targeting spread", () => {
     expect(Math.abs(targets[0]!.x - targets[1]!.x)).toBeGreaterThan(200);
   });
 
-  it("keeps hornet retargets off another hornet's live target", () => {
+  it("lets an L3 hornet retarget once, then crash when its second target dies", () => {
     const { sim, g } = makeCleanGame(5);
-    g.upgrades.wildHornets = 1;
-    g.hornetTimer = 0;
+    g.upgrades.wildHornets = 3;
+    g.hornetSites = [
+      { key: "wildHornets", ammo: 0, reloadTimer: 0, launchCooldown: 0 },
+      { key: "wildHornetsRight", ammo: 0, reloadTimer: 0, launchCooldown: 0 },
+    ];
     const deadTarget = makeBallisticMissile({ x: 200, y: 220, alive: false });
     const reservedTarget = makeBallisticMissile({ x: 420, y: 230, vx: 0, vy: 1 });
     const fallbackTarget = makeBallisticMissile({ x: 760, y: 230, vx: 0, vy: 1 });
-    g.hornets.push({
+    const retargetingHornet = {
       x: 210,
       y: 480,
       targetRef: deadTarget,
@@ -1222,7 +1250,9 @@ describe("Auto-defense targeting spread", () => {
       wobble: 0,
       life: 600,
       maxLife: 600,
-    } as Hornet);
+      retargetsRemaining: 1,
+    };
+    g.hornets.push(retargetingHornet);
     g.hornets.push({
       x: 240,
       y: 470,
@@ -1234,11 +1264,45 @@ describe("Auto-defense targeting spread", () => {
       wobble: 0,
       life: 600,
       maxLife: 600,
-    } as Hornet);
+      retargetsRemaining: 1,
+    });
 
     sim.updateAutoSystems(g, 1, [reservedTarget, fallbackTarget]);
 
-    expect(g.hornets[0].targetRef).toBe(fallbackTarget);
+    expect(retargetingHornet.targetRef).toBe(fallbackTarget);
+    expect(retargetingHornet.retargetsRemaining).toBe(0);
+
+    fallbackTarget.alive = false;
+    sim.updateAutoSystems(g, 1, [reservedTarget, fallbackTarget]);
+
+    expect(retargetingHornet.alive).toBe(false);
+    expect(g.hornets).not.toContain(retargetingHornet);
+  });
+
+  it("does not treat a live below-hornet target as a dead-target crash", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.wildHornets = 1;
+    g.hornetSites = [{ key: "wildHornets", ammo: 0, reloadTimer: 0, launchCooldown: 0 }];
+    const lowTarget = makeBallisticMissile({ x: 210, y: 520, vx: 0, vy: 1 });
+    g.hornets.push({
+      x: 210,
+      y: 360,
+      targetRef: lowTarget,
+      speed: 5,
+      trail: [],
+      alive: true,
+      blastRadius: 25,
+      wobble: 0,
+      life: 600,
+      maxLife: 600,
+      retargetsRemaining: 0,
+    });
+
+    sim.updateAutoSystems(g, 1, [lowTarget]);
+
+    expect(g.hornets[0].alive).toBe(true);
+    expect(g.hornets[0].targetRef).toBe(lowTarget);
+    expect(g.hornets[0].y).toBeLessThan(360);
   });
 
   it("keeps patriot retargets off another patriot's live target", () => {

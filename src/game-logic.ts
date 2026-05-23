@@ -190,12 +190,14 @@ export function getDefenseSitePlacement(key: string): { x: number; y: number; hw
       return { x: 334, y: GAMEPLAY_SUPPORT_SITE_Y, hw: 38, hh: 24 };
     case "wildHornets":
       return { x: 206, y: GAMEPLAY_SUPPORT_SITE_Y, hw: 30, hh: 24 };
+    case "wildHornetsRight":
+      return { x: 622, y: GAMEPLAY_SUPPORT_SITE_Y, hw: 30, hh: 24 };
     case "roadrunner":
-      return { x: 678, y: GAMEPLAY_SUPPORT_SITE_Y, hw: 30, hh: 24 };
+      return { x: 711, y: GAMEPLAY_SUPPORT_SITE_Y, hw: 30, hh: 24 };
     case "phalanx":
       return { x: 553, y: GAMEPLAY_SUPPORT_SITE_Y - 13, hw: 10, hh: 15 };
     case "launcherKit":
-      return { x: 772, y: GAMEPLAY_SUPPORT_SITE_Y + 2, hw: 30, hh: 24 };
+      return { x: 800, y: GAMEPLAY_SUPPORT_SITE_Y + 2, hw: 30, hh: 24 };
     case "ironBeam":
       return { x: BURJ_X, y: 959, hw: 10, hh: 15 };
     default:

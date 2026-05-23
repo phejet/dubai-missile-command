@@ -22,10 +22,12 @@ import {
   resolveRequestedUpgradeNodeId,
   UPGRADE_NODES,
 } from "./game-sim-upgrades";
-import type { GameState, ShopEntry, UpgradeKey, UpgradeNodeId, UpgradeProgressionState } from "./types";
+import type { GameState, HornetSiteKey, ShopEntry, UpgradeKey, UpgradeNodeId, UpgradeProgressionState } from "./types";
 
 const ACTIVE_CHOICE_WAVE = 3;
 const ACTIVE_CHOICE_OBJECTIVE = "reach_wave_3";
+export const HORNET_SITE_CAPACITY = 2;
+type DefenseSiteKey = UpgradeKey | "wildHornetsRight";
 
 function syncUpgradeLevels(g: GameState): void {
   const burjRepair = g.upgrades?.burjRepair ?? 0;
@@ -100,9 +102,10 @@ function shuffleIds(ids: string[], rng: () => number): string[] {
   return pool;
 }
 
-function reviveOrRegisterDefenseSite(g: GameState, key: UpgradeKey): void {
+function reviveOrRegisterDefenseSite(g: GameState, key: DefenseSiteKey): void {
   const siteDef = getDefenseSitePlacement(key);
   if (!siteDef) return;
+  const ownerKey: UpgradeKey = key === "wildHornetsRight" ? "wildHornets" : key;
   const existingSite = g.defenseSites.find((site) => site.key === key);
   if (existingSite) {
     existingSite.x = siteDef.x;
@@ -110,7 +113,7 @@ function reviveOrRegisterDefenseSite(g: GameState, key: UpgradeKey): void {
     existingSite.hw = siteDef.hw;
     existingSite.hh = siteDef.hh;
     existingSite.alive = true;
-    existingSite.savedLevel = g.upgrades[key];
+    existingSite.savedLevel = g.upgrades[ownerKey];
     return;
   }
   g.defenseSites.push({
@@ -120,7 +123,24 @@ function reviveOrRegisterDefenseSite(g: GameState, key: UpgradeKey): void {
     alive: true,
     hw: siteDef.hw,
     hh: siteDef.hh,
-    savedLevel: g.upgrades[key],
+    savedLevel: g.upgrades[ownerKey],
+  });
+}
+
+export function getActiveHornetSiteKeys(level: number): HornetSiteKey[] {
+  if (level <= 0) return [];
+  return level >= 2 ? ["wildHornets", "wildHornetsRight"] : ["wildHornets"];
+}
+
+export function syncHornetSitesForLevel(g: GameState, options: { reset?: boolean } = {}): void {
+  const activeKeys = getActiveHornetSiteKeys(g.upgrades.wildHornets);
+  const existing = new Map((g.hornetSites ?? []).map((site) => [site.key, site]));
+  g.hornetSites = activeKeys.map((key) => {
+    const site = existing.get(key);
+    if (!site || options.reset) {
+      return { key, ammo: HORNET_SITE_CAPACITY, reloadTimer: 0, launchCooldown: 0 };
+    }
+    return site;
   });
 }
 
@@ -135,6 +155,9 @@ function applyNodeSideEffects(g: GameState, nodeId: UpgradeNodeId): void {
     }
   }
   reviveOrRegisterDefenseSite(g, node.family);
+  if (nodeId === "tridentFpvCell") {
+    reviveOrRegisterDefenseSite(g, "wildHornetsRight");
+  }
   if (node.family === "emp") {
     g.empReadyThisWave = true;
   }
@@ -206,6 +229,14 @@ export function draftPick3(g: GameState): string[] {
   const available = getEligibleUpgradeNodes(g.ownedUpgradeNodes, progression).filter(
     (node) => !getActiveChoiceWaveLockReason(g, node),
   );
+  // Debug/feel-check: always include the eligible roadrunner family node when one exists.
+  const roadrunnerNode = available.find((node) => node.family === "roadrunner");
+  const forceRoadrunner = (picks: string[]): string[] => {
+    if (!roadrunnerNode || picks.includes(roadrunnerNode.id)) return picks;
+    if (picks.length === 0) return [roadrunnerNode.id];
+    return [...picks.slice(0, -1), roadrunnerNode.id];
+  };
+
   if (g.wave === ACTIVE_CHOICE_WAVE) {
     const activeChoices = available.filter(isInitialActiveChoiceNode);
     if (activeChoices.length > 0) {
@@ -219,14 +250,16 @@ export function draftPick3(g: GameState): string[] {
         2,
         rng,
       );
-      return shuffleIds([...activeOffer, ...supportOffers], rng);
+      return shuffleIds(forceRoadrunner([...activeOffer, ...supportOffers]), rng);
     }
   }
   if (available.length <= 3) return available.map((node) => node.id);
-  return pickRandomIds(
-    available.map((node) => node.id),
-    3,
-    rng,
+  return forceRoadrunner(
+    pickRandomIds(
+      available.map((node) => node.id),
+      3,
+      rng,
+    ),
   );
 }
 
@@ -316,7 +349,7 @@ export function prepareWaveStart(g: GameState): void {
   g.flareSalvoClaims = new Set();
   g.planes = [];
 
-  g.hornetTimer = 360;
+  syncHornetSitesForLevel(g, { reset: true });
   const rrCapacity = [0, 1, 2, 3][g.upgrades.roadrunner] ?? 0;
   g.roadrunnerAmmo = rrCapacity;
   g.roadrunnerReloadTimer = 0;

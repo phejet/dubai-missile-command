@@ -275,6 +275,14 @@ export type UpgradeKey =
 export type Upgrades = Record<UpgradeKey, number>;
 export type UpgradeNodeId = string;
 export type UpgradeObjectiveId = string;
+export type HornetSiteKey = "wildHornets" | "wildHornetsRight";
+
+export interface HornetSiteState {
+  key: HornetSiteKey;
+  ammo: number;
+  reloadTimer: number;
+  launchCooldown: number;
+}
 
 export interface UpgradeProgressionState {
   version: number;
@@ -320,6 +328,7 @@ export interface Hornet {
   wobble: number;
   life: number;
   maxLife: number;
+  retargetsRemaining: number;
 }
 
 export interface Roadrunner {
@@ -588,7 +597,7 @@ export interface GameState {
   ownedUpgradeNodes: Set<UpgradeNodeId>;
   metaProgression: UpgradeProgressionState;
 
-  hornetTimer: number;
+  hornetSites: HornetSiteState[];
   roadrunnerAmmo: number;
   roadrunnerReloadTimer: number;
   roadrunnerLaunchCooldown: number;

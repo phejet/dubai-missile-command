@@ -163,6 +163,7 @@ describe("summarizePixiDynamicEntities", () => {
       wobble: 0,
       life: 10,
       maxLife: 260,
+      retargetsRemaining: 0,
     });
     game.roadrunners.push({
       x: 260,
@@ -469,6 +470,7 @@ describe("PixiRenderer dynamic entity updates", () => {
       wobble: 0,
       life: 10,
       maxLife: 260,
+      retargetsRemaining: 0,
     };
     const roadrunner = {
       x: 260,

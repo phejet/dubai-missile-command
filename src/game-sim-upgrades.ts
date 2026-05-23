@@ -135,7 +135,7 @@ export const UPGRADE_NODES: UpgradeNodeDef[] = [
     desc: "Ukrainian FPV drone swarm. Fast-response interceptors thin bombs and drones before they become emergencies.",
     cost: 532,
     color: COL.hornet,
-    statLine: "2 drones / 2.5s · bomb + drone priority · 25 blast",
+    statLine: "1 site · 2-drone magazine · 1/sec · 25 blast",
   },
   {
     id: "tridentFpvCell",
@@ -146,7 +146,7 @@ export const UPGRADE_NODES: UpgradeNodeDef[] = [
     desc: "A second Ukrainian interceptor team joins the screen, giving the swarm much denser battlefield coverage.",
     cost: 2016,
     color: COL.hornet,
-    statLine: "3 drones / 2.5s · battlefield control · 30 blast",
+    statLine: "2 sites (L+R coverage) · 2 drones/sec · 30 blast",
     anyOf: ["wildHornets"],
   },
   {
@@ -158,7 +158,7 @@ export const UPGRADE_NODES: UpgradeNodeDef[] = [
     desc: "Distributed FPV control network coordinates swarm launches into a constant anti-drone screen.",
     cost: 4991,
     color: COL.hornet,
-    statLine: "5 drones / 1.8s · swarm control · 40 blast",
+    statLine: "2 sites · drones retarget once · 40 blast",
     allOf: ["wildHornets", "tridentFpvCell"],
   },
   {

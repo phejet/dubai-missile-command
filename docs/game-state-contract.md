@@ -104,7 +104,7 @@ These fields back the spawn-commander system. They are advanced every sim tick a
 
 - `planeTimer`
 - `planeInterval`
-- `hornetTimer`
+- `hornetSites`
 - `roadrunnerTimer`
 - `ironBeamTimer`
 - `phalanxTimer`

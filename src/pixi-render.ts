@@ -953,6 +953,7 @@ function requireDefenseSitePlacement(key: string): { x: number; y: number; hw: n
 const GAMEPLAY_DEFENSE_SITE_PLACEMENTS = {
   patriot: requireDefenseSitePlacement("patriot"),
   wildHornets: requireDefenseSitePlacement("wildHornets"),
+  wildHornetsRight: requireDefenseSitePlacement("wildHornetsRight"),
   roadrunner: requireDefenseSitePlacement("roadrunner"),
 } as const;
 
@@ -2006,6 +2007,12 @@ export class PixiRenderer implements GameRenderer {
       GAMEPLAY_DEFENSE_SITE_PLACEMENTS.wildHornets.y,
     );
     addDefenseSiteNode(
+      "wildHornetsRight",
+      defenseSiteAssets.wildHornetsHive[0],
+      GAMEPLAY_DEFENSE_SITE_PLACEMENTS.wildHornetsRight.x,
+      GAMEPLAY_DEFENSE_SITE_PLACEMENTS.wildHornetsRight.y,
+    );
+    addDefenseSiteNode(
       "roadrunner",
       defenseSiteAssets.roadrunnerContainer[0],
       GAMEPLAY_DEFENSE_SITE_PLACEMENTS.roadrunner.x,
@@ -2747,6 +2754,14 @@ export class PixiRenderer implements GameRenderer {
       GAMEPLAY_DEFENSE_SITE_PLACEMENTS.wildHornets.y,
       COL_HEX.hornet,
     );
+    updateNode(
+      "wildHornetsRight",
+      game.upgrades.wildHornets >= 2,
+      state.defenseSiteAssets.wildHornetsHive[hornetLevel - 1],
+      GAMEPLAY_DEFENSE_SITE_PLACEMENTS.wildHornetsRight.x,
+      GAMEPLAY_DEFENSE_SITE_PLACEMENTS.wildHornetsRight.y,
+      COL_HEX.hornet,
+    );
 
     const roadrunnerLevel = Math.max(1, Math.min(3, game.upgrades.roadrunner));
     updateNode(
@@ -2956,12 +2971,13 @@ export class PixiRenderer implements GameRenderer {
         range: ov("flare.lureRadius", 600),
       },
       { x: ov("upgrade.hornets.x", 206), y: ov("upgrade.hornets.y", 1511), color: COL_HEX.hornet },
+      { x: ov("upgrade.hornetsRight.x", 622), y: ov("upgrade.hornetsRight.y", 1511), color: COL_HEX.hornet },
       {
-        x: ov("upgrade.roadrunner.x", 678),
+        x: ov("upgrade.roadrunner.x", 711),
         y: ov("upgrade.roadrunner.y", GROUND_Y - 15),
         color: COL_HEX.roadrunner,
       },
-      { x: ov("upgrade.launcherKit.x", 772), y: ov("upgrade.launcherKit.y", 1513), color: 0x66aaff },
+      { x: ov("upgrade.launcherKit.x", 800), y: ov("upgrade.launcherKit.y", 1513), color: 0x66aaff },
     ];
 
     for (const system of systems) {

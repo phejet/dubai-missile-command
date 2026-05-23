@@ -44,7 +44,14 @@ import {
 } from "./game-logic.js";
 import { createCommander, generateWaveSchedule, advanceSpawnSchedule, isWaveFullySpawned } from "./wave-spawner.js";
 import { createEmptyUpgradeLevels, createEmptyUpgradeProgression } from "./game-sim-upgrades.js";
-import { buyUpgrade, closeShop, draftPick3 } from "./game-sim-shop.js";
+import {
+  buyUpgrade,
+  closeShop,
+  draftPick3,
+  getActiveHornetSiteKeys,
+  HORNET_SITE_CAPACITY,
+  syncHornetSitesForLevel,
+} from "./game-sim-shop.js";
 import { createFireChargeState } from "./player-fire-limiter.js";
 import type {
   GameState,
@@ -54,6 +61,7 @@ import type {
   BurjDamageKind,
   Interceptor,
   Hornet,
+  HornetSiteKey,
   Roadrunner,
   PatriotMissile,
   Flare,
@@ -437,7 +445,7 @@ export function initGame(): GameState {
     phalanxBullets: [],
     patriotMissiles: [],
     flares: [],
-    hornetTimer: 360,
+    hornetSites: [],
     roadrunnerAmmo: 0,
     roadrunnerReloadTimer: 0,
     roadrunnerLaunchCooldown: 0,
@@ -970,29 +978,43 @@ function pickHornetTarget(
   return topBand[randInt(0, topBand.length - 1)].target;
 }
 
-function pickHornetLaunchTargets(allThreats: Threat[], activeHornets: Hornet[], lvl: number, count: number): Threat[] {
+function pickHornetLaunchTarget(
+  allThreats: Threat[],
+  activeHornets: Hornet[],
+  lvl: number,
+  siteKey: HornetSiteKey,
+): Threat | null {
   const aliveThreats = allThreats.filter((t) => t.alive);
+  if (aliveThreats.length === 0) return null;
+
+  const placement = getDefenseSitePlacement(siteKey);
+  const siteX = placement?.x ?? 206;
   const assignmentCounts = getHornetAssignmentCounts(activeHornets);
   const activeTargets = Array.from(assignmentCounts.keys());
-  const picked: Threat[] = [];
-  while (picked.length < Math.min(count, aliveThreats.length)) {
-    const available = aliveThreats.filter((t) => !picked.includes(t));
-    if (available.length === 0) break;
-    const unassigned = available.filter((t) => !assignmentCounts.has(t));
-    const pool = unassigned.length > 0 ? unassigned : available;
-    const scored = pool
-      .map((target) => ({
+
+  const unassigned = aliveThreats.filter((t) => !assignmentCounts.has(t));
+  const pool = unassigned.length > 0 ? unassigned : aliveThreats;
+  const localHalf =
+    siteKey === "wildHornets"
+      ? pool.filter((target) => target.x < BURJ_X)
+      : pool.filter((target) => target.x >= BURJ_X);
+  const spatialPool = localHalf.length > 0 ? localHalf : pool;
+
+  const scored = spatialPool
+    .map((target) => {
+      const assigned = assignmentCounts.get(target) || 0;
+      const spatialPenalty = (Math.abs(target.x - siteX) / 600) * 80;
+      return {
         target,
         score:
-          hornetTargetScore(target, lvl, assignmentCounts.get(target) || 0) +
-          getSpreadBonus(target, [...activeTargets, ...picked], 340, 0.16),
-      }))
-      .sort((a, b) => b.score - a.score);
-    const next = scored[0]?.target ?? null;
-    if (!next) break;
-    picked.push(next);
-  }
-  return picked;
+          hornetTargetScore(target, lvl, assigned) + getSpreadBonus(target, activeTargets, 340, 0.16) - spatialPenalty,
+      };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  const topScore = scored[0].score;
+  const topBand = scored.filter((s) => s.score >= topScore - 25);
+  return topBand[randInt(0, topBand.length - 1)].target;
 }
 
 const HORNET_DIVE_SLACK = 80;
@@ -1543,31 +1565,60 @@ export function updateAutoSystems(
 ) {
   const _rng = getRng();
   // ── WILD HORNETS ──
-  // Hornet launching — only if site alive
-  if (g.upgrades.wildHornets > 0 && isSiteAlive(g, "wildHornets")) {
+  // Per-site progressive magazine: each launch site reloads one drone at a time.
+  if (g.upgrades.wildHornets > 0) {
     const lvl = g.upgrades.wildHornets;
-    const interval = [150, 150, 105][lvl - 1];
-    const count = [2, 3, 5][lvl - 1];
+    const reloadPerSlot = 60;
+    const launchGap = 24;
     const blastR = [25, 30, 40][lvl - 1];
-    g.hornetTimer += dt;
-    if (g.hornetTimer >= interval && allThreats.length > 0) {
-      g.hornetTimer = 0;
-      if (onEvent) onEvent("sfx", { name: "hornetBuzz" });
-      const hornetSite = getDefenseSitePlacement("wildHornets");
-      const targets = pickHornetLaunchTargets(allThreats, g.hornets, lvl, count);
-      for (let i = 0; i < targets.length; i++) {
-        g.hornets.push({
-          x: (hornetSite?.x ?? 206) + rand(-12, 12),
-          y: (hornetSite?.y ?? GROUND_Y) - 20,
-          targetRef: targets[i],
-          speed: rand(3.73, 5.6),
-          trail: [],
-          alive: true,
-          blastRadius: blastR,
-          wobble: rand(0, Math.PI * 2),
-          life: 240,
-          maxLife: 240,
-        });
+    const retargetBudget = lvl >= 3 ? 1 : 0;
+    const siteKeys = getActiveHornetSiteKeys(lvl);
+
+    if (!g.hornetSites || g.hornetSites.some((site) => !siteKeys.includes(site.key))) {
+      syncHornetSitesForLevel(g);
+    }
+    for (const key of siteKeys) {
+      if (!g.hornetSites.some((site) => site.key === key)) {
+        g.hornetSites.push({ key, ammo: HORNET_SITE_CAPACITY, reloadTimer: 0, launchCooldown: 0 });
+      }
+    }
+
+    for (const siteState of g.hornetSites) {
+      if (!siteKeys.includes(siteState.key)) continue;
+      const siteAlive = isSiteAlive(g, siteState.key);
+      if (siteAlive && siteState.ammo < HORNET_SITE_CAPACITY) {
+        siteState.reloadTimer += dt;
+        while (siteState.reloadTimer >= reloadPerSlot && siteState.ammo < HORNET_SITE_CAPACITY) {
+          siteState.ammo++;
+          siteState.reloadTimer -= reloadPerSlot;
+        }
+      }
+      if (siteState.ammo >= HORNET_SITE_CAPACITY) siteState.reloadTimer = 0;
+      if (siteState.launchCooldown > 0) {
+        siteState.launchCooldown = Math.max(0, siteState.launchCooldown - dt);
+      }
+
+      if (siteAlive && siteState.ammo > 0 && siteState.launchCooldown <= 0 && allThreats.length > 0) {
+        const target = pickHornetLaunchTarget(allThreats, g.hornets, lvl, siteState.key);
+        if (target) {
+          const hornetSite = getDefenseSitePlacement(siteState.key);
+          g.hornets.push({
+            x: (hornetSite?.x ?? 206) + rand(-12, 12),
+            y: (hornetSite?.y ?? GROUND_Y) - 20,
+            targetRef: target,
+            speed: rand(3.73, 5.6),
+            trail: [],
+            alive: true,
+            blastRadius: blastR,
+            wobble: rand(0, Math.PI * 2),
+            life: 240,
+            maxLife: 240,
+            retargetsRemaining: retargetBudget,
+          });
+          siteState.ammo--;
+          siteState.launchCooldown = launchGap;
+          if (onEvent) onEvent("sfx", { name: "hornetBuzz" });
+        }
       }
     }
   }
@@ -1597,8 +1648,13 @@ export function updateAutoSystems(
       });
     }
     const t = h.targetRef;
-    // Hornets are kamikaze drones — they climb or hold, never dive at threats below them
-    if (!t || !t.alive || t.y > h.y + HORNET_DIVE_SLACK) {
+    // Hornets are kamikaze drones. L1/L2 are fire-and-forget; L3 can recover once.
+    if (!t || !t.alive) {
+      if ((h.retargetsRemaining ?? 0) <= 0) {
+        h.alive = false;
+        boom(g, h.x, h.y, h.blastRadius * 0.5, COL.hornet, false, onEvent, h.blastRadius * 0.2);
+        return;
+      }
       const newT = pickHornetRetargetTarget(
         h,
         allThreats,
@@ -1607,6 +1663,7 @@ export function updateAutoSystems(
       );
       if (newT) {
         h.targetRef = newT;
+        h.retargetsRemaining = (h.retargetsRemaining ?? 0) - 1;
       } else {
         // No targets — drift forward, life timer will eventually expire
         h.wobble += 0.15 * dt;
@@ -1616,6 +1673,15 @@ export function updateAutoSystems(
         h.x += Math.sin(h.wobble) * 0.8 * dt;
         return;
       }
+    }
+    const currentTarget = h.targetRef;
+    if (currentTarget?.alive && currentTarget.y > h.y + HORNET_DIVE_SLACK) {
+      h.wobble += 0.15 * dt;
+      h.trail.push({ x: h.x, y: h.y });
+      if (h.trail.length > 12) h.trail.shift();
+      h.y -= h.speed * 0.5 * dt;
+      h.x += Math.sin(h.wobble) * 0.8 * dt;
+      return;
     }
     h.wobble += 0.15 * dt;
     const hTarget = h.targetRef!;
@@ -1673,7 +1739,7 @@ export function updateAutoSystems(
       if (target) {
         const roadrunnerSite = getDefenseSitePlacement("roadrunner");
         g.roadrunners.push({
-          x: (roadrunnerSite?.x ?? 678) + rand(-15, 15),
+          x: (roadrunnerSite?.x ?? 711) + rand(-15, 15),
           y: (roadrunnerSite?.y ?? GROUND_Y) - 10,
           targetRef: target,
           speed: rrSpeed,
