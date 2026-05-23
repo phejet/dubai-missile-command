@@ -317,7 +317,10 @@ export function prepareWaveStart(g: GameState): void {
   g.planes = [];
 
   g.hornetTimer = 360;
-  g.roadrunnerTimer = 480;
+  const rrCapacity = [0, 1, 2, 3][g.upgrades.roadrunner] ?? 0;
+  g.roadrunnerAmmo = rrCapacity;
+  g.roadrunnerReloadTimer = 0;
+  g.roadrunnerLaunchCooldown = 0;
   g.patriotTimer = 480;
   g.ironBeamTimer = 360;
   g.empReadyThisWave = g.upgrades.emp > 0;

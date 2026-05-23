@@ -1152,19 +1152,38 @@ describe("Auto-defense targeting spread", () => {
   it("spreads roadrunner launch targets across separate threats", () => {
     const { sim, g } = makeCleanGame(5);
     g.upgrades.roadrunner = 2;
-    g.roadrunnerTimer = 239;
+    g.roadrunnerAmmo = 2;
+    g.roadrunnerReloadTimer = 0;
+    g.roadrunnerLaunchCooldown = 0;
     const threats = [
       makeBallisticMissile({ x: 150, y: 250, vx: 0, vy: 1 }),
       makeBallisticMissile({ x: 460, y: 250, vx: 0, vy: 1 }),
       makeBallisticMissile({ x: 770, y: 250, vx: 0, vy: 1 }),
     ];
 
-    sim.updateAutoSystems(g, 1, threats);
+    // Tick enough frames for both magazine slots to fire across the L2 launch-gap cooldown (60 ticks).
+    for (let i = 0; i < 65; i++) sim.updateAutoSystems(g, 1, threats);
 
     expect(g.roadrunners).toHaveLength(2);
     const targets = g.roadrunners.map((r) => r.targetRef);
     expect(new Set(targets).size).toBe(2);
     expect(Math.abs(targets[0]!.x - targets[1]!.x)).toBeGreaterThan(200);
+  });
+
+  it("holds roadrunner fire when the only target is already being chased", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.roadrunner = 2;
+    g.roadrunnerAmmo = 2;
+    g.roadrunnerReloadTimer = 0;
+    g.roadrunnerLaunchCooldown = 0;
+    const loneTarget = makeBallisticMissile({ x: 460, y: 250, vx: 0, vy: 1 });
+
+    // Tick well past the launch-gap cooldown — only one roadrunner should launch,
+    // the second ammo should stay in the magazine because the only target is reserved.
+    for (let i = 0; i < 65; i++) sim.updateAutoSystems(g, 1, [loneTarget]);
+
+    expect(g.roadrunners).toHaveLength(1);
+    expect(g.roadrunnerAmmo).toBe(1);
   });
 
   it("spreads patriot launch targets across separate threats", () => {

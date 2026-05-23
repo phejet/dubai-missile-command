@@ -438,7 +438,9 @@ export function initGame(): GameState {
     patriotMissiles: [],
     flares: [],
     hornetTimer: 360,
-    roadrunnerTimer: 480,
+    roadrunnerAmmo: 0,
+    roadrunnerReloadTimer: 0,
+    roadrunnerLaunchCooldown: 0,
     ironBeamTimer: 360,
     phalanxTimer: 5,
     patriotTimer: 480,
@@ -1039,7 +1041,13 @@ function roadrunnerThreatScore(t: Threat): number {
   return 300 + t.y * 0.35;
 }
 
-function pickRoadrunnerTargets(allThreats: Threat[], activeRoadrunners: Roadrunner[], count: number): Threat[] {
+function pickRoadrunnerTargets(
+  allThreats: Threat[],
+  activeRoadrunners: Roadrunner[],
+  count: number,
+  options: { allowReserved?: boolean } = {},
+): Threat[] {
+  const { allowReserved = true } = options;
   const aliveThreats = allThreats.filter((t) => t.alive);
   if (aliveThreats.length === 0) return [];
 
@@ -1049,9 +1057,9 @@ function pickRoadrunnerTargets(allThreats: Threat[], activeRoadrunners: Roadrunn
   const spreadTargets = Array.from(reserved);
   const picked: Threat[] = [];
 
-  const pickNext = (allowReserved: boolean): Threat | null => {
+  const pickNext = (allowReservedThisPass: boolean): Threat | null => {
     const candidates = aliveThreats
-      .filter((t: Threat) => !picked.includes(t) && (allowReserved || !reserved.has(t)))
+      .filter((t: Threat) => !picked.includes(t) && (allowReservedThisPass || !reserved.has(t)))
       .map((t: Threat) => ({
         target: t,
         score: roadrunnerThreatScore(t) + getSpreadBonus(t, [...spreadTargets, ...picked], 320, 0.18),
@@ -1061,7 +1069,7 @@ function pickRoadrunnerTargets(allThreats: Threat[], activeRoadrunners: Roadrunn
   };
 
   while (picked.length < Math.min(count, aliveThreats.length)) {
-    const next = pickNext(false) || pickNext(true);
+    const next = pickNext(false) || (allowReserved ? pickNext(true) : null);
     if (!next) break;
     picked.push(next);
   }
@@ -1632,24 +1640,42 @@ export function updateAutoSystems(
   g.hornets = g.hornets.filter((h) => h.alive);
 
   // ── ANDURIL ROADRUNNER ──
-  // Roadrunner launching — only if site alive
-  if (g.upgrades.roadrunner > 0 && isSiteAlive(g, "roadrunner")) {
+  // Progressively-reloading magazine: capacity = count, one slot reloads every
+  // (interval / count) ticks. Launches fire one at a time with a small forced
+  // gap so each one gets its own visual/audible beat.
+  if (g.upgrades.roadrunner > 0) {
     const lvl = g.upgrades.roadrunner;
-    const interval = [300, 240, 180][lvl - 1];
-    const count = [1, 2, 3][lvl - 1];
+    const capacity = [1, 2, 3][lvl - 1];
+    const reloadInterval = [300, 240, 180][lvl - 1];
+    const reloadPerSlot = reloadInterval / capacity;
+    const launchGap = [12, 60, 12][lvl - 1];
     const rrSpeed = [10.1, 13.86, 17.64][lvl - 1];
     const rrBlastR = [27, 27, 28][lvl - 1];
     const rrTurnRate = [0.096, 0.132, 0.168][lvl - 1];
-    g.roadrunnerTimer += dt;
-    if (g.roadrunnerTimer >= interval && allThreats.length > 0) {
-      g.roadrunnerTimer = 0;
-      const targets = pickRoadrunnerTargets(allThreats, g.roadrunners, count);
-      const roadrunnerSite = getDefenseSitePlacement("roadrunner");
-      for (let i = 0; i < targets.length; i++) {
+
+    const siteAlive = isSiteAlive(g, "roadrunner");
+
+    if (siteAlive && g.roadrunnerAmmo < capacity) {
+      g.roadrunnerReloadTimer += dt;
+      while (g.roadrunnerReloadTimer >= reloadPerSlot && g.roadrunnerAmmo < capacity) {
+        g.roadrunnerAmmo++;
+        g.roadrunnerReloadTimer -= reloadPerSlot;
+      }
+    }
+    if (g.roadrunnerAmmo >= capacity) g.roadrunnerReloadTimer = 0;
+
+    if (g.roadrunnerLaunchCooldown > 0) {
+      g.roadrunnerLaunchCooldown = Math.max(0, g.roadrunnerLaunchCooldown - dt);
+    }
+
+    if (siteAlive && g.roadrunnerAmmo > 0 && g.roadrunnerLaunchCooldown <= 0 && allThreats.length > 0) {
+      const target = pickRoadrunnerTargets(allThreats, g.roadrunners, 1, { allowReserved: false })[0];
+      if (target) {
+        const roadrunnerSite = getDefenseSitePlacement("roadrunner");
         g.roadrunners.push({
           x: (roadrunnerSite?.x ?? 678) + rand(-15, 15),
           y: (roadrunnerSite?.y ?? GROUND_Y) - 10,
-          targetRef: targets[i],
+          targetRef: target,
           speed: rrSpeed,
           trail: [],
           alive: true,
@@ -1660,6 +1686,8 @@ export function updateAutoSystems(
           turnRate: rrTurnRate,
           life: 600,
         });
+        g.roadrunnerAmmo--;
+        g.roadrunnerLaunchCooldown = launchGap;
       }
     }
   }

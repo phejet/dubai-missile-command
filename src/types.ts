@@ -589,7 +589,9 @@ export interface GameState {
   metaProgression: UpgradeProgressionState;
 
   hornetTimer: number;
-  roadrunnerTimer: number;
+  roadrunnerAmmo: number;
+  roadrunnerReloadTimer: number;
+  roadrunnerLaunchCooldown: number;
   ironBeamTimer: number;
   phalanxTimer: number;
   patriotTimer: number;
