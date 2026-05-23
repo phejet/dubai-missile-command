@@ -49,7 +49,10 @@ function supportsSideOverride(type: SpawnType): boolean {
 }
 
 function supportsAltitudeOverride(type: SpawnType): boolean {
-  return isDroneLike(type);
+  // Altitude tactics spawn threats high so they can descend onto the city.
+  // Non-dive Shahed-136 variants cruise horizontally at their spawn y, so
+  // sending them to y=40-320 just makes them sail over the Burj harmlessly.
+  return type === "drone238" || type === "shahed-136-dive" || type === "shahed-136-dive-bomber";
 }
 
 type CellRole = NonNullable<SpawnEntry["role"]>;

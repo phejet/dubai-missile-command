@@ -377,18 +377,29 @@ describe("generateWaveSchedule", () => {
     }
   });
 
-  it("applies altitude tactics to Shahed-136 variants", () => {
-    const low = scheduleWithTactic(3, "LOW_APPROACH").filter((entry) =>
-      SHAHED_136_TYPES.includes(entry.type as (typeof SHAHED_136_TYPES)[number]),
-    );
-    const high = scheduleWithTactic(3, "HIGH_APPROACH").filter((entry) =>
-      SHAHED_136_TYPES.includes(entry.type as (typeof SHAHED_136_TYPES)[number]),
-    );
+  it("applies altitude tactics to diving Shahed variants only", () => {
+    const DIVE_TYPES = ["shahed-136-dive", "shahed-136-dive-bomber"] as const;
+    const NON_DIVE_TYPES = ["shahed-136", "shahed-136-bomber"] as const;
+    type DiveType = (typeof DIVE_TYPES)[number];
+    type NonDiveType = (typeof NON_DIVE_TYPES)[number];
 
-    expect(low.length).toBeGreaterThan(0);
-    expect(high.length).toBeGreaterThan(0);
-    expect(low.every((entry) => entry.overrides?.yRange?.[0] === 200 && entry.overrides.yRange[1] === 320)).toBe(true);
-    expect(high.every((entry) => entry.overrides?.yRange?.[0] === 40 && entry.overrides.yRange[1] === 120)).toBe(true);
+    const lowSchedule = scheduleWithTactic(3, "LOW_APPROACH");
+    const highSchedule = scheduleWithTactic(3, "HIGH_APPROACH");
+
+    const lowDivers = lowSchedule.filter((e) => DIVE_TYPES.includes(e.type as DiveType));
+    const highDivers = highSchedule.filter((e) => DIVE_TYPES.includes(e.type as DiveType));
+    const lowFlyers = lowSchedule.filter((e) => NON_DIVE_TYPES.includes(e.type as NonDiveType));
+    const highFlyers = highSchedule.filter((e) => NON_DIVE_TYPES.includes(e.type as NonDiveType));
+
+    // Divers descend onto the city, so altitude overrides make sense for them.
+    expect(lowDivers.length).toBeGreaterThan(0);
+    expect(highDivers.length).toBeGreaterThan(0);
+    expect(lowDivers.every((e) => e.overrides?.yRange?.[0] === 200 && e.overrides.yRange[1] === 320)).toBe(true);
+    expect(highDivers.every((e) => e.overrides?.yRange?.[0] === 40 && e.overrides.yRange[1] === 120)).toBe(true);
+
+    // Non-dive flyers cruise at spawn altitude; an override would sail them over the Burj harmlessly.
+    expect(lowFlyers.every((e) => e.overrides?.yRange === undefined)).toBe(true);
+    expect(highFlyers.every((e) => e.overrides?.yRange === undefined)).toBe(true);
   });
 
   it("treats Shahed-136 variants as drone-like threats for MIXED_AXIS", () => {
