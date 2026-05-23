@@ -17,6 +17,13 @@ import {
 } from "./game-logic";
 import type { GameOverSnapshot, GameRenderer, GameScreen } from "./game-renderer";
 import { DEBUG_START_PRESETS, applyDebugStartPreset, getDebugStartPreset, type DebugStartPreset } from "./debug-starts";
+import {
+  getDebugUpgradeFamilyOptions,
+  loadDebugOptions,
+  saveDebugOptions,
+  setForceShowUpgradeFamily,
+  type DebugOptions,
+} from "./debug-options";
 import { mulberry32 } from "./headless/rng";
 import { getFireChargeCount, type BufferedPlayerShot } from "./player-fire-limiter";
 import { buildReplayCheckpoint } from "./replay-debug";
@@ -39,7 +46,7 @@ import {
   saveUpgradeProgression,
 } from "./game-sim-upgrades";
 import { createReplayRunner } from "./replay";
-import type { GameState, ReplayData } from "./types";
+import type { GameState, ReplayData, UpgradeKey } from "./types";
 import {
   showShop as uiShowShop,
   hideShop as uiHideShop,
@@ -349,6 +356,7 @@ export class Game {
   private titleOptionsButton: HTMLElement;
   private optionsMenu: HTMLElement;
   private debugStartsEl: HTMLElement;
+  private upgradesTableEl: HTMLElement;
   private perfOverlay: HTMLElement;
 
   // Game state
@@ -368,6 +376,7 @@ export class Game {
   private showColliders = false;
   private showPerfOverlay = false;
   private showOptionsMenu = false;
+  private showUpgradesTable = false;
   private shopOpen = false;
   private replayActive = false;
   private bonusActive = false;
@@ -378,6 +387,7 @@ export class Game {
   private finalWave = 1;
   private finalStats = createEmptyGameStats();
   private lastReplay: ReplayData | null = null;
+  private debugOptions: DebugOptions = loadDebugOptions();
 
   constructor({ canvas, renderer, onScreenChange, onFrameSample, onReplayFinished }: GameOptions) {
     this.canvas = canvas;
@@ -402,11 +412,13 @@ export class Game {
     this.titleOptionsButton = document.getElementById("title-options-button")!;
     this.optionsMenu = document.getElementById("options-menu")!;
     this.debugStartsEl = document.getElementById("debug-starts")!;
+    this.upgradesTableEl = document.getElementById("upgrades-table")!;
     this.perfOverlay = document.getElementById("perf-overlay")!;
 
     cacheHudElements();
     cacheTransientOverlayElements();
     this.renderDebugStartOptions();
+    this.renderUpgradesTable();
     this.bindEvents();
     this.setupWindowGlobals();
     this.setScreen("title");
@@ -448,11 +460,17 @@ export class Game {
     document.getElementById("option-sound")!.addEventListener("click", () => void this.toggleMute());
     document.getElementById("option-debug")!.addEventListener("click", () => this.toggleDebug());
     document.getElementById("option-perf")!.addEventListener("click", () => this.togglePerf());
+    document.getElementById("option-upgrades-table")!.addEventListener("click", () => this.toggleUpgradesTable());
     this.debugStartsEl.addEventListener("click", (event) => {
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-debug-start-id]");
       if (!button) return;
       event.preventDefault();
       void this.startDebugStart(button.dataset.debugStartId ?? "");
+    });
+    this.upgradesTableEl.addEventListener("change", (event) => this.handleUpgradesTableChange(event));
+    this.upgradesTableEl.addEventListener("click", (event) => {
+      const closeButton = (event.target as HTMLElement).closest("[data-upgrades-table-close]");
+      if (closeButton) this.closeUpgradesTable();
     });
 
     // Resize
@@ -518,6 +536,7 @@ export class Game {
       void SFX.playTitleTheme();
     } else {
       SFX.stopTitleTheme();
+      this.closeUpgradesTable();
     }
 
     if (s !== "gameover") {
@@ -551,17 +570,104 @@ export class Game {
     );
   }
 
+  private renderUpgradesTable(): void {
+    const forced = new Set(this.debugOptions.forceShowUpgradeFamilies);
+    const header = document.createElement("div");
+    header.className = "battlefield-upgrades-table__header";
+
+    const title = document.createElement("div");
+    title.className = "battlefield-upgrades-table__title";
+    title.textContent = "Upgrades Table";
+
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "battlefield-upgrades-table__close";
+    close.dataset.upgradesTableClose = "true";
+    close.setAttribute("aria-label", "Close upgrades table");
+    close.textContent = "Close";
+
+    header.append(title, close);
+
+    const list = document.createElement("div");
+    list.className = "battlefield-upgrades-table__list";
+    for (const option of getDebugUpgradeFamilyOptions()) {
+      const row = document.createElement("label");
+      row.className = "battlefield-upgrades-table__row";
+      row.classList.toggle("battlefield-upgrades-table__row--disabled", !option.draftable);
+
+      const identity = document.createElement("span");
+      identity.className = "battlefield-upgrades-table__identity";
+
+      const icon = document.createElement("span");
+      icon.className = "battlefield-upgrades-table__icon";
+      icon.setAttribute("aria-hidden", "true");
+      icon.textContent = option.icon;
+
+      const name = document.createElement("span");
+      name.className = "battlefield-upgrades-table__name";
+      name.textContent = option.name;
+
+      const meta = document.createElement("span");
+      meta.className = "battlefield-upgrades-table__meta";
+      meta.textContent = option.draftable ? "Force show" : "Not draftable";
+
+      identity.append(icon, name, meta);
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.dataset.forceUpgradeFamily = option.key;
+      checkbox.checked = forced.has(option.key);
+      checkbox.disabled = !option.draftable;
+      checkbox.setAttribute("aria-label", `Force show ${option.name}`);
+
+      row.append(identity, checkbox);
+      list.append(row);
+    }
+
+    this.upgradesTableEl.replaceChildren(header, list);
+  }
+
+  private handleUpgradesTableChange(event: Event): void {
+    const input = (event.target as HTMLElement).closest<HTMLInputElement>("input[data-force-upgrade-family]");
+    if (!input || input.disabled) return;
+    const family = input.dataset.forceUpgradeFamily as UpgradeKey | undefined;
+    if (!family) return;
+    this.debugOptions = setForceShowUpgradeFamily(this.debugOptions, family, input.checked);
+    saveDebugOptions(this.debugOptions);
+    const game = this.gameRef.current;
+    if (game) game._debugUpgradeForceShowFamilies = [...this.debugOptions.forceShowUpgradeFamilies];
+    this.renderUpgradesTable();
+  }
+
+  private closeUpgradesTable(): void {
+    this.showUpgradesTable = false;
+    this.upgradesTableEl.hidden = true;
+    document.getElementById("option-upgrades-table")?.classList.remove("battlefield-option--active");
+  }
+
+  private toggleUpgradesTable(): void {
+    if (this.screen !== "title") return;
+    this.showUpgradesTable = !this.showUpgradesTable;
+    this.upgradesTableEl.hidden = !this.showUpgradesTable;
+    document
+      .getElementById("option-upgrades-table")
+      ?.classList.toggle("battlefield-option--active", this.showUpgradesTable);
+    if (this.showUpgradesTable) this.renderUpgradesTable();
+  }
+
   private initGame(debugStart?: DebugStartPreset): void {
     const seed = (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0;
     setRng(mulberry32(seed));
     this.gameRef.current = simInitGame();
     const game = this.gameRef.current;
+    this.debugOptions = loadDebugOptions();
     game.metaProgression = loadUpgradeProgression();
     if (!debugStart) {
       simBuyUpgrade(game, "wildHornets");
       simBuyUpgrade(game, "emp");
     }
     game._gameSeed = seed;
+    game._debugUpgradeForceShowFamilies = [...this.debugOptions.forceShowUpgradeFamilies];
     game._draftMode = this.draftMode;
     game._actionLog = [];
     game._replayTick = 0;
@@ -576,6 +682,7 @@ export class Game {
     this.showOptionsMenu = false;
     this.showColliders = false;
     this.showPerfOverlay = false;
+    this.closeUpgradesTable();
     this.optionsMenu.hidden = true;
     this.syncOptionsButtons();
     this.perfOverlay.hidden = true;
@@ -651,6 +758,7 @@ export class Game {
     this.canvas.style.pointerEvents = "";
     this.optionsMenu.hidden = true;
     this.perfOverlay.hidden = true;
+    this.closeUpgradesTable();
     this.syncOptionsButtons();
     this.setScreen("title");
   }
@@ -680,6 +788,7 @@ export class Game {
     this.showOptionsMenu = false;
     this.showColliders = false;
     this.showPerfOverlay = false;
+    this.closeUpgradesTable();
     uiHideShop();
     uiHideUpgradeProgression();
     this.battlefieldCard.classList.remove("battlefield-card--blurred");
@@ -728,6 +837,7 @@ export class Game {
       this.showOptionsMenu = false;
       this.showColliders = false;
       this.showPerfOverlay = false;
+      this.closeUpgradesTable();
       uiHideShop();
       uiHideUpgradeProgression();
       this.battlefieldCard.classList.remove("battlefield-card--blurred");
@@ -817,6 +927,7 @@ export class Game {
     this.shopOpen = true;
     this.showOptionsMenu = false;
     this.showColliders = false;
+    this.closeUpgradesTable();
     this.optionsMenu.hidden = true;
     this.battlefieldCard.classList.add("battlefield-card--blurred");
     this.syncHud(true);
@@ -1042,6 +1153,7 @@ export class Game {
   private toggleOptionsMenu(): void {
     this.showOptionsMenu = !this.showOptionsMenu;
     this.optionsMenu.hidden = !this.showOptionsMenu;
+    if (!this.showOptionsMenu) this.closeUpgradesTable();
     this.syncOptionsButtons();
   }
 

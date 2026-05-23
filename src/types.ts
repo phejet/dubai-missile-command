@@ -532,6 +532,7 @@ export interface GameState {
   _showColliders: boolean;
   _editorMode?: boolean;
   _showUpgradeRanges?: boolean;
+  _debugUpgradeForceShowFamilies?: UpgradeKey[];
   _draftMode?: boolean;
   _replayTick?: number;
   _replayShopBought?: string[];

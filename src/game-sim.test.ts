@@ -35,8 +35,9 @@ import {
   updateBurjFireParticles,
 } from "./game-sim.js";
 import { buildShopEntries, normalizeLegacyFlareActiveState } from "./game-sim-shop.js";
+import { getUpgradeNodeDef } from "./game-sim-upgrades.js";
 import { getBurjDamageFireLayout } from "./art-render.js";
-import type { Drone, Interceptor, Missile, PatriotMissile } from "./types.js";
+import type { Drone, Interceptor, Missile, PatriotMissile, UpgradeKey } from "./types.js";
 
 describe("MIRV behavior", () => {
   afterEach(() => setRng(Math.random));
@@ -1670,6 +1671,54 @@ describe("active upgrade mutual exclusivity", () => {
     expect(offers).toHaveLength(3);
     expect(activeOffers).toHaveLength(1);
     expect(offers.filter((offer) => offer !== "emp" && offer !== "f15" && offer !== "flare")).toHaveLength(2);
+  });
+
+  it("force-shows eligible debug families in draft offers without hardcoding defaults", () => {
+    setRng(() => 0.9);
+    const { g } = makeCleanGame(1);
+
+    const normalOffers = draftPick3(g);
+    const forcedOffers = draftPick3(g, ["roadrunner"]);
+    const forcedFamilies = forcedOffers.map((offer) => getUpgradeNodeDef(offer)?.family);
+
+    expect(normalOffers).toHaveLength(3);
+    expect(forcedOffers).toHaveLength(3);
+    expect(forcedFamilies).toContain("roadrunner");
+  });
+
+  it("force-show does not bypass draft eligibility locks", () => {
+    setRng(() => 0);
+    const { g } = makeCleanGame(1);
+    g.metaProgression.completedObjectives.push("reach_wave_3");
+
+    const offers = draftPick3(g, ["f15"]);
+
+    expect(offers).toHaveLength(3);
+    expect(offers).not.toContain("f15");
+  });
+
+  it("caps force-shown families to the three draft slots", () => {
+    setRng(() => 0.8);
+    const { g } = makeCleanGame(4);
+    g.metaProgression.completedObjectives.push("reach_wave_3", "reach_wave_4");
+    const forced: UpgradeKey[] = ["roadrunner", "wildHornets", "ironBeam", "phalanx", "patriot"];
+
+    const offers = draftPick3(g, forced);
+    const families = new Set(offers.map((offer) => getUpgradeNodeDef(offer)?.family));
+
+    expect(offers).toHaveLength(3);
+    expect(families.size).toBe(3);
+  });
+
+  it("keeps the wave 3 active-choice rule when an active family is force-shown", () => {
+    setRng(() => 0);
+    const { g } = makeCleanGame(3);
+
+    const offers = draftPick3(g, ["f15"]);
+    const activeOffers = offers.filter((offer) => offer === "emp" || offer === "f15" || offer === "flare");
+
+    expect(offers).toHaveLength(3);
+    expect(activeOffers).toEqual(["f15"]);
   });
 
   it("prevents direct active-upgrade draft purchases before wave 3", () => {

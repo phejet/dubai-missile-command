@@ -607,6 +607,10 @@
   display: none;
 }
 
+.game-shell:not([data-screen="title"]) #option-upgrades-table {
+  display: none;
+}
+
 .battlefield-debug-starts__button {
   min-width: 0;
   min-height: 34px;
@@ -640,6 +644,114 @@
 .battlefield-debug-starts__button--f15:hover {
   border-color: rgba(255, 255, 255, 0.6);
   background: rgba(48, 54, 62, 0.82);
+}
+
+.battlefield-upgrades-table {
+  position: absolute;
+  top: 72px;
+  right: 10px;
+  z-index: 7;
+  width: min(320px, calc(100% - 20px));
+  max-height: calc(100% - 96px);
+  overflow: hidden;
+  border: 1px solid rgba(154, 255, 221, 0.22);
+  border-radius: 16px;
+  background: rgba(6, 10, 18, 0.94);
+  backdrop-filter: blur(12px);
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  color: #dffeff;
+  font-family: "Courier New", monospace;
+}
+
+.battlefield-upgrades-table__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 12px 10px;
+  border-bottom: 1px solid rgba(109, 217, 255, 0.14);
+}
+
+.battlefield-upgrades-table__title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.battlefield-upgrades-table__close {
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid rgba(109, 217, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(7, 14, 25, 0.82);
+  color: #8ea8b8;
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.battlefield-upgrades-table__list {
+  display: flex;
+  max-height: min(520px, calc(100vh - 170px));
+  overflow-y: auto;
+  flex-direction: column;
+  padding: 6px;
+  gap: 5px;
+}
+
+.battlefield-upgrades-table__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  border: 1px solid rgba(109, 217, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(7, 14, 25, 0.78);
+}
+
+.battlefield-upgrades-table__row--disabled {
+  opacity: 0.48;
+}
+
+.battlefield-upgrades-table__identity {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 22px minmax(0, 1fr);
+  column-gap: 8px;
+  row-gap: 2px;
+  align-items: center;
+}
+
+.battlefield-upgrades-table__icon {
+  grid-row: span 2;
+  text-align: center;
+}
+
+.battlefield-upgrades-table__name {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.battlefield-upgrades-table__meta {
+  color: #8ea8b8;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.battlefield-upgrades-table input {
+  width: 18px;
+  height: 18px;
+  accent-color: #9affdd;
 }
 
 .battlefield-stage {

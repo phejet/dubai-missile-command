@@ -232,39 +232,71 @@ export function buildShopEntries(g: GameState): ShopEntry[] {
   }, []);
 }
 
-export function draftPick3(g: GameState): string[] {
+function dedupeUpgradeFamilies(families: UpgradeKey[]): UpgradeKey[] {
+  const seen = new Set<UpgradeKey>();
+  const result: UpgradeKey[] = [];
+  for (const family of families) {
+    if (seen.has(family)) continue;
+    seen.add(family);
+    result.push(family);
+  }
+  return result;
+}
+
+function findAvailableNodeById<T extends { id: string }>(nodes: T[], nodeId: string): T | undefined {
+  return nodes.find((node) => node.id === nodeId);
+}
+
+export function draftPick3(g: GameState, forcedFamilies: UpgradeKey[] = []): string[] {
   ensureUpgradeRuntimeState(g);
   const rng = getRng();
   const progression = getWaveAwareProgression(g);
   const available = getEligibleUpgradeNodes(g.ownedUpgradeNodes, progression).filter(
     (node) => !getActiveChoiceWaveLockReason(g, node),
   );
-  // Debug/feel-check: always include the eligible Roadrunner and Wild Hornets
-  // family nodes when one exists. Helps surface the two upgrade trees under
-  // active design iteration.
-  const FORCED_FAMILIES: UpgradeKey[] = ["roadrunner", "wildHornets"];
-  const forceFamilies = (picks: string[]): string[] => {
+  const forceFamilies = (picks: string[], options: { protectInitialActiveChoice?: boolean } = {}): string[] => {
     const result = [...picks];
-    for (const family of FORCED_FAMILIES) {
-      const eligibleInFamily = available.filter((n) => n.family === family);
+    const forced = dedupeUpgradeFamilies(forcedFamilies).slice(0, 3);
+    if (forced.length === 0) return result;
+
+    if (options.protectInitialActiveChoice) {
+      const activeIndex = result.findIndex((id) => {
+        const node = findAvailableNodeById(available, id);
+        return !!node && isInitialActiveChoiceNode(node);
+      });
+      const activeFamily = activeIndex >= 0 ? findAvailableNodeById(available, result[activeIndex])?.family : null;
+      const forcedActiveFamily = forced.find((family) =>
+        available.some((node) => node.family === family && isInitialActiveChoiceNode(node)),
+      );
+      if (activeIndex >= 0 && forcedActiveFamily && activeFamily !== forcedActiveFamily) {
+        const eligibleActive = available.filter(
+          (node) => node.family === forcedActiveFamily && isInitialActiveChoiceNode(node),
+        );
+        result[activeIndex] = eligibleActive[Math.floor(rng() * eligibleActive.length)].id;
+      }
+    }
+
+    for (const family of forced) {
+      if (result.some((id) => findAvailableNodeById(available, id)?.family === family)) continue;
+      const eligibleInFamily = available.filter(
+        (node) => node.family === family && (!options.protectInitialActiveChoice || !isInitialActiveChoiceNode(node)),
+      );
       if (eligibleInFamily.length === 0) continue;
-      if (eligibleInFamily.some((n) => result.includes(n.id))) continue;
-      // Random pick across eligible siblings using seeded rng for replay safety.
       const node = eligibleInFamily[Math.floor(rng() * eligibleInFamily.length)];
       if (result.length === 0) {
         result.push(node.id);
         continue;
       }
-      // Replace the last slot that isn't already a forced family.
       for (let i = result.length - 1; i >= 0; i--) {
-        const slotNode = available.find((n) => n.id === result[i]);
-        if (!slotNode || !FORCED_FAMILIES.includes(slotNode.family)) {
+        const slotNode = findAvailableNodeById(available, result[i]);
+        if (options.protectInitialActiveChoice && slotNode && isInitialActiveChoiceNode(slotNode)) continue;
+        if (!slotNode || !forced.includes(slotNode.family)) {
           result[i] = node.id;
           break;
         }
       }
     }
-    return result;
+    return result.slice(0, 3);
   };
 
   if (g.wave === ACTIVE_CHOICE_WAVE) {
@@ -280,7 +312,7 @@ export function draftPick3(g: GameState): string[] {
         2,
         rng,
       );
-      return shuffleIds(forceFamilies([...activeOffer, ...supportOffers]), rng);
+      return shuffleIds(forceFamilies([...activeOffer, ...supportOffers], { protectInitialActiveChoice: true }), rng);
     }
   }
   if (available.length <= 3) return available.map((node) => node.id);

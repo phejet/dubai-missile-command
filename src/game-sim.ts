@@ -2854,7 +2854,7 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
           g.state = "shop";
           // Draft pick consumes seeded RNG here so replay stays in sync
           if (g._draftMode) {
-            g._draftOffers = draftPick3(g);
+            g._draftOffers = draftPick3(g, g._debugUpgradeForceShowFamilies ?? []);
           }
           if (onEvent) onEvent("shopOpen", { score: g.score, wave: g.wave, upgrades: { ...g.upgrades } });
         }
