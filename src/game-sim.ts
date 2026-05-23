@@ -275,6 +275,24 @@ function boom(
   }
 }
 
+function isThreatDoomedByActiveExplosion(g: GameState, target: Threat): boolean {
+  for (const ex of g.explosions) {
+    if (ex.harmless || ex.alpha <= 0.2) continue;
+    if (target.type === "drone") {
+      if (dist(target.x, target.y, ex.x, ex.y) < ex.radius + target.collisionRadius) {
+        return target.health <= 1;
+      }
+    } else if (dist(target.x, target.y, ex.x, ex.y) < ex.radius) {
+      if (target.type === "mirv") {
+        if (target._hitByExplosions?.has(ex.id)) continue;
+        return (target.health ?? 1) <= 1;
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
 let _burjDecalId = 0;
 let _burjDamageFxId = 0;
 let _buildingDestroyFxId = 0;
@@ -2382,14 +2400,14 @@ function updateInterceptors(g: GameState, dt: number, onEvent?: ((type: string, 
     if (!detonate && !ic.fromF15) {
       const fuseRadius = 72;
       for (const m of g.missiles) {
-        if (m.alive && dist(ic.x, ic.y, m.x, m.y) < fuseRadius) {
+        if (m.alive && !isThreatDoomedByActiveExplosion(g, m) && dist(ic.x, ic.y, m.x, m.y) < fuseRadius) {
           detonate = true;
           break;
         }
       }
       if (!detonate) {
         for (const d of g.drones) {
-          if (d.alive && dist(ic.x, ic.y, d.x, d.y) < fuseRadius) {
+          if (d.alive && !isThreatDoomedByActiveExplosion(g, d) && dist(ic.x, ic.y, d.x, d.y) < fuseRadius) {
             detonate = true;
             break;
           }

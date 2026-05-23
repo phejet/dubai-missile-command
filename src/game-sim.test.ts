@@ -36,7 +36,7 @@ import {
 } from "./game-sim.js";
 import { buildShopEntries, normalizeLegacyFlareActiveState } from "./game-sim-shop.js";
 import { getBurjDamageFireLayout } from "./art-render.js";
-import type { Drone, Hornet, Missile, PatriotMissile } from "./types.js";
+import type { Drone, Hornet, Interceptor, Missile, PatriotMissile } from "./types.js";
 
 describe("MIRV behavior", () => {
   afterEach(() => setRng(Math.random));
@@ -156,6 +156,66 @@ function makeMissile(overrides: Partial<Missile> = {}): Missile {
     ...overrides,
   };
 }
+
+function makeDrone(overrides: Partial<Drone> = {}): Drone {
+  return {
+    x: 100,
+    y: 100,
+    vx: 0,
+    vy: 0,
+    wobble: 0,
+    alive: true,
+    type: "drone",
+    subtype: "shahed136",
+    shahedVariant: "shahed-136",
+    health: 1,
+    collisionRadius: 30,
+    _hitByExplosions: new Set(),
+    ...overrides,
+  };
+}
+
+function makeInterceptor(overrides: Partial<Interceptor> = {}): Interceptor {
+  return {
+    x: 100,
+    y: 100,
+    vx: 0,
+    vy: 0,
+    targetX: 100,
+    targetY: 100,
+    trail: [],
+    alive: true,
+    ...overrides,
+  };
+}
+
+describe("interceptor proximity fuse", () => {
+  afterEach(() => setRng(Math.random));
+
+  it("does not spend a second interceptor on a drone already covered by a same-tick blast", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.schedule = [];
+    g.scheduleIdx = 0;
+    g.waveTick = 0;
+
+    g.drones.push(makeDrone({ x: 400, y: 500 }), makeDrone({ x: 400, y: 650 }));
+    g.interceptors.push(
+      makeInterceptor({ x: 399, y: 500, targetX: 400, targetY: 500 }),
+      makeInterceptor({ x: 399, y: 500, targetX: 400, targetY: 650 }),
+    );
+
+    sim.update(g, 1);
+
+    const rootExplosions = g.explosions.filter((ex) => ex.playerCaused && ex.rootExplosionId === null);
+    expect(rootExplosions).toHaveLength(1);
+    expect(rootExplosions[0].x).toBe(399);
+    expect(rootExplosions[0].y).toBe(500);
+    expect(g.drones).toHaveLength(1);
+    expect(g.drones[0].y).toBeCloseTo(650.015);
+    expect(g.interceptors).toHaveLength(1);
+    expect(g.interceptors[0].targetY).toBe(650);
+  });
+});
 
 describe("summary stats", () => {
   it("tracks destroyed types and counts one player multi-shot per root explosion", () => {
