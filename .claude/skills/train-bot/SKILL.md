@@ -1,3 +1,8 @@
+---
+name: train-bot
+description: Run headless bot training, analyze results, capture replays, and tune Dubai Missile Command bot config and bot brain behavior.
+---
+
 # Train Bot
 
 Run headless bot training, analyze results, and tune `src/headless/bot-config.json` (and optionally `src/headless/bot-brain.ts`).
