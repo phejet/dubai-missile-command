@@ -3241,8 +3241,13 @@ export class PixiRenderer implements GameRenderer {
 
       const trail = drone.trail ?? [];
       const facing = drone.vx > 0 ? 1 : -1;
-      const spriteAngle =
-        drone.subtype === "shahed238" || drone.diving ? Math.atan2(drone.vy, drone.vx) : facing > 0 ? 0 : Math.PI;
+      // Level-flight Shahed-136 normally keeps a flat 0/π facing (cleaner silhouette
+      // for the horizontal cruise). But once it's lured, redirected, or diving its
+      // velocity vector goes off-axis — the sprite has to follow the actual heading,
+      // or it visually slides sideways while moving diagonally.
+      const useVelocityHeading =
+        drone.subtype === "shahed238" || drone.diving || drone.luredByFlare || drone.redirected;
+      const spriteAngle = useVelocityHeading ? Math.atan2(drone.vy, drone.vx) : facing > 0 ? 0 : Math.PI;
       const pos = getRenderPosition(drone, interpolationAlpha);
       syncProjectileNode(node, asset, pos.x, pos.y, spriteAngle, sceneTime, 1, true);
       const isFastDrone = drone.variant === "fast";
