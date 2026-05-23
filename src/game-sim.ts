@@ -841,7 +841,7 @@ export function spawnDroneOfType(
   } else {
     const target = hasDive
       ? pickTarget(g, spawnX + (goingRight ? 1 : -1) * CANVAS_W * rand(0.28, 0.42)) || { x: BURJ_X, y: CITY_Y }
-      : { x: BURJ_X, y: spawnY };
+      : { x: goingRight ? CANVAS_W + 80 : -80, y: spawnY };
     const path = hasDive
       ? computeShahed136Path(spawnX, spawnY, goingRight, speed, target)
       : {
@@ -857,8 +857,10 @@ export function spawnDroneOfType(
         : [Math.max(1, Math.floor(path.waypoints.length * rand(0.46, 0.58)))]
       : [];
     drone.bombsDropped = 0;
-    if (hasDive && typeof path.diveStartIndex === "number") drone.diveStartIndex = path.diveStartIndex;
-    drone.diveTarget = target;
+    if (hasDive && typeof path.diveStartIndex === "number") {
+      drone.diveStartIndex = path.diveStartIndex;
+      drone.diveTarget = target;
+    }
   }
   g.drones.push(drone);
 }
