@@ -134,10 +134,10 @@ Focused breakdowns:
 
 The `launcherKit` family expands into a four-node tree (see `UPGRADE_NODES` in `src/game-sim-upgrades.ts`):
 
-- **Rapid Reload** (rank 1) — reload window 30 → 18 ticks
+- **Rapid Reload** (rank 1) — reload window is 30 ticks base, 15 ticks upgraded
 - **Launcher Armor Kit** (rank 1) — +1 HP per launcher
-- **High Velocity Interceptors** (rank 1) — +40% interceptor speed and acceleration
-- **Double Magazine** (rank 2, requires any rank-1) — +100% burst shots, rounded up
+- **High Velocity Interceptors** (rank 1) — +50% interceptor speed and acceleration
+- **Double Magazine** (rank 2, requires any rank-1) — shared magazine increases from 2 shots per live launcher to 4
 
 ### Active upgrades (EMP / F-15)
 

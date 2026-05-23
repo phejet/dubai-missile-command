@@ -232,27 +232,28 @@ describe("fireInterceptor", () => {
     fireInterceptor(g, 700, 300, 10);
     expect(g.ammo[1]).toBe(22);
     expect(g.stats.shotsFired).toBe(1);
-    expect(getFireChargeCount(g.fireChargeState)).toBe(2);
+    expect(getFireChargeCount(g.fireChargeState)).toBe(3);
   });
 
   it("uses rapid reload for shared pool refill timing", () => {
     const g = makeGameState({ ownedUpgradeNodes: new Set([LAUNCHER_RAPID_RELOAD_NODE]) });
     fireInterceptor(g, 700, 300, 10);
+    expect(getLauncherReloadTicks(g)).toBe(15);
     expect(g.fireChargeState.nextRechargeTick).toBe(10 + getLauncherReloadTicks(g));
   });
 
   it("uses high velocity interceptor stats", () => {
     const g = makeGameState({ ownedUpgradeNodes: new Set([LAUNCHER_HIGH_VELOCITY_NODE]) });
     fireInterceptor(g, 500, 300, 10);
-    expect(g.interceptors[0].speed).toBeCloseTo(10.444);
-    expect(g.interceptors[0].accel).toBeCloseTo(3.5);
-    expect(g.interceptors[0].maxSpeed).toBeCloseTo(35);
+    expect(g.interceptors[0].speed).toBeCloseTo(11.19);
+    expect(g.interceptors[0].accel).toBeCloseTo(3.75);
+    expect(g.interceptors[0].maxSpeed).toBeCloseTo(37.5);
   });
 
   it("derives launcher armor and double magazine effects from owned nodes", () => {
     const g = makeGameState({ ownedUpgradeNodes: new Set([LAUNCHER_ARMOR_NODE, LAUNCHER_DOUBLE_MAGAZINE_NODE]) });
     expect(getLauncherMaxHp(g)).toBe(2);
-    expect(getLauncherBurstChargeCap(g, 2)).toBe(6);
+    expect(getLauncherBurstChargeCap(g, 2)).toBe(8);
   });
 
   it("falls back to the surviving launcher when the selected side is destroyed", () => {
@@ -273,8 +274,9 @@ describe("fireInterceptor", () => {
     expect(fireInterceptor(g, 200, 300, 10)).toBe(true);
     expect(fireInterceptor(g, 220, 320, 11)).toBe(true);
     expect(fireInterceptor(g, 240, 340, 12)).toBe(true);
-    expect(fireInterceptor(g, 260, 360, 13)).toBe(false);
-    expect(g.interceptors).toHaveLength(3);
+    expect(fireInterceptor(g, 260, 360, 13)).toBe(true);
+    expect(fireInterceptor(g, 280, 380, 14)).toBe(false);
+    expect(g.interceptors).toHaveLength(4);
     expect(g.interceptors.every((interceptor) => interceptor.x === LAUNCHERS[0].x)).toBe(true);
     expect(getFireChargeCount(g.fireChargeState)).toBe(0);
   });
@@ -286,7 +288,7 @@ describe("fireInterceptor", () => {
     expect(g.interceptors).toHaveLength(2);
     expect(g.interceptors[0].x).toBe(LAUNCHERS[0].x);
     expect(g.interceptors[1].x).toBe(LAUNCHERS[1].x);
-    expect(getFireChargeCount(g.fireChargeState)).toBe(1);
+    expect(getFireChargeCount(g.fireChargeState)).toBe(2);
   });
 
   it("pool refills at reload cadence regardless of which side last fired", () => {
@@ -294,20 +296,23 @@ describe("fireInterceptor", () => {
     expect(fireInterceptor(g, 200, 300, 10)).toBe(true);
     expect(fireInterceptor(g, 220, 300, 10)).toBe(true);
     expect(fireInterceptor(g, 240, 300, 10)).toBe(true);
+    expect(fireInterceptor(g, 260, 300, 10)).toBe(true);
     expect(fireInterceptor(g, 700, 300, 39)).toBe(false);
     expect(fireInterceptor(g, 700, 300, 40)).toBe(true);
     expect(g.interceptors[g.interceptors.length - 1].x).toBe(LAUNCHERS[1].x);
   });
 
-  it("floors burst charge cap at the old three-shot feel with two launchers", () => {
+  it("sets burst charge cap to twice the live launcher count", () => {
     const g = makeGameState();
-    expect(getLauncherBurstChargeCap(g, 2)).toBe(3);
+    expect(getLauncherBurstChargeCap(g, 2)).toBe(4);
+    expect(getLauncherBurstChargeCap(g, 1)).toBe(2);
     expect(getLauncherBurstChargeCap(g, 0)).toBe(0);
   });
 
-  it("floors double magazine burst charge cap at six with two launchers", () => {
+  it("sets double magazine burst charge cap to four times the live launcher count", () => {
     const g = makeGameState({ ownedUpgradeNodes: new Set([LAUNCHER_DOUBLE_MAGAZINE_NODE]) });
-    expect(getLauncherBurstChargeCap(g, 2)).toBe(6);
+    expect(getLauncherBurstChargeCap(g, 2)).toBe(8);
+    expect(getLauncherBurstChargeCap(g, 1)).toBe(4);
   });
 });
 

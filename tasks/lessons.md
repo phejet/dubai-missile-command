@@ -3,8 +3,10 @@
 ## 2026-05-23
 
 - When asked what skills are available in this repo, include both the Codex session skills and repo-local `.claude/skills/*.md`; the local Claude skills are part of the project workflow even if they are not exposed as Codex skill entries.
-- For Codex slash-menu visibility, a symlinked `SKILL.md` is not enough; add `agents/openai.yaml` with UI metadata, and use `user_invocable: true` for Claude-side explicit skill invocation when the skill should appear in menus.
+- For Codex skill troubleshooting, verify with `codex debug prompt-input` before blaming file layout. Codex docs say symlinked skill folders are supported; if a skill is loaded but not visible in `/`, the issue is the app composer/indexer layer, not the skill directory.
+- A skill can be invocable by typing `$skill-name` exactly even when `$` autocomplete does not suggest it. Treat exact `$name` resolution, `$` autocomplete, and `/` slash-menu visibility as separate UI behaviors.
 - Per current Codex docs, repo-scoped Codex skills belong under `.agents/skills/<skill-name>/SKILL.md`; `~/.codex/skills` is not the documented user-skill root. Codex supports symlinked skill folders in those scanned locations, so link the whole skill folder, not just an individual `SKILL.md`.
+- When reporting balance numbers, avoid `a -> b` notation if the user may read it as a range; say `base X, upgraded Y` explicitly.
 
 ## 2026-04-17
 

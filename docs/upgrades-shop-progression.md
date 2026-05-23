@@ -75,7 +75,7 @@ Important effects:
 
 - resync `g.upgrades`
 - revive or register defense sites tied to upgrade families
-- launcher branch nodes apply independently: Rapid Reload shortens player reload, Armor raises launcher HP, High Velocity boosts player interceptors, and Double Magazine doubles burst capacity
+- launcher branch nodes apply independently: Rapid Reload shortens player reload, Armor raises launcher HP, High Velocity boosts player interceptors, and Double Magazine expands shared magazine capacity
 - if `emp` or `f15` is bought or upgraded, the matching `*ReadyThisWave` flag is set so the freshly-purchased active can fire in the current wave
 
 ## Shop Entries

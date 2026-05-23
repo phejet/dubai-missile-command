@@ -51,23 +51,23 @@ describe("fire charge state", () => {
     expect(getFireChargeCount(state)).toBe(3);
   });
 
-  it("refills rapid reload bursts with an 18/6/3 catchup curve", () => {
+  it("refills rapid reload bursts with a 15/5/2 catchup curve", () => {
     const state = createFireChargeState();
-    syncFireChargeState(state, 0, 3, 18);
-    expect(spendFireCharge(state, 2, 18)).toBe(true);
-    expect(spendFireCharge(state, 2, 18)).toBe(true);
-    expect(spendFireCharge(state, 2, 18)).toBe(true);
-    syncFireChargeState(state, 19, 3, 18);
+    syncFireChargeState(state, 0, 3, 15);
+    expect(spendFireCharge(state, 2, 15)).toBe(true);
+    expect(spendFireCharge(state, 2, 15)).toBe(true);
+    expect(spendFireCharge(state, 2, 15)).toBe(true);
+    syncFireChargeState(state, 16, 3, 15);
     expect(getFireChargeCount(state)).toBe(0);
-    syncFireChargeState(state, 20, 3, 18);
+    syncFireChargeState(state, 17, 3, 15);
     expect(getFireChargeCount(state)).toBe(1);
-    syncFireChargeState(state, 25, 3, 18);
+    syncFireChargeState(state, 21, 3, 15);
     expect(getFireChargeCount(state)).toBe(1);
-    syncFireChargeState(state, 26, 3, 18);
+    syncFireChargeState(state, 22, 3, 15);
     expect(getFireChargeCount(state)).toBe(2);
-    syncFireChargeState(state, 28, 3, 18);
+    syncFireChargeState(state, 23, 3, 15);
     expect(getFireChargeCount(state)).toBe(2);
-    syncFireChargeState(state, 29, 3, 18);
+    syncFireChargeState(state, 24, 3, 15);
     expect(getFireChargeCount(state)).toBe(3);
   });
 

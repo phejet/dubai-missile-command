@@ -2372,11 +2372,29 @@ function updateDrones(
   });
 }
 
+const INTERCEPTOR_THREAT_PROXIMITY_FUSE_ENABLED = true;
+const INTERCEPTOR_TARGET_DETONATE_RADIUS = 8;
+const INTERCEPTOR_TARGET_GATED_PROXIMITY_RADIUS = 60;
+
+function didPlayerInterceptorReachTarget(ic: Interceptor, prevX: number, prevY: number): boolean {
+  if (dist(ic.x, ic.y, ic.targetX, ic.targetY) <= INTERCEPTOR_TARGET_DETONATE_RADIUS) return true;
+  const segX = ic.x - prevX;
+  const segY = ic.y - prevY;
+  const lenSq = segX * segX + segY * segY;
+  if (lenSq <= 0) return false;
+  const t = Math.max(0, Math.min(1, ((ic.targetX - prevX) * segX + (ic.targetY - prevY) * segY) / lenSq));
+  const closestX = prevX + segX * t;
+  const closestY = prevY + segY * t;
+  return dist(closestX, closestY, ic.targetX, ic.targetY) <= INTERCEPTOR_TARGET_DETONATE_RADIUS;
+}
+
 function updateInterceptors(g: GameState, dt: number, onEvent?: ((type: string, data?: unknown) => void) | null) {
   g.interceptors.forEach((ic: Interceptor) => {
     if (!ic.alive) return;
     ic.trail.push({ x: ic.x, y: ic.y });
     if (ic.trail.length > 15) ic.trail.shift();
+    const prevX = ic.x;
+    const prevY = ic.y;
     if (!ic.fromF15 && typeof ic.heading === "number") {
       const desiredHeading = Math.atan2(ic.targetY - ic.y, ic.targetX - ic.x);
       const headingDelta = wrapAngle(desiredHeading - ic.heading);
@@ -2391,13 +2409,17 @@ function updateInterceptors(g: GameState, dt: number, onEvent?: ((type: string, 
     ic.x += ic.vx * dt;
     ic.y += ic.vy * dt;
     let detonate = false;
-    // Scale proximity thresholds with speed so fast interceptors don't skip past targets
-    const detonateRadius = 40;
-    if (dist(ic.x, ic.y, ic.targetX, ic.targetY) < detonateRadius) {
+    if (ic.fromF15 && dist(ic.x, ic.y, ic.targetX, ic.targetY) < 40) {
+      detonate = true;
+    } else if (!ic.fromF15 && didPlayerInterceptorReachTarget(ic, prevX, prevY)) {
+      ic.x = ic.targetX;
+      ic.y = ic.targetY;
       detonate = true;
     }
     // Proximity fuse: detonate early if passing close to any threat
-    if (!detonate && !ic.fromF15) {
+    const canProximityFuseNearTarget =
+      dist(ic.x, ic.y, ic.targetX, ic.targetY) <= INTERCEPTOR_TARGET_GATED_PROXIMITY_RADIUS;
+    if (!detonate && !ic.fromF15 && INTERCEPTOR_THREAT_PROXIMITY_FUSE_ENABLED && canProximityFuseNearTarget) {
       const fuseRadius = 72;
       for (const m of g.missiles) {
         if (m.alive && !isThreatDoomedByActiveExplosion(g, m) && dist(ic.x, ic.y, m.x, m.y) < fuseRadius) {

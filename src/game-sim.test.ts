@@ -208,12 +208,31 @@ describe("interceptor proximity fuse", () => {
 
     const rootExplosions = g.explosions.filter((ex) => ex.playerCaused && ex.rootExplosionId === null);
     expect(rootExplosions).toHaveLength(1);
-    expect(rootExplosions[0].x).toBe(399);
+    expect(rootExplosions[0].x).toBe(400);
     expect(rootExplosions[0].y).toBe(500);
     expect(g.drones).toHaveLength(1);
     expect(g.drones[0].y).toBeCloseTo(650.015);
     expect(g.interceptors).toHaveLength(1);
     expect(g.interceptors[0].targetY).toBe(650);
+  });
+
+  it("allows proximity detonation when the blast stays close enough to the aimed point", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.schedule = [];
+    g.scheduleIdx = 0;
+    g.waveTick = 0;
+
+    g.drones.push(makeDrone({ x: 440, y: 500 }));
+    g.interceptors.push(makeInterceptor({ x: 400, y: 500, targetX: 450, targetY: 500 }));
+
+    sim.update(g, 1);
+
+    const rootExplosions = g.explosions.filter((ex) => ex.playerCaused && ex.rootExplosionId === null);
+    expect(rootExplosions).toHaveLength(1);
+    expect(rootExplosions[0].x).toBe(400);
+    expect(rootExplosions[0].y).toBe(500);
+    expect(g.drones).toHaveLength(0);
+    expect(g.interceptors).toHaveLength(0);
   });
 });
 

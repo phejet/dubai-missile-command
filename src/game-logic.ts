@@ -519,8 +519,8 @@ export function getAmmoCapacity(wave: number, launcherKitLevel: number): number 
 }
 
 export const LAUNCHER_RELOAD_TICKS = 30;
-export const LAUNCHER_RAPID_RELOAD_TICKS = 18;
-export const LAUNCHER_HIGH_VELOCITY_MULTIPLIER = 1.4;
+export const LAUNCHER_RAPID_RELOAD_TICKS = 15;
+export const LAUNCHER_HIGH_VELOCITY_MULTIPLIER = 1.5;
 
 export const LAUNCHER_RAPID_RELOAD_NODE: UpgradeNodeId = "launcherRapidReload";
 export const LAUNCHER_ARMOR_NODE: UpgradeNodeId = "launcherArmorKit";
@@ -544,10 +544,8 @@ export function getLauncherBurstChargeCap(
   activeLauncherCount: number,
 ): number {
   if (activeLauncherCount <= 0) return 0;
-  const multiplier = hasOwnedLauncherNode(g, LAUNCHER_DOUBLE_MAGAZINE_NODE) ? 2 : 1;
-  const naturalCap = Math.ceil(activeLauncherCount * multiplier);
-  const floor = hasOwnedLauncherNode(g, LAUNCHER_DOUBLE_MAGAZINE_NODE) ? 6 : 3;
-  return Math.max(floor, naturalCap);
+  const multiplier = hasOwnedLauncherNode(g, LAUNCHER_DOUBLE_MAGAZINE_NODE) ? 4 : 2;
+  return activeLauncherCount * multiplier;
 }
 
 export function countAliveLaunchers(g: Pick<GameState, "launcherHP">): number {
