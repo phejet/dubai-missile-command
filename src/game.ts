@@ -907,7 +907,8 @@ export class Game {
         data,
         (pts) => {
           const game = this.gameRef.current;
-          if (game) game.score += pts;
+          const shouldApplyReplayBonus = !this.replayActive || game?._replayIsHuman === true;
+          if (game && shouldApplyReplayBonus) game.score += pts;
           this.syncHud(true);
         },
         () => {

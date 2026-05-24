@@ -3,6 +3,7 @@ import { createReplayRunner } from "./replay.js";
 import { buildReplayCheckpoint } from "./replay-debug.js";
 import { setRng } from "./game-logic.js";
 import { mulberry32 } from "./headless/rng.js";
+import { runGame } from "./headless/sim-runner.js";
 import { initGame, update } from "./game-sim.js";
 import type { ReplayAction, ReplayData } from "./types.js";
 
@@ -11,6 +12,34 @@ const SEED = 12345;
 afterEach(() => {
   setRng(Math.random);
 });
+
+function replayToCompletion(replayData: ReplayData, onEvent: ((type: string, data?: unknown) => void) | null = null) {
+  const rr = createReplayRunner(replayData, onEvent);
+  rr.init();
+  for (let i = 0; i < 200000; i++) {
+    if (rr.isFinished()) break;
+    if (rr.isShopPaused()) {
+      rr.resumeFromShop();
+      continue;
+    }
+    if (rr.isBonusPaused()) {
+      const g = rr.getState();
+      if (g) g._bonusScreenDone = true;
+      rr.resumeFromBonusScreen();
+      continue;
+    }
+    rr.step();
+  }
+  const g = rr.getState();
+  const result = {
+    score: g?.score,
+    wave: g?.wave,
+    stats: g?.stats,
+    tick: g?._replayTick,
+  };
+  rr.cleanup();
+  return result;
+}
 
 // ── Replay runner lifecycle ──
 
@@ -388,6 +417,28 @@ describe("createReplayRunner wave summary handling", () => {
 
     rr.cleanup();
   });
+
+  it("opens the pending shop at the same tick after a replay wave summary resumes", () => {
+    const rr = createReplayRunner({ seed: SEED, actions: [] }, () => {});
+    const g = rr.init();
+    g.waveComplete = true;
+    g.waveClearedTimer = 0;
+
+    rr.step();
+    expect(rr.isBonusPaused()).toBe(true);
+    const tickAtSummary = rr.getTick();
+
+    g._bonusScreenDone = true;
+    rr.resumeFromBonusScreen();
+
+    expect(rr.getTick()).toBe(tickAtSummary);
+    expect(g.state).toBe("shop");
+    rr.step();
+    expect(rr.isShopPaused()).toBe(true);
+    expect(rr.getTick()).toBe(tickAtSummary);
+
+    rr.cleanup();
+  });
 });
 
 // ── Determinism ──
@@ -446,6 +497,19 @@ describe("createReplayRunner determinism", () => {
     rr2.cleanup();
 
     expect(hash1).not.toBe(hash2);
+  });
+
+  it("replays a recorded draft game identically when event callbacks are observed", () => {
+    const original = runGame(null, { seed: 425, record: true, draftMode: true, maxTicks: 200000 });
+    const replayData: ReplayData = { seed: original.seed, actions: original.actions!, draftMode: true };
+
+    const withoutEvents = replayToCompletion(replayData);
+    const withEvents = replayToCompletion(replayData, () => {});
+
+    expect(withEvents).toEqual(withoutEvents);
+    expect(withEvents.score).toBe(original.score);
+    expect(withEvents.wave).toBe(original.wave);
+    expect(withEvents.stats).toEqual(original.stats);
   });
 });
 

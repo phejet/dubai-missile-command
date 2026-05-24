@@ -183,6 +183,9 @@ export function createReplayRunner(replayData: ReplayData, onEvent: EventCallbac
   function resumeFromBonusScreen() {
     if (!bonusPaused || !g || !g._bonusScreenDone) return;
     bonusPaused = false;
+    if (g.waveComplete && !g.shopOpened) {
+      update(g, 0, onEvent);
+    }
   }
 
   function isBonusPaused() {
