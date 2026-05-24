@@ -1295,6 +1295,74 @@ describe("Auto-defense targeting spread", () => {
     expect(Math.abs(targets[0]!.x - targets[1]!.x)).toBeGreaterThan(200);
   });
 
+  it("holds a partial patriot salvo for a nonurgent lone threat", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.patriot = 1;
+    g.patriotTimer = 479;
+    const loneTarget = makeBallisticMissile({ x: 460, y: 260, vx: 0, vy: 1 });
+
+    sim.updateAutoSystems(g, 1, [loneTarget]);
+
+    expect(g.patriotMissiles).toHaveLength(0);
+    expect(g.patriotReserveShots).toBe(2);
+    expect(g.patriotHoldTimer).toBeGreaterThan(0);
+
+    for (let i = 0; i < 71; i++) sim.updateAutoSystems(g, 1, [loneTarget]);
+    expect(g.patriotMissiles).toHaveLength(0);
+
+    sim.updateAutoSystems(g, 1, [loneTarget]);
+
+    expect(g.patriotMissiles).toHaveLength(1);
+    expect(g.patriotReserveShots).toBe(1);
+    expect(g.patriotFollowupTimer).toBeGreaterThan(0);
+  });
+
+  it("fires patriot immediately at urgent heavy threats", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.patriot = 1;
+    g.patriotTimer = 479;
+    const mirv = makeBallisticMissile({ x: 460, y: 260, vx: 0, vy: 1, type: "mirv" });
+
+    sim.updateAutoSystems(g, 1, [mirv]);
+
+    expect(g.patriotMissiles).toHaveLength(1);
+    expect(g.patriotReserveShots).toBe(1);
+    expect(g.patriotFollowupTimer).toBeGreaterThan(0);
+  });
+
+  it("uses hot patriot follow-up tubes on late-arriving threats", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.patriot = 1;
+    g.patriotTimer = 479;
+    const mirv = makeBallisticMissile({ x: 260, y: 260, vx: 0, vy: 1, type: "mirv" });
+    const lateTarget = makeBallisticMissile({ x: 700, y: 260, vx: 0, vy: 1 });
+
+    sim.updateAutoSystems(g, 1, [mirv]);
+    expect(g.patriotMissiles).toHaveLength(1);
+
+    sim.updateAutoSystems(g, 1, [mirv, lateTarget]);
+
+    expect(g.patriotMissiles).toHaveLength(2);
+    expect(g.patriotMissiles[1].targetRef).toBe(lateTarget);
+    expect(g.patriotReserveShots).toBe(0);
+  });
+
+  it("does not spend patriot follow-up tubes on already-targeted threats", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.patriot = 1;
+    g.patriotTimer = 479;
+    const mirv = makeBallisticMissile({ x: 260, y: 260, vx: 0, vy: 1, type: "mirv" });
+
+    sim.updateAutoSystems(g, 1, [mirv]);
+    expect(g.patriotMissiles).toHaveLength(1);
+
+    sim.updateAutoSystems(g, 1, [mirv]);
+
+    expect(g.patriotMissiles).toHaveLength(1);
+    expect(g.patriotReserveShots).toBe(1);
+    expect(g.patriotFollowupTimer).toBeGreaterThan(0);
+  });
+
   it("hornets without skyHunterMesh crash when their target dies", () => {
     const { sim, g } = makeCleanGame(5);
     g.upgrades.wildHornets = 1;

@@ -407,6 +407,9 @@ export function prepareWaveStart(g: GameState): void {
   g.roadrunners = [];
   g.patriotMissiles = [];
   g.patriotLaunchQueue = [];
+  g.patriotReserveShots = 0;
+  g.patriotHoldTimer = 0;
+  g.patriotFollowupTimer = 0;
   g.flares = [];
   g.flareSalvoQueue = [];
   g.flareSalvoClaims = new Set();

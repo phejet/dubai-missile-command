@@ -612,6 +612,9 @@ export interface GameState {
   ironBeamTimer: number;
   phalanxTimer: number;
   patriotTimer: number;
+  patriotReserveShots: number;
+  patriotHoldTimer: number;
+  patriotFollowupTimer: number;
   nextFlareId: number;
   flareReadyThisWave: boolean;
   flareSalvoQueue: Array<{ fireAt: number; count: number }>;
