@@ -20,6 +20,7 @@ type UpgradeFamilyDef = {
   color: string;
   active?: boolean;
   disabled?: boolean;
+  shopHidden?: boolean;
   excludes?: UpgradeKey[];
 };
 
@@ -73,6 +74,7 @@ export const UPGRADE_FAMILIES: Record<UpgradeKey, UpgradeFamilyDef> = {
     name: "Phalanx CIWS",
     icon: "\uD83D\uDD2B",
     color: COL.phalanx,
+    shopHidden: true,
   },
   patriot: {
     name: "Patriot",
@@ -502,6 +504,14 @@ export function getUpgradeNodeDef(nodeId: string): UpgradeNodeDef | undefined {
 
 export function getUpgradeFamilyDef(key: UpgradeKey): UpgradeFamilyDef {
   return UPGRADE_FAMILIES[key];
+}
+
+export function isUpgradeFamilyShopVisible(key: UpgradeKey): boolean {
+  return UPGRADE_FAMILIES[key]?.shopHidden !== true;
+}
+
+export function isUpgradeNodeShopVisible(node: UpgradeNodeDef): boolean {
+  return isUpgradeFamilyShopVisible(node.family);
 }
 
 export function getAllUpgradeNodeDefs(): UpgradeNodeDef[] {

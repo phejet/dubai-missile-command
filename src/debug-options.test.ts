@@ -47,4 +47,9 @@ describe("debug options", () => {
     const burjRepair = getDebugUpgradeFamilyOptions().find((option) => option.key === "burjRepair");
     expect(burjRepair).toMatchObject({ name: "Burj Repair Kit", draftable: false });
   });
+
+  it("marks Phalanx CIWS as not draftable while it is hidden from shop offers", () => {
+    const phalanx = getDebugUpgradeFamilyOptions().find((option) => option.key === "phalanx");
+    expect(phalanx).toMatchObject({ name: "Phalanx CIWS", draftable: false });
+  });
 });

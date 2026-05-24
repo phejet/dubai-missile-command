@@ -1734,6 +1734,27 @@ describe("F-15 active upgrade", () => {
 describe("active upgrade mutual exclusivity", () => {
   afterEach(() => setRng(Math.random));
 
+  it("hides Phalanx CIWS from full shop entries while leaving the family defined", () => {
+    const { g } = makeCleanGame(5);
+    g.metaProgression.completedObjectives.push("reach_wave_3", "reach_wave_4", "reach_wave_6");
+
+    const entries = buildShopEntries(g);
+
+    expect(getUpgradeNodeDef("phalanx")).toBeDefined();
+    expect(entries.some((entry) => entry.family === "phalanx")).toBe(false);
+  });
+
+  it("hides Phalanx CIWS from draft offers even when force-shown", () => {
+    setRng(() => 0);
+    const { g } = makeCleanGame(5);
+    g.metaProgression.completedObjectives.push("reach_wave_3", "reach_wave_4", "reach_wave_6");
+
+    const offers = draftPick3(g, ["phalanx"]);
+
+    expect(offers).toHaveLength(3);
+    expect(offers.map((offer) => getUpgradeNodeDef(offer)?.family)).not.toContain("phalanx");
+  });
+
   it("buying emp locks the f15 family in the shop", () => {
     const { g } = makeCleanGame(5);
     g.metaProgression.completedObjectives.push("reach_wave_3");

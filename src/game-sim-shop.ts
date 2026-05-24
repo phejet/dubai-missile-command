@@ -19,6 +19,7 @@ import {
   getPurchaseDisplayName,
   getUpgradeFamilyDef,
   getUpgradeNodeDef,
+  isUpgradeNodeShopVisible,
   resolveRequestedUpgradeNodeId,
   UPGRADE_NODES,
 } from "./game-sim-upgrades";
@@ -200,7 +201,7 @@ export function buildShopEntries(g: GameState): ShopEntry[] {
   const nodeIds = g._draftMode && g._draftOffers ? g._draftOffers : UPGRADE_NODES.map((node) => node.id);
   return nodeIds.reduce<ShopEntry[]>((entries, nodeId) => {
     const node = getUpgradeNodeDef(nodeId);
-    if (!node) return entries;
+    if (!node || !isUpgradeNodeShopVisible(node)) return entries;
     const familyDef = getUpgradeFamilyDef(node.family);
     const familyNodes = getFamilyNodes(node.family);
     const owned = g.ownedUpgradeNodes.has(node.id);
@@ -252,7 +253,7 @@ export function draftPick3(g: GameState, forcedFamilies: UpgradeKey[] = []): str
   const rng = getRng();
   const progression = getWaveAwareProgression(g);
   const available = getEligibleUpgradeNodes(g.ownedUpgradeNodes, progression).filter(
-    (node) => !getActiveChoiceWaveLockReason(g, node),
+    (node) => isUpgradeNodeShopVisible(node) && !getActiveChoiceWaveLockReason(g, node),
   );
   const forceFamilies = (picks: string[], options: { protectInitialActiveChoice?: boolean } = {}): string[] => {
     const result = [...picks];

@@ -1,4 +1,4 @@
-import { getFamilyNodes, UPGRADE_FAMILIES } from "./game-sim-upgrades";
+import { getFamilyNodes, isUpgradeFamilyShopVisible, UPGRADE_FAMILIES } from "./game-sim-upgrades";
 import type { UpgradeKey } from "./types";
 
 const STORAGE_KEY = "dubai-missile-command.debug-options.v1";
@@ -25,7 +25,7 @@ export function getDebugUpgradeFamilyOptions(): DebugUpgradeFamilyOption[] {
       key,
       name: family.name,
       icon: family.icon,
-      draftable: getFamilyNodes(key).length > 0,
+      draftable: isUpgradeFamilyShopVisible(key) && getFamilyNodes(key).length > 0,
     };
   });
 }
