@@ -345,6 +345,7 @@ export function createEditorScene(): GameState {
     laserBeams: [],
     phalanxBullets: [],
     patriotMissiles: [],
+    patriotLaunchQueue: [],
     flares: [],
     hornetSites: [],
     roadrunnerAmmo: 0,

@@ -396,6 +396,12 @@ export interface PatriotMissile {
   wobble?: number;
 }
 
+export interface PatriotLaunchQueueItem {
+  delay: number;
+  targetRef: Threat;
+  blastRadius: number;
+}
+
 export interface Flare {
   id: number;
   x: number;
@@ -565,6 +571,7 @@ export interface GameState {
   laserBeams: LaserBeam[];
   phalanxBullets: PhalanxBullet[];
   patriotMissiles: PatriotMissile[];
+  patriotLaunchQueue: PatriotLaunchQueueItem[];
   flares: Flare[];
   empRings: EmpRing[];
   empArcs: EmpArc[];

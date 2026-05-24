@@ -64,6 +64,7 @@ import type {
   HornetSiteKey,
   Roadrunner,
   PatriotMissile,
+  PatriotLaunchQueueItem,
   Flare,
   SpawnEntry,
   Shahed136Variant,
@@ -444,6 +445,7 @@ export function initGame(): GameState {
     laserBeams: [],
     phalanxBullets: [],
     patriotMissiles: [],
+    patriotLaunchQueue: [],
     flares: [],
     hornetSites: [],
     roadrunnerAmmo: 0,
@@ -1112,6 +1114,7 @@ function patriotTargetPriority(t: Threat): number {
 const PATRIOT_TURN_RATE = [0.075, 0.095, 0.115];
 const PATRIOT_RETARGET_MIN_DOT = 0.35;
 const PATRIOT_LAUNCH_BIAS = 0.45;
+const PATRIOT_LAUNCH_SPACING_TICKS = 18;
 
 function pickPatriotTargets(allThreats: Threat[], activePatriots: PatriotMissile[], count: number): Threat[] {
   const aliveThreats = allThreats.filter((t) => t.alive);
@@ -1162,6 +1165,58 @@ function getPatriotHeading(p: PatriotMissile): number {
     return Math.atan2(p.targetRef.y - p.y, p.targetRef.x - p.x);
   }
   return -Math.PI / 2;
+}
+
+function launchPatriotMissile(
+  g: GameState,
+  target: Threat,
+  blastRadius: number,
+  onEvent?: ((type: string, data?: unknown) => void) | null,
+): PatriotMissile {
+  const patriotSite = getDefenseSitePlacement("patriot");
+  const x = (patriotSite?.x ?? 334) + rand(-10, 10);
+  const y = (patriotSite?.y ?? GROUND_Y) - 3;
+  const missile: PatriotMissile = {
+    x,
+    y,
+    targetRef: target,
+    heading: getPatriotLaunchHeading(x, y, target),
+    speed: rand(21, 25.5),
+    trail: [],
+    alive: true,
+    blastRadius,
+    wobble: rand(0, Math.PI * 2),
+    life: 200,
+  };
+  g.patriotMissiles.push(missile);
+  if (onEvent) onEvent("sfx", { name: "patriotLaunch" });
+  return missile;
+}
+
+function drainPatriotLaunchQueue(
+  g: GameState,
+  dt: number,
+  allThreats: Threat[],
+  onEvent?: ((type: string, data?: unknown) => void) | null,
+): void {
+  if (g.patriotLaunchQueue.length === 0) return;
+
+  const waiting: PatriotLaunchQueueItem[] = [];
+  for (const queued of g.patriotLaunchQueue) {
+    const delay = Math.max(0, queued.delay - dt);
+    if (delay > 0) {
+      waiting.push({ ...queued, delay });
+      continue;
+    }
+
+    const fallbackTarget = queued.targetRef.alive
+      ? queued.targetRef
+      : pickPatriotTargets(allThreats, g.patriotMissiles, 1)[0];
+    if (fallbackTarget?.alive) {
+      launchPatriotMissile(g, fallbackTarget, queued.blastRadius, onEvent);
+    }
+  }
+  g.patriotLaunchQueue = waiting;
 }
 
 function patriotAlignmentFromHeading(p: PatriotMissile, target: Threat, heading: number): number {
@@ -1989,6 +2044,7 @@ export function updateAutoSystems(
   // ── PATRIOT BATTERY ──
   // Patriot launching — only if site alive
   if (g.upgrades.patriot > 0 && isSiteAlive(g, "patriot")) {
+    drainPatriotLaunchQueue(g, dt, allThreats, onEvent);
     const lvl = g.upgrades.patriot;
     const interval = [480, 360, 300][lvl - 1];
     const count = [2, 3, 4][lvl - 1];
@@ -1996,26 +2052,18 @@ export function updateAutoSystems(
     g.patriotTimer += dt;
     if (g.patriotTimer >= interval && allThreats.length > 0) {
       g.patriotTimer = 0;
-      if (onEvent) onEvent("sfx", { name: "patriotLaunch" });
       const targets = pickPatriotTargets(allThreats, g.patriotMissiles, count);
-      const patriotSite = getDefenseSitePlacement("patriot");
       for (let i = 0; i < targets.length; i++) {
-        const x = (patriotSite?.x ?? 334) + rand(-10, 10);
-        const y = (patriotSite?.y ?? GROUND_Y) - 3;
-        g.patriotMissiles.push({
-          x,
-          y,
+        g.patriotLaunchQueue.push({
+          delay: PATRIOT_LAUNCH_SPACING_TICKS * i,
           targetRef: targets[i],
-          heading: getPatriotLaunchHeading(x, y, targets[i]),
-          speed: rand(21, 25.5),
-          trail: [],
-          alive: true,
           blastRadius: blastR,
-          wobble: rand(0, Math.PI * 2),
-          life: 200,
         });
       }
+      drainPatriotLaunchQueue(g, 0, allThreats, onEvent);
     }
+  } else {
+    g.patriotLaunchQueue = [];
   }
   // Patriot in-flight update — guided SAM with limited steering.
   g.patriotMissiles.forEach((p: PatriotMissile) => {

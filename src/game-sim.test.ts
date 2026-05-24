@@ -1268,7 +1268,7 @@ describe("Auto-defense targeting spread", () => {
     expect(g.roadrunnerAmmo).toBe(1);
   });
 
-  it("spreads patriot launch targets across separate threats", () => {
+  it("stagger-launches patriot missiles across separate threats", () => {
     const { sim, g } = makeCleanGame(5);
     g.upgrades.patriot = 1;
     g.patriotTimer = 479;
@@ -1280,7 +1280,16 @@ describe("Auto-defense targeting spread", () => {
 
     sim.updateAutoSystems(g, 1, threats);
 
+    expect(g.patriotMissiles).toHaveLength(1);
+    expect(g.patriotLaunchQueue).toHaveLength(1);
+
+    for (let i = 0; i < 17; i++) sim.updateAutoSystems(g, 1, threats);
+    expect(g.patriotMissiles).toHaveLength(1);
+
+    sim.updateAutoSystems(g, 1, threats);
+
     expect(g.patriotMissiles).toHaveLength(2);
+    expect(g.patriotLaunchQueue).toHaveLength(0);
     const targets = g.patriotMissiles.map((p) => p.targetRef);
     expect(new Set(targets).size).toBe(2);
     expect(Math.abs(targets[0]!.x - targets[1]!.x)).toBeGreaterThan(200);
