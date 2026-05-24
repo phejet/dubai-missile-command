@@ -161,6 +161,10 @@ function makeCleanGame(wave = 5) {
   return { sim, g };
 }
 
+function angleDelta(a: number, b: number): number {
+  return ((((a - b + Math.PI) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)) - Math.PI;
+}
+
 function makeMissile(overrides: Partial<Missile> = {}): Missile {
   return {
     x: 100,
@@ -1410,6 +1414,56 @@ describe("Auto-defense targeting spread", () => {
     sim.updateAutoSystems(g, 1, [reservedTarget, fallbackTarget]);
 
     expect(g.patriotMissiles[0].targetRef).toBe(fallbackTarget);
+  });
+
+  it("clamps patriot heading changes after retargeting", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.patriot = 1;
+    g.patriotTimer = 0;
+    const deadTarget = makeBallisticMissile({ x: 430, y: 180, alive: false });
+    const liveTarget = makeBallisticMissile({ x: 520, y: 250, vx: 0, vy: 1 });
+    g.patriotMissiles.push({
+      x: 430,
+      y: 780,
+      targetRef: deadTarget,
+      heading: -Math.PI / 2,
+      speed: 24,
+      trail: [],
+      alive: true,
+      blastRadius: 84,
+      wobble: 0,
+      life: 200,
+    } as PatriotMissile);
+
+    sim.updateAutoSystems(g, 1, [liveTarget]);
+
+    expect(g.patriotMissiles[0].targetRef).toBe(liveTarget);
+    expect(Math.abs(angleDelta(g.patriotMissiles[0].heading!, -Math.PI / 2))).toBeLessThanOrEqual(0.075 + 1e-6);
+  });
+
+  it("retargets patriot to an aligned lower-priority threat instead of a severe off-axis target", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.patriot = 1;
+    g.patriotTimer = 0;
+    const deadTarget = makeBallisticMissile({ x: 430, y: 180, alive: false });
+    const offAxisMissile = makeBallisticMissile({ x: 850, y: 780, vx: 0, vy: 1 });
+    const alignedDrone = makePropDrone({ x: 430, y: 260, vx: 0, vy: 1 });
+    g.patriotMissiles.push({
+      x: 430,
+      y: 780,
+      targetRef: deadTarget,
+      heading: -Math.PI / 2,
+      speed: 24,
+      trail: [],
+      alive: true,
+      blastRadius: 84,
+      wobble: 0,
+      life: 200,
+    } as PatriotMissile);
+
+    sim.updateAutoSystems(g, 1, [offAxisMissile, alignedDrone]);
+
+    expect(g.patriotMissiles[0].targetRef).toBe(alignedDrone);
   });
 });
 

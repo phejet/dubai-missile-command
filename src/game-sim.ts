@@ -1109,6 +1109,10 @@ function patriotTargetPriority(t: Threat): number {
   return 10;
 }
 
+const PATRIOT_TURN_RATE = [0.075, 0.095, 0.115];
+const PATRIOT_RETARGET_MIN_DOT = 0.35;
+const PATRIOT_LAUNCH_BIAS = 0.45;
+
 function pickPatriotTargets(allThreats: Threat[], activePatriots: PatriotMissile[], count: number): Threat[] {
   const aliveThreats = allThreats.filter((t) => t.alive);
   if (aliveThreats.length === 0) return [];
@@ -1141,6 +1145,59 @@ function pickPatriotTargets(allThreats: Threat[], activePatriots: PatriotMissile
 
 function normalizeAngle(angle: number): number {
   return ((((angle + Math.PI) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)) - Math.PI;
+}
+
+function getPatriotLaunchHeading(x: number, y: number, target: Threat): number {
+  const targetHeading = Math.atan2(target.y - y, target.x - x);
+  return normalizeAngle(-Math.PI / 2 + normalizeAngle(targetHeading + Math.PI / 2) * PATRIOT_LAUNCH_BIAS);
+}
+
+function getPatriotHeading(p: PatriotMissile): number {
+  if (typeof p.heading === "number") return p.heading;
+  const prev = p.trail[p.trail.length - 1];
+  if (prev && (prev.x !== p.x || prev.y !== p.y)) {
+    return Math.atan2(p.y - prev.y, p.x - prev.x);
+  }
+  if (p.targetRef) {
+    return Math.atan2(p.targetRef.y - p.y, p.targetRef.x - p.x);
+  }
+  return -Math.PI / 2;
+}
+
+function patriotAlignmentFromHeading(p: PatriotMissile, target: Threat, heading: number): number {
+  const dx = target.x - p.x;
+  const dy = target.y - p.y;
+  const d = Math.sqrt(dx * dx + dy * dy) || 1;
+  return (dx / d) * Math.cos(heading) + (dy / d) * Math.sin(heading);
+}
+
+function pickPatriotRetargetTarget(
+  p: PatriotMissile,
+  allThreats: Threat[],
+  activePatriots: PatriotMissile[],
+): Threat | null {
+  const heading = getPatriotHeading(p);
+  const reserved = new Set<Threat>(
+    activePatriots.filter((other) => other.alive && other.targetRef?.alive).map((other) => other.targetRef!),
+  );
+  const candidates = allThreats
+    .filter((t) => t.alive)
+    .map((target) => {
+      const alignment = patriotAlignmentFromHeading(p, target, heading);
+      return {
+        target,
+        alignment,
+        reserved: reserved.has(target),
+        score: patriotTargetPriority(target) * 10 + target.y * 0.1 + alignment * 180,
+      };
+    })
+    .filter((candidate) => candidate.alignment >= PATRIOT_RETARGET_MIN_DOT)
+    .sort((a, b) => {
+      if (a.reserved !== b.reserved) return a.reserved ? 1 : -1;
+      return b.score - a.score;
+    });
+
+  return candidates[0]?.target ?? null;
 }
 
 function isFlareMissileTarget(m: Missile): boolean {
@@ -1943,10 +2000,13 @@ export function updateAutoSystems(
       const targets = pickPatriotTargets(allThreats, g.patriotMissiles, count);
       const patriotSite = getDefenseSitePlacement("patriot");
       for (let i = 0; i < targets.length; i++) {
+        const x = (patriotSite?.x ?? 334) + rand(-10, 10);
+        const y = (patriotSite?.y ?? GROUND_Y) - 3;
         g.patriotMissiles.push({
-          x: (patriotSite?.x ?? 334) + rand(-10, 10),
-          y: (patriotSite?.y ?? GROUND_Y) - 3,
+          x,
+          y,
           targetRef: targets[i],
+          heading: getPatriotLaunchHeading(x, y, targets[i]),
           speed: rand(21, 25.5),
           trail: [],
           alive: true,
@@ -1957,7 +2017,7 @@ export function updateAutoSystems(
       }
     }
   }
-  // Patriot in-flight update — hornet-style homing
+  // Patriot in-flight update — guided SAM with limited steering.
   g.patriotMissiles.forEach((p: PatriotMissile) => {
     if (!p.alive) return;
     p.life -= dt;
@@ -1968,36 +2028,20 @@ export function updateAutoSystems(
     }
     const t = p.targetRef;
     if (!t || !t.alive) {
-      // Prefer threats on current flight path, fall back to any alive threat
-      const candidates = pickPatriotTargets(
+      const best = pickPatriotRetargetTarget(
+        p,
         allThreats,
         g.patriotMissiles.filter((other: PatriotMissile) => other !== p),
-        1,
       );
-      let best = null;
-      const pdx = p.targetRef ? p.targetRef.x - p.x : 0;
-      const pdy = p.targetRef ? p.targetRef.y - p.y : -1;
-      const pMag = Math.sqrt(pdx * pdx + pdy * pdy) || 1;
-      const pnx = pdx / pMag;
-      const pny = pdy / pMag;
-      for (const c of candidates) {
-        const cdx = c.x - p.x;
-        const cdy = c.y - p.y;
-        const cMag = Math.sqrt(cdx * cdx + cdy * cdy) || 1;
-        const dot = (cdx / cMag) * pnx + (cdy / cMag) * pny;
-        if (dot > 0.7) {
-          best = c;
-          break;
-        }
-      }
-      if (!best && candidates.length > 0) best = candidates[0];
       if (best) {
         p.targetRef = best;
       } else {
-        // No threats — drift upward, life timer will expire naturally
+        // No acceptable threat in the seeker cone; keep flying until life expires.
+        p.heading = getPatriotHeading(p);
         p.trail.push({ x: p.x, y: p.y });
         if (p.trail.length > 18) p.trail.shift();
-        p.y -= p.speed * 0.5 * dt;
+        p.x += Math.cos(p.heading) * p.speed * dt;
+        p.y += Math.sin(p.heading) * p.speed * dt;
         return;
       }
     }
@@ -2017,9 +2061,15 @@ export function updateAutoSystems(
     const pLeadFrames = d / p.speed;
     const plx = pTarget.x + (pTarget.vx || 0) * pLeadFrames * 0.4;
     const ply = pTarget.y + (pTarget.vy || 0) * pLeadFrames * 0.4;
-    const pld = Math.sqrt((plx - p.x) ** 2 + (ply - p.y) ** 2) || 1;
-    p.x += (((plx - p.x) / pld) * p.speed + Math.sin(p.wobble) * 0.6) * dt;
-    p.y += (((ply - p.y) / pld) * p.speed + Math.cos(p.wobble) * 0.4) * dt;
+    const desiredHeading = Math.atan2(ply - p.y, plx - p.x);
+    const currentHeading = getPatriotHeading(p);
+    const headingDelta = normalizeAngle(desiredHeading - currentHeading);
+    const turnRate = PATRIOT_TURN_RATE[Math.max(0, Math.min(PATRIOT_TURN_RATE.length - 1, g.upgrades.patriot - 1))];
+    const maxTurn = turnRate * dt;
+    const appliedTurn = Math.max(-maxTurn, Math.min(maxTurn, headingDelta));
+    p.heading = normalizeAngle(currentHeading + appliedTurn);
+    p.x += (Math.cos(p.heading) * p.speed + Math.sin(p.wobble) * 0.6) * dt;
+    p.y += (Math.sin(p.heading) * p.speed + Math.cos(p.wobble) * 0.4) * dt;
   });
   g.patriotMissiles = g.patriotMissiles.filter((p) => p.alive);
 
