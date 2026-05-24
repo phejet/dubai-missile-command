@@ -46,7 +46,7 @@ import {
   saveUpgradeProgression,
 } from "./game-sim-upgrades";
 import { createReplayRunner } from "./replay";
-import type { GameState, ReplayData, UpgradeKey } from "./types";
+import type { GameState, GameStats, ReplayData, UpgradeKey } from "./types";
 import {
   showShop as uiShowShop,
   hideShop as uiHideShop,
@@ -69,6 +69,8 @@ declare global {
     __gameRef?: { current: GameState | null };
     __loadReplay?: (replayData: ReplayData) => void;
     __lastReplay?: ReplayData | null;
+    __lastReplayResult?: GameReplayFinishedSample | null;
+    __onReplayFinished?: (sample: GameReplayFinishedSample) => unknown;
     __createReplayRunner?: typeof createReplayRunner;
     __openShopPreview?: () => boolean;
   }
@@ -326,8 +328,19 @@ export interface GameFrameSample {
 
 export interface GameReplayFinishedSample {
   score: number;
+  stats: GameStats;
   tick: number;
   wave: number;
+}
+
+function publishReplayFinished(sample: GameReplayFinishedSample): void {
+  window.__lastReplayResult = sample;
+  window.dispatchEvent(new CustomEvent("dmc:replay-finished", { detail: sample }));
+  try {
+    void window.__onReplayFinished?.(sample);
+  } catch (error) {
+    console.warn("[replay] finish notification failed", error);
+  }
 }
 
 // ─── Game Controller ────────────────────────────────────────────────
@@ -1285,9 +1298,10 @@ export class Game {
             this.replayActive = false;
             this.finalScore = game.score;
             this.finalWave = game.wave;
-            this.finalStats = { ...game.stats };
+            this.finalStats = normalizeGameStats(game.stats);
             replayFinishedSample = {
               score: game.score,
+              stats: this.finalStats,
               tick: game._replayTick ?? 0,
               wave: game.wave,
             };
@@ -1328,6 +1342,7 @@ export class Game {
         this.renderer.renderGameplay(game, { showShop: this.shopOpen, interpolationAlpha });
         this.emitFrameSample(game, elapsed, replayWasActive, screenAtFrameStart);
         if (replayFinishedSample) {
+          publishReplayFinished(replayFinishedSample);
           this.onReplayFinished?.(replayFinishedSample);
         }
       } else {

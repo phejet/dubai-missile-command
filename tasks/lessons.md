@@ -2,6 +2,8 @@
 
 ## 2026-05-23
 
+- When asked to show a best replay, report the concrete replay result first (seed, wave, score, action count) before opening or replaying anything. Do not make the user wait through setup narration for the number they asked for.
+- If a watched replay result differs from the recorder result, run the saved file through `createReplayRunner` headlessly before trying another browser viewing path. Separate replay-data validity from realtime playback failure first.
 - For replay bugs, distinguish local symptom recovery from full replay convergence. If the acceptance question is convergence, compare final wave/score/stats, not just the first previously stuck action stream.
 - When asked what skills are available in this repo, include both the Codex session skills and repo-local `.claude/skills/*.md`; the local Claude skills are part of the project workflow even if they are not exposed as Codex skill entries.
 - For Codex skill troubleshooting, verify with `codex debug prompt-input` before blaming file layout. Codex docs say symlinked skill folders are supported; if a skill is loaded but not visible in `/`, the issue is the app composer/indexer layer, not the skill directory.
