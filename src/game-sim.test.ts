@@ -380,9 +380,8 @@ describe("terminal Burj impacts", () => {
     { type: "bomb" as const, label: "bomb" },
     { type: "mirv_warhead" as const, label: "MIRV warhead" },
     { type: "stack_child" as const, label: "stack child" },
-  ])("damages the Burj when a $label reaches ground at a Burj target", ({ type }) => {
+  ])("ends the run when a $label reaches ground at a Burj target", ({ type }) => {
     const { sim, g } = makeCleanGame();
-    const healthBefore = g.burjHealth;
     g.schedule = [{ type: "missile", tick: 999999 }];
     g.scheduleIdx = 0;
     g.missiles = [
@@ -400,7 +399,9 @@ describe("terminal Burj impacts", () => {
     sim.update(g, 1);
 
     expect(g.missiles).toHaveLength(0);
-    expect(g.burjHealth).toBe(healthBefore - 1);
+    expect(g.burjHealth).toBe(0);
+    expect(g.burjAlive).toBe(false);
+    expect(g.gameOverTimer).toBeGreaterThan(0);
     expect(g.burjDecals[g.burjDecals.length - 1]?.kind).toBe("missile");
   });
 
@@ -547,13 +548,13 @@ describe("Shahed-238 (jet) diving", () => {
     const { sim, g } = makeCleanGame(5);
     spawnDroneOfType(g, "shahed136", undefined, "shahed-136");
     const drone = g.drones[0];
-    const healthBefore = g.burjHealth;
 
     drone.pathIndex = Math.max(0, drone.waypoints!.findIndex((p) => Math.abs(p.x - BURJ_X) < 2) - 1);
     sim.update(g, 2);
 
     expect(drone.alive).toBe(false);
-    expect(g.burjHealth).toBe(healthBefore - 1);
+    expect(g.burjHealth).toBe(0);
+    expect(g.burjAlive).toBe(false);
   });
 
   it("does not explode baseline Shahed-136 at screen center when level flight misses the Burj body", () => {
@@ -773,21 +774,22 @@ describe("Missile spawn angles", () => {
 describe("Burj damage presentation", () => {
   afterEach(() => setRng(Math.random));
 
-  it("adds a missile Burj decal and local fire fx on direct Burj hit", () => {
+  it("adds a missile Burj decal and local fire fx on direct Burj hit before ending the run", () => {
     const { sim, g } = makeCleanGame(5);
     const missile = makeBallisticMissile({ x: BURJ_X, y: 1000, vy: 12 });
     g.missiles.push(missile);
 
     sim.update(g, 2);
 
-    expect(g.burjHealth).toBe(6);
+    expect(g.burjHealth).toBe(0);
+    expect(g.burjAlive).toBe(false);
     expect(g.burjDecals).toHaveLength(1);
     expect(g.burjDecals[0].kind).toBe("missile");
     expect(g.burjDamageFx).toHaveLength(1);
     expect(g.burjDamageFx[0].kind).toBe("missile");
   });
 
-  it("adds a drone Burj decal, keeps fire fx persistent, and repair removes oldest damage marks", () => {
+  it("adds a drone Burj decal and keeps fire fx persistent before ending the run", () => {
     const { sim, g } = makeCleanGame(5);
     g.score = 10000;
     const drone = makePropDrone({ x: BURJ_X, y: 1120, vx: 0, vy: 18, health: 1 });
@@ -795,18 +797,14 @@ describe("Burj damage presentation", () => {
 
     sim.update(g, 2);
 
-    expect(g.burjHealth).toBe(6);
+    expect(g.burjHealth).toBe(0);
+    expect(g.burjAlive).toBe(false);
     expect(g.burjDecals).toHaveLength(1);
     expect(g.burjDecals[0].kind).toBe("drone");
     expect(g.burjDamageFx).toHaveLength(1);
 
     sim.update(g, 400);
     expect(g.burjDamageFx).toHaveLength(1);
-
-    expect(sim.buyUpgrade(g, "burjRepair")).toBe(true);
-    expect(g.burjHealth).toBe(7);
-    expect(g.burjDecals).toHaveLength(0);
-    expect(g.burjDamageFx).toHaveLength(0);
   });
 });
 
@@ -1639,7 +1637,6 @@ describe("Shahed-136 (prop) diving", () => {
   it("damages the Burj when terminal dive reaches a Burj target below the body hitbox", () => {
     setRng(() => 0.5);
     const { sim, g } = makeCleanGame(5);
-    const healthBefore = g.burjHealth;
     const prop = makePropDrone({
       diving: true,
       diveTarget: { x: BURJ_X, y: CITY_Y },
@@ -1652,7 +1649,8 @@ describe("Shahed-136 (prop) diving", () => {
     sim.update(g, 1);
 
     expect(prop.alive).toBe(false);
-    expect(g.burjHealth).toBe(healthBefore - 1);
+    expect(g.burjHealth).toBe(0);
+    expect(g.burjAlive).toBe(false);
     expect(g.burjDecals[g.burjDecals.length - 1]?.kind).toBe("drone");
   });
 });

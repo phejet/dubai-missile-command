@@ -346,12 +346,18 @@ function applyBurjHitDamage(
   if (g._debugMode || !g.burjAlive) return;
   if (g.burjInvulnTimer > 0) return;
   addBurjImpactDamage(g, x, y, kind);
-  g.burjHealth--;
+  g.burjHealth = 0;
   g.burjInvulnTimer = BURJ_INVULN_TICKS;
   if (onEvent) onEvent("sfx", { name: "burjHit" });
-  if (g.burjHealth <= 0) {
-    g.burjAlive = false;
-    boom(g, BURJ_X, CITY_Y - BURJ_H / 2, 90, "#ff2200", false, onEvent, 50);
+  g.burjAlive = false;
+  boom(g, BURJ_X, CITY_Y - BURJ_H / 2, 90, "#ff2200", false, onEvent, 50);
+  if (!g.gameOverTimer) {
+    g.gameOverTimer = 60;
+    if (g._laserHandle) {
+      g._laserHandle.stop();
+      g._laserHandle = null;
+    }
+    if (onEvent) onEvent("sfx", { name: "gameOver" });
   }
 }
 
