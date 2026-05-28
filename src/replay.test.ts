@@ -444,6 +444,17 @@ describe("createReplayRunner wave summary handling", () => {
 // ── Determinism ──
 
 describe("createReplayRunner determinism", () => {
+  it("copies replay metadata that render-side deterministic effects depend on", () => {
+    const rr = createReplayRunner({ seed: SEED, actions: [], isHuman: true });
+    const g = rr.init();
+
+    expect(g._gameSeed).toBe(SEED);
+    expect(g._replay).toBe(true);
+    expect(g._replayIsHuman).toBe(true);
+
+    rr.cleanup();
+  });
+
   it("same seed + same actions produces identical checkpoint hashes", () => {
     const actions: ReplayAction[] = [
       { tick: 10, type: "fire", x: 300, y: 250 },

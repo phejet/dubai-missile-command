@@ -481,6 +481,10 @@ export function initGame(): GameState {
     _waveStartDroneKills: 0,
     _waveStartDestroyedByType: createEmptyGameStats().destroyedByType,
     _waveStartMultiShots: 0,
+    _waveStartScore: 0,
+    _waveStartTick: 0,
+    _waveSummaries: [],
+    _waveSummaryRecorded: false,
     comboToast: null,
     // Spawn commander + schedule
     commander,
@@ -492,6 +496,27 @@ export function initGame(): GameState {
   };
 
   return g as unknown as GameState;
+}
+
+function recordWaveSummary(g: GameState): void {
+  if (g._waveSummaryRecorded) return;
+  const stats = normalizeGameStats(g.stats);
+  const summary = {
+    wave: g.wave,
+    scoreEarned: Math.max(0, g.score - (g._waveStartScore ?? 0)),
+    missileKills: stats.missileKills - (g._waveStartMissileKills ?? 0),
+    droneKills: stats.droneKills - (g._waveStartDroneKills ?? 0),
+    destroyedByType: getDestroyedByTypeDelta(stats.destroyedByType, g._waveStartDestroyedByType),
+    multiShots: Math.max(0, stats.multiShots - (g._waveStartMultiShots ?? 0)),
+    maxCombo: g._waveMaxCombo ?? 1,
+    buildingsSurviving: g.buildings.filter((b) => b.alive).length,
+    burjHealth: Math.max(0, g.burjHealth),
+    startTick: g._waveStartTick ?? 0,
+    endTick: g._replayTick ?? 0,
+  };
+  if (!g._waveSummaries) g._waveSummaries = [];
+  g._waveSummaries.push(summary);
+  g._waveSummaryRecorded = true;
 }
 
 function wrapAngle(angle: number): number {
@@ -3022,18 +3047,22 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
       // Emit bonus screen event once, then wait for it to finish before opening shop
       if (!g._bonusScreenStarted) {
         g._bonusScreenStarted = true;
-        if (g.burjAlive && onEvent) {
+        if (g.burjAlive) {
           processRootExplosionCombo(g, true);
           g.stats = normalizeGameStats(g.stats);
-          onEvent("waveBonusStart", {
-            wave: g.wave,
-            buildings: g.buildings.filter((b) => b.alive).length,
-            missileKills: g.stats.missileKills - (g._waveStartMissileKills ?? 0),
-            droneKills: g.stats.droneKills - (g._waveStartDroneKills ?? 0),
-            destroyedByType: getDestroyedByTypeDelta(g.stats.destroyedByType, g._waveStartDestroyedByType),
-            multiShots: Math.max(0, g.stats.multiShots - (g._waveStartMultiShots ?? 0)),
-            maxCombo: g._waveMaxCombo ?? 1,
-          });
+          if (onEvent) {
+            onEvent("waveBonusStart", {
+              wave: g.wave,
+              buildings: g.buildings.filter((b) => b.alive).length,
+              missileKills: g.stats.missileKills - (g._waveStartMissileKills ?? 0),
+              droneKills: g.stats.droneKills - (g._waveStartDroneKills ?? 0),
+              destroyedByType: getDestroyedByTypeDelta(g.stats.destroyedByType, g._waveStartDestroyedByType),
+              multiShots: Math.max(0, g.stats.multiShots - (g._waveStartMultiShots ?? 0)),
+              maxCombo: g._waveMaxCombo ?? 1,
+            });
+          } else {
+            g._bonusScreenDone = true;
+          }
         } else {
           g._bonusScreenDone = true;
         }
@@ -3041,6 +3070,7 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
       if (!g.shopOpened && g._bonusScreenDone) {
         g.shopOpened = true;
         if (g.burjAlive) {
+          recordWaveSummary(g);
           g.state = "shop";
           // Draft pick consumes seeded RNG here so replay stays in sync
           if (g._draftMode) {
@@ -3066,6 +3096,7 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
       return;
     }
     g.waveComplete = true;
+    g._waveSummaryRecorded = false;
     g.shopOpened = false;
     g.waveClearedTimer = 120;
     g.score += 250 * g.wave;

@@ -529,6 +529,42 @@ export interface GameStats {
   maxCombo: number;
 }
 
+export interface WaveSummaryRecord {
+  wave: number;
+  scoreEarned: number;
+  missileKills: number;
+  droneKills: number;
+  destroyedByType: DestroyedByTypeStats;
+  multiShots: number;
+  maxCombo: number;
+  buildingsSurviving: number;
+  burjHealth: number;
+  startTick: number;
+  endTick: number;
+}
+
+export type OutcomeCause = "burj_destroyed" | "survived" | "abandoned";
+
+export interface UpgradeTimelineEntry {
+  tick: number;
+  wave: number;
+  bought: string[];
+}
+
+export interface RunRecapData {
+  score: number;
+  wave: number;
+  timePlayedMs: number;
+  hitRatio: number;
+  burjHealth: number;
+  outcome: OutcomeCause;
+  totalStats: GameStats;
+  waves: WaveSummaryRecord[];
+  upgrades: UpgradeTimelineEntry[];
+  hasReplay: boolean;
+  replayId?: string;
+}
+
 // ── Full game state ──
 
 export type GamePhase = "playing" | "shop" | "gameover" | "title";
@@ -655,6 +691,10 @@ export interface GameState {
   _waveStartDestroyedByType?: DestroyedByTypeStats;
   _waveStartMultiShots?: number;
   _waveMaxCombo?: number;
+  _waveStartScore?: number;
+  _waveStartTick?: number;
+  _waveSummaries?: WaveSummaryRecord[];
+  _waveSummaryRecorded?: boolean;
 
   // Replay / recording runtime fields
   _gameSeed?: number;
@@ -664,6 +704,7 @@ export interface GameState {
     x?: number;
     y?: number;
     bought?: string[];
+    wave?: number;
     /** Deprecated replay compatibility field; ignored by the current fire model. */
     ignoreLauncherReload?: boolean;
   }>;
@@ -730,6 +771,7 @@ export interface ShopAction {
   tick: number;
   bought: string[];
   draftMode?: boolean;
+  wave?: number;
 }
 
 export interface WavePlanAction {

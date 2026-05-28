@@ -3,12 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="manifest.json" />
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#040614" />
     <title>dubai-missile-command</title>
   </head>
   <body>
@@ -191,25 +193,9 @@
                 <strong class="report-card__value" id="go-wave">1</strong>
               </div>
               <div class="report-card">
-                <span class="report-card__label">Total Kills</span>
-                <strong class="report-card__value" id="go-kills">0</strong>
-              </div>
-              <div class="report-card">
-                <span class="report-card__label">Shots Fired</span>
-                <strong class="report-card__value" id="go-shots">0</strong>
-              </div>
-              <div class="report-card">
                 <span class="report-card__label">Hit Ratio</span>
-                <strong class="report-card__value" id="go-ratio">0%</strong>
+                <strong class="report-card__value" id="go-hit-ratio">0%</strong>
               </div>
-              <div class="report-card">
-                <span class="report-card__label">Multi Shots</span>
-                <strong class="report-card__value" id="go-multi-shots">0</strong>
-              </div>
-            </div>
-            <div class="report-breakdown">
-              <span class="report-card__label">Destroyed by Type</span>
-              <div class="report-breakdown__rows" id="go-destroyed-types"></div>
             </div>
             <div class="portrait-panel__actions portrait-panel__actions--stacked">
               <button
@@ -224,7 +210,7 @@
                 class="action-button action-button--info action-button--wide"
                 id="progression-button"
               >
-                Upgrade Graph
+                Run Recap
               </button>
               <button type="button" class="action-button action-button--danger action-button--wide" id="retry-button">
                 Retry
@@ -243,6 +229,12 @@
           <section
             class="portrait-panel portrait-panel--gameover portrait-panel--progression"
             id="progression-panel"
+            hidden
+          ></section>
+
+          <section
+            class="portrait-panel portrait-panel--gameover portrait-panel--run-recap"
+            id="run-recap-panel"
             hidden
           ></section>
 

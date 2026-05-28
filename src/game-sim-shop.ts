@@ -444,6 +444,9 @@ export function prepareWaveStart(g: GameState): void {
   g._waveStartDestroyedByType = cloneDestroyedByTypeStats(g.stats.destroyedByType);
   g._waveStartMultiShots = g.stats.multiShots;
   g._waveMaxCombo = Math.max(1, g.combo ?? 1);
+  g._waveStartScore = g.score;
+  g._waveStartTick = g._replayTick ?? 0;
+  g._waveSummaryRecorded = false;
   g.waveComplete = false;
   g.state = "playing";
 }

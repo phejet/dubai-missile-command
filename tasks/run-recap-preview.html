@@ -1,0 +1,1135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Run Recap Preview</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #030712;
+        --panel: rgba(7, 14, 25, 0.92);
+        --panel-strong: rgba(10, 21, 34, 0.96);
+        --line: rgba(109, 217, 255, 0.18);
+        --line-hot: rgba(255, 170, 0, 0.42);
+        --text: #effcff;
+        --muted: #8ea8b8;
+        --soft: #a9c2d0;
+        --cyan: #00ffc8;
+        --blue: #44aaff;
+        --yellow: #ffcc00;
+        --red: #ff5a5a;
+        --orange: #ff8a3d;
+        --purple: #b58cff;
+        --drone: #7cff6b;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        background:
+          radial-gradient(circle at 18% 20%, rgba(0, 255, 200, 0.12), transparent 28rem),
+          radial-gradient(circle at 88% 14%, rgba(255, 90, 90, 0.12), transparent 26rem),
+          linear-gradient(180deg, #050b18 0%, var(--bg) 58%, #02040a 100%);
+        color: var(--text);
+      }
+
+      .page {
+        width: min(1180px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 28px 0;
+      }
+
+      .preview-header {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: 18px;
+      }
+
+      .preview-header h1 {
+        margin: 0;
+        font-size: clamp(28px, 4vw, 48px);
+        line-height: 0.94;
+        letter-spacing: 0;
+      }
+
+      .preview-header p {
+        max-width: 560px;
+        margin: 0;
+        color: var(--soft);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      .screen-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 430px));
+        gap: 18px;
+        align-items: start;
+        justify-content: center;
+      }
+
+      .phone-shell {
+        width: min(100%, 430px);
+        height: 844px;
+        border: 1px solid rgba(109, 217, 255, 0.2);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 18%), rgba(1, 5, 12, 0.88);
+        border-radius: 24px;
+        padding: 12px;
+        box-shadow: 0 22px 80px rgba(0, 0, 0, 0.44);
+        overflow: hidden;
+      }
+
+      .game-viewport {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        overflow: hidden;
+      }
+
+      .screen-label {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 4px 4px 12px;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+      }
+
+      .battlefield-preview {
+        position: relative;
+        flex: 0 0 auto;
+        aspect-ratio: 900 / 320;
+        overflow: hidden;
+        border: 1px solid rgba(109, 217, 255, 0.16);
+        border-radius: 18px;
+        background:
+          radial-gradient(circle at 52% 42%, rgba(255, 90, 90, 0.28), transparent 32px),
+          radial-gradient(circle at 72% 30%, rgba(255, 204, 0, 0.2), transparent 26px),
+          linear-gradient(180deg, #081328 0%, #101a24 65%, #071016 65%);
+      }
+
+      .battlefield-preview::before,
+      .battlefield-preview::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        background: rgba(26, 42, 48, 0.95);
+      }
+
+      .battlefield-preview::before {
+        left: 0;
+        right: 0;
+        height: 35%;
+      }
+
+      .battlefield-preview::after {
+        left: 48%;
+        width: 8%;
+        height: 76%;
+        clip-path: polygon(42% 0, 62% 0, 100% 100%, 0 100%);
+        background: #6f9eb4;
+      }
+
+      .portrait-panel {
+        width: 100%;
+        border: 1px solid var(--line);
+        background: linear-gradient(180deg, rgba(12, 28, 44, 0.96), rgba(3, 8, 15, 0.98)), var(--panel);
+        border-radius: 22px;
+        padding: 16px;
+        box-shadow: inset 0 0 42px rgba(0, 255, 200, 0.04);
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        min-height: 0;
+      }
+
+      .phone-shell--recap .portrait-panel {
+        flex: 1 1 auto;
+        overflow-y: auto;
+      }
+
+      .phone-shell--results .portrait-panel {
+        flex: 0 0 auto;
+      }
+
+      .panel-header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 14px;
+        margin-bottom: 16px;
+      }
+
+      .kicker,
+      .label,
+      .section-title {
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+      }
+
+      .panel-header strong {
+        font-size: 22px;
+        letter-spacing: 0;
+      }
+
+      .subtle {
+        color: var(--soft);
+        font-size: 12px;
+      }
+
+      .report-grid,
+      .hero-grid,
+      .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .hero-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .stat,
+      .section,
+      .details {
+        border: 1px solid rgba(109, 217, 255, 0.13);
+        background: var(--panel);
+        border-radius: 12px;
+      }
+
+      .stat {
+        min-height: 72px;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .stat strong {
+        color: var(--text);
+        font-size: 22px;
+        line-height: 1;
+      }
+
+      .hero-grid .stat strong {
+        font-size: 18px;
+      }
+
+      .stat--wide {
+        grid-column: span 2;
+      }
+
+      .actions {
+        display: grid;
+        gap: 6px;
+        margin-top: 0;
+      }
+
+      button {
+        min-height: 40px;
+        border: 1px solid rgba(109, 217, 255, 0.22);
+        border-radius: 16px;
+        background: rgba(17, 33, 49, 0.92);
+        color: var(--text);
+        font: inherit;
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+      }
+
+      button.primary {
+        border-color: rgba(0, 255, 200, 0.5);
+        background: linear-gradient(180deg, rgba(0, 255, 200, 0.24), rgba(0, 112, 102, 0.72));
+      }
+
+      button.danger {
+        border-color: rgba(255, 90, 90, 0.5);
+        background: linear-gradient(180deg, rgba(255, 90, 90, 0.22), rgba(92, 12, 18, 0.76));
+      }
+
+      .run-recap {
+        display: grid;
+        gap: 14px;
+      }
+
+      .section,
+      .details {
+        padding: 12px;
+      }
+
+      .section-title {
+        margin: 0 0 10px;
+      }
+
+      .kill-bar {
+        display: flex;
+        min-height: 26px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .kill-bar span {
+        min-width: 7px;
+        background: var(--c);
+        flex-grow: var(--v);
+        box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+      }
+
+      .legend,
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .legend {
+        margin-top: 10px;
+      }
+
+      .legend-item,
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        color: var(--soft);
+        font-size: 12px;
+      }
+
+      .swatch {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--c);
+      }
+
+      .timeline {
+        display: flex;
+        gap: 6px;
+        min-height: 108px;
+        overflow-x: auto;
+        padding-bottom: 4px;
+      }
+
+      .timeline-tabs {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        margin-bottom: 10px;
+      }
+
+      .screen-tabs {
+        flex: 0 0 auto;
+        margin-bottom: 0;
+      }
+
+      .timeline-tab {
+        min-height: 34px;
+        padding: 6px 8px;
+        border-radius: 10px;
+        border-color: rgba(109, 217, 255, 0.18);
+        background: rgba(7, 16, 28, 0.72);
+        color: var(--soft);
+        font-size: 9px;
+        letter-spacing: 0.1em;
+      }
+
+      .timeline-tab[aria-selected="true"] {
+        border-color: rgba(0, 255, 200, 0.45);
+        background: rgba(0, 255, 200, 0.12);
+        color: var(--text);
+      }
+
+      .timeline-panel[hidden] {
+        display: none;
+      }
+
+      .timeline-caption {
+        margin: 10px 0 0;
+        color: var(--soft);
+        font-size: 12px;
+        line-height: 1.4;
+      }
+
+      .run-graph {
+        display: grid;
+        grid-template-columns: repeat(10, minmax(0, 1fr));
+        align-items: end;
+        gap: 5px;
+        height: 132px;
+        padding: 10px 8px 2px;
+        border-radius: 12px;
+        background: rgba(4, 10, 18, 0.5);
+        border: 1px solid rgba(109, 217, 255, 0.1);
+      }
+
+      .graph-bar {
+        position: relative;
+        min-width: 0;
+        height: var(--h);
+        min-height: 16px;
+        border-radius: 7px 7px 3px 3px;
+        background: linear-gradient(180deg, rgba(0, 255, 200, 0.88), rgba(68, 170, 255, 0.56));
+      }
+
+      .graph-bar.final {
+        background: linear-gradient(180deg, #ffaa00, #ff4444);
+      }
+
+      .graph-bar.upgrade::before {
+        content: "";
+        position: absolute;
+        left: 50%;
+        bottom: -8px;
+        width: 6px;
+        height: 6px;
+        transform: translateX(-50%);
+        border-radius: 50%;
+        background: var(--cyan);
+        box-shadow: 0 0 10px rgba(0, 255, 200, 0.8);
+      }
+
+      .graph-labels {
+        display: grid;
+        grid-template-columns: repeat(10, minmax(0, 1fr));
+        gap: 5px;
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 900;
+        text-align: center;
+      }
+
+      .wave-detail-row {
+        margin-top: 10px;
+        border: 1px solid rgba(0, 255, 200, 0.16);
+        border-radius: 12px;
+        padding: 10px;
+        background: rgba(0, 255, 200, 0.06);
+        color: var(--soft);
+        font-size: 12px;
+        line-height: 1.4;
+      }
+
+      .wave-detail-row strong {
+        display: block;
+        color: var(--text);
+        font-size: 14px;
+        margin-bottom: 2px;
+      }
+
+      .focus-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .focus-card,
+      .bucket-card,
+      .recent-card {
+        border: 1px solid rgba(109, 217, 255, 0.12);
+        border-radius: 12px;
+        background: rgba(4, 10, 18, 0.58);
+        padding: 10px;
+      }
+
+      .focus-card strong,
+      .bucket-card strong,
+      .recent-card strong {
+        display: block;
+        color: var(--text);
+        font-size: 15px;
+        margin: 2px 0 4px;
+      }
+
+      .focus-card span,
+      .bucket-card span,
+      .recent-card span {
+        color: var(--soft);
+        font-size: 12px;
+        line-height: 1.35;
+      }
+
+      .sparkline {
+        height: 54px;
+        margin-bottom: 10px;
+        border: 1px solid rgba(109, 217, 255, 0.1);
+        border-radius: 12px;
+        background:
+          linear-gradient(
+            90deg,
+            transparent 0 9%,
+            rgba(255, 255, 255, 0.05) 10% 10%,
+            transparent 11% 19%,
+            rgba(255, 255, 255, 0.05) 20% 20%,
+            transparent 21% 29%,
+            rgba(255, 255, 255, 0.05) 30% 30%,
+            transparent 31%
+          ),
+          linear-gradient(180deg, transparent 0 49%, rgba(109, 217, 255, 0.12) 50% 50%, transparent 51%),
+          rgba(4, 10, 18, 0.5);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .sparkline::before {
+        content: "";
+        position: absolute;
+        inset: 9px 8px 8px;
+        background: linear-gradient(
+          110deg,
+          transparent 0 3%,
+          var(--cyan) 4% 7%,
+          transparent 8% 13%,
+          var(--cyan) 14% 17%,
+          transparent 18% 24%,
+          var(--cyan) 25% 29%,
+          transparent 30% 37%,
+          var(--cyan) 38% 43%,
+          transparent 44% 51%,
+          var(--cyan) 52% 58%,
+          transparent 59% 66%,
+          var(--cyan) 67% 74%,
+          transparent 75% 83%,
+          #ff4444 84% 90%,
+          transparent 91%
+        );
+        filter: drop-shadow(0 0 5px rgba(0, 255, 200, 0.5));
+      }
+
+      .recent-grid,
+      .bucket-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .bucket-meter {
+        height: 8px;
+        margin-top: 9px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .bucket-meter span {
+        display: block;
+        width: var(--w);
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, var(--cyan), var(--blue));
+      }
+
+      .bucket-card.final .bucket-meter span {
+        background: linear-gradient(90deg, #ffaa00, #ff4444);
+      }
+
+      .wave {
+        position: relative;
+        isolation: isolate;
+        flex: 0 0 64px;
+        min-height: 98px;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        justify-items: center;
+        gap: 4px;
+        overflow: hidden;
+        border: 1px solid rgba(109, 217, 255, 0.14);
+        border-radius: 10px;
+        background: rgba(4, 10, 18, 0.68);
+        padding: 8px 6px;
+      }
+
+      .wave.final {
+        border-color: var(--line-hot);
+      }
+
+      .wave::before {
+        content: "";
+        position: absolute;
+        z-index: -1;
+        inset: auto 0 0;
+        height: var(--h);
+        background: linear-gradient(180deg, var(--cyan), var(--blue));
+        opacity: 0.22;
+      }
+
+      .wave.final::before {
+        background: linear-gradient(180deg, #ffaa00, #ff4444);
+        opacity: 0.28;
+      }
+
+      .wave-main {
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .wave-score {
+        align-self: end;
+        color: var(--cyan);
+        font-size: 12px;
+        font-weight: 900;
+        line-height: 1;
+        letter-spacing: 0;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .wave-meta {
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 900;
+      }
+
+      .upgrade-row {
+        display: grid;
+        grid-template-columns: 74px minmax(0, 1fr);
+        align-items: start;
+        gap: 10px;
+        margin-top: 8px;
+      }
+
+      .upgrade-wave {
+        color: var(--cyan);
+        font-size: 12px;
+        font-weight: 900;
+      }
+
+      .chip {
+        border: 1px solid rgba(0, 255, 200, 0.22);
+        border-radius: 999px;
+        padding: 6px 9px;
+        background: rgba(0, 255, 200, 0.08);
+        color: var(--text);
+        font-weight: 750;
+      }
+
+      .death-clip {
+        min-height: 150px;
+        border: 1px dashed rgba(109, 217, 255, 0.24);
+        border-radius: 14px;
+        display: grid;
+        grid-template-columns: minmax(84px, 0.32fr) minmax(0, 1fr);
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        background: linear-gradient(180deg, rgba(8, 19, 40, 0.78), rgba(4, 6, 20, 0.95)), #040614;
+      }
+
+      .mini-canvas {
+        height: 126px;
+        border: 1px solid rgba(109, 217, 255, 0.16);
+        border-radius: 10px;
+        background:
+          radial-gradient(circle at 62% 28%, rgba(255, 90, 90, 0.34), transparent 24px),
+          radial-gradient(circle at 45% 62%, rgba(0, 255, 200, 0.25), transparent 20px),
+          linear-gradient(180deg, #081328 0%, #101a24 62%, #071016 62%);
+      }
+
+      .death-copy strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+
+      .death-copy span {
+        color: var(--soft);
+        font-size: 12px;
+        line-height: 1.4;
+      }
+
+      .details summary {
+        cursor: default;
+        color: var(--text);
+        font-weight: 900;
+      }
+
+      .detail-grid {
+        margin-top: 12px;
+      }
+
+      .detail-grid .stat {
+        min-height: 70px;
+      }
+
+      .detail-grid .stat strong {
+        font-size: 18px;
+      }
+
+      @media (max-width: 880px) {
+        .preview-header {
+          display: block;
+        }
+
+        .preview-header p {
+          margin-top: 10px;
+        }
+
+        .screen-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .phone-shell {
+          margin: 0 auto;
+        }
+      }
+
+      @media (max-width: 520px) {
+        .page {
+          width: min(100vw - 20px, 1180px);
+          padding: 14px 0;
+        }
+
+        .report-grid,
+        .detail-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .phone-shell {
+          height: 812px;
+        }
+
+        .stat--wide {
+          grid-column: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <header class="preview-header">
+        <div>
+          <div class="kicker">Static screen preview</div>
+          <h1>Run Recap plus Game Over</h1>
+        </div>
+        <p>
+          Mocked data preview for the slim end-of-game panel and the recap surface. The real app fills these with live
+          run stats, replay actions, and the final death clip.
+        </p>
+      </header>
+
+      <section class="screen-grid" aria-label="End of game and run recap preview">
+        <div class="phone-shell phone-shell--results">
+          <div class="game-viewport">
+            <div class="screen-label">
+              <span>End of game</span>
+              <span>430px panel</span>
+            </div>
+            <div class="battlefield-preview" aria-hidden="true"></div>
+            <section class="portrait-panel" aria-label="Game Over">
+              <div class="panel-header">
+                <div>
+                  <div class="kicker">Results</div>
+                  <strong>Game Over</strong>
+                </div>
+                <span class="subtle">Burj destroyed</span>
+              </div>
+
+              <div class="report-grid">
+                <div class="stat">
+                  <span class="label">Score</span>
+                  <strong>42,850</strong>
+                </div>
+                <div class="stat">
+                  <span class="label">Waves</span>
+                  <strong>8</strong>
+                </div>
+                <div class="stat">
+                  <span class="label">Hit Ratio</span>
+                  <strong>61%</strong>
+                </div>
+              </div>
+
+              <div class="actions" aria-label="Game over actions">
+                <button type="button">Title Menu</button>
+                <button type="button" class="primary">Run Recap</button>
+                <button type="button" class="danger">Retry</button>
+                <button type="button">Watch Replay</button>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <div class="phone-shell phone-shell--recap">
+          <div class="game-viewport">
+            <div class="screen-label">
+              <span>Run Recap</span>
+              <span>screen concepts</span>
+            </div>
+            <div class="timeline-tabs screen-tabs" role="tablist" aria-label="After action screen options">
+              <button
+                class="timeline-tab"
+                id="tab-focus"
+                type="button"
+                role="tab"
+                aria-selected="true"
+                aria-controls="panel-focus"
+                data-timeline-tab="focus"
+              >
+                Death Focus
+              </button>
+              <button
+                class="timeline-tab"
+                id="tab-fixed"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                aria-controls="panel-fixed"
+                data-timeline-tab="fixed"
+              >
+                Fixed Graph
+              </button>
+              <button
+                class="timeline-tab"
+                id="tab-recent"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                aria-controls="panel-recent"
+                data-timeline-tab="recent"
+              >
+                Recent Waves
+              </button>
+              <button
+                class="timeline-tab"
+                id="tab-buckets"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                aria-controls="panel-buckets"
+                data-timeline-tab="buckets"
+              >
+                Buckets
+              </button>
+            </div>
+            <section class="portrait-panel" aria-label="Run Recap">
+              <div class="run-recap">
+                <div class="panel-header">
+                  <div>
+                    <div class="kicker">Run Recap</div>
+                    <strong>After-action report</strong>
+                  </div>
+                  <span class="subtle">Last run snapshot</span>
+                </div>
+
+                <div class="hero-grid">
+                  <div class="stat">
+                    <span class="label">Score</span>
+                    <strong>42,850</strong>
+                  </div>
+                  <div class="stat">
+                    <span class="label">Wave</span>
+                    <strong>8</strong>
+                  </div>
+                  <div class="stat">
+                    <span class="label">Hit Ratio</span>
+                    <strong>61%</strong>
+                  </div>
+                  <div class="stat">
+                    <span class="label">Time</span>
+                    <strong>7:34</strong>
+                  </div>
+                </div>
+
+                <section class="section">
+                  <h2 class="section-title">Kill Distribution</h2>
+                  <div class="kill-bar" aria-label="Kill distribution">
+                    <span style="--c: var(--yellow); --v: 31" title="Missiles: 31"></span>
+                    <span style="--c: var(--red); --v: 7" title="MIRVs: 7"></span>
+                    <span style="--c: var(--orange); --v: 14" title="MIRV warheads: 14"></span>
+                    <span style="--c: var(--purple); --v: 8" title="Stacked missiles: 8"></span>
+                    <span style="--c: var(--drone); --v: 12" title="Shahed-136: 12"></span>
+                    <span style="--c: #ff3355; --v: 5" title="Shahed-238: 5"></span>
+                  </div>
+                  <div class="legend">
+                    <span class="legend-item"
+                      ><span class="swatch" style="--c: var(--yellow)"></span>Missiles <strong>31</strong></span
+                    >
+                    <span class="legend-item"
+                      ><span class="swatch" style="--c: var(--red)"></span>MIRVs <strong>7</strong></span
+                    >
+                    <span class="legend-item"
+                      ><span class="swatch" style="--c: var(--orange)"></span>Warheads <strong>14</strong></span
+                    >
+                    <span class="legend-item"
+                      ><span class="swatch" style="--c: var(--purple)"></span>Stacked <strong>8</strong></span
+                    >
+                    <span class="legend-item"
+                      ><span class="swatch" style="--c: var(--drone)"></span>Drones <strong>12</strong></span
+                    >
+                  </div>
+                </section>
+
+                <section class="section">
+                  <h2 class="section-title">Wave Story</h2>
+                  <div
+                    class="timeline-panel"
+                    id="panel-fixed"
+                    role="tabpanel"
+                    aria-labelledby="tab-fixed"
+                    data-timeline-panel="fixed"
+                    hidden
+                  >
+                    <div class="run-graph" aria-label="Fixed-width graph from wave 1 to wave 10">
+                      <span class="graph-bar" style="--h: 18%" title="Wave 1: +1k"></span>
+                      <span class="graph-bar upgrade" style="--h: 24%" title="Wave 2: +2k, upgrade bought"></span>
+                      <span class="graph-bar" style="--h: 34%" title="Wave 3: +4k"></span>
+                      <span class="graph-bar upgrade" style="--h: 48%" title="Wave 4: +6k, upgrade bought"></span>
+                      <span class="graph-bar" style="--h: 58%" title="Wave 5: +8k"></span>
+                      <span class="graph-bar upgrade" style="--h: 70%" title="Wave 6: +10k, upgrade bought"></span>
+                      <span class="graph-bar" style="--h: 82%" title="Wave 7: +12k"></span>
+                      <span class="graph-bar final" style="--h: 46%" title="Wave 8: +5k, run ended"></span>
+                      <span class="graph-bar" style="--h: 0%; opacity: 0.18" title="Wave 9 not reached"></span>
+                      <span class="graph-bar" style="--h: 0%; opacity: 0.18" title="Wave 10 not reached"></span>
+                    </div>
+                    <div class="graph-labels" aria-hidden="true">
+                      <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span
+                      ><span>8</span><span>9</span><span>10</span>
+                    </div>
+                    <div class="wave-detail-row">
+                      <strong>Selected: Wave 8 · +5,200 · 11 kills</strong>
+                      Death wave. MIRV split reached the Burj while both launchers were reloading. Upgrade pips mark
+                      purchase waves.
+                    </div>
+                    <p class="timeline-caption">
+                      Best scale option: one fixed-width chart, no horizontal scrolling, works when the player reaches
+                      wave 10+.
+                    </p>
+                  </div>
+
+                  <div
+                    class="timeline-panel"
+                    id="panel-focus"
+                    role="tabpanel"
+                    aria-labelledby="tab-focus"
+                    data-timeline-panel="focus"
+                  >
+                    <div class="focus-grid">
+                      <div class="focus-card">
+                        <span class="label">Best Wave</span>
+                        <strong>Wave 7</strong>
+                        <span>+12,400 score · 21 kills · 8x combo</span>
+                      </div>
+                      <div class="focus-card">
+                        <span class="label">Worst Wave</span>
+                        <strong>Wave 3</strong>
+                        <span>3 leaked threats · 42% hit ratio</span>
+                      </div>
+                      <div class="focus-card">
+                        <span class="label">Last Clear</span>
+                        <strong>Wave 7</strong>
+                        <span>Both launchers alive · Burj at 2 HP</span>
+                      </div>
+                      <div class="focus-card">
+                        <span class="label">Death Wave</span>
+                        <strong>Wave 8</strong>
+                        <span>MIRV warheads overwhelmed reload window</span>
+                      </div>
+                    </div>
+                    <p class="timeline-caption">
+                      Most readable option, but it hides the full run shape. Good for post-death clarity, weaker for
+                      strategy review.
+                    </p>
+                  </div>
+
+                  <div
+                    class="timeline-panel"
+                    id="panel-recent"
+                    role="tabpanel"
+                    aria-labelledby="tab-recent"
+                    data-timeline-panel="recent"
+                    hidden
+                  >
+                    <div class="sparkline" aria-label="Full run sparkline"></div>
+                    <div class="recent-grid">
+                      <div class="recent-card">
+                        <span class="label">Wave 5</span>
+                        <strong>+8.1k · 15 kills</strong>
+                        <span>Clean clear after Patriot buy.</span>
+                      </div>
+                      <div class="recent-card">
+                        <span class="label">Wave 6</span>
+                        <strong>+10.3k · 18 kills</strong>
+                        <span>EMP stabilized late pressure.</span>
+                      </div>
+                      <div class="recent-card">
+                        <span class="label">Wave 7</span>
+                        <strong>+12.4k · 21 kills</strong>
+                        <span>Best wave, high combo chain.</span>
+                      </div>
+                      <div class="recent-card">
+                        <span class="label">Wave 8</span>
+                        <strong>+5.2k · 11 kills</strong>
+                        <span>Run ended during reload gap.</span>
+                      </div>
+                    </div>
+                    <p class="timeline-caption">
+                      Emotionally strong option: full-run hint plus detail on the waves the player probably cares about
+                      right now.
+                    </p>
+                  </div>
+
+                  <div
+                    class="timeline-panel"
+                    id="panel-buckets"
+                    role="tabpanel"
+                    aria-labelledby="tab-buckets"
+                    data-timeline-panel="buckets"
+                    hidden
+                  >
+                    <div class="bucket-grid">
+                      <div class="bucket-card">
+                        <span class="label">Waves 1-3</span>
+                        <strong>+7.2k · 20 kills</strong>
+                        <span>Opening stabilized, one weak wave.</span>
+                        <div class="bucket-meter"><span style="--w: 34%"></span></div>
+                      </div>
+                      <div class="bucket-card">
+                        <span class="label">Waves 4-6</span>
+                        <strong>+24.1k · 45 kills</strong>
+                        <span>Build came online.</span>
+                        <div class="bucket-meter"><span style="--w: 72%"></span></div>
+                      </div>
+                      <div class="bucket-card final">
+                        <span class="label">Waves 7-8</span>
+                        <strong>+17.6k · 32 kills</strong>
+                        <span>Peak wave, then terminal collapse.</span>
+                        <div class="bucket-meter"><span style="--w: 58%"></span></div>
+                      </div>
+                      <div class="bucket-card">
+                        <span class="label">Waves 9+</span>
+                        <strong>Not reached</strong>
+                        <span>Reserved bucket keeps long runs compact.</span>
+                        <div class="bucket-meter"><span style="--w: 0%"></span></div>
+                      </div>
+                    </div>
+                    <p class="timeline-caption">
+                      Scales forever, but sands off individual wave texture. Useful for very long runs, less satisfying
+                      for short ones.
+                    </p>
+                  </div>
+                </section>
+
+                <section class="section">
+                  <h2 class="section-title">Upgrade Path</h2>
+                  <div class="upgrade-row">
+                    <span class="upgrade-wave">Wave 2</span>
+                    <div class="chips">
+                      <span class="chip">Wild Hornets</span><span class="chip">Rapid Reload</span>
+                    </div>
+                  </div>
+                  <div class="upgrade-row">
+                    <span class="upgrade-wave">Wave 4</span>
+                    <div class="chips">
+                      <span class="chip">Patriot Battery</span><span class="chip">EMP Shockwave</span>
+                    </div>
+                  </div>
+                  <div class="upgrade-row">
+                    <span class="upgrade-wave">Wave 6</span>
+                    <div class="chips">
+                      <span class="chip">Iron Beam</span><span class="chip">Double Magazine</span>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="section">
+                  <h2 class="section-title">Watch How You Died</h2>
+                  <div class="death-clip">
+                    <div class="mini-canvas" aria-hidden="true"></div>
+                    <div class="death-copy">
+                      <strong>Final five seconds</strong>
+                      <span
+                        >A MIRV split reached the Burj while both launchers were reloading. Elegant? No. Educational?
+                        Brutally.</span
+                      >
+                    </div>
+                  </div>
+                </section>
+
+                <details class="details" open>
+                  <summary>Detailed stats</summary>
+                  <div class="detail-grid">
+                    <div class="stat">
+                      <span class="label">Total Kills</span>
+                      <strong>77</strong>
+                    </div>
+                    <div class="stat">
+                      <span class="label">Shots Fired</span>
+                      <strong>126</strong>
+                    </div>
+                    <div class="stat">
+                      <span class="label">Multi Shots</span>
+                      <strong>9</strong>
+                    </div>
+                    <div class="stat">
+                      <span class="label">Max Combo</span>
+                      <strong>8x</strong>
+                    </div>
+                    <div class="stat">
+                      <span class="label">Buildings Left</span>
+                      <strong>4</strong>
+                    </div>
+                    <div class="stat">
+                      <span class="label">Replay</span>
+                      <strong>Saved</strong>
+                    </div>
+                  </div>
+                </details>
+
+                <div class="actions" aria-label="Run recap actions">
+                  <button type="button">Replay Last 5 Seconds</button>
+                  <button type="button">Watch Replay</button>
+                  <button type="button" class="primary">Save Replay</button>
+                  <button type="button">Back to Results</button>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script>
+      const tabs = Array.from(document.querySelectorAll("[data-timeline-tab]"));
+      const panels = Array.from(document.querySelectorAll("[data-timeline-panel]"));
+
+      function selectTimelineOption(key) {
+        for (const tab of tabs) {
+          const selected = tab.dataset.timelineTab === key;
+          tab.setAttribute("aria-selected", selected ? "true" : "false");
+        }
+        for (const panel of panels) {
+          panel.hidden = panel.dataset.timelinePanel !== key;
+        }
+      }
+
+      for (const tab of tabs) {
+        tab.addEventListener("click", () => selectTimelineOption(tab.dataset.timelineTab));
+      }
+    </script>
+  </body>
+</html>

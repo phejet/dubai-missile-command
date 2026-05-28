@@ -12,10 +12,17 @@ import {
   renderUpgradeGraphMarkup,
   zoomUpgradeGraphViewportAtPoint,
 } from "./upgrade-graph";
-import { getUpgradeObjectiveLabel } from "./game-sim-upgrades";
-import { DESTROYED_TYPE_KEYS, type DestroyedByTypeStats, type GameStats, type ShopEntry } from "./types";
+import { getPurchaseDisplayName, getUpgradeObjectiveLabel } from "./game-sim-upgrades";
+import {
+  DESTROYED_TYPE_KEYS,
+  type DestroyedByTypeStats,
+  type GameStats,
+  type RunRecapData,
+  type ShopEntry,
+} from "./types";
 import type { UpgradeNodeId, UpgradeProgressionState } from "./types";
 import SFX from "./sound";
+import { BUILDING_SURVIVAL_BONUS_POINTS, getBuildingSurvivalBonus } from "./wave-bonus";
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -47,6 +54,13 @@ export interface HudSnapshot {
 }
 
 export type ActiveButtonPhase = "ready" | "active" | "complete" | "spent";
+
+export interface RunRecapCallbacks {
+  onClose: () => void;
+  onSaveReplay: () => void | Promise<void>;
+  onWatchFullReplay: () => void;
+  onReplayDeathClip?: () => void;
+}
 
 export interface TransientOverlaySnapshot {
   titleCopyVisible: boolean;
@@ -233,7 +247,6 @@ export function hideShop(): void {
 
 // ─── Bonus Screen ───────────────────────────────────────────────────
 
-const BUILDING_PTS_EACH = 100;
 const TICK_MS_BUILDING = 80;
 
 let bonusCleanup: (() => void) | null = null;
@@ -248,6 +261,34 @@ const DESTROYED_TYPE_LABELS: Record<keyof DestroyedByTypeStats, string> = {
   shahed238: "Shahed-238",
   other: "Other",
 };
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (char) => {
+    switch (char) {
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case '"':
+        return "&quot;";
+      default:
+        return "&#39;";
+    }
+  });
+}
+
+function formatPercent(value: number, digits = 0): string {
+  return `${(value * 100).toFixed(digits)}%`;
+}
+
+function formatDuration(ms: number): string {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
 
 interface WaveSummaryData {
   wave: number;
@@ -290,7 +331,7 @@ export function showBonusScreen(
   let done = false;
   const timers: number[] = [];
 
-  const buildingBonus = data.buildings * BUILDING_PTS_EACH * data.wave;
+  const buildingBonus = getBuildingSurvivalBonus(data);
   const totalBonus = buildingBonus;
   const totalKills = data.missileKills + data.droneKills;
 
@@ -365,7 +406,7 @@ export function showBonusScreen(
   function handleTap() {
     if (phase < 2) return;
     if (phase < 5) {
-      const remainingBuilding = (data.buildings - buildingCount) * BUILDING_PTS_EACH * data.wave;
+      const remainingBuilding = (data.buildings - buildingCount) * BUILDING_SURVIVAL_BONUS_POINTS * data.wave;
       if (remainingBuilding > 0) onScoreAdd(remainingBuilding);
       phase = 6;
       finish();
@@ -385,7 +426,9 @@ export function showBonusScreen(
     buildingsSectionEl.hidden = phase < 3;
     buildingsCountEl.textContent = String(phase >= 4 ? buildingCount : 0);
     buildingsPtsEl.textContent =
-      phase >= 4 && buildingCount > 0 ? `+ ${(buildingCount * BUILDING_PTS_EACH * data.wave).toLocaleString()}` : "";
+      phase >= 4 && buildingCount > 0
+        ? `+ ${(buildingCount * BUILDING_SURVIVAL_BONUS_POINTS * data.wave).toLocaleString()}`
+        : "";
 
     totalEl.className = `bonus-screen__total ${
       totalVisible ? (flashOn ? "bonus-screen__total--on" : "bonus-screen__total--off") : "bonus-screen__total--hidden"
@@ -423,7 +466,7 @@ export function showBonusScreen(
                         count++;
                         buildingCount = count;
                         SFX.bonusTick();
-                        onScoreAdd(BUILDING_PTS_EACH * data.wave);
+                        onScoreAdd(BUILDING_SURVIVAL_BONUS_POINTS * data.wave);
                         render();
                         if (count >= data.buildings) {
                           clearInterval(iv);
@@ -716,13 +759,200 @@ export function showGameOver(score: number, wave: number, stats: GameStats): voi
   const el = (id: string) => document.getElementById(id);
   el("go-score")!.textContent = score.toLocaleString();
   el("go-wave")!.textContent = String(wave);
-  el("go-kills")!.textContent = String(totalKills);
-  el("go-shots")!.textContent = String(normalizedStats.shotsFired);
-  el("go-ratio")!.textContent = `${hitRatio}%`;
-  el("go-multi-shots")!.textContent = String(normalizedStats.multiShots);
-  const destroyedTypes = el("go-destroyed-types");
-  if (destroyedTypes) {
-    destroyedTypes.innerHTML = renderDestroyedTypeRows(normalizedStats.destroyedByType);
+  el("go-hit-ratio")!.textContent = `${hitRatio}%`;
+}
+
+// ─── Run Recap ──────────────────────────────────────────────────────
+
+let runRecapCleanup: (() => void) | null = null;
+
+function renderRunRecapHero(data: RunRecapData): string {
+  return `
+    <div class="run-recap__summary">
+      <span><strong>${data.score.toLocaleString()}</strong> score</span>
+      <span><strong>W${data.wave}</strong> reached</span>
+      <span><strong>${formatPercent(data.hitRatio)}</strong> hits</span>
+      <span><strong>${formatDuration(data.timePlayedMs)}</strong></span>
+    </div>`;
+}
+
+interface RunRecapWaveStory {
+  wave: number;
+  scoreEarned: number;
+  missileKills: number;
+  droneKills: number;
+  multiShots: number;
+  maxCombo: number;
+  buildingsSurviving: number;
+  burjHealth: number;
+  terminal: boolean;
+}
+
+function buildWaveStory(data: RunRecapData): RunRecapWaveStory[] {
+  const completedScore = data.waves.reduce((sum, wave) => sum + wave.scoreEarned, 0);
+  const completedMissileKills = data.waves.reduce((sum, wave) => sum + wave.missileKills, 0);
+  const completedDroneKills = data.waves.reduce((sum, wave) => sum + wave.droneKills, 0);
+  const lastCompletedWave = data.waves.length > 0 ? data.waves[data.waves.length - 1].wave : 0;
+  const terminalWave =
+    data.wave > lastCompletedWave
+      ? [
+          {
+            wave: data.wave,
+            scoreEarned: Math.max(0, data.score - completedScore),
+            missileKills: Math.max(0, data.totalStats.missileKills - completedMissileKills),
+            droneKills: Math.max(0, data.totalStats.droneKills - completedDroneKills),
+            multiShots: 0,
+            maxCombo: data.totalStats.maxCombo,
+            buildingsSurviving: 0,
+            burjHealth: data.burjHealth,
+            terminal: true,
+          },
+        ]
+      : [];
+  return [...data.waves.map((wave) => ({ ...wave, terminal: false })), ...terminalWave];
+}
+
+function formatWaveScore(score: number): string {
+  return `+${score.toLocaleString()} score`;
+}
+
+function formatWaveKills(wave: RunRecapWaveStory): string {
+  const totalKills = wave.missileKills + wave.droneKills;
+  return `${totalKills} ${totalKills === 1 ? "kill" : "kills"}`;
+}
+
+function renderBestWave(data: RunRecapData): string {
+  const waves = buildWaveStory(data);
+  if (waves.length === 0) return `<div class="run-recap__empty">No wave data recorded.</div>`;
+  const bestWave = [...waves].sort((a, b) => b.scoreEarned - a.scoreEarned)[0];
+  const upgrades = data.upgrades
+    .filter((entry) => entry.wave === bestWave.wave)
+    .flatMap((entry) => entry.bought)
+    .map((key) => `<span>${escapeHtml(getPurchaseDisplayName(key))}</span>`)
+    .join("");
+  return `
+    <div class="run-recap__best-wave">
+      <div>
+        <span class="run-recap__label">Best Wave</span>
+        <strong>Wave ${bestWave.wave}</strong>
+      </div>
+      <p>${escapeHtml(formatWaveScore(bestWave.scoreEarned))} · ${escapeHtml(formatWaveKills(bestWave))} · ${bestWave.maxCombo}x max combo</p>
+      ${upgrades ? `<div class="run-recap__focus-upgrades">${upgrades}</div>` : ""}
+    </div>`;
+}
+
+function renderBurjDamageTrack(data: RunRecapData): string {
+  const waves = buildWaveStory(data);
+  if (waves.length === 0) return `<div class="run-recap__empty">No wave data recorded.</div>`;
+  return `
+    <div class="run-recap__burj-track" aria-label="Burj health over waves">
+      ${waves
+        .map((wave) => {
+          const health = Math.max(0, Math.min(7, wave.burjHealth));
+          const lostPercent = Math.round(((7 - health) / 7) * 100);
+          const label = `${wave.terminal ? "Final wave" : `Wave ${wave.wave}`}: Burj ${health}/7 HP`;
+          return `
+            <div class="run-recap__burj-wave ${wave.terminal ? "run-recap__burj-wave--terminal" : ""}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">
+              <span>W${wave.wave}</span>
+              <strong>${health}/7</strong>
+              <i style="--lost-percent: ${lostPercent}%"></i>
+            </div>`;
+        })
+        .join("")}
+    </div>`;
+}
+
+function renderUpgradeTimeline(data: RunRecapData): string {
+  if (data.upgrades.length === 0) {
+    return `<div class="run-recap__empty">No upgrades purchased.</div>`;
+  }
+  return `
+    <div class="run-recap__upgrade-list">
+      ${data.upgrades
+        .map(
+          (entry) => `
+            <div class="run-recap__upgrade-entry">
+              <span class="run-recap__upgrade-wave">Wave ${entry.wave}</span>
+              <div class="run-recap__upgrade-chips">
+                ${entry.bought
+                  .map(
+                    (key) => `<span class="run-recap__upgrade-chip">${escapeHtml(getPurchaseDisplayName(key))}</span>`,
+                  )
+                  .join("")}
+              </div>
+            </div>`,
+        )
+        .join("")}
+    </div>`;
+}
+
+function renderRunRecapActions(data: RunRecapData): string {
+  return `
+    <div class="portrait-panel__actions portrait-panel__actions--stacked run-recap__actions">
+      <button type="button" class="action-button action-button--info action-button--wide" data-run-recap-death-clip>
+        Replay Last 5 Seconds
+      </button>
+      <button type="button" class="action-button action-button--info action-button--wide" data-run-recap-watch ${data.hasReplay ? "" : "disabled"}>
+        Watch Replay
+      </button>
+      <button type="button" class="action-button action-button--primary action-button--wide" data-run-recap-save ${data.hasReplay ? "" : "disabled"}>
+        Save Replay
+      </button>
+      <button type="button" class="action-button action-button--info action-button--wide" data-run-recap-close>
+        Back to Results
+      </button>
+    </div>`;
+}
+
+export function showRunRecap(data: RunRecapData, callbacks: RunRecapCallbacks): void {
+  hideRunRecap();
+  const container = document.getElementById("run-recap-panel")!;
+  container.innerHTML = `
+    <div class="run-recap">
+      <div class="portrait-panel__header">
+        <span class="portrait-panel__kicker">Run Recap</span>
+        <span class="portrait-panel__subtle">After-action report</span>
+      </div>
+      ${renderRunRecapHero(data)}
+      <section class="run-recap__section">
+        <h3 class="run-recap__section-title">Watch How You Died</h3>
+        <div class="run-recap__death-clip" data-run-recap-death-clip-stage>
+          <span>Ready to replay the final seconds.</span>
+        </div>
+      </section>
+      <section class="run-recap__section">
+        <h3 class="run-recap__section-title">Burj Damage</h3>
+        ${renderBurjDamageTrack(data)}
+      </section>
+      <section class="run-recap__section">
+        <h3 class="run-recap__section-title">Best Wave</h3>
+        ${renderBestWave(data)}
+      </section>
+      <section class="run-recap__section">
+        <h3 class="run-recap__section-title">Upgrade Path</h3>
+        ${renderUpgradeTimeline(data)}
+      </section>
+      ${renderRunRecapActions(data)}
+    </div>`;
+
+  const handleClick = (event: MouseEvent) => {
+    const target = event.target as HTMLElement;
+    if (target.closest("[data-run-recap-close]")) callbacks.onClose();
+    else if (target.closest("[data-run-recap-watch]")) callbacks.onWatchFullReplay();
+    else if (target.closest("[data-run-recap-save]")) void callbacks.onSaveReplay();
+    else if (target.closest("[data-run-recap-death-clip]")) callbacks.onReplayDeathClip?.();
+  };
+  container.addEventListener("click", handleClick);
+  runRecapCleanup = () => {
+    container.removeEventListener("click", handleClick);
+    container.innerHTML = "";
+  };
+}
+
+export function hideRunRecap(): void {
+  if (runRecapCleanup) {
+    runRecapCleanup();
+    runRecapCleanup = null;
   }
 }
 

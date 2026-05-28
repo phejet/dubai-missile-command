@@ -46,6 +46,9 @@ import {
   saveUpgradeProgression,
 } from "./game-sim-upgrades";
 import { createReplayRunner } from "./replay";
+import { mountRunRecapDeathClip } from "./run-recap-death-clip";
+import { buildRunRecapData } from "./run-recap";
+import { saveReplayToFile } from "./save-replay";
 import type { GameState, GameStats, ReplayData, UpgradeKey } from "./types";
 import {
   showShop as uiShowShop,
@@ -53,6 +56,8 @@ import {
   showBonusScreen,
   hideBonusScreen,
   showGameOver as uiShowGameOver,
+  showRunRecap as uiShowRunRecap,
+  hideRunRecap as uiHideRunRecap,
   showUpgradeProgression as uiShowUpgradeProgression,
   hideUpgradeProgression as uiHideUpgradeProgression,
   updateHud,
@@ -360,6 +365,7 @@ export class Game {
   private titleStartButton: HTMLButtonElement;
   private gameoverPanel: HTMLElement;
   private progressionPanel: HTMLElement;
+  private runRecapPanel: HTMLElement;
   private progressionButton: HTMLElement;
   private titleMenuButton: HTMLElement;
   private replayButton: HTMLElement;
@@ -394,12 +400,14 @@ export class Game {
   private replayActive = false;
   private bonusActive = false;
   private progressionOpen = false;
+  private runRecapOpen = false;
 
   // Final stats for game over
   private finalScore = 0;
   private finalWave = 1;
   private finalStats = createEmptyGameStats();
   private lastReplay: ReplayData | null = null;
+  private deathClipCleanup: (() => void) | null = null;
   private debugOptions: DebugOptions = loadDebugOptions();
 
   constructor({ canvas, renderer, onScreenChange, onFrameSample, onReplayFinished }: GameOptions) {
@@ -416,6 +424,7 @@ export class Game {
     this.titleStartButton = document.getElementById("title-start-button") as HTMLButtonElement;
     this.gameoverPanel = document.getElementById("gameover-panel")!;
     this.progressionPanel = document.getElementById("progression-panel")!;
+    this.runRecapPanel = document.getElementById("run-recap-panel")!;
     this.progressionButton = document.getElementById("progression-button")!;
     this.titleMenuButton = document.getElementById("title-menu-button")!;
     this.replayButton = document.getElementById("replay-button")!;
@@ -460,7 +469,8 @@ export class Game {
     });
     this.retryButton.addEventListener("click", () => void this.startGame());
     this.titleMenuButton.addEventListener("click", () => this.returnToTitle());
-    this.progressionButton.addEventListener("click", () => this.openProgression());
+    this.progressionButton.addEventListener("click", () => this.openRunRecap());
+    this.titleProgressionButton.addEventListener("click", () => this.openProgression());
     this.replayButton.addEventListener("click", () => {
       if (this.lastReplay) {
         this.replayActive = false;
@@ -522,6 +532,13 @@ export class Game {
     this.pointerId = null;
   }
 
+  private stopDeathClip(): void {
+    if (this.deathClipCleanup) {
+      this.deathClipCleanup();
+      this.deathClipCleanup = null;
+    }
+  }
+
   private resetPlayerFireState(): void {
     this.bufferedPlayerShot = null;
   }
@@ -531,19 +548,24 @@ export class Game {
   private setScreen(s: GameScreen): void {
     this.screen = s;
     this.shell.dataset.screen = s;
+    this.battlefieldCard.hidden = false;
 
     // Toggle visibility of screen-specific elements
     this.hudEl.hidden = s !== "playing";
-    this.titleOverlay.hidden = s !== "title";
-    this.titleOverlay.setAttribute("aria-hidden", s === "title" ? "false" : "true");
-    this.titleOverlay.inert = s !== "title";
-    this.titleProgressionButton.hidden = true;
-    const gameoverHidden = s !== "gameover" || this.progressionOpen;
+    const titleHidden = s !== "title" || this.progressionOpen;
+    this.titleOverlay.hidden = titleHidden;
+    this.titleOverlay.setAttribute("aria-hidden", titleHidden ? "true" : "false");
+    this.titleOverlay.inert = titleHidden;
+    this.titleProgressionButton.hidden = s !== "title" || this.progressionOpen;
+    const gameoverHidden = s !== "gameover" || this.progressionOpen || this.runRecapOpen;
     this.gameoverPanel.hidden = gameoverHidden;
     this.gameoverPanel.inert = gameoverHidden;
-    const progressionHidden = !this.progressionOpen || s !== "gameover";
+    const progressionHidden = !this.progressionOpen || (s !== "gameover" && s !== "title");
     this.progressionPanel.hidden = progressionHidden;
     this.progressionPanel.inert = progressionHidden;
+    const runRecapHidden = !this.runRecapOpen || s !== "gameover";
+    this.runRecapPanel.hidden = runRecapHidden;
+    this.runRecapPanel.inert = runRecapHidden;
     this.battlefieldCard.classList.toggle("battlefield-card--portraitSky", s === "playing");
     if (s === "title") {
       void SFX.playTitleTheme();
@@ -553,9 +575,13 @@ export class Game {
     }
 
     if (s !== "gameover") {
+      this.runRecapOpen = false;
       this.progressionOpen = false;
+      this.stopDeathClip();
+      uiHideRunRecap();
       uiHideUpgradeProgression();
       this.progressionPanel.hidden = true;
+      this.runRecapPanel.hidden = true;
     }
 
     if (s === "gameover") {
@@ -712,7 +738,10 @@ export class Game {
     this.shopOpen = false;
     this.bonusActive = false;
     this.progressionOpen = false;
+    this.runRecapOpen = false;
     uiHideShop();
+    this.stopDeathClip();
+    uiHideRunRecap();
     uiHideUpgradeProgression();
     hideBonusScreen();
     this.battlefieldCard.classList.remove("battlefield-card--blurred");
@@ -735,8 +764,11 @@ export class Game {
     this.shopOpen = false;
     this.bonusActive = false;
     this.progressionOpen = false;
+    this.runRecapOpen = false;
     this.showOptionsMenu = false;
     uiHideShop();
+    this.stopDeathClip();
+    uiHideRunRecap();
     uiHideUpgradeProgression();
     hideBonusScreen();
     this.battlefieldCard.classList.remove("battlefield-card--blurred");
@@ -760,10 +792,13 @@ export class Game {
     this.shopOpen = false;
     this.bonusActive = false;
     this.progressionOpen = false;
+    this.runRecapOpen = false;
     this.showOptionsMenu = false;
     this.showColliders = false;
     this.showPerfOverlay = false;
     uiHideShop();
+    this.stopDeathClip();
+    uiHideRunRecap();
     uiHideUpgradeProgression();
     hideBonusScreen();
     this.battlefieldCard.classList.remove("battlefield-card--blurred");
@@ -798,11 +833,14 @@ export class Game {
     this.replayActive = true;
     this.shopOpen = false;
     this.progressionOpen = false;
+    this.runRecapOpen = false;
     this.showOptionsMenu = false;
     this.showColliders = false;
     this.showPerfOverlay = false;
     this.closeUpgradesTable();
     uiHideShop();
+    this.stopDeathClip();
+    uiHideRunRecap();
     uiHideUpgradeProgression();
     this.battlefieldCard.classList.remove("battlefield-card--blurred");
     this.canvas.classList.add("game-canvas--active");
@@ -847,11 +885,14 @@ export class Game {
       this.resetPlayerFireState();
       this.shopOpen = false;
       this.progressionOpen = false;
+      this.runRecapOpen = false;
       this.showOptionsMenu = false;
       this.showColliders = false;
       this.showPerfOverlay = false;
       this.closeUpgradesTable();
       uiHideShop();
+      this.stopDeathClip();
+      uiHideRunRecap();
       uiHideUpgradeProgression();
       this.battlefieldCard.classList.remove("battlefield-card--blurred");
       this.optionsMenu.hidden = true;
@@ -888,6 +929,8 @@ export class Game {
           finalTick: (game._replayTick ?? 0) + 1,
           isHuman: true,
           draftMode: game._draftMode !== false,
+          score: data.score,
+          wave: data.wave,
         };
         this.lastReplay = replay;
         window.__lastReplay = replay;
@@ -969,7 +1012,12 @@ export class Game {
     const game = this.gameRef.current;
     if (!game) return;
     if (game._actionLog) {
-      game._actionLog.push({ tick: game._replayTick ?? 0, type: "shop", bought: [...this.shopBought] });
+      game._actionLog.push({
+        tick: game._replayTick ?? 0,
+        type: "shop",
+        bought: [...this.shopBought],
+        wave: game.wave,
+      });
     }
     this.shopBought = [];
     simCloseShop(game);
@@ -987,10 +1035,73 @@ export class Game {
     };
   }
 
-  private openProgression(): void {
+  private openRunRecap(): void {
     if (this.screen !== "gameover" || this.shopOpen) return;
+    const game = this.gameRef.current;
+    if (!game) return;
+    this.runRecapOpen = true;
+    this.progressionOpen = false;
+    uiHideUpgradeProgression();
+    this.progressionPanel.hidden = true;
+    this.gameoverPanel.hidden = true;
+    this.runRecapPanel.hidden = false;
+    this.runRecapPanel.inert = false;
+    this.battlefieldCard.hidden = true;
+    uiShowRunRecap(buildRunRecapData(game, this.lastReplay), {
+      onClose: () => this.closeRunRecap(),
+      onWatchFullReplay: () => {
+        if (this.lastReplay) {
+          this.runRecapOpen = false;
+          this.stopDeathClip();
+          uiHideRunRecap();
+          this.battlefieldCard.hidden = false;
+          void this.startReplay(this.lastReplay);
+        }
+      },
+      onSaveReplay: async () => {
+        if (this.lastReplay) await saveReplayToFile(this.lastReplay);
+      },
+      onReplayDeathClip: () => {
+        if (this.lastReplay) {
+          const stage = this.runRecapPanel.querySelector<HTMLElement>("[data-run-recap-death-clip-stage]");
+          if (stage) {
+            this.stopDeathClip();
+            this.deathClipCleanup = mountRunRecapDeathClip(stage, this.lastReplay);
+          }
+        }
+      },
+    });
+    if (this.lastReplay) {
+      const stage = this.runRecapPanel.querySelector<HTMLElement>("[data-run-recap-death-clip-stage]");
+      if (stage) this.deathClipCleanup = mountRunRecapDeathClip(stage, this.lastReplay);
+    }
+  }
+
+  private closeRunRecap(): void {
+    this.runRecapOpen = false;
+    this.stopDeathClip();
+    uiHideRunRecap();
+    this.runRecapPanel.hidden = true;
+    this.battlefieldCard.hidden = false;
+    if (this.screen === "gameover") {
+      this.gameoverPanel.hidden = false;
+      this.gameoverPanel.inert = false;
+    }
+  }
+
+  private openProgression(): void {
+    if ((this.screen !== "gameover" && this.screen !== "title") || this.shopOpen) return;
     this.progressionOpen = true;
-    this.gameoverPanel.hidden = false;
+    this.runRecapOpen = false;
+    this.stopDeathClip();
+    uiHideRunRecap();
+    this.battlefieldCard.hidden = false;
+    this.gameoverPanel.hidden = this.screen !== "gameover";
+    if (this.screen === "title") {
+      this.titleOverlay.hidden = true;
+      this.titleOverlay.inert = true;
+      this.titleProgressionButton.hidden = true;
+    }
     this.progressionPanel.hidden = false;
     uiShowUpgradeProgression(this.buildProgressionData(), () => this.closeProgression());
   }
@@ -1000,6 +1111,11 @@ export class Game {
     uiHideUpgradeProgression();
     this.progressionPanel.hidden = true;
     if (this.screen === "gameover") this.gameoverPanel.hidden = false;
+    if (this.screen === "title") {
+      this.titleOverlay.hidden = false;
+      this.titleOverlay.inert = false;
+      this.titleProgressionButton.hidden = false;
+    }
   }
 
   // ─── Input Handling ─────────────────────────────────────────────
@@ -1351,7 +1467,7 @@ export class Game {
         if (this.screen === "title") {
           this.syncTransientOverlays();
           this.renderer.renderTitle();
-        } else if (this.screen === "gameover") {
+        } else if (this.screen === "gameover" && !this.runRecapOpen) {
           this.syncTransientOverlays();
           const snapshot: GameOverSnapshot = {
             score: this.finalScore,

@@ -110,3 +110,11 @@
 - For animated damage overlays, keep ember positions stable between frames and animate brightness/size. Randomizing positions per frame reads as blinking noise, not heat.
 - For Burj scorch embers, keep glow spots tiny at gameplay scale. Large radial halos read as blobs pasted onto the tower instead of hot windows or small exposed fires.
 - For Burj building-fire smoke, keep one smoke particle family for visual coherence and adjust tint/color for material read. Mixing white puff PNGs with black smoke PNGs looks mismatched instead of like believable gray smoke.
+
+## 2026-05-24
+
+- For recap surfaces, do not use one expandable row per wave as the default timeline. Late-wave runs need compact horizontal density first, with detail available on demand.
+- Recap timelines must include a terminal/current-wave fallback, not only completed wave summaries. Deaths before summary persistence otherwise make the timeline appear to vanish, because apparently empty arrays remain undefeated.
+- Static UI previews must preserve the real game viewport and shared panel width before styling content. Side-by-side previews with unequal containers distort the design question into nonsense.
+- Do not rotate compact timeline text vertically unless there is a strong readability reason. Dense recap labels should scan horizontally first; clever rotated typography is usually just friction wearing eyeliner.
+- When comparing recap concepts, put tabs at the after-action screen level, not inside one subsection. If the question is screen architecture, subsection tabs answer the wrong question with great confidence.

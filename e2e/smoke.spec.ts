@@ -157,6 +157,49 @@ test.describe("Smoke tests", () => {
     });
     expect(threats.missiles + threats.drones).toBeGreaterThan(0);
   });
+
+  test("opens run recap from game over", async ({ page }) => {
+    await startGameFromScreen(page);
+    await page.evaluate(() => {
+      const g = window.__gameRef!.current!;
+      g.burjAlive = false;
+      g.burjHealth = 0;
+    });
+
+    await expect(page.getByRole("button", { name: /run recap/i })).toBeVisible({ timeout: 4000 });
+    await expect(page.locator("#go-score")).toBeVisible();
+    await expect(page.locator("#go-wave")).toBeVisible();
+    await expect(page.locator("#go-hit-ratio")).toBeVisible();
+    await expect(page.locator("#go-shots")).toHaveCount(0);
+
+    await page.getByRole("button", { name: /run recap/i }).click();
+    await expect(page.locator("#run-recap-panel")).toBeVisible();
+    await expect(page.getByText(/watch how you died/i)).toBeVisible();
+    await expect(page.getByText(/burj damage/i)).toBeVisible();
+    await expect(page.locator(".run-recap__burj-wave")).toHaveCount(1);
+    await expect(page.getByRole("heading", { name: /best wave/i })).toBeVisible();
+    await expect(page.locator(".run-recap__best-wave")).toBeVisible();
+    await expect(page.getByText(/kill distribution/i)).toHaveCount(0);
+    await expect(page.getByText(/detailed stats/i)).toHaveCount(0);
+    await expect(page.locator(".run-recap__death-canvas")).toBeVisible();
+    await expect
+      .poll(async () =>
+        page.locator(".run-recap__death-canvas").evaluate((node) => (node as HTMLCanvasElement).dataset.renderer),
+      )
+      .toBe("pixi");
+    const firstClipTick = await page
+      .locator(".run-recap__death-canvas")
+      .evaluate((node) => Number((node as HTMLCanvasElement).dataset.clipTick ?? 0));
+    await expect
+      .poll(async () =>
+        page
+          .locator(".run-recap__death-canvas")
+          .evaluate((node) => Number((node as HTMLCanvasElement).dataset.clipTick ?? 0)),
+      )
+      .toBeGreaterThan(firstClipTick);
+    await page.getByRole("button", { name: /back to results/i }).click();
+    await expect(page.locator("#gameover-panel")).toBeVisible();
+  });
 });
 
 test.describe("Portrait iPhone layout", () => {

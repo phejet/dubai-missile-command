@@ -52,6 +52,9 @@ export function createReplayRunner(replayData: ReplayData, onEvent: EventCallbac
     const rng = mulberry32(seed);
     setRng(rng);
     g = initGame();
+    g._gameSeed = seed;
+    g._replay = true;
+    g._replayIsHuman = !!replayData.isHuman;
     if (draftMode) g._draftMode = true;
     applyReplayBootstrap(g, replayData, startWave);
     actionIdx = 0;

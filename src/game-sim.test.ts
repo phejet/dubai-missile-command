@@ -308,6 +308,10 @@ describe("summary stats", () => {
     g.stats.destroyedByType.shahed238 = 2;
     g.stats.multiShots = 4;
     g.stats.maxCombo = 8;
+    g.score = 1234;
+    g._waveStartScore = 1000;
+    g._waveStartTick = 90;
+    g._replayTick = 150;
     baselineStats.destroyedByType.ballisticMissile = 3;
     g._waveStartMissileKills = 3;
     g._waveStartDroneKills = 0;
@@ -332,6 +336,24 @@ describe("summary stats", () => {
     expect(summary.maxCombo).toBe(6);
     expect(summary.missileKills).toBe(2);
     expect(summary.droneKills).toBe(2);
+
+    g._bonusScreenDone = true;
+    sim.update(g, 0);
+
+    expect(g._waveSummaries).toHaveLength(1);
+    expect(g._waveSummaries?.[0]).toMatchObject({
+      wave: 5,
+      scoreEarned: 234,
+      missileKills: 2,
+      droneKills: 2,
+      multiShots: 3,
+      maxCombo: 6,
+      burjHealth: 7,
+      startTick: 90,
+      endTick: 150,
+    });
+    expect(g._waveSummaries?.[0].destroyedByType.ballisticMissile).toBe(2);
+    expect(g._waveSummaries?.[0].destroyedByType.shahed238).toBe(2);
   });
 
   it("includes combo from the final wave-ending explosion before showing the wave summary", () => {
