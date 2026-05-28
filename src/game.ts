@@ -1065,20 +1065,7 @@ export class Game {
       onSaveReplay: async () => {
         if (this.lastReplay) await saveReplayToFile(this.lastReplay);
       },
-      onReplayDeathClip: () => {
-        if (this.lastReplay) {
-          const stage = this.runRecapPanel.querySelector<HTMLElement>("[data-run-recap-death-clip-stage]");
-          if (stage) {
-            this.stopDeathClip();
-            this.deathClipCleanup = mountRunRecapDeathClip(stage, this.lastReplay);
-          }
-        }
-      },
     });
-    if (this.lastReplay) {
-      const stage = this.runRecapPanel.querySelector<HTMLElement>("[data-run-recap-death-clip-stage]");
-      if (stage) this.deathClipCleanup = mountRunRecapDeathClip(stage, this.lastReplay);
-    }
   }
 
   private closeRunRecap(): void {

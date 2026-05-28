@@ -59,7 +59,6 @@ export interface RunRecapCallbacks {
   onClose: () => void;
   onSaveReplay: () => void | Promise<void>;
   onWatchFullReplay: () => void;
-  onReplayDeathClip?: () => void;
 }
 
 export interface TransientOverlaySnapshot {
@@ -893,9 +892,6 @@ function renderRunRecapActions(data: RunRecapData): string {
       <button type="button" class="action-button action-button--primary action-button--wide" data-run-recap-watch ${data.hasReplay ? "" : "disabled"}>
         Watch Replay
       </button>
-      <button type="button" class="action-button action-button--info action-button--wide" data-run-recap-death-clip>
-        Replay Last 5 Seconds
-      </button>
       <button type="button" class="action-button action-button--info action-button--wide" data-run-recap-save ${data.hasReplay ? "" : "disabled"}>
         Save Replay
       </button>
@@ -916,12 +912,6 @@ export function showRunRecap(data: RunRecapData, callbacks: RunRecapCallbacks): 
       </div>
       ${renderRunRecapHero(data)}
       <section class="run-recap__section">
-        <h3 class="run-recap__section-title">Watch How You Died</h3>
-        <div class="run-recap__death-clip" data-run-recap-death-clip-stage>
-          <span>Ready to replay the final seconds.</span>
-        </div>
-      </section>
-      <section class="run-recap__section">
         <h3 class="run-recap__section-title">Burj Damage</h3>
         ${renderBurjDamageTrack(data)}
       </section>
@@ -941,7 +931,6 @@ export function showRunRecap(data: RunRecapData, callbacks: RunRecapCallbacks): 
     if (target.closest("[data-run-recap-close]")) callbacks.onClose();
     else if (target.closest("[data-run-recap-watch]")) callbacks.onWatchFullReplay();
     else if (target.closest("[data-run-recap-save]")) void callbacks.onSaveReplay();
-    else if (target.closest("[data-run-recap-death-clip]")) callbacks.onReplayDeathClip?.();
   };
   container.addEventListener("click", handleClick);
   runRecapCleanup = () => {
