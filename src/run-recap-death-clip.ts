@@ -6,6 +6,8 @@ import type { ReplayData } from "./types.js";
 
 const CLIP_TICKS = 300;
 const FRAME_MS = 1000 / 30;
+const END_EFFECT_TICKS = 60;
+const END_EFFECT_FRAME_MS = FRAME_MS * 2;
 const SEEK_MAX_STEPS_PER_FRAME = 240;
 const SEEK_FRAME_BUDGET_MS = 7;
 
@@ -164,11 +166,13 @@ export function mountRunRecapDeathClip(container: HTMLElement, replay: ReplayDat
 
   const render = (time: number) => {
     if (stopped || !runner || !renderer) return;
-    if (time - lastFrameTime >= FRAME_MS) {
+    const endEffectActive = runner.getTick() >= finalTick - END_EFFECT_TICKS;
+    const frameMs = endEffectActive ? END_EFFECT_FRAME_MS : FRAME_MS;
+    if (time - lastFrameTime >= frameMs) {
       lastFrameTime = time;
       resumeIfPaused(runner);
       const state = runner.getState();
-      if (runner.getTick() >= finalTick - 30) container.classList.add("run-recap__death-clip--zoom");
+      if (endEffectActive) container.classList.add("run-recap__death-clip--zoom");
       canvas.dataset.clipTick = String(runner.getTick());
       if (state) renderer.renderGameplay(state, { showShop: false, interpolationAlpha: 1 });
       if (!runner.isFinished() && runner.getTick() < finalTick && !runner.isShopPaused() && !runner.isBonusPaused()) {

@@ -759,7 +759,8 @@ export function showGameOver(score: number, wave: number, stats: GameStats): voi
   const el = (id: string) => document.getElementById(id);
   el("go-score")!.textContent = score.toLocaleString();
   el("go-wave")!.textContent = String(wave);
-  el("go-hit-ratio")!.textContent = `${hitRatio}%`;
+  const hitRatioEl = el("go-hit-ratio");
+  if (hitRatioEl) hitRatioEl.textContent = `${hitRatio}%`;
 }
 
 // ─── Run Recap ──────────────────────────────────────────────────────
@@ -889,13 +890,13 @@ function renderUpgradeTimeline(data: RunRecapData): string {
 function renderRunRecapActions(data: RunRecapData): string {
   return `
     <div class="portrait-panel__actions portrait-panel__actions--stacked run-recap__actions">
+      <button type="button" class="action-button action-button--primary action-button--wide" data-run-recap-watch ${data.hasReplay ? "" : "disabled"}>
+        Watch Replay
+      </button>
       <button type="button" class="action-button action-button--info action-button--wide" data-run-recap-death-clip>
         Replay Last 5 Seconds
       </button>
-      <button type="button" class="action-button action-button--info action-button--wide" data-run-recap-watch ${data.hasReplay ? "" : "disabled"}>
-        Watch Replay
-      </button>
-      <button type="button" class="action-button action-button--primary action-button--wide" data-run-recap-save ${data.hasReplay ? "" : "disabled"}>
+      <button type="button" class="action-button action-button--info action-button--wide" data-run-recap-save ${data.hasReplay ? "" : "disabled"}>
         Save Replay
       </button>
       <button type="button" class="action-button action-button--info action-button--wide" data-run-recap-close>

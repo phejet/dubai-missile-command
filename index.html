@@ -179,31 +179,31 @@
 
           <!-- Game Over panel -->
           <section class="portrait-panel portrait-panel--gameover" id="gameover-panel" hidden>
-            <div class="portrait-panel__header">
+            <div class="portrait-panel__header portrait-panel__header--centered">
               <span class="portrait-panel__kicker">After Action Report</span>
-              <span class="portrait-panel__subtle">The skyline has fallen</span>
             </div>
-            <div class="report-grid">
-              <div class="report-card">
-                <span class="report-card__label">Score</span>
-                <strong class="report-card__value" id="go-score">0</strong>
+            <div class="gameover-death-clip-shell">
+              <div class="gameover-death-clip run-recap__death-clip" data-gameover-death-clip-stage>
+                <span>Preparing final seconds...</span>
               </div>
-              <div class="report-card">
-                <span class="report-card__label">Waves</span>
-                <strong class="report-card__value" id="go-wave">1</strong>
+            </div>
+            <div class="gameover-stats" aria-label="Final run result">
+              <div class="gameover-stats__card">
+                <span class="gameover-stats__label">Score</span>
+                <strong class="gameover-stats__value" id="go-score">0</strong>
               </div>
-              <div class="report-card">
-                <span class="report-card__label">Hit Ratio</span>
-                <strong class="report-card__value" id="go-hit-ratio">0%</strong>
+              <div class="gameover-stats__card">
+                <span class="gameover-stats__label">Wave</span>
+                <strong class="gameover-stats__value" id="go-wave">1</strong>
+              </div>
+              <div class="gameover-stats__card">
+                <span class="gameover-stats__label">Hit Ratio</span>
+                <strong class="gameover-stats__value" id="go-hit-ratio">0%</strong>
               </div>
             </div>
             <div class="portrait-panel__actions portrait-panel__actions--stacked">
-              <button
-                type="button"
-                class="action-button action-button--info action-button--wide"
-                id="title-menu-button"
-              >
-                Title Menu
+              <button type="button" class="action-button action-button--primary action-button--wide" id="retry-button">
+                Retry
               </button>
               <button
                 type="button"
@@ -212,16 +212,12 @@
               >
                 Run Recap
               </button>
-              <button type="button" class="action-button action-button--danger action-button--wide" id="retry-button">
-                Retry
-              </button>
               <button
                 type="button"
                 class="action-button action-button--info action-button--wide"
-                id="replay-button"
-                hidden
+                id="title-menu-button"
               >
-                Watch Replay
+                Title Menu
               </button>
             </div>
           </section>

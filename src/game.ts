@@ -364,11 +364,11 @@ export class Game {
   private titleProgressionButton: HTMLElement;
   private titleStartButton: HTMLButtonElement;
   private gameoverPanel: HTMLElement;
+  private gameoverDeathClipStage: HTMLElement;
   private progressionPanel: HTMLElement;
   private runRecapPanel: HTMLElement;
   private progressionButton: HTMLElement;
   private titleMenuButton: HTMLElement;
-  private replayButton: HTMLElement;
   private retryButton: HTMLElement;
   private activeButton: HTMLButtonElement;
   private optionsButton: HTMLElement;
@@ -423,11 +423,11 @@ export class Game {
     this.titleProgressionButton = document.getElementById("title-progression-button")!;
     this.titleStartButton = document.getElementById("title-start-button") as HTMLButtonElement;
     this.gameoverPanel = document.getElementById("gameover-panel")!;
+    this.gameoverDeathClipStage = this.gameoverPanel.querySelector<HTMLElement>("[data-gameover-death-clip-stage]")!;
     this.progressionPanel = document.getElementById("progression-panel")!;
     this.runRecapPanel = document.getElementById("run-recap-panel")!;
     this.progressionButton = document.getElementById("progression-button")!;
     this.titleMenuButton = document.getElementById("title-menu-button")!;
-    this.replayButton = document.getElementById("replay-button")!;
     this.retryButton = document.getElementById("retry-button")!;
     this.activeButton = document.getElementById("active-button") as HTMLButtonElement;
     this.optionsButton = document.getElementById("options-button")!;
@@ -471,12 +471,6 @@ export class Game {
     this.titleMenuButton.addEventListener("click", () => this.returnToTitle());
     this.progressionButton.addEventListener("click", () => this.openRunRecap());
     this.titleProgressionButton.addEventListener("click", () => this.openProgression());
-    this.replayButton.addEventListener("click", () => {
-      if (this.lastReplay) {
-        this.replayActive = false;
-        void this.startReplay(this.lastReplay);
-      }
-    });
     this.activeButton.addEventListener("click", () => this.fireActive());
     this.optionsButton.addEventListener("click", () => this.toggleOptionsMenu());
     this.titleOptionsButton.addEventListener("click", () => this.toggleOptionsMenu());
@@ -539,6 +533,15 @@ export class Game {
     }
   }
 
+  private mountGameOverDeathClip(): void {
+    this.stopDeathClip();
+    if (!this.lastReplay) {
+      this.gameoverDeathClipStage.innerHTML = `<span>No death replay recorded.</span>`;
+      return;
+    }
+    this.deathClipCleanup = mountRunRecapDeathClip(this.gameoverDeathClipStage, this.lastReplay);
+  }
+
   private resetPlayerFireState(): void {
     this.bufferedPlayerShot = null;
   }
@@ -548,7 +551,7 @@ export class Game {
   private setScreen(s: GameScreen): void {
     this.screen = s;
     this.shell.dataset.screen = s;
-    this.battlefieldCard.hidden = false;
+    this.battlefieldCard.hidden = s === "gameover" && !this.progressionOpen && !this.runRecapOpen;
 
     // Toggle visibility of screen-specific elements
     this.hudEl.hidden = s !== "playing";
@@ -586,7 +589,7 @@ export class Game {
 
     if (s === "gameover") {
       uiShowGameOver(this.finalScore, this.finalWave, this.finalStats);
-      this.replayButton.hidden = !this.lastReplay;
+      if (!this.progressionOpen && !this.runRecapOpen) this.mountGameOverDeathClip();
     }
     this.syncTransientOverlays();
     this.onScreenChange?.(s);
@@ -1041,6 +1044,7 @@ export class Game {
     if (!game) return;
     this.runRecapOpen = true;
     this.progressionOpen = false;
+    this.stopDeathClip();
     uiHideUpgradeProgression();
     this.progressionPanel.hidden = true;
     this.gameoverPanel.hidden = true;
@@ -1082,10 +1086,11 @@ export class Game {
     this.stopDeathClip();
     uiHideRunRecap();
     this.runRecapPanel.hidden = true;
-    this.battlefieldCard.hidden = false;
+    this.battlefieldCard.hidden = true;
     if (this.screen === "gameover") {
       this.gameoverPanel.hidden = false;
       this.gameoverPanel.inert = false;
+      this.mountGameOverDeathClip();
     }
   }
 
@@ -1095,7 +1100,7 @@ export class Game {
     this.runRecapOpen = false;
     this.stopDeathClip();
     uiHideRunRecap();
-    this.battlefieldCard.hidden = false;
+    this.battlefieldCard.hidden = this.screen === "gameover";
     this.gameoverPanel.hidden = this.screen !== "gameover";
     if (this.screen === "title") {
       this.titleOverlay.hidden = true;

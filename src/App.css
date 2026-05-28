@@ -1824,6 +1824,69 @@
   display: none;
 }
 
+.gameover-death-clip-shell {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.gameover-death-clip {
+  min-height: 0;
+  padding: 0;
+  border-style: solid;
+  border-color: rgba(255, 170, 0, 0.24);
+  background: #040614;
+}
+
+.gameover-death-clip .run-recap__death-canvas {
+  border: 0;
+  border-radius: 12px;
+}
+
+.gameover-death-clip.run-recap__death-clip--live::after {
+  inset: 0;
+  border-radius: inherit;
+}
+
+.gameover-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+.gameover-stats__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(109, 217, 255, 0.14);
+  background: rgba(7, 14, 25, 0.74);
+  text-align: center;
+}
+
+.gameover-stats__label {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #87a1b2;
+}
+
+.gameover-stats__value {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #effcff;
+}
+
+.portrait-panel__header--centered {
+  justify-content: center;
+  text-align: center;
+}
+
 .run-recap__death-clip--complete::before {
   content: "Tap to replay";
   pointer-events: none;
@@ -1850,7 +1913,7 @@
   background: #040614;
   display: block;
   transform-origin: 51% 82%;
-  transition: transform 1s linear;
+  transition: transform 2s linear;
 }
 
 .run-recap__death-clip--zoom .run-recap__death-canvas {
@@ -2156,14 +2219,22 @@
 }
 
 .game-shell--phonePortrait[data-screen="gameover"] {
-  overflow-y: auto;
-  height: auto;
-  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .game-shell--phonePortrait[data-screen="gameover"] .game-shell__content {
-  height: auto;
-  overflow: visible;
+  height: 100%;
+  overflow: hidden;
+}
+
+.game-shell--phonePortrait[data-screen="gameover"] #gameover-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.game-shell--phonePortrait[data-screen="gameover"] #gameover-panel .portrait-panel__actions {
+  margin-top: auto;
 }
 
 .game-shell--phonePortrait[data-screen="gameover"] .battlefield-card {
@@ -2178,6 +2249,19 @@
   gap: 12px;
 }
 
+.game-shell--phonePortrait[data-screen="gameover"] #gameover-panel {
+  width: min(100%, 430px);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.game-shell--phonePortrait[data-screen="gameover"] #gameover-panel .portrait-panel__header {
+  padding: 0;
+}
+
 .game-shell--phonePortrait[data-screen="gameover"] .portrait-panel__actions {
   gap: 6px;
 }
@@ -2186,6 +2270,25 @@
   min-height: 40px;
   padding: 8px 14px;
   font-size: 11px;
+}
+
+.game-shell--phonePortrait[data-screen="gameover"] .gameover-death-clip .run-recap__death-canvas {
+  width: auto;
+  height: min(50dvh, 520px);
+  max-width: 100%;
+}
+
+.game-shell--phonePortrait[data-screen="gameover"] .gameover-stats__card {
+  padding: 10px 8px;
+}
+
+.game-shell--phonePortrait[data-screen="gameover"] .gameover-stats__label {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+}
+
+.game-shell--phonePortrait[data-screen="gameover"] .gameover-stats__value {
+  font-size: 20px;
 }
 
 .game-shell--phonePortrait[data-screen="playing"] .battlefield-shell {

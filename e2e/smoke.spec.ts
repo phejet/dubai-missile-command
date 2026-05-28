@@ -170,7 +170,18 @@ test.describe("Smoke tests", () => {
     await expect(page.locator("#go-score")).toBeVisible();
     await expect(page.locator("#go-wave")).toBeVisible();
     await expect(page.locator("#go-hit-ratio")).toBeVisible();
+    await expect(page.locator("#gameover-panel .report-grid")).toHaveCount(0);
     await expect(page.locator("#go-shots")).toHaveCount(0);
+    await expect(page.locator(".gameover-stats")).toBeVisible();
+    await expect(page.locator("#battlefield-card")).toBeHidden();
+    await expect(page.locator("#gameover-panel .run-recap__death-canvas")).toBeVisible();
+    await expect
+      .poll(async () =>
+        page
+          .locator("#gameover-panel .run-recap__death-canvas")
+          .evaluate((node) => (node as HTMLCanvasElement).dataset.renderer),
+      )
+      .toBe("pixi");
 
     await page.getByRole("button", { name: /run recap/i }).click();
     await expect(page.locator("#run-recap-panel")).toBeVisible();
@@ -199,6 +210,7 @@ test.describe("Smoke tests", () => {
       .toBeGreaterThan(firstClipTick);
     await page.getByRole("button", { name: /back to results/i }).click();
     await expect(page.locator("#gameover-panel")).toBeVisible();
+    await expect(page.locator("#gameover-panel .run-recap__death-canvas")).toBeVisible();
   });
 });
 
