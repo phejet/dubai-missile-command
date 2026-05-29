@@ -41,6 +41,7 @@ import {
   GAMEPLAY_SCENIC_LAUNCHER_Y,
   GAMEPLAY_SCENIC_BASE_Y,
   ov,
+  resetExplosionId,
 } from "./game-logic.js";
 import { createCommander, generateWaveSchedule, advanceSpawnSchedule, isWaveFullySpawned } from "./wave-spawner.js";
 import { createEmptyUpgradeLevels, createEmptyUpgradeProgression } from "./game-sim-upgrades.js";
@@ -390,6 +391,15 @@ function updateBuildingDestroyFx(g: GameState, dt: number): void {
 }
 
 export function initGame(): GameState {
+  // Reset monotonic fx-id counters so each game starts from a clean id space.
+  // These persist at module scope, so without resetting them ids leak across
+  // games/replays/tests and (via _empFxId) perturb seeded particle visuals.
+  resetExplosionId();
+  _burjDecalId = 0;
+  _burjDamageFxId = 0;
+  _buildingDestroyFxId = 0;
+  _empFxId = 0;
+
   const allBuildings = createScenicBuildings();
 
   const commander = createCommander("balanced");
@@ -3022,9 +3032,14 @@ export function update(g: GameState, dt: number, onEvent?: ((type: string, data?
       // Emit bonus screen event once, then wait for it to finish before opening shop
       if (!g._bonusScreenStarted) {
         g._bonusScreenStarted = true;
-        if (g.burjAlive && onEvent) {
+        // Flush the end-of-wave combo + stats unconditionally so headless/replay
+        // runs score identically to the browser. Only the UI event emission and
+        // bonus-screen deferral below depend on whether a callback is attached.
+        if (g.burjAlive) {
           processRootExplosionCombo(g, true);
           g.stats = normalizeGameStats(g.stats);
+        }
+        if (g.burjAlive && onEvent) {
           onEvent("waveBonusStart", {
             wave: g.wave,
             buildings: g.buildings.filter((b) => b.alive).length,
