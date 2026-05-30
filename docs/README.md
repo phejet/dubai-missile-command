@@ -4,7 +4,7 @@ This folder holds repo-specific notes for future maintenance, not player-facing 
 
 ## Core Architecture
 
-- [`render-split-analysis.md`](./render-split-analysis.md) — how `art-render`, `game-render`, and `game-sim` divide responsibilities.
+- [`render-split-analysis.md`](./render-split-analysis.md) — how `pixi-render`, `art-render`, canvas texture resources, and `game-sim` divide responsibilities.
 - [`runtime-controller.md`](./runtime-controller.md) — how `src/game.ts` drives screens, input, simulation, replay, and drawing.
 - [`game-state-contract.md`](./game-state-contract.md) — field-level map of `GameState`, including runtime-only and replay-only fields.
 - [`ui-architecture.md`](./ui-architecture.md) — DOM UI layer used by the runtime instead of React.
@@ -38,3 +38,5 @@ This folder holds repo-specific notes for future maintenance, not player-facing 
 4. `spawn-commander-reference.md`
 5. `upgrades-shop-progression.md`
 6. `replay-system.md`
+
+Renderer entry points live on `PixiRenderer` in `src/pixi-render.ts`: `renderTitle()`, `renderGameplay(...)`, and `renderGameOver(...)`.

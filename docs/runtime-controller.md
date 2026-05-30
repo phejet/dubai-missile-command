@@ -90,13 +90,13 @@ When `this.screen === "playing"` and a game exists:
 5. Compute interpolation alpha from remaining `_timeAccum`.
 6. Call `applyInterpolation(game, alpha)`.
 7. Sync HUD data.
-8. Call `drawGame(...)`.
+8. Call `renderer.renderGameplay(...)`.
 9. Call `restorePositions(game)`.
 
 ### Non-playing screens
 
-- `"title"` draws with `drawTitle(...)`
-- `"gameover"` draws with `drawGameOver(...)`
+- `"title"` draws with `renderer.renderTitle()`
+- `"gameover"` draws with `renderer.renderGameOver(...)`
 
 ## Sim Event Bridge
 

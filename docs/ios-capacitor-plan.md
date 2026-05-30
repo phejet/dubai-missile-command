@@ -368,7 +368,7 @@ npx cap open ios
 | White screen on launch    | Check `webDir` in `capacitor.config.ts` matches Vite's output dir (`dist`)                                                           |
 | No audio                  | Ensure `SFX.init()` is inside a user gesture handler                                                                                 |
 | Rubber-banding            | Add `scrollEnabled: false` in Capacitor config + CSS `position: fixed` on html/body                                                  |
-| Slow performance          | The FPS probe in `game-render.ts` should auto-disable glow. Test on real device, not Simulator (Simulator is much slower for Canvas) |
+| Slow performance          | The FPS probe in `pixi-render.ts` should auto-disable glow. Test on real device, not Simulator (Simulator is much slower for Canvas) |
 | Canvas not filling screen | Verify `base: "./"` is set for Capacitor builds                                                                                      |
 
 ---

@@ -27,7 +27,7 @@ These cover:
 ### Rendering
 
 - `src/art-render.test.ts`
-- `src/game-render.test.ts`
+- `src/pixi-render.test.ts`
 
 These focus on:
 

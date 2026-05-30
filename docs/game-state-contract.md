@@ -6,7 +6,7 @@
 
 - `src/game-sim.ts` owns authoritative gameplay state and most mutations.
 - `src/game.ts` owns browser/runtime-only fields and some replay bookkeeping.
-- `src/game-render.ts` mostly reads state; interpolation helpers temporarily rewrite positions for drawing.
+- `src/pixi-render.ts` mostly reads state; interpolation helpers temporarily rewrite positions for drawing.
 - Headless bot code reads the same state and attaches a few bot-only fields.
 
 ## Main Field Groups

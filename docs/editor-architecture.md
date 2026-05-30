@@ -33,7 +33,7 @@ Instead it:
 1. creates a fake scene with `createEditorScene()`
 2. optionally creates a "play" scene with fresh explosions
 3. advances simplified effect physics with a local `simTick(...)`
-4. draws that scene through `drawGame(...)`
+4. draws that scene through `EditorPreviewRenderer.renderScene(...)`, which delegates to `PixiRenderer.renderGameplay(...)`
 
 This is intentionally lighter than running the full game.
 

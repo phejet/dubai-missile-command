@@ -83,7 +83,7 @@ Current runtime architecture is split across:
 
 - `src/game-sim.ts` — simulation and gameplay state mutation
 - `src/art-render.ts` — shared art primitives and prebaked sprite generation
-- `src/game-render.ts` — frame composition and render-time asset caching
+- `src/pixi-render.ts` — Pixi frame composition and render-time asset caching
 - `src/game.ts` — runtime controller that advances sim and calls renderers
 
 Start with [`docs/README.md`](./docs/README.md) for the current documentation map.
