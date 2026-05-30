@@ -131,8 +131,8 @@ A Playwright bot that plays the game automatically for testing:
 
 ```bash
 npm run dev                  # start dev server first
-# update GAME_URL in play-bot.mjs to match your port
-node play-bot.mjs            # opens Chromium and plays
+# set GAME_URL to match your port (defaults to the dev server URL)
+GAME_URL=http://localhost:5173/dubai-missile-command/ npx tsx play-bot.ts   # opens Chromium and plays
 ```
 
 ### Headless Simulation & Training
@@ -165,7 +165,7 @@ Replay recorded bot games in the browser with full visual playback:
 ```bash
 # Start dev server, then launch replay in Chromium
 npm run dev
-node play-replay.mjs replay.json
+npx tsx play-replay.ts replay.json
 ```
 
 You can also drag-and-drop a `replay.json` file onto the game canvas, or load via console: `window.__loadReplay(data)`.

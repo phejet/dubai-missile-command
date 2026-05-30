@@ -327,6 +327,10 @@ export function ov<T>(key: string, fallback: T): T {
 
 let _explosionId = 0;
 
+export function resetExplosionId(): void {
+  _explosionId = 0;
+}
+
 interface ExplosionOptions {
   harmless?: boolean;
   chain?: boolean;
@@ -739,7 +743,7 @@ export function damageTarget(
     target.health -= damage;
     if (target.health <= 0) {
       target.alive = false;
-      g.score += getKillReward(target);
+      g.score += getKillReward(target) * g.combo;
       recordThreatDestroyed(g, target);
       if (!noExplosion) createExplosion(g, target.x, target.y, radius, color, false, 0, { visualType: "drone" });
     }
@@ -747,13 +751,13 @@ export function damageTarget(
     (target as { health: number }).health -= damage;
     if ((target as { health: number }).health <= 0) {
       target.alive = false;
-      g.score += getKillReward(target);
+      g.score += getKillReward(target) * g.combo;
       recordThreatDestroyed(g, target);
       if (!noExplosion) createExplosion(g, target.x, target.y, 60, color, false, 0, { visualType: "missile" });
     }
   } else {
     target.alive = false;
-    g.score += getKillReward(target);
+    g.score += getKillReward(target) * g.combo;
     recordThreatDestroyed(g, target);
     if (!noExplosion) createExplosion(g, target.x, target.y, radius, color, false, 0, { visualType: "missile" });
   }
