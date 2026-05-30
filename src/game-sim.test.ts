@@ -962,9 +962,9 @@ describe("Decoy flares", () => {
 
     expect(fireFlareSalvo(g)).toBe(true);
 
-    expect(inside.luredByFlare).toBe(true);
-    expect(inside.flareTargetId).toBeDefined();
-    expect(outside.luredByFlare).not.toBe(true);
+    expect(inside.flareControl?.mode).toBe("seduced");
+    expect(inside.flareControl?.flareId).toBeDefined();
+    expect(outside.flareControl).toBeUndefined();
   });
 
   it("keeps a lured missile tracking its assigned flare", () => {
@@ -976,12 +976,10 @@ describe("Decoy flares", () => {
       y: 240,
       vx: 0,
       vy: -0.2,
-      anchorX: BURJ_X + 20,
       drag: 0.988,
       life: 120,
       maxLife: 120,
       alive: true,
-      luresLeft: 1,
       hotRadius: 18,
       trail: [],
     };
@@ -989,11 +987,10 @@ describe("Decoy flares", () => {
     g.flares.push(flare);
     g.nextFlareId = 2;
     g.missiles.push(missile);
-    missile.luredByFlare = true;
-    missile.flareTargetId = flare.id;
+    missile.flareControl = { mode: "seduced", flareId: flare.id, patience: 200 };
 
-    expect(missile.luredByFlare).toBe(true);
-    expect(missile.flareTargetId).toBe(flare.id);
+    expect(missile.flareControl?.mode).toBe("seduced");
+    expect(missile.flareControl?.flareId).toBe(flare.id);
 
     flare.x += 45;
     flare.y += 10;
@@ -1033,24 +1030,21 @@ describe("Decoy flares", () => {
       y: 300,
       vx: 0,
       vy: 0,
-      anchorX: 200,
       drag: 0.988,
       life: 120,
       maxLife: 120,
       alive: true,
-      luresLeft: 999,
       hotRadius: 60,
       trail: [],
     };
-    const flareB = { ...flareA, id: 2, x: 260, anchorX: 260 };
+    const flareB = { ...flareA, id: 2, x: 260 };
     const attackerA = makeBallisticMissile({
       x: 200,
       y: 300,
       vx: 1,
       vy: 0,
       accel: 1,
-      luredByFlare: true,
-      flareTargetId: 1,
+      flareControl: { mode: "seduced", flareId: 1, patience: 200 },
     });
     const attackerB = makeBallisticMissile({
       x: 260,
@@ -1058,8 +1052,7 @@ describe("Decoy flares", () => {
       vx: 1,
       vy: 0,
       accel: 1,
-      luredByFlare: true,
-      flareTargetId: 2,
+      flareControl: { mode: "seduced", flareId: 2, patience: 200 },
     });
     const targetA = makeBallisticMissile({ x: 650, y: 260, vx: 0, vy: 1, accel: 1 });
     const targetB = makePropDrone({ x: 720, y: 320, vx: -1, vy: 0 });
@@ -1069,14 +1062,14 @@ describe("Decoy flares", () => {
 
     sim.update(g, 1);
 
-    expect(attackerA.redirected).toBe(true);
-    expect(attackerB.redirected).toBe(true);
-    expect(attackerA.redirectTarget).toBeDefined();
-    expect(attackerB.redirectTarget).toBeDefined();
-    expect(attackerA.redirectTarget).not.toBe(attackerB.redirectTarget);
+    expect(attackerA.flareControl?.mode).toBe("turncoat");
+    expect(attackerB.flareControl?.mode).toBe("turncoat");
+    expect(attackerA.flareControl?.victim).toBeDefined();
+    expect(attackerB.flareControl?.victim).toBeDefined();
+    expect(attackerA.flareControl?.victim).not.toBe(attackerB.flareControl?.victim);
   });
 
-  it("rank 2 redirected projectile detonates with its target", () => {
+  it("rank 2 turncoat detonates with its target", () => {
     const { sim, g } = makeCleanGame(5);
     g.upgrades.flare = 2;
     const flare = {
@@ -1085,12 +1078,10 @@ describe("Decoy flares", () => {
       y: 300,
       vx: 0,
       vy: 0,
-      anchorX: 200,
       drag: 0.988,
       life: 120,
       maxLife: 120,
       alive: true,
-      luresLeft: 999,
       hotRadius: 60,
       trail: [],
     };
@@ -1100,15 +1091,14 @@ describe("Decoy flares", () => {
       vx: 1,
       vy: 0,
       accel: 1,
-      luredByFlare: true,
-      flareTargetId: 1,
+      flareControl: { mode: "seduced", flareId: 1, patience: 200 },
     });
     const target = makeBallisticMissile({ x: 700, y: 300, vx: 0, vy: 1, accel: 1 });
     g.flares.push(flare);
     g.missiles.push(attacker, target);
 
     sim.update(g, 1);
-    expect(attacker.redirected).toBe(true);
+    expect(attacker.flareControl?.mode).toBe("turncoat");
     attacker.x = target.x;
     attacker.y = target.y;
     sim.update(g, 1);
@@ -1125,11 +1115,10 @@ describe("Decoy flares", () => {
 
     expect(fireFlareSalvo(g)).toBe(true);
     expect(g.flares.length).toBeGreaterThan(0);
-    expect(g.flareSalvoClaims.size).toBe(0);
-
     for (let i = 0; i < 400; i++) sim.update(g, 1);
     expect(g.flares.every((f) => !f.alive) || g.flares.length === 0).toBe(true);
-    expect(g.flareSalvoClaims.size).toBe(0);
+    expect(g.missiles.some((m) => m.flareControl)).toBe(false);
+    expect(g.drones.some((d) => d.flareControl)).toBe(false);
   });
 
   it("rank 2 lone attacker with no other threats consumes itself at the flare", () => {
@@ -1141,12 +1130,10 @@ describe("Decoy flares", () => {
       y: 300,
       vx: 0,
       vy: 0,
-      anchorX: 200,
       drag: 0.988,
       life: 120,
       maxLife: 120,
       alive: true,
-      luresLeft: 999,
       hotRadius: 60,
       trail: [],
     };
@@ -1156,18 +1143,42 @@ describe("Decoy flares", () => {
       vx: 1,
       vy: 0,
       accel: 1,
-      luredByFlare: true,
-      flareTargetId: 1,
+      flareControl: { mode: "seduced", flareId: 1, patience: 200 },
     });
     g.flares.push(flare);
     g.missiles.push(attacker);
 
+    const scoreBefore = g.score;
     sim.update(g, 1);
 
     expect(attacker.alive).toBe(false);
-    expect(attacker.redirected).not.toBe(true);
+    expect(attacker.flareControl).toBeNull();
     expect(flare.alive).toBe(false);
     expect(g.explosions.some((ex) => ex.color === "#ff8833")).toBe(true);
+    // The threat reached the decoy and spent itself — it is a scored kill, not a
+    // free fizzle, even with nothing to redirect onto.
+    expect(g.score).toBeGreaterThan(scoreBefore);
+  });
+
+  it("rank 2 turncoat that loses its only target detonates as a scored kill", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.flare = 2;
+    const attacker = makeBallisticMissile({
+      x: 400,
+      y: 300,
+      vx: 1,
+      vy: 0,
+      accel: 1,
+      flareControl: { mode: "turncoat", victim: undefined, patience: 200 },
+    });
+    g.missiles.push(attacker);
+
+    const scoreBefore = g.score;
+    sim.update(g, 1);
+
+    expect(attacker.alive).toBe(false);
+    expect(attacker.flareControl).toBeNull();
+    expect(g.score).toBeGreaterThan(scoreBefore);
   });
 });
 

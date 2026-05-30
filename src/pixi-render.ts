@@ -3160,7 +3160,8 @@ export class PixiRenderer implements GameRenderer {
       const pos = getRenderPosition(missile, interpolationAlpha);
       syncProjectileNode(node, asset, pos.x, pos.y, angle, sceneTime, 1, true);
       const isFastMissile = missile.variant === "fast";
-      const flareTint = missile.redirected ? 0xff9a2f : missile.luredByFlare ? 0xffd36a : 0xffffff;
+      const flareTint =
+        missile.flareControl?.mode === "turncoat" ? 0xff9a2f : missile.flareControl ? 0xffd36a : 0xffffff;
       node.anim.primary.tint = flareTint;
       node.anim.secondary.tint = flareTint;
       node.overlay.clear();
@@ -3243,11 +3244,10 @@ export class PixiRenderer implements GameRenderer {
       const trail = drone.trail ?? [];
       const facing = drone.vx > 0 ? 1 : -1;
       // Level-flight Shahed-136 normally keeps a flat 0/π facing (cleaner silhouette
-      // for the horizontal cruise). But once it's lured, redirected, or diving its
+      // for the horizontal cruise). But once it's flare-controlled or diving its
       // velocity vector goes off-axis — the sprite has to follow the actual heading,
       // or it visually slides sideways while moving diagonally.
-      const useVelocityHeading =
-        drone.subtype === "shahed238" || drone.diving || drone.luredByFlare || drone.redirected;
+      const useVelocityHeading = drone.subtype === "shahed238" || drone.diving || !!drone.flareControl;
       const spriteAngle = useVelocityHeading ? Math.atan2(drone.vy, drone.vx) : facing > 0 ? 0 : Math.PI;
       const pos = getRenderPosition(drone, interpolationAlpha);
       syncProjectileNode(node, asset, pos.x, pos.y, spriteAngle, sceneTime, 1, true);
@@ -3255,13 +3255,14 @@ export class PixiRenderer implements GameRenderer {
       const isShahedDiveVariant = shahed136HasDive(drone.shahedVariant);
       const hasUndroppedBomb =
         drone.subtype === "shahed136" && shahed136HasBomb(drone.shahedVariant) && !drone.bombDropped;
-      const droneTint = drone.redirected
-        ? 0xff9a2f
-        : drone.luredByFlare
-          ? 0xffd36a
-          : isFastDrone && drone.subtype === "shahed136"
-            ? 0xffe0a8
-            : 0xffffff;
+      const droneTint =
+        drone.flareControl?.mode === "turncoat"
+          ? 0xff9a2f
+          : drone.flareControl
+            ? 0xffd36a
+            : isFastDrone && drone.subtype === "shahed136"
+              ? 0xffe0a8
+              : 0xffffff;
       node.anim.primary.tint = droneTint;
       node.anim.secondary.tint = droneTint;
       node.overlay.clear();

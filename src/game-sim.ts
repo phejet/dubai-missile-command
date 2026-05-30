@@ -37,9 +37,7 @@ import {
   computeShahed136Path,
   computeShahed136StraightPath,
   computeShahed238Path,
-  getAmmoCapacity,
   GAMEPLAY_SCENIC_LAUNCHER_Y,
-  ov,
   resetExplosionId,
 } from "./game-logic.js";
 import { createCommander, generateWaveSchedule, advanceSpawnSchedule, isWaveFullySpawned } from "./wave-spawner.js";
@@ -63,7 +61,6 @@ import type {
   Hornet,
   HornetSiteKey,
   Roadrunner,
-  Flare,
   SpawnEntry,
   Shahed136Variant,
   SimEventSink,
@@ -71,10 +68,12 @@ import type {
 import { shahed136HasBomb, shahed136HasDive } from "./types.js";
 import { updateBurjFireParticles } from "./game-sim-burj-fire.js";
 import { empScrubScale, fireEmp, resetEmpFxId, updateEmpRings, updateEmpVisualFx } from "./game-sim-emp.js";
+import { fireFlareSalvo, updateFlares } from "./game-sim-flare.js";
 import { updatePatriotSystem } from "./game-sim-patriot.js";
 
 export { updateBurjFireParticles };
 export { fireEmp };
+export { fireFlareSalvo };
 
 function boom(
   g: GameState,
@@ -292,7 +291,6 @@ export function initGame(): GameState {
     nextFlareId: 1,
     flareReadyThisWave: false,
     flareSalvoQueue: [],
-    flareSalvoClaims: new Set(),
     empReadyThisWave: false,
     empRings: [],
     empArcs: [],
@@ -954,302 +952,6 @@ function normalizeAngle(angle: number): number {
   return ((((angle + Math.PI) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)) - Math.PI;
 }
 
-function isFlareMissileTarget(m: Missile): boolean {
-  return m.alive && !m.luredByFlare && !m.redirected;
-}
-
-function getLiveFlare(g: GameState, flareId: number | null | undefined): Flare | null {
-  if (flareId == null) return null;
-  return g.flares.find((f) => f.id === flareId && f.alive) || null;
-}
-
-function steerTowardPoint(
-  entity: { x: number; y: number; vx: number; vy: number },
-  tx: number,
-  ty: number,
-  dt: number,
-  turnRate: number,
-): number {
-  const dx = tx - entity.x;
-  const dy = ty - entity.y;
-  const len = Math.sqrt(dx * dx + dy * dy);
-  if (len < 0.001) return len;
-  const speed = Math.max(0.001, Math.sqrt(entity.vx * entity.vx + entity.vy * entity.vy));
-  const currentHeading = Math.atan2(entity.vy, entity.vx);
-  const desiredHeading = Math.atan2(dy, dx);
-  const headingDelta = normalizeAngle(desiredHeading - currentHeading);
-  const maxTurn = turnRate * dt;
-  const appliedTurn = Math.max(-maxTurn, Math.min(maxTurn, headingDelta));
-  const nextHeading = currentHeading + appliedTurn;
-  entity.vx = Math.cos(nextHeading) * speed;
-  entity.vy = Math.sin(nextHeading) * speed;
-  return len;
-}
-
-function launchFlareSalvo(g: GameState, count: number, opts: { fanWidth?: number } = {}): Flare[] {
-  const originY = ov("upgrade.flares.y", 837);
-  const fanWidth = opts.fanWidth ?? 520;
-  const flareLife = ov("flare.flareLife", 150);
-  const spawned: Flare[] = [];
-  const safeCount = Math.max(1, Math.round(count));
-  const fanAngle = ov("flare.fanAngle", Math.PI * 0.78);
-  const ejectSpeed = ov("flare.ejectSpeed", 3.6);
-  const flareDrag = ov("flare.drag", 0.993);
-  for (let i = 0; i < safeCount; i++) {
-    const t = safeCount === 1 ? 0.5 : i / (safeCount - 1);
-    const centered = t - 0.5;
-    const angle = centered * fanAngle + rand(-0.07, 0.07);
-    const speed = ejectSpeed * rand(0.85, 1.15);
-    const vx = Math.sin(angle) * speed;
-    const vy = -Math.cos(angle) * speed;
-    void fanWidth;
-    const flare: Flare = {
-      id: g.nextFlareId++,
-      x: BURJ_X + rand(-6, 6),
-      y: originY + rand(-4, 4),
-      vx,
-      vy,
-      anchorX: BURJ_X,
-      drag: flareDrag,
-      life: flareLife,
-      maxLife: flareLife,
-      alive: true,
-      luresLeft: 999,
-      hotRadius: 60,
-      trail: [],
-    };
-    g.flares.push(flare);
-    spawned.push(flare);
-  }
-  return spawned;
-}
-
-function nearestFlareForThreat(threat: Threat, flares: Flare[]): Flare | null {
-  let best: Flare | null = null;
-  let bestDist = Infinity;
-  for (const flare of flares) {
-    if (!flare.alive) continue;
-    const d = dist(threat.x, threat.y, flare.x, flare.y);
-    if (d < bestDist) {
-      bestDist = d;
-      best = flare;
-    }
-  }
-  return best;
-}
-
-function spawnFlareLureSparks(g: GameState, x: number, y: number): void {
-  for (let i = 0; i < 5; i++) {
-    g.particles.push({
-      x,
-      y,
-      vx: rand(-1.5, 1.5),
-      vy: rand(-1.5, 1.5),
-      life: 20,
-      maxLife: 20,
-      color: "#ffaa44",
-      size: 1.5,
-    });
-  }
-}
-
-function applyFlareLurePass(
-  g: GameState,
-  flares: Flare[],
-  opts: { centerX: number; centerY: number; radius: number },
-): void {
-  for (const m of g.missiles) {
-    if (!isFlareMissileTarget(m)) continue;
-    if (dist(m.x, m.y, opts.centerX, opts.centerY) > opts.radius) continue;
-    const nearFlare = nearestFlareForThreat(m, flares);
-    if (!nearFlare) continue;
-    m.luredByFlare = true;
-    m.flareTargetId = nearFlare.id;
-    steerTowardPoint(m, nearFlare.x, nearFlare.y, 8, 0.5);
-    spawnFlareLureSparks(g, m.x, m.y);
-  }
-  for (const d of g.drones) {
-    if (!d.alive || d.luredByFlare || d.redirected) continue;
-    if (dist(d.x, d.y, opts.centerX, opts.centerY) > opts.radius) continue;
-    const nearFlare = nearestFlareForThreat(d, flares);
-    if (!nearFlare) continue;
-    d.luredByFlare = true;
-    d.flareTargetId = nearFlare.id;
-    d.lureDeathTimer = 200;
-    steerTowardPoint(d, nearFlare.x, nearFlare.y, 8, 0.5);
-    spawnFlareLureSparks(g, d.x, d.y);
-  }
-}
-
-function applyFlareTickLure(g: GameState): void {
-  if (g.flares.length === 0) return;
-  const radius = ov("flare.tickLureRadius", 200);
-  const radiusSq = radius * radius;
-  for (const m of g.missiles) {
-    if (!isFlareMissileTarget(m)) continue;
-    let best: Flare | null = null;
-    let bestSq = radiusSq;
-    for (const f of g.flares) {
-      if (!f.alive) continue;
-      const dx = m.x - f.x;
-      const dy = m.y - f.y;
-      const dsq = dx * dx + dy * dy;
-      if (dsq < bestSq) {
-        bestSq = dsq;
-        best = f;
-      }
-    }
-    if (!best) continue;
-    m.luredByFlare = true;
-    m.flareTargetId = best.id;
-    steerTowardPoint(m, best.x, best.y, 8, 0.5);
-    spawnFlareLureSparks(g, m.x, m.y);
-  }
-  for (const d of g.drones) {
-    if (!d.alive || d.luredByFlare || d.redirected) continue;
-    let best: Flare | null = null;
-    let bestSq = radiusSq;
-    for (const f of g.flares) {
-      if (!f.alive) continue;
-      const dx = d.x - f.x;
-      const dy = d.y - f.y;
-      const dsq = dx * dx + dy * dy;
-      if (dsq < bestSq) {
-        bestSq = dsq;
-        best = f;
-      }
-    }
-    if (!best) continue;
-    d.luredByFlare = true;
-    d.flareTargetId = best.id;
-    d.lureDeathTimer = 200;
-    steerTowardPoint(d, best.x, best.y, 8, 0.5);
-    spawnFlareLureSparks(g, d.x, d.y);
-  }
-}
-
-function collectAirborneThreats(g: GameState, out: Array<Missile | Drone>): void {
-  for (const m of g.missiles) if (m.alive) out.push(m);
-  for (const d of g.drones) if (d.alive) out.push(d);
-}
-
-function aimThreatAtPoint(threat: Threat, x: number, y: number, speedMul = 1): void {
-  const dx = x - threat.x;
-  const dy = y - threat.y;
-  const len = Math.sqrt(dx * dx + dy * dy) || 1;
-  const speed = Math.max(0.001, Math.sqrt(threat.vx * threat.vx + threat.vy * threat.vy) * speedMul);
-  threat.vx = (dx / len) * speed;
-  threat.vy = (dy / len) * speed;
-}
-
-function tryRedirectFlareThreat(g: GameState, attacker: Missile | Drone): boolean {
-  if (g.upgrades.flare < 2 || attacker.redirected === true) return false;
-  const candidateCap = Math.max(1, Math.round(ov("flare.redirectCandidates", 3)));
-  const pool: Array<Missile | Drone> = [];
-  collectAirborneThreats(g, pool);
-  const candidates = pool
-    .filter((target) => target !== attacker && !g.flareSalvoClaims.has(target))
-    .sort((a, b) => dist(attacker.x, attacker.y, a.x, a.y) - dist(attacker.x, attacker.y, b.x, b.y))
-    .slice(0, candidateCap);
-  if (candidates.length === 0) return false;
-  const chosen = candidates[Math.floor(getRng()() * candidates.length)];
-  g.flareSalvoClaims.add(chosen);
-  attacker.redirectTarget = chosen;
-  attacker.redirected = true;
-  attacker.luredByFlare = false;
-  attacker.flareTargetId = undefined;
-  aimThreatAtPoint(attacker, chosen.x, chosen.y, ov("flare.redirectSpeedMul", 1.4));
-  return true;
-}
-
-function destroyRedirectedThreat(g: GameState, threat: Missile | Drone): void {
-  if (!threat.alive) return;
-  threat.alive = false;
-  g.score += getKillReward(threat) * g.combo;
-  recordThreatDestroyed(g, threat);
-}
-
-function consumeThreatAtFlare(
-  g: GameState,
-  threat: Missile | Drone,
-  flare: Flare | null,
-  onEvent: SimEventSink | null | undefined,
-): void {
-  const x = flare ? flare.x : threat.x;
-  const y = flare ? flare.y : threat.y;
-  if (flare) flare.alive = false;
-  destroyRedirectedThreat(g, threat);
-  threat.redirected = false;
-  threat.redirectTarget = undefined;
-  threat.luredByFlare = false;
-  threat.flareTargetId = undefined;
-  boom(g, x, y, 65, COL.flare, true, onEvent, 15);
-}
-
-function reaimRedirectedThreat(g: GameState, attacker: Missile | Drone, pool: Array<Missile | Drone>): boolean {
-  let best: Missile | Drone | null = null;
-  let bestDist = Infinity;
-  for (const candidate of pool) {
-    if (candidate === attacker || g.flareSalvoClaims.has(candidate)) continue;
-    const d = dist(attacker.x, attacker.y, candidate.x, candidate.y);
-    if (d > 80 || d >= bestDist) continue;
-    best = candidate;
-    bestDist = d;
-  }
-  if (!best) return false;
-  g.flareSalvoClaims.add(best);
-  attacker.redirectTarget = best;
-  aimThreatAtPoint(attacker, best.x, best.y, ov("flare.redirectSpeedMul", 1.4));
-  return true;
-}
-
-function updateRedirectedProjectiles(g: GameState, onEvent?: SimEventSink | null): void {
-  const pool: Array<Missile | Drone> = [];
-  collectAirborneThreats(g, pool);
-  const impactRadius = ov("flare.redirectAOE", 45);
-  for (const attacker of pool) {
-    if (attacker.redirected !== true || !attacker.alive) continue;
-    const target = attacker.redirectTarget;
-    if (!target || !target.alive) {
-      if (!reaimRedirectedThreat(g, attacker, pool)) consumeThreatAtFlare(g, attacker, null, onEvent);
-      continue;
-    }
-    aimThreatAtPoint(attacker, target.x, target.y, 1);
-    if (dist(attacker.x, attacker.y, target.x, target.y) > impactRadius) continue;
-    const x = (attacker.x + target.x) / 2;
-    const y = (attacker.y + target.y) / 2;
-    destroyRedirectedThreat(g, attacker);
-    destroyRedirectedThreat(g, target);
-    boom(g, x, y, impactRadius, COL.flare, true, onEvent, impactRadius * 0.55, {
-      visualType: target.type === "drone" ? "drone" : "missile",
-    });
-    const rootEx = g.explosions[g.explosions.length - 1];
-    if (rootEx) {
-      rootEx.kills = (rootEx.kills ?? 0) + 2;
-      rootEx.heroPulse = Math.min(1.6, 0.65 + rootEx.kills * 0.18);
-    }
-  }
-}
-
-function updateFlareSalvoQueue(g: GameState): void {
-  if (g.flareSalvoQueue.length === 0) {
-    const redirectedThreats =
-      g.missiles.some((m) => m.redirected && m.alive) || g.drones.some((d) => d.redirected && d.alive);
-    if (!g.flares.some((flare) => flare.alive) && !redirectedThreats) g.flareSalvoClaims.clear();
-    return;
-  }
-  const ready = g.flareSalvoQueue.filter((drop) => drop.fireAt <= g.waveTick);
-  g.flareSalvoQueue = g.flareSalvoQueue.filter((drop) => drop.fireAt > g.waveTick);
-  for (const drop of ready) {
-    const flares = launchFlareSalvo(g, drop.count);
-    applyFlareLurePass(g, flares, {
-      centerX: BURJ_X,
-      centerY: ov("upgrade.flares.y", 837),
-      radius: ov("flare.lureRadius", 600),
-    });
-  }
-}
-
 export function updateAutoSystems(g: GameState, dt: number, allThreats: Threat[], onEvent?: SimEventSink | null) {
   const _rng = getRng();
   // ── WILD HORNETS ──
@@ -1505,36 +1207,17 @@ export function updateAutoSystems(g: GameState, dt: number, allThreats: Threat[]
   g.roadrunners = g.roadrunners.filter((r) => r.alive);
 
   // ── DECOY FLARES ──
-  updateFlareSalvoQueue(g);
-  const flareGravity = ov("flare.gravity", 0.024);
-  const flareTrailMax = Math.max(4, Math.round(ov("flare.trailLength", 22)));
-  g.flares.forEach((f) => {
-    if (!f.alive) return;
-    f.trail.push({ x: f.x, y: f.y });
-    if (f.trail.length > flareTrailMax) f.trail.shift();
-    f.x += f.vx * dt;
-    f.y += f.vy * dt;
-    f.vy += flareGravity * dt;
-    f.vx *= f.drag ** dt;
-    f.life -= dt;
-    if (f.life <= 0 || f.y >= GROUND_Y - 10) f.alive = false;
-    f.sparkAccum = (f.sparkAccum || 0) + dt;
-    if (f.life > 24 && f.sparkAccum >= 4) {
-      f.sparkAccum -= 4;
-      g.particles.push({
-        x: f.x,
-        y: f.y,
-        vx: rand(-0.7, 0.7),
-        vy: rand(0.1, 1.1),
-        life: 12,
-        maxLife: 12,
-        color: COL.flare,
-        size: rand(1, 2),
-      });
-    }
+  updateFlares(g, dt, {
+    boom,
+    destroyThreat: (state, threat) => {
+      if (!threat.alive) return;
+      threat.alive = false;
+      state.score += getKillReward(threat) * state.combo;
+      recordThreatDestroyed(state, threat);
+    },
+    recordNeutralized: recordThreatDestroyed,
+    onEvent,
   });
-  g.flares = g.flares.filter((f) => f.alive);
-  applyFlareTickLure(g);
 
   // ── IRON BEAM ──
   if (g.upgrades.ironBeam > 0 && isSiteAlive(g, "ironBeam")) {
@@ -1638,28 +1321,12 @@ export function updateAutoSystems(g: GameState, dt: number, allThreats: Threat[]
 function updateMissiles(g: GameState, dt: number, onEvent?: SimEventSink | null) {
   g.missiles.forEach((m: Missile) => {
     if (!m.alive) return;
+    if (m.flareControl) return;
     m.trail.push({ x: m.x, y: m.y });
     if (m.trail.length > 21) m.trail.shift();
     if (m.accel) {
       m.vx *= m.accel ** dt;
       m.vy *= m.accel ** dt;
-    }
-    if (m.luredByFlare) {
-      const flareTarget = getLiveFlare(g, m.flareTargetId);
-      if (flareTarget) {
-        const lureDist = steerTowardPoint(m, flareTarget.x, flareTarget.y, dt, 0.2);
-        if (lureDist <= flareTarget.hotRadius) {
-          if (!tryRedirectFlareThreat(g, m)) consumeThreatAtFlare(g, m, flareTarget, onEvent);
-          else flareTarget.alive = false;
-          return;
-        }
-      } else {
-        // Flare already exploded — missile lost guidance, harmless self-destruct
-        m.alive = false;
-        recordThreatDestroyed(g, m);
-        boom(g, m.x, m.y, 15, COL.flare, false, onEvent, 0, { harmless: true });
-        return;
-      }
     }
     const stepX = m.vx * dt;
     const stepY = m.vy * dt;
@@ -1667,14 +1334,6 @@ function updateMissiles(g: GameState, dt: number, onEvent?: SimEventSink | null)
     m.y += stepY;
     if (m.type === "stack2" || m.type === "stack3") {
       m.travelDist = (m.travelDist ?? 0) + Math.sqrt(stepX * stepX + stepY * stepY);
-    }
-    if (m.luredByFlare) {
-      const flareTarget = getLiveFlare(g, m.flareTargetId);
-      if (flareTarget && dist(m.x, m.y, flareTarget.x, flareTarget.y) <= flareTarget.hotRadius) {
-        if (!tryRedirectFlareThreat(g, m)) consumeThreatAtFlare(g, m, flareTarget, onEvent);
-        else flareTarget.alive = false;
-        return;
-      }
     }
     // MIRV split
     if (m.type === "mirv" && !m.splitTriggered && m.y >= (m.splitY ?? Infinity)) {
@@ -1823,46 +1482,15 @@ function updateMissiles(g: GameState, dt: number, onEvent?: SimEventSink | null)
 function updateDrones(g: GameState, _rng: () => number, dt: number, onEvent?: SimEventSink | null) {
   g.drones.forEach((d: Drone) => {
     if (!d.alive) return;
+    if (d.flareControl) return;
     d.trail ??= [];
     d.trail.push({ x: d.x, y: d.y });
     if (d.trail.length > (d.subtype === "shahed238" ? 13 : 10)) d.trail.shift();
-    // Lured drones steer toward flare and detonate it on contact
-    if (d.luredByFlare) {
-      const flareTarget = getLiveFlare(g, d.flareTargetId);
-      if (flareTarget) {
-        steerTowardPoint(d, flareTarget.x, flareTarget.y, dt, 0.15);
-        if (dist(d.x, d.y, flareTarget.x, flareTarget.y) <= flareTarget.hotRadius) {
-          if (!tryRedirectFlareThreat(g, d)) consumeThreatAtFlare(g, d, flareTarget, onEvent);
-          else flareTarget.alive = false;
-          return;
-        }
-      } else {
-        // Flare already exploded — lost guidance, harmless self-destruct
-        d.alive = false;
-        recordThreatDestroyed(g, d);
-        boom(g, d.x, d.y, 15, COL.flare, false, onEvent, 0, { harmless: true });
-        return;
-      }
-      if ((d.lureDeathTimer ?? 0) > 0) {
-        d.lureDeathTimer = (d.lureDeathTimer ?? 0) - dt;
-        if ((d.lureDeathTimer ?? 0) <= 0) {
-          d.alive = false;
-          recordThreatDestroyed(g, d);
-          boom(g, d.x, d.y, 15, COL.flare, false, onEvent, 0, { harmless: true });
-          return;
-        }
-      }
-    }
     d.wobble += 0.05 * dt;
     if (d.waypoints && d.waypoints.length >= 2) {
-      // Follow precomputed trajectory (skip when lured by flare)
+      // Follow precomputed trajectory.
       if (!d.waypoints || d.waypoints.length < 2) {
         d.alive = false;
-        return;
-      }
-      if (d.luredByFlare) {
-        d.x += d.vx * dt;
-        d.y += d.vy * dt;
         return;
       }
       const prevX = d.x;
@@ -2483,7 +2111,6 @@ export function update(g: GameState, dt: number, onEvent?: SimEventSink | null) 
   updateAutoSystems(g, dt, visibleThreats, onEvent);
   updateMissiles(g, dt, onEvent);
   updateDrones(g, _rng, dt, onEvent);
-  updateRedirectedProjectiles(g, onEvent);
   updateInterceptors(g, dt, onEvent);
   updateExplosions(g, dt, onEvent);
   updatePlanes(g, dt, allThreats, onEvent);
@@ -2511,38 +2138,6 @@ export function update(g: GameState, dt: number, onEvent?: SimEventSink | null) 
   g.explosions = g.explosions.filter((ex) => ex.alpha > 0);
   g.particles = g.particles.filter((p) => p.life > 0);
   g.planes = g.planes.filter((p) => p.alive);
-}
-
-export function fireFlareSalvo(g: GameState, onEvent?: SimEventSink | null) {
-  if (!g.flareReadyThisWave || g.upgrades.flare <= 0) return false;
-  const lvl = g.upgrades.flare;
-  const originY = ov("upgrade.flares.y", 837);
-  const lureRadius = ov("flare.lureRadius", 600);
-  g.flareReadyThisWave = false;
-  g.flareSalvoClaims = new Set();
-
-  const isL2 = lvl >= 2;
-  const dropCount = Math.max(1, Math.round(ov(isL2 ? "flare.salvoCountL2" : "flare.salvoCountL1", isL2 ? 6 : 3)));
-  const drops = Math.max(1, Math.round(ov(isL2 ? "flare.salvoDropsL2" : "flare.salvoDropsL1", 3)));
-  const spacing = Math.max(
-    1,
-    Math.round(ov(isL2 ? "flare.salvoSpacingTicksL2" : "flare.salvoSpacingTicksL1", isL2 ? 60 : 30)),
-  );
-  const initial = launchFlareSalvo(g, dropCount);
-  applyFlareLurePass(g, initial, { centerX: BURJ_X, centerY: originY, radius: lureRadius });
-  g.flareSalvoQueue = Array.from({ length: Math.max(0, drops - 1) }, (_, i) => ({
-    fireAt: g.waveTick + spacing * (i + 1),
-    count: dropCount,
-  }));
-  if (isL2) {
-    const ammoCap = getAmmoCapacity(g.wave, g.upgrades.launcherKit);
-    for (let i = 0; i < LAUNCHERS.length; i++) {
-      if (g.launcherHP[i] > 0) g.ammo[i] = ammoCap;
-    }
-  }
-
-  if (onEvent) onEvent("sfx", { name: "flareLaunch" });
-  return true;
 }
 
 function spawnF15Formation(g: GameState, goRight: boolean, lvl: number, onEvent: SimEventSink | null | undefined) {

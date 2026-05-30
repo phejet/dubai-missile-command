@@ -344,7 +344,7 @@ function leadWaypointDrone(
   interceptorSpeed: number,
   g: GameState | null,
 ): { x: number; y: number } {
-  if (!drone.waypoints?.length || drone.luredByFlare) {
+  if (!drone.waypoints?.length || drone.flareControl) {
     return leadTarget(drone.x, drone.y, drone.vx, drone.vy, config, interceptorSpeed, g);
   }
 
@@ -489,7 +489,7 @@ export function botDecideAction(
   for (const m of g.missiles) {
     if (!m.alive) continue;
     if (m.y < cfg.minThreatY) continue;
-    if (m.luredByFlare) continue; // heading to flare, will miss — save ammo
+    if (m.flareControl) continue; // flare-controlled, will miss or turn friendly — save ammo
     if (m.type === "mirv") {
       // MIRVs are always top priority — must kill before split
       const led = leadThreatTarget(m, config, interceptorSpeed, g, m.accel || 1);

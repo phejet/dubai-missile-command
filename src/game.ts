@@ -173,8 +173,8 @@ function buildActiveSlotSnapshot(game: GameState): {
     const flareActive =
       game.flares.some((flare) => flare.alive) ||
       game.flareSalvoQueue.length > 0 ||
-      game.missiles.some((missile) => missile.redirected) ||
-      game.drones.some((drone) => drone.redirected);
+      game.missiles.some((missile) => missile.flareControl?.mode === "turncoat") ||
+      game.drones.some((drone) => drone.flareControl?.mode === "turncoat");
     return {
       activeFamily: "flare",
       activeLabel: game.upgrades.flare >= 2 ? "Counter-Salvo" : "Flares",

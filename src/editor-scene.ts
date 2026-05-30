@@ -360,7 +360,6 @@ export function createEditorScene(): GameState {
     nextFlareId: 1,
     flareReadyThisWave: false,
     flareSalvoQueue: [],
-    flareSalvoClaims: new Set(),
     empReadyThisWave: false,
     empRings: [],
     empArcs: [],

@@ -11,6 +11,13 @@ export interface TrailPoint {
   y: number;
 }
 
+export interface FlareControl {
+  mode: "seduced" | "turncoat";
+  flareId?: number;
+  victim?: Missile | Drone;
+  patience: number;
+}
+
 export interface Missile {
   x: number;
   y: number;
@@ -32,10 +39,7 @@ export interface Missile {
   travelDist?: number;
   targetX?: number;
   targetY?: number;
-  luredByFlare?: boolean;
-  flareTargetId?: number;
-  redirected?: boolean;
-  redirectTarget?: Missile | Drone;
+  flareControl?: FlareControl | null;
   variant?: "normal" | "fast";
   speedMul?: number;
   _hitByExplosions?: Set<number>;
@@ -65,11 +69,7 @@ export interface Drone {
   diving?: boolean;
   diveTelegraphing?: boolean;
   diveSpeed?: number;
-  luredByFlare?: boolean;
-  flareTargetId?: number;
-  redirected?: boolean;
-  redirectTarget?: Missile | Drone;
-  lureDeathTimer?: number;
+  flareControl?: FlareControl | null;
   bombDropped?: boolean;
   variant?: "normal" | "fast";
   speedMul?: number;
@@ -408,12 +408,10 @@ export interface Flare {
   y: number;
   vx: number;
   vy: number;
-  anchorX: number;
   drag: number;
   life: number;
   maxLife: number;
   alive: boolean;
-  luresLeft: number;
   hotRadius: number;
   trail: TrailPoint[];
   sparkAccum?: number;
@@ -670,7 +668,6 @@ export interface SimState {
   nextFlareId: number;
   flareReadyThisWave: boolean;
   flareSalvoQueue: Array<{ fireAt: number; count: number }>;
-  flareSalvoClaims: Set<Missile | Drone>;
 
   empReadyThisWave: boolean;
 

@@ -413,7 +413,6 @@ export function prepareWaveStart(g: GameState): void {
   g.patriotFollowupTimer = 0;
   g.flares = [];
   g.flareSalvoQueue = [];
-  g.flareSalvoClaims = new Set();
   g.planes = [];
 
   syncHornetSitesForOwnership(g, { reset: true });
