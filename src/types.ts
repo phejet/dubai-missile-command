@@ -756,6 +756,59 @@ export interface ReplayState {
 
 export type GameState = SimState & RuntimeState & ReplayState;
 
+// ── Sim/runtime events ──
+
+export type SfxSize = "small" | "medium" | "large";
+
+export type SfxPayload =
+  | { name: "explosion"; size: SfxSize; chainLevel: number }
+  | { name: "chainExplosion"; size: SfxSize; chainLevel: number }
+  | {
+      name:
+        | "mirvIncoming"
+        | "mirvSplit"
+        | "planeIncoming"
+        | "planePass"
+        | "hornetBuzz"
+        | "patriotLaunch"
+        | "laserBeam"
+        | "waveCleared"
+        | "gameOver"
+        | "burjHit"
+        | "launcherDestroyed"
+        | "flareLaunch"
+        | "empBlast"
+        | "multiKill";
+    };
+
+export interface SimEventMap {
+  sfx: SfxPayload;
+  gameOver: { score: number; wave: number; stats: GameStats };
+  waveBonusStart: {
+    wave: number;
+    buildings: number;
+    missileKills: number;
+    droneKills: number;
+    destroyedByType: DestroyedByTypeStats;
+    multiShots: number;
+    maxCombo: number;
+  };
+  shopOpen: { score: number; wave: number; upgrades: Upgrades };
+  waveComplete: { score: number; wave: number };
+}
+
+export type SimEvent = {
+  [Type in keyof SimEventMap]: { type: Type; data: SimEventMap[Type] };
+}[keyof SimEventMap];
+
+export type SimEventSink = <Type extends keyof SimEventMap>(type: Type, data: SimEventMap[Type]) => void;
+
+export interface ReplayEventMap {
+  replay_version_warning: { version: number; message: string };
+}
+
+export type ReplayEventSink = <Type extends keyof ReplayEventMap>(type: Type, data: ReplayEventMap[Type]) => void;
+
 // ── Replay ──
 
 export type ReplayActionType = "fire" | "cursor" | "emp" | "f15" | "flare" | "shop" | "wave_plan";

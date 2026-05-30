@@ -5,7 +5,7 @@ import { setRng } from "./game-logic.js";
 import { mulberry32 } from "./headless/rng.js";
 import { runGame } from "./headless/sim-runner.js";
 import { initGame, update } from "./game-sim.js";
-import type { ReplayAction, ReplayData } from "./types.js";
+import type { ReplayAction, ReplayData, SimEventSink } from "./types.js";
 
 const SEED = 12345;
 
@@ -13,7 +13,7 @@ afterEach(() => {
   setRng(Math.random);
 });
 
-function replayToCompletion(replayData: ReplayData, onEvent: ((type: string, data?: unknown) => void) | null = null) {
+function replayToCompletion(replayData: ReplayData, onEvent: SimEventSink | null = null) {
   const rr = createReplayRunner(replayData, onEvent);
   rr.init();
   for (let i = 0; i < 200000; i++) {

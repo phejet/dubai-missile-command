@@ -1,4 +1,4 @@
-import type { GameState, ReplayData } from "./types.js";
+import type { GameState, ReplayData, SimEventMap } from "./types.js";
 import { getBuildingSurvivalBonus } from "./wave-bonus.js";
 
 interface ReplayStateReader {
@@ -19,8 +19,8 @@ function isWaveBonusEventData(data: unknown): data is WaveBonusEventData {
 export function handleRunRecapReplayEvent(
   replay: ReplayData,
   runner: ReplayStateReader,
-  type: string,
-  data?: unknown,
+  type: keyof SimEventMap,
+  data: SimEventMap[keyof SimEventMap],
 ): void {
   if (type !== "waveBonusStart") return;
   const game = runner.getState();

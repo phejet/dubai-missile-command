@@ -74,6 +74,7 @@ import type {
   SpawnEntry,
   Shahed136Variant,
   EmpRing,
+  SimEventSink,
 } from "./types.js";
 import { shahed136HasBomb, shahed136HasDive } from "./types.js";
 import { getBurjDamageFireLayout } from "./art-render.js";
@@ -266,7 +267,7 @@ function boom(
   radius: number,
   color: string,
   playerCaused: boolean,
-  onEvent: ((type: string, data?: unknown) => void) | null | undefined,
+  onEvent: SimEventSink | null | undefined,
   initialRadius = 0,
   options: Record<string, unknown> = {},
 ) {
@@ -345,7 +346,7 @@ function applyBurjHitDamage(
   x: number,
   y: number,
   kind: BurjDamageKind,
-  onEvent?: ((type: string, data?: unknown) => void) | null,
+  onEvent?: SimEventSink | null,
 ): void {
   if (g._debugMode || !g.burjAlive) return;
   if (g.burjInvulnTimer > 0) return;
@@ -588,15 +589,11 @@ function resolveMissileApproach(
   return { startX: preferredTarget.x + side * requiredDx, target: preferredTarget };
 }
 
-export function spawnMirv(g: GameState, onEvent?: ((type: string, data?: unknown) => void) | null) {
+export function spawnMirv(g: GameState, onEvent?: SimEventSink | null) {
   return spawnMirvWithOverrides(g, undefined, onEvent);
 }
 
-function spawnMirvWithOverrides(
-  g: GameState,
-  overrides?: SpawnEntry["overrides"],
-  onEvent?: ((type: string, data?: unknown) => void) | null,
-) {
+function spawnMirvWithOverrides(g: GameState, overrides?: SpawnEntry["overrides"], onEvent?: SimEventSink | null) {
   let startX = rand(100, CANVAS_W - 100);
   let target = pickTarget(g, startX);
   if (!target) return;
@@ -641,11 +638,7 @@ export interface SpawnPlaneOptions {
   silent?: boolean;
 }
 
-export function spawnPlane(
-  g: GameState,
-  onEvent?: ((type: string, data?: unknown) => void) | null,
-  opts: SpawnPlaneOptions = {},
-) {
+export function spawnPlane(g: GameState, onEvent?: SimEventSink | null, opts: SpawnPlaneOptions = {}) {
   const _rng = getRng();
   const goRight = opts.goRight ?? _rng() > 0.5;
   const speedMul = opts.speedMul ?? 1;
@@ -1231,7 +1224,7 @@ function launchPatriotMissile(
   g: GameState,
   target: Threat,
   blastRadius: number,
-  onEvent?: ((type: string, data?: unknown) => void) | null,
+  onEvent?: SimEventSink | null,
 ): PatriotMissile {
   const patriotSite = getDefenseSitePlacement("patriot");
   const x = (patriotSite?.x ?? 334) + rand(-10, 10);
@@ -1257,7 +1250,7 @@ function schedulePatriotSalvo(
   g: GameState,
   targets: Threat[],
   blastRadius: number,
-  onEvent?: ((type: string, data?: unknown) => void) | null,
+  onEvent?: SimEventSink | null,
 ): void {
   if (targets.length === 0 || g.patriotReserveShots <= 0) return;
   const shots = targets.slice(0, g.patriotReserveShots);
@@ -1277,12 +1270,7 @@ function schedulePatriotSalvo(
   drainPatriotLaunchQueue(g, 0, targets, onEvent);
 }
 
-function drainPatriotLaunchQueue(
-  g: GameState,
-  dt: number,
-  allThreats: Threat[],
-  onEvent?: ((type: string, data?: unknown) => void) | null,
-): void {
+function drainPatriotLaunchQueue(g: GameState, dt: number, allThreats: Threat[], onEvent?: SimEventSink | null): void {
   if (g.patriotLaunchQueue.length === 0) return;
 
   const waiting: PatriotLaunchQueueItem[] = [];
@@ -1303,12 +1291,7 @@ function drainPatriotLaunchQueue(
   g.patriotLaunchQueue = waiting;
 }
 
-function updatePatriotBattery(
-  g: GameState,
-  dt: number,
-  allThreats: Threat[],
-  onEvent?: ((type: string, data?: unknown) => void) | null,
-): void {
+function updatePatriotBattery(g: GameState, dt: number, allThreats: Threat[], onEvent?: SimEventSink | null): void {
   const lvl = g.upgrades.patriot;
   const interval = [480, 360, 300][lvl - 1];
   const capacity = [2, 3, 4][lvl - 1];
@@ -1621,7 +1604,7 @@ function consumeThreatAtFlare(
   g: GameState,
   threat: Missile | Drone,
   flare: Flare | null,
-  onEvent: ((type: string, data?: unknown) => void) | null | undefined,
+  onEvent: SimEventSink | null | undefined,
 ): void {
   const x = flare ? flare.x : threat.x;
   const y = flare ? flare.y : threat.y;
@@ -1651,7 +1634,7 @@ function reaimRedirectedThreat(g: GameState, attacker: Missile | Drone, pool: Ar
   return true;
 }
 
-function updateRedirectedProjectiles(g: GameState, onEvent?: ((type: string, data?: unknown) => void) | null): void {
+function updateRedirectedProjectiles(g: GameState, onEvent?: SimEventSink | null): void {
   const pool: Array<Missile | Drone> = [];
   collectAirborneThreats(g, pool);
   const impactRadius = ov("flare.redirectAOE", 45);
@@ -1810,12 +1793,7 @@ function pushEmpRingBurst(
   }
 }
 
-export function updateAutoSystems(
-  g: GameState,
-  dt: number,
-  allThreats: Threat[],
-  onEvent?: ((type: string, data?: unknown) => void) | null,
-) {
+export function updateAutoSystems(g: GameState, dt: number, allThreats: Threat[], onEvent?: SimEventSink | null) {
   const _rng = getRng();
   // ── WILD HORNETS ──
   // Per-site progressive magazine: each launch site reloads one drone at a time.
@@ -2283,7 +2261,7 @@ export function updateAutoSystems(
   }
 }
 
-function updateMissiles(g: GameState, dt: number, onEvent?: ((type: string, data?: unknown) => void) | null) {
+function updateMissiles(g: GameState, dt: number, onEvent?: SimEventSink | null) {
   g.missiles.forEach((m: Missile) => {
     if (!m.alive) return;
     m.trail.push({ x: m.x, y: m.y });
@@ -2468,12 +2446,7 @@ function updateMissiles(g: GameState, dt: number, onEvent?: ((type: string, data
   });
 }
 
-function updateDrones(
-  g: GameState,
-  _rng: () => number,
-  dt: number,
-  onEvent?: ((type: string, data?: unknown) => void) | null,
-) {
+function updateDrones(g: GameState, _rng: () => number, dt: number, onEvent?: SimEventSink | null) {
   g.drones.forEach((d: Drone) => {
     if (!d.alive) return;
     d.trail ??= [];
@@ -2709,7 +2682,7 @@ function didPlayerInterceptorReachTarget(ic: Interceptor, prevX: number, prevY: 
   return dist(closestX, closestY, ic.targetX, ic.targetY) <= INTERCEPTOR_TARGET_DETONATE_RADIUS;
 }
 
-function updateInterceptors(g: GameState, dt: number, onEvent?: ((type: string, data?: unknown) => void) | null) {
+function updateInterceptors(g: GameState, dt: number, onEvent?: SimEventSink | null) {
   g.interceptors.forEach((ic: Interceptor) => {
     if (!ic.alive) return;
     ic.trail.push({ x: ic.x, y: ic.y });
@@ -2769,7 +2742,7 @@ function updateInterceptors(g: GameState, dt: number, onEvent?: ((type: string, 
   });
 }
 
-function updateExplosions(g: GameState, dt: number, onEvent?: ((type: string, data?: unknown) => void) | null) {
+function updateExplosions(g: GameState, dt: number, onEvent?: SimEventSink | null) {
   g.explosions.forEach((ex) => {
     if (ex.growing) {
       ex.radius += (ex.chain ? 4 + (ex.chainLevel ?? 0) * 0.85 : 2) * dt;
@@ -2905,12 +2878,7 @@ function processRootExplosionCombo(g: GameState, forceFinalKills = false): void 
   });
 }
 
-function updatePlanes(
-  g: GameState,
-  dt: number,
-  allThreats: Threat[],
-  onEvent?: ((type: string, data?: unknown) => void) | null,
-) {
+function updatePlanes(g: GameState, dt: number, allThreats: Threat[], onEvent?: SimEventSink | null) {
   g.planes.forEach((p) => {
     if (!p.alive) return;
     p.blinkTimer += dt;
@@ -2987,7 +2955,7 @@ function updatePlanes(
   });
 }
 
-export function update(g: GameState, dt: number, onEvent?: ((type: string, data?: unknown) => void) | null) {
+export function update(g: GameState, dt: number, onEvent?: SimEventSink | null) {
   const _rng = getRng();
   const rawDt = dt;
   const simDt = dt * empScrubScale(g.empScrubTicks ?? 0);
@@ -3177,7 +3145,7 @@ const EMP_BURJ_MAX_RADIUS = [650, 1040];
 const EMP_LAUNCHER_MAX_RADIUS = 500;
 const EMP_RANK2_EXPAND_RATE = 1.5;
 
-export function fireFlareSalvo(g: GameState, onEvent?: ((type: string, data?: unknown) => void) | null) {
+export function fireFlareSalvo(g: GameState, onEvent?: SimEventSink | null) {
   if (!g.flareReadyThisWave || g.upgrades.flare <= 0) return false;
   const lvl = g.upgrades.flare;
   const originY = ov("upgrade.flares.y", 837);
@@ -3209,7 +3177,7 @@ export function fireFlareSalvo(g: GameState, onEvent?: ((type: string, data?: un
   return true;
 }
 
-export function fireEmp(g: GameState, onEvent?: ((type: string, data?: unknown) => void) | null) {
+export function fireEmp(g: GameState, onEvent?: SimEventSink | null) {
   if (!g.empReadyThisWave || g.upgrades.emp <= 0) return false;
   const lvl = g.upgrades.emp;
   g.empReadyThisWave = false;
@@ -3258,12 +3226,7 @@ export function fireEmp(g: GameState, onEvent?: ((type: string, data?: unknown) 
   return true;
 }
 
-function spawnF15Formation(
-  g: GameState,
-  goRight: boolean,
-  lvl: number,
-  onEvent: ((type: string, data?: unknown) => void) | null | undefined,
-) {
+function spawnF15Formation(g: GameState, goRight: boolean, lvl: number, onEvent: SimEventSink | null | undefined) {
   const fireIntervalMul = lvl >= 2 ? 0.4 : 0.55;
   const speedMul = lvl >= 2 ? 1.15 : 1.0;
   const fireRangeMul = 1.8;
@@ -3291,7 +3254,7 @@ function spawnF15Formation(
   });
 }
 
-export function fireF15Pair(g: GameState, onEvent?: ((type: string, data?: unknown) => void) | null) {
+export function fireF15Pair(g: GameState, onEvent?: SimEventSink | null) {
   if (!g.f15ReadyThisWave || g.upgrades.f15 <= 0) return false;
   const lvl = g.upgrades.f15;
   g.f15ReadyThisWave = false;
@@ -3347,7 +3310,7 @@ export function snapshotPositions(g: GameState) {
   }
 }
 
-export function createGameSim(options: { onEvent?: ((type: string, data?: unknown) => void) | null } = {}) {
+export function createGameSim(options: { onEvent?: SimEventSink | null } = {}) {
   const onEvent = options.onEvent || (() => {});
   return {
     initGame,

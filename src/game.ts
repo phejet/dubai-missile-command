@@ -51,7 +51,7 @@ import { mountRunRecapDeathClip } from "./run-recap-death-clip";
 import { handleRunRecapReplayEvent } from "./run-recap-replay-events";
 import { buildRunRecapData } from "./run-recap";
 import { saveReplayToFile } from "./save-replay";
-import type { GameState, GameStats, ReplayAction, ReplayData, UpgradeKey } from "./types";
+import type { GameState, GameStats, ReplayAction, ReplayData, SimEvent, SimEventMap, UpgradeKey } from "./types";
 import {
   showShop as uiShowShop,
   hideShop as uiHideShop,
@@ -102,6 +102,10 @@ function maybeRecordReplayCheckpoint(
   game._replayCheckpoints.push(checkpoint);
   game._replayCheckpointLastTick = tick;
   game._replayCheckpointLastHash = checkpoint.hash;
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled sim event: ${JSON.stringify(value)}`);
 }
 
 function recordWavePlanAction(game: GameState): void {
@@ -933,125 +937,171 @@ export class Game {
 
   // ─── Sim Events ─────────────────────────────────────────────────
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private handleSimEvent(type: string, data: any): void {
-    if (type === "sfx") {
-      const sfxMap: Record<string, (() => void) | undefined> = {
-        explosion: () => SFX.explosion(data.size),
-        chainExplosion: () => SFX.chainExplosion(data.size, data.chainLevel),
-        mirvIncoming: () => SFX.mirvIncoming(),
-        mirvSplit: () => SFX.mirvSplit(),
-        planeIncoming: () => SFX.planeIncoming(),
-        planePass: () => SFX.planePass(),
-        hornetBuzz: () => SFX.hornetBuzz(),
-        patriotLaunch: () => SFX.patriotLaunch(),
-        laserBeam: () => {
-          const game = this.gameRef.current;
-          if (game && !game._browserLaserHandle) {
-            game._browserLaserHandle = SFX.laserBeam();
+  private handleSimEvent<Type extends keyof SimEventMap>(type: Type, data: SimEventMap[Type]): void {
+    const event = { type, data } as SimEvent;
+    switch (event.type) {
+      case "sfx":
+        switch (event.data.name) {
+          case "explosion":
+            SFX.explosion(event.data.size);
+            break;
+          case "chainExplosion":
+            SFX.chainExplosion(event.data.size, event.data.chainLevel);
+            break;
+          case "mirvIncoming":
+            SFX.mirvIncoming();
+            break;
+          case "mirvSplit":
+            SFX.mirvSplit();
+            break;
+          case "planeIncoming":
+            SFX.planeIncoming();
+            break;
+          case "planePass":
+            SFX.planePass();
+            break;
+          case "hornetBuzz":
+            SFX.hornetBuzz();
+            break;
+          case "patriotLaunch":
+            SFX.patriotLaunch();
+            break;
+          case "laserBeam": {
+            const game = this.gameRef.current;
+            if (game && !game._browserLaserHandle) {
+              game._browserLaserHandle = SFX.laserBeam();
+            }
+            break;
           }
-        },
-        waveCleared: () => SFX.waveCleared(),
-        gameOver: () => SFX.gameOver(),
-        burjHit: () => SFX.burjHit(),
-        launcherDestroyed: () => SFX.launcherDestroyed(),
-        empBlast: () => SFX.empBlast(),
-        multiKill: () => SFX.multiKill(),
-      };
-      sfxMap[data.name]?.();
-    } else if (type === "gameOver") {
-      this.clearPointerCapture();
-      this.resetPlayerFireState();
-      this.shopOpen = false;
-      this.progressionOpen = false;
-      this.runRecapOpen = false;
-      this.showOptionsMenu = false;
-      this.showColliders = false;
-      this.showPerfOverlay = false;
-      this.closeUpgradesTable();
-      uiHideShop();
-      this.stopDeathClip();
-      uiHideRunRecap();
-      uiHideUpgradeProgression();
-      this.battlefieldCard.classList.remove("battlefield-card--blurred");
-      this.optionsMenu.hidden = true;
-      this.perfOverlay.hidden = true;
-      this.finalScore = data.score;
-      this.finalWave = data.wave;
-      this.finalStats = normalizeGameStats(data.stats);
-      // Replay runs finalize on the next RAF tick after the runner marks itself finished.
-      if (this.replayActive && this.replayRunner) {
-        return;
+          case "waveCleared":
+            SFX.waveCleared();
+            break;
+          case "gameOver":
+            SFX.gameOver();
+            break;
+          case "burjHit":
+            SFX.burjHit();
+            break;
+          case "launcherDestroyed":
+            SFX.launcherDestroyed();
+            break;
+          case "empBlast":
+            SFX.empBlast();
+            break;
+          case "multiKill":
+            SFX.multiKill();
+            break;
+          case "flareLaunch":
+            // No runtime sound is wired for flare launches today; preserve the previous no-op.
+            break;
+          default:
+            assertNever(event.data);
+        }
+        break;
+      case "gameOver": {
+        const { data } = event;
+        this.clearPointerCapture();
+        this.resetPlayerFireState();
+        this.shopOpen = false;
+        this.progressionOpen = false;
+        this.runRecapOpen = false;
+        this.showOptionsMenu = false;
+        this.showColliders = false;
+        this.showPerfOverlay = false;
+        this.closeUpgradesTable();
+        uiHideShop();
+        this.stopDeathClip();
+        uiHideRunRecap();
+        uiHideUpgradeProgression();
+        this.battlefieldCard.classList.remove("battlefield-card--blurred");
+        this.optionsMenu.hidden = true;
+        this.perfOverlay.hidden = true;
+        this.finalScore = data.score;
+        this.finalWave = data.wave;
+        this.finalStats = normalizeGameStats(data.stats);
+        // Replay runs finalize on the next RAF tick after the runner marks itself finished.
+        if (this.replayActive && this.replayRunner) {
+          return;
+        }
+        const game = this.gameRef.current;
+        if (game) {
+          const nextProgression = applyRunSummaryToProgression(game.metaProgression, {
+            wave: data.wave,
+            score: data.score,
+            stats: data.stats,
+          });
+          game.metaProgression = nextProgression;
+          saveUpgradeProgression(nextProgression);
+        }
+        this.canvas.classList.remove("game-canvas--active");
+        if (game && game._actionLog) {
+          maybeRecordReplayCheckpoint(game, {
+            force: true,
+            reason: "gameover",
+            tickOverride: (game._replayTick ?? 0) + 1,
+          });
+          const replay: ReplayData = {
+            version: 4,
+            seed: game._gameSeed ?? 0,
+            actions: game._actionLog as ReplayData["actions"],
+            checkpoints: game._replayCheckpoints || [],
+            finalTick: (game._replayTick ?? 0) + 1,
+            isHuman: true,
+            draftMode: game._draftMode !== false,
+            score: data.score,
+            wave: data.wave,
+          };
+          this.lastReplay = replay;
+          window.__lastReplay = replay;
+          fetch("/api/save-replay", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...replay, score: data.score, wave: data.wave, stats: data.stats }),
+          }).catch(() => {});
+        }
+        setRng(Math.random);
+        this.setScreen("gameover");
+        break;
       }
-      const game = this.gameRef.current;
-      if (game) {
-        const nextProgression = applyRunSummaryToProgression(game.metaProgression, {
-          wave: data.wave,
-          score: data.score,
-          stats: data.stats,
-        });
-        game.metaProgression = nextProgression;
-        saveUpgradeProgression(nextProgression);
+      case "waveBonusStart":
+        this.resetPlayerFireState();
+        this.bonusActive = true;
+        this.canvas.style.pointerEvents = "none";
+        showBonusScreen(
+          event.data,
+          (pts) => {
+            const game = this.gameRef.current;
+            const shouldApplyReplayBonus = !this.replayActive || game?._replayIsHuman === true;
+            if (game && shouldApplyReplayBonus) game.score += pts;
+            this.syncHud(true);
+          },
+          () => {
+            const game = this.gameRef.current;
+            if (game) game._bonusScreenDone = true;
+            this.bonusActive = false;
+            this.canvas.style.pointerEvents = "";
+            hideBonusScreen();
+          },
+          this.replayActive ? { autoCompleteAfterTotalMs: 500 } : undefined,
+        );
+        break;
+      case "shopOpen": {
+        const game = this.gameRef.current;
+        if (game) {
+          maybeRecordReplayCheckpoint(game, {
+            force: true,
+            reason: "shopOpen",
+            tickOverride: (game._replayTick ?? 0) + 1,
+          });
+          this.openShop(game);
+        }
+        break;
       }
-      this.canvas.classList.remove("game-canvas--active");
-      if (game && game._actionLog) {
-        maybeRecordReplayCheckpoint(game, {
-          force: true,
-          reason: "gameover",
-          tickOverride: (game._replayTick ?? 0) + 1,
-        });
-        const replay: ReplayData = {
-          version: 4,
-          seed: game._gameSeed ?? 0,
-          actions: game._actionLog as ReplayData["actions"],
-          checkpoints: game._replayCheckpoints || [],
-          finalTick: (game._replayTick ?? 0) + 1,
-          isHuman: true,
-          draftMode: game._draftMode !== false,
-          score: data.score,
-          wave: data.wave,
-        };
-        this.lastReplay = replay;
-        window.__lastReplay = replay;
-        fetch("/api/save-replay", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...replay, score: data.score, wave: data.wave, stats: data.stats }),
-        }).catch(() => {});
-      }
-      setRng(Math.random);
-      this.setScreen("gameover");
-    } else if (type === "waveBonusStart") {
-      this.resetPlayerFireState();
-      this.bonusActive = true;
-      this.canvas.style.pointerEvents = "none";
-      showBonusScreen(
-        data,
-        (pts) => {
-          const game = this.gameRef.current;
-          const shouldApplyReplayBonus = !this.replayActive || game?._replayIsHuman === true;
-          if (game && shouldApplyReplayBonus) game.score += pts;
-          this.syncHud(true);
-        },
-        () => {
-          const game = this.gameRef.current;
-          if (game) game._bonusScreenDone = true;
-          this.bonusActive = false;
-          this.canvas.style.pointerEvents = "";
-          hideBonusScreen();
-        },
-        this.replayActive ? { autoCompleteAfterTotalMs: 500 } : undefined,
-      );
-    } else if (type === "shopOpen") {
-      const game = this.gameRef.current;
-      if (game) {
-        maybeRecordReplayCheckpoint(game, {
-          force: true,
-          reason: "shopOpen",
-          tickOverride: (game._replayTick ?? 0) + 1,
-        });
-        this.openShop(game);
-      }
+      case "waveComplete":
+        // The runtime has always ignored this; keep it explicit so the event union stays exhaustive.
+        break;
+      default:
+        assertNever(event);
     }
   }
 

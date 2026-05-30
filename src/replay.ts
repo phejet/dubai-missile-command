@@ -18,11 +18,13 @@ import {
   resolveReplayStopWave,
   shouldStopReplayAtWaveComplete,
 } from "./replay-bootstrap";
-import type { GameState, ReplayData, ShopAction } from "./types";
+import type { GameState, ReplayData, ReplayEventSink, ShopAction, SimEventSink } from "./types";
 
-type EventCallback = ((type: string, data?: unknown) => void) | null;
-
-export function createReplayRunner(replayData: ReplayData, onEvent: EventCallback = null) {
+export function createReplayRunner(
+  replayData: ReplayData,
+  onEvent: SimEventSink | null = null,
+  onReplayEvent: ReplayEventSink | null = null,
+) {
   const { seed, actions } = replayData;
   const draftMode =
     replayData.draftMode !== undefined
@@ -44,7 +46,7 @@ export function createReplayRunner(replayData: ReplayData, onEvent: EventCallbac
 
   function init() {
     if ((replayData.version ?? 1) < 4) {
-      onEvent?.("replay_version_warning", {
+      onReplayEvent?.("replay_version_warning", {
         version: replayData.version ?? 1,
         message: "Replay was recorded before the shared fire-pool model; checkpoint hashes may diverge.",
       });
