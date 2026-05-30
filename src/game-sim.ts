@@ -8,6 +8,10 @@ import {
   COL,
   BURJ_X,
   BURJ_H,
+  BURJ_MAX_HEALTH,
+  EMP_RING_SPEED_INITIAL,
+  EMP_RING_SPEED_MID,
+  EMP_RING_SPEED_TAIL,
   MAX_PARTICLES,
   LAUNCHERS,
   createScenicBuildings,
@@ -76,7 +80,6 @@ import { getBurjDamageFireLayout } from "./art-render.js";
 import { getBurjFireEmberVariantId, getBurjFireFlameVariantId } from "./burj-fire-textures.js";
 import { getBurjSmokeParticleVariantId } from "./smoke-particle-assets.js";
 
-const BURJ_FIRE_MAX_HEALTH = 7;
 const BURJ_FIRE_TOWER_BASE_Y = GAMEPLAY_SCENIC_BASE_Y;
 
 function pickBurjParticleVariantIndex(x: number, y: number, life: number, size: number, salt = 0): number {
@@ -98,14 +101,14 @@ function pickBurjFireEmberVariant(x: number, y: number, life: number, size: numb
 
 export function updateBurjFireParticles(g: GameState, dt: number): void {
   if (!g.burjAlive) return;
-  const rawHealth = Math.max(0, Math.min(BURJ_FIRE_MAX_HEALTH, Math.round(g.burjHealth)));
+  const rawHealth = Math.max(0, Math.min(BURJ_MAX_HEALTH, Math.round(g.burjHealth)));
   const layout = getBurjDamageFireLayout(BURJ_FIRE_TOWER_BASE_Y, rawHealth, {
-    maxHealth: BURJ_FIRE_MAX_HEALTH,
+    maxHealth: BURJ_MAX_HEALTH,
     gameSeed: g._gameSeed ?? 0,
   });
   if (layout.fireSites.length === 0 || layout.tier === "pristine") return;
 
-  const damageRatio = layout.lostCount / BURJ_FIRE_MAX_HEALTH;
+  const damageRatio = layout.lostCount / BURJ_MAX_HEALTH;
   const tierMul =
     layout.tier === "critical" ? 1.7 : layout.tier === "burning" ? 1.15 + damageRatio * 0.4 : 0.45 + damageRatio * 0.36;
   const tierSizeMul = layout.tier === "critical" ? 1.12 : layout.tier === "burning" ? 0.96 : 0.68;
@@ -1700,9 +1703,6 @@ const EMP_SHAKE_INTENSITY = 14;
 const EMP_SCRUB_TICKS = 7;
 const EMP_GLITCH_TICKS = 12;
 const EMP_ZOOM_TICKS = 10;
-const EMP_RING_SPEED_INITIAL = 40;
-const EMP_RING_SPEED_MID = 25;
-const EMP_RING_SPEED_TAIL = 12;
 const EMP_RING_LAYERS: ReadonlyArray<{
   visualRole: NonNullable<EmpRing["visualRole"]>;
   tint: number;

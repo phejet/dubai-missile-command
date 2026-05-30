@@ -13,10 +13,14 @@ import { TrailBatch } from "./pixi-trails";
 import { DEFAULT_GAMEPLAY_LAUNCHER_SCALE, TITLE_SKYLINE_TOWERS } from "./canvas-render-resources";
 import {
   BURJ_H,
+  BURJ_MAX_HEALTH,
   BURJ_X,
   CANVAS_H,
   CANVAS_W,
   COL,
+  EMP_RING_SPEED_INITIAL,
+  EMP_RING_SPEED_MID,
+  EMP_RING_SPEED_TAIL,
   GAMEPLAY_SCENIC_GROUND_Y,
   GAMEPLAY_SCENIC_LAUNCHER_Y,
   GAMEPLAY_WATERLINE_Y,
@@ -92,6 +96,8 @@ import type {
   TrailPoint,
 } from "./types";
 import { shahed136HasBomb, shahed136HasDive } from "./types";
+
+export { BURJ_MAX_HEALTH };
 
 type PixiScreen = "title" | "playing" | "gameover";
 type TitleThreatKind = "shahed" | "missile";
@@ -388,15 +394,11 @@ const GAMEPLAY_ENEMY_SCALE = 3;
 const GAMEPLAY_PROJECTILE_SCALE = 2;
 const GAMEPLAY_EFFECT_SCALE = 2;
 const GAMEPLAY_PLANE_SCALE = 3;
-export const BURJ_MAX_HEALTH = 7;
 const GAMEPLAY_FLARE_VISUAL_Y = GROUND_Y - BURJ_H * 0.97;
 const GAMEPLAY_EMP_VISUAL_Y = GROUND_Y - BURJ_H * 0.67;
 const EMP_FLASH_WHITE_PROGRESS = 0.04;
 const EMP_FLASH_PURPLE_PROGRESS = 0.1;
 const EMP_FLASH_FADE_PROGRESS = 0.18;
-const EMP_RING_SPEED_INITIAL = 40;
-const EMP_RING_SPEED_MID = 25;
-const EMP_RING_SPEED_TAIL = 12;
 const GAMEOVER_GROUND_Y = 560;
 const GAMEOVER_TOWER_BASE_Y = GAMEOVER_GROUND_Y - 6;
 const GAMEOVER_WATER_TOP = GAMEOVER_GROUND_Y + 18;
