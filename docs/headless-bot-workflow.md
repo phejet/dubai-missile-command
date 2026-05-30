@@ -114,15 +114,11 @@ They can still be useful, but review them before trusting their output.
 
 ## Analysis Helpers
 
-Less-central scripts exist for one-off inspection:
+Less-central scripts live under `src/headless/` for one-off inspection:
 
-- `analyze-hornets.js`
-- `analyze-replay.js`
 - `spawn-analysis-new.ts`
-- `normal-bench-all.json`
-- `spawn-analysis-new.json`
 
-These are analysis artifacts and probes, not part of the gameplay runtime.
+Generated JSON belongs outside the repo root unless it is a committed fixture with an active test or perf consumer.
 
 ## Practical Rules
 
