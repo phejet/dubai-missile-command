@@ -3,10 +3,16 @@ import { runGame } from "./sim-runner.js";
 import { createReplayRunner } from "../replay.js";
 import { buildReplayCheckpoint } from "../replay-debug.js";
 import { setRng } from "../game-logic.js";
+import type { EditorOverrideMap } from "../game-logic.js";
 import type { ReplayAction, ReplayData } from "../types";
+
+const globalWithWindow = globalThis as unknown as { window?: { __editorOverrides?: EditorOverrideMap | null } };
+const originalWindow = globalWithWindow.window;
 
 afterEach(() => {
   setRng(Math.random);
+  if (originalWindow === undefined) delete globalWithWindow.window;
+  else globalWithWindow.window = originalWindow;
 });
 
 /** Helper: replay a recorded game to completion via createReplayRunner */
@@ -36,6 +42,20 @@ function replayToCompletion(seed: number, actions: ReplayAction[], options: Reco
 // ── Determinism ──
 
 describe("runGame determinism", () => {
+  it("rejects editor overrides before deterministic headless runs", () => {
+    globalWithWindow.window = { __editorOverrides: { "particle.debrisDrag": 0.5 } };
+
+    expect(() => runGame(null, { seed: 42, maxTicks: 1 })).toThrow(/Headless simulation cannot run deterministically/);
+  });
+
+  it("rejects editor overrides before deterministic replay runs", () => {
+    globalWithWindow.window = { __editorOverrides: { "particle.debrisDrag": 0.5 } };
+    const rr = createReplayRunner({ seed: 42, actions: [] });
+
+    expect(() => rr.init()).toThrow(/Replay runner cannot run deterministically/);
+    rr.cleanup();
+  });
+
   it("same seed produces identical score, wave, and stats", () => {
     const r1 = runGame(null, { seed: 42, maxTicks: 3000 });
     const r2 = runGame(null, { seed: 42, maxTicks: 3000 });

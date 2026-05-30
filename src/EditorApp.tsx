@@ -29,12 +29,6 @@ import type { GameState, Explosion, Particle } from "./types";
 import "./EditorApp.css";
 import "./UpgradeGraph.css";
 
-declare global {
-  interface Window {
-    __editorOverrides: Record<string, number | boolean | string> | null;
-  }
-}
-
 const UPGRADE_POSITIONS = {
   "upgrade.ironBeam": { x: BURJ_X, y: 959 },
   "upgrade.phalanx1": { x: 553, y: 1498 },

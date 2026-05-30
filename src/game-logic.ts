@@ -322,12 +322,123 @@ export function fireInterceptor(g: GameState, targetX: number, targetY: number, 
   return true;
 }
 
-// Editor override helper — returns override value if editor is active, otherwise fallback
-export function ov<T>(key: string, fallback: T): T {
-  const o =
-    typeof window !== "undefined" &&
-    (window as Window & { __editorOverrides?: Record<string, unknown> }).__editorOverrides;
-  return (o && key in o ? o[key] : fallback) as T;
+export const OVERRIDE_KEY_REGISTRY = {
+  "burjFire.emberAlphaMul": true,
+  "burjFire.emberLife": true,
+  "burjFire.emberRate": true,
+  "burjFire.emberSize": true,
+  "burjFire.flameAlphaMul": true,
+  "burjFire.flameLife": true,
+  "burjFire.flameRate": true,
+  "burjFire.flameSize": true,
+  "burjFire.flameSizeMul": true,
+  "burjFire.flicker": true,
+  "burjFire.hitFlashFlameMul": true,
+  "burjFire.hitFlashSmokeMul": true,
+  "burjFire.hotspotSpread": true,
+  "burjFire.smokeAlphaMul": true,
+  "burjFire.smokeBase": true,
+  "burjFire.smokeDamageMul": true,
+  "burjFire.smokeDrift": true,
+  "burjFire.smokeGrowth": true,
+  "burjFire.smokeLife": true,
+  "burjFire.smokeRate": true,
+  "burjFire.smokeRise": true,
+  "burjFire.smokeRiseDamageBoost": true,
+  "burjFire.smokeSize": true,
+  "burjFire.smokeSizeMul": true,
+  "burjFire.smokeYOffset": true,
+  "explosion.coreAlpha": true,
+  "explosion.coreRadiusMul": true,
+  "explosion.fadeRate": true,
+  "explosion.fireballAlpha": true,
+  "explosion.fireballRadiusMul": true,
+  "explosion.lightIntensity": true,
+  "explosion.lightRadiusMul": true,
+  "explosion.ringExpandRate": true,
+  "explosion.ringFadeRate": true,
+  "explosion.splashIntensity": true,
+  "explosion.splashRadiusMul": true,
+  "flare.drag": true,
+  "flare.ejectSpeed": true,
+  "flare.fanAngle": true,
+  "flare.flareLife": true,
+  "flare.gravity": true,
+  "flare.lureRadius": true,
+  "flare.redirectAOE": true,
+  "flare.redirectCandidates": true,
+  "flare.salvoCountL1": true,
+  "flare.salvoCountL2": true,
+  "flare.salvoDropsL1": true,
+  "flare.salvoDropsL2": true,
+  "flare.salvoSpacingTicksL1": true,
+  "flare.salvoSpacingTicksL2": true,
+  "flare.tickLureRadius": true,
+  "flare.trailLength": true,
+  "particle.debrisCount": true,
+  "particle.debrisDrag": true,
+  "particle.debrisGravity": true,
+  "particle.dotCountHeavy": true,
+  "particle.dotCountLight": true,
+  "particle.sparkCountHeavy": true,
+  "particle.sparkCountLight": true,
+  "particle.sparkDrag": true,
+  "upgrade.emp.x": true,
+  "upgrade.emp.y": true,
+  "upgrade.empRange": true,
+  "upgrade.flares.x": true,
+  "upgrade.flares.y": true,
+  "upgrade.hornetsLeft.x": true,
+  "upgrade.hornetsLeft.y": true,
+  "upgrade.hornetsRight.x": true,
+  "upgrade.hornetsRight.y": true,
+  "upgrade.ironBeam.x": true,
+  "upgrade.ironBeam.y": true,
+  "upgrade.ironBeamRange": true,
+  "upgrade.launcherKit.x": true,
+  "upgrade.launcherKit.y": true,
+  "upgrade.patriot.x": true,
+  "upgrade.patriot.y": true,
+  "upgrade.phalanx1.x": true,
+  "upgrade.phalanx1.y": true,
+  "upgrade.phalanx2.x": true,
+  "upgrade.phalanx2.y": true,
+  "upgrade.phalanx3.x": true,
+  "upgrade.phalanx3.y": true,
+  "upgrade.phalanxRange": true,
+  "upgrade.roadrunner.x": true,
+  "upgrade.roadrunner.y": true,
+} as const satisfies Record<string, true>;
+
+export type OverrideKey = keyof typeof OVERRIDE_KEY_REGISTRY;
+export const OVERRIDE_KEYS = Object.keys(OVERRIDE_KEY_REGISTRY) as OverrideKey[];
+export type EditorOverrideValue = number | boolean | string;
+export type EditorOverrideMap = Partial<Record<OverrideKey, EditorOverrideValue>>;
+
+declare global {
+  interface Window {
+    __editorOverrides?: EditorOverrideMap | null;
+  }
+}
+
+function getEditorOverrides(): EditorOverrideMap | null | undefined {
+  return typeof window !== "undefined" ? window.__editorOverrides : undefined;
+}
+
+export function hasEditorOverrides(): boolean {
+  const overrides = getEditorOverrides();
+  return !!overrides && Object.keys(overrides).length > 0;
+}
+
+export function assertNoEditorOverridesForDeterministicRun(context: string): void {
+  if (!hasEditorOverrides()) return;
+  throw new Error(`${context} cannot run deterministically while window.__editorOverrides is set`);
+}
+
+// Editor override helper — returns override value if editor is active, otherwise fallback.
+export function ov<T>(key: OverrideKey, fallback: T): T {
+  const overrides = getEditorOverrides();
+  return (overrides && key in overrides ? overrides[key] : fallback) as T;
 }
 
 let _explosionId = 0;

@@ -1,4 +1,4 @@
-import { setRng, fireInterceptor } from "./game-logic";
+import { assertNoEditorOverridesForDeterministicRun, setRng, fireInterceptor } from "./game-logic";
 import {
   initGame,
   update,
@@ -45,6 +45,8 @@ export function createReplayRunner(
   }
 
   function init() {
+    assertNoEditorOverridesForDeterministicRun("Replay runner");
+
     if ((replayData.version ?? 1) < 4) {
       onReplayEvent?.("replay_version_warning", {
         version: replayData.version ?? 1,

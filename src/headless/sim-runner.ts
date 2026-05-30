@@ -1,4 +1,4 @@
-import { setRng, fireInterceptor } from "../game-logic";
+import { assertNoEditorOverridesForDeterministicRun, setRng, fireInterceptor } from "../game-logic";
 import {
   initGame,
   update,
@@ -32,6 +32,8 @@ interface RunGameOptions {
 }
 
 export function runGame(botConfig: Record<string, unknown> | null, options: RunGameOptions = {}) {
+  assertNoEditorOverridesForDeterministicRun("Headless simulation");
+
   const config = resolveBotConfig(botConfig || defaultConfig, options.preset);
   const seed = options.seed ?? Date.now();
   const maxTicks = options.maxTicks ?? 100000;

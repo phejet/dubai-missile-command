@@ -25,8 +25,13 @@ import {
   recordThreatDestroyed,
   getDestroyedByTypeDelta,
   getLauncherReloadTicks,
+  ov,
+  OVERRIDE_KEYS,
+  hasEditorOverrides,
+  assertNoEditorOverridesForDeterministicRun,
 } from "./game-logic.js";
 import { createFireChargeState, getFireChargeCount } from "./player-fire-limiter.js";
+import type { EditorOverrideMap } from "./game-logic.js";
 import type { GameState } from "./types.js";
 
 function makeGameState(overrides: Partial<GameState> = {}): GameState {
@@ -50,6 +55,50 @@ function makeGameState(overrides: Partial<GameState> = {}): GameState {
     ...overrides,
   } as GameState;
 }
+
+function assertOverrideKeyTypes(): void {
+  ov("particle.debrisDrag", 0.96);
+  // @ts-expect-error Unknown override keys must not compile.
+  ov("particle.debrisDarg", 0.96);
+}
+
+void assertOverrideKeyTypes;
+
+describe("editor overrides", () => {
+  const globalWithWindow = globalThis as unknown as { window?: { __editorOverrides?: EditorOverrideMap | null } };
+  const originalWindow = globalWithWindow.window;
+
+  afterEach(() => {
+    if (originalWindow === undefined) delete globalWithWindow.window;
+    else globalWithWindow.window = originalWindow;
+  });
+
+  it("registers direct and ternary-hidden override keys", () => {
+    expect(OVERRIDE_KEYS).toHaveLength(85);
+    expect(OVERRIDE_KEYS).toContain("particle.debrisDrag");
+    expect(OVERRIDE_KEYS).toContain("flare.salvoCountL1");
+    expect(OVERRIDE_KEYS).toContain("flare.salvoSpacingTicksL2");
+  });
+
+  it("uses editor override values when present", () => {
+    globalWithWindow.window = { __editorOverrides: { "particle.debrisDrag": 0.5 } };
+
+    expect(ov("particle.debrisDrag", 0.96)).toBe(0.5);
+    expect(ov("particle.sparkDrag", 0.93)).toBe(0.93);
+  });
+
+  it("guards deterministic runs from non-empty editor overrides", () => {
+    globalWithWindow.window = { __editorOverrides: {} };
+    expect(hasEditorOverrides()).toBe(false);
+    expect(() => assertNoEditorOverridesForDeterministicRun("test run")).not.toThrow();
+
+    globalWithWindow.window = { __editorOverrides: { "particle.debrisDrag": 0.5 } };
+    expect(hasEditorOverrides()).toBe(true);
+    expect(() => assertNoEditorOverridesForDeterministicRun("test run")).toThrow(
+      /test run cannot run deterministically/,
+    );
+  });
+});
 
 // ── dist ──
 
