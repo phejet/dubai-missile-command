@@ -1,6 +1,7 @@
 import { CANVAS_H, CANVAS_W } from "./game-logic.js";
 import { PixiRenderer } from "./pixi-render.js";
 import { createReplayRunner } from "./replay.js";
+import { seekRunnerToTick } from "./replay-seek.js";
 import { handleRunRecapReplayEvent } from "./run-recap-replay-events.js";
 import type { ReplayData } from "./types.js";
 
@@ -8,8 +9,6 @@ const CLIP_TICKS = 300;
 const FRAME_MS = 1000 / 30;
 const END_EFFECT_TICKS = 60;
 const END_EFFECT_FRAME_MS = FRAME_MS * 2;
-const SEEK_MAX_STEPS_PER_FRAME = 240;
-const SEEK_FRAME_BUDGET_MS = 7;
 
 type ReplayRunner = ReturnType<typeof createReplayRunner>;
 
@@ -28,16 +27,9 @@ function resumeIfPaused(runner: ReplayRunner): void {
   if (runner.isShopPaused()) runner.resumeFromShop();
 }
 
-function nextAnimationFrame(): Promise<number> {
-  return new Promise((resolve) => {
-    requestAnimationFrame(resolve);
-  });
-}
-
 async function createRunnerAtTick(
   replay: ReplayData,
   startTick: number,
-  finalTick: number,
   shouldCancel: () => boolean,
   onProgress: (tick: number) => void,
   onRunner: (runner: ReplayRunner | null) => void,
@@ -46,35 +38,16 @@ async function createRunnerAtTick(
   runner = createReplayRunner(replay, (type, data) => handleRunRecapReplayEvent(replay, runner, type, data));
   onRunner(runner);
   runner.init();
-  let guard = 0;
-  const guardLimit = finalTick + 10000;
-  while (!runner.isFinished() && runner.getTick() < startTick && guard < guardLimit) {
-    await nextAnimationFrame();
-    if (shouldCancel()) {
-      runner.cleanup();
-      onRunner(null);
-      return null;
-    }
-    const frameStart = performance.now();
-    let frameSteps = 0;
-    while (
-      !runner.isFinished() &&
-      runner.getTick() < startTick &&
-      guard < guardLimit &&
-      frameSteps < SEEK_MAX_STEPS_PER_FRAME &&
-      performance.now() - frameStart < SEEK_FRAME_BUDGET_MS
-    ) {
-      resumeIfPaused(runner);
-      if (!runner.isShopPaused() && !runner.isBonusPaused()) runner.step();
-      guard++;
-      frameSteps++;
-    }
-    onProgress(runner.getTick());
-    if (shouldCancel()) {
-      runner.cleanup();
-      onRunner(null);
-      return null;
-    }
+  const signal = {
+    get cancelled() {
+      return shouldCancel();
+    },
+  };
+  await seekRunnerToTick(runner, startTick, signal, onProgress);
+  if (shouldCancel()) {
+    runner.cleanup();
+    onRunner(null);
+    return null;
   }
   return runner;
 }
@@ -125,7 +98,6 @@ export function mountRunRecapDeathClip(container: HTMLElement, replay: ReplayDat
     const seekPromise = createRunnerAtTick(
       replay,
       startTick,
-      finalTick,
       () => stopped || generation !== currentGeneration,
       (tick) => {
         canvas.dataset.clipSeekTick = String(tick);

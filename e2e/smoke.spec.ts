@@ -182,13 +182,24 @@ test.describe("Smoke tests", () => {
           .evaluate((node) => (node as HTMLCanvasElement).dataset.renderer),
       )
       .toBe("pixi");
+    await expect
+      .poll(async () =>
+        page
+          .locator("#gameover-panel .run-recap__death-canvas")
+          .evaluate((node) => (node as HTMLCanvasElement).dataset.clipStatus),
+      )
+      .not.toBe("seeking");
+    await expect(page.locator("#gameover-panel .run-recap__death-status")).toBeHidden();
 
     await page.getByRole("button", { name: /run recap/i }).click();
     await expect(page.locator("#run-recap-panel")).toBeVisible();
     await expect(page.getByText(/watch how you died/i)).toHaveCount(0);
     await expect(page.locator("#run-recap-panel .run-recap__death-canvas")).toHaveCount(0);
-    await expect(page.getByText(/burj damage/i)).toBeVisible();
-    await expect(page.locator(".run-recap__burj-wave")).toHaveCount(1);
+    await expect(page.getByText(/burj damage/i)).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: /wave history/i })).toBeVisible();
+    await expect(page.locator(".wave-card")).toHaveCount(1);
+    await expect(page.locator(".wave-card--terminal")).toHaveCount(1);
+    await expect(page.getByRole("button", { name: /replay wave 1/i })).toBeEnabled();
     await expect(page.getByRole("heading", { name: /best wave/i })).toBeVisible();
     await expect(page.locator(".run-recap__best-wave")).toBeVisible();
     await expect(page.getByText(/kill distribution/i)).toHaveCount(0);

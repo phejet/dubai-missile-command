@@ -607,15 +607,19 @@
         font-weight: 900;
       }
 
-      .upgrade-row {
-        display: grid;
-        grid-template-columns: 74px minmax(0, 1fr);
-        align-items: start;
+      .preview-wave-card {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         gap: 10px;
         margin-top: 8px;
+        border: 1px solid rgba(109, 217, 255, 0.14);
+        border-radius: 8px;
+        padding: 10px;
+        background: rgba(4, 10, 18, 0.64);
       }
 
-      .upgrade-wave {
+      .preview-wave-title {
         color: var(--cyan);
         font-size: 12px;
         font-weight: 900;
@@ -1036,21 +1040,21 @@
                 </section>
 
                 <section class="section">
-                  <h2 class="section-title">Upgrade Path</h2>
-                  <div class="upgrade-row">
-                    <span class="upgrade-wave">Wave 2</span>
+                  <h2 class="section-title">Wave History</h2>
+                  <div class="preview-wave-card">
+                    <span class="preview-wave-title">Wave 2</span>
                     <div class="chips">
                       <span class="chip">Wild Hornets</span><span class="chip">Rapid Reload</span>
                     </div>
                   </div>
-                  <div class="upgrade-row">
-                    <span class="upgrade-wave">Wave 4</span>
+                  <div class="preview-wave-card">
+                    <span class="preview-wave-title">Wave 4</span>
                     <div class="chips">
                       <span class="chip">Patriot Battery</span><span class="chip">EMP Shockwave</span>
                     </div>
                   </div>
-                  <div class="upgrade-row">
-                    <span class="upgrade-wave">Wave 6</span>
+                  <div class="preview-wave-card">
+                    <span class="preview-wave-title">Wave 6</span>
                     <div class="chips">
                       <span class="chip">Iron Beam</span><span class="chip">Double Magazine</span>
                     </div>

@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   pixiOptions: [] as unknown[],
   renderGameplay: vi.fn(),
   destroyRenderer: vi.fn(),
+  maxTick: Infinity,
 }));
 
 vi.mock("./pixi-render.js", () => ({
@@ -36,13 +37,14 @@ vi.mock("./replay.js", () => ({
     return {
       init: () => state,
       step: () => {
+        if (tick >= mocks.maxTick) return;
         tick++;
         state._replayTick = tick;
         mocks.stepTicks.push(tick);
       },
       getState: () => state,
       getTick: () => tick,
-      isFinished: () => false,
+      isFinished: () => tick >= mocks.maxTick,
       isShopPaused: () => false,
       isBonusPaused: () => false,
       resumeFromShop: vi.fn(),
@@ -71,6 +73,7 @@ describe("run recap death clip", () => {
     mocks.rafCallbacks.length = 0;
     mocks.stepTicks.length = 0;
     mocks.pixiOptions.length = 0;
+    mocks.maxTick = Infinity;
     mocks.renderGameplay.mockClear();
     mocks.destroyRenderer.mockClear();
     vi.stubGlobal(
@@ -102,6 +105,25 @@ describe("run recap death clip", () => {
     expect((container.querySelector(".run-recap__death-canvas") as HTMLCanvasElement).dataset.clipSeekTick).toBe(
       String(mocks.stepTicks[mocks.stepTicks.length - 1]),
     );
+
+    cleanup();
+  });
+
+  it("does not stay stuck preparing when the seek target is unreachable", async () => {
+    mocks.maxTick = 40;
+    const container = document.createElement("div");
+    const replay: ReplayData = { seed: 7, actions: [], finalTick: 1200, isHuman: true };
+
+    const cleanup = mountRunRecapDeathClip(container, replay);
+    await flushTasks();
+
+    runNextRaf();
+    await flushTasks();
+
+    const canvas = container.querySelector(".run-recap__death-canvas") as HTMLCanvasElement;
+    expect(canvas.dataset.clipStatus).toBe("playing");
+    expect(container.querySelector(".run-recap__death-status")).toHaveProperty("hidden", true);
+    expect(mocks.renderGameplay).toHaveBeenCalled();
 
     cleanup();
   });

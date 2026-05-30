@@ -322,6 +322,24 @@
   display: none;
 }
 
+.replay-seek-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  background: rgba(2, 6, 14, 0.72);
+  color: #effcff;
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  pointer-events: auto;
+}
+
+.replay-seek-overlay[hidden] {
+  display: none;
+}
+
 .battlefield-card--portraitSky .game-canvas {
   position: relative;
   inset: auto;
@@ -1541,7 +1559,6 @@
 }
 
 .run-recap__legend,
-.run-recap__upgrade-chips,
 .run-recap__wave-detail {
   display: flex;
   flex-wrap: wrap;
@@ -1567,12 +1584,6 @@
   background: var(--segment-color);
 }
 
-.run-recap__upgrade-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
 .run-recap__best-wave {
   border: 1px solid rgba(0, 255, 200, 0.18);
   border-radius: 12px;
@@ -1593,40 +1604,97 @@
   font-size: 13px;
 }
 
-.run-recap__burj-track {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(48px, 1fr));
-  gap: 6px;
+.wave-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.run-recap__burj-wave {
-  border: 1px solid rgba(109, 217, 255, 0.12);
-  border-radius: 10px;
-  background: rgba(4, 10, 18, 0.58);
-  padding: 7px 6px;
-  display: grid;
-  gap: 5px;
+.wave-card {
+  border: 1px solid rgba(109, 217, 255, 0.14);
+  border-left-width: 1px;
+  border-radius: 8px;
+  background: rgba(4, 10, 18, 0.64);
+  padding: 10px 11px;
 }
 
-.run-recap__burj-wave--terminal {
-  border-color: rgba(255, 170, 0, 0.34);
+.wave-card--terminal {
+  border-left: 3px solid rgba(255, 96, 96, 0.68);
+  background: linear-gradient(90deg, rgba(255, 68, 68, 0.1), rgba(4, 10, 18, 0.66) 46%);
 }
 
-.run-recap__burj-wave span {
-  color: #8ea8b8;
-  font-size: 10px;
-  font-weight: 700;
+.wave-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.run-recap__burj-wave strong {
+.wave-card__main,
+.wave-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.wave-card__main strong {
+  flex: 0 0 auto;
   color: #effcff;
-  font-size: 13px;
+  font-size: 14px;
 }
 
-.run-recap__burj-wave i {
-  height: 6px;
+.wave-card__score {
+  color: #effcff;
+  white-space: nowrap;
+}
+
+.wave-card__outcome {
+  flex: 0 0 auto;
+  border: 1px solid rgba(0, 255, 200, 0.22);
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(255, 68, 68, 0.9) 0 var(--lost-percent), rgba(0, 255, 200, 0.42) 0);
+  background: rgba(0, 255, 200, 0.08);
+  color: #bfffee;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.wave-card__outcome--danger {
+  border-color: rgba(255, 96, 96, 0.34);
+  background: rgba(255, 68, 68, 0.12);
+  color: #ffd6d6;
+}
+
+.wave-card__replay {
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid rgba(109, 217, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(109, 217, 255, 0.08);
+  color: #effcff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.wave-card__replay:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.wave-card__bought {
+  margin-top: 5px;
+  color: #a9c2d0;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.wave-card__bought span {
+  color: #8ea8b8;
+  font-weight: 800;
 }
 
 .run-recap__focus-grid {
@@ -1730,8 +1798,7 @@
   font-size: 12px;
 }
 
-.run-recap__wave-score,
-.run-recap__upgrade-wave {
+.run-recap__wave-score {
   color: #00ffc8;
   font-size: 12px;
   font-weight: 700;
@@ -1752,22 +1819,6 @@
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-}
-
-.run-recap__upgrade-entry {
-  display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
-  gap: 10px;
-  align-items: start;
-}
-
-.run-recap__upgrade-chip {
-  border: 1px solid rgba(0, 255, 200, 0.22);
-  border-radius: 999px;
-  padding: 6px 9px;
-  color: #effcff;
-  background: rgba(0, 255, 200, 0.08);
-  font-size: 12px;
 }
 
 .run-recap__death-clip,

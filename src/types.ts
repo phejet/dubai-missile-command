@@ -551,6 +551,21 @@ export interface UpgradeTimelineEntry {
   bought: string[];
 }
 
+export interface RunRecapWaveCard {
+  wave: number;
+  scoreEarned: number;
+  missileKills: number;
+  droneKills: number;
+  multiShots: number;
+  maxCombo: number;
+  buildingsSurviving: number;
+  burjHealth: number;
+  startTick: number;
+  endTick: number;
+  terminal: boolean;
+  bought: string[];
+}
+
 export interface RunRecapData {
   score: number;
   wave: number;
@@ -560,6 +575,7 @@ export interface RunRecapData {
   outcome: OutcomeCause;
   totalStats: GameStats;
   waves: WaveSummaryRecord[];
+  waveCards: RunRecapWaveCard[];
   upgrades: UpgradeTimelineEntry[];
   hasReplay: boolean;
   replayId?: string;
@@ -698,16 +714,7 @@ export interface GameState {
 
   // Replay / recording runtime fields
   _gameSeed?: number;
-  _actionLog?: Array<{
-    tick: number;
-    type: string;
-    x?: number;
-    y?: number;
-    bought?: string[];
-    wave?: number;
-    /** Deprecated replay compatibility field; ignored by the current fire model. */
-    ignoreLauncherReload?: boolean;
-  }>;
+  _actionLog?: ReplayAction[];
   _replayCheckpoints?: ReplayCheckpoint[];
   _replayCheckpointLastTick?: number;
   _replayCheckpointLastHash?: string | null;

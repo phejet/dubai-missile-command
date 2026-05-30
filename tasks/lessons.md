@@ -2,6 +2,9 @@
 
 ## 2026-05-23
 
+- Shared helpers can expose failure honestly, but callers still need domain-specific fallback behavior. Death clips should render the best available replay state when seek misses; full replay buttons should abort.
+- When a replay seek target is unreachable, abort the transition and restore a stable screen instead of warning and continuing into a flicker. A logged shrug is not control flow.
+- For replay boundary markers, prefer first-marker-wins semantics unless the marker represents an update. Wave-start metadata should identify the actual start, not the most recent duplicate.
 - When asked to show a best replay, report the concrete replay result first (seed, wave, score, action count) before opening or replaying anything. Do not make the user wait through setup narration for the number they asked for.
 - If a watched replay result differs from the recorder result, run the saved file through `createReplayRunner` headlessly before trying another browser viewing path. Separate replay-data validity from realtime playback failure first.
 - For replay bugs, distinguish local symptom recovery from full replay convergence. If the acceptance question is convergence, compare final wave/score/stats, not just the first previously stuck action stream.

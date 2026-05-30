@@ -18,6 +18,7 @@ import {
   type DestroyedByTypeStats,
   type GameStats,
   type RunRecapData,
+  type RunRecapWaveCard,
   type ShopEntry,
 } from "./types";
 import type { UpgradeNodeId, UpgradeProgressionState } from "./types";
@@ -59,6 +60,7 @@ export interface RunRecapCallbacks {
   onClose: () => void;
   onSaveReplay: () => void | Promise<void>;
   onWatchFullReplay: () => void;
+  onWatchFromWave?: (startTick: number) => void;
 }
 
 export interface TransientOverlaySnapshot {
@@ -776,60 +778,20 @@ function renderRunRecapHero(data: RunRecapData): string {
     </div>`;
 }
 
-interface RunRecapWaveStory {
-  wave: number;
-  scoreEarned: number;
-  missileKills: number;
-  droneKills: number;
-  multiShots: number;
-  maxCombo: number;
-  buildingsSurviving: number;
-  burjHealth: number;
-  terminal: boolean;
-}
-
-function buildWaveStory(data: RunRecapData): RunRecapWaveStory[] {
-  const completedScore = data.waves.reduce((sum, wave) => sum + wave.scoreEarned, 0);
-  const completedMissileKills = data.waves.reduce((sum, wave) => sum + wave.missileKills, 0);
-  const completedDroneKills = data.waves.reduce((sum, wave) => sum + wave.droneKills, 0);
-  const lastCompletedWave = data.waves.length > 0 ? data.waves[data.waves.length - 1].wave : 0;
-  const terminalWave =
-    data.wave > lastCompletedWave
-      ? [
-          {
-            wave: data.wave,
-            scoreEarned: Math.max(0, data.score - completedScore),
-            missileKills: Math.max(0, data.totalStats.missileKills - completedMissileKills),
-            droneKills: Math.max(0, data.totalStats.droneKills - completedDroneKills),
-            multiShots: 0,
-            maxCombo: data.totalStats.maxCombo,
-            buildingsSurviving: 0,
-            burjHealth: data.burjHealth,
-            terminal: true,
-          },
-        ]
-      : [];
-  return [...data.waves.map((wave) => ({ ...wave, terminal: false })), ...terminalWave];
-}
-
 function formatWaveScore(score: number): string {
   return `+${score.toLocaleString()} score`;
 }
 
-function formatWaveKills(wave: RunRecapWaveStory): string {
+function formatWaveKills(wave: RunRecapWaveCard): string {
   const totalKills = wave.missileKills + wave.droneKills;
   return `${totalKills} ${totalKills === 1 ? "kill" : "kills"}`;
 }
 
 function renderBestWave(data: RunRecapData): string {
-  const waves = buildWaveStory(data);
+  const waves = data.waveCards;
   if (waves.length === 0) return `<div class="run-recap__empty">No wave data recorded.</div>`;
   const bestWave = [...waves].sort((a, b) => b.scoreEarned - a.scoreEarned)[0];
-  const upgrades = data.upgrades
-    .filter((entry) => entry.wave === bestWave.wave)
-    .flatMap((entry) => entry.bought)
-    .map((key) => `<span>${escapeHtml(getPurchaseDisplayName(key))}</span>`)
-    .join("");
+  const upgrades = bestWave.bought.map((key) => `<span>${escapeHtml(getPurchaseDisplayName(key))}</span>`).join("");
   return `
     <div class="run-recap__best-wave">
       <div>
@@ -841,47 +803,34 @@ function renderBestWave(data: RunRecapData): string {
     </div>`;
 }
 
-function renderBurjDamageTrack(data: RunRecapData): string {
-  const waves = buildWaveStory(data);
-  if (waves.length === 0) return `<div class="run-recap__empty">No wave data recorded.</div>`;
+function renderWaveCards(data: RunRecapData): string {
+  if (data.waveCards.length === 0) return `<div class="run-recap__empty">No wave data recorded.</div>`;
   return `
-    <div class="run-recap__burj-track" aria-label="Burj health over waves">
-      ${waves
-        .map((wave) => {
-          const health = Math.max(0, Math.min(7, wave.burjHealth));
-          const lostPercent = Math.round(((7 - health) / 7) * 100);
-          const label = `${wave.terminal ? "Final wave" : `Wave ${wave.wave}`}: Burj ${health}/7 HP`;
+    <div class="wave-card-list" aria-label="Wave history">
+      ${data.waveCards
+        .map((card) => {
+          const hasAnchor = Number.isFinite(card.startTick) && card.startTick >= 0;
+          const replayDisabled = !data.hasReplay || !hasAnchor;
+          const outcome =
+            card.terminal && data.outcome === "burj_destroyed" ? "Burj Fell" : card.terminal ? "Ended" : "Survived";
+          const bought = card.bought.map((key) => escapeHtml(getPurchaseDisplayName(key))).join(" · ");
           return `
-            <div class="run-recap__burj-wave ${wave.terminal ? "run-recap__burj-wave--terminal" : ""}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">
-              <span>W${wave.wave}</span>
-              <strong>${health}/7</strong>
-              <i style="--lost-percent: ${lostPercent}%"></i>
-            </div>`;
-        })
-        .join("")}
-    </div>`;
-}
-
-function renderUpgradeTimeline(data: RunRecapData): string {
-  if (data.upgrades.length === 0) {
-    return `<div class="run-recap__empty">No upgrades purchased.</div>`;
-  }
-  return `
-    <div class="run-recap__upgrade-list">
-      ${data.upgrades
-        .map(
-          (entry) => `
-            <div class="run-recap__upgrade-entry">
-              <span class="run-recap__upgrade-wave">Wave ${entry.wave}</span>
-              <div class="run-recap__upgrade-chips">
-                ${entry.bought
-                  .map(
-                    (key) => `<span class="run-recap__upgrade-chip">${escapeHtml(getPurchaseDisplayName(key))}</span>`,
-                  )
-                  .join("")}
+            <article class="wave-card ${card.terminal ? "wave-card--terminal" : ""}">
+              <div class="wave-card__head">
+                <div class="wave-card__main">
+                  <strong>Wave ${card.wave}</strong>
+                  <span class="wave-card__score">${escapeHtml(formatWaveScore(card.scoreEarned))}</span>
+                </div>
+                <div class="wave-card__actions">
+                  <span class="wave-card__outcome ${card.terminal ? "wave-card__outcome--danger" : ""}">${escapeHtml(outcome)}</span>
+                  <button type="button" class="wave-card__replay" data-wave-replay data-start-tick="${card.startTick}" aria-label="Replay Wave ${card.wave}" ${replayDisabled ? "disabled" : ""}>
+                    Replay
+                  </button>
+                </div>
               </div>
-            </div>`,
-        )
+              ${bought ? `<div class="wave-card__bought"><span>Bought:</span> ${bought}</div>` : ""}
+            </article>`;
+        })
         .join("")}
     </div>`;
 }
@@ -912,16 +861,12 @@ export function showRunRecap(data: RunRecapData, callbacks: RunRecapCallbacks): 
       </div>
       ${renderRunRecapHero(data)}
       <section class="run-recap__section">
-        <h3 class="run-recap__section-title">Burj Damage</h3>
-        ${renderBurjDamageTrack(data)}
-      </section>
-      <section class="run-recap__section">
         <h3 class="run-recap__section-title">Best Wave</h3>
         ${renderBestWave(data)}
       </section>
       <section class="run-recap__section">
-        <h3 class="run-recap__section-title">Upgrade Path</h3>
-        ${renderUpgradeTimeline(data)}
+        <h3 class="run-recap__section-title">Wave History</h3>
+        ${renderWaveCards(data)}
       </section>
       ${renderRunRecapActions(data)}
     </div>`;
@@ -931,6 +876,11 @@ export function showRunRecap(data: RunRecapData, callbacks: RunRecapCallbacks): 
     if (target.closest("[data-run-recap-close]")) callbacks.onClose();
     else if (target.closest("[data-run-recap-watch]")) callbacks.onWatchFullReplay();
     else if (target.closest("[data-run-recap-save]")) void callbacks.onSaveReplay();
+    else {
+      const button = target.closest<HTMLButtonElement>("[data-wave-replay]");
+      const startTick = Number(button?.dataset.startTick);
+      if (button && Number.isFinite(startTick)) callbacks.onWatchFromWave?.(startTick);
+    }
   };
   container.addEventListener("click", handleClick);
   runRecapCleanup = () => {
