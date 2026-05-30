@@ -1,5 +1,9 @@
 # Lessons
 
+## 2026-05-30
+
+- Before handing over editor/dev URLs, verify the route in a browser and check the bind address. `localhost` can resolve differently than `127.0.0.1`; a Vite server listening only on `[::1]` is a trap wearing a helpful URL badge.
+
 ## 2026-05-23
 
 - Shared helpers can expose failure honestly, but callers still need domain-specific fallback behavior. Death clips should render the best available replay state when seek misses; full replay buttons should abort.

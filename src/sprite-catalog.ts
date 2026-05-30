@@ -9,7 +9,12 @@ import {
 } from "./canvas-render-resources";
 import { collectBurjFireTextureCanvases } from "./burj-fire-textures";
 import { GAMEPLAY_SCENIC_GROUND_Y, GROUND_Y } from "./game-logic";
-import { BURJ_SMOKE_PARTICLE_ASSETS, createSmokeParticleAssetCanvas } from "./smoke-particle-assets";
+import {
+  BURJ_SMOKE_PARTICLE_ASSETS,
+  EXPLOSION_PARTICLE_ASSETS,
+  WHITE_SMOKE_PARTICLE_ASSETS,
+  createSmokeParticleAssetCanvas,
+} from "./smoke-particle-assets";
 import type { StaticSpriteAsset } from "./art-render";
 
 const STARTUP_TITLE_GROUND_Y = GROUND_Y - 100;
@@ -234,6 +239,16 @@ export function collectStartupSpriteCatalog(
     const canvas = createSmokeParticleAssetCanvas(asset);
     if (!canvas) continue;
     addCanvas(items, "effects", `effect:burj-smoke:${asset.id}`, asset.label, canvas, "Kenney CC0 source PNG");
+  }
+  for (const asset of WHITE_SMOKE_PARTICLE_ASSETS) {
+    const canvas = createSmokeParticleAssetCanvas(asset);
+    if (!canvas) continue;
+    addCanvas(items, "effects", `effect:interceptor-smoke:${asset.id}`, asset.label, canvas, "Kenney CC0 source PNG");
+  }
+  for (const asset of EXPLOSION_PARTICLE_ASSETS) {
+    const canvas = createSmokeParticleAssetCanvas(asset);
+    if (!canvas) continue;
+    addCanvas(items, "effects", `effect:threat-explosion:${asset.id}`, asset.label, canvas, "Kenney CC0 source PNG");
   }
 
   const groups = new Map<SpriteCatalogGroupId, SpriteCatalogItem[]>();

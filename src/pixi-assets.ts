@@ -1,5 +1,5 @@
 import { Assets, type Texture } from "pixi.js";
-import { BURJ_SMOKE_PARTICLE_ASSETS, type BurjSmokeParticleVariantId } from "./smoke-particle-assets";
+import { TEXTURED_PARTICLE_ASSETS, type TexturedParticleVariantId } from "./smoke-particle-assets";
 
 export const PIXI_PNG_ASSET_KEYS = {
   skyNebula: "skyNebula",
@@ -45,7 +45,7 @@ const PIXI_PNG_BUNDLES: Record<PixiPngBundleName, PixiPngAssetKey[]> = {
 const loadedAssets: PixiPngAssetMap = {};
 let bundlesRegistered = false;
 let smokeParticleBundleRegistered = false;
-let smokeParticleTextures: Partial<Record<BurjSmokeParticleVariantId, Texture>> = {};
+let smokeParticleTextures: Partial<Record<TexturedParticleVariantId, Texture>> = {};
 
 function bundleId(bundleName: PixiPngBundleName): string {
   return `dmc:${bundleName}:pngs`;
@@ -71,16 +71,16 @@ export function registerPixiPngAssetBundles(): void {
   bundlesRegistered = true;
 }
 
-function smokeParticleBundleAlias(id: BurjSmokeParticleVariantId): string {
-  return `dmc:gameplay:burjSmoke:${id}`;
+function smokeParticleBundleAlias(id: TexturedParticleVariantId): string {
+  return `dmc:gameplay:texturedParticle:${id}`;
 }
 
 export function registerPixiSmokeParticleBundle(): void {
   if (smokeParticleBundleRegistered) return;
 
   Assets.addBundle(
-    "dmc:gameplay:burj-smoke-particles",
-    BURJ_SMOKE_PARTICLE_ASSETS.map((asset) => ({
+    "dmc:gameplay:textured-particles",
+    TEXTURED_PARTICLE_ASSETS.map((asset) => ({
       alias: smokeParticleBundleAlias(asset.id),
       src: asset.src,
     })),
@@ -111,12 +111,12 @@ export async function loadPixiPngBundles(bundleNames: PixiPngBundleName[]): Prom
   return loaded;
 }
 
-export async function loadPixiSmokeParticleTextures(): Promise<Partial<Record<BurjSmokeParticleVariantId, Texture>>> {
+export async function loadPixiSmokeParticleTextures(): Promise<Partial<Record<TexturedParticleVariantId, Texture>>> {
   registerPixiSmokeParticleBundle();
-  const loaded = (await Assets.loadBundle("dmc:gameplay:burj-smoke-particles")) as Record<string, Texture>;
-  const textures: Partial<Record<BurjSmokeParticleVariantId, Texture>> = {};
+  const loaded = (await Assets.loadBundle("dmc:gameplay:textured-particles")) as Record<string, Texture>;
+  const textures: Partial<Record<TexturedParticleVariantId, Texture>> = {};
 
-  for (const asset of BURJ_SMOKE_PARTICLE_ASSETS) {
+  for (const asset of TEXTURED_PARTICLE_ASSETS) {
     const texture = loaded[smokeParticleBundleAlias(asset.id)];
     if (!texture) continue;
     textures[asset.id] = texture;
@@ -126,7 +126,7 @@ export async function loadPixiSmokeParticleTextures(): Promise<Partial<Record<Bu
   return textures;
 }
 
-export function getPixiSmokeParticleTexture(id: BurjSmokeParticleVariantId): Texture | undefined {
+export function getPixiSmokeParticleTexture(id: TexturedParticleVariantId): Texture | undefined {
   return smokeParticleTextures[id];
 }
 

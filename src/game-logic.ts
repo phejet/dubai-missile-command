@@ -12,6 +12,7 @@ import {
   type GameStats,
 } from "./types";
 import { getFireChargeCount, spendFireCharge, syncFireChargeState } from "./player-fire-limiter";
+import { getExplosionParticleVariantId, getWhiteSmokeParticleVariantId } from "./smoke-particle-assets";
 
 export const CANVAS_W = 900;
 export const CANVAS_H = 1600;
@@ -374,14 +375,62 @@ export function createExplosion(
   const heavy = !playerCaused; // threat explosions get more/bigger particles
   // Large blasts (e.g. Patriot, big chains) get proportionally more particles so they don't look thin
   const radiusScale = Math.min(2, Math.max(1, radius / 56));
-  // Dot particles (smoke puffs)
+  // Dot particles / interceptor smoke puffs
   const dotCount = Math.min(
     Math.round((heavy ? ov("particle.dotCountHeavy", 10) : ov("particle.dotCountLight", 6)) * radiusScale),
     budget,
   );
+  const interceptorSmoke = playerCaused && !options.chain;
+  const droneExplosionPuffs = options.visualType === "drone";
   for (let i = 0; i < dotCount; i++) {
     const angle = rand(0, Math.PI * 2);
     const sp = rand(1, heavy ? 6 : 4);
+    if (droneExplosionPuffs) {
+      const life = rand(20, heavy ? 70 : 50);
+      const puffRoll = _rng();
+      const sizeSeed = rand(heavy ? 2 : 1, heavy ? 5 : 3);
+      const sizeT = heavy ? (sizeSeed - 2) / 3 : (sizeSeed - 1) / 2;
+      g.particles.push({
+        x,
+        y,
+        vx: Math.cos(angle) * sp * 0.72,
+        vy: Math.sin(angle) * sp * 0.72 - (0.2 + puffRoll * 0.65),
+        life,
+        maxLife: heavy ? 70 : 50,
+        color: color || "#ff8800",
+        size: (heavy ? 5.4 : 4.2) + sizeT * (heavy ? 5.2 : 3.4),
+        type: "explosionPuff",
+        angle: angle + puffRoll * Math.PI,
+        spin: (sizeT - 0.5) * 0.11,
+        gravity: 0.015,
+        drag: 0.965,
+        textureVariant: getExplosionParticleVariantId(id * 11 + i),
+      });
+      continue;
+    }
+    if (interceptorSmoke) {
+      const life = rand(20, 50);
+      const puffRoll = _rng();
+      const sizeSeed = rand(1, 3);
+      const sizeT = (sizeSeed - 1) / 2;
+      g.particles.push({
+        x,
+        y,
+        vx: Math.cos(angle) * sp * 0.55,
+        vy: Math.sin(angle) * sp * 0.55 - (0.35 + puffRoll * 0.8),
+        life,
+        maxLife: 50,
+        color: color || COL.interceptor,
+        size: 4.2 + sizeT * 3.2,
+        type: "smokePuff",
+        angle: angle + puffRoll * Math.PI,
+        spin: (sizeT - 0.5) * 0.07,
+        gravity: -0.008,
+        drag: 0.975,
+        textureVariant: getWhiteSmokeParticleVariantId(id * 17 + i),
+      });
+      continue;
+    }
     g.particles.push({
       x,
       y,

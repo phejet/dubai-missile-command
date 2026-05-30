@@ -339,6 +339,46 @@ describe("createExplosion", () => {
     createExplosion(g, 100, 200, 30, "#ff0000");
     expect(g.particles).toHaveLength(40);
   });
+
+  it("uses textured white smoke puffs for interceptor explosions", () => {
+    const g = makeGameState();
+    createExplosion(g, 100, 200, 30, COL.interceptor, true);
+
+    const smoke = g.particles.filter((particle) => particle.type === "smokePuff");
+
+    expect(smoke).toHaveLength(6);
+    expect(smoke.every((particle) => particle.textureVariant?.startsWith("whitePuff"))).toBe(true);
+    expect(smoke.every((particle) => particle.color === COL.interceptor)).toBe(true);
+    expect(g.particles.some((particle) => particle.type === "debris")).toBe(false);
+  });
+
+  it("keeps interceptor explosion particle RNG budget aligned with the old dot path", () => {
+    const g = makeGameState();
+    let calls = 0;
+    setRng(() => {
+      calls += 1;
+      return 0.5;
+    });
+
+    try {
+      createExplosion(g, 100, 200, 30, COL.interceptor, true);
+      expect(calls).toBe(70);
+    } finally {
+      setRng(Math.random);
+    }
+  });
+
+  it("uses textured explosion puffs for drone death explosions", () => {
+    const g = makeGameState();
+    createExplosion(g, 100, 200, 30, "#ff8800", false, 0, { visualType: "drone" });
+
+    const explosionPuffs = g.particles.filter((particle) => particle.type === "explosionPuff");
+
+    expect(explosionPuffs).toHaveLength(10);
+    expect(explosionPuffs.every((particle) => particle.textureVariant?.startsWith("explosion"))).toBe(true);
+    expect(explosionPuffs.every((particle) => particle.color === "#ff8800")).toBe(true);
+    expect(g.particles.filter((particle) => particle.type === "debris")).toHaveLength(16);
+  });
 });
 
 describe("computeShahed238Path", () => {

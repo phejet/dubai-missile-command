@@ -177,7 +177,7 @@ export interface Particle {
   maxLife: number;
   color: string;
   size: number;
-  type?: "debris" | "spark" | "fireFlame" | "fireEmber" | "fireSmoke";
+  type?: "debris" | "spark" | "fireFlame" | "fireEmber" | "fireSmoke" | "smokePuff" | "explosionPuff";
   angle?: number;
   spin?: number;
   gravity?: number;

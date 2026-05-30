@@ -59,7 +59,7 @@ import {
   type BurjFireEmberVariantId,
   type BurjFireFlameVariantId,
 } from "./burj-fire-textures";
-import { getBurjSmokeParticleAsset, type BurjSmokeParticleVariantId } from "./smoke-particle-assets";
+import { getTexturedParticleAsset, type TexturedParticleVariantId } from "./smoke-particle-assets";
 import { UPGRADE_FAMILIES } from "./game-sim-upgrades";
 import {
   createPixiTextureResources,
@@ -302,7 +302,7 @@ interface BurjFireParticleSystem {
   flameCoreTextures: Partial<Record<BurjFireCoreVariantId, Texture>>;
   emberTextures: Partial<Record<BurjFireEmberVariantId, Texture>>;
   smokeTexture: Texture;
-  smokeTextures: Partial<Record<BurjSmokeParticleVariantId, Texture>>;
+  smokeTextures: Partial<Record<TexturedParticleVariantId, Texture>>;
 }
 
 interface GameplayDynamicState {
@@ -766,7 +766,7 @@ function getBurjSmokeParticleTexture(): Texture {
 }
 
 function createBurjFireParticleSystem(
-  smokeTextures: Partial<Record<BurjSmokeParticleVariantId, Texture>> = {},
+  smokeTextures: Partial<Record<TexturedParticleVariantId, Texture>> = {},
 ): BurjFireParticleSystem {
   const flameTexture = getBurjFireParticleTexture();
   const flameCoreTexture = getBurjFireCoreTexture();
@@ -1397,9 +1397,9 @@ export class PixiRenderer implements GameRenderer {
   private readonly textures: PixiTextureResources;
   private readonly ready: Promise<void>;
   private readonly pngsPromise: Promise<PixiPngAssetMap>;
-  private readonly smokeParticleTexturesPromise: Promise<Partial<Record<BurjSmokeParticleVariantId, Texture>>>;
+  private readonly smokeParticleTexturesPromise: Promise<Partial<Record<TexturedParticleVariantId, Texture>>>;
   private pngs: PixiPngAssetMap = {};
-  private smokeParticleTextures: Partial<Record<BurjSmokeParticleVariantId, Texture>> = {};
+  private smokeParticleTextures: Partial<Record<TexturedParticleVariantId, Texture>> = {};
   private titleState: TitleSceneState | null = null;
   private gameplayState: GameplaySceneState | null = null;
   private gameOverState: GameOverSceneState | null = null;
@@ -3867,7 +3867,13 @@ export class PixiRenderer implements GameRenderer {
   private updateGameplayParticles(state: GameplayDynamicState, game: GameState, interpolationAlpha = 1): void {
     let used = 0;
     for (const particle of game.particles) {
-      if (particle.type === "fireFlame" || particle.type === "fireEmber" || particle.type === "fireSmoke") {
+      if (
+        particle.type === "fireFlame" ||
+        particle.type === "fireEmber" ||
+        particle.type === "fireSmoke" ||
+        particle.type === "smokePuff" ||
+        particle.type === "explosionPuff"
+      ) {
         continue;
       }
       const pos = getRenderPosition(particle, interpolationAlpha);
@@ -3928,27 +3934,40 @@ export class PixiRenderer implements GameRenderer {
 
     for (const particle of game.particles) {
       const type = particle.type;
-      if (type !== "fireFlame" && type !== "fireEmber" && type !== "fireSmoke") continue;
+      if (
+        type !== "fireFlame" &&
+        type !== "fireEmber" &&
+        type !== "fireSmoke" &&
+        type !== "smokePuff" &&
+        type !== "explosionPuff"
+      )
+        continue;
 
       const pos = getRenderPosition(particle, interpolationAlpha);
       const lifeT = particle.maxLife > 0 ? Math.max(0, Math.min(1, particle.life / particle.maxLife)) : 0;
 
-      if (type === "fireSmoke") {
-        const variant = getBurjSmokeParticleAsset(particle.textureVariant);
-        const texture = system.smokeTextures[variant.id as BurjSmokeParticleVariantId] ?? system.smokeTexture;
+      if (type === "fireSmoke" || type === "smokePuff" || type === "explosionPuff") {
+        const variant = getTexturedParticleAsset(particle.textureVariant);
+        const texture = system.smokeTextures[variant.id as TexturedParticleVariantId] ?? system.smokeTexture;
         const particleNode = ensureParticle(system.smokePool, system.smokeContainer, smokeCount++, texture);
         const ageT = 1 - lifeT;
         const fadeIn = Math.min(1, ageT * 6);
         const alphaCurve = Math.min(fadeIn, Math.pow(lifeT, 0.65));
-        const targetSize = particle.size * 4 * (0.9 + ageT * smokeGrowth) * smokeSizeMul;
+        const smokePuff = type === "smokePuff";
+        const explosionPuff = type === "explosionPuff";
+        const targetSize = smokePuff
+          ? particle.size * 5.2 * (0.75 + ageT * 1.35)
+          : explosionPuff
+            ? particle.size * 6.6 * (0.7 + ageT * 1.1)
+            : particle.size * 4 * (0.9 + ageT * smokeGrowth) * smokeSizeMul;
         const scale = targetSize / Math.max(texture.width, texture.height, 1);
         particleNode.x = pos.x;
         particleNode.y = pos.y;
         particleNode.scaleX = scale;
         particleNode.scaleY = scale;
         particleNode.rotation = particle.angle ?? 0;
-        particleNode.alpha = alphaCurve * smokeAlphaMul;
-        particleNode.tint = memoCssColorToNumber(particle.color, 0x7a7a7e);
+        particleNode.alpha = alphaCurve * (smokePuff ? 0.46 : explosionPuff ? 0.74 : smokeAlphaMul);
+        particleNode.tint = memoCssColorToNumber(particle.color, smokePuff ? 0xc8f0ff : 0x7a7a7e);
       } else if (type === "fireEmber") {
         const texture = system.emberTextures[particle.textureVariant as BurjFireEmberVariantId] ?? system.emberTexture;
         const particleNode = ensureParticle(system.emberPool, system.emberContainer, emberCount++, texture);
