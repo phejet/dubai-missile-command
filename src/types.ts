@@ -585,16 +585,20 @@ export interface RunRecapData {
 
 export type GamePhase = "playing" | "shop" | "gameover" | "title";
 
-export interface GameState {
+/*
+ * GameState bucket audit:
+ * - SimState: deterministic gameplay state plus sim-owned wave/shop/bonus bookkeeping.
+ * - RuntimeState: renderer, editor, HUD, RAF, browser audio, and bot-controller scratch fields.
+ * - ReplayState: recording/playback fields and replay-only UI toast/timers.
+ *
+ * The runtime object is still one object. This split only documents ownership for the type system;
+ * field optionality and initialization are intentionally unchanged.
+ */
+
+export interface SimState {
   _debugMode: boolean;
-  _showColliders: boolean;
-  _editorMode?: boolean;
-  _showUpgradeRanges?: boolean;
   _debugUpgradeForceShowFamilies?: UpgradeKey[];
   _draftMode?: boolean;
-  _replayTick?: number;
-  _replayShopBought?: string[];
-  _botHumanState?: BotHumanState;
 
   state: GamePhase;
   score: number;
@@ -604,8 +608,6 @@ export interface GameState {
   ammo: [number, number];
   launcherHP: [number, number];
   fireChargeState: FireChargeState;
-  // Render-only muzzle flash timestamps. Gameplay fire rate lives in fireChargeState.
-  launcherFireTick: [number, number];
 
   missiles: Missile[];
   drones: Drone[];
@@ -646,8 +648,6 @@ export interface GameState {
   burjInvulnTimer: number;
 
   waveComplete: boolean;
-  crosshairX: number;
-  crosshairY: number;
   time: number;
   shakeTimer: number;
   shakeIntensity: number;
@@ -694,8 +694,6 @@ export interface GameState {
   draftOffers?: string[];
   draftPicks?: number;
 
-  // Internal runtime fields (not persisted)
-  _laserHandle?: { stop(): void } | null;
   gameOverTimer?: number;
   waveClearedTimer?: number;
   shopOpened?: boolean;
@@ -711,8 +709,40 @@ export interface GameState {
   _waveStartTick?: number;
   _waveSummaries?: WaveSummaryRecord[];
   _waveSummaryRecorded?: boolean;
+}
 
-  // Replay / recording runtime fields
+export interface RuntimeState {
+  _showColliders: boolean;
+  _editorMode?: boolean;
+  _showUpgradeRanges?: boolean;
+  _botHumanState?: BotHumanState;
+
+  crosshairX: number;
+  crosshairY: number;
+
+  // Render-only muzzle flash timestamps. Gameplay fire rate lives in fireChargeState.
+  launcherFireTick: [number, number];
+
+  // Runtime-only audio handles.
+  _laserHandle?: { stop(): void } | null;
+  _browserLaserHandle?: { stop(): void } | null;
+
+  // HUD state.
+  _lowAmmoTimer?: number;
+
+  // RAF / FPS tracking fields.
+  _rafDeltaMs?: number;
+  _rafFps?: number;
+  _fpsFrames?: number;
+  _fpsAccum?: number;
+  _fpsDisplay?: number;
+  _timeAccum?: number;
+}
+
+export interface ReplayState {
+  _replayTick?: number;
+  _replayShopBought?: string[];
+
   _gameSeed?: number;
   _actionLog?: ReplayAction[];
   _replayCheckpoints?: ReplayCheckpoint[];
@@ -722,21 +752,9 @@ export interface GameState {
   _replayIsHuman?: boolean;
   _replayShopTimer?: number;
   _purchaseToast?: { items: string[]; timer: number } | null;
-
-  // Browser-side laser audio handle
-  _browserLaserHandle?: { stop(): void } | null;
-
-  // HUD state
-  _lowAmmoTimer?: number;
-
-  // RAF / FPS tracking fields
-  _rafDeltaMs?: number;
-  _rafFps?: number;
-  _fpsFrames?: number;
-  _fpsAccum?: number;
-  _fpsDisplay?: number;
-  _timeAccum?: number;
 }
+
+export type GameState = SimState & RuntimeState & ReplayState;
 
 // ── Replay ──
 
