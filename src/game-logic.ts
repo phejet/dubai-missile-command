@@ -297,6 +297,22 @@ export function pickTarget(g: GameState, fromX: number): { x: number; y: number 
   return all[pick];
 }
 
+// Dropped bombs go after the city skyline only — never the Burj. Aims at an
+// alive building's roof, closest-to-drop 70% of the time. Returns null when no
+// building is left (caller simply skips the drop rather than diverting to the Burj).
+export function pickBuildingTarget(g: GameState, fromX: number): { x: number; y: number } | null {
+  const alive: { x: number; y: number }[] = [];
+  g.buildings.forEach((b) => {
+    if (!b.alive) return;
+    const bounds = getGameplayBuildingBounds(b);
+    alive.push({ x: (bounds.left + bounds.right) / 2, y: bounds.top });
+  });
+  if (alive.length === 0) return null;
+  alive.sort((a, b) => Math.abs(a.x - fromX) - Math.abs(b.x - fromX));
+  const pick = Math.min(alive.length - 1, _rng() < 0.7 ? 0 : 1);
+  return alive[pick];
+}
+
 export function fireInterceptor(g: GameState, targetX: number, targetY: number, tick = g._replayTick ?? 0): boolean {
   const selectedIdx = targetX < CANVAS_W / 2 ? 0 : 1;
   const fallbackIdx = selectedIdx === 0 ? 1 : 0;

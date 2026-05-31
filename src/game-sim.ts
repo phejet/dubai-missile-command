@@ -22,6 +22,7 @@ import {
   rand,
   randInt,
   pickTarget,
+  pickBuildingTarget,
   createExplosion,
   destroyDefenseSite,
   getPhalanxTurrets,
@@ -1526,7 +1527,7 @@ function updateDrones(g: GameState, _rng: () => number, dt: number, onEvent?: Si
         (d.bombsDropped ?? 0) < (d.bombIndices?.length ?? 0) &&
         d.pathIndex >= (d.bombIndices ?? [])[d.bombsDropped ?? 0]
       ) {
-        const bombT = pickTarget(g, d.x);
+        const bombT = pickBuildingTarget(g, d.x);
         if (bombT) {
           g.missiles.push({
             x: d.x,
@@ -1554,7 +1555,7 @@ function updateDrones(g: GameState, _rng: () => number, dt: number, onEvent?: Si
         if (nearMid) {
           if (shahed136HasBomb(d.shahedVariant ?? "shahed-136-dive-bomber") && !d.bombDropped) {
             d.bombDropped = true;
-            const bombT = pickTarget(g, d.x);
+            const bombT = pickBuildingTarget(g, d.x);
             if (bombT) {
               const tx = bombT.x;
               g.missiles.push({
