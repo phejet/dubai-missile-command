@@ -34,6 +34,7 @@ import {
   spawnStackedMissile,
   updateBurjFireParticles,
 } from "./game-sim";
+import { updateEmpRings } from "./game-sim-emp";
 import { buildShopEntries, normalizeLegacyFlareActiveState } from "./game-sim-shop";
 import { getUpgradeNodeDef } from "./game-sim-upgrades";
 import { getBurjDamageFireLayout } from "./art-render";
@@ -2164,5 +2165,33 @@ describe("EMP active upgrade", () => {
     buyUpgrade(g, "emp");
     expect(fireEmp(g, null)).toBe(true);
     expect(fireEmp(g, null)).toBe(false);
+  });
+
+  it("zaps a fast diver bearing down on the Burj instead of letting it tunnel through the ring", () => {
+    const { g } = makeCleanGame(5);
+    // Rank 2 EMP — its ring front advances ~60px/tick.
+    g.metaProgression.completedObjectives.push("reach_wave_6");
+    g.score = 20000;
+    buyUpgrade(g, "emp");
+    buyUpgrade(g, "empCapacitors");
+
+    // Diving Shahed right on top of the EMP origin (~Burj 462,1047), driving
+    // inward fast. Pre-fix the damage band was a fixed ±15 shell at the ring's
+    // *current* radius, so it never covered the interior: a threat this close was
+    // only "hit" ~tick 39 — long after it had reached the Burj and left the
+    // screen, i.e. it tunneled straight through the EMP. The fix sweeps the full
+    // annulus from the previous radius to the new one, so the front can't skip it.
+    const diver = makeDrone({ x: 462, y: 1007, vy: 25, diving: true, shahedVariant: "shahed-136-dive" });
+    g.drones = [diver];
+
+    expect(fireEmp(g, null)).toBe(true);
+
+    // Advance the shockwave a handful of ticks while the diver keeps closing.
+    for (let tick = 0; tick < 5 && diver.alive; tick++) {
+      updateEmpRings(g, 1, [diver]);
+      diver.y += diver.vy;
+    }
+
+    expect(diver.alive).toBe(false);
   });
 });

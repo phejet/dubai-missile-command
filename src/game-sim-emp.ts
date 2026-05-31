@@ -143,6 +143,7 @@ export function updateEmpRings(g: GameState, dt: number, allThreats: Threat[]): 
   if (g.empRings.length > 0) {
     // Update active rings
     g.empRings.forEach((ring) => {
+      const prevRadius = ring.radius;
       ring.age = (ring.age ?? 0) + dt;
       if (ring.age > 0) {
         ring.radius += empRingExpansionSpeed(ring.age) * (ring.expandRate ?? 1) * dt;
@@ -154,8 +155,12 @@ export function updateEmpRings(g: GameState, dt: number, allThreats: Threat[]): 
       }
       ring.alpha = 1 - ring.radius / effectiveMaxRadius;
       if ((ring.damage ?? 0) <= 0 || ring.age <= 0) return;
-      // Damage threats in the ring band
-      const bandInner = ring.radius - 15;
+      // Damage threats across the full annulus the front swept this tick (from
+      // prevRadius to the new radius), not just a thin shell at the new radius.
+      // The front can advance >30px/tick (rank-2 expandRate, or large dt), so a
+      // fixed ±15 band leaves gaps that fast/close threats — e.g. diving Shaheds
+      // bearing down on the Burj — tunnel straight through. hitSet keeps it once-per-threat.
+      const bandInner = prevRadius - 15;
       const bandOuter = ring.radius + 15;
       allThreats.forEach((t) => {
         if (!t.alive || ring.hitSet?.has(t)) return;
