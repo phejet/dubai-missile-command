@@ -1226,22 +1226,20 @@
   font-weight: 700;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .title-overlay__title span:first-child {
-    animation:
-      title-copy-drift 5.8s ease-in-out infinite,
-      title-crt-flicker 2.875s steps(18, end) infinite;
-  }
+.title-overlay__title span:first-child {
+  animation:
+    title-copy-drift 5.8s ease-in-out infinite,
+    title-crt-flicker 2.875s steps(18, end) infinite;
+}
 
-  .title-overlay__title span:last-child {
-    animation:
-      title-copy-drift 6.7s ease-in-out infinite reverse,
-      title-crt-flicker 2.425s steps(16, end) infinite reverse;
-  }
+.title-overlay__title span:last-child {
+  animation:
+    title-copy-drift 6.7s ease-in-out infinite reverse,
+    title-crt-flicker 2.425s steps(16, end) infinite reverse;
+}
 
-  .title-overlay__start {
-    animation: press-start-beacon 2.094s linear infinite;
-  }
+.title-overlay__start {
+  animation: press-start-beacon 2.094s linear infinite;
 }
 
 @keyframes title-copy-drift {
@@ -2701,31 +2699,6 @@
     opacity: 0;
     transform: scale(2.4);
     border-width: 1px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .battlefield-active--ready,
-  .battlefield-active--active,
-  .battlefield-active--active::before,
-  .battlefield-active--active::after,
-  .battlefield-active--complete,
-  .battlefield-active--complete::before,
-  .battlefield-active--complete::after {
-    animation: none;
-  }
-
-  .battlefield-active--active::before {
-    opacity: 0.7;
-    transform: scale(1);
-  }
-
-  .battlefield-active--active::after {
-    opacity: 0;
-  }
-
-  .battlefield-active--complete {
-    opacity: 0.2;
   }
 }
 
