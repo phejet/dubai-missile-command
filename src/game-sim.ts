@@ -1003,13 +1003,13 @@ export function updateAutoSystems(g: GameState, dt: number, allThreats: Threat[]
             x: (hornetSite?.x ?? 206) + rand(-12, 12),
             y: (hornetSite?.y ?? GROUND_Y) - 20,
             targetRef: target,
-            speed: rand(3.73, 5.6),
+            speed: rand(4.476, 6.72),
             trail: [],
             alive: true,
             blastRadius: blastR,
             wobble: rand(0, Math.PI * 2),
-            life: 240,
-            maxLife: 240,
+            life: 168,
+            maxLife: 168,
             retargetsRemaining: retargetBudget,
           });
           siteState.ammo--;
