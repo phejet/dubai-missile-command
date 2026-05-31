@@ -2,6 +2,9 @@
 
 ## 2026-05-30
 
+- If a tap-assist system misses obvious player intent on sparse screens, prefer a constrained single-target grace rule over widening the normal cluster radius. "Only one plausible thing nearby" is a useful signal; "some stuff nearby" is auto-aim wearing a cheap hat.
+- Proximity fuse assist radii must not exceed the actual lethal blast radius unless the blast is placed at a guaranteed lethal point. A generous detection radius that detonates early can turn a good shot into a miss, which is help in the same way a banana peel is traction.
+- When planning gameplay tuning changes, identify shared feel knobs explicitly and make them single exported constants. Repeating one magic number across sim and input code guarantees future tuning drift with a straight face.
 - For death-clip performance fixes, consider replay anchor snapshots before rolling frame recording. If deterministic sim can resume from a recent clean state, do not pre-record every frame just to dodge a long seek.
 - Before handing over editor/dev URLs, verify the route in a browser and check the bind address. `localhost` can resolve differently than `127.0.0.1`; a Vite server listening only on `[::1]` is a trap wearing a helpful URL badge.
 - For end-wave UI, preserve every intended beat: wave-cleared banner first, bonus report second, shop third. Making the report appear earlier can erase the actual victory sting, which is UI surgery performed with a spoon.

@@ -98,6 +98,7 @@ export interface Interceptor {
   vy: number;
   targetX: number;
   targetY: number;
+  intendedTargets?: Threat[];
   heading?: number;
   speed?: number;
   accel?: number;

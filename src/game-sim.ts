@@ -40,6 +40,7 @@ import {
   computeShahed238Path,
   GAMEPLAY_SCENIC_LAUNCHER_Y,
   resetExplosionId,
+  INTERCEPTOR_TAP_FUSE_RADIUS,
 } from "./game-logic";
 import { createCommander, generateWaveSchedule, advanceSpawnSchedule, isWaveFullySpawned } from "./wave-spawner";
 import { createEmptyUpgradeLevels, createEmptyUpgradeProgression } from "./game-sim-upgrades";
@@ -1677,17 +1678,54 @@ function updateDrones(g: GameState, _rng: () => number, dt: number, onEvent?: Si
 const INTERCEPTOR_THREAT_PROXIMITY_FUSE_ENABLED = true;
 const INTERCEPTOR_TARGET_DETONATE_RADIUS = 8;
 const INTERCEPTOR_TARGET_GATED_PROXIMITY_RADIUS = 60;
+const INTERCEPTOR_PLAYER_BLAST_RADIUS = 60;
+const PLAYER_CHAIN_EXPLOSION_RADIUS = 60;
 
 function didPlayerInterceptorReachTarget(ic: Interceptor, prevX: number, prevY: number): boolean {
   if (dist(ic.x, ic.y, ic.targetX, ic.targetY) <= INTERCEPTOR_TARGET_DETONATE_RADIUS) return true;
-  const segX = ic.x - prevX;
-  const segY = ic.y - prevY;
+  return segmentDistanceToPoint(prevX, prevY, ic.x, ic.y, ic.targetX, ic.targetY) <= INTERCEPTOR_TARGET_DETONATE_RADIUS;
+}
+
+function closestPointOnSegment(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  px: number,
+  py: number,
+): { x: number; y: number; distance: number } {
+  const segX = x2 - x1;
+  const segY = y2 - y1;
   const lenSq = segX * segX + segY * segY;
-  if (lenSq <= 0) return false;
-  const t = Math.max(0, Math.min(1, ((ic.targetX - prevX) * segX + (ic.targetY - prevY) * segY) / lenSq));
-  const closestX = prevX + segX * t;
-  const closestY = prevY + segY * t;
-  return dist(closestX, closestY, ic.targetX, ic.targetY) <= INTERCEPTOR_TARGET_DETONATE_RADIUS;
+  if (lenSq <= 0) return { x: x1, y: y1, distance: dist(x1, y1, px, py) };
+  const t = Math.max(0, Math.min(1, ((px - x1) * segX + (py - y1) * segY) / lenSq));
+  const closestX = x1 + segX * t;
+  const closestY = y1 + segY * t;
+  return { x: closestX, y: closestY, distance: dist(closestX, closestY, px, py) };
+}
+
+function segmentDistanceToPoint(x1: number, y1: number, x2: number, y2: number, px: number, py: number): number {
+  return closestPointOnSegment(x1, y1, x2, y2, px, py).distance;
+}
+
+function findIntendedTargetDetonationPoint(
+  ic: Interceptor,
+  prevX: number,
+  prevY: number,
+  g: GameState,
+): { x: number; y: number } | null {
+  for (const target of ic.intendedTargets ?? []) {
+    if (!target.alive || isThreatDoomedByActiveExplosion(g, target)) continue;
+    const radius =
+      target.type === "drone"
+        ? INTERCEPTOR_PLAYER_BLAST_RADIUS + target.collisionRadius
+        : INTERCEPTOR_PLAYER_BLAST_RADIUS;
+    const closest = closestPointOnSegment(prevX, prevY, ic.x, ic.y, target.x, target.y);
+    if (closest.distance <= radius) {
+      return { x: closest.x, y: closest.y };
+    }
+  }
+  return null;
 }
 
 function updateInterceptors(g: GameState, dt: number, onEvent?: SimEventSink | null) {
@@ -1717,21 +1755,35 @@ function updateInterceptors(g: GameState, dt: number, onEvent?: SimEventSink | n
       ic.x = ic.targetX;
       ic.y = ic.targetY;
       detonate = true;
+    } else if (!ic.fromF15) {
+      const intendedDetonation = findIntendedTargetDetonationPoint(ic, prevX, prevY, g);
+      if (intendedDetonation) {
+        ic.x = intendedDetonation.x;
+        ic.y = intendedDetonation.y;
+        detonate = true;
+      }
     }
     // Proximity fuse: detonate early if passing close to any threat
     const canProximityFuseNearTarget =
       dist(ic.x, ic.y, ic.targetX, ic.targetY) <= INTERCEPTOR_TARGET_GATED_PROXIMITY_RADIUS;
     if (!detonate && !ic.fromF15 && INTERCEPTOR_THREAT_PROXIMITY_FUSE_ENABLED && canProximityFuseNearTarget) {
-      const fuseRadius = 72;
       for (const m of g.missiles) {
-        if (m.alive && !isThreatDoomedByActiveExplosion(g, m) && dist(ic.x, ic.y, m.x, m.y) < fuseRadius) {
+        if (
+          m.alive &&
+          !isThreatDoomedByActiveExplosion(g, m) &&
+          dist(ic.x, ic.y, m.x, m.y) < INTERCEPTOR_PLAYER_BLAST_RADIUS
+        ) {
           detonate = true;
           break;
         }
       }
       if (!detonate) {
         for (const d of g.drones) {
-          if (d.alive && !isThreatDoomedByActiveExplosion(g, d) && dist(ic.x, ic.y, d.x, d.y) < fuseRadius) {
+          if (
+            d.alive &&
+            !isThreatDoomedByActiveExplosion(g, d) &&
+            dist(ic.x, ic.y, d.x, d.y) < INTERCEPTOR_PLAYER_BLAST_RADIUS + d.collisionRadius
+          ) {
             detonate = true;
             break;
           }
@@ -1743,7 +1795,16 @@ function updateInterceptors(g: GameState, dt: number, onEvent?: SimEventSink | n
       if (ic.fromF15) {
         boom(g, ic.x, ic.y, 30, "#aaccff", false, onEvent);
       } else {
-        boom(g, ic.x, ic.y, 60, COL.interceptor, true, onEvent, 60);
+        boom(
+          g,
+          ic.x,
+          ic.y,
+          INTERCEPTOR_PLAYER_BLAST_RADIUS,
+          COL.interceptor,
+          true,
+          onEvent,
+          INTERCEPTOR_PLAYER_BLAST_RADIUS,
+        );
       }
     }
     if (ic.fromF15 && (ic.x < -50 || ic.x > CANVAS_W + 50 || ic.y < -50 || ic.y > CANVAS_H + 50)) ic.alive = false;
@@ -1779,15 +1840,25 @@ function updateExplosions(g: GameState, dt: number, onEvent?: SimEventSink | nul
               recordThreatDestroyed(g, m);
               rootEx.kills = (rootEx.kills ?? 0) + 1;
               rootEx.heroPulse = Math.min(1.6, 0.65 + (rootEx.kills ?? 0) * 0.18);
-              boom(g, m.x, m.y, 45, COL.mirv, ex.playerCaused, onEvent, 45, {
-                chain: true,
-                chainLevel: (ex.chainLevel ?? 0) + 1,
-                rootExplosionId: rootEx.id,
-                linkFromX: ex.x,
-                linkFromY: ex.y,
-                linkAlpha: 1,
-                visualType: "missile",
-              });
+              boom(
+                g,
+                m.x,
+                m.y,
+                PLAYER_CHAIN_EXPLOSION_RADIUS,
+                COL.mirv,
+                ex.playerCaused,
+                onEvent,
+                PLAYER_CHAIN_EXPLOSION_RADIUS,
+                {
+                  chain: true,
+                  chainLevel: (ex.chainLevel ?? 0) + 1,
+                  rootExplosionId: rootEx.id,
+                  linkFromX: ex.x,
+                  linkFromY: ex.y,
+                  linkAlpha: 1,
+                  visualType: "missile",
+                },
+              );
             }
           }
         } else if (dist(m.x, m.y, ex.x, ex.y) < ex.radius) {
@@ -1796,15 +1867,25 @@ function updateExplosions(g: GameState, dt: number, onEvent?: SimEventSink | nul
           recordThreatDestroyed(g, m);
           rootEx.kills = (rootEx.kills ?? 0) + 1;
           rootEx.heroPulse = Math.min(1.6, 0.65 + (rootEx.kills ?? 0) * 0.18);
-          boom(g, m.x, m.y, 45, "#ffcc00", ex.playerCaused, onEvent, 45, {
-            chain: true,
-            chainLevel: (ex.chainLevel ?? 0) + 1,
-            rootExplosionId: rootEx.id,
-            linkFromX: ex.x,
-            linkFromY: ex.y,
-            linkAlpha: 1,
-            visualType: "missile",
-          });
+          boom(
+            g,
+            m.x,
+            m.y,
+            PLAYER_CHAIN_EXPLOSION_RADIUS,
+            "#ffcc00",
+            ex.playerCaused,
+            onEvent,
+            PLAYER_CHAIN_EXPLOSION_RADIUS,
+            {
+              chain: true,
+              chainLevel: (ex.chainLevel ?? 0) + 1,
+              rootExplosionId: rootEx.id,
+              linkFromX: ex.x,
+              linkFromY: ex.y,
+              linkAlpha: 1,
+              visualType: "missile",
+            },
+          );
         }
       });
       g.drones.forEach((d) => {
@@ -1817,15 +1898,25 @@ function updateExplosions(g: GameState, dt: number, onEvent?: SimEventSink | nul
             recordThreatDestroyed(g, d);
             rootEx.kills = (rootEx.kills ?? 0) + 1;
             rootEx.heroPulse = Math.min(1.6, 0.65 + (rootEx.kills ?? 0) * 0.18);
-            boom(g, d.x, d.y, 45, "#ff8800", ex.playerCaused, onEvent, 45, {
-              chain: true,
-              chainLevel: (ex.chainLevel ?? 0) + 1,
-              rootExplosionId: rootEx.id,
-              linkFromX: ex.x,
-              linkFromY: ex.y,
-              linkAlpha: 1,
-              visualType: "drone",
-            });
+            boom(
+              g,
+              d.x,
+              d.y,
+              PLAYER_CHAIN_EXPLOSION_RADIUS,
+              "#ff8800",
+              ex.playerCaused,
+              onEvent,
+              PLAYER_CHAIN_EXPLOSION_RADIUS,
+              {
+                chain: true,
+                chainLevel: (ex.chainLevel ?? 0) + 1,
+                rootExplosionId: rootEx.id,
+                linkFromX: ex.x,
+                linkFromY: ex.y,
+                linkAlpha: 1,
+                visualType: "drone",
+              },
+            );
           }
         }
       });

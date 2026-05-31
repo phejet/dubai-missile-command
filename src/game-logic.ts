@@ -30,6 +30,8 @@ export const BURJ_MAX_HEALTH = 7;
 export const EMP_RING_SPEED_INITIAL = 40;
 export const EMP_RING_SPEED_MID = 25;
 export const EMP_RING_SPEED_TAIL = 12;
+export const INTERCEPTOR_TAP_FUSE_RADIUS = 72;
+export const INTERCEPTOR_SOLO_TAP_FUSE_RADIUS = 144;
 
 export const COL = {
   sky1: "#0a0e1a",
@@ -313,6 +315,33 @@ export function pickBuildingTarget(g: GameState, fromX: number): { x: number; y:
   return alive[pick];
 }
 
+function isThreatWithinTapRadius(target: Threat, targetX: number, targetY: number, radius: number): boolean {
+  const threatRadius = target.type === "drone" ? target.collisionRadius : 0;
+  return dist(targetX, targetY, target.x, target.y) <= radius + threatRadius;
+}
+
+function collectIntendedTargetsInRadius(g: GameState, targetX: number, targetY: number, radius: number): Threat[] {
+  const intended: Threat[] = [];
+  for (const m of g.missiles) {
+    if (m.alive && isThreatWithinTapRadius(m, targetX, targetY, radius)) {
+      intended.push(m);
+    }
+  }
+  for (const d of g.drones) {
+    if (d.alive && isThreatWithinTapRadius(d, targetX, targetY, radius)) {
+      intended.push(d);
+    }
+  }
+  return intended;
+}
+
+function collectIntendedTargets(g: GameState, targetX: number, targetY: number): Threat[] {
+  const intended = collectIntendedTargetsInRadius(g, targetX, targetY, INTERCEPTOR_TAP_FUSE_RADIUS);
+  if (intended.length > 0) return intended;
+  const soloCandidate = collectIntendedTargetsInRadius(g, targetX, targetY, INTERCEPTOR_SOLO_TAP_FUSE_RADIUS);
+  return soloCandidate.length === 1 ? soloCandidate : [];
+}
+
 export function fireInterceptor(g: GameState, targetX: number, targetY: number, tick = g._replayTick ?? 0): boolean {
   const selectedIdx = targetX < CANVAS_W / 2 ? 0 : 1;
   const fallbackIdx = selectedIdx === 0 ? 1 : 0;
@@ -334,6 +363,7 @@ export function fireInterceptor(g: GameState, targetX: number, targetY: number, 
   g.stats.shotsFired++;
   // Render-only: Pixi uses this for muzzle flash decay.
   g.launcherFireTick[bestIdx] = tick;
+  const intendedTargets = collectIntendedTargets(g, targetX, targetY);
   g.interceptors.push({
     x: l.x,
     y: l.y,
@@ -348,6 +378,7 @@ export function fireInterceptor(g: GameState, targetX: number, targetY: number, 
     turnRate: 0.22,
     trail: [],
     alive: true,
+    ...(intendedTargets.length > 0 ? { intendedTargets } : {}),
   });
   return true;
 }

@@ -18,6 +18,9 @@ import {
   computeShahed238Path,
   createExplosion,
   createEmptyGameStats,
+  fireInterceptor,
+  INTERCEPTOR_SOLO_TAP_FUSE_RADIUS,
+  INTERCEPTOR_TAP_FUSE_RADIUS,
 } from "./game-logic";
 import {
   buyDraftUpgrade,
@@ -258,6 +261,171 @@ describe("interceptor proximity fuse", () => {
     expect(g.drones).toHaveLength(0);
     expect(g.interceptors).toHaveLength(0);
   });
+
+  it("tags all live threats inside the tap fuse radius when firing", () => {
+    const { g } = makeCleanGame(5);
+    const missile = makeMissile({ x: 450, y: 500 });
+    const drone = makeDrone({ x: 450 + INTERCEPTOR_TAP_FUSE_RADIUS + 25, y: 500, collisionRadius: 30 });
+    const outside = makeMissile({ x: 450 + INTERCEPTOR_TAP_FUSE_RADIUS + 1, y: 500 });
+    g.missiles.push(missile, outside);
+    g.drones.push(drone);
+
+    expect(fireInterceptor(g, 450, 500, 10)).toBe(true);
+
+    expect(g.interceptors).toHaveLength(1);
+    expect(g.interceptors[0].intendedTargets).toEqual([missile, drone]);
+  });
+
+  it("uses a wider capture radius for a single unambiguous nearby target", () => {
+    const { g } = makeCleanGame(5);
+    const missile = makeMissile({ x: 450 + INTERCEPTOR_TAP_FUSE_RADIUS + 20, y: 500 });
+    g.missiles.push(missile);
+
+    expect(fireInterceptor(g, 450, 500, 10)).toBe(true);
+
+    expect(g.interceptors[0].intendedTargets).toEqual([missile]);
+  });
+
+  it("does not use the wider capture radius when nearby targets are ambiguous", () => {
+    const { g } = makeCleanGame(5);
+    const left = makeMissile({ x: 450 + INTERCEPTOR_TAP_FUSE_RADIUS + 20, y: 500 });
+    const right = makeMissile({ x: 450, y: 500 + INTERCEPTOR_TAP_FUSE_RADIUS + 20 });
+    g.missiles.push(left, right);
+
+    expect(fireInterceptor(g, 450, 500, 10)).toBe(true);
+
+    expect(g.interceptors[0].intendedTargets).toBeUndefined();
+  });
+
+  it("detonates at closest approach to a tagged moving target after it has left the tap point", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.schedule = [];
+    g.scheduleIdx = 0;
+    g.waveTick = 0;
+
+    const missile = makeMissile({ x: 450, y: 500 });
+    g.missiles.push(missile);
+    expect(fireInterceptor(g, 450, 500, 10)).toBe(true);
+
+    const interceptor = g.interceptors[0];
+    missile.x = 520;
+    interceptor.x = 460;
+    interceptor.y = 500;
+    interceptor.vx = 80;
+    interceptor.vy = 0;
+    interceptor.heading = undefined;
+    interceptor.accel = undefined;
+    interceptor.targetX = 450;
+    interceptor.targetY = 500;
+
+    sim.update(g, 1);
+
+    const rootExplosions = g.explosions.filter((ex) => ex.playerCaused && ex.rootExplosionId === null);
+    expect(rootExplosions).toHaveLength(1);
+    expect(rootExplosions[0].x).toBe(520);
+    expect(rootExplosions[0].y).toBe(500);
+    expect(g.missiles).toHaveLength(0);
+    expect(g.interceptors).toHaveLength(0);
+  });
+
+  it("waits instead of detonating early when a tagged missile is outside lethal blast range", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.schedule = [];
+    g.scheduleIdx = 0;
+    g.waveTick = 0;
+
+    const missile = makeMissile({ x: 600, y: 500 });
+    g.missiles.push(missile);
+    g.interceptors.push(
+      makeInterceptor({
+        x: 460,
+        y: 500,
+        vx: 68,
+        vy: 0,
+        targetX: 450,
+        targetY: 500,
+        intendedTargets: [missile],
+      }),
+    );
+
+    sim.update(g, 1);
+
+    expect(g.explosions.filter((ex) => ex.playerCaused && ex.rootExplosionId === null)).toHaveLength(0);
+    expect(g.missiles).toHaveLength(1);
+    expect(g.interceptors).toHaveLength(1);
+
+    sim.update(g, 1);
+
+    const rootExplosions = g.explosions.filter((ex) => ex.playerCaused && ex.rootExplosionId === null);
+    expect(rootExplosions).toHaveLength(1);
+    expect(rootExplosions[0].x).toBe(596);
+    expect(g.missiles).toHaveLength(0);
+    expect(g.interceptors).toHaveLength(0);
+  });
+
+  it("does not tag a lead error outside the solo capture radius", () => {
+    const { g } = makeCleanGame(5);
+    const missile = makeMissile({ x: 450 + INTERCEPTOR_SOLO_TAP_FUSE_RADIUS + 1, y: 500 });
+    g.missiles.push(missile);
+
+    expect(fireInterceptor(g, 450, 500, 10)).toBe(true);
+
+    expect(g.interceptors[0].intendedTargets).toBeUndefined();
+  });
+
+  it("does not extend the fuse to an untagged threat near the interceptor path", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.schedule = [];
+    g.scheduleIdx = 0;
+    g.waveTick = 0;
+
+    const missile = makeMissile({ x: 450 + INTERCEPTOR_SOLO_TAP_FUSE_RADIUS + 1, y: 500 });
+    g.missiles.push(missile);
+    expect(fireInterceptor(g, 450, 500, 10)).toBe(true);
+
+    const interceptor = g.interceptors[0];
+    interceptor.x = 460;
+    interceptor.y = 500;
+    interceptor.vx = 80;
+    interceptor.vy = 0;
+    interceptor.heading = undefined;
+    interceptor.accel = undefined;
+    interceptor.targetX = 450;
+    interceptor.targetY = 500;
+
+    sim.update(g, 1);
+
+    expect(g.explosions.filter((ex) => ex.playerCaused && ex.rootExplosionId === null)).toHaveLength(0);
+    expect(g.missiles).toHaveLength(1);
+    expect(g.interceptors).toHaveLength(1);
+  });
+
+  it("ignores a tagged target already doomed by an active explosion", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.schedule = [];
+    g.scheduleIdx = 0;
+    g.waveTick = 0;
+
+    const missile = makeMissile({ x: 520, y: 500 });
+    g.missiles.push(missile);
+    createExplosion(g, 520, 500, 80, "#fff", true, 80, { visualType: "missile" });
+    g.interceptors.push(
+      makeInterceptor({
+        x: 460,
+        y: 500,
+        vx: 80,
+        vy: 0,
+        targetX: 450,
+        targetY: 500,
+        intendedTargets: [missile],
+      }),
+    );
+
+    sim.update(g, 1);
+
+    expect(g.explosions.filter((ex) => ex.playerCaused && ex.rootExplosionId === null)).toHaveLength(1);
+    expect(g.interceptors).toHaveLength(1);
+  });
 });
 
 describe("summary stats", () => {
@@ -273,6 +441,22 @@ describe("summary stats", () => {
     expect(g.stats.missileKills).toBe(2);
     expect(g.stats.destroyedByType.ballisticMissile).toBe(2);
     expect(g.stats.multiShots).toBe(1);
+  });
+
+  it("uses 60px secondary chain explosions for player-caused kills", () => {
+    const { sim, g } = makeCleanGame();
+    g.schedule = [{ type: "missile", tick: 999999 }];
+    g.scheduleIdx = 0;
+    g.missiles = [makeMissile({ x: 100, y: 100 }), makeMissile({ x: 155, y: 100 })];
+
+    createExplosion(g, 100, 100, 80, "#fff", true, 80, { visualType: "missile" });
+    sim.update(g, 1);
+
+    const chainExplosion = g.explosions.find((ex) => ex.rootExplosionId !== null);
+    expect(chainExplosion).toBeTruthy();
+    expect(chainExplosion!.maxRadius).toBe(60);
+    expect(g.missiles).toHaveLength(0);
+    expect(g.stats.missileKills).toBe(2);
   });
 
   it("tracks max combo for the run and current wave", () => {
