@@ -53,6 +53,7 @@ import { mountRunRecapDeathClip } from "./run-recap-death-clip";
 import { handleRunRecapReplayEvent } from "./run-recap-replay-events";
 import { buildRunRecapData } from "./run-recap";
 import { saveReplayToFile } from "./save-replay";
+import { clientLog } from "./client-log";
 import type {
   GameState,
   GameStats,
@@ -544,6 +545,11 @@ export class Game {
       this.openShop(game);
       return true;
     };
+    window.addEventListener("pagehide", () => clientLog("app", "pagehide", { screen: this.screen }));
+    window.addEventListener("pageshow", () => clientLog("app", "pageshow", { screen: this.screen }));
+    document.addEventListener("visibilitychange", () =>
+      clientLog("app", "visibilitychange", { hidden: document.hidden, screen: this.screen }),
+    );
   }
 
   private updateCompactClass(): void {
@@ -618,7 +624,16 @@ export class Game {
   // ─── Screen Management ──────────────────────────────────────────
 
   private setScreen(s: GameScreen): void {
+    const previousScreen = this.screen;
     this.screen = s;
+    clientLog("screen", "change", {
+      from: previousScreen,
+      to: s,
+      replayActive: this.replayActive,
+      hasDeathClip: !!this.deathClipCleanup,
+      runRecapOpen: this.runRecapOpen,
+      progressionOpen: this.progressionOpen,
+    });
     this.shell.dataset.screen = s;
     this.battlefieldCard.hidden = s === "gameover" && !this.progressionOpen && !this.runRecapOpen;
 
@@ -841,6 +856,7 @@ export class Game {
   }
 
   private async startGame(): Promise<void> {
+    clientLog("game", "start-request", { from: this.screen });
     await SFX.init();
     SFX.prewarm();
     this.cancelReplaySeek();
@@ -896,6 +912,11 @@ export class Game {
 
   private returnToTitle(): void {
     if (this.screen !== "gameover") return;
+    clientLog("screen", "return-to-title", {
+      replayActive: this.replayActive,
+      hasReplayRunner: !!this.replayRunner,
+      hasDeathClip: !!this.deathClipCleanup,
+    });
     this.cancelReplaySeek();
     this.clearPointerCapture();
     this.resetPlayerFireState();

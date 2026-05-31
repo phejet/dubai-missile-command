@@ -105,6 +105,7 @@ type TitleThreatKind = "shahed" | "missile";
 interface PixiRendererOptions {
   textures?: PixiTextureResources;
   preserveDrawingBuffer?: boolean;
+  renderInitialFrame?: boolean;
 }
 
 interface BlendSprites {
@@ -1412,16 +1413,22 @@ export class PixiRenderer implements GameRenderer {
   private contextLost = false;
   private initError: Error | null = null;
   private screen: PixiScreen = "title";
+  private readonly renderInitialFrame: boolean;
   private readonly onWebGlContextLost = (event: Event) => this.handleWebGlContextLost(event);
   private readonly onWebGlContextRestored = () => this.handleWebGlContextRestored();
   private readonly hideCrosshair = isMobileDevice();
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
-    { textures = createPixiTextureResources(), preserveDrawingBuffer = false }: PixiRendererOptions = {},
+    {
+      textures = createPixiTextureResources(),
+      preserveDrawingBuffer = false,
+      renderInitialFrame = true,
+    }: PixiRendererOptions = {},
   ) {
     this.textures = textures;
     this.preserveDrawingBuffer = preserveDrawingBuffer;
+    this.renderInitialFrame = renderInitialFrame;
     this.root.label = "pixi-root";
     this.titleScene.label = "title-scene";
     this.titleSkyLayer.label = "title-sky-layer";
@@ -1606,7 +1613,7 @@ export class PixiRenderer implements GameRenderer {
       this.initialized = true;
       this.canvas.dataset.pixiTitle = "ready";
       this.canvas.dataset.pixiGameplayStatic = "ready";
-      this.renderIfReady();
+      if (this.renderInitialFrame) this.renderIfReady();
     } catch (error: unknown) {
       this.initError = error instanceof Error ? error : new Error(String(error));
       this.canvas.dataset.pixiTitle = "error";

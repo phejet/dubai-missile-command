@@ -142,14 +142,16 @@ describe("run recap death clip", () => {
     cleanup();
   });
 
-  it("does not request a preserved WebGL buffer for the inline clip", async () => {
+  it("uses inline Pixi options that avoid expensive buffers and the default title frame", async () => {
     const container = document.createElement("div");
     const replay: ReplayData = { seed: 7, actions: [], finalTick: 20, isHuman: true };
 
     const cleanup = mountRunRecapDeathClip(container, replay);
     await flushTasks();
 
-    expect(mocks.pixiOptions).toContainEqual({ preserveDrawingBuffer: false });
+    expect(mocks.pixiOptions).toContainEqual(
+      expect.objectContaining({ preserveDrawingBuffer: false, renderInitialFrame: false }),
+    );
 
     cleanup();
   });

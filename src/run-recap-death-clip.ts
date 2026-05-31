@@ -204,57 +204,78 @@ export function mountRunRecapDeathClip(
       return result;
     });
 
-    void Promise.all([rendererReady ?? Promise.resolve(), seekPromise]).then(([, seekResult]) => {
-      clearTimeout(seekTimeoutTimer);
-      seekTimeoutTimer = 0;
-      const nextRunner = seekResult.runner;
-      if (stopped || generation !== currentGeneration || !nextRunner || !renderer) {
-        clientLog("death-clip", "seek-abandoned", {
+    void Promise.all([rendererReady ?? Promise.resolve(), seekPromise])
+      .then(([, seekResult]) => {
+        clearTimeout(seekTimeoutTimer);
+        seekTimeoutTimer = 0;
+        const nextRunner = seekResult.runner;
+        if (stopped || generation !== currentGeneration || !nextRunner || !renderer) {
+          clientLog("death-clip", "seek-abandoned", {
+            generation: currentGeneration,
+            loop: loopCount,
+            durationMs: Math.round(performance.now() - seekStartedAt),
+            reason: stopped
+              ? "stopped"
+              : generation !== currentGeneration
+                ? "superseded"
+                : !nextRunner
+                  ? "cancelled"
+                  : "no-renderer",
+            reachedTick: nextRunner?.getTick() ?? null,
+          });
+          return;
+        }
+        if (seekResult.timedOut && !seekResult.reached) {
+          clientLog("death-clip", "static-fallback", {
+            durationMs: Math.round(performance.now() - seekStartedAt),
+            reachedTick: seekResult.finalTick,
+            targetTick: startTick,
+          });
+          seekingRunner = null;
+          runner = nextRunner;
+          status.hidden = true;
+          canvas.dataset.clipStatus = "complete";
+          canvas.dataset.clipTick = String(runner.getTick());
+          const state = runner.getState();
+          if (state) renderer.renderGameplay(state, { showShop: false, interpolationAlpha: 1 });
+          container.classList.add("run-recap__death-clip--complete");
+          return;
+        }
+        clientLog("death-clip", "seek-end", {
           generation: currentGeneration,
           loop: loopCount,
           durationMs: Math.round(performance.now() - seekStartedAt),
-          reason: stopped
-            ? "stopped"
-            : generation !== currentGeneration
-              ? "superseded"
-              : !nextRunner
-                ? "cancelled"
-                : "no-renderer",
-          reachedTick: nextRunner?.getTick() ?? null,
-        });
-        return;
-      }
-      if (seekResult.timedOut && !seekResult.reached) {
-        clientLog("death-clip", "static-fallback", {
-          durationMs: Math.round(performance.now() - seekStartedAt),
-          reachedTick: seekResult.finalTick,
-          targetTick: startTick,
+          reachedTick: nextRunner.getTick(),
         });
         seekingRunner = null;
         runner = nextRunner;
         status.hidden = true;
-        canvas.dataset.clipStatus = "complete";
-        canvas.dataset.clipTick = String(runner.getTick());
+        canvas.dataset.clipStatus = "playing";
+        playStartedAt = performance.now();
         const state = runner.getState();
         if (state) renderer.renderGameplay(state, { showShop: false, interpolationAlpha: 1 });
-        container.classList.add("run-recap__death-clip--complete");
-        return;
-      }
-      clientLog("death-clip", "seek-end", {
-        generation: currentGeneration,
-        loop: loopCount,
-        durationMs: Math.round(performance.now() - seekStartedAt),
-        reachedTick: nextRunner.getTick(),
+        raf = requestAnimationFrame(render);
+      })
+      .catch((error: unknown) => {
+        clearTimeout(seekTimeoutTimer);
+        seekTimeoutTimer = 0;
+        if (stopped || generation !== currentGeneration) return;
+        const message = error instanceof Error ? error.message : String(error);
+        clientLog("death-clip", "seek-error", {
+          anchorTick: anchor?.tick ?? null,
+          generation: currentGeneration,
+          loop: loopCount,
+          message,
+          targetTick: startTick,
+        });
+        seekingRunner?.cleanup();
+        seekingRunner = null;
+        runner = null;
+        status.hidden = false;
+        status.textContent = "Death replay unavailable";
+        canvas.dataset.clipStatus = "error";
+        canvas.dataset.clipError = message.slice(0, 160);
       });
-      seekingRunner = null;
-      runner = nextRunner;
-      status.hidden = true;
-      canvas.dataset.clipStatus = "playing";
-      playStartedAt = performance.now();
-      const state = runner.getState();
-      if (state) renderer.renderGameplay(state, { showShop: false, interpolationAlpha: 1 });
-      raf = requestAnimationFrame(render);
-    });
   };
 
   const cleanup = () => {
@@ -324,7 +345,7 @@ export function mountRunRecapDeathClip(
     }
     rendererCreatedAt = performance.now();
     clientLog("death-clip", "renderer-create", { sinceMountMs: Math.round(rendererCreatedAt - mountedAt) });
-    renderer = new PixiRenderer(canvas, { preserveDrawingBuffer: false });
+    renderer = new PixiRenderer(canvas, { preserveDrawingBuffer: false, renderInitialFrame: false });
     rendererReady = renderer.readyPromise.then(() => {
       if (clientLogEnabled()) {
         clientLog("death-clip", "renderer-ready", {
