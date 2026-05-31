@@ -166,9 +166,14 @@ function applyBurjHitDamage(
   if (g._debugMode || !g.burjAlive) return;
   if (g.burjInvulnTimer > 0) return;
   addBurjImpactDamage(g, x, y, kind);
-  g.burjHealth = 0;
+  g.burjHealth = Math.max(0, g.burjHealth - 1);
   g.burjInvulnTimer = BURJ_INVULN_TICKS;
   if (onEvent) onEvent("sfx", { name: "burjHit" });
+  if (g.burjHealth > 0) {
+    // Survived the hit — impact-point blast, game continues. Game over only at 0 HP.
+    boom(g, x, y, 60, "#ff5500", false, onEvent, 30);
+    return;
+  }
   g.burjAlive = false;
   boom(g, BURJ_X, CITY_Y - BURJ_H / 2, 90, "#ff2200", false, onEvent, 50);
   if (!g.gameOverTimer) {

@@ -20,11 +20,11 @@ describe("debug options", () => {
   });
 
   it("loads an empty force-show list by default", () => {
-    expect(loadDebugOptions()).toEqual({ forceShowUpgradeFamilies: [] });
+    expect(loadDebugOptions()).toEqual({ forceShowUpgradeFamilies: [], glassTower: false });
   });
 
   it("persists force-show families and filters invalid stored values", () => {
-    saveDebugOptions({ forceShowUpgradeFamilies: ["roadrunner", "wildHornets"] });
+    saveDebugOptions({ forceShowUpgradeFamilies: ["roadrunner", "wildHornets"], glassTower: false });
     expect(loadDebugOptions().forceShowUpgradeFamilies).toEqual(["roadrunner", "wildHornets"]);
 
     localStorage.setItem(
@@ -35,7 +35,7 @@ describe("debug options", () => {
   });
 
   it("toggles a family without duplicating it", () => {
-    const enabled = setForceShowUpgradeFamily({ forceShowUpgradeFamilies: [] }, "roadrunner", true);
+    const enabled = setForceShowUpgradeFamily({ forceShowUpgradeFamilies: [], glassTower: false }, "roadrunner", true);
     const enabledAgain = setForceShowUpgradeFamily(enabled, "roadrunner", true);
     const disabled = setForceShowUpgradeFamily(enabledAgain, "roadrunner", false);
 

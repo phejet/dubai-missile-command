@@ -22,6 +22,7 @@ import {
   loadDebugOptions,
   saveDebugOptions,
   setForceShowUpgradeFamily,
+  setGlassTower,
   type DebugOptions,
 } from "./debug-options";
 import { mulberry32 } from "./headless/rng";
@@ -700,6 +701,31 @@ export class Game {
 
     const list = document.createElement("div");
     list.className = "battlefield-upgrades-table__list";
+
+    // Glass Tower debug mode — start the Burj at 1 HP so any hit ends the run.
+    const glassRow = document.createElement("label");
+    glassRow.className = "battlefield-upgrades-table__row";
+    const glassIdentity = document.createElement("span");
+    glassIdentity.className = "battlefield-upgrades-table__identity";
+    const glassIcon = document.createElement("span");
+    glassIcon.className = "battlefield-upgrades-table__icon";
+    glassIcon.setAttribute("aria-hidden", "true");
+    glassIcon.textContent = "🪟";
+    const glassName = document.createElement("span");
+    glassName.className = "battlefield-upgrades-table__name";
+    glassName.textContent = "Glass Tower Mode";
+    const glassMeta = document.createElement("span");
+    glassMeta.className = "battlefield-upgrades-table__meta";
+    glassMeta.textContent = "Burj 1 HP";
+    glassIdentity.append(glassIcon, glassName, glassMeta);
+    const glassCheckbox = document.createElement("input");
+    glassCheckbox.type = "checkbox";
+    glassCheckbox.dataset.glassTower = "true";
+    glassCheckbox.checked = this.debugOptions.glassTower;
+    glassCheckbox.setAttribute("aria-label", "Glass Tower Mode (Burj 1 HP)");
+    glassRow.append(glassIdentity, glassCheckbox);
+    list.append(glassRow);
+
     for (const option of getDebugUpgradeFamilyOptions()) {
       const row = document.createElement("label");
       row.className = "battlefield-upgrades-table__row";
@@ -738,6 +764,12 @@ export class Game {
   }
 
   private handleUpgradesTableChange(event: Event): void {
+    const glassInput = (event.target as HTMLElement).closest<HTMLInputElement>("input[data-glass-tower]");
+    if (glassInput) {
+      this.debugOptions = setGlassTower(this.debugOptions, glassInput.checked);
+      saveDebugOptions(this.debugOptions);
+      return;
+    }
     const input = (event.target as HTMLElement).closest<HTMLInputElement>("input[data-force-upgrade-family]");
     if (!input || input.disabled) return;
     const family = input.dataset.forceUpgradeFamily as UpgradeKey | undefined;
@@ -789,6 +821,10 @@ export class Game {
     game._replayCheckpointLastHash = null;
     if (debugStart) {
       applyDebugStartPreset(game, debugStart);
+    }
+    if (this.debugOptions.glassTower) {
+      // Glass Tower debug mode — Burj falls to a single hit.
+      game.burjHealth = 1;
     }
     recordWavePlanAction(game);
     maybeRecordReplayCheckpoint(game, { force: true, reason: debugStart ? `debugStart:${debugStart.id}` : "start" });

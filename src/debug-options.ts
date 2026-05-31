@@ -5,6 +5,7 @@ const STORAGE_KEY = "dubai-missile-command.debug-options.v1";
 
 export interface DebugOptions {
   forceShowUpgradeFamilies: UpgradeKey[];
+  glassTower: boolean;
 }
 
 export interface DebugUpgradeFamilyOption {
@@ -15,7 +16,7 @@ export interface DebugUpgradeFamilyOption {
 }
 
 export function createDefaultDebugOptions(): DebugOptions {
-  return { forceShowUpgradeFamilies: [] };
+  return { forceShowUpgradeFamilies: [], glassTower: false };
 }
 
 export function getDebugUpgradeFamilyOptions(): DebugUpgradeFamilyOption[] {
@@ -53,6 +54,7 @@ export function loadDebugOptions(): DebugOptions {
     const parsed = JSON.parse(raw) as Partial<DebugOptions>;
     return {
       forceShowUpgradeFamilies: normalizeForceShowFamilies(parsed?.forceShowUpgradeFamilies),
+      glassTower: parsed?.glassTower === true,
     };
   } catch {
     return createDefaultDebugOptions();
@@ -66,6 +68,7 @@ export function saveDebugOptions(options: DebugOptions): void {
       STORAGE_KEY,
       JSON.stringify({
         forceShowUpgradeFamilies: normalizeForceShowFamilies(options.forceShowUpgradeFamilies),
+        glassTower: options.glassTower === true,
       }),
     );
   } catch {
@@ -76,5 +79,9 @@ export function saveDebugOptions(options: DebugOptions): void {
 export function setForceShowUpgradeFamily(options: DebugOptions, family: UpgradeKey, enabled: boolean): DebugOptions {
   const current = normalizeForceShowFamilies(options.forceShowUpgradeFamilies);
   const next = enabled ? [...current, family] : current.filter((key) => key !== family);
-  return { forceShowUpgradeFamilies: normalizeForceShowFamilies(next) };
+  return { ...options, forceShowUpgradeFamilies: normalizeForceShowFamilies(next) };
+}
+
+export function setGlassTower(options: DebugOptions, enabled: boolean): DebugOptions {
+  return { ...options, glassTower: enabled };
 }

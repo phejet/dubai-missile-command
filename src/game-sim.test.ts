@@ -416,6 +416,7 @@ describe("terminal Burj impacts", () => {
     { type: "stack_child" as const, label: "stack child" },
   ])("ends the run when a $label reaches ground at a Burj target", ({ type }) => {
     const { sim, g } = makeCleanGame();
+    g.burjHealth = 1; // killing blow — the Burj now takes multiple hits
     g.schedule = [{ type: "missile", tick: 999999 }];
     g.scheduleIdx = 0;
     g.missiles = [
@@ -437,6 +438,30 @@ describe("terminal Burj impacts", () => {
     expect(g.burjAlive).toBe(false);
     expect(g.gameOverTimer).toBeGreaterThan(0);
     expect(g.burjDecals[g.burjDecals.length - 1]?.kind).toBe("missile");
+  });
+
+  it("decrements Burj health by one and keeps the run alive on a non-fatal hit", () => {
+    const { sim, g } = makeCleanGame();
+    expect(g.burjHealth).toBe(7);
+    g.schedule = [{ type: "missile", tick: 999999 }];
+    g.scheduleIdx = 0;
+    g.missiles = [
+      makeMissile({
+        type: "missile",
+        x: BURJ_X,
+        y: GAMEPLAY_WATERLINE_Y - 2,
+        vx: 0,
+        vy: 8,
+        targetX: BURJ_X,
+        targetY: CITY_Y,
+      }),
+    ];
+
+    sim.update(g, 1);
+
+    expect(g.burjHealth).toBe(6);
+    expect(g.burjAlive).toBe(true);
+    expect(g.gameOverTimer ?? 0).toBe(0);
   });
 
   it("does not damage the Burj when a missile ground impact was aimed elsewhere", () => {
@@ -580,6 +605,7 @@ describe("Shahed-238 (jet) diving", () => {
   it("baseline Shahed-136 level flight intersects the Burj body", () => {
     setRng(() => 0.5);
     const { sim, g } = makeCleanGame(5);
+    g.burjHealth = 1; // killing blow — the Burj now takes multiple hits
     spawnDroneOfType(g, "shahed136", undefined, "shahed-136");
     const drone = g.drones[0];
 
@@ -810,6 +836,7 @@ describe("Burj damage presentation", () => {
 
   it("adds a missile Burj decal and local fire fx on direct Burj hit before ending the run", () => {
     const { sim, g } = makeCleanGame(5);
+    g.burjHealth = 1; // killing blow — the Burj now takes multiple hits
     const missile = makeBallisticMissile({ x: BURJ_X, y: 1000, vy: 12 });
     g.missiles.push(missile);
 
@@ -825,6 +852,7 @@ describe("Burj damage presentation", () => {
 
   it("adds a drone Burj decal and keeps fire fx persistent before ending the run", () => {
     const { sim, g } = makeCleanGame(5);
+    g.burjHealth = 1; // killing blow — the Burj now takes multiple hits
     g.score = 10000;
     const drone = makePropDrone({ x: BURJ_X, y: 1120, vx: 0, vy: 18, health: 1 });
     g.drones.push(drone);
@@ -1682,6 +1710,7 @@ describe("Shahed-136 (prop) diving", () => {
   it("damages the Burj when terminal dive reaches a Burj target below the body hitbox", () => {
     setRng(() => 0.5);
     const { sim, g } = makeCleanGame(5);
+    g.burjHealth = 1; // killing blow — the Burj now takes multiple hits
     const prop = makePropDrone({
       diving: true,
       diveTarget: { x: BURJ_X, y: CITY_Y },
