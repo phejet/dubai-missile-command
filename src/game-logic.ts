@@ -1,6 +1,7 @@
 import {
   DESTROYED_TYPE_KEYS,
   type RNG,
+  type StatefulRNG,
   type GameState,
   type DefenseSite,
   type Threat,
@@ -242,12 +243,25 @@ export function getShahed136LevelFlightYRange(): [number, number] {
   return [top, bot];
 }
 
+function isStatefulRng(fn: RNG): fn is StatefulRNG {
+  const maybe = fn as Partial<StatefulRNG>;
+  return typeof maybe.getState === "function" && typeof maybe.setState === "function";
+}
+
 let _rng: RNG = Math.random;
 export function setRng(fn: RNG): void {
   _rng = fn;
 }
 export function getRng(): RNG {
   return _rng;
+}
+export function getRngState(): number | null {
+  return isStatefulRng(_rng) ? _rng.getState() : null;
+}
+export function setRngState(state: number): boolean {
+  if (!isStatefulRng(_rng)) return false;
+  _rng.setState(state);
+  return true;
 }
 
 export function dist(x1: number, y1: number, x2: number, y2: number): number {

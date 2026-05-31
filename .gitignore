@@ -42,6 +42,7 @@ public/replay.json
 # Perf benchmark artifacts
 perf-results/runs/
 perf-results/latest/
+perf-results/device-logs/
 
 # Coverage
 coverage/

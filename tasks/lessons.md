@@ -2,6 +2,7 @@
 
 ## 2026-05-30
 
+- For death-clip performance fixes, consider replay anchor snapshots before rolling frame recording. If deterministic sim can resume from a recent clean state, do not pre-record every frame just to dodge a long seek.
 - Before handing over editor/dev URLs, verify the route in a browser and check the bind address. `localhost` can resolve differently than `127.0.0.1`; a Vite server listening only on `[::1]` is a trap wearing a helpful URL badge.
 - For end-wave UI, preserve every intended beat: wave-cleared banner first, bonus report second, shop third. Making the report appear earlier can erase the actual victory sting, which is UI surgery performed with a spoon.
 

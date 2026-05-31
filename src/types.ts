@@ -4,6 +4,11 @@ import type { FireChargeState } from "./player-fire-limiter";
 
 export type RNG = () => number;
 
+export interface StatefulRNG extends RNG {
+  getState(): number;
+  setState(state: number): void;
+}
+
 // ── Game object shapes ──
 
 export interface TrailPoint {
@@ -752,6 +757,14 @@ export interface ReplayState {
 }
 
 export type GameState = SimState & RuntimeState & ReplayState;
+
+export interface ReplayStateAnchor {
+  tick: number;
+  wave: number;
+  rngState: number;
+  state: GameState;
+  reason?: string;
+}
 
 // ── Sim/runtime events ──
 

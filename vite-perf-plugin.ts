@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { join, relative } from "node:path";
 import type { Plugin, ViteDevServer } from "vite";
@@ -217,6 +217,58 @@ export default function perfPlugin(): Plugin {
 
         req.on("error", (error: Error) => {
           console.error(`[perf-save] request stream error: ${error.message}`);
+        });
+      });
+
+      const deviceLogDir = join(perfRoot, "device-logs");
+      server.middlewares.use("/api/save-device-log", (req: IncomingMessage, res: ServerResponse) => {
+        setPerfResponseHeaders(res);
+
+        if (req.method === "OPTIONS" || req.method === "HEAD") {
+          res.statusCode = 204;
+          res.end();
+          return;
+        }
+
+        if (req.method !== "POST") {
+          res.statusCode = 405;
+          res.end(JSON.stringify({ error: "Method not allowed" }));
+          return;
+        }
+
+        let body = "";
+        req.on("data", (chunk: Buffer) => {
+          body += chunk;
+        });
+        req.on("end", () => {
+          try {
+            const parsed = JSON.parse(body) as Record<string, unknown>;
+            const channel = sanitizePathSegment(String(parsed["channel"] ?? "client"), "client");
+            const event = String(parsed["event"] ?? "log");
+            const stamped = { ...parsed, _savedAt: new Date().toISOString() };
+
+            mkdirSync(deviceLogDir, { recursive: true });
+            const day = new Date().toISOString().slice(0, 10);
+            const logPath = join(deviceLogDir, `${day}.jsonl`);
+            appendFileSync(logPath, `${JSON.stringify(stamped)}\n`);
+
+            const detail = Object.entries(parsed)
+              .filter(([key]) => key !== "channel" && key !== "event" && key !== "t")
+              .map(([key, value]) => `${key}=${typeof value === "object" ? JSON.stringify(value) : value}`)
+              .join(" ");
+            console.log(`[device-log] ${channel}/${event} ${detail}`);
+
+            res.end(JSON.stringify({ ok: true }));
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.error(`[device-log] save failed: ${message}`);
+            res.statusCode = 400;
+            res.end(JSON.stringify({ error: message }));
+          }
+        });
+
+        req.on("error", (error: Error) => {
+          console.error(`[device-log] request stream error: ${error.message}`);
         });
       });
     },

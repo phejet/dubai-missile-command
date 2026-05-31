@@ -1,16 +1,45 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mountRunRecapDeathClip } from "./run-recap-death-clip";
-import type { ReplayData } from "./types";
+import type { ReplayData, ReplayStateAnchor } from "./types";
 
-const mocks = vi.hoisted(() => ({
-  rafCallbacks: [] as Array<(time: number) => void>,
-  stepTicks: [] as number[],
-  pixiOptions: [] as unknown[],
-  renderGameplay: vi.fn(),
-  destroyRenderer: vi.fn(),
-  maxTick: Infinity,
-}));
+const mocks = vi.hoisted(() => {
+  const state = {
+    anchorTicks: [] as number[],
+    createRunner(_startTick?: number) {
+      void _startTick;
+      return {};
+    },
+    destroyRenderer: vi.fn(),
+    maxTick: Infinity,
+    pixiOptions: [] as unknown[],
+    rafCallbacks: [] as Array<(time: number) => void>,
+    renderGameplay: vi.fn(),
+    stepTicks: [] as number[],
+  };
+  state.createRunner = (startTick = 0) => {
+    let tick = startTick;
+    const gameState = { state: "playing", _replayTick: startTick };
+    return {
+      cleanup: vi.fn(),
+      getState: () => gameState,
+      getTick: () => tick,
+      init: () => gameState,
+      isBonusPaused: () => false,
+      isFinished: () => tick >= state.maxTick,
+      isShopPaused: () => false,
+      resumeFromBonusScreen: vi.fn(),
+      resumeFromShop: vi.fn(),
+      step: () => {
+        if (tick >= state.maxTick) return;
+        tick++;
+        gameState._replayTick = tick;
+        state.stepTicks.push(tick);
+      },
+    };
+  };
+  return state;
+});
 
 vi.mock("./pixi-render.js", () => ({
   PixiRenderer: class {
@@ -31,26 +60,10 @@ vi.mock("./pixi-render.js", () => ({
 }));
 
 vi.mock("./replay.js", () => ({
-  createReplayRunner: vi.fn().mockImplementation(() => {
-    let tick = 0;
-    const state = { state: "playing", _replayTick: 0 };
-    return {
-      init: () => state,
-      step: () => {
-        if (tick >= mocks.maxTick) return;
-        tick++;
-        state._replayTick = tick;
-        mocks.stepTicks.push(tick);
-      },
-      getState: () => state,
-      getTick: () => tick,
-      isFinished: () => tick >= mocks.maxTick,
-      isShopPaused: () => false,
-      isBonusPaused: () => false,
-      resumeFromShop: vi.fn(),
-      resumeFromBonusScreen: vi.fn(),
-      cleanup: vi.fn(),
-    };
+  createReplayRunner: vi.fn().mockImplementation(() => mocks.createRunner(0)),
+  createReplayRunnerFromAnchor: vi.fn().mockImplementation((_replay: ReplayData, anchor: ReplayStateAnchor) => {
+    mocks.anchorTicks.push(anchor.tick);
+    return mocks.createRunner(anchor.tick);
   }),
 }));
 
@@ -73,6 +86,7 @@ describe("run recap death clip", () => {
     mocks.rafCallbacks.length = 0;
     mocks.stepTicks.length = 0;
     mocks.pixiOptions.length = 0;
+    mocks.anchorTicks.length = 0;
     mocks.maxTick = Infinity;
     mocks.renderGameplay.mockClear();
     mocks.destroyRenderer.mockClear();
@@ -136,6 +150,31 @@ describe("run recap death clip", () => {
     await flushTasks();
 
     expect(mocks.pixiOptions).toContainEqual({ preserveDrawingBuffer: false });
+
+    cleanup();
+  });
+
+  it("starts seeking from a provided replay anchor", async () => {
+    const container = document.createElement("div");
+    const replay: ReplayData = { seed: 7, actions: [], finalTick: 1200, isHuman: true };
+    const anchor = {
+      rngState: 123,
+      state: { state: "playing", _replayTick: 500 },
+      tick: 500,
+      wave: 3,
+    } as ReplayStateAnchor;
+
+    const cleanup = mountRunRecapDeathClip(container, replay, { anchor });
+    await flushTasks();
+
+    runNextRaf();
+    await Promise.resolve();
+
+    expect(mocks.anchorTicks).toEqual([500]);
+    expect(mocks.stepTicks[0]).toBeGreaterThan(500);
+    expect((container.querySelector(".run-recap__death-canvas") as HTMLCanvasElement).dataset.clipSeekTick).toBe(
+      String(mocks.stepTicks[mocks.stepTicks.length - 1]),
+    );
 
     cleanup();
   });

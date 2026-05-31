@@ -45,13 +45,23 @@ import {
   loadUpgradeProgression,
   saveUpgradeProgression,
 } from "./game-sim-upgrades";
-import { createReplayRunner } from "./replay";
+import { createReplayRunner, createReplayRunnerFromAnchor } from "./replay";
+import { createReplayStateAnchor } from "./replay-anchor";
 import { seekRunnerToTick } from "./replay-seek";
 import { mountRunRecapDeathClip } from "./run-recap-death-clip";
 import { handleRunRecapReplayEvent } from "./run-recap-replay-events";
 import { buildRunRecapData } from "./run-recap";
 import { saveReplayToFile } from "./save-replay";
-import type { GameState, GameStats, ReplayAction, ReplayData, SimEvent, SimEventMap, UpgradeKey } from "./types";
+import type {
+  GameState,
+  GameStats,
+  ReplayAction,
+  ReplayData,
+  ReplayStateAnchor,
+  SimEvent,
+  SimEventMap,
+  UpgradeKey,
+} from "./types";
 import {
   showShop as uiShowShop,
   hideShop as uiHideShop,
@@ -429,6 +439,7 @@ export class Game {
   private finalWave = 1;
   private finalStats = createEmptyGameStats();
   private lastReplay: ReplayData | null = null;
+  private replayAnchors: ReplayStateAnchor[] = [];
   private deathClipCleanup: (() => void) | null = null;
   private replaySeekGeneration = 0;
   private replaySeekOverlay: HTMLElement | null = null;
@@ -557,13 +568,46 @@ export class Game {
     }
   }
 
+  private captureReplayAnchor(reason: string): void {
+    const game = this.gameRef.current;
+    if (!game || this.replayActive || game._replay) return;
+    try {
+      const anchor = createReplayStateAnchor(game, reason);
+      if (!anchor) {
+        console.warn(`[replay-anchor] skipped ${reason}; RNG state is not available`);
+        return;
+      }
+      this.replayAnchors = [...this.replayAnchors.filter((existing) => existing.tick !== anchor.tick), anchor]
+        .sort((a, b) => a.tick - b.tick)
+        .slice(-24);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`[replay-anchor] failed to capture ${reason}: ${message}`);
+    }
+  }
+
+  private findReplayAnchorForSeek(replayData: ReplayData, targetTick: number): ReplayStateAnchor | null {
+    if (replayData !== this.lastReplay) return null;
+    const candidates = this.replayAnchors.filter((anchor) => anchor.tick <= targetTick);
+    return candidates[candidates.length - 1] ?? null;
+  }
+
+  private findReplayAnchorForDeathClip(replayData: ReplayData): ReplayStateAnchor | null {
+    if (replayData !== this.lastReplay) return null;
+    const finalTick = replayData.finalTick ?? Infinity;
+    const candidates = this.replayAnchors.filter((anchor) => anchor.tick <= finalTick);
+    return candidates[candidates.length - 1] ?? null;
+  }
+
   private mountGameOverDeathClip(): void {
     this.stopDeathClip();
     if (!this.lastReplay) {
       this.gameoverDeathClipStage.innerHTML = `<span>No death replay recorded.</span>`;
       return;
     }
-    this.deathClipCleanup = mountRunRecapDeathClip(this.gameoverDeathClipStage, this.lastReplay);
+    this.deathClipCleanup = mountRunRecapDeathClip(this.gameoverDeathClipStage, this.lastReplay, {
+      anchor: this.findReplayAnchorForDeathClip(this.lastReplay),
+    });
   }
 
   private resetPlayerFireState(): void {
@@ -724,6 +768,9 @@ export class Game {
   private initGame(debugStart?: DebugStartPreset): void {
     const seed = (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0;
     setRng(mulberry32(seed));
+    this.replayAnchors = [];
+    this.lastReplay = null;
+    window.__lastReplay = null;
     this.gameRef.current = simInitGame();
     const game = this.gameRef.current;
     this.debugOptions = loadDebugOptions();
@@ -745,6 +792,7 @@ export class Game {
     }
     recordWavePlanAction(game);
     maybeRecordReplayCheckpoint(game, { force: true, reason: debugStart ? `debugStart:${debugStart.id}` : "start" });
+    this.captureReplayAnchor(debugStart ? `debugStart:${debugStart.id}` : `waveStart:${game.wave}`);
     this.shopBought = [];
     this.showOptionsMenu = false;
     this.showColliders = false;
@@ -820,6 +868,7 @@ export class Game {
       this.replayRunner = null;
     }
     this.replayActive = false;
+    this.replayAnchors = [];
     this.shopOpen = false;
     this.bonusActive = false;
     this.progressionOpen = false;
@@ -876,11 +925,15 @@ export class Game {
       this.replayRunner = null;
     }
     let seeking = shouldSeek;
+    const replayAnchor = shouldSeek ? this.findReplayAnchorForSeek(replayData, seekToTick) : null;
     let runner: ReturnType<typeof createReplayRunner>;
-    runner = createReplayRunner(replayData, (type, data) => {
+    const onReplaySimEvent = <Type extends keyof SimEventMap>(type: Type, data: SimEventMap[Type]) => {
       if (seeking) handleRunRecapReplayEvent(replayData, runner, type, data);
       else this.handleSimEvent(type, data);
-    });
+    };
+    runner = replayAnchor
+      ? createReplayRunnerFromAnchor(replayData, replayAnchor, onReplaySimEvent)
+      : createReplayRunner(replayData, onReplaySimEvent);
     const replayGameState = runner.init();
     this.gameRef.current = replayGameState;
     if (replayGameState) {
@@ -1160,6 +1213,7 @@ export class Game {
       force: true,
       reason: `waveStart:${game.wave}`,
     });
+    this.captureReplayAnchor(`waveStart:${game.wave}`);
     this.shopOpen = false;
     uiHideShop();
     this.battlefieldCard.classList.remove("battlefield-card--blurred");

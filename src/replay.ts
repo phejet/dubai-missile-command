@@ -1,4 +1,4 @@
-import { assertNoEditorOverridesForDeterministicRun, setRng, fireInterceptor } from "./game-logic";
+import { assertNoEditorOverridesForDeterministicRun, setRng, setRngState, fireInterceptor } from "./game-logic";
 import {
   initGame,
   update,
@@ -12,18 +12,37 @@ import {
   repairLauncher,
 } from "./game-sim";
 import { mulberry32 } from "./headless/rng";
+import { cloneReplayStateAnchor } from "./replay-anchor";
 import {
   applyReplayBootstrap,
   resolveReplayStartWave,
   resolveReplayStopWave,
   shouldStopReplayAtWaveComplete,
 } from "./replay-bootstrap";
-import type { GameState, ReplayData, ReplayEventSink, ShopAction, SimEventSink } from "./types";
+import type { GameState, ReplayData, ReplayEventSink, ReplayStateAnchor, ShopAction, SimEventSink } from "./types";
 
 export function createReplayRunner(
   replayData: ReplayData,
   onEvent: SimEventSink | null = null,
   onReplayEvent: ReplayEventSink | null = null,
+) {
+  return createReplayRunnerInternal(replayData, onEvent, onReplayEvent, null);
+}
+
+export function createReplayRunnerFromAnchor(
+  replayData: ReplayData,
+  anchor: ReplayStateAnchor,
+  onEvent: SimEventSink | null = null,
+  onReplayEvent: ReplayEventSink | null = null,
+) {
+  return createReplayRunnerInternal(replayData, onEvent, onReplayEvent, anchor);
+}
+
+function createReplayRunnerInternal(
+  replayData: ReplayData,
+  onEvent: SimEventSink | null,
+  onReplayEvent: ReplayEventSink | null,
+  startAnchor: ReplayStateAnchor | null,
 ) {
   const { seed, actions } = replayData;
   const draftMode =
@@ -44,6 +63,11 @@ export function createReplayRunner(
     return !!g && shouldStopReplayAtWaveComplete(g, stopWave);
   }
 
+  function getActionIndexAfterTick(anchorTick: number): number {
+    const index = actions.findIndex((action) => action.tick > anchorTick);
+    return index >= 0 ? index : actions.length;
+  }
+
   function init() {
     assertNoEditorOverridesForDeterministicRun("Replay runner");
 
@@ -55,14 +79,30 @@ export function createReplayRunner(
     }
     const rng = mulberry32(seed);
     setRng(rng);
-    g = initGame();
-    g._gameSeed = seed;
-    g._replay = true;
-    g._replayIsHuman = !!replayData.isHuman;
-    if (draftMode) g._draftMode = true;
-    applyReplayBootstrap(g, replayData, startWave);
-    actionIdx = 0;
-    tick = 0;
+    if (startAnchor) {
+      const anchor = cloneReplayStateAnchor(startAnchor);
+      if (!setRngState(anchor.rngState)) {
+        throw new Error("Replay anchor requires a stateful RNG");
+      }
+      g = anchor.state;
+      tick = anchor.tick;
+      g._gameSeed = seed;
+      g._replay = true;
+      g._replayIsHuman = !!replayData.isHuman;
+      g._replayTick = tick;
+      g._showColliders = false;
+      if (draftMode) g._draftMode = true;
+      actionIdx = getActionIndexAfterTick(tick);
+    } else {
+      g = initGame();
+      g._gameSeed = seed;
+      g._replay = true;
+      g._replayIsHuman = !!replayData.isHuman;
+      if (draftMode) g._draftMode = true;
+      applyReplayBootstrap(g, replayData, startWave);
+      actionIdx = 0;
+      tick = 0;
+    }
     finished = false;
     shopPaused = false;
     bonusPaused = false;
