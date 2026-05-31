@@ -294,9 +294,9 @@ describe("fireInterceptor", () => {
   it("uses high velocity interceptor stats", () => {
     const g = makeGameState({ ownedUpgradeNodes: new Set([LAUNCHER_HIGH_VELOCITY_NODE]) });
     fireInterceptor(g, 500, 300, 10);
-    expect(g.interceptors[0].speed).toBeCloseTo(11.19);
-    expect(g.interceptors[0].accel).toBeCloseTo(3.75);
-    expect(g.interceptors[0].maxSpeed).toBeCloseTo(37.5);
+    expect(g.interceptors[0].speed).toBeCloseTo(14.547);
+    expect(g.interceptors[0].accel).toBeCloseTo(4.875);
+    expect(g.interceptors[0].maxSpeed).toBeCloseTo(48.75);
   });
 
   it("derives launcher armor and double magazine effects from owned nodes", () => {

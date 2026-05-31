@@ -445,12 +445,11 @@ export function botDecideAction(
   const cfg = config.targeting;
   const human = config.humanization?.enabled ? config.humanization : null;
   const rng = getRng();
-  // Interceptors start at 7.46 px/tick, multiply by accel=2.5 each tick, capped
-  // at maxSpeed=25 (or 35 with HighVelocity launcher upgrade). They reach max
-  // in ~2 ticks, so the effective average across a typical flight is ~25 px/tick
-  // — measured at 25.5–26 across the full target plane in the bot-brain test.
-  // High-velocity owned: ~35 px/tick.
-  const interceptorSpeed = 25;
+  // Interceptors start at 9.698 px/tick, multiply by accel=3.25 each tick, capped
+  // at maxSpeed=32.5 (or 48.75 with HighVelocity launcher upgrade). They reach max
+  // in ~2 ticks, so the effective average across a typical flight is ~32.5 px/tick.
+  // High-velocity owned: ~48.75 px/tick.
+  const interceptorSpeed = 32.5;
 
   // Check if any launcher has ammo
   const hasAmmo = g.ammo.some((a, i) => a > 0 && g.launcherHP[i] > 0);

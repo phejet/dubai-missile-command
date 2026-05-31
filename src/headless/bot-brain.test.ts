@@ -174,7 +174,7 @@ describe("botDecideAction jet reservations", () => {
     expect(first!.targetRef).toBe(jet);
     reserveBotTarget(g, first!.targetRef, first!.reservationUntil ?? 100, 100);
 
-    const second = botDecideAction(g, config, 100, 130);
+    const second = botDecideAction(g, config, 100, 120);
     expect(second).toBeNull();
   });
 });
