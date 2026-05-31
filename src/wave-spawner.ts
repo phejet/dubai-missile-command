@@ -184,21 +184,21 @@ const WAVE_TABLE = [
     stack3: [0, 0],
   },
   {
-    budget: 32,
+    budget: 26,
     cap: 16,
     missile: [5, 10],
     drone136: [6, 12],
-    drone238: [1, 2],
+    drone238: [0, 0],
     mirv: [0, 0],
     stack2: [0, 0],
     stack3: [0, 0],
   },
   {
-    budget: 38,
+    budget: 34,
     cap: 18,
     missile: [7, 11],
     drone136: [6, 10],
-    drone238: [2, 3],
+    drone238: [1, 2],
     mirv: [0, 0],
     stack2: [0, 0],
     stack3: [0, 0],
@@ -440,12 +440,12 @@ export function createCommander(style: CommanderStyle = "balanced"): Commander {
 // Tactic availability by wave — returns tactic ids available for selection
 function getAvailableTactics(wave: number, style: CommanderStyle): TacticId[] {
   const pool: TacticId[] = [];
-  // Direction tactics
-  if (wave >= 3) pool.push("LEFT_FLANK", "RIGHT_FLANK");
-  if (wave >= (style === "methodical" ? 3 : 4)) pool.push("PINCER");
+  // Direction tactics — flanks debut at wave 4 (wave 3 stays a clean "learn the dive" wave)
+  if (wave >= 4) pool.push("LEFT_FLANK", "RIGHT_FLANK");
+  if (wave >= 4) pool.push("PINCER");
   if (wave >= 6) pool.push("TOP_BARRAGE");
-  // Altitude tactics
-  if (wave >= 3) pool.push("LOW_APPROACH", "HIGH_APPROACH");
+  // Altitude tactics — debut at wave 4 alongside flanks (wave 3 stays a clean "learn the dive" wave)
+  if (wave >= 4) pool.push("LOW_APPROACH", "HIGH_APPROACH");
   // Formation tactics
   if (wave >= 5) pool.push("DRONE_SWARM", "MISSILE_RAIN");
   if (wave >= 5) pool.push("MIXED_AXIS");

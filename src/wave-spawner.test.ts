@@ -85,8 +85,9 @@ describe("getWaveConfig", () => {
     }
   });
 
-  it("drone238 available wave 3+", () => {
-    expect(getWaveConfig(3).types.drone238.max).toBeGreaterThan(0);
+  it("drone238 available wave 4+", () => {
+    expect(getWaveConfig(3).types.drone238.max).toBe(0);
+    expect(getWaveConfig(4).types.drone238.max).toBeGreaterThan(0);
   });
 
   it("mirv available wave 5+", () => {
@@ -293,16 +294,17 @@ describe("generateWaveSchedule", () => {
     expect(wave8Dangerous).toBeGreaterThan(40);
   });
 
-  it("wave 3+ can include drone238", () => {
+  it("wave 4+ can include drone238", () => {
     // Run multiple seeds to ensure at least one produces drone238
     let found = false;
     for (let seed = 1; seed <= 20; seed++) {
       setRng(makeSeededRng(seed));
       const cmdr = createCommander("balanced");
-      // Skip to wave 3 — need to burn through waves 1-2 for history
+      // Skip to wave 4 — drone238 debuts at wave 4; burn through waves 1-3 for history
       generateWaveSchedule(1, cmdr);
       generateWaveSchedule(2, cmdr);
-      const { schedule } = generateWaveSchedule(3, cmdr);
+      generateWaveSchedule(3, cmdr);
+      const { schedule } = generateWaveSchedule(4, cmdr);
       if (schedule.some((e) => e.type === "drone238")) {
         found = true;
         break;
@@ -383,8 +385,8 @@ describe("generateWaveSchedule", () => {
     type DiveType = (typeof DIVE_TYPES)[number];
     type NonDiveType = (typeof NON_DIVE_TYPES)[number];
 
-    const lowSchedule = scheduleWithTactic(3, "LOW_APPROACH");
-    const highSchedule = scheduleWithTactic(3, "HIGH_APPROACH");
+    const lowSchedule = scheduleWithTactic(4, "LOW_APPROACH");
+    const highSchedule = scheduleWithTactic(4, "HIGH_APPROACH");
 
     const lowDivers = lowSchedule.filter((e) => DIVE_TYPES.includes(e.type as DiveType));
     const highDivers = highSchedule.filter((e) => DIVE_TYPES.includes(e.type as DiveType));
