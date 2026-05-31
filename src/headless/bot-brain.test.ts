@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import defaultConfig from "./bot-config.json" with { type: "json" };
-import { botDecideAction, reserveBotTarget, resolveBotConfig } from "./bot-brain.js";
+import { botDecideAction, reserveBotTarget, resolveBotConfig } from "./bot-brain";
 import type { GameState } from "../types";
 
 function makeGame(): GameState {

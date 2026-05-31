@@ -36,11 +36,13 @@ The controller also tracks overlay-like flags:
 - `shopOpen`
 - `bonusActive`
 - `progressionOpen`
+- `runRecapOpen`
 - `replayActive`
 - `showOptionsMenu`
 - `showPerfOverlay`
 
 This is why changing `game.state` alone does not fully change the browser UI.
+See [`overlay-state-machine-proposal.md`](./overlay-state-machine-proposal.md) for the proposed single-primary-overlay replacement.
 
 ## Game Start And Replay Start
 

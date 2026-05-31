@@ -1,7 +1,7 @@
 import { Capacitor } from "@capacitor/core";
 import { Directory, Encoding, Filesystem } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
-import type { ReplayData } from "./types.js";
+import type { ReplayData } from "./types";
 
 export type SaveReplayResult = { ok: true } | { ok: false; error: unknown };
 

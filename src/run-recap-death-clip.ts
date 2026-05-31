@@ -1,9 +1,9 @@
-import { CANVAS_H, CANVAS_W } from "./game-logic.js";
-import { PixiRenderer } from "./pixi-render.js";
-import { createReplayRunner } from "./replay.js";
-import { seekRunnerToTick } from "./replay-seek.js";
-import { handleRunRecapReplayEvent } from "./run-recap-replay-events.js";
-import type { ReplayData } from "./types.js";
+import { CANVAS_H, CANVAS_W } from "./game-logic";
+import { PixiRenderer } from "./pixi-render";
+import { createReplayRunner } from "./replay";
+import { seekRunnerToTick } from "./replay-seek";
+import { handleRunRecapReplayEvent } from "./run-recap-replay-events";
+import type { ReplayData } from "./types";
 
 const CLIP_TICKS = 300;
 const FRAME_MS = 1000 / 30;

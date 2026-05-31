@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { initGame } from "./game-sim.js";
-import { handleRunRecapReplayEvent } from "./run-recap-replay-events.js";
-import type { ReplayData, SimEventMap } from "./types.js";
+import { initGame } from "./game-sim";
+import { handleRunRecapReplayEvent } from "./run-recap-replay-events";
+import type { ReplayData, SimEventMap } from "./types";
 
 const waveBonusEvent: SimEventMap["waveBonusStart"] = {
   buildings: 5,

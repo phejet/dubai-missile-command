@@ -10,8 +10,8 @@
  *   LLM_MODEL    — model name (default: auto-detect from LM Studio)
  */
 
-import { runGame } from "./sim-runner.js";
-import type { ShopAction } from "../types.js";
+import { runGame } from "./sim-runner";
+import type { ShopAction } from "../types";
 import defaultConfig from "./bot-config.json" with { type: "json" };
 
 // Parse args

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { initGame } from "./game-sim.js";
-import { seekRunnerToTick, type SeekSignal, type SeekableReplayRunner } from "./replay-seek.js";
-import type { GameState } from "./types.js";
+import { initGame } from "./game-sim";
+import { seekRunnerToTick, type SeekSignal, type SeekableReplayRunner } from "./replay-seek";
+import type { GameState } from "./types";
 
 class FakeRunner implements SeekableReplayRunner {
   tick = 0;

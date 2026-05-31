@@ -29,10 +29,10 @@ import {
   OVERRIDE_KEYS,
   hasEditorOverrides,
   assertNoEditorOverridesForDeterministicRun,
-} from "./game-logic.js";
-import { createFireChargeState, getFireChargeCount } from "./player-fire-limiter.js";
-import type { EditorOverrideMap } from "./game-logic.js";
-import type { GameState } from "./types.js";
+} from "./game-logic";
+import { createFireChargeState, getFireChargeCount } from "./player-fire-limiter";
+import type { EditorOverrideMap } from "./game-logic";
+import type { GameState } from "./types";
 
 function makeGameState(overrides: Partial<GameState> = {}): GameState {
   return {

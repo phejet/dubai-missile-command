@@ -1,4 +1,4 @@
-import { rand, randInt } from "./game-logic.js";
+import { rand, randInt } from "./game-logic";
 import type {
   TacticId,
   CommanderStyle,
@@ -9,7 +9,7 @@ import type {
   SpawnType,
   GameState,
   Shahed136Variant,
-} from "./types.js";
+} from "./types";
 
 // ── Threat values ──
 

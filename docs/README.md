@@ -23,6 +23,8 @@ This folder holds repo-specific notes for future maintenance, not player-facing 
 - [`build-targets.md`](./build-targets.md) — Vite targets, Capacitor differences, replay save endpoint, CI, and deploy behavior.
 - [`testing-matrix.md`](./testing-matrix.md) — what is covered by unit tests vs E2E, and how to run each layer.
 - [`script-inventory.md`](./script-inventory.md) — top-level and headless scripts, grouped by purpose and trust level.
+- [`performance-notes.md`](./performance-notes.md) — known perf cliffs and constraints for future optimization.
+- [`overlay-state-machine-proposal.md`](./overlay-state-machine-proposal.md) — proposed replacement for controller overlay boolean state.
 
 Repo-root files should be maintained entrypoints, project config, or committed fixtures with active consumers; one-off generated analysis output belongs under a named artifacts folder or outside the repo.
 

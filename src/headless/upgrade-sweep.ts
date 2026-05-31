@@ -4,7 +4,7 @@
 //
 // Usage: npx tsx src/headless/upgrade-sweep.ts [--preset=average] [--games=20]
 
-import { runGame } from "./sim-runner.js";
+import { runGame } from "./sim-runner";
 import baseConfig from "./bot-config.json" with { type: "json" };
 
 const args = process.argv.slice(2);

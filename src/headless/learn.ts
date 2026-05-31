@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync, appendFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { runGame } from "./sim-runner.js";
+import { runGame } from "./sim-runner";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

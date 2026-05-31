@@ -4,14 +4,14 @@
 //
 // Usage: npx tsx src/headless/shot-audit.ts [--seed=42] [--preset=perfect] [--maxTicks=60000]
 
-import { setRng, fireInterceptor, dist } from "../game-logic.js";
-import { initGame, update } from "../game-sim.js";
-import { mulberry32 } from "./rng.js";
-import { botDecideAction, botDecideUpgrades, resolveBotConfig, reserveBotTarget } from "./bot-brain.js";
+import { setRng, fireInterceptor, dist } from "../game-logic";
+import { initGame, update } from "../game-sim";
+import { mulberry32 } from "./rng";
+import { botDecideAction, botDecideUpgrades, resolveBotConfig, reserveBotTarget } from "./bot-brain";
 import defaultConfig from "./bot-config.json" with { type: "json" };
-import { buyUpgrade, buyDraftUpgrade, closeShop, fireEmp, fireF15Pair, fireFlareSalvo } from "../game-sim.js";
-import { getUpgradeNodeDef } from "../game-sim-upgrades.js";
-import type { GameState, Threat, UpgradeKey } from "../types.js";
+import { buyUpgrade, buyDraftUpgrade, closeShop, fireEmp, fireF15Pair, fireFlareSalvo } from "../game-sim";
+import { getUpgradeNodeDef } from "../game-sim-upgrades";
+import type { GameState, Threat, UpgradeKey } from "../types";
 
 const args = process.argv.slice(2);
 function getArg(name: string, def: string): string {

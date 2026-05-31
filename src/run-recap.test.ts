@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { createEmptyGameStats } from "./game-logic.js";
-import { initGame } from "./game-sim.js";
-import { buildRunRecapData, buildRunRecapWaveCards, deriveOutcomeCause, extractUpgradeTimeline } from "./run-recap.js";
-import type { ReplayAction, WaveSummaryRecord } from "./types.js";
+import { createEmptyGameStats } from "./game-logic";
+import { initGame } from "./game-sim";
+import { buildRunRecapData, buildRunRecapWaveCards, deriveOutcomeCause, extractUpgradeTimeline } from "./run-recap";
+import type { ReplayAction, WaveSummaryRecord } from "./types";
 
 function makeWaveSummary(overrides: Partial<WaveSummaryRecord> = {}): WaveSummaryRecord {
   return {

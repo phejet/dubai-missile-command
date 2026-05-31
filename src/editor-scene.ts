@@ -1,5 +1,5 @@
 // Creates a frozen mock game state for the graphics editor preview
-import { CANVAS_W, CANVAS_H, GROUND_Y, COL, createEmptyGameStats, createScenicBuildings } from "./game-logic.js";
+import { CANVAS_W, CANVAS_H, GROUND_Y, COL, createEmptyGameStats, createScenicBuildings } from "./game-logic";
 import { createEmptyUpgradeProgression } from "./game-sim-upgrades";
 import { createFireChargeState } from "./player-fire-limiter";
 import type { GameState } from "./types";

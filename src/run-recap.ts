@@ -1,4 +1,4 @@
-import { cloneDestroyedByTypeStats, normalizeGameStats } from "./game-logic.js";
+import { cloneDestroyedByTypeStats, normalizeGameStats } from "./game-logic";
 import type {
   GameState,
   GameStats,
@@ -10,7 +10,7 @@ import type {
   ShopAction,
   UpgradeTimelineEntry,
   WaveSummaryRecord,
-} from "./types.js";
+} from "./types";
 
 const TICK_MS = 1000 / 60;
 

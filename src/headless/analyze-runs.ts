@@ -5,7 +5,7 @@
 //
 // Usage: npx tsx src/headless/analyze-runs.ts [--games=50] [--maxTicks=60000] [--seed-base=10000]
 
-import { runGame } from "./sim-runner.js";
+import { runGame } from "./sim-runner";
 
 const args = process.argv.slice(2);
 function getArg(name: string, def: string): string {

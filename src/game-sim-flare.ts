@@ -1,5 +1,5 @@
-import { BURJ_X, COL, GROUND_Y, LAUNCHERS, dist, getAmmoCapacity, getRng, ov, rand } from "./game-logic.js";
-import type { Drone, Flare, GameState, Missile, SimEventSink, Threat } from "./types.js";
+import { BURJ_X, COL, GROUND_Y, LAUNCHERS, dist, getAmmoCapacity, getRng, ov, rand } from "./game-logic";
+import type { Drone, Flare, GameState, Missile, SimEventSink, Threat } from "./types";
 
 type FlareThreat = Missile | Drone;
 

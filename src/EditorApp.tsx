@@ -1,10 +1,10 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from "react";
-import { CANVAS_W, CANVAS_H, GROUND_Y, BURJ_X, BURJ_H, COL, createExplosion, ov } from "./game-logic.js";
-import { createEditorScene } from "./editor-scene.js";
-import { createPixiEditorPreviewRenderer, type PixiEditorPreviewRenderer } from "./editor-render.js";
+import { CANVAS_W, CANVAS_H, GROUND_Y, BURJ_X, BURJ_H, COL, createExplosion, ov } from "./game-logic";
+import { createEditorScene } from "./editor-scene";
+import { createPixiEditorPreviewRenderer, type PixiEditorPreviewRenderer } from "./editor-render";
 import { BURJ_MAX_HEALTH } from "./pixi-render";
 import { updateBurjFireParticles } from "./game-sim";
-import { PARAM_GROUPS, getDefaults } from "./editor-params.js";
+import { PARAM_GROUPS, getDefaults } from "./editor-params";
 import { createEmptyUpgradeProgression, getAllUpgradeNodeDefs, getUpgradeObjectiveLabel } from "./game-sim-upgrades";
 import {
   buildUpgradeGraphViewModel,

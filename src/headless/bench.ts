@@ -6,7 +6,7 @@ import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import os from "os";
-import type { runGame } from "./sim-runner.js";
+import type { runGame } from "./sim-runner";
 
 type GameResult = ReturnType<typeof runGame>;
 

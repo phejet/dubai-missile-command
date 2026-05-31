@@ -1,5 +1,5 @@
-import type { GameState, ReplayData, SimEventMap } from "./types.js";
-import { getBuildingSurvivalBonus } from "./wave-bonus.js";
+import type { GameState, ReplayData, SimEventMap } from "./types";
+import { getBuildingSurvivalBonus } from "./wave-bonus";
 
 interface ReplayStateReader {
   getState(): GameState | null;

@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { setRng, getAmmoCapacity } from "./game-logic.js";
-import { initGame, buyUpgrade } from "./game-sim.js";
-import { DEBUG_START_PRESETS, applyDebugStartPreset, getDebugStartPreset } from "./debug-starts.js";
-import { getUpgradeNodeDef } from "./game-sim-upgrades.js";
+import { setRng, getAmmoCapacity } from "./game-logic";
+import { initGame, buyUpgrade } from "./game-sim";
+import { DEBUG_START_PRESETS, applyDebugStartPreset, getDebugStartPreset } from "./debug-starts";
+import { getUpgradeNodeDef } from "./game-sim-upgrades";
 
 describe("debug start presets", () => {
   afterEach(() => setRng(Math.random));

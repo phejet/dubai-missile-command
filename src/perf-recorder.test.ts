@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { parsePerfBootRequest, parsePerfCommandPayload, resolveReplayAssetUrl } from "./boot-game.js";
-import { PerfRecorder, deriveReplayId, summarizePerfFrames } from "./perf-recorder.js";
-import { ConsoleSink, HttpSink } from "./perf-sinks.js";
-import type { PerfReport } from "./perf-recorder.js";
+import { parsePerfBootRequest, parsePerfCommandPayload, resolveReplayAssetUrl } from "./boot-game";
+import { PerfRecorder, deriveReplayId, summarizePerfFrames } from "./perf-recorder";
+import { ConsoleSink, HttpSink } from "./perf-sinks";
+import type { PerfReport } from "./perf-recorder";
 
 describe("PerfRecorder", () => {
   it("records replay gameplay frames and emits a schema-v1 report", async () => {

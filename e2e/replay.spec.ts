@@ -5,7 +5,7 @@ declare global {
   interface Window {
     __gameRef?: import("react").MutableRefObject<import("../src/types").GameState | null>;
     __loadReplay?: (replayData: ReplayData) => void;
-    __createReplayRunner?: typeof import("../src/replay.js").createReplayRunner;
+    __createReplayRunner?: typeof import("../src/replay").createReplayRunner;
     __openShopPreview?: () => boolean;
   }
 }

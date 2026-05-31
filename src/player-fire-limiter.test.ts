@@ -6,7 +6,7 @@ import {
   resetFireChargeState,
   spendFireCharge,
   syncFireChargeState,
-} from "./player-fire-limiter.js";
+} from "./player-fire-limiter";
 
 describe("fire charge state", () => {
   it("starts with no charges", () => {

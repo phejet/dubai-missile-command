@@ -1,4 +1,4 @@
-import type { GameState } from "./types.js";
+import type { GameState } from "./types";
 
 export interface SeekSignal {
   cancelled: boolean;

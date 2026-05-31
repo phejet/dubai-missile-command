@@ -1,5 +1,5 @@
 import { writeFileSync } from "fs";
-import { runGame } from "./sim-runner.js";
+import { runGame } from "./sim-runner";
 
 // Record the best game out of N runs, or a specific seed
 const args = process.argv.slice(2);

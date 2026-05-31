@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { createReplayRunner } from "./replay.js";
-import { buildReplayCheckpoint } from "./replay-debug.js";
-import { setRng } from "./game-logic.js";
-import { mulberry32 } from "./headless/rng.js";
-import { runGame } from "./headless/sim-runner.js";
-import { initGame, update } from "./game-sim.js";
-import type { ReplayAction, ReplayData, SimEventSink } from "./types.js";
+import { createReplayRunner } from "./replay";
+import { buildReplayCheckpoint } from "./replay-debug";
+import { setRng } from "./game-logic";
+import { mulberry32 } from "./headless/rng";
+import { runGame } from "./headless/sim-runner";
+import { initGame, update } from "./game-sim";
+import type { ReplayAction, ReplayData, SimEventSink } from "./types";
 
 const SEED = 12345;
 

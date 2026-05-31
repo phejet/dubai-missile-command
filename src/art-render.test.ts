@@ -11,8 +11,8 @@ import {
   buildUpgradeProjectileSpriteAssets,
   createSpriteCanvas,
   getBurjDamageFireLayout,
-} from "./art-render.js";
-import { BURJ_X, GAMEPLAY_SCENIC_BASE_Y, GROUND_Y } from "./game-logic.js";
+} from "./art-render";
+import { BURJ_X, GAMEPLAY_SCENIC_BASE_Y, GROUND_Y } from "./game-logic";
 
 const originalDocument = globalThis.document;
 

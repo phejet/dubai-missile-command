@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { runGame } from "./sim-runner.js";
-import { createReplayRunner } from "../replay.js";
-import { buildReplayCheckpoint } from "../replay-debug.js";
-import { setRng } from "../game-logic.js";
-import type { EditorOverrideMap } from "../game-logic.js";
+import { runGame } from "./sim-runner";
+import { createReplayRunner } from "../replay";
+import { buildReplayCheckpoint } from "../replay-debug";
+import { setRng } from "../game-logic";
+import type { EditorOverrideMap } from "../game-logic";
 import type { ReplayAction, ReplayData } from "../types";
 
 const globalWithWindow = globalThis as unknown as { window?: { __editorOverrides?: EditorOverrideMap | null } };

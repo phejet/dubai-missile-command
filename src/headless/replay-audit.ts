@@ -5,9 +5,9 @@
 // Usage: npx tsx src/headless/replay-audit.ts <replay.json> [--limit=200]
 
 import { readFileSync } from "fs";
-import { runGame } from "./sim-runner.js";
-import { createReplayRunner } from "../replay.js";
-import type { ReplayData, ReplayAction } from "../types.js";
+import { runGame } from "./sim-runner";
+import { createReplayRunner } from "../replay";
+import type { ReplayData, ReplayAction } from "../types";
 
 const args = process.argv.slice(2);
 const replayPath = args.find((a) => !a.startsWith("--"));

@@ -1,5 +1,5 @@
-import { CANVAS_H, CANVAS_W, COL, GROUND_Y, dist, getDefenseSitePlacement, rand } from "./game-logic.js";
-import type { GameState, PatriotLaunchQueueItem, PatriotMissile, SimEventSink, Threat } from "./types.js";
+import { CANVAS_H, CANVAS_W, COL, GROUND_Y, dist, getDefenseSitePlacement, rand } from "./game-logic";
+import type { GameState, PatriotLaunchQueueItem, PatriotMissile, SimEventSink, Threat } from "./types";
 
 type BurjImpactPredicate = (targetX: number | undefined, targetY: number | undefined) => boolean;
 type PatriotDetonate = (x: number, y: number, radius: number, initialRadius: number) => void;

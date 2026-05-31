@@ -12,12 +12,12 @@
  */
 
 import { writeFileSync } from "fs";
-import { setRng, fireInterceptor } from "../game-logic.js";
-import { initGame, update, closeShop, repairSite, repairLauncher, fireEmp, fireFlareSalvo } from "../game-sim.js";
-import { buyDraftUpgrade, draftPick3 } from "../game-sim-shop.js";
-import { getUpgradeNodeDef } from "../game-sim-upgrades.js";
-import { mulberry32 } from "./rng.js";
-import { botDecideAction, botDecideUpgrades, resolveBotConfig } from "./bot-brain.js";
+import { setRng, fireInterceptor } from "../game-logic";
+import { initGame, update, closeShop, repairSite, repairLauncher, fireEmp, fireFlareSalvo } from "../game-sim";
+import { buyDraftUpgrade, draftPick3 } from "../game-sim-shop";
+import { getUpgradeNodeDef } from "../game-sim-upgrades";
+import { mulberry32 } from "./rng";
+import { botDecideAction, botDecideUpgrades, resolveBotConfig } from "./bot-brain";
 import defaultConfig from "./bot-config.json" with { type: "json" };
 
 const NUM_GAMES = 300;

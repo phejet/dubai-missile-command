@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { setRng } from "./game-logic.js";
-import type { SpawnType, Missile, Drone } from "./types.js";
+import { setRng } from "./game-logic";
+import type { SpawnType, Missile, Drone } from "./types";
 import {
   THREAT_VALUES,
   TACTICS,
@@ -13,7 +13,7 @@ import {
   computeAliveThreatValue,
   advanceSpawnSchedule,
   isWaveFullySpawned,
-} from "./wave-spawner.js";
+} from "./wave-spawner";
 
 afterEach(() => setRng(Math.random));
 
@@ -527,7 +527,7 @@ describe("computeAliveThreatValue", () => {
 // ── advanceSpawnSchedule ──
 
 describe("advanceSpawnSchedule", () => {
-  function makeGameWithSchedule(schedule: import("./types.js").SpawnEntry[], cap = 100) {
+  function makeGameWithSchedule(schedule: import("./types").SpawnEntry[], cap = 100) {
     return {
       schedule,
       scheduleIdx: 0,
@@ -618,7 +618,7 @@ describe("advanceSpawnSchedule", () => {
   });
 
   it("passes fast variant overrides to spawn function", () => {
-    const calls: Array<{ type: SpawnType; overrides: import("./types.js").SpawnEntry["overrides"] }> = [];
+    const calls: Array<{ type: SpawnType; overrides: import("./types").SpawnEntry["overrides"] }> = [];
     const g = makeGameWithSchedule([{ tick: 0, type: "drone238", overrides: { variant: "fast", speedMul: 1.25 } }]);
     g.waveTick = 10;
     advanceSpawnSchedule(g, 1, (_g, type, overrides) => calls.push({ type, overrides }));
@@ -666,7 +666,7 @@ describe("advanceSpawnSchedule", () => {
   });
 
   it("passes overrides to spawn function", () => {
-    const calls: Array<{ type: SpawnType; overrides: import("./types.js").SpawnEntry["overrides"] }> = [];
+    const calls: Array<{ type: SpawnType; overrides: import("./types").SpawnEntry["overrides"] }> = [];
     const g = makeGameWithSchedule([{ tick: 0, type: "shahed-136-bomber", overrides: { side: "left" } }]);
     g.waveTick = 10;
     advanceSpawnSchedule(g, 1, (_g, type, overrides) => calls.push({ type, overrides }));

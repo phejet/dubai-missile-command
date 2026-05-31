@@ -12,8 +12,8 @@ import {
   getAmmoCapacity,
   getRng,
   rand,
-} from "./game-logic.js";
-import type { EmpRing, GameState, SimEventSink, Threat } from "./types.js";
+} from "./game-logic";
+import type { EmpRing, GameState, SimEventSink, Threat } from "./types";
 
 let _empFxId = 0;
 

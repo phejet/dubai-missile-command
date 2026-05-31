@@ -2,8 +2,8 @@ import { Worker } from "worker_threads";
 import { readFileSync, appendFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { resolveBotConfig } from "./bot-brain.js";
-import type { runGame } from "./sim-runner.js";
+import { resolveBotConfig } from "./bot-brain";
+import type { runGame } from "./sim-runner";
 
 type GameResult = ReturnType<typeof runGame>;
 

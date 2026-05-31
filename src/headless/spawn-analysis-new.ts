@@ -4,9 +4,9 @@
  * and also runs N simulation games per wave to measure benchmark metrics.
  */
 
-import { getWaveConfig, generateWaveSchedule, createCommander, THREAT_VALUES } from "../wave-spawner.js";
-import { setRng } from "../game-logic.js";
-import { mulberry32 } from "./rng.js";
+import { getWaveConfig, generateWaveSchedule, createCommander, THREAT_VALUES } from "../wave-spawner";
+import { setRng } from "../game-logic";
+import { mulberry32 } from "./rng";
 
 const NUM_SAMPLES = 200; // schedules per wave for statistical analysis
 const SHAHED_136_TYPES = new Set(["shahed-136", "shahed-136-bomber", "shahed-136-dive", "shahed-136-dive-bomber"]);

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { mountRunRecapDeathClip } from "./run-recap-death-clip.js";
-import type { ReplayData } from "./types.js";
+import { mountRunRecapDeathClip } from "./run-recap-death-clip";
+import type { ReplayData } from "./types";
 
 const mocks = vi.hoisted(() => ({
   rafCallbacks: [] as Array<(time: number) => void>,

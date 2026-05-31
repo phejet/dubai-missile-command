@@ -1,8 +1,8 @@
-import { BURJ_MAX_HEALTH, BURJ_X, GAMEPLAY_SCENIC_BASE_Y, MAX_PARTICLES, ov, rand } from "./game-logic.js";
-import { getBurjDamageFireLayout } from "./art-render.js";
-import { getBurjFireEmberVariantId, getBurjFireFlameVariantId } from "./burj-fire-textures.js";
-import { getBurjSmokeParticleVariantId } from "./smoke-particle-assets.js";
-import type { GameState } from "./types.js";
+import { BURJ_MAX_HEALTH, BURJ_X, GAMEPLAY_SCENIC_BASE_Y, MAX_PARTICLES, ov, rand } from "./game-logic";
+import { getBurjDamageFireLayout } from "./art-render";
+import { getBurjFireEmberVariantId, getBurjFireFlameVariantId } from "./burj-fire-textures";
+import { getBurjSmokeParticleVariantId } from "./smoke-particle-assets";
+import type { GameState } from "./types";
 
 const BURJ_FIRE_TOWER_BASE_Y = GAMEPLAY_SCENIC_BASE_Y;
 
