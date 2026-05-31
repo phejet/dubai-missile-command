@@ -127,3 +127,20 @@
 - Static UI previews must preserve the real game viewport and shared panel width before styling content. Side-by-side previews with unequal containers distort the design question into nonsense.
 - Do not rotate compact timeline text vertically unless there is a strong readability reason. Dense recap labels should scan horizontally first; clever rotated typography is usually just friction wearing eyeliner.
 - When comparing recap concepts, put tabs at the after-action screen level, not inside one subsection. If the question is screen architecture, subsection tabs answer the wrong question with great confidence.
+
+## Tooling: parallel Bash + non-zero exit = cancel cascade
+
+- A Bash tool call exiting non-zero is treated as an ERRORED call.
+- In a parallel batch, one errored call CANCELS all sibling calls ("Cancelled: parallel tool call Bash(...)" spam).
+- `grep` exits 1 on no-match (normal!) -> errors the batch. Use `grep -q`, `|| true`, or run solo.
+- zsh nomatch: unquoted globs like `--include=*.ts` are fatal before the command runs. Always quote: `--include='*.ts'`.
+- The "Cancelled" lines echo a TRUNCATED COMMAND preview, not truncated stdout. Do not mistake them for garbled output.
+- Fix pattern: keep failure-prone reads solo; only batch calls guaranteed to exit 0.
+
+## Tooling: parallel Bash + non-zero exit = cancel cascade
+
+- A Bash call exiting non-zero is treated as an ERRORED call.
+- In a parallel batch, one errored call CANCELS all siblings (the "Cancelled: parallel tool call" spam).
+- grep exits 1 on no-match (normal!). Use grep -q, append || true, or run solo.
+- zsh nomatch: unquoted globs like --include=_.ts are fatal before the command runs. Quote them: --include='_.ts'.
+- The "Cancelled" lines echo a TRUNCATED COMMAND preview, not truncated stdout. Do not mistake them for garbled output.
