@@ -39,9 +39,9 @@ import {
   computeShahed238Path,
   GAMEPLAY_SCENIC_LAUNCHER_Y,
   resetExplosionId,
-} from "./game-logic.js";
-import { createCommander, generateWaveSchedule, advanceSpawnSchedule, isWaveFullySpawned } from "./wave-spawner.js";
-import { createEmptyUpgradeLevels, createEmptyUpgradeProgression } from "./game-sim-upgrades.js";
+} from "./game-logic";
+import { createCommander, generateWaveSchedule, advanceSpawnSchedule, isWaveFullySpawned } from "./wave-spawner";
+import { createEmptyUpgradeLevels, createEmptyUpgradeProgression } from "./game-sim-upgrades";
 import {
   buyUpgrade,
   closeShop,
@@ -49,8 +49,8 @@ import {
   getActiveHornetSiteKeys,
   HORNET_SITE_CAPACITY,
   syncHornetSitesForOwnership,
-} from "./game-sim-shop.js";
-import { createFireChargeState } from "./player-fire-limiter.js";
+} from "./game-sim-shop";
+import { createFireChargeState } from "./player-fire-limiter";
 import type {
   GameState,
   Threat,
@@ -64,12 +64,12 @@ import type {
   SpawnEntry,
   Shahed136Variant,
   SimEventSink,
-} from "./types.js";
-import { shahed136HasBomb, shahed136HasDive } from "./types.js";
-import { updateBurjFireParticles } from "./game-sim-burj-fire.js";
-import { empScrubScale, fireEmp, resetEmpFxId, updateEmpRings, updateEmpVisualFx } from "./game-sim-emp.js";
-import { fireFlareSalvo, updateFlares } from "./game-sim-flare.js";
-import { updatePatriotSystem } from "./game-sim-patriot.js";
+} from "./types";
+import { shahed136HasBomb, shahed136HasDive } from "./types";
+import { updateBurjFireParticles } from "./game-sim-burj-fire";
+import { empScrubScale, fireEmp, resetEmpFxId, updateEmpRings, updateEmpVisualFx } from "./game-sim-emp";
+import { fireFlareSalvo, updateFlares } from "./game-sim-flare";
+import { updatePatriotSystem } from "./game-sim-patriot";
 
 export { updateBurjFireParticles };
 export { fireEmp };
@@ -1957,6 +1957,58 @@ function updatePlanes(g: GameState, dt: number, allThreats: Threat[], onEvent?: 
   });
 }
 
+function updateParticleVisuals(g: GameState, dt: number): void {
+  g.particles.forEach((p) => {
+    if (p.drag) {
+      p.vx *= p.drag;
+      p.vy *= p.drag;
+    }
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vy += (p.gravity ?? 0.05) * dt;
+    if (p.angle !== undefined) p.angle += (p.spin ?? 0) * dt;
+    p.life -= dt;
+  });
+}
+
+function filterDeadVisuals(g: GameState): void {
+  g.interceptors = g.interceptors.filter((ic) => ic.alive);
+  g.explosions = g.explosions.filter((ex) => ex.alpha > 0);
+  g.particles = g.particles.filter((p) => p.life > 0);
+  g.planes = g.planes.filter((p) => p.alive);
+}
+
+function updateWaveCompleteVisuals(g: GameState, dt: number, onEvent?: SimEventSink | null): void {
+  updateInterceptors(g, dt, onEvent);
+  updateExplosions(g, dt, onEvent);
+  updatePlanes(g, dt, [], onEvent);
+  updateBurjFireParticles(g, dt);
+  updateParticleVisuals(g, dt);
+  filterDeadVisuals(g);
+}
+
+function startWaveBonus(g: GameState, onEvent?: SimEventSink | null): void {
+  if (g._bonusScreenStarted) return;
+  g._bonusScreenStarted = true;
+  if (g.burjAlive) {
+    processRootExplosionCombo(g, true);
+    g.stats = normalizeGameStats(g.stats);
+  }
+  if (g.burjAlive && onEvent) {
+    onEvent("waveBonusStart", {
+      wave: g.wave,
+      buildings: g.buildings.filter((b) => b.alive).length,
+      missileKills: g.stats.missileKills - (g._waveStartMissileKills ?? 0),
+      droneKills: g.stats.droneKills - (g._waveStartDroneKills ?? 0),
+      destroyedByType: getDestroyedByTypeDelta(g.stats.destroyedByType, g._waveStartDestroyedByType),
+      multiShots: Math.max(0, g.stats.multiShots - (g._waveStartMultiShots ?? 0)),
+      maxCombo: g._waveMaxCombo ?? 1,
+    });
+  } else {
+    g._bonusScreenDone = true;
+  }
+}
+
 export function update(g: GameState, dt: number, onEvent?: SimEventSink | null) {
   const _rng = getRng();
   const rawDt = dt;
@@ -2026,28 +2078,9 @@ export function update(g: GameState, dt: number, onEvent?: SimEventSink | null) 
       g._laserHandle.stop();
       g._laserHandle = null;
     }
+    updateWaveCompleteVisuals(g, dt, onEvent);
     if ((g.waveClearedTimer ?? 0) <= 0) {
-      // Emit bonus screen event once, then wait for it to finish before opening shop
-      if (!g._bonusScreenStarted) {
-        g._bonusScreenStarted = true;
-        if (g.burjAlive) {
-          processRootExplosionCombo(g, true);
-          g.stats = normalizeGameStats(g.stats);
-        }
-        if (g.burjAlive && onEvent) {
-          onEvent("waveBonusStart", {
-            wave: g.wave,
-            buildings: g.buildings.filter((b) => b.alive).length,
-            missileKills: g.stats.missileKills - (g._waveStartMissileKills ?? 0),
-            droneKills: g.stats.droneKills - (g._waveStartDroneKills ?? 0),
-            destroyedByType: getDestroyedByTypeDelta(g.stats.destroyedByType, g._waveStartDestroyedByType),
-            multiShots: Math.max(0, g.stats.multiShots - (g._waveStartMultiShots ?? 0)),
-            maxCombo: g._waveMaxCombo ?? 1,
-          });
-        } else {
-          g._bonusScreenDone = true;
-        }
-      }
+      startWaveBonus(g, onEvent);
       if (!g.shopOpened && g._bonusScreenDone) {
         g.shopOpened = true;
         if (g.burjAlive) {
@@ -2081,6 +2114,8 @@ export function update(g: GameState, dt: number, onEvent?: SimEventSink | null) 
     g.shopOpened = false;
     g.waveClearedTimer = 120;
     g.score += 250 * g.wave;
+    processRootExplosionCombo(g, true);
+    g.stats = normalizeGameStats(g.stats);
     if (onEvent) {
       onEvent("sfx", { name: "waveCleared" });
       onEvent("waveComplete", { score: g.score, wave: g.wave });
@@ -2116,22 +2151,14 @@ export function update(g: GameState, dt: number, onEvent?: SimEventSink | null) 
   updatePlanes(g, dt, allThreats, onEvent);
   updateBurjFireParticles(g, dt);
 
-  g.particles.forEach((p) => {
-    if (p.drag) {
-      p.vx *= p.drag;
-      p.vy *= p.drag;
-    }
-    p.x += p.vx * dt;
-    p.y += p.vy * dt;
-    p.vy += (p.gravity ?? 0.05) * dt;
-    if (p.angle !== undefined) p.angle += (p.spin ?? 0) * dt;
-    p.life -= dt;
-  });
+  updateParticleVisuals(g, dt);
 
   // Combo: check dying player-caused root explosions
   processRootExplosionCombo(g);
 
-  // Cleanup
+  // PERF: This allocates six fresh arrays every tick. Keep the current filter
+  // order for determinism; a future mark-and-sweep pass should preserve entity
+  // iteration order and replay hashes before replacing it.
   g.missiles = g.missiles.filter((m) => m.alive);
   g.drones = g.drones.filter((d) => d.alive);
   g.interceptors = g.interceptors.filter((ic) => ic.alive);
@@ -2247,4 +2274,4 @@ export {
   grantReplayUpgrade,
   repairLauncher,
   repairSite,
-} from "./game-sim-shop.js";
+} from "./game-sim-shop";

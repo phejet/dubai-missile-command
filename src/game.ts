@@ -211,7 +211,7 @@ function emptyTransientOverlaySnapshot(titleCopyVisible = false): TransientOverl
     mirvWarning: { visible: false, alpha: 0 },
     purchaseToast: { visible: false, text: "", alpha: 0 },
     lowAmmoWarning: { visible: false, text: "LOW AMMO", alpha: 0 },
-    waveClearedBanner: { visible: false, text: "", alpha: 0 },
+    waveClearedBanner: { visible: false, text: "", alpha: 0, scale: 1 },
     multiKillToast: {
       visible: false,
       label: "",
@@ -276,10 +276,15 @@ function buildTransientOverlaySnapshot(game: GameState | null, screen: GameScree
   }
 
   if (game.waveComplete && (game.waveClearedTimer ?? 0) > 0) {
+    const remaining = game.waveClearedTimer ?? 0;
+    const elapsed = Math.max(0, 120 - remaining);
+    const intro = Math.min(1, elapsed / 14);
+    const outro = Math.min(1, remaining / 20);
     snapshot.waveClearedBanner = {
       visible: true,
       text: `WAVE ${game.wave} CLEARED`,
-      alpha: Math.min(1, (game.waveClearedTimer ?? 0) / 20),
+      alpha: Math.min(intro, outro),
+      scale: 0.92 + intro * 0.08,
     };
   }
 
@@ -1308,6 +1313,10 @@ export class Game {
   private releaseBufferedPlayerFire(game: GameState): void {
     const tick = game._replayTick ?? 0;
     syncFireChargeForTick(game, tick);
+    if (game.waveComplete) {
+      this.bufferedPlayerShot = null;
+      return;
+    }
     const bufferedShot = this.bufferedPlayerShot;
     if (!bufferedShot) return;
     if (getFireChargeCount(game.fireChargeState) <= 0) return;
@@ -1326,7 +1335,7 @@ export class Game {
     }
     if (this.screen === "gameover") return;
     const game = this.gameRef.current;
-    if (!game || game.state !== "playing") return;
+    if (!game || game.state !== "playing" || game.waveComplete) return;
     game.crosshairX = point.x;
     game.crosshairY = point.y;
     this.syncHud(true);
@@ -1358,7 +1367,7 @@ export class Game {
   private handleKeyDown(e: KeyboardEvent): void {
     if (this.screen !== "playing" || this.shopOpen || this.replayActive) return;
     const game = this.gameRef.current;
-    if (!game || game.state !== "playing") return;
+    if (!game || game.state !== "playing" || game.waveComplete) return;
     if (e.key === " ") {
       e.preventDefault();
       this.fireActive();
@@ -1392,7 +1401,7 @@ export class Game {
   private fireActive(): boolean {
     if (this.screen !== "playing" || this.shopOpen || this.replayActive) return false;
     const game = this.gameRef.current;
-    if (!game || game.state !== "playing") return false;
+    if (!game || game.state !== "playing" || game.waveComplete) return false;
     if (game.upgrades.flare > 0 && simFireFlareSalvo(game, (t, d) => this.handleSimEvent(t, d))) {
       if (game._actionLog) game._actionLog.push({ tick: game._replayTick ?? 0, type: "flare" });
       this.syncHud(true);

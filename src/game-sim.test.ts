@@ -18,7 +18,7 @@ import {
   computeShahed238Path,
   createExplosion,
   createEmptyGameStats,
-} from "./game-logic.js";
+} from "./game-logic";
 import {
   buyDraftUpgrade,
   buyUpgrade,
@@ -33,11 +33,11 @@ import {
   spawnMissile,
   spawnStackedMissile,
   updateBurjFireParticles,
-} from "./game-sim.js";
-import { buildShopEntries, normalizeLegacyFlareActiveState } from "./game-sim-shop.js";
-import { getUpgradeNodeDef } from "./game-sim-upgrades.js";
-import { getBurjDamageFireLayout } from "./art-render.js";
-import type { Drone, Interceptor, Missile, PatriotMissile, UpgradeKey } from "./types.js";
+} from "./game-sim";
+import { buildShopEntries, normalizeLegacyFlareActiveState } from "./game-sim-shop";
+import { getUpgradeNodeDef } from "./game-sim-upgrades";
+import { getBurjDamageFireLayout } from "./art-render";
+import type { Drone, Interceptor, Missile, PatriotMissile, UpgradeKey } from "./types";
 
 describe("MIRV behavior", () => {
   afterEach(() => setRng(Math.random));
@@ -356,6 +356,39 @@ describe("summary stats", () => {
     expect(g._waveSummaries?.[0].destroyedByType.shahed238).toBe(2);
   });
 
+  it("keeps final explosions animating before starting the wave summary", () => {
+    const events: Array<{ type: string; data: unknown }> = [];
+    const sim = createGameSim({ onEvent: (type, data) => events.push({ type, data }) });
+    const g = sim.initGame();
+    g.schedule = [];
+    g.scheduleIdx = 0;
+    g.missiles = [];
+    g.drones = [];
+    g.interceptors = [];
+    g.explosions = [];
+    g.particles = [];
+    createExplosion(g, 300, 400, 80, "#fff", true, 0, { visualType: "missile" });
+    const radiusAtClear = g.explosions[0].radius;
+
+    sim.update(g, 1);
+
+    expect(g.waveComplete).toBe(true);
+    expect(g.state).toBe("playing");
+    expect(events.some((event) => event.type === "waveBonusStart")).toBe(false);
+    expect(g.waveClearedTimer).toBe(120);
+
+    sim.update(g, 1);
+
+    expect(g.state).toBe("playing");
+    expect(g.explosions[0].radius).toBeGreaterThan(radiusAtClear);
+    expect(g.waveClearedTimer).toBe(119);
+    expect(events.some((event) => event.type === "waveBonusStart")).toBe(false);
+
+    for (let i = 0; i < 119; i++) sim.update(g, 1);
+
+    expect(events.some((event) => event.type === "waveBonusStart")).toBe(true);
+  });
+
   it("includes combo from the final wave-ending explosion before showing the wave summary", () => {
     const events: Array<{ type: string; data: unknown }> = [];
     const sim = createGameSim({ onEvent: (type, data) => events.push({ type, data }) });
@@ -366,7 +399,7 @@ describe("summary stats", () => {
     createExplosion(g, 100, 100, 80, "#fff", true, 80, { visualType: "missile" });
 
     sim.update(g, 1);
-    for (let i = 0; i < 121; i++) sim.update(g, 1);
+    for (let i = 0; i < 130; i++) sim.update(g, 1);
 
     const summary = events.find((event) => event.type === "waveBonusStart")!.data as { maxCombo: number };
     expect(summary.maxCombo).toBe(2);

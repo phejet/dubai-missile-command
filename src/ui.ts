@@ -68,7 +68,7 @@ export interface TransientOverlaySnapshot {
   mirvWarning: { visible: boolean; alpha: number };
   purchaseToast: { visible: boolean; text: string; alpha: number };
   lowAmmoWarning: { visible: boolean; text: string; alpha: number };
-  waveClearedBanner: { visible: boolean; text: string; alpha: number };
+  waveClearedBanner: { visible: boolean; text: string; alpha: number; scale: number };
   multiKillToast: {
     visible: boolean;
     label: string;
@@ -723,7 +723,12 @@ export function updateTransientOverlays(snapshot: TransientOverlaySnapshot): voi
   setOverlayVisible(els.lowAmmo, snapshot.lowAmmoWarning.visible, snapshot.lowAmmoWarning.alpha);
 
   if (els.waveCleared) els.waveCleared.textContent = snapshot.waveClearedBanner.text;
-  setOverlayVisible(els.waveCleared, snapshot.waveClearedBanner.visible, snapshot.waveClearedBanner.alpha);
+  setOverlayVisible(
+    els.waveCleared,
+    snapshot.waveClearedBanner.visible,
+    snapshot.waveClearedBanner.alpha,
+    `translate(-50%, -50%) scale(${snapshot.waveClearedBanner.scale})`,
+  );
 
   if (els.multiKillLabel) els.multiKillLabel.textContent = snapshot.multiKillToast.label;
   if (els.multiKillBonus) els.multiKillBonus.textContent = `+${snapshot.multiKillToast.bonus}`;
