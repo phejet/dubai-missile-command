@@ -16,17 +16,32 @@ Builds and installs the production Capacitor iOS app onto the user's connected i
 
 ## Default deploy path
 
-Use the repo script unless there is a specific reason not to:
+Run the deterministic deployer. It does preflight checks, then build -> sync -> install, and exits with a category code telling you exactly what failed:
 
 ```bash
-npm run ios:deploy
+python3 scripts/ios_deploy.py          # add --launch to start the app after install
 ```
 
-That runs:
+Pipeline (mirrors `npm run ios:deploy`):
 
-1. `npm run build:ios` - Vite production build with `CAPACITOR=1`.
-2. `npm run cap:sync` - copies `dist/` into the Capacitor iOS project.
-3. `npm run ios:install` - builds the iOS release app and installs it with `xcrun devicectl`.
+1. Preflight: `.env.local` + `IPHONE_UDID` present, iPhone visible to `devicectl`.
+2. `CAPACITOR=1 vite build` - production web build.
+3. `npx cap sync ios` - copies `dist/` into the Capacitor iOS project.
+4. `xcodebuild` release build + `xcrun devicectl device install app`.
+
+### Exit codes — when to engage vs. just report
+
+| Code | Meaning          | What you do                                                                                  |
+| ---- | ---------------- | -------------------------------------------------------------------------------------------- |
+| 0    | success          | Done. Report installed (and launched, if `--launch`).                                        |
+| 2    | bad config       | `.env.local`/`IPHONE_UDID` missing. Ask the user to fix; do not guess the UDID.              |
+| 3    | no device        | Ask the user to unlock/trust/reconnect the iPhone, then rerun.                               |
+| 4    | app build failed | **Engage.** Read the Vite/TS error, fix the code, rerun. The one case that needs your brain. |
+| 5    | cap sync failed  | Report the sync error; usually a stale/native-project issue.                                 |
+| 6    | install failed   | Signing/provisioning/devicectl. Report the exact Xcode error to the user.                    |
+| 7    | launch failed    | Install already succeeded; only the post-install launch failed.                              |
+
+`npm run ios:deploy` remains a valid fallback if you need the raw npm chain, but it has no preflight and no categorized exits.
 
 ## Preconditions
 
@@ -48,14 +63,13 @@ If `.env.local` is missing, tell the user to copy `.env.local.example` and fill 
 
 ## Verification
 
-Treat a zero exit from `npm run ios:deploy` as successful install. If the user wants the app launched too, use:
+Treat exit code 0 from `scripts/ios_deploy.py` as a successful install. To launch the app on the device too, pass `--launch`:
 
 ```bash
-set -a && . ./.env.local && set +a
-xcrun devicectl device process launch --device "$IPHONE_UDID" "$BUNDLE_ID"
+python3 scripts/ios_deploy.py --launch
 ```
 
-If `BUNDLE_ID` is missing from `.env.local`, use the project default from the repo docs: `com.phejet.dubaicmd`.
+The script reads `BUNDLE_ID` from `.env.local`, falling back to the project default `com.phejet.dubaicmd`.
 
 ## Failure triage
 
