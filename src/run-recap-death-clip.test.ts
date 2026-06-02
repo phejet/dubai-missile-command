@@ -180,4 +180,40 @@ describe("run recap death clip", () => {
 
     cleanup();
   });
+
+  it("holds the completed frame instead of automatically seeking again", async () => {
+    const container = document.createElement("div");
+    const replay: ReplayData = { seed: 7, actions: [], finalTick: 2, isHuman: true };
+
+    const cleanup = mountRunRecapDeathClip(container, replay);
+    await flushTasks();
+
+    runNextRaf(16);
+    await flushTasks();
+    runNextRaf(60);
+    await flushTasks();
+    runNextRaf(110);
+    await flushTasks();
+    runNextRaf(160);
+    await flushTasks();
+    runNextRaf(190);
+    await flushTasks();
+    runNextRaf(270);
+    await flushTasks();
+
+    const canvas = container.querySelector(".run-recap__death-canvas") as HTMLCanvasElement;
+    const stepsAfterComplete = mocks.stepTicks.length;
+
+    expect(canvas.dataset.clipStatus).toBe("complete");
+    expect(container.querySelector(".run-recap__death-status")).toHaveProperty("hidden", true);
+    expect(mocks.rafCallbacks).toHaveLength(0);
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    expect(canvas.dataset.clipStatus).toBe("complete");
+    expect(container.querySelector(".run-recap__death-status")).toHaveProperty("hidden", true);
+    expect(mocks.stepTicks).toHaveLength(stepsAfterComplete);
+
+    cleanup();
+  });
 });

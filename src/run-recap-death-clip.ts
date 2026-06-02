@@ -1,6 +1,7 @@
 import { clientLog, clientLogEnabled } from "./client-log";
 import { CANVAS_H, CANVAS_W } from "./game-logic";
 import { PixiRenderer } from "./pixi-render";
+import { createReplayStateAnchor } from "./replay-anchor";
 import { createReplayRunner, createReplayRunnerFromAnchor } from "./replay";
 import { seekRunnerToTick } from "./replay-seek";
 import { handleRunRecapReplayEvent } from "./run-recap-replay-events";
@@ -84,6 +85,7 @@ export function mountRunRecapDeathClip(
   canvas.width = CANVAS_W;
   canvas.height = CANVAS_H;
   canvas.className = "run-recap__death-canvas";
+  canvas.style.visibility = "hidden";
 
   const finalTick = resolveFinalTick(replay);
   const startTick = Math.max(0, finalTick - CLIP_TICKS);
@@ -93,10 +95,12 @@ export function mountRunRecapDeathClip(
   let rendererReady: Promise<void> | null = null;
   let raf = 0;
   let lastFrameTime = 0;
-  let restartTimer = 0;
   let seekTimeoutTimer = 0;
   let generation = 0;
   let stopped = false;
+  let clipStartAnchor: ReplayStateAnchor | null = null;
+  let completionLogged = false;
+  let renderedFrame = false;
 
   // Diagnostics: the seek re-simulates the whole run from tick 0 each loop, which is
   // cheap on desktop but can grind on slower devices. These timings expose the cost.
@@ -130,14 +134,13 @@ export function mountRunRecapDeathClip(
     const currentGeneration = ++generation;
     cancelAnimationFrame(raf);
     raf = 0;
-    clearTimeout(restartTimer);
-    restartTimer = 0;
     clearTimeout(seekTimeoutTimer);
     seekTimeoutTimer = 0;
     runner?.cleanup();
     seekingRunner?.cleanup();
     runner = null;
     seekingRunner = null;
+    completionLogged = false;
     container.classList.remove("run-recap__death-clip--complete");
     container.classList.remove("run-recap__death-clip--zoom");
     canvas.dataset.clipStatus = "seeking";
@@ -150,12 +153,14 @@ export function mountRunRecapDeathClip(
     loopCount += 1;
     seekStartedAt = performance.now();
     lastProgressAt = seekStartedAt;
-    lastProgressTick = anchor?.tick ?? 0;
+    const seekAnchor = clipStartAnchor ?? anchor;
+    lastProgressTick = seekAnchor?.tick ?? 0;
     let seekTimedOut = false;
     let seekDone = false;
     clientLog("death-clip", "seek-start", {
-      anchorTick: anchor?.tick ?? null,
-      anchorWave: anchor?.wave ?? null,
+      anchorTick: seekAnchor?.tick ?? null,
+      anchorWave: seekAnchor?.wave ?? null,
+      cachedClipStart: !!clipStartAnchor,
       generation: currentGeneration,
       loop: loopCount,
       startTick,
@@ -176,7 +181,7 @@ export function mountRunRecapDeathClip(
     const seekPromise = createRunnerAtTick(
       replay,
       startTick,
-      anchor,
+      seekAnchor,
       () => stopped || generation !== currentGeneration || seekTimedOut,
       () => stopped || generation !== currentGeneration,
       () => seekTimedOut,
@@ -237,7 +242,11 @@ export function mountRunRecapDeathClip(
           canvas.dataset.clipStatus = "complete";
           canvas.dataset.clipTick = String(runner.getTick());
           const state = runner.getState();
-          if (state) renderer.renderGameplay(state, { showShop: false, interpolationAlpha: 1 });
+          if (state) {
+            renderer.renderGameplay(state, { showShop: false, interpolationAlpha: 1 });
+            canvas.style.visibility = "";
+            renderedFrame = true;
+          }
           container.classList.add("run-recap__death-clip--complete");
           return;
         }
@@ -253,7 +262,14 @@ export function mountRunRecapDeathClip(
         canvas.dataset.clipStatus = "playing";
         playStartedAt = performance.now();
         const state = runner.getState();
-        if (state) renderer.renderGameplay(state, { showShop: false, interpolationAlpha: 1 });
+        if (seekResult.reached && !clipStartAnchor && state) {
+          clipStartAnchor = createReplayStateAnchor(state, "deathClipStart");
+        }
+        if (state) {
+          renderer.renderGameplay(state, { showShop: false, interpolationAlpha: 1 });
+          canvas.style.visibility = "";
+          renderedFrame = true;
+        }
         raf = requestAnimationFrame(render);
       })
       .catch((error: unknown) => {
@@ -282,7 +298,6 @@ export function mountRunRecapDeathClip(
     clientLog("death-clip", "cleanup", { loop: loopCount, sinceMountMs: Math.round(performance.now() - mountedAt) });
     stopped = true;
     cancelAnimationFrame(raf);
-    clearTimeout(restartTimer);
     clearTimeout(seekTimeoutTimer);
     container.removeEventListener("click", restartClip);
     if (typeof window !== "undefined") {
@@ -295,6 +310,8 @@ export function mountRunRecapDeathClip(
     seekingRunner = null;
     renderer?.destroy();
     renderer = null;
+    canvas.style.visibility = "hidden";
+    renderedFrame = false;
     canvas.remove();
     container.classList.remove("run-recap__death-clip--live");
     container.classList.remove("run-recap__death-clip--complete");
@@ -311,24 +328,29 @@ export function mountRunRecapDeathClip(
       const state = runner.getState();
       if (endEffectActive) container.classList.add("run-recap__death-clip--zoom");
       canvas.dataset.clipTick = String(runner.getTick());
-      if (state) renderer.renderGameplay(state, { showShop: false, interpolationAlpha: 1 });
+      if (state) {
+        renderer.renderGameplay(state, { showShop: false, interpolationAlpha: 1 });
+        if (!renderedFrame) {
+          canvas.style.visibility = "";
+          renderedFrame = true;
+        }
+      }
       if (!runner.isFinished() && runner.getTick() < finalTick && !runner.isShopPaused() && !runner.isBonusPaused()) {
         runner.step();
       } else {
         canvas.dataset.clipStatus = "complete";
         container.classList.add("run-recap__death-clip--complete");
-        if (!restartTimer) {
+        if (!completionLogged) {
+          completionLogged = true;
           clientLog("death-clip", "play-complete", {
             loop: loopCount,
             durationMs: Math.round(performance.now() - playStartedAt),
             lastTick: runner.getTick(),
             finalTick,
           });
-          restartTimer = window.setTimeout(() => {
-            restartTimer = 0;
-            restartClip();
-          }, 900);
         }
+        raf = 0;
+        return;
       }
     }
     raf = requestAnimationFrame(render);
