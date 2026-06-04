@@ -62,3 +62,7 @@ DerivedData/
 
 # Local task tracking
 tasks/todo.md
+
+# Local run-recap design mockups
+tasks/recap-option*.html
+tasks/recap-data.js
