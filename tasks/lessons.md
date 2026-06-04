@@ -7,6 +7,8 @@
 - When planning gameplay tuning changes, identify shared feel knobs explicitly and make them single exported constants. Repeating one magic number across sim and input code guarantees future tuning drift with a straight face.
 - For death-clip performance fixes, consider replay anchor snapshots before rolling frame recording. If deterministic sim can resume from a recent clean state, do not pre-record every frame just to dodge a long seek.
 - Do not auto-loop death clips by re-seeking the replay from scratch on every completion. On iPhone, that can stick the player in "Preparing" or flash the default renderer frame; hold the completed frame and restart only on explicit tap.
+- In run recap UI, use full labels like "Wave 7" instead of terse "W7" shorthand. The screen has enough density already; tiny abbreviations are not clarity, they're a crossword clue.
+- For recap default selection, preserve the emotional peak: open on the best wave even if it is outside a limited final-wave selector. Do not quietly default to the terminal wave just because it is easier to highlight in the grid.
 - Before handing over editor/dev URLs, verify the route in a browser and check the bind address. `localhost` can resolve differently than `127.0.0.1`; a Vite server listening only on `[::1]` is a trap wearing a helpful URL badge.
 - For end-wave UI, preserve every intended beat: wave-cleared banner first, bonus report second, shop third. Making the report appear earlier can erase the actual victory sting, which is UI surgery performed with a spoon.
 

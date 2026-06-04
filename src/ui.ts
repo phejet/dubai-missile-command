@@ -773,84 +773,141 @@ export function showGameOver(score: number, wave: number, stats: GameStats): voi
 
 let runRecapCleanup: (() => void) | null = null;
 
+function getBestWaveCard(cards: RunRecapWaveCard[]): RunRecapWaveCard | undefined {
+  return cards.reduce<RunRecapWaveCard | undefined>((best, card) => {
+    if (!best) return card;
+    if (card.scoreEarned > best.scoreEarned) return card;
+    if (card.scoreEarned === best.scoreEarned && card.wave < best.wave) return card;
+    return best;
+  }, undefined);
+}
+
+function getWaveKind(card: RunRecapWaveCard, bestWave?: RunRecapWaveCard): "best" | "terminal" | "normal" {
+  if (card.terminal) return "terminal";
+  if (bestWave && card.wave === bestWave.wave) return "best";
+  return "normal";
+}
+
+function getWaveKindLabel(kind: "best" | "terminal" | "normal"): string {
+  if (kind === "terminal") return "Final stand";
+  if (kind === "best") return "Best wave";
+  return "Wave detail";
+}
+
+function heatColor(score: number, maxScore: number): string {
+  const t = Math.max(0, Math.min(1, maxScore > 0 ? score / maxScore : 0));
+  return `hsl(${190 - t * 150}, 80%, 58%)`;
+}
+
+function formatBurjHealth(hp: number): string {
+  return `♥ ${hp}`;
+}
+
+function getRunRecapOutcome(data: RunRecapData): { label: string; className: string } {
+  if (data.outcome === "burj_destroyed")
+    return { label: `Burj fell · Wave ${data.wave}`, className: "run-recap__outcome--danger" };
+  if (data.outcome === "survived")
+    return { label: `Survived · Wave ${data.wave}`, className: "run-recap__outcome--success" };
+  return { label: `Left · Wave ${data.wave}`, className: "run-recap__outcome--neutral" };
+}
+
 function renderRunRecapHero(data: RunRecapData): string {
+  const outcome = getRunRecapOutcome(data);
+  const totalKills = data.totalStats.missileKills + data.totalStats.droneKills;
   return `
-    <div class="run-recap__summary">
-      <span><strong>${data.score.toLocaleString()}</strong> score</span>
-      <span><strong>W${data.wave}</strong> reached</span>
-      <span><strong>${formatPercent(data.hitRatio)}</strong> hits</span>
-      <span><strong>${formatDuration(data.timePlayedMs)}</strong></span>
+    <div class="run-recap__hero">
+      <div class="run-recap__head">
+        <span class="portrait-panel__kicker">Run Recap</span>
+        <span class="run-recap__outcome ${outcome.className}">${escapeHtml(outcome.label)}</span>
+      </div>
+      <div class="run-recap__score">${data.score.toLocaleString()}</div>
+      <div class="run-recap__substats">
+        <span><strong>${totalKills.toLocaleString()}</strong> kills</span>
+        <span><strong>${formatPercent(data.hitRatio)}</strong> acc</span>
+        <span><strong>${data.totalStats.maxCombo}x</strong> combo</span>
+        <span><strong>${formatDuration(data.timePlayedMs)}</strong> time</span>
+      </div>
     </div>`;
 }
 
 function formatWaveScore(score: number): string {
-  return `+${score.toLocaleString()} score`;
+  return `+${score.toLocaleString()}`;
 }
 
-function formatWaveKills(wave: RunRecapWaveCard): string {
-  const totalKills = wave.missileKills + wave.droneKills;
-  return `${totalKills} ${totalKills === 1 ? "kill" : "kills"}`;
-}
-
-function renderBestWave(data: RunRecapData): string {
-  const waves = data.waveCards;
-  if (waves.length === 0) return `<div class="run-recap__empty">No wave data recorded.</div>`;
-  const bestWave = [...waves].sort((a, b) => b.scoreEarned - a.scoreEarned)[0];
-  const upgrades = bestWave.bought.map((key) => `<span>${escapeHtml(getPurchaseDisplayName(key))}</span>`).join("");
+function renderFeaturedWave(card: RunRecapWaveCard | undefined, bestWave?: RunRecapWaveCard): string {
+  if (!card) return `<div class="run-recap__empty">No wave data recorded.</div>`;
+  const kind = getWaveKind(card, bestWave);
+  const caption = getWaveKindLabel(kind);
+  const prefix = kind === "terminal" ? "✷" : kind === "best" ? "★" : "◆";
+  const bought =
+    card.bought.length > 0
+      ? `<strong>Bought:</strong> ${card.bought.map((key) => escapeHtml(getPurchaseDisplayName(key))).join(", ")}`
+      : "No purchases this wave";
   return `
-    <div class="run-recap__best-wave">
-      <div>
-        <span class="run-recap__label">Best Wave</span>
-        <strong>Wave ${bestWave.wave}</strong>
+    <div class="run-recap__feature-card run-recap__feature-card--${kind}">
+      <span class="run-recap__feature-caption">${prefix} ${caption}</span>
+      <strong class="run-recap__feature-wave">Wave ${card.wave}</strong>
+      <div class="run-recap__feature-grid">
+        <div><strong>${escapeHtml(formatWaveScore(card.scoreEarned))}</strong><span>score</span></div>
+        <div><strong>${card.missileKills + card.droneKills}</strong><span>kills</span></div>
+        <div><strong>${card.maxCombo}x</strong><span>best combo</span></div>
+        <div><strong>${escapeHtml(formatBurjHealth(card.burjHealth))}</strong><span>Burj health</span></div>
       </div>
-      <p>${escapeHtml(formatWaveScore(bestWave.scoreEarned))} · ${escapeHtml(formatWaveKills(bestWave))} · ${bestWave.maxCombo}x max combo</p>
-      ${upgrades ? `<div class="run-recap__focus-upgrades">${upgrades}</div>` : ""}
+      <div class="run-recap__feature-bought">${bought}</div>
     </div>`;
 }
 
-function renderWaveCards(data: RunRecapData): string {
-  if (data.waveCards.length === 0) return `<div class="run-recap__empty">No wave data recorded.</div>`;
+function renderWavePills(
+  cards: RunRecapWaveCard[],
+  bestWave: RunRecapWaveCard | undefined,
+  selectedWave: number | null,
+): string {
+  if (cards.length === 0) return `<div class="run-recap__empty">No wave data recorded.</div>`;
+  const maxScore = Math.max(1, ...cards.map((card) => card.scoreEarned), bestWave?.scoreEarned ?? 0);
+  const visibleCards = cards.slice(-12);
+  const bestOutsideVisible = !!bestWave && !visibleCards.some((card) => card.wave === bestWave.wave);
   return `
-    <div class="wave-card-list" aria-label="Wave history">
-      ${data.waveCards
+    <div class="run-recap__pills" id="run-recap-pills">
+      <div class="run-recap__pills-head">
+        <span class="run-recap__label">Final waves</span>
+        <span>last 12 shown</span>
+      </div>
+      ${
+        bestWave && bestOutsideVisible
+          ? `<button type="button" class="run-recap__best-chip ${selectedWave === bestWave.wave ? "run-recap__best-chip--selected" : ""}" data-wave-pill data-wave="${bestWave.wave}" aria-pressed="${selectedWave === bestWave.wave ? "true" : "false"}" aria-label="Best wave ${bestWave.wave}, ${escapeHtml(formatWaveScore(bestWave.scoreEarned))} score">
+              <strong>★ Best: Wave ${bestWave.wave} · ${escapeHtml(formatWaveScore(bestWave.scoreEarned))}</strong>
+            </button>`
+          : ""
+      }
+      <div class="run-recap__pill-grid" aria-label="Final wave selector">
+      ${visibleCards
         .map((card) => {
-          const hasAnchor = Number.isFinite(card.startTick) && card.startTick >= 0;
-          const replayDisabled = !data.hasReplay || !hasAnchor;
-          const outcome =
-            card.terminal && data.outcome === "burj_destroyed" ? "Burj Fell" : card.terminal ? "Ended" : "Survived";
-          const bought = card.bought.map((key) => escapeHtml(getPurchaseDisplayName(key))).join(" · ");
+          const kind = getWaveKind(card, bestWave);
+          const isSelected = card.wave === selectedWave && (!bestOutsideVisible || card.wave !== bestWave?.wave);
+          const dotColor =
+            kind === "terminal" ? "#ff6060" : kind === "best" ? "#ffcf5c" : heatColor(card.scoreEarned, maxScore);
           return `
-            <article class="wave-card ${card.terminal ? "wave-card--terminal" : ""}">
-              <div class="wave-card__head">
-                <div class="wave-card__main">
-                  <strong>Wave ${card.wave}</strong>
-                  <span class="wave-card__score">${escapeHtml(formatWaveScore(card.scoreEarned))}</span>
-                </div>
-                <div class="wave-card__actions">
-                  <span class="wave-card__outcome ${card.terminal ? "wave-card__outcome--danger" : ""}">${escapeHtml(outcome)}</span>
-                  <button type="button" class="wave-card__replay" data-wave-replay data-start-tick="${card.startTick}" aria-label="Replay Wave ${card.wave}" ${replayDisabled ? "disabled" : ""}>
-                    Replay
-                  </button>
-                </div>
-              </div>
-              ${bought ? `<div class="wave-card__bought"><span>Bought:</span> ${bought}</div>` : ""}
-            </article>`;
+            <button type="button" class="run-recap__pill run-recap__pill--${kind} ${isSelected ? "run-recap__pill--selected" : ""}" data-wave-pill data-wave="${card.wave}" aria-pressed="${isSelected ? "true" : "false"}" aria-label="Wave ${card.wave}, ${escapeHtml(formatWaveScore(card.scoreEarned))} score, ${kind}, ${escapeHtml(formatBurjHealth(card.burjHealth))}">
+              <span>Wave ${card.wave}</span>
+              <span class="run-recap__pill-dot" style="--heat-color: ${dotColor}"></span>
+            </button>`;
         })
         .join("")}
+      </div>
     </div>`;
 }
 
 function renderRunRecapActions(data: RunRecapData): string {
   return `
-    <div class="portrait-panel__actions portrait-panel__actions--stacked run-recap__actions">
-      <button type="button" class="action-button action-button--primary action-button--wide" data-run-recap-watch ${data.hasReplay ? "" : "disabled"}>
-        Watch Replay
+    <div class="portrait-panel__actions run-recap__actions">
+      <button type="button" class="action-button action-button--primary run-recap__watch" data-run-recap-watch ${data.hasReplay ? "" : "disabled"}>
+        ▶ Watch Replay
       </button>
-      <button type="button" class="action-button action-button--info action-button--wide" data-run-recap-save ${data.hasReplay ? "" : "disabled"}>
-        Save Replay
+      <button type="button" class="action-button action-button--info" data-run-recap-save ${data.hasReplay ? "" : "disabled"}>
+        Save
       </button>
-      <button type="button" class="action-button action-button--info action-button--wide" data-run-recap-close>
-        Back to Results
+      <button type="button" class="action-button action-button--info" data-run-recap-close>
+        Back
       </button>
     </div>`;
 }
@@ -858,23 +915,33 @@ function renderRunRecapActions(data: RunRecapData): string {
 export function showRunRecap(data: RunRecapData, callbacks: RunRecapCallbacks): void {
   hideRunRecap();
   const container = document.getElementById("run-recap-panel")!;
+  const bestWave = getBestWaveCard(data.waveCards);
+  let selectedWave = bestWave?.wave ?? null;
+  const getSelectedCard = () => data.waveCards.find((card) => card.wave === selectedWave) ?? bestWave;
   container.innerHTML = `
     <div class="run-recap">
-      <div class="portrait-panel__header">
-        <span class="portrait-panel__kicker">Run Recap</span>
-        <span class="portrait-panel__subtle">After-action report</span>
-      </div>
       ${renderRunRecapHero(data)}
-      <section class="run-recap__section">
-        <h3 class="run-recap__section-title">Best Wave</h3>
-        ${renderBestWave(data)}
-      </section>
-      <section class="run-recap__section">
-        <h3 class="run-recap__section-title">Wave History</h3>
-        ${renderWaveCards(data)}
-      </section>
+      <div class="run-recap__feature" id="run-recap-feature">${renderFeaturedWave(getSelectedCard(), bestWave)}</div>
+      ${renderWavePills(data.waveCards, bestWave, selectedWave)}
       ${renderRunRecapActions(data)}
     </div>`;
+
+  const selectWave = (wave: number) => {
+    const nextCard = data.waveCards.find((card) => card.wave === wave);
+    if (!nextCard) return;
+    selectedWave = nextCard.wave;
+    const feature = container.querySelector<HTMLElement>("#run-recap-feature");
+    if (feature) feature.innerHTML = renderFeaturedWave(nextCard, bestWave);
+    container.querySelectorAll<HTMLButtonElement>("[data-wave-pill]").forEach((button) => {
+      const isSelected = Number(button.dataset.wave) === selectedWave;
+      button.classList.toggle("run-recap__pill--selected", isSelected && button.classList.contains("run-recap__pill"));
+      button.classList.toggle(
+        "run-recap__best-chip--selected",
+        isSelected && button.classList.contains("run-recap__best-chip"),
+      );
+      button.setAttribute("aria-pressed", isSelected ? "true" : "false");
+    });
+  };
 
   const handleClick = (event: MouseEvent) => {
     const target = event.target as HTMLElement;
@@ -882,14 +949,30 @@ export function showRunRecap(data: RunRecapData, callbacks: RunRecapCallbacks): 
     else if (target.closest("[data-run-recap-watch]")) callbacks.onWatchFullReplay();
     else if (target.closest("[data-run-recap-save]")) void callbacks.onSaveReplay();
     else {
-      const button = target.closest<HTMLButtonElement>("[data-wave-replay]");
-      const startTick = Number(button?.dataset.startTick);
-      if (button && Number.isFinite(startTick)) callbacks.onWatchFromWave?.(startTick);
+      const button = target.closest<HTMLButtonElement>("[data-wave-pill]");
+      const wave = Number(button?.dataset.wave);
+      if (button && Number.isFinite(wave)) selectWave(wave);
     }
   };
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (!["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp"].includes(event.key)) return;
+    const activeButton = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-wave-pill]");
+    if (!activeButton) return;
+    const buttons = Array.from(container.querySelectorAll<HTMLButtonElement>("[data-wave-pill]"));
+    const index = buttons.indexOf(activeButton);
+    if (index < 0) return;
+    event.preventDefault();
+    const direction = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : -1;
+    const nextButton = buttons[(index + direction + buttons.length) % buttons.length];
+    nextButton.focus();
+    const wave = Number(nextButton.dataset.wave);
+    if (Number.isFinite(wave)) selectWave(wave);
+  };
   container.addEventListener("click", handleClick);
+  container.addEventListener("keydown", handleKeyDown);
   runRecapCleanup = () => {
     container.removeEventListener("click", handleClick);
+    container.removeEventListener("keydown", handleKeyDown);
     container.innerHTML = "";
   };
 }
