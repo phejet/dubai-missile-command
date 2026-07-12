@@ -625,6 +625,17 @@
   display: none;
 }
 
+.battlefield-options-menu__build {
+  padding-top: 6px;
+  border-top: 1px solid rgba(109, 217, 255, 0.14);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(142, 168, 184, 0.7);
+  text-align: right;
+  user-select: text;
+}
+
 .game-shell:not([data-screen="title"]) #option-upgrades-table {
   display: none;
 }

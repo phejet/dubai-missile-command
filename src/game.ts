@@ -57,6 +57,13 @@ import { handleRunRecapReplayEvent } from "./run-recap-replay-events";
 import { buildRunRecapData } from "./run-recap";
 import { saveReplayToFile } from "./save-replay";
 import { clientLog } from "./client-log";
+import {
+  clearDiagnostics,
+  getDiagnosticsBuildId,
+  isDiagnosticsEnabled,
+  setDiagnosticsEnabled,
+  shareDiagnostics,
+} from "./diagnostics-log";
 import type {
   GameState,
   GameStats,
@@ -452,6 +459,7 @@ export class Game {
   private replayAnchors: ReplayStateAnchor[] = [];
   private deathClipCleanup: (() => void) | null = null;
   private replaySeekGeneration = 0;
+  private replayReturnsToRecap = false;
   private replaySeekOverlay: HTMLElement | null = null;
   private debugOptions: DebugOptions = loadDebugOptions();
 
@@ -486,6 +494,7 @@ export class Game {
     cacheTransientOverlayElements();
     this.renderDebugStartOptions();
     this.renderUpgradesTable();
+    this.syncDiagnosticsUi();
     this.bindEvents();
     this.setupWindowGlobals();
     this.setScreen("title");
@@ -523,6 +532,13 @@ export class Game {
     document.getElementById("option-debug")!.addEventListener("click", () => this.toggleDebug());
     document.getElementById("option-perf")!.addEventListener("click", () => this.togglePerf());
     document.getElementById("option-upgrades-table")!.addEventListener("click", () => this.toggleUpgradesTable());
+    document.getElementById("option-diagnostics")!.addEventListener("click", () => this.toggleDiagnostics());
+    document
+      .getElementById("option-diagnostics-share")!
+      .addEventListener("click", () => void this.shareDiagnosticsLog());
+    document
+      .getElementById("option-diagnostics-clear")!
+      .addEventListener("click", () => void this.clearDiagnosticsLog());
     this.debugStartsEl.addEventListener("click", (event) => {
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-debug-start-id]");
       if (!button) return;
@@ -880,6 +896,7 @@ export class Game {
     this.resetPlayerFireState();
     this.initGame();
     this.replayActive = false;
+    this.replayReturnsToRecap = false;
     this.shopOpen = false;
     this.bonusActive = false;
     this.progressionOpen = false;
@@ -907,6 +924,7 @@ export class Game {
     this.resetPlayerFireState();
     this.initGame(preset);
     this.replayActive = false;
+    this.replayReturnsToRecap = false;
     this.shopOpen = false;
     this.bonusActive = false;
     this.progressionOpen = false;
@@ -941,6 +959,7 @@ export class Game {
       this.replayRunner = null;
     }
     this.replayActive = false;
+    this.replayReturnsToRecap = false;
     this.replayAnchors = [];
     this.shopOpen = false;
     this.bonusActive = false;
@@ -996,6 +1015,7 @@ export class Game {
   private abortReplayPlayback(error: unknown): void {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`Replay stopped: ${message}`);
+    clientLog("replay", "abort", { message });
     this.replayRunner?.cleanup();
     this.replayRunner = null;
     this.replayActive = false;
@@ -1009,10 +1029,20 @@ export class Game {
     this.showReplayFailure(`REPLAY STOPPED - ${message}`);
   }
 
-  private async startReplay(replayData: ReplayData, opts: { seekToTick?: number } = {}): Promise<void> {
+  private async startReplay(
+    replayData: ReplayData,
+    opts: { seekToTick?: number; returnToRecap?: boolean } = {},
+  ): Promise<void> {
     await SFX.init();
     SFX.prewarm();
     const seekToTick = Math.max(0, Math.floor(opts.seekToTick ?? 0));
+    clientLog("replay", "start", {
+      seed: replayData.seed,
+      actions: replayData.actions?.length ?? 0,
+      seekToTick,
+      returnToRecap: opts.returnToRecap === true,
+    });
+    this.replayReturnsToRecap = opts.returnToRecap === true;
     const shouldSeek = seekToTick > 0;
     const currentSeekGeneration = ++this.replaySeekGeneration;
     this.clearPointerCapture();
@@ -1035,6 +1065,7 @@ export class Game {
         `Replay diverged at tick ${divergence.tick} (${divergence.reason ?? "interval"})`,
         divergence.fieldDiff,
       );
+      clientLog("replay", "divergence", { tick: divergence.tick, reason: divergence.reason ?? "interval" });
       if (import.meta.env.DEV) {
         const banner = document.createElement("div");
         banner.className = "replay-divergence-banner";
@@ -1381,7 +1412,7 @@ export class Game {
           this.stopDeathClip();
           uiHideRunRecap();
           this.battlefieldCard.hidden = false;
-          void this.startReplay(this.lastReplay);
+          void this.startReplay(this.lastReplay, { returnToRecap: true });
         }
       },
       onWatchFromWave: (startTick) => {
@@ -1391,7 +1422,7 @@ export class Game {
           uiHideRunRecap();
           this.runRecapPanel.hidden = true;
           this.battlefieldCard.hidden = false;
-          void this.startReplay(this.lastReplay, { seekToTick: startTick });
+          void this.startReplay(this.lastReplay, { seekToTick: startTick, returnToRecap: true });
         }
       },
       onSaveReplay: async () => {
@@ -1646,6 +1677,41 @@ export class Game {
     document.getElementById("option-perf-meta")!.textContent = this.showPerfOverlay ? "On" : "Off";
   }
 
+  private syncDiagnosticsUi(): void {
+    const on = isDiagnosticsEnabled();
+    document.getElementById("option-diagnostics")!.classList.toggle("battlefield-option--active", on);
+    document.getElementById("option-diagnostics-meta")!.textContent = on ? "On" : "Off";
+    document.getElementById("option-diagnostics-share")!.hidden = !on;
+    document.getElementById("option-diagnostics-clear")!.hidden = !on;
+    document.getElementById("options-build-id")!.textContent = `build ${getDiagnosticsBuildId()}`;
+  }
+
+  private toggleDiagnostics(): void {
+    setDiagnosticsEnabled(!isDiagnosticsEnabled());
+    this.syncDiagnosticsUi();
+  }
+
+  private async shareDiagnosticsLog(): Promise<void> {
+    const meta = document.getElementById("option-diagnostics-share-meta")!;
+    meta.textContent = "…";
+    const result = await shareDiagnostics();
+    meta.textContent = result.ok ? "Export" : "Failed";
+  }
+
+  private async clearDiagnosticsLog(): Promise<void> {
+    const meta = document.getElementById("option-diagnostics-clear-meta")!;
+    meta.textContent = "…";
+    try {
+      await clearDiagnostics();
+      meta.textContent = "Cleared";
+    } catch {
+      meta.textContent = "Failed";
+    }
+    window.setTimeout(() => {
+      meta.textContent = "";
+    }, 2000);
+  }
+
   // ─── HUD Sync ───────────────────────────────────────────────────
 
   private syncHud(force = false): void {
@@ -1743,6 +1809,7 @@ export class Game {
             return;
           }
           if (runner.isFinished()) {
+            clientLog("replay", "finish", { tick: game._replayTick ?? 0, wave: game.wave, score: game.score });
             runner.cleanup();
             this.replayRunner = null;
             this.replayActive = false;
@@ -1757,6 +1824,10 @@ export class Game {
             };
             this.canvas.classList.remove("game-canvas--active");
             this.setScreen("gameover");
+            if (this.replayReturnsToRecap) {
+              this.replayReturnsToRecap = false;
+              this.openRunRecap();
+            }
           }
         } else if (game.state === "playing") {
           if (isBonusUiPauseActive(game)) game._timeAccum = 0;

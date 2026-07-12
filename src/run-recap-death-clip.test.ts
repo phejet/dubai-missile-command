@@ -183,6 +183,7 @@ describe("run recap death clip", () => {
 
   it("holds the completed frame instead of automatically seeking again", async () => {
     const container = document.createElement("div");
+    document.body.append(container);
     const replay: ReplayData = { version: 6, seed: 7, actions: [], finalTick: 2, isHuman: true };
 
     const cleanup = mountRunRecapDeathClip(container, replay);
@@ -213,6 +214,14 @@ describe("run recap death clip", () => {
     expect(canvas.dataset.clipStatus).toBe("complete");
     expect(container.querySelector(".run-recap__death-status")).toHaveProperty("hidden", true);
     expect(mocks.stepTicks).toHaveLength(stepsAfterComplete);
+
+    const parentClick = vi.fn();
+    container.parentElement?.addEventListener("click", parentClick);
+    container.click();
+    container.click();
+
+    expect(canvas.dataset.clipStatus).toBe("seeking");
+    expect(parentClick).not.toHaveBeenCalled();
 
     cleanup();
   });

@@ -299,7 +299,7 @@ export function mountRunRecapDeathClip(
     stopped = true;
     cancelAnimationFrame(raf);
     clearTimeout(seekTimeoutTimer);
-    container.removeEventListener("click", restartClip);
+    container.removeEventListener("click", handleReplayClick);
     if (typeof window !== "undefined") {
       window.removeEventListener("error", onWindowError);
       window.removeEventListener("unhandledrejection", onRejection);
@@ -316,6 +316,21 @@ export function mountRunRecapDeathClip(
     container.classList.remove("run-recap__death-clip--live");
     container.classList.remove("run-recap__death-clip--complete");
     container.classList.remove("run-recap__death-clip--zoom");
+  };
+
+  const handleReplayClick = (event: MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    // Logged before the status guard: this tap is the prime suspect in the
+    // "death clip kicks back to title" investigation, swallowed taps included.
+    clientLog("death-clip", "replay-click", {
+      status: canvas.dataset.clipStatus ?? "unknown",
+      generation,
+      tick: canvas.dataset.clipTick ?? null,
+      loopCount,
+    });
+    if (canvas.dataset.clipStatus !== "complete") return;
+    restartClip();
   };
 
   const render = (time: number) => {
@@ -360,7 +375,7 @@ export function mountRunRecapDeathClip(
     if (stopped) return;
     container.innerHTML = "";
     container.append(canvas, status);
-    container.addEventListener("click", restartClip);
+    container.addEventListener("click", handleReplayClick);
     if (clientLogEnabled() && typeof window !== "undefined") {
       window.addEventListener("error", onWindowError);
       window.addEventListener("unhandledrejection", onRejection);

@@ -103,7 +103,20 @@
                   <span class="battlefield-option__label">Upgrades Table</span>
                   <span class="battlefield-option__meta">Force show</span>
                 </button>
+                <button type="button" class="battlefield-option" id="option-diagnostics">
+                  <span class="battlefield-option__label">Diagnostics</span>
+                  <span class="battlefield-option__meta" id="option-diagnostics-meta">Off</span>
+                </button>
+                <button type="button" class="battlefield-option" id="option-diagnostics-share" hidden>
+                  <span class="battlefield-option__label">Share Diagnostics</span>
+                  <span class="battlefield-option__meta" id="option-diagnostics-share-meta">Export</span>
+                </button>
+                <button type="button" class="battlefield-option" id="option-diagnostics-clear" hidden>
+                  <span class="battlefield-option__label">Clear Diagnostics</span>
+                  <span class="battlefield-option__meta" id="option-diagnostics-clear-meta"></span>
+                </button>
                 <div class="battlefield-debug-starts" id="debug-starts" aria-label="Debug wave starts"></div>
+                <div class="battlefield-options-menu__build" id="options-build-id"></div>
               </div>
               <div class="battlefield-upgrades-table" id="upgrades-table" hidden></div>
 

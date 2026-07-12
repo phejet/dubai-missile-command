@@ -6,6 +6,7 @@ import react from "@vitejs/plugin-react";
 import type { Plugin, ViteDevServer } from "vite";
 import perfPlugin from "./vite-perf-plugin";
 import replayPlugin from "./vite-replay-plugin";
+import { getBuildId } from "./vite-build-id";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const isCapacitor = process.env.CAPACITOR === "1";
@@ -49,6 +50,9 @@ function devHtmlEntryAliases(base: string): Plugin {
 export default defineConfig({
   plugins: [react(), devHtmlEntryAliases(appBase), replayPlugin(), perfPlugin()],
   base: appBase,
+  define: {
+    __DMC_BUILD_ID__: JSON.stringify(getBuildId()),
+  },
   server: {
     allowedHosts: isCapacitor ? [".local"] : undefined,
     cors: { origin: true },

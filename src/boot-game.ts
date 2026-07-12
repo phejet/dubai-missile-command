@@ -1,5 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 import { preloadCanvasRenderResources } from "./canvas-render-resources";
+import { clientLog } from "./client-log";
 import { Game } from "./game";
 import type { GameRenderer } from "./game-renderer";
 import { PixiRenderer } from "./pixi-render";
@@ -255,6 +256,19 @@ async function fetchReplayData(replayUrl: string): Promise<ReplayData> {
 }
 
 export function bootGame({ launchUrl }: BootGameOptions = {}): BootGameRuntime {
+  window.addEventListener("error", (event) => {
+    clientLog("error", "window-error", {
+      message: event.message,
+      source: event.filename,
+      line: event.lineno,
+      col: event.colno,
+    });
+  });
+  window.addEventListener("unhandledrejection", (event) => {
+    const reason = event.reason instanceof Error ? event.reason.message : String(event.reason);
+    clientLog("error", "unhandled-rejection", { reason });
+  });
+
   const canvas = document.getElementById("game-canvas") as HTMLCanvasElement | null;
 
   if (!canvas) {

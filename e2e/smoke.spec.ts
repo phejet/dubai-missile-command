@@ -204,6 +204,17 @@ test.describe("Smoke tests", () => {
     await expect(page.locator("[data-wave-replay]")).toHaveCount(0);
     await expect(page.getByText(/kill distribution/i)).toHaveCount(0);
     await expect(page.getByText(/detailed stats/i)).toHaveCount(0);
+    await page.evaluate(() => {
+      const replay = window.__lastReplay!;
+      replay.initialState!.burjHealth = 0;
+      replay.actions = [];
+      replay.checkpoints = [];
+      replay.finalTick = 60;
+    });
+    await page.getByRole("button", { name: /watch replay/i }).click();
+    await expect(page.locator("#game-shell")).toHaveAttribute("data-screen", "playing");
+    await expect(page.locator("#run-recap-panel")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("#game-shell")).toHaveAttribute("data-screen", "gameover");
     await page.getByRole("button", { name: /^back$/i }).click();
     await expect(page.locator("#gameover-panel")).toBeVisible();
     await expect(page.locator("#gameover-panel .run-recap__death-canvas")).toBeVisible();

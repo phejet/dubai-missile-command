@@ -11,7 +11,7 @@ function buildReplayFilename(replay: ReplayData): string {
   return `dmc-w${wave}-s${score}-${Date.now()}.json`;
 }
 
-function triggerWebDownload(json: string, filename: string): void {
+export function triggerWebDownload(json: string, filename: string): void {
   const blob = new Blob([json], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
