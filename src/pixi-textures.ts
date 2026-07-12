@@ -125,8 +125,7 @@ function cloneTuple<T, Mapped>(
 class DefaultPixiTextureResources implements PixiTextureResources {
   private textureCache = new WeakMap<HTMLCanvasElement, Texture>();
   private titleSkyAssets: PixiSkyAssets | null = null;
-  private gameplaySkyAssets: PixiSkyAssets | null = null;
-  private gameplaySkySource: SkyAssets | null = null;
+  private gameplaySkyCache = new Map<number, { source: SkyAssets; assets: PixiSkyAssets }>();
   private gameplayBuildingAssets: PixiBuildingAssets | null = null;
   private gameplayBuildingSource: BuildingAssets | null = null;
   private titleBuildingAssets = new Map<number, { source: BuildingAssets; assets: PixiBuildingAssets }>();
@@ -149,11 +148,17 @@ class DefaultPixiTextureResources implements PixiTextureResources {
 
   getGameplaySkyAssets(stars: Star[], groundY: number): PixiSkyAssets {
     const source = this.canvasResources.getGameplaySkyAssets(stars, groundY);
-    if (!this.gameplaySkyAssets || this.gameplaySkySource !== source) {
-      this.gameplaySkyAssets = this.mapSkyAssets(source, "gameplay-sky");
-      this.gameplaySkySource = source;
+    const cached = this.gameplaySkyCache.get(groundY);
+    if (cached?.source === source) return cached.assets;
+    // A replaced sky set means new full-screen frame canvases. Destroy the old
+    // textures (and their sources) or the renderer retains every superseded
+    // 900x1600 frame — the WebContent memory leak behind the death-clip kills.
+    if (cached) {
+      for (const frame of cached.assets.frames) frame.destroy(true);
     }
-    return this.gameplaySkyAssets;
+    const assets = this.mapSkyAssets(source, `gameplay-sky:${groundY}`);
+    this.gameplaySkyCache.set(groundY, { source, assets });
+    return assets;
   }
 
   getTitleSkyAssets(): PixiSkyAssets {
@@ -265,8 +270,7 @@ class DefaultPixiTextureResources implements PixiTextureResources {
   reupload(): void {
     this.textureCache = new WeakMap();
     this.titleSkyAssets = null;
-    this.gameplaySkyAssets = null;
-    this.gameplaySkySource = null;
+    this.gameplaySkyCache.clear();
     this.gameplayBuildingAssets = null;
     this.gameplayBuildingSource = null;
     this.titleBuildingAssets.clear();

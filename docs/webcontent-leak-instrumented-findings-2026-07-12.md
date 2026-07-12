@@ -2,8 +2,11 @@
 
 Follow-up to [`death-clip-webcontent-kill-handover.md`](./death-clip-webcontent-kill-handover.md).
 Status: kill pattern **quantified**, native memory probe **shipped and validated on device**,
-leak **located to two distinct rates** (steady per-wave + violent per-clip-loop). The leak
-itself is still unfixed.
+leak **located to two distinct rates** (steady per-wave + violent per-clip-loop).
+
+> **Update, 2026-07-12 (latest): clip-loop leak root-caused and fixed.** See
+> [Root cause: sky-asset rebuild per GameState](#root-cause-sky-asset-rebuild-per-gamestate)
+> at the bottom. Needs on-device re-validation against the acceptance criteria.
 
 Evidence: two diagnostics exports from the same iPhone 15 Pro (8GB), one day of play:
 
@@ -115,3 +118,61 @@ Two distinct rates:
 
 Acceptance criteria unchanged from the handover: bounded memory across a multi-wave run
 plus repeated clip loops, and no fresh bootId after death-clip taps in the diagnostics log.
+
+## Root cause: sky-asset rebuild per GameState
+
+Found with a new browser-side probe (`scripts/death-clip-leak-probe.ts`) that mounts the
+real death clip in Chromium with an instrumented WebGL context and diffs live GL
+resources + live 2d canvases (by creation stack) across clip loops. Per-loop growth
+pointed at one stack: `buildSkyAssets` via `getGameplaySkyAssets`.
+
+The mechanism:
+
+1. `buildSkyAssets` (`src/art-render.ts`) bakes **8 full-screen 900×1600 canvases**
+   (~46 MB of canvas backing; another ~46 MB once uploaded as GL textures ≈ **92 MB per
+   rebuild**).
+2. The cache in `src/canvas-render-resources.ts` was keyed on the **identity of
+   `game.stars`** — and every fresh `GameState` allocates a new stars array. Each
+   death-clip loop creates a fresh runner state (`createReplayRunner` /
+   `cloneReplayStateAnchor`), so **every loop re-baked the entire sky set**. Same for
+   every new run, and the game-over scene's `getGameplaySkyAssets([], …)` call thrashed
+   the single cache slot from the other side.
+3. The replaced Pixi textures were never destroyed. Pixi's texture system keeps managed
+   sources alive, so both the superseded GL textures and their source canvases were
+   retained — invisible to every JS-side counter, exactly matching the "counters look
+   innocent while the compressor fills" signature on device.
+
+The fix (same commit as this update):
+
+- `src/canvas-render-resources.ts` — gameplay sky cache is now one slot **per groundY**,
+  keyed by **star content** (fast path: array identity). Re-created-but-identical stars
+  (every clip loop; every re-watch of the same replay, which reuses the run's seed) now
+  hit the cache instead of re-baking.
+- `src/pixi-textures.ts` — when a sky source genuinely changes (a new run's stars), the
+  superseded frame textures are destroyed (`destroy(true)`), releasing GL memory and the
+  canvas references.
+
+Probe numbers (4 clip loops, `perf-wave4-upgrades` fixture): before — GL texture memory
+93→124→140→151 MB, +2 canvases/loop, unbounded. After — 93→113→118→118 MB (plateau =
+lazy first-bind uploads of the shared 8-frame set), live canvases flat at every sample.
+
+Re-run it with:
+
+```bash
+npm run dev   # terminal 1
+npx tsx scripts/death-clip-leak-probe.ts 5   # terminal 2
+```
+
+Still open:
+
+- On-device validation against the acceptance criteria above (multi-wave run + repeated
+  clip loops, watching `hostFreeMB`/`hostCompressedMB`).
+- The steady per-wave leak may not be fully explained: the sky rebuild fires per run/per
+  clip loop, not per wave. If the per-wave drain persists on device after this fix, the
+  audio `transientNodes` outlier is the next suspect, plus per-wave Safari heap
+  snapshots as planned.
+- Baseline, not a leak: the prebake pipeline keeps ~550 sprite canvases (~380 MB logical
+  RGBA) alive as texture sources, and each death-clip mount builds a second full
+  `PixiTextureResources` set for its own renderer. Bounding that baseline (e.g. sharing
+  the texture set with the main renderer, or releasing canvases after upload) would give
+  deep runs much more headroom at clip-mount time — the wave-9/12 mount kills.

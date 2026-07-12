@@ -126,10 +126,25 @@ function resetCachedImage(entry: CachedImageEntry): void {
   entry.loading = false;
 }
 
+interface GameplaySkyCacheEntry {
+  starsKey: string;
+  starsRef: Star[];
+  assets: SkyAssets;
+}
+
+// Content key so a rebuilt-but-identical stars array (fresh GameState per
+// replay loop / run with the same seed) hits the cache instead of re-baking
+// the full-screen sky frame set.
+function starsContentKey(stars: Star[]): string {
+  let key = "";
+  for (const star of stars) {
+    key += `${star.x.toFixed(2)},${star.y.toFixed(2)},${star.size.toFixed(3)},${star.twinkle.toFixed(3)};`;
+  }
+  return key;
+}
+
 function createCanvasRenderResources(): CanvasRenderResources {
-  let gameplaySkyAssets: SkyAssets | null = null;
-  let gameplaySkyStarsRef: Star[] | null = null;
-  let gameplaySkyGroundY: number | null = null;
+  const gameplaySkyCache = new Map<number, GameplaySkyCacheEntry>();
   let titleSkyAssets: SkyAssets | null = null;
   let gameplayBuildingAssets: BuildingAssets | null = null;
   let gameplayBuildingBaseY: number | null = null;
@@ -167,12 +182,17 @@ function createCanvasRenderResources(): CanvasRenderResources {
   );
 
   const getGameplaySkyAssets = (stars: Star[], groundY: number): SkyAssets => {
-    if (!gameplaySkyAssets || gameplaySkyStarsRef !== stars || gameplaySkyGroundY !== groundY) {
-      gameplaySkyAssets = buildSkyAssets(stars, CANVAS_H, groundY);
-      gameplaySkyStarsRef = stars;
-      gameplaySkyGroundY = groundY;
+    const cached = gameplaySkyCache.get(groundY);
+    // Fast path: same stars array as last time for this groundY.
+    if (cached && cached.starsRef === stars) return cached.assets;
+    const starsKey = starsContentKey(stars);
+    if (cached && cached.starsKey === starsKey) {
+      cached.starsRef = stars;
+      return cached.assets;
     }
-    return gameplaySkyAssets;
+    const assets = buildSkyAssets(stars, CANVAS_H, groundY);
+    gameplaySkyCache.set(groundY, { starsKey, starsRef: stars, assets });
+    return assets;
   };
 
   const getTitleSkyAssets = (): SkyAssets => {
@@ -300,9 +320,7 @@ function createCanvasRenderResources(): CanvasRenderResources {
   };
 
   const resetForTest = (): void => {
-    gameplaySkyAssets = null;
-    gameplaySkyStarsRef = null;
-    gameplaySkyGroundY = null;
+    gameplaySkyCache.clear();
     titleSkyAssets = null;
     gameplayBuildingAssets = null;
     gameplayBuildingBaseY = null;
