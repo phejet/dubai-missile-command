@@ -25,6 +25,7 @@ This folder holds repo-specific notes for future maintenance, not player-facing 
 - [`testing-matrix.md`](./testing-matrix.md) — what is covered by unit tests vs E2E, and how to run each layer.
 - [`script-inventory.md`](./script-inventory.md) — top-level and headless scripts, grouped by purpose and trust level.
 - [`performance-notes.md`](./performance-notes.md) — known perf cliffs and constraints for future optimization.
+- [`death-clip-webcontent-kill-handover.md`](./death-clip-webcontent-kill-handover.md) — proven root cause of the iPhone death-clip "kick to title" bug (WebContent memory kill), diagnostics-log + jetsam evidence, and the open ~2GB memory-leak hunt.
 - [`overlay-state-machine-proposal.md`](./overlay-state-machine-proposal.md) — proposed replacement for controller overlay boolean state.
 
 Repo-root files should be maintained entrypoints, project config, or committed fixtures with active consumers; one-off generated analysis output belongs under a named artifacts folder or outside the repo.
