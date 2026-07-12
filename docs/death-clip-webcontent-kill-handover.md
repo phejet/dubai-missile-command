@@ -3,6 +3,10 @@
 Date: 2026-07-12. Status: root cause **confirmed**; fix (the memory leak hunt) **not started**.
 Diagnostics infrastructure shipped in commit `9bc20d7`.
 
+> **Update, 2026-07-12 (late):** the leak is now instrumented and quantified — see
+> [`webcontent-leak-instrumented-findings-2026-07-12.md`](./webcontent-leak-instrumented-findings-2026-07-12.md)
+> for the kill-pattern table, the native memory probe, and the two measured leak rates.
+
 ## TL;DR
 
 The iPhone bug where tapping the death clip kicks the player back to the title screen is
@@ -94,8 +98,16 @@ Measurement tools:
 - **Diagnostics logging** (Options → Diagnostics, `src/diagnostics-log.ts`) — every
   `clientLog` call site now lands in an on-device JSONL with bootId/seq envelope; Share
   Diagnostics exports via the share sheet. Note WebKit exposes no `performance.memory`, so
-  JS-side heap numbers are not available; a native memory sampler would need a small
-  Capacitor plugin (not built).
+  JS-side heap numbers are not available.
+- **Native memory probe** (built 2026-07-12: `ios/App/App/MemoryProbePlugin.swift`,
+  JS bridge `src/memory-probe.ts`) — samples every 2s while diagnostics is on; resources
+  snapshots, `death-clip:mount`, and `death-clip:replay-click` embed the last cached
+  sample synchronously (`memory: {...}` with `ageMs`), so kill-adjacent lines carry a
+  reading even when the process dies milliseconds later. The WebContent process itself is
+  not inspectable from the app, so the probe reports **host-wide** free/inactive/compressed
+  memory (where the leak's growth is visible as draining free pages) plus the app process's
+  own footprint/headroom as the control line. Expect the leak as `hostFreeMB` falling
+  wave-over-wave while `appFootprintMB` stays flat.
 - Deploy with `python3 scripts/ios_deploy.py --launch`; verify the build marker at the
   bottom of the Options menu (git sha + dirty hash) before trusting device behavior.
 

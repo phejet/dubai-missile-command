@@ -17,6 +17,7 @@ import { Share } from "@capacitor/share";
 import { clientLog, registerClientLogSink, type ClientLogEntry } from "./client-log";
 import { createCapacitorFsAdapter, createDiagnosticsStore, type DiagnosticsStore } from "./diagnostics-store";
 import { ringClear, ringPush, ringReadAll } from "./diagnostics-ring";
+import { startMemorySampling, stopMemorySampling } from "./memory-probe";
 import { triggerWebDownload } from "./save-replay";
 
 const ENABLED_KEY = "dmc.diag.enabled.v1";
@@ -143,6 +144,7 @@ function beginSession(): void {
   ringClear();
   writeSessionMarker({ bootId, startedAt: sessionStartedAt, clean: false });
 
+  startMemorySampling();
   clientLog("session", "session-start", sessionStartMeta());
   if (prev && !prev.clean) {
     clientLog("session", "unclean-shutdown", {
@@ -193,12 +195,14 @@ export function setDiagnosticsEnabled(on: boolean): void {
       beginSession();
     } else {
       writeSessionMarker({ bootId, startedAt: sessionStartedAt, clean: false });
+      startMemorySampling();
       clientLog("session", "enabled", {});
     }
   } else {
     clientLog("session", "disabled", {});
     if (sessionStarted) writeSessionMarker({ bootId, startedAt: sessionStartedAt, clean: true });
     void getStore().flush();
+    stopMemorySampling();
     enabled = false;
     writeEnabledFlag(false);
   }

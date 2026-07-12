@@ -26,9 +26,9 @@ describe("diagnostics ring buffer", () => {
     expect(entries[49]).toBe("line-59");
   });
 
-  it("truncates long lines to 512 chars", () => {
-    ringPush("x".repeat(2000));
-    expect(ringReadAll()[0]).toHaveLength(512);
+  it("truncates long lines to 2048 chars", () => {
+    ringPush("x".repeat(5000));
+    expect(ringReadAll()[0]).toHaveLength(2048);
   });
 
   it("tolerates corrupt stored JSON", () => {

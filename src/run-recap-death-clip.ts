@@ -1,5 +1,6 @@
 import { clientLog, clientLogEnabled } from "./client-log";
 import { CANVAS_H, CANVAS_W } from "./game-logic";
+import { getMemorySample } from "./memory-probe";
 import { PixiRenderer } from "./pixi-render";
 import { createReplayStateAnchor } from "./replay-anchor";
 import { createReplayRunner, createReplayRunnerFromAnchor } from "./replay";
@@ -125,6 +126,7 @@ export function mountRunRecapDeathClip(
     anchorWave: anchor?.wave ?? null,
     isHuman: !!replay.isHuman,
     ua: typeof navigator !== "undefined" ? navigator.userAgent : "-",
+    memory: getMemorySample(),
   });
   const status = document.createElement("span");
   status.className = "run-recap__death-status";
@@ -328,6 +330,7 @@ export function mountRunRecapDeathClip(
       generation,
       tick: canvas.dataset.clipTick ?? null,
       loopCount,
+      memory: getMemorySample(),
     });
     if (canvas.dataset.clipStatus !== "complete") return;
     restartClip();

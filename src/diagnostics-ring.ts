@@ -8,7 +8,9 @@
 
 const RING_KEY = "dmc.diag.ring.v1";
 const MAX_ENTRIES = 50;
-const MAX_LINE_CHARS = 512;
+// Sized so a full resources snapshot with renderer pools and a memory sample
+// (~1.1KB) survives crash recovery intact. 50 × 2048 ≈ 100KB of localStorage.
+const MAX_LINE_CHARS = 2048;
 
 function readRaw(): string[] {
   if (typeof localStorage === "undefined") return [];

@@ -57,6 +57,7 @@ import { handleRunRecapReplayEvent } from "./run-recap-replay-events";
 import { buildRunRecapData } from "./run-recap";
 import { saveReplayToFile } from "./save-replay";
 import { clientLog } from "./client-log";
+import { getMemorySample } from "./memory-probe";
 import {
   clearDiagnostics,
   getDiagnosticsBuildId,
@@ -1724,6 +1725,7 @@ export class Game {
       },
       audio: SFX.getResourceStats(),
       renderer: this.renderer.getResourceStats?.() ?? null,
+      memory: getMemorySample(),
     });
   }
 
