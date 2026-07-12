@@ -1,5 +1,9 @@
 # Lessons
 
+## 2026-07-12
+
+- When a plan uses Phase 0 as prerequisite tests and Phase 1 as the actual fix, clarify whether "first phase" means Phase 0 alone or the complete Phase 0+1 red-to-green unit before implementation. Numbering should not silently decide delivery scope.
+
 ## 2026-05-30
 
 - If a tap-assist system misses obvious player intent on sparse screens, prefer a constrained single-target grace rule over widening the normal cluster radius. "Only one plausible thing nearby" is a useful signal; "some stuff nearby" is auto-aim wearing a cheap hat.

@@ -991,9 +991,24 @@ export class Game {
       if (seeking) handleRunRecapReplayEvent(replayData, runner, type, data);
       else this.handleSimEvent(type, data);
     };
+    const onReplayEvent: import("./types").ReplayEventSink = (type, data) => {
+      if (type !== "replay_divergence") return;
+      const divergence = data as import("./types").ReplayEventMap["replay_divergence"];
+      console.warn(
+        `Replay diverged at tick ${divergence.tick} (${divergence.reason ?? "interval"})`,
+        divergence.fieldDiff,
+      );
+      if (import.meta.env.DEV) {
+        const banner = document.createElement("div");
+        banner.className = "replay-divergence-banner";
+        banner.textContent = `REPLAY DIVERGED @ tick ${divergence.tick} - see console`;
+        this.battlefieldCard.append(banner);
+        window.setTimeout(() => banner.remove(), 6000);
+      }
+    };
     runner = replayAnchor
-      ? createReplayRunnerFromAnchor(replayData, replayAnchor, onReplaySimEvent)
-      : createReplayRunner(replayData, onReplaySimEvent);
+      ? createReplayRunnerFromAnchor(replayData, replayAnchor, onReplaySimEvent, onReplayEvent)
+      : createReplayRunner(replayData, onReplaySimEvent, onReplayEvent);
     let replayGameState: GameState;
     try {
       replayGameState = runner.init();

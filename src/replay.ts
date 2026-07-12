@@ -22,6 +22,7 @@ import {
 } from "./replay-bootstrap";
 import type { GameState, ReplayData, ReplayEventSink, ReplayStateAnchor, ShopAction, SimEventSink } from "./types";
 import { CURRENT_REPLAY_VERSION } from "./replay-version";
+import { buildReplayCheckpoint, diffReplayCheckpoints } from "./replay-debug";
 
 export function createReplayRunner(
   replayData: ReplayData,
@@ -60,6 +61,25 @@ function createReplayRunnerInternal(
   let shopPaused = false;
   let bonusPaused = false;
   let pendingShopAction: ShopAction | null = null;
+  const verifiedCheckpointIndexes = new Set<number>();
+
+  function verifyCheckpoints(predicate: (checkpoint: import("./types").ReplayCheckpoint) => boolean): void {
+    if (!g) return;
+    for (const [index, expected] of (replayData.checkpoints ?? []).entries()) {
+      if (verifiedCheckpointIndexes.has(index) || expected.tick < tick || !predicate(expected)) continue;
+      if (expected.tick !== tick) continue;
+      verifiedCheckpointIndexes.add(index);
+      const actual = buildReplayCheckpoint(g, tick, expected.reason ?? null);
+      if (actual.hash === expected.hash) continue;
+      onReplayEvent?.("replay_divergence", {
+        tick,
+        reason: expected.reason ?? null,
+        expectedHash: expected.hash,
+        actualHash: actual.hash,
+        fieldDiff: diffReplayCheckpoints(expected, actual),
+      });
+    }
+  }
 
   function shouldStopReplay() {
     return !!g && shouldStopReplayAtWaveComplete(g, stopWave);
@@ -114,6 +134,10 @@ function createReplayRunnerInternal(
     shopPaused = false;
     bonusPaused = false;
     pendingShopAction = null;
+    verifiedCheckpointIndexes.clear();
+    verifyCheckpoints(
+      (checkpoint) => checkpoint.reason === "start" || checkpoint.reason?.startsWith("debugStart:") === true,
+    );
     return g;
   }
 
@@ -153,6 +177,7 @@ function createReplayRunnerInternal(
         }
       }
       shopPaused = true;
+      verifyCheckpoints((checkpoint) => checkpoint.reason === "shopOpen");
       return;
     }
 
@@ -204,6 +229,7 @@ function createReplayRunnerInternal(
     update(g, 1, onEvent);
     tick++;
     g._replayTick = tick;
+    verifyCheckpoints((checkpoint) => !checkpoint.reason || checkpoint.reason === "gameover");
     if (g._bonusScreenStarted && !g._bonusScreenDone) {
       bonusPaused = true;
       return;
@@ -233,6 +259,7 @@ function createReplayRunnerInternal(
     }
     closeShop(g);
     shopPaused = false;
+    verifyCheckpoints((checkpoint) => checkpoint.reason?.startsWith("waveStart:") === true);
   }
 
   function isShopPaused() {

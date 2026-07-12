@@ -821,6 +821,13 @@ export type SimEventSink = <Type extends keyof SimEventMap>(type: Type, data: Si
 
 export interface ReplayEventMap {
   replay_version_warning: { version: number; message: string };
+  replay_divergence: {
+    tick: number;
+    reason: string | null;
+    expectedHash: string;
+    actualHash: string;
+    fieldDiff: Record<string, { expected: unknown; actual: unknown }>;
+  };
 }
 
 export type ReplayEventSink = <Type extends keyof ReplayEventMap>(type: Type, data: ReplayEventMap[Type]) => void;
@@ -927,6 +934,7 @@ export interface ReplayCheckpoint {
   stats: GameStats;
   counts: Record<string, number>;
   hash: string;
+  diagnostics: Record<string, unknown>;
   reason?: string;
 }
 

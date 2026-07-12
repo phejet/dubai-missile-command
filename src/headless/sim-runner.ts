@@ -12,6 +12,7 @@ import {
 } from "../game-sim";
 import { isBonusUiPauseActive } from "../replay-loop";
 import { CURRENT_REPLAY_VERSION } from "../replay-version";
+import { buildReplayCheckpoint } from "../replay-debug";
 import { getUpgradeNodeDef } from "../game-sim-upgrades";
 import { mulberry32 } from "./rng";
 import { botDecideAction, botDecideUpgrades, resolveBotConfig, reserveBotTarget } from "./bot-brain";
@@ -22,7 +23,7 @@ import {
   resolveReplayStopWave,
   shouldStopReplayAtWaveComplete,
 } from "../replay-bootstrap";
-import type { GameStats, ReplayAction, ReplayData, TacticId, CommanderStyle } from "../types";
+import type { GameStats, ReplayAction, ReplayCheckpoint, ReplayData, TacticId, CommanderStyle } from "../types";
 
 interface RunGameOptions {
   preset?: string | null;
@@ -32,6 +33,7 @@ interface RunGameOptions {
   draftMode?: boolean;
   bootstrap?: ReplayData["bootstrap"];
   stopCondition?: ReplayData["stopCondition"];
+  checkpoints?: boolean;
 }
 
 export function runGame(botConfig: Record<string, unknown> | null, options: RunGameOptions = {}) {
@@ -56,6 +58,11 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
   let lastFireTick = -Infinity;
   let deathCause = "timeout";
   const actions: ReplayAction[] | null = record ? [] : null;
+  const checkpoints: ReplayCheckpoint[] | undefined = record && options.checkpoints ? [] : undefined;
+  const recordCheckpoint = (checkpointTick: number, reason: string | null = null): void => {
+    if (!checkpoints) return;
+    checkpoints.push(buildReplayCheckpoint(g, checkpointTick, reason));
+  };
   let tick: number;
 
   // Swap to bot RNG for bot decisions, then restore game RNG
@@ -76,6 +83,7 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
       style: g.commander.style,
     });
   }
+  recordCheckpoint(0, "start");
 
   for (tick = 0; tick < maxTicks; tick++) {
     if (g.state === "gameover") {
@@ -84,6 +92,7 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
     }
 
     if (g.state === "shop") {
+      recordCheckpoint(tick, "shopOpen");
       const bought = [];
       const { priority } = withBotRng(() => botDecideUpgrades(g, config));
       if (draftMode && g._draftOffers) {
@@ -113,6 +122,7 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
       }
       if (record) actions!.push({ tick, type: "shop", bought, draftMode: draftMode || undefined } as ReplayAction);
       closeShop(g);
+      recordCheckpoint(tick, `waveStart:${g.wave}`);
       if (record) {
         actions!.push({
           tick,
@@ -195,6 +205,9 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
     // Advance simulation
     update(g, dt, null);
     if (isBonusUiPauseActive(g)) completeWaveBonusAndOpenShop(g, null);
+    const postTick = tick + 1;
+    if ((g.state as string) === "gameover") recordCheckpoint(postTick, "gameover");
+    else if (postTick % 60 === 0) recordCheckpoint(postTick);
     if (shouldStopReplayAtWaveComplete(g, stopWave)) {
       deathCause = "completed";
       tick++;
@@ -215,6 +228,7 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
     actions?: ReplayAction[];
     draftMode?: boolean;
     version?: number;
+    checkpoints?: ReplayData["checkpoints"];
   } = {
     score: g.score,
     wave: g.wave,
@@ -225,6 +239,7 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
   };
   if (record) {
     result.version = CURRENT_REPLAY_VERSION;
+    if (checkpoints) result.checkpoints = checkpoints;
     result.actions = actions!;
     if (draftMode) result.draftMode = true;
   }

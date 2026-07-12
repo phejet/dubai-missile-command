@@ -1,49 +1,62 @@
 import { getRngState } from "./game-logic";
 import type { GameState } from "./types";
 
-function normalize(value: unknown): unknown {
-  if (value instanceof Set)
-    return [...value].map(normalize).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
-  if (Array.isArray(value)) return value.map(normalize);
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>)
-        .filter(([key]) => !key.startsWith("_p"))
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([key, entry]) => [key, normalize(entry)]),
-    );
+export const REPLAY_CAUSAL_EXCLUDED_KEYS = new Set<keyof GameState>([
+  "_showColliders",
+  "_editorMode",
+  "_showUpgradeRanges",
+  "_botHumanState",
+  "crosshairX",
+  "crosshairY",
+  "launcherFireTick",
+  "_laserHandle",
+  "_browserLaserHandle",
+  "_lowAmmoTimer",
+  "_rafDeltaMs",
+  "_rafFps",
+  "_fpsFrames",
+  "_fpsAccum",
+  "_fpsDisplay",
+  "_timeAccum",
+  "_replayTick",
+  "_replayShopBought",
+  "_gameSeed",
+  "_actionLog",
+  "_replayCheckpoints",
+  "_replayCheckpointLastTick",
+  "_replayCheckpointLastHash",
+  "_replay",
+  "_replayIsHuman",
+  "_replayShopTimer",
+  "_purchaseToast",
+]);
+
+function normalize(value: unknown, seen = new WeakMap<object, string>(), path = "state"): unknown {
+  if (!value || typeof value !== "object") return value;
+  const priorPath = seen.get(value);
+  if (priorPath) return { $ref: priorPath };
+  seen.set(value, path);
+  if (value instanceof Set) {
+    return [...value]
+      .map((entry, index) => normalize(entry, seen, `${path}.set[${index}]`))
+      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
   }
-  return value;
+  if (Array.isArray(value)) return value.map((entry, index) => normalize(entry, seen, `${path}[${index}]`));
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([key]) => !key.startsWith("_p"))
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, entry]) => [key, normalize(entry, seen, `${path}.${key}`)]),
+  );
+}
+
+export function getReplayCausalOwnedKeys(g: GameState): string[] {
+  return Object.keys(g)
+    .filter((key) => !REPLAY_CAUSAL_EXCLUDED_KEYS.has(key as keyof GameState))
+    .sort();
 }
 
 export function buildReplayCausalSnapshot(g: GameState) {
-  return normalize({
-    rngState: getRngState(),
-    state: g.state,
-    wave: g.wave,
-    waveComplete: g.waveComplete,
-    waveClearedTimer: g.waveClearedTimer,
-    bonusScreenStarted: g._bonusScreenStarted,
-    bonusScreenDone: g._bonusScreenDone,
-    shopOpened: g.shopOpened,
-    draftOffers: g._draftOffers,
-    schedule: g.schedule,
-    scheduleIdx: g.scheduleIdx,
-    waveTick: g.waveTick,
-    nextIds: {
-      explosion: g.nextExplosionId,
-      empFx: g.nextEmpFxId,
-      burjDecal: g.nextBurjDecalId,
-      burjDamageFx: g.nextBurjDamageFxId,
-      buildingDestroyFx: g.nextBuildingDestroyFxId,
-      flare: g.nextFlareId,
-    },
-    explosions: g.explosions,
-    empArcs: g.empArcs,
-    empBurstFlashes: g.empBurstFlashes,
-    empLauncherFlares: g.empLauncherFlares,
-    burjDecals: g.burjDecals,
-    burjDamageFx: g.burjDamageFx,
-    buildingDestroyFx: g.buildingDestroyFx,
-  });
+  const state = Object.fromEntries(getReplayCausalOwnedKeys(g).map((key) => [key, g[key as keyof GameState]]));
+  return { rngState: getRngState(), state: normalize(state) };
 }
