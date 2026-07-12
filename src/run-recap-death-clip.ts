@@ -362,6 +362,7 @@ export function mountRunRecapDeathClip(
             durationMs: Math.round(performance.now() - playStartedAt),
             lastTick: runner.getTick(),
             finalTick,
+            renderer: renderer.getResourceStats?.() ?? null,
           });
         }
         raf = 0;
@@ -382,7 +383,11 @@ export function mountRunRecapDeathClip(
     }
     rendererCreatedAt = performance.now();
     clientLog("death-clip", "renderer-create", { sinceMountMs: Math.round(rendererCreatedAt - mountedAt) });
-    renderer = new PixiRenderer(canvas, { preserveDrawingBuffer: false, renderInitialFrame: false });
+    renderer = new PixiRenderer(canvas, {
+      gameplayOnly: true,
+      preserveDrawingBuffer: false,
+      renderInitialFrame: false,
+    });
     rendererReady = renderer.readyPromise.then(() => {
       if (clientLogEnabled()) {
         clientLog("death-clip", "renderer-ready", {

@@ -35,6 +35,9 @@ const CRITICAL_EVENTS = new Set([
   "replay:start",
   "replay:abort",
   "replay:divergence",
+  "resources:snapshot",
+  "resources:primary-gameplay-release",
+  "resources:primary-gameplay-retain",
 ]);
 
 const BUILD_ID = typeof __DMC_BUILD_ID__ !== "undefined" ? __DMC_BUILD_ID__ : "dev";

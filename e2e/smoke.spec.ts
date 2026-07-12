@@ -213,11 +213,53 @@ test.describe("Smoke tests", () => {
     });
     await page.getByRole("button", { name: /watch replay/i }).click();
     await expect(page.locator("#game-shell")).toHaveAttribute("data-screen", "playing");
+    await expect(page.locator("#game-canvas")).toHaveAttribute("data-pixi-context", "active");
+    await expect(page.locator("#game-canvas")).toHaveAttribute("data-pixi-gameplay-static", "ready");
+    await expect(page.locator("#run-recap-panel")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("#game-shell")).toHaveAttribute("data-screen", "gameover");
+    const firstReplayGeneration = await page.locator("#game-canvas").getAttribute("data-pixi-gameplay-generation");
+    expect(firstReplayGeneration).toBeTruthy();
+
+    await page.getByRole("button", { name: /watch replay/i }).click();
+    await expect(page.locator("#game-shell")).toHaveAttribute("data-screen", "playing");
+    await expect(page.locator("#game-canvas")).toHaveAttribute("data-pixi-gameplay-generation", firstReplayGeneration!);
     await expect(page.locator("#run-recap-panel")).toBeVisible({ timeout: 10000 });
     await expect(page.locator("#game-shell")).toHaveAttribute("data-screen", "gameover");
     await page.getByRole("button", { name: /^back$/i }).click();
     await expect(page.locator("#gameover-panel")).toBeVisible();
     await expect(page.locator("#gameover-panel .run-recap__death-canvas")).toBeVisible();
+  });
+
+  test("releases gameplay resources while preserving the primary renderer", async ({ page }) => {
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
+
+    const endRun = async () => {
+      await page.evaluate(() => {
+        const game = window.__gameRef!.current!;
+        game.burjAlive = false;
+        game.burjHealth = 0;
+      });
+      await expect(page.locator("#gameover-panel .run-recap__death-canvas")).toBeVisible({ timeout: 4000 });
+      await expect(page.locator("#game-canvas")).toHaveAttribute("data-pixi-context", "active");
+      await expect(page.locator("#game-canvas")).toHaveAttribute("data-pixi-gameplay-static", "released");
+    };
+
+    await startGameFromScreen(page);
+    await endRun();
+    await page.getByRole("button", { name: /title menu/i }).click();
+    await expect(page.locator("#game-shell")).toHaveAttribute("data-screen", "title");
+    await expect(page.locator("#game-canvas")).toHaveAttribute("data-pixi-title", "ready");
+    await expect(page.locator("#game-canvas")).toHaveAttribute("data-pixi-context", "active");
+    await expect(page.locator("#game-canvas")).toHaveAttribute("data-pixi-gameplay-static", "released");
+
+    await startGameFromScreen(page);
+    await endRun();
+    await page.getByRole("button", { name: /^retry$/i }).click();
+    await expect(page.locator("#game-shell")).toHaveAttribute("data-screen", "playing");
+    await expect(page.locator("#game-canvas")).toHaveAttribute("data-pixi-gameplay-static", "ready");
+    await expect(page.locator("#game-canvas")).toHaveAttribute("data-pixi-context", "active");
+    expect(pageErrors).toEqual([]);
   });
 });
 

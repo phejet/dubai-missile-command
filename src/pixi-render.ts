@@ -101,8 +101,10 @@ export { BURJ_MAX_HEALTH };
 
 type PixiScreen = "title" | "playing" | "gameover";
 type TitleThreatKind = "shahed" | "missile";
+let activePixiRendererCount = 0;
 
 interface PixiRendererOptions {
+  gameplayOnly?: boolean;
   textures?: PixiTextureResources;
   preserveDrawingBuffer?: boolean;
   renderInitialFrame?: boolean;
@@ -327,7 +329,7 @@ interface GameplayDynamicState {
   empLauncherFlarePool: Graphics[];
   laserPool: Sprite[];
   phalanxPool: Sprite[];
-  particlePool: Graphics[];
+  particleGraphic: Graphics;
   trailBatch: TrailBatch | null;
   burjFire: BurjFireParticleSystem;
 }
@@ -1352,6 +1354,7 @@ function getRenderBulletEndpoint(bullet: InterpolatedBullet, alpha: number): { x
 
 export class PixiRenderer implements GameRenderer {
   private readonly app = new Application();
+  private readonly gameplayOnly: boolean;
   private readonly preserveDrawingBuffer: boolean;
   private readonly root = new Container();
   private readonly titleScene = new Container();
@@ -1409,6 +1412,7 @@ export class PixiRenderer implements GameRenderer {
   private latestInterpolationAlpha = 1;
   private initialized = false;
   private destroyed = false;
+  private gameplaySceneGeneration = 0;
   private appDestroyed = false;
   private contextLost = false;
   private initError: Error | null = null;
@@ -1421,11 +1425,14 @@ export class PixiRenderer implements GameRenderer {
   constructor(
     private readonly canvas: HTMLCanvasElement,
     {
+      gameplayOnly = false,
       textures = createPixiTextureResources(),
       preserveDrawingBuffer = false,
       renderInitialFrame = true,
     }: PixiRendererOptions = {},
   ) {
+    activePixiRendererCount += 1;
+    this.gameplayOnly = gameplayOnly;
     this.textures = textures;
     this.preserveDrawingBuffer = preserveDrawingBuffer;
     this.renderInitialFrame = renderInitialFrame;
@@ -1462,7 +1469,7 @@ export class PixiRenderer implements GameRenderer {
     this.canvas.dataset.pixiGameplayStatic = "booting";
     this.canvas.addEventListener("webglcontextlost", this.onWebGlContextLost);
     this.canvas.addEventListener("webglcontextrestored", this.onWebGlContextRestored);
-    this.pngsPromise = loadPixiPngBundles(["title", "gameplay"]);
+    this.pngsPromise = loadPixiPngBundles(gameplayOnly ? ["gameplay"] : ["title", "gameplay"]);
     this.smokeParticleTexturesPromise = loadPixiSmokeParticleTextures();
     this.ready = this.initialize();
   }
@@ -1476,6 +1483,10 @@ export class PixiRenderer implements GameRenderer {
   }
 
   renderGameplay(game: GameState, request: GameplayRenderRequest = {}): void {
+    if (this.initialized && !this.destroyed && !this.contextLost && !this.initError && !this.gameplayState) {
+      this.buildGameplayScene();
+      this.canvas.dataset.pixiGameplayStatic = "ready";
+    }
     this.screen = "playing";
     this.latestGame = game;
     this.latestShowShop = !!request.showShop;
@@ -1502,8 +1513,59 @@ export class PixiRenderer implements GameRenderer {
     return this.contextLost;
   }
 
+  releaseGameplayResources(): void {
+    if (this.destroyed || !this.gameplayState) return;
+    this.latestGame = null;
+    this.latestShowShop = false;
+    this.latestInterpolationAlpha = 1;
+    this.clearGameplayScene();
+    this.canvas.dataset.pixiGameplayStatic = "released";
+  }
+
+  getResourceStats(): Record<string, unknown> {
+    const dynamic = this.gameplayState?.dynamic;
+    const entityNodes = dynamic
+      ? dynamic.missiles.size +
+        dynamic.drones.size +
+        dynamic.interceptors.size +
+        dynamic.hornets.size +
+        dynamic.roadrunners.size +
+        dynamic.patriotMissiles.size +
+        dynamic.planes.size +
+        dynamic.flares.size +
+        dynamic.explosions.size
+      : 0;
+    return {
+      activeRenderers: activePixiRendererCount,
+      destroyed: this.destroyed,
+      gameplayOnly: this.gameplayOnly,
+      initialized: this.initialized,
+      contextLost: this.contextLost,
+      gameplaySceneGeneration: this.gameplaySceneGeneration,
+      entityNodes,
+      pools: dynamic
+        ? {
+            empRings: dynamic.empRingPool.length,
+            empArcs: dynamic.empArcPool.length,
+            empBurstFlashes: dynamic.empBurstFlashPool.length,
+            empLauncherFlares: dynamic.empLauncherFlarePool.length,
+            lasers: dynamic.laserPool.length,
+            phalanx: dynamic.phalanxPool.length,
+            particleGraphics: 1,
+            particleInstructions: dynamic.particleGraphic.context?.instructions.length ?? 0,
+            fireFlames: dynamic.burjFire.flamePool.length,
+            fireCores: dynamic.burjFire.flameCorePool.length,
+            fireEmbers: dynamic.burjFire.emberPool.length,
+            fireSmoke: dynamic.burjFire.smokePool.length,
+          }
+        : null,
+    };
+  }
+
   destroy(): void {
+    if (this.destroyed) return;
     this.destroyed = true;
+    activePixiRendererCount = Math.max(0, activePixiRendererCount - 1);
     this.latestGame = null;
     this.latestInterpolationAlpha = 1;
     this.canvas.removeEventListener("webglcontextlost", this.onWebGlContextLost);
@@ -1549,15 +1611,24 @@ export class PixiRenderer implements GameRenderer {
 
   private rebuildScenesAfterContextRestore(): void {
     this.clearRebuildableScenes();
-    this.buildTitleScene();
+    if (!this.gameplayOnly) this.buildTitleScene();
     this.buildGameplayScene();
-    this.buildGameOverScene();
-    this.canvas.dataset.pixiTitle = "ready";
+    if (!this.gameplayOnly) this.buildGameOverScene();
+    this.canvas.dataset.pixiTitle = this.gameplayOnly ? "skipped" : "ready";
     this.canvas.dataset.pixiGameplayStatic = "ready";
   }
 
   private clearRebuildableScenes(): void {
     for (const layer of this.titleLayers) this.destroyChildren(layer);
+    this.clearGameplayScene();
+    this.destroyChildren(this.gameOverScene);
+    this.titleState = null;
+    this.gameOverState = null;
+  }
+
+  private clearGameplayScene(): void {
+    const trailBatch = this.gameplayState?.dynamic.trailBatch;
+    trailBatch?.destroy();
     for (const layer of this.gameplayLayers) this.destroyChildren(layer);
     for (const child of [...this.gameplayScene.children]) {
       if (this.gameplayLayers.includes(child as Container)) continue;
@@ -1566,10 +1637,7 @@ export class PixiRenderer implements GameRenderer {
     }
     this.gameplayProjectileLayer.mask = null;
     this.gameplayTrailLayer.mask = null;
-    this.destroyChildren(this.gameOverScene);
-    this.titleState = null;
     this.gameplayState = null;
-    this.gameOverState = null;
   }
 
   private destroyChildren(container: Container): void {
@@ -1607,11 +1675,11 @@ export class PixiRenderer implements GameRenderer {
       this.pngs = pngs;
       this.smokeParticleTextures = smokeParticleTextures;
       (window as unknown as { __pixiApp?: unknown }).__pixiApp = this.app;
-      this.buildTitleScene();
+      if (!this.gameplayOnly) this.buildTitleScene();
       this.buildGameplayScene();
-      this.buildGameOverScene();
+      if (!this.gameplayOnly) this.buildGameOverScene();
       this.initialized = true;
-      this.canvas.dataset.pixiTitle = "ready";
+      this.canvas.dataset.pixiTitle = this.gameplayOnly ? "skipped" : "ready";
       this.canvas.dataset.pixiGameplayStatic = "ready";
       if (this.renderInitialFrame) this.renderIfReady();
     } catch (error: unknown) {
@@ -1794,6 +1862,8 @@ export class PixiRenderer implements GameRenderer {
   }
 
   private buildGameplayScene(): void {
+    this.gameplaySceneGeneration += 1;
+    this.canvas.dataset.pixiGameplayGeneration = String(this.gameplaySceneGeneration);
     const buildingAssets = this.textures.getGameplayBuildingAssets(GAMEPLAY_TOWER_BASE_Y);
     const burjAssets = this.textures.getBurjAssets(GAMEPLAY_SCENIC_GROUND_Y, 2);
     const launcherAssets = {
@@ -1823,7 +1893,7 @@ export class PixiRenderer implements GameRenderer {
       empLauncherFlarePool: [],
       laserPool: [],
       phalanxPool: [],
-      particlePool: [],
+      particleGraphic: new Graphics(),
       trailBatch,
       burjFire: createBurjFireParticleSystem(this.smokeParticleTextures),
     };
@@ -1834,6 +1904,7 @@ export class PixiRenderer implements GameRenderer {
     this.gameplayParticleLayer.addChild(dynamic.burjFire.flameCoreContainer);
     this.gameplayParticleLayer.addChild(dynamic.burjFire.emberContainer);
     this.gameplayParticleLayer.addChild(dynamic.burjFire.smokeContainer);
+    this.gameplayParticleLayer.addChild(dynamic.particleGraphic);
 
     const projectileMask = new Graphics();
     projectileMask.rect(0, 0, CANVAS_W, GAMEPLAY_WATERLINE_Y).fill(0xffffff);
@@ -2342,15 +2413,11 @@ export class PixiRenderer implements GameRenderer {
   }
 
   private renderIfReady(): void {
-    if (
-      !this.initialized ||
-      this.destroyed ||
-      this.contextLost ||
-      this.initError ||
-      !this.titleState ||
-      !this.gameplayState ||
-      !this.gameOverState
-    ) {
+    const sceneMissing =
+      (this.screen === "title" && !this.titleState) ||
+      (this.screen === "playing" && !this.gameplayState) ||
+      (this.screen === "gameover" && !this.gameOverState);
+    if (!this.initialized || this.destroyed || this.contextLost || this.initError || sceneMissing) {
       return;
     }
 
@@ -2360,8 +2427,8 @@ export class PixiRenderer implements GameRenderer {
     this.gameplayScene.visible = this.screen === "playing";
     this.gameOverScene.visible = this.screen === "gameover";
 
-    this.updateTitleScene(this.titleState, timeSeconds);
-    if (this.latestGame) {
+    if (this.titleState) this.updateTitleScene(this.titleState, timeSeconds);
+    if (this.latestGame && this.gameplayState) {
       this.updateGameplayScene(
         this.gameplayState,
         this.latestGame,
@@ -3872,7 +3939,8 @@ export class PixiRenderer implements GameRenderer {
   }
 
   private updateGameplayParticles(state: GameplayDynamicState, game: GameState, interpolationAlpha = 1): void {
-    let used = 0;
+    const graphic = state.particleGraphic;
+    graphic.clear();
     for (const particle of game.particles) {
       if (
         particle.type === "fireFlame" ||
@@ -3886,7 +3954,6 @@ export class PixiRenderer implements GameRenderer {
       const pos = getRenderPosition(particle, interpolationAlpha);
       const alpha = particle.maxLife > 0 ? Math.max(0, Math.min(1, particle.life / particle.maxLife)) : 1;
       const color = memoCssColorToNumber(particle.color, 0xffaa44);
-      const graphic = getPooledGraphic(state.particlePool, this.gameplayParticleLayer, used++);
 
       if (particle.type === "debris") {
         const w = (particle.w ?? particle.size) * GAMEPLAY_EFFECT_SCALE * 1.5;
@@ -3921,7 +3988,6 @@ export class PixiRenderer implements GameRenderer {
         graphic.circle(pos.x, pos.y, particle.size * GAMEPLAY_EFFECT_SCALE).fill({ color, alpha });
       }
     }
-    hideUnusedGraphics(state.particlePool, used);
   }
 
   private updateBurjFireParticles(state: GameplayDynamicState, game: GameState, interpolationAlpha = 1): void {

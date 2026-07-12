@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { Container, Texture } from "pixi.js";
+import { Container, Graphics, Texture } from "pixi.js";
 import { initGame } from "./game-sim";
 import { TrailBatch } from "./pixi-trails";
 import {
@@ -98,7 +98,7 @@ function dynamicState() {
     empLauncherFlarePool: [],
     laserPool: [],
     phalanxPool: [],
-    particlePool: [],
+    particleGraphic: new Graphics(),
     trailBatch: new TrailBatch(),
   };
 }
@@ -564,6 +564,7 @@ describe("PixiRenderer dynamic entity updates", () => {
 
     const state = dynamicState();
     const { methods, self } = rendererInternals();
+    self.gameplayParticleLayer.addChild(state.particleGraphic);
 
     methods.updateGameplayFlares.call(self, state, game, 1);
     methods.updateGameplayPlanes.call(self, state, game, 1);
@@ -590,6 +591,7 @@ describe("PixiRenderer dynamic entity updates", () => {
     expect(self.gameplayProjectileLayer.children.length).toBe(6);
     expect(self.gameplayEffectsLayer.children.length).toBe(4);
     expect(self.gameplayParticleLayer.children.length).toBe(3);
+    expect(state.particleGraphic.context.instructions).toHaveLength(1);
     expect(state.missiles.get(missile)!.spriteRoot.position).toMatchObject({ x: 100, y: 120 });
     expect(state.planes.get(plane)!.container.position).toMatchObject({ x: 340, y: 360 });
     expect(state.flares.get(flare)!.glow.visible).toBe(true);
@@ -598,6 +600,11 @@ describe("PixiRenderer dynamic entity updates", () => {
     methods.updateGameplayMissiles.call(self, state, game, 2);
     expect(state.missiles.size).toBe(0);
     expect(self.gameplayProjectileLayer.children.length).toBe(5);
+
+    game.particles.length = 0;
+    methods.updateGameplayParticles.call(self, state, game);
+    expect(state.particleGraphic.context.instructions).toHaveLength(0);
+    expect(self.gameplayParticleLayer.children.length).toBe(3);
   });
 
   it("interpolates from previous snapshots without mutating GameState", () => {

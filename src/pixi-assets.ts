@@ -33,6 +33,7 @@ const PIXI_PNG_BUNDLES: Record<PixiPngBundleName, PixiPngAssetKey[]> = {
   title: ["skyNebula", "titleWaterReflection", "titleBurjGlow"],
   gameplay: [
     "skyNebula",
+    "titleWaterReflection",
     "interceptorHitFlash",
     "missileKillFlash",
     "droneKillFlash",

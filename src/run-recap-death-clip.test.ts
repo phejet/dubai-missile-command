@@ -150,7 +150,7 @@ describe("run recap death clip", () => {
     await flushTasks();
 
     expect(mocks.pixiOptions).toContainEqual(
-      expect.objectContaining({ preserveDrawingBuffer: false, renderInitialFrame: false }),
+      expect.objectContaining({ gameplayOnly: true, preserveDrawingBuffer: false, renderInitialFrame: false }),
     );
 
     cleanup();

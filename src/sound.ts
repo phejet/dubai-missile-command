@@ -1,5 +1,7 @@
 // Procedural sound effects via Web Audio API — no audio files needed
 
+import { createAudioNodeLifecycle } from "./audio-node-lifecycle";
+
 declare global {
   interface Window {
     webkitAudioContext: typeof AudioContext;
@@ -7,11 +9,20 @@ declare global {
 }
 
 let ctx: AudioContext | null = null;
+let transientCtx: AudioContext | null = null;
 let master: GainNode | null = null;
 let noiseBuffer: AudioBuffer | null = null;
 let _muted = false;
 let activeCount = 0;
 const MAX_POLY = 16;
+const transientNodes = createAudioNodeLifecycle();
+const TRANSIENT_NODE_FACTORIES = new Set<PropertyKey>([
+  "createBiquadFilter",
+  "createBufferSource",
+  "createGain",
+  "createOscillator",
+  "createWaveShaper",
+]);
 
 // Throttle state
 let lastExplosionTime = 0;
@@ -206,7 +217,20 @@ async function tryPlayTitleTheme() {
 
 // Non-null accessors — only called after ensureCtx() has confirmed ctx/master are set
 function getCtx(): AudioContext {
-  return ctx!;
+  if (transientCtx) return transientCtx;
+  const audioCtx = ctx!;
+  transientCtx = new Proxy(audioCtx, {
+    get(target, property) {
+      const value = Reflect.get(target, property, target) as unknown;
+      if (typeof value !== "function") return value;
+      if (TRANSIENT_NODE_FACTORIES.has(property)) {
+        return (...args: unknown[]) =>
+          transientNodes.track((value as (...factoryArgs: unknown[]) => AudioNode).apply(target, args));
+      }
+      return value.bind(target);
+    },
+  });
+  return transientCtx;
 }
 function getMaster(): GainNode {
   return master!;
@@ -297,6 +321,14 @@ const SFX = {
 
   isMuted() {
     return _muted;
+  },
+
+  getResourceStats() {
+    return {
+      activeVoices: activeCount,
+      contextState: ctx?.state ?? "none",
+      transientNodes: transientNodes.getTrackedCount(),
+    };
   },
 
   async playTitleTheme() {

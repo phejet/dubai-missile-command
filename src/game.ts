@@ -647,7 +647,11 @@ export class Game {
 
   // ─── Screen Management ──────────────────────────────────────────
 
-  private setScreen(s: GameScreen): void {
+  private setScreen(s: GameScreen, options: { retainGameplayResources?: boolean } = {}): void {
+    if (s === "gameover") {
+      if (options.retainGameplayResources) this.logRetainedPrimaryGameplayResources();
+      else this.releasePrimaryGameplayResources();
+    }
     const previousScreen = this.screen;
     this.screen = s;
     clientLog("screen", "change", {
@@ -701,6 +705,20 @@ export class Game {
     }
     this.syncTransientOverlays();
     this.onScreenChange?.(s);
+  }
+
+  private releasePrimaryGameplayResources(): void {
+    const before = this.renderer.getResourceStats?.() ?? null;
+    this.renderer.releaseGameplayResources?.();
+    const after = this.renderer.getResourceStats?.() ?? null;
+    clientLog("resources", "primary-gameplay-release", { after, before });
+  }
+
+  private logRetainedPrimaryGameplayResources(): void {
+    clientLog("resources", "primary-gameplay-retain", {
+      reason: "repeat-replay",
+      renderer: this.renderer.getResourceStats?.() ?? null,
+    });
   }
 
   // ─── Game Lifecycle ─────────────────────────────────────────────
@@ -1236,6 +1254,7 @@ export class Game {
           return;
         }
         const game = this.gameRef.current;
+        this.logResourceSnapshot("gameOver", game);
         if (game) {
           const nextProgression = applyRunSummaryToProgression(game.metaProgression, {
             wave: data.wave,
@@ -1284,6 +1303,7 @@ export class Game {
         break;
       }
       case "waveBonusStart":
+        this.logResourceSnapshot("waveBonusStart", this.gameRef.current);
         this.resetPlayerFireState();
         this.bonusActive = true;
         this.canvas.style.pointerEvents = "none";
@@ -1686,6 +1706,27 @@ export class Game {
     document.getElementById("options-build-id")!.textContent = `build ${getDiagnosticsBuildId()}`;
   }
 
+  private logResourceSnapshot(reason: "waveBonusStart" | "gameOver", game: GameState | null): void {
+    if (!game) return;
+    clientLog("resources", "snapshot", {
+      reason,
+      wave: game.wave,
+      tick: game._replayTick ?? 0,
+      actions: game._actionLog?.length ?? 0,
+      checkpoints: game._replayCheckpoints?.length ?? 0,
+      anchors: this.replayAnchors.length,
+      sim: {
+        missiles: game.missiles.length,
+        drones: game.drones.length,
+        interceptors: game.interceptors.length,
+        explosions: game.explosions.length,
+        particles: game.particles.length,
+      },
+      audio: SFX.getResourceStats(),
+      renderer: this.renderer.getResourceStats?.() ?? null,
+    });
+  }
+
   private toggleDiagnostics(): void {
     setDiagnosticsEnabled(!isDiagnosticsEnabled());
     this.syncDiagnosticsUi();
@@ -1810,6 +1851,7 @@ export class Game {
           }
           if (runner.isFinished()) {
             clientLog("replay", "finish", { tick: game._replayTick ?? 0, wave: game.wave, score: game.score });
+            const returnToRecap = this.replayReturnsToRecap;
             runner.cleanup();
             this.replayRunner = null;
             this.replayActive = false;
@@ -1823,8 +1865,8 @@ export class Game {
               wave: game.wave,
             };
             this.canvas.classList.remove("game-canvas--active");
-            this.setScreen("gameover");
-            if (this.replayReturnsToRecap) {
+            this.setScreen("gameover", { retainGameplayResources: returnToRecap });
+            if (returnToRecap) {
               this.replayReturnsToRecap = false;
               this.openRunRecap();
             }
@@ -1865,7 +1907,9 @@ export class Game {
         this.tickControllerOnlyTimers(game);
         this.syncHud();
         this.syncTransientOverlays();
-        this.renderer.renderGameplay(game, { showShop: this.shopOpen, interpolationAlpha });
+        if (this.screen === "playing") {
+          this.renderer.renderGameplay(game, { showShop: this.shopOpen, interpolationAlpha });
+        }
         this.emitFrameSample(game, elapsed, replayWasActive, screenAtFrameStart);
         if (replayFinishedSample) {
           publishReplayFinished(replayFinishedSample);
