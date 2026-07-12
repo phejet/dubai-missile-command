@@ -62,6 +62,7 @@ import type {
   GameStats,
   ReplayAction,
   ReplayData,
+  ReplayInitialState,
   ReplayStateAnchor,
   SimEvent,
   SimEventMap,
@@ -155,7 +156,6 @@ function buildHudSnapshot(game: GameState | null): HudSnapshot {
       activePhase: "spent",
     };
   }
-  syncFireChargeForTick(game, game._replayTick ?? 0);
   const ammoMax = getAmmoCapacity(game.wave, game.upgrades.launcherKit);
   const waveSpawnTotal = game.schedule?.length ?? 0;
   const waveSpawned = waveSpawnTotal > 0 ? Math.min(game.scheduleIdx, waveSpawnTotal) : 0;
@@ -444,6 +444,11 @@ export class Game {
   private finalWave = 1;
   private finalStats = createEmptyGameStats();
   private lastReplay: ReplayData | null = null;
+  private replayInitialState: ReplayInitialState = {
+    metaProgression: { version: 1, completedObjectives: [] },
+    forcedUpgradeFamilies: [],
+    burjHealth: 7,
+  };
   private replayAnchors: ReplayStateAnchor[] = [];
   private deathClipCleanup: (() => void) | null = null;
   private replaySeekGeneration = 0;
@@ -844,6 +849,14 @@ export class Game {
       // Glass Tower debug mode — Burj falls to a single hit.
       game.burjHealth = 1;
     }
+    this.replayInitialState = {
+      metaProgression: {
+        version: game.metaProgression.version,
+        completedObjectives: [...game.metaProgression.completedObjectives],
+      },
+      forcedUpgradeFamilies: [...game._debugUpgradeForceShowFamilies],
+      burjHealth: game.burjHealth,
+    };
     recordWavePlanAction(game);
     maybeRecordReplayCheckpoint(game, { force: true, reason: debugStart ? `debugStart:${debugStart.id}` : "start" });
     this.captureReplayAnchor(debugStart ? `debugStart:${debugStart.id}` : `waveStart:${game.wave}`);
@@ -972,6 +985,30 @@ export class Game {
     this.hideReplaySeekOverlay();
   }
 
+  private showReplayFailure(message: string): void {
+    const banner = document.createElement("div");
+    banner.className = "replay-divergence-banner";
+    banner.textContent = message;
+    this.shell.append(banner);
+    window.setTimeout(() => banner.remove(), 8000);
+  }
+
+  private abortReplayPlayback(error: unknown): void {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Replay stopped: ${message}`);
+    this.replayRunner?.cleanup();
+    this.replayRunner = null;
+    this.replayActive = false;
+    this.shopOpen = false;
+    this.bonusActive = false;
+    uiHideShop();
+    hideBonusScreen();
+    this.canvas.style.pointerEvents = "";
+    this.battlefieldCard.classList.remove("battlefield-card--blurred");
+    this.setScreen("gameover");
+    this.showReplayFailure(`REPLAY STOPPED - ${message}`);
+  }
+
   private async startReplay(replayData: ReplayData, opts: { seekToTick?: number } = {}): Promise<void> {
     await SFX.init();
     SFX.prewarm();
@@ -1018,6 +1055,7 @@ export class Game {
       console.warn(`Unable to load replay: ${message}`);
       const currentGame = this.gameRef.current;
       if (currentGame) currentGame._purchaseToast = { items: [message], timer: 300 };
+      this.showReplayFailure(`REPLAY NOT LOADED - ${message}`);
       return;
     }
     this.gameRef.current = replayGameState;
@@ -1187,6 +1225,14 @@ export class Game {
             version: CURRENT_REPLAY_VERSION,
             seed: game._gameSeed ?? 0,
             actions: game._actionLog as ReplayData["actions"],
+            initialState: {
+              metaProgression: {
+                version: this.replayInitialState.metaProgression.version,
+                completedObjectives: [...this.replayInitialState.metaProgression.completedObjectives],
+              },
+              forcedUpgradeFamilies: [...this.replayInitialState.forcedUpgradeFamilies],
+              burjHealth: this.replayInitialState.burjHealth,
+            },
             checkpoints: game._replayCheckpoints || [],
             finalTick: (game._replayTick ?? 0) + 1,
             isHuman: true,
@@ -1214,8 +1260,7 @@ export class Game {
           event.data,
           (pts) => {
             const game = this.gameRef.current;
-            const shouldApplyReplayBonus = !this.replayActive || game?._replayIsHuman === true;
-            if (game && shouldApplyReplayBonus) game.score += pts;
+            if (game && !this.replayActive) game.score += pts;
             this.syncHud(true);
           },
           () => {
@@ -1670,27 +1715,32 @@ export class Game {
 
         if (this.replayRunner) {
           const runner = this.replayRunner;
-          if (runner.isBonusPaused()) {
-            if (game._bonusScreenDone) {
-              runner.resumeFromBonusScreen();
-            }
-          } else if (runner.isShopPaused()) {
-            if (!game._replayShopTimer) {
-              game._replayShopTimer = performance.now();
-              const bought = game._replayShopBought || [];
-              if (bought.length > 0) {
-                game._purchaseToast = { items: [...bought], timer: 300 };
+          try {
+            if (runner.isBonusPaused()) {
+              if (game._bonusScreenDone) {
+                runner.resumeFromBonusScreen();
               }
-              delete game._replayShopBought;
-            } else if (performance.now() - game._replayShopTimer > 1000) {
-              delete game._replayShopTimer;
-              runner.resumeFromShop();
-              this.shopOpen = false;
-              uiHideShop();
-              this.battlefieldCard.classList.remove("battlefield-card--blurred");
+            } else if (runner.isShopPaused()) {
+              if (!game._replayShopTimer) {
+                game._replayShopTimer = performance.now();
+                const bought = game._replayShopBought || [];
+                if (bought.length > 0) {
+                  game._purchaseToast = { items: [...bought], timer: 300 };
+                }
+                delete game._replayShopBought;
+              } else if (performance.now() - game._replayShopTimer > 1000) {
+                delete game._replayShopTimer;
+                runner.resumeFromShop();
+                this.shopOpen = false;
+                uiHideShop();
+                this.battlefieldCard.classList.remove("battlefield-card--blurred");
+              }
+            } else {
+              runner.step();
             }
-          } else {
-            runner.step();
+          } catch (error) {
+            this.abortReplayPlayback(error);
+            return;
           }
           if (runner.isFinished()) {
             runner.cleanup();

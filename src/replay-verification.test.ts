@@ -22,6 +22,7 @@ function recordReplay(): ReplayData {
     version: result.version!,
     seed: result.seed,
     actions: result.actions!,
+    initialState: result.initialState!,
     draftMode: false,
     stopCondition: { type: "waveComplete", wave: 2 },
     checkpoints: result.checkpoints,
@@ -57,6 +58,38 @@ describe("embedded replay checkpoint verification", () => {
     const replay = recordReplay();
     expect(replay.checkpoints?.some((checkpoint) => checkpoint.reason === "shopOpen")).toBe(true);
     expect(replay.checkpoints?.some((checkpoint) => checkpoint.reason === "waveStart:2")).toBe(true);
+    expect(validateReplay(replay)).toEqual([]);
+  });
+
+  it("round-trips human bonuses and live draft context through two shops", () => {
+    const initialState = {
+      metaProgression: { version: 1, completedObjectives: ["reach_wave_4" as const] },
+      forcedUpgradeFamilies: ["patriot" as const],
+      burjHealth: 7,
+    };
+    const result = runGame(null, {
+      seed: 1481412993,
+      record: true,
+      draftMode: true,
+      isHuman: true,
+      initialState,
+      stopCondition: { type: "waveComplete", wave: 3 },
+      checkpoints: true,
+    });
+    const replay: ReplayData = {
+      version: result.version!,
+      seed: result.seed,
+      actions: result.actions!,
+      initialState: result.initialState!,
+      draftMode: true,
+      isHuman: true,
+      stopCondition: { type: "waveComplete", wave: 3 },
+      checkpoints: result.checkpoints,
+    };
+
+    const shopCheckpoints = replay.checkpoints!.filter((checkpoint) => checkpoint.reason === "shopOpen");
+    expect(shopCheckpoints).toHaveLength(2);
+    expect(shopCheckpoints[0].diagnostics.draftOffers).toContain("patriot");
     expect(validateReplay(replay)).toEqual([]);
   });
 

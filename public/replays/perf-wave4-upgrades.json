@@ -1,5 +1,6 @@
 {
-  "version": 5,
+  "version": 6,
+  "initialState": { "metaProgression": { "version": 1, "completedObjectives": [] }, "forcedUpgradeFamilies": [], "burjHealth": 7 },
   "seed": 114,
   "actions": [
     {

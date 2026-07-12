@@ -11,14 +11,16 @@ import {
   completeWaveBonusAndOpenShop,
 } from "../game-sim";
 import { isBonusUiPauseActive } from "../replay-loop";
-import { CURRENT_REPLAY_VERSION } from "../replay-version";
+import { createDefaultReplayInitialState, CURRENT_REPLAY_VERSION } from "../replay-version";
 import { buildReplayCheckpoint } from "../replay-debug";
 import { getUpgradeNodeDef } from "../game-sim-upgrades";
+import { getBuildingSurvivalBonus } from "../wave-bonus";
 import { mulberry32 } from "./rng";
 import { botDecideAction, botDecideUpgrades, resolveBotConfig, reserveBotTarget } from "./bot-brain";
 import defaultConfig from "./bot-config.json" with { type: "json" };
 import {
   applyReplayBootstrap,
+  applyReplayInitialState,
   resolveReplayStartWave,
   resolveReplayStopWave,
   shouldStopReplayAtWaveComplete,
@@ -34,6 +36,8 @@ interface RunGameOptions {
   bootstrap?: ReplayData["bootstrap"];
   stopCondition?: ReplayData["stopCondition"];
   checkpoints?: boolean;
+  initialState?: ReplayData["initialState"];
+  isHuman?: boolean;
 }
 
 export function runGame(botConfig: Record<string, unknown> | null, options: RunGameOptions = {}) {
@@ -44,6 +48,7 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
   const maxTicks = options.maxTicks ?? 100000;
   const record = options.record ?? false;
   const draftMode = options.draftMode ?? true;
+  const isHuman = options.isHuman ?? false;
   const dt = 1; // fixed timestep per tick
   const startWave = resolveReplayStartWave(options);
   const stopWave = resolveReplayStopWave(options, startWave);
@@ -53,6 +58,8 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
   setRng(rng);
 
   const g = initGame();
+  const initialState = options.initialState ?? createDefaultReplayInitialState();
+  applyReplayInitialState(g, initialState);
   if (draftMode) (g as unknown as { _draftMode: boolean })._draftMode = true;
   applyReplayBootstrap(g, options, startWave);
   let lastFireTick = -Infinity;
@@ -63,6 +70,13 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
     if (!checkpoints) return;
     checkpoints.push(buildReplayCheckpoint(g, checkpointTick, reason));
   };
+  const onSimEvent = isHuman
+    ? (((type, data) => {
+        if (type === "waveBonusStart") {
+          g.score += getBuildingSurvivalBonus(data as import("../types").SimEventMap["waveBonusStart"]);
+        }
+      }) satisfies import("../types").SimEventSink)
+    : null;
   let tick: number;
 
   // Swap to bot RNG for bot decisions, then restore game RNG
@@ -203,8 +217,8 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
     }
 
     // Advance simulation
-    update(g, dt, null);
-    if (isBonusUiPauseActive(g)) completeWaveBonusAndOpenShop(g, null);
+    update(g, dt, onSimEvent);
+    if (isBonusUiPauseActive(g)) completeWaveBonusAndOpenShop(g, onSimEvent);
     const postTick = tick + 1;
     if ((g.state as string) === "gameover") recordCheckpoint(postTick, "gameover");
     else if (postTick % 60 === 0) recordCheckpoint(postTick);
@@ -228,6 +242,8 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
     actions?: ReplayAction[];
     draftMode?: boolean;
     version?: number;
+    initialState?: ReplayData["initialState"];
+    isHuman?: boolean;
     checkpoints?: ReplayData["checkpoints"];
   } = {
     score: g.score,
@@ -239,6 +255,15 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
   };
   if (record) {
     result.version = CURRENT_REPLAY_VERSION;
+    result.initialState = {
+      metaProgression: {
+        version: initialState.metaProgression.version,
+        completedObjectives: [...initialState.metaProgression.completedObjectives],
+      },
+      forcedUpgradeFamilies: [...initialState.forcedUpgradeFamilies],
+      burjHealth: initialState.burjHealth,
+    };
+    if (isHuman) result.isHuman = true;
     if (checkpoints) result.checkpoints = checkpoints;
     result.actions = actions!;
     if (draftMode) result.draftMode = true;

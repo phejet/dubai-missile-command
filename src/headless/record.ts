@@ -19,6 +19,7 @@ function buildReplay(seedValue: number, result: ReturnType<typeof runGame>) {
     version: CURRENT_REPLAY_VERSION,
     seed: seedValue,
     actions: result.actions!,
+    initialState: result.initialState!,
     draftMode: true,
   };
 }

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { runGame } from "./sim-runner";
 import { createReplayRunner as createRawReplayRunner } from "../replay";
-import { CURRENT_REPLAY_VERSION } from "../replay-version";
+import { createDefaultReplayInitialState, CURRENT_REPLAY_VERSION } from "../replay-version";
 import { buildReplayCheckpoint } from "../replay-debug";
 import { setRng } from "../game-logic";
 import type { EditorOverrideMap } from "../game-logic";
@@ -225,4 +225,8 @@ describe("golden-seed canary", () => {
 const createReplayRunner = (
   replay: Omit<ReplayData, "version"> & { version?: number },
   ...args: Parameters<typeof createRawReplayRunner> extends [unknown, ...infer Rest] ? Rest : never
-) => createRawReplayRunner({ version: CURRENT_REPLAY_VERSION, ...replay }, ...args);
+) =>
+  createRawReplayRunner(
+    { version: CURRENT_REPLAY_VERSION, initialState: createDefaultReplayInitialState(), ...replay },
+    ...args,
+  );

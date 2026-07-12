@@ -18,6 +18,7 @@ Inputs:
 
 - RNG seed
 - ordered player/bot actions
+- deterministic initial state (progression, forced draft families, and starting Burj health)
 - current game code
 
 Outputs:
@@ -33,6 +34,7 @@ This means replays are sensitive to gameplay code drift.
 
 - `seed`
 - `actions`
+- `initialState`
 - optional `draftMode`
 - optional `bootstrap` for wave-start fixtures
 - optional `stopCondition` for single-wave benchmarks
@@ -41,19 +43,23 @@ This means replays are sensitive to gameplay code drift.
 - optional `isHuman`
 - optional metadata such as `_buildId` and `_savedAt`
 
-Current recording version is `4`.
+Current recording version is `6`. Missing, older, and newer versions are rejected rather
+than replayed best-effort.
 
 Version notes:
 
-- `version: 4` records under the shared fire-pool model. `ignoreLauncherReload` on old fire actions is tolerated but ignored.
-- `version: 3` records under the two-launcher, side-locked firing model.
-- `version < 3` used the old three-launcher origin selection. Shape is still compatible, but fire actions do not encode the actual launcher origin, so old replays are best-effort and checkpoint hashes may diverge.
+- `version: 6` records the deterministic initial state used by live play. This includes
+  meta-progression objective gates, forced draft families, and starting Burj health.
+- `version: 5` fixed bonus/shop tick semantics but omitted those live inputs, so it can
+  draw a different draft and RNG stream. It is intentionally rejected.
 
 Supported action types:
 
 - `fire`
 - `cursor`
 - `emp`
+- `f15`
+- `flare`
 - `shop`
 - `wave_plan`
 
@@ -82,6 +88,8 @@ During gameplay:
 - cursor actions are appended every 3 ticks
 - shop purchases are appended when the shop closes
 - checkpoints are recorded at start, shop boundaries, and game over
+- the run's initial progression/debug context is retained separately from state mutated
+  during the run
 
 On human game over:
 
@@ -96,13 +104,16 @@ On human game over:
 - `init()`
 - `step()`
 - `resumeFromShop()`
+- `resumeFromBonusScreen()`
 - `isShopPaused()`
+- `isBonusPaused()`
 - `isFinished()`
 - `getState()`
 - `getTick()`
 - `cleanup()`
 
-`init()` seeds the RNG, creates a fresh sim state, applies any replay bootstrap, and enables draft mode when needed.
+`init()` seeds the RNG, creates a fresh sim state, restores `initialState`, applies any
+replay bootstrap, and enables draft mode when needed.
 
 `step()`:
 
@@ -126,18 +137,20 @@ Flow:
 
 Important detail:
 
-- stale combat actions recorded before the shop are discarded before shop handling
+- the recorded shop tick must exactly match the simulated boundary tick; a mismatch
+  aborts playback visibly instead of leaving the shop waiting for input
 
 ## Checkpoints
 
 `buildReplayCheckpoint(g, tick, reason)` creates a compact deterministic signature of the current run.
 
-It hashes:
+It retains and hashes named diagnostics including:
 
 - top-level score/wave/health/ammo data
 - upgrade levels
 - alive counts
 - encoded alive entity lists
+- RNG state, schedule, draft offers, queues, timers, FX, and deterministic ID counters
 
 Checkpoints are for debugging:
 
@@ -170,5 +183,9 @@ This endpoint does not exist in static preview or GitHub Pages builds.
 ## Gotchas
 
 - `draftMode` is inferred if missing, based on shop action shape.
+- human survival bonuses are applied by the runner when `waveBonusStart` is emitted; UI
+  animation never owns replay score mutation.
+- fire-charge recharge is synchronized by the sim. HUD reads must not mutate gameplay
+  state.
 - Replays only stay valid while gameplay code stays compatible enough with the original action log.
 - The replay runner resets RNG back to `Math.random` in `cleanup()`, so forgetting cleanup can leak deterministic RNG into later runtime behavior.

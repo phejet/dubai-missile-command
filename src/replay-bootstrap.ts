@@ -1,7 +1,17 @@
 import { buyDraftUpgrade, closeShop } from "./game-sim";
 import { prepareWaveStart } from "./game-sim-shop";
 import { getUpgradeNodeDef } from "./game-sim-upgrades";
-import type { GameState, ReplayData, ReplayStopCondition } from "./types";
+import type { GameState, ReplayData, ReplayInitialState, ReplayStopCondition } from "./types";
+
+export function applyReplayInitialState(g: GameState, initialState: ReplayInitialState): void {
+  g.metaProgression = {
+    version: initialState.metaProgression.version,
+    completedObjectives: [...initialState.metaProgression.completedObjectives],
+  };
+  g._debugUpgradeForceShowFamilies = [...initialState.forcedUpgradeFamilies];
+  g.burjHealth = Math.max(0, Math.min(7, Math.floor(initialState.burjHealth)));
+  g.burjAlive = g.burjHealth > 0;
+}
 
 function normalizeReplayWave(value: number | undefined, label: string): number {
   if (!Number.isInteger(value) || (value ?? 0) < 1) {

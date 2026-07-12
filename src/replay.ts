@@ -15,6 +15,7 @@ import {
 import { mulberry32 } from "./headless/rng";
 import { cloneReplayStateAnchor } from "./replay-anchor";
 import {
+  applyReplayInitialState,
   applyReplayBootstrap,
   resolveReplayStartWave,
   resolveReplayStopWave,
@@ -23,6 +24,7 @@ import {
 import type { GameState, ReplayData, ReplayEventSink, ReplayStateAnchor, ShopAction, SimEventSink } from "./types";
 import { CURRENT_REPLAY_VERSION } from "./replay-version";
 import { buildReplayCheckpoint, diffReplayCheckpoints } from "./replay-debug";
+import { getBuildingSurvivalBonus } from "./wave-bonus";
 
 export function createReplayRunner(
   replayData: ReplayData,
@@ -62,6 +64,14 @@ function createReplayRunnerInternal(
   let bonusPaused = false;
   let pendingShopAction: ShopAction | null = null;
   const verifiedCheckpointIndexes = new Set<number>();
+
+  const emitSimEvent: SimEventSink = (type, data) => {
+    if (type === "waveBonusStart" && replayData.isHuman && g) {
+      const bonus = data as import("./types").SimEventMap["waveBonusStart"];
+      g.score += getBuildingSurvivalBonus(bonus);
+    }
+    onEvent?.(type, data);
+  };
 
   function verifyCheckpoints(predicate: (checkpoint: import("./types").ReplayCheckpoint) => boolean): void {
     if (!g) return;
@@ -104,6 +114,7 @@ function createReplayRunnerInternal(
         `Replay format v${replayData.version} is no longer supported; expected v${CURRENT_REPLAY_VERSION}`,
       );
     }
+    if (!replayData.initialState) throw new Error("Replay initial state is missing");
     const rng = mulberry32(seed);
     setRng(rng);
     if (startAnchor) {
@@ -126,6 +137,7 @@ function createReplayRunnerInternal(
       g._replay = true;
       g._replayIsHuman = !!replayData.isHuman;
       if (draftMode) g._draftMode = true;
+      applyReplayInitialState(g, replayData.initialState);
       applyReplayBootstrap(g, replayData, startWave);
       actionIdx = 0;
       tick = 0;
@@ -202,11 +214,11 @@ function createReplayRunnerInternal(
         g.crosshairY = action.y;
         fireInterceptor(g, action.x, action.y, tick);
       } else if (action.type === "emp") {
-        fireEmp(g, onEvent);
+        fireEmp(g, emitSimEvent);
       } else if (action.type === "f15") {
-        fireF15Pair(g, onEvent);
+        fireF15Pair(g, emitSimEvent);
       } else if (action.type === "flare") {
-        fireFlareSalvo(g, onEvent);
+        fireFlareSalvo(g, emitSimEvent);
       }
       actionIdx++;
     }
@@ -226,7 +238,7 @@ function createReplayRunnerInternal(
       if (next.type === "shop") break;
     }
 
-    update(g, 1, onEvent);
+    update(g, 1, emitSimEvent);
     tick++;
     g._replayTick = tick;
     verifyCheckpoints((checkpoint) => !checkpoint.reason || checkpoint.reason === "gameover");
@@ -268,7 +280,7 @@ function createReplayRunnerInternal(
 
   function resumeFromBonusScreen() {
     if (!bonusPaused || !g) return;
-    completeWaveBonusAndOpenShop(g, onEvent);
+    completeWaveBonusAndOpenShop(g, emitSimEvent);
     bonusPaused = false;
   }
 

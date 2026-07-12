@@ -102,7 +102,7 @@ describe("run recap death clip", () => {
 
   it("yields before seeking the death clip start tick", async () => {
     const container = document.createElement("div");
-    const replay: ReplayData = { version: 5, seed: 7, actions: [], finalTick: 1200, isHuman: true };
+    const replay: ReplayData = { version: 6, seed: 7, actions: [], finalTick: 1200, isHuman: true };
 
     const cleanup = mountRunRecapDeathClip(container, replay);
     await flushTasks();
@@ -126,7 +126,7 @@ describe("run recap death clip", () => {
   it("does not stay stuck preparing when the seek target is unreachable", async () => {
     mocks.maxTick = 40;
     const container = document.createElement("div");
-    const replay: ReplayData = { version: 5, seed: 7, actions: [], finalTick: 1200, isHuman: true };
+    const replay: ReplayData = { version: 6, seed: 7, actions: [], finalTick: 1200, isHuman: true };
 
     const cleanup = mountRunRecapDeathClip(container, replay);
     await flushTasks();
@@ -144,7 +144,7 @@ describe("run recap death clip", () => {
 
   it("uses inline Pixi options that avoid expensive buffers and the default title frame", async () => {
     const container = document.createElement("div");
-    const replay: ReplayData = { version: 5, seed: 7, actions: [], finalTick: 20, isHuman: true };
+    const replay: ReplayData = { version: 6, seed: 7, actions: [], finalTick: 20, isHuman: true };
 
     const cleanup = mountRunRecapDeathClip(container, replay);
     await flushTasks();
@@ -158,7 +158,7 @@ describe("run recap death clip", () => {
 
   it("starts seeking from a provided replay anchor", async () => {
     const container = document.createElement("div");
-    const replay: ReplayData = { version: 5, seed: 7, actions: [], finalTick: 1200, isHuman: true };
+    const replay: ReplayData = { version: 6, seed: 7, actions: [], finalTick: 1200, isHuman: true };
     const anchor = {
       rngState: 123,
       state: { state: "playing", _replayTick: 500 },
@@ -183,7 +183,7 @@ describe("run recap death clip", () => {
 
   it("holds the completed frame instead of automatically seeking again", async () => {
     const container = document.createElement("div");
-    const replay: ReplayData = { version: 5, seed: 7, actions: [], finalTick: 2, isHuman: true };
+    const replay: ReplayData = { version: 6, seed: 7, actions: [], finalTick: 2, isHuman: true };
 
     const cleanup = mountRunRecapDeathClip(container, replay);
     await flushTasks();

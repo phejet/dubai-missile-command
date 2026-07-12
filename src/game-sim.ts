@@ -40,6 +40,7 @@ import {
   computeShahed238Path,
   GAMEPLAY_SCENIC_LAUNCHER_Y,
   INTERCEPTOR_TAP_FUSE_RADIUS,
+  syncFireChargeForTick,
 } from "./game-logic";
 import { createCommander, generateWaveSchedule, advanceSpawnSchedule, isWaveFullySpawned } from "./wave-spawner";
 import { createEmptyUpgradeLevels, createEmptyUpgradeProgression } from "./game-sim-upgrades";
@@ -327,7 +328,9 @@ export function initGame(): GameState {
     waveTactics: wave1.tactics,
   };
 
-  return g as unknown as GameState;
+  const game = g as unknown as GameState;
+  syncFireChargeForTick(game, 0);
+  return game;
 }
 
 function recordWaveSummary(g: GameState): void {
@@ -2115,6 +2118,7 @@ export function completeWaveBonusAndOpenShop(g: GameState, onEvent?: SimEventSin
 
 export function update(g: GameState, dt: number, onEvent?: SimEventSink | null) {
   if (dt <= 0) throw new Error(`Simulation dt must be positive; received ${dt}`);
+  syncFireChargeForTick(g, Math.floor(g.time));
   const _rng = getRng();
   const rawDt = dt;
   const simDt = dt * empScrubScale(g.empScrubTicks ?? 0);

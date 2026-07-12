@@ -75,7 +75,17 @@ describe("replay state anchors", () => {
   });
 
   it("lets an anchored replay match the full replay from the same tick", () => {
-    const replay: ReplayData = { seed: 77, actions: [], draftMode: true, version: 5 };
+    const replay: ReplayData = {
+      seed: 77,
+      actions: [],
+      draftMode: true,
+      version: 6,
+      initialState: {
+        metaProgression: { version: 1, completedObjectives: [] },
+        forcedUpgradeFamilies: [],
+        burjHealth: 7,
+      },
+    };
     const full = createReplayRunner(replay);
     full.init();
     for (let i = 0; i < 140; i++) full.step();

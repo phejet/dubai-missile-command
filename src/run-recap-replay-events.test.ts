@@ -23,21 +23,21 @@ const waveBonusEvent: SimEventMap["waveBonusStart"] = {
 };
 
 describe("run recap replay events", () => {
-  it("applies human wave bonus immediately for offscreen death-clip replay", () => {
+  it("marks an offscreen human replay bonus complete without changing score", () => {
     const game = initGame();
     game.score = 1200;
-    const replay: ReplayData = { version: 5, seed: 1, actions: [], isHuman: true };
+    const replay: ReplayData = { version: 6, seed: 1, actions: [], isHuman: true };
 
     handleRunRecapReplayEvent(replay, { getState: () => game }, "waveBonusStart", waveBonusEvent);
 
-    expect(game.score).toBe(2700);
+    expect(game.score).toBe(1200);
     expect(game._bonusScreenDone).toBe(true);
   });
 
   it("resumes bot replay bonus pauses without applying human UI score", () => {
     const game = initGame();
     game.score = 1200;
-    const replay: ReplayData = { version: 5, seed: 1, actions: [] };
+    const replay: ReplayData = { version: 6, seed: 1, actions: [] };
 
     handleRunRecapReplayEvent(replay, { getState: () => game }, "waveBonusStart", waveBonusEvent);
 

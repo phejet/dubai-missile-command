@@ -49,7 +49,7 @@ describe("run recap data", () => {
     g.burjHealth = 3;
     g._waveSummaries = [makeWaveSummary({ wave: 1 })];
 
-    const recap = buildRunRecapData(g, { version: 5, seed: 1, actions: [], finalTick: 180, replayId: "abc" });
+    const recap = buildRunRecapData(g, { version: 6, seed: 1, actions: [], finalTick: 180, replayId: "abc" });
 
     expect(recap.score).toBe(5000);
     expect(recap.wave).toBe(4);
@@ -111,7 +111,7 @@ describe("run recap data", () => {
     ];
 
     const recap = buildRunRecapData(g, {
-      version: 5,
+      version: 6,
       seed: 1,
       actions: g._actionLog as ReplayAction[],
       finalTick: 300,

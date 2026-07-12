@@ -3,6 +3,8 @@
 ## 2026-07-12
 
 - When a plan uses Phase 0 as prerequisite tests and Phase 1 as the actual fix, clarify whether "first phase" means Phase 0 alone or the complete Phase 0+1 red-to-green unit before implementation. Numbering should not silently decide delivery scope.
+- A same-engine five-second anchored death clip passing does not certify full-run replay convergence. Device feel-check must exercise at least one complete wave/shop boundary, and runner boundary exceptions must surface visibly instead of leaving the shop UI apparently waiting for input.
+- Replay determinism starts before tick zero: persist every live setting that changes sim state or RNG eligibility, including progression gates, forced draft families, and debug health. A seed and action log cannot reconstruct inputs it was never given, no matter how stern the checkpoint hash looks.
 
 ## 2026-05-30
 

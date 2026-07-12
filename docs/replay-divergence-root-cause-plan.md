@@ -16,6 +16,12 @@
 > module-global deterministic ID counters move into `GameState` before anchor validation;
 > compact checkpoints retain their quantized diagnostic signature for useful field diffs;
 > and the already-red golden-seed canary is baseline-triaged before Phase 1 verification.
+> **Post-implementation correction (2026-07-12):** the iPhone feel-check exposed two
+> live inputs still missing from replay v5: persisted objective progression and forced
+> draft-family settings. A forced Patriot offer changed the draft RNG stream and caused
+> the supplied run to diverge in wave 2, then throw at the shop boundary. Replay v6
+> records deterministic initial context (including starting Burj health), applies human
+> bonuses in the runner, and keeps fire-charge mutation out of HUD rendering.
 > **Supersedes / amends:** `docs/replay-convergence-guard-plan.md` on branch
 > `claude/replay-divergence-validation-8ca7s2`. That spec's guard is adopted here as
 > **Phase 3**, with amendments. Its comparison methodology (§3.2 there) was independently
@@ -325,7 +331,8 @@ The user has approved dropping support for pre-fix replays entirely. Concretely:
 
 - **Centralize the version as `CURRENT_REPLAY_VERSION`** (single exported constant) and
   make `version` **required at the typed producer boundary** (the type used to construct
-  recordings, not just the loader). Bump to 5.
+  recordings, not just the loader). The implemented boundary fix used v5; the device
+  correction above supersedes it with v6.
 - Fix **all** producers, not just `game.ts:1159`:
   - `runGame` recordings (currently omit the field).
   - `src/headless/record.ts` — manually constructs the saved payload and currently drops
@@ -390,7 +397,7 @@ This is feel-bearing. On iPhone, verify:
       errors **and the browser entry points surface them as a toast, not an unhandled
       rejection**; a shop action with a mismatched tick is reported/thrown, not silently
       resynced.
-- [ ] Perf fixtures re-recorded as v5 and loading in the perf harness; baseline
+- [ ] Perf fixtures re-recorded at the current replay version and loading in the perf harness; baseline
       recapture scheduled with the user.
 - [ ] Bot path: existing round-trip tests in `sim-runner.test.ts` and `replay.test.ts`
       green (mechanical `version` additions to fixtures permitted; no behavioral edits).
@@ -561,11 +568,11 @@ the exact causal snapshot/projector from §5a for every same-engine pass:
    `rand()` calls and move them to a dedicated state-owned FX RNG (or stateless seeded
    visual noise). Gameplay RNG must be consumed only by state that can affect gameplay.
    Capture the FX RNG in anchors so death-clip visuals remain exact. This is not required
-   for same-code v5 convergence after Phase 1, but prevents a future cosmetic change from
+   for same-code convergence after Phase 1, but prevents a future cosmetic change from
    silently changing draft offers, schedules, or golden-seed outcomes again.
 4. **Docs cleanup:** `docs/replay-system.md` + CLAUDE.md — document the new boundary
    contract (observational event sinks, the shared transition, `dt > 0` requirement),
-   the version-5 bump, checkpoint verification, and the guard commands; fix the stale
+   the current replay-version bump, checkpoint verification, and the guard commands; fix the stale
    "shop shows for 2 seconds" claim (code: 1000 ms, `game.ts:1655`).
 
 ## 8. Risks and open questions
@@ -583,7 +590,7 @@ the exact causal snapshot/projector from §5a for every same-engine pass:
   and are regenerated as part of Phase 1.
 - **Behavioral deltas from the contract change (intentional, verify in Phase 0):**
   removing the extra `update(g, 0)` and the `onEvent` gate changes RNG stream positions
-  at boundaries relative to both old paths. All v5 recordings are made and replayed under
+  at boundaries relative to both old paths. All current-version recordings are made and replayed under
   the new contract, so this is invisible going forward — but it is why old replays cannot
   be grandfathered.
 - **Counter migration changes absolute render IDs but not intended gameplay.** Version 5
@@ -600,13 +607,13 @@ the exact causal snapshot/projector from §5a for every same-engine pass:
 
 ## 9. Sequencing summary
 
-| Phase | Deliverable                                                                          | Gate                                                              |
-| ----- | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
-| 0     | Baseline triage + causal-snapshot subset + four red replay/boundary/anchor tests     | Known reds explained; mechanism and hidden-counter failure pinned |
-| 1     | Freeze + idempotent transition + observational sinks + state-owned IDs + version 5   | Phase 0 green; `dt<=0` rejected; **user feel-check on iPhone**    |
-| 2     | Complete causal schema + retained compact diagnostics + verification/banner/`--file` | Non-empty field diffs; probe catch; real-replay verification      |
-| 3     | Convergence guard (prior spec + human-path + observer-invariance + anchor passes)    | Timing budgets; injected-divergence proof                         |
-| 4     | Replay pacing; recorder unification; FX RNG separation; docs                         | Separate PRs                                                      |
+| Phase | Deliverable                                                                                  | Gate                                                              |
+| ----- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| 0     | Baseline triage + causal-snapshot subset + four red replay/boundary/anchor tests             | Known reds explained; mechanism and hidden-counter failure pinned |
+| 1     | Freeze + idempotent transition + observational sinks + state-owned IDs + replay version bump | Phase 0 green; `dt<=0` rejected; **user feel-check on iPhone**    |
+| 2     | Complete causal schema + retained compact diagnostics + verification/banner/`--file`         | Non-empty field diffs; probe catch; real-replay verification      |
+| 3     | Convergence guard (prior spec + human-path + observer-invariance + anchor passes)            | Timing budgets; injected-divergence proof                         |
+| 4     | Replay pacing; recorder unification; FX RNG separation; docs                                 | Separate PRs                                                      |
 
 Phases 0–1 are the fix. Phase 2 is the field diagnostic. Phase 3 is the insurance.
 Do them in that order; a guard installed before the fix would certify the wrong thing.

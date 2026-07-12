@@ -127,7 +127,9 @@ That bridge is intentionally narrow. The sim raises semantic events and the runt
 - Sim raises `waveBonusStart`.
 - Controller disables canvas pointer events and shows the animated bonus screen.
 - The payload includes per-wave destroyed-by-type deltas, multi-shot deltas, and max combo.
-- The UI calls back into the controller to add score and mark the bonus sequence done.
+- During live play, the UI calls back into the controller to animate score additions and
+  mark the bonus sequence done. During replay, the runner applies the same total bonus
+  immediately while the UI remains presentation-only.
 
 ### Game over
 

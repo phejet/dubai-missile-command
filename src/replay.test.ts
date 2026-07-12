@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createReplayRunner as createRawReplayRunner } from "./replay";
-import { CURRENT_REPLAY_VERSION } from "./replay-version";
+import { createDefaultReplayInitialState, CURRENT_REPLAY_VERSION } from "./replay-version";
 import { buildReplayCheckpoint } from "./replay-debug";
 import { setRng } from "./game-logic";
 import { mulberry32 } from "./headless/rng";
@@ -49,8 +49,14 @@ describe("createReplayRunner lifecycle", () => {
     expect(() => createRawReplayRunner({ seed: SEED, actions: [] } as unknown as ReplayData).init()).toThrow(
       /version is missing/,
     );
-    expect(() => createRawReplayRunner({ version: 4, seed: SEED, actions: [] }).init()).toThrow(/no longer supported/);
-    expect(() => createRawReplayRunner({ version: 6, seed: SEED, actions: [] }).init()).toThrow(/newer format/);
+    expect(() => createRawReplayRunner({ version: 5, seed: SEED, actions: [] }).init()).toThrow(/no longer supported/);
+    expect(() => createRawReplayRunner({ version: 7, seed: SEED, actions: [] }).init()).toThrow(/newer format/);
+  });
+
+  it("rejects v6 recordings without deterministic initial state", () => {
+    expect(() => createRawReplayRunner({ version: CURRENT_REPLAY_VERSION, seed: SEED, actions: [] }).init()).toThrow(
+      /initial state is missing/,
+    );
   });
 
   it("init() returns a valid game state", () => {
@@ -627,4 +633,8 @@ describe("flare replay action", () => {
 const createReplayRunner = (
   replay: Omit<ReplayData, "version"> & { version?: number },
   ...args: Parameters<typeof createRawReplayRunner> extends [unknown, ...infer Rest] ? Rest : never
-) => createRawReplayRunner({ version: CURRENT_REPLAY_VERSION, ...replay }, ...args);
+) =>
+  createRawReplayRunner(
+    { version: CURRENT_REPLAY_VERSION, initialState: createDefaultReplayInitialState(), ...replay },
+    ...args,
+  );

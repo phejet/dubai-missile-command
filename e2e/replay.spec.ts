@@ -25,8 +25,9 @@ async function startGameFromScreen(page: Page) {
 // Short replay fixture — a few fire actions, enough to exercise the replay runner.
 // No hardcoded expected scores; tests compare two runs of the same replay.
 const SHORT_REPLAY: ReplayData = {
-  version: 5,
+  version: 6,
   seed: 12345,
+  initialState: { metaProgression: { version: 1, completedObjectives: [] }, forcedUpgradeFamilies: [], burjHealth: 7 },
   actions: [
     { tick: 10, type: "fire" as const, x: 450, y: 200 },
     { tick: 30, type: "fire" as const, x: 300, y: 180 },
@@ -84,6 +85,25 @@ test.describe("Replay", () => {
     expect(state.state).toBe("playing");
   });
 
+  test("runtime replay contract errors abort instead of leaving the shop stuck", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForFunction(() => window.__loadReplay != null, { timeout: 5000 });
+    const brokenReplay: ReplayData = {
+      ...SHORT_REPLAY,
+      actions: [{ tick: 999, type: "shop", bought: [], wave: 1 }],
+    };
+
+    await page.evaluate((data: ReplayData) => window.__loadReplay!(data), brokenReplay);
+    await page.waitForFunction(() => window.__gameRef?.current?._replay === true);
+    await page.evaluate(() => {
+      window.__gameRef!.current!.state = "shop";
+    });
+
+    await expect(page.locator(".replay-divergence-banner")).toContainText("Replay shop tick mismatch");
+    await expect(page.locator("#game-shell")).toHaveAttribute("data-screen", "gameover");
+    await expect(page.locator("#shop-container")).toBeEmpty();
+  });
+
   test("same replay produces identical results on two runs", async ({ page }) => {
     await page.goto("/");
     const result1 = await runReplayHeadless(page, SHORT_REPLAY);
@@ -125,9 +145,14 @@ test.describe("Replay", () => {
     await page.waitForFunction(() => window.__loadReplay != null, { timeout: 5000 });
 
     const replayData: ReplayData = {
-      version: 5,
+      version: 6,
       seed: 2468,
       actions: [],
+      initialState: {
+        metaProgression: { version: 1, completedObjectives: [] },
+        forcedUpgradeFamilies: [],
+        burjHealth: 7,
+      },
       isHuman: true,
     };
 

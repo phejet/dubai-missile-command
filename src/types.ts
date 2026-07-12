@@ -898,6 +898,12 @@ export interface ReplayBootstrap {
   startBurjHealth?: number;
 }
 
+export interface ReplayInitialState {
+  metaProgression: UpgradeProgressionState;
+  forcedUpgradeFamilies: UpgradeKey[];
+  burjHealth: number;
+}
+
 export interface ReplayStopCondition {
   type: "waveComplete";
   wave?: number;
@@ -906,6 +912,7 @@ export interface ReplayStopCondition {
 export interface ReplayData {
   seed: number;
   actions: ReplayAction[];
+  initialState?: ReplayInitialState;
   replayId?: string;
   draftMode?: boolean;
   bootstrap?: ReplayBootstrap;

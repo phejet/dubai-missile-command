@@ -1,6 +1,7 @@
 {
   "seed": 314159,
-  "version": 5,
+  "version": 6,
+  "initialState": { "metaProgression": { "version": 1, "completedObjectives": [] }, "forcedUpgradeFamilies": [], "burjHealth": 2 },
   "draftMode": true,
   "bootstrap": {
     "startWave": 5,
