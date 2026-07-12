@@ -26,6 +26,7 @@ import {
   buyDraftUpgrade,
   buyUpgrade,
   createGameSim,
+  completeWaveBonusAndOpenShop,
   draftPick3,
   fireFlareSalvo,
   fireF15Pair,
@@ -522,8 +523,7 @@ describe("summary stats", () => {
     expect(summary.missileKills).toBe(2);
     expect(summary.droneKills).toBe(2);
 
-    g._bonusScreenDone = true;
-    sim.update(g, 0);
+    completeWaveBonusAndOpenShop(g, (type, data) => events.push({ type, data }));
 
     expect(g._waveSummaries).toHaveLength(1);
     expect(g._waveSummaries?.[0]).toMatchObject({

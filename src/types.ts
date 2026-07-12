@@ -672,6 +672,11 @@ export interface SimState {
   patriotHoldTimer: number;
   patriotFollowupTimer: number;
   nextFlareId: number;
+  nextExplosionId: number;
+  nextEmpFxId: number;
+  nextBurjDecalId: number;
+  nextBurjDamageFxId: number;
+  nextBuildingDestroyFxId: number;
   flareReadyThisWave: boolean;
   flareSalvoQueue: Array<{ fireAt: number; count: number }>;
 
@@ -902,7 +907,7 @@ export interface ReplayData {
   score?: number;
   _buildId?: string;
   _savedAt?: string;
-  version?: number;
+  version: number;
   checkpoints?: ReplayCheckpoint[];
   finalTick?: number;
   isHuman?: boolean;

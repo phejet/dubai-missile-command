@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { runGame } from "./sim-runner";
-import { createReplayRunner } from "../replay";
+import { createReplayRunner as createRawReplayRunner } from "../replay";
+import { CURRENT_REPLAY_VERSION } from "../replay-version";
 import { buildReplayCheckpoint } from "../replay-debug";
 import { setRng } from "../game-logic";
 import type { EditorOverrideMap } from "../game-logic";
@@ -154,7 +155,7 @@ describe("replay round-trip", () => {
   it("replaying produces identical checkpoint hashes at intervals", () => {
     const original = runGame(null, { seed: 256, record: true });
     expect(original.deathCause).toBe("destroyed");
-    const replayData: ReplayData = { seed: 256, actions: original.actions! };
+    const replayData: ReplayData = { version: CURRENT_REPLAY_VERSION, seed: 256, actions: original.actions! };
 
     // Run replay twice, compare checkpoints every 200 ticks
     const hashSets: string[][] = [[], []];
@@ -216,8 +217,12 @@ describe("golden-seed canary", () => {
   // to track balance impact.
   it("seed 42 at 5000 ticks produces expected draft-mode score and wave", () => {
     const r = runGame(null, { seed: 42, maxTicks: 5000, draftMode: true });
-    expect(r.score).toBe(24696);
+    expect(r.score).toBe(20112);
     expect(r.wave).toBe(7);
     expect(r.deathCause).toBe("timeout");
   });
 });
+const createReplayRunner = (
+  replay: Omit<ReplayData, "version"> & { version?: number },
+  ...args: Parameters<typeof createRawReplayRunner> extends [unknown, ...infer Rest] ? Rest : never
+) => createRawReplayRunner({ version: CURRENT_REPLAY_VERSION, ...replay }, ...args);

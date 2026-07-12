@@ -8,7 +8,10 @@ import {
   fireEmp,
   fireF15Pair,
   fireFlareSalvo,
+  completeWaveBonusAndOpenShop,
 } from "../game-sim";
+import { isBonusUiPauseActive } from "../replay-loop";
+import { CURRENT_REPLAY_VERSION } from "../replay-version";
 import { getUpgradeNodeDef } from "../game-sim-upgrades";
 import { mulberry32 } from "./rng";
 import { botDecideAction, botDecideUpgrades, resolveBotConfig, reserveBotTarget } from "./bot-brain";
@@ -191,6 +194,7 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
 
     // Advance simulation
     update(g, dt, null);
+    if (isBonusUiPauseActive(g)) completeWaveBonusAndOpenShop(g, null);
     if (shouldStopReplayAtWaveComplete(g, stopWave)) {
       deathCause = "completed";
       tick++;
@@ -210,6 +214,7 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
     seed: number;
     actions?: ReplayAction[];
     draftMode?: boolean;
+    version?: number;
   } = {
     score: g.score,
     wave: g.wave,
@@ -219,6 +224,7 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
     seed,
   };
   if (record) {
+    result.version = CURRENT_REPLAY_VERSION;
     result.actions = actions!;
     if (draftMode) result.draftMode = true;
   }

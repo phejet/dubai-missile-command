@@ -26,7 +26,7 @@ describe("run recap replay events", () => {
   it("applies human wave bonus immediately for offscreen death-clip replay", () => {
     const game = initGame();
     game.score = 1200;
-    const replay: ReplayData = { seed: 1, actions: [], isHuman: true };
+    const replay: ReplayData = { version: 5, seed: 1, actions: [], isHuman: true };
 
     handleRunRecapReplayEvent(replay, { getState: () => game }, "waveBonusStart", waveBonusEvent);
 
@@ -37,7 +37,7 @@ describe("run recap replay events", () => {
   it("resumes bot replay bonus pauses without applying human UI score", () => {
     const game = initGame();
     game.score = 1200;
-    const replay: ReplayData = { seed: 1, actions: [] };
+    const replay: ReplayData = { version: 5, seed: 1, actions: [] };
 
     handleRunRecapReplayEvent(replay, { getState: () => game }, "waveBonusStart", waveBonusEvent);
 

@@ -10,6 +10,7 @@ import {
   fireF15Pair,
   repairSite,
   repairLauncher,
+  completeWaveBonusAndOpenShop,
 } from "./game-sim";
 import { mulberry32 } from "./headless/rng";
 import { cloneReplayStateAnchor } from "./replay-anchor";
@@ -20,6 +21,7 @@ import {
   shouldStopReplayAtWaveComplete,
 } from "./replay-bootstrap";
 import type { GameState, ReplayData, ReplayEventSink, ReplayStateAnchor, ShopAction, SimEventSink } from "./types";
+import { CURRENT_REPLAY_VERSION } from "./replay-version";
 
 export function createReplayRunner(
   replayData: ReplayData,
@@ -71,11 +73,16 @@ function createReplayRunnerInternal(
   function init() {
     assertNoEditorOverridesForDeterministicRun("Replay runner");
 
-    if ((replayData.version ?? 1) < 4) {
-      onReplayEvent?.("replay_version_warning", {
-        version: replayData.version ?? 1,
-        message: "Replay was recorded before the shared fire-pool model; checkpoint hashes may diverge.",
-      });
+    if (replayData.version === undefined) throw new Error("Replay format version is missing");
+    if (replayData.version > CURRENT_REPLAY_VERSION) {
+      throw new Error(
+        `Replay uses newer format v${replayData.version}; this build supports v${CURRENT_REPLAY_VERSION}`,
+      );
+    }
+    if (replayData.version < CURRENT_REPLAY_VERSION) {
+      throw new Error(
+        `Replay format v${replayData.version} is no longer supported; expected v${CURRENT_REPLAY_VERSION}`,
+      );
     }
     const rng = mulberry32(seed);
     setRng(rng);
@@ -124,8 +131,12 @@ function createReplayRunnerInternal(
 
     // When game enters shop state, find and apply the next shop action immediately
     if (g.state === "shop") {
-      // Discard non-shop input recorded during the wave-summary/shop UI gap.
+      // Only same-boundary metadata may precede the shop action.
       while (actionIdx < actions.length && actions[actionIdx].type !== "shop") {
+        const action = actions[actionIdx];
+        if (action.type !== "wave_plan" && action.type !== "cursor") {
+          throw new Error(`Unexpected ${action.type} action while replay is waiting for shop at tick ${tick}`);
+        }
         actionIdx++;
       }
 
@@ -137,8 +148,9 @@ function createReplayRunnerInternal(
       if (shopAction) {
         pendingShopAction = shopAction;
         g._replayShopBought = shopAction.bought;
-        tick = Math.max(tick, shopAction.tick);
-        g._replayTick = tick;
+        if (shopAction.tick !== tick) {
+          throw new Error(`Replay shop tick mismatch: expected ${tick}, recorded ${shopAction.tick}`);
+        }
       }
       shopPaused = true;
       return;
@@ -228,11 +240,9 @@ function createReplayRunnerInternal(
   }
 
   function resumeFromBonusScreen() {
-    if (!bonusPaused || !g || !g._bonusScreenDone) return;
+    if (!bonusPaused || !g) return;
+    completeWaveBonusAndOpenShop(g, onEvent);
     bonusPaused = false;
-    if (g.waveComplete && !g.shopOpened) {
-      update(g, 0, onEvent);
-    }
   }
 
   function isBonusPaused() {

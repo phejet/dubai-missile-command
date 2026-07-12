@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { createReplayRunner } from "./replay";
+import { createReplayRunner as createRawReplayRunner } from "./replay";
+import { CURRENT_REPLAY_VERSION } from "./replay-version";
 import { buildReplayCheckpoint } from "./replay-debug";
 import { setRng } from "./game-logic";
 import { mulberry32 } from "./headless/rng";
@@ -44,6 +45,14 @@ function replayToCompletion(replayData: ReplayData, onEvent: SimEventSink | null
 // ── Replay runner lifecycle ──
 
 describe("createReplayRunner lifecycle", () => {
+  it("rejects missing, older, and newer replay formats", () => {
+    expect(() => createRawReplayRunner({ seed: SEED, actions: [] } as unknown as ReplayData).init()).toThrow(
+      /version is missing/,
+    );
+    expect(() => createRawReplayRunner({ version: 4, seed: SEED, actions: [] }).init()).toThrow(/no longer supported/);
+    expect(() => createRawReplayRunner({ version: 6, seed: SEED, actions: [] }).init()).toThrow(/newer format/);
+  });
+
   it("init() returns a valid game state", () => {
     const rr = createReplayRunner({ seed: SEED, actions: [] });
     const g = rr.init();
@@ -199,15 +208,10 @@ describe("createReplayRunner action application", () => {
     rr.cleanup();
   });
 
-  it("tolerates legacy fire actions with ignoreLauncherReload", () => {
+  it("rejects legacy replay versions", () => {
     const actions = [{ tick: 1, type: "fire", x: 450, y: 200, ignoreLauncherReload: true }] as ReplayAction[];
     const rr = createReplayRunner({ seed: SEED, version: 3, actions });
-    rr.init();
-
-    expect(() => rr.step()).not.toThrow();
-    rr.step();
-    expect(rr.getState()!.stats.shotsFired).toBe(1);
-    rr.cleanup();
+    expect(() => rr.init()).toThrow(/no longer supported/);
   });
 });
 
@@ -226,7 +230,7 @@ describe("createReplayRunner shop handling", () => {
   });
 
   it("tick does NOT advance while shop-paused", () => {
-    const actions = [{ tick: 0, type: "shop", bought: [] }] as ReplayAction[];
+    const actions = [{ tick: 5, type: "shop", bought: [] }] as ReplayAction[];
     const rr = createReplayRunner({ seed: SEED, actions });
     const g = rr.init();
 
@@ -321,7 +325,7 @@ describe("createReplayRunner shop handling", () => {
     rr.cleanup();
   });
 
-  it("fast-forwards to the recorded shop tick before starting the next wave", () => {
+  it("rejects a recorded shop tick that does not match the boundary", () => {
     const actions = [
       { tick: 900, type: "cursor" as const, x: 100, y: 100 },
       { tick: 950, type: "cursor" as const, x: 150, y: 150 },
@@ -332,24 +336,13 @@ describe("createReplayRunner shop handling", () => {
     const g = rr.init();
     g.state = "shop";
 
-    rr.step();
-    expect(rr.isShopPaused()).toBe(true);
-    expect(rr.getTick()).toBe(1000);
-    expect(g._replayTick).toBe(1000);
-
-    rr.resumeFromShop();
-    expect(g.state).toBe("playing");
-    expect(g.wave).toBe(2);
-    rr.step();
-    expect(g.stats.shotsFired).toBe(0);
-    for (let i = 0; i < 10; i++) rr.step();
-    expect(g.stats.shotsFired).toBe(1);
+    expect(() => rr.step()).toThrow(/shop tick mismatch/);
     rr.cleanup();
   });
 
   it("drains stale same-tick wave plan markers after a delayed shop pause", () => {
     const actions = [
-      { tick: 5, type: "shop" as const, bought: [] },
+      { tick: 6, type: "shop" as const, bought: [] },
       { tick: 5, type: "wave_plan" as const, wave: 2 },
       { tick: 8, type: "fire" as const, x: 450, y: 200 },
     ];
@@ -373,7 +366,7 @@ describe("createReplayRunner shop handling", () => {
     rr.cleanup();
   });
 
-  it("stale combat actions before shop are discarded", () => {
+  it("rejects stale combat actions before shop", () => {
     // Fire action and shop action both at tick 5; shop should take precedence
     const actions = [
       { tick: 5, type: "fire" as const, x: 450, y: 200 },
@@ -385,11 +378,7 @@ describe("createReplayRunner shop handling", () => {
     // Step to tick 5, then force shop before step processes tick 5 actions
     for (let i = 0; i < 5; i++) rr.step();
     g.state = "shop";
-    rr.step(); // should enter shop pause, discarding the fire action
-
-    expect(rr.isShopPaused()).toBe(true);
-    rr.resumeFromShop();
-    expect(g.state).toBe("playing");
+    expect(() => rr.step()).toThrow(/Unexpected fire action/);
     rr.cleanup();
   });
 });
@@ -460,7 +449,7 @@ describe("createReplayRunner determinism", () => {
       { tick: 10, type: "fire", x: 300, y: 250 },
       { tick: 20, type: "fire", x: 600, y: 150 },
     ];
-    const replayData: ReplayData = { seed: SEED, actions };
+    const replayData: ReplayData = { version: CURRENT_REPLAY_VERSION, seed: SEED, actions };
 
     // Run 1
     const rr1 = createReplayRunner(replayData);
@@ -512,7 +501,12 @@ describe("createReplayRunner determinism", () => {
 
   it("replays a recorded draft game identically when event callbacks are observed", () => {
     const original = runGame(null, { seed: 425, record: true, draftMode: true, maxTicks: 200000 });
-    const replayData: ReplayData = { seed: original.seed, actions: original.actions!, draftMode: true };
+    const replayData: ReplayData = {
+      version: CURRENT_REPLAY_VERSION,
+      seed: original.seed,
+      actions: original.actions!,
+      draftMode: true,
+    };
 
     const withoutEvents = replayToCompletion(replayData);
     const withEvents = replayToCompletion(replayData, () => {});
@@ -630,3 +624,7 @@ describe("flare replay action", () => {
     rr.cleanup();
   });
 });
+const createReplayRunner = (
+  replay: Omit<ReplayData, "version"> & { version?: number },
+  ...args: Parameters<typeof createRawReplayRunner> extends [unknown, ...infer Rest] ? Rest : never
+) => createRawReplayRunner({ version: CURRENT_REPLAY_VERSION, ...replay }, ...args);

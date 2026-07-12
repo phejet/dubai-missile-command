@@ -38,6 +38,7 @@ import {
   fireEmp as simFireEmp,
   fireF15Pair as simFireF15Pair,
   snapshotPositions,
+  completeWaveBonusAndOpenShop,
 } from "./game-sim";
 import { buildShopEntries } from "./game-sim-shop";
 import {
@@ -47,6 +48,8 @@ import {
   saveUpgradeProgression,
 } from "./game-sim-upgrades";
 import { createReplayRunner, createReplayRunnerFromAnchor } from "./replay";
+import { isBonusUiPauseActive } from "./replay-loop";
+import { CURRENT_REPLAY_VERSION } from "./replay-version";
 import { createReplayStateAnchor } from "./replay-anchor";
 import { seekRunnerToTick } from "./replay-seek";
 import { mountRunRecapDeathClip } from "./run-recap-death-clip";
@@ -991,7 +994,17 @@ export class Game {
     runner = replayAnchor
       ? createReplayRunnerFromAnchor(replayData, replayAnchor, onReplaySimEvent)
       : createReplayRunner(replayData, onReplaySimEvent);
-    const replayGameState = runner.init();
+    let replayGameState: GameState;
+    try {
+      replayGameState = runner.init();
+    } catch (error) {
+      runner.cleanup();
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`Unable to load replay: ${message}`);
+      const currentGame = this.gameRef.current;
+      if (currentGame) currentGame._purchaseToast = { items: [message], timer: 300 };
+      return;
+    }
     this.gameRef.current = replayGameState;
     if (replayGameState) {
       replayGameState._replay = true;
@@ -1156,7 +1169,7 @@ export class Game {
             tickOverride: (game._replayTick ?? 0) + 1,
           });
           const replay: ReplayData = {
-            version: 4,
+            version: CURRENT_REPLAY_VERSION,
             seed: game._gameSeed ?? 0,
             actions: game._actionLog as ReplayData["actions"],
             checkpoints: game._replayCheckpoints || [],
@@ -1192,7 +1205,9 @@ export class Game {
           },
           () => {
             const game = this.gameRef.current;
-            if (game) game._bonusScreenDone = true;
+            if (game && game.waveComplete && !game.shopOpened) {
+              completeWaveBonusAndOpenShop(game, (t, d) => this.handleSimEvent(t, d));
+            }
             this.bonusActive = false;
             this.canvas.style.pointerEvents = "";
             hideBonusScreen();
@@ -1206,7 +1221,7 @@ export class Game {
           maybeRecordReplayCheckpoint(game, {
             force: true,
             reason: "shopOpen",
-            tickOverride: (game._replayTick ?? 0) + 1,
+            tickOverride: game._replayTick ?? 0,
           });
           this.openShop(game);
         }
@@ -1679,7 +1694,8 @@ export class Game {
             this.setScreen("gameover");
           }
         } else if (game.state === "playing") {
-          while (game._timeAccum >= 1) {
+          if (isBonusUiPauseActive(game)) game._timeAccum = 0;
+          while (game._timeAccum >= 1 && !isBonusUiPauseActive(game)) {
             game._timeAccum -= 1;
             this.releaseBufferedPlayerFire(game);
             snapshotPositions(game);
@@ -1694,6 +1710,10 @@ export class Game {
               });
             }
             maybeRecordReplayCheckpoint(game);
+            if (isBonusUiPauseActive(game)) {
+              game._timeAccum = 0;
+              break;
+            }
             if ((game.state as string) === "gameover" || (game.state as string) === "shop") break;
           }
         } else {

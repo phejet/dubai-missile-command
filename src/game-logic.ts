@@ -502,12 +502,6 @@ export function ov<T>(key: OverrideKey, fallback: T): T {
   return (overrides && key in overrides ? overrides[key] : fallback) as T;
 }
 
-let _explosionId = 0;
-
-export function resetExplosionId(): void {
-  _explosionId = 0;
-}
-
 interface ExplosionOptions {
   harmless?: boolean;
   chain?: boolean;
@@ -525,7 +519,7 @@ export function createExplosion(
   initialRadius = 0,
   options: ExplosionOptions = {},
 ): void {
-  const id = _explosionId++;
+  const id = g.nextExplosionId++;
   g.explosions.push({
     id,
     x,

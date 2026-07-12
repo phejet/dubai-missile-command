@@ -5,6 +5,7 @@ import { mulberry32 } from "./headless/rng";
 import { createReplayRunner, createReplayRunnerFromAnchor } from "./replay";
 import { createReplayStateAnchor } from "./replay-anchor";
 import { buildReplayCheckpoint } from "./replay-debug";
+import { buildReplayCausalSnapshot } from "./replay-causal-snapshot";
 import type { Hornet, Missile, ReplayData } from "./types";
 
 afterEach(() => {
@@ -74,7 +75,7 @@ describe("replay state anchors", () => {
   });
 
   it("lets an anchored replay match the full replay from the same tick", () => {
-    const replay: ReplayData = { seed: 77, actions: [], draftMode: true, version: 4 };
+    const replay: ReplayData = { seed: 77, actions: [], draftMode: true, version: 5 };
     const full = createReplayRunner(replay);
     full.init();
     for (let i = 0; i < 140; i++) full.step();
@@ -82,6 +83,9 @@ describe("replay state anchors", () => {
     const anchor = createReplayStateAnchor(full.getState()!, "test-anchor")!;
     for (let i = 0; i < 180; i++) full.step();
     const fullCheckpoint = buildReplayCheckpoint(full.getState()!, full.getTick()).hash;
+    const fullCausal = buildReplayCausalSnapshot(full.getState()!);
+    const fullExplosionIds = full.getState()!.explosions.map((explosion) => explosion.id);
+    const fullNextExplosionId = full.getState()!.nextExplosionId;
     full.cleanup();
 
     const anchored = createReplayRunnerFromAnchor(replay, anchor);
@@ -89,8 +93,13 @@ describe("replay state anchors", () => {
     expect(anchored.getTick()).toBe(anchor.tick);
     for (let i = 0; i < 180; i++) anchored.step();
     const anchoredCheckpoint = buildReplayCheckpoint(anchored.getState()!, anchored.getTick()).hash;
+    const anchoredCausal = buildReplayCausalSnapshot(anchored.getState()!);
+    const anchoredExplosionIds = anchored.getState()!.explosions.map((explosion) => explosion.id);
     anchored.cleanup();
 
     expect(anchoredCheckpoint).toBe(fullCheckpoint);
+    expect(anchoredCausal).toEqual(fullCausal);
+    expect(anchored.getState()!.nextExplosionId).toBe(fullNextExplosionId);
+    expect(anchoredExplosionIds).toEqual(fullExplosionIds);
   });
 });

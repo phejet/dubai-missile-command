@@ -45,6 +45,7 @@ function makeGameState(overrides: Partial<GameState> = {}): GameState {
     interceptors: [],
     explosions: [],
     particles: [],
+    nextExplosionId: 0,
     upgrades: { launcherKit: 0 } as GameState["upgrades"],
     ownedUpgradeNodes: new Set(),
     stats: createEmptyGameStats(),
@@ -294,9 +295,9 @@ describe("fireInterceptor", () => {
   it("uses high velocity interceptor stats", () => {
     const g = makeGameState({ ownedUpgradeNodes: new Set([LAUNCHER_HIGH_VELOCITY_NODE]) });
     fireInterceptor(g, 500, 300, 10);
-    expect(g.interceptors[0].speed).toBeCloseTo(14.547);
-    expect(g.interceptors[0].accel).toBeCloseTo(4.875);
-    expect(g.interceptors[0].maxSpeed).toBeCloseTo(48.75);
+    expect(g.interceptors[0].speed).toBeCloseTo(11.6376);
+    expect(g.interceptors[0].accel).toBeCloseTo(3.9);
+    expect(g.interceptors[0].maxSpeed).toBeCloseTo(39);
   });
 
   it("derives launcher armor and double magazine effects from owned nodes", () => {

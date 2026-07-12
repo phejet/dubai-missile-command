@@ -39,7 +39,6 @@ import {
   computeShahed136StraightPath,
   computeShahed238Path,
   GAMEPLAY_SCENIC_LAUNCHER_Y,
-  resetExplosionId,
   INTERCEPTOR_TAP_FUSE_RADIUS,
 } from "./game-logic";
 import { createCommander, generateWaveSchedule, advanceSpawnSchedule, isWaveFullySpawned } from "./wave-spawner";
@@ -69,7 +68,7 @@ import type {
 } from "./types";
 import { shahed136HasBomb, shahed136HasDive } from "./types";
 import { updateBurjFireParticles } from "./game-sim-burj-fire";
-import { empScrubScale, fireEmp, resetEmpFxId, updateEmpRings, updateEmpVisualFx } from "./game-sim-emp";
+import { empScrubScale, fireEmp, updateEmpRings, updateEmpVisualFx } from "./game-sim-emp";
 import { fireFlareSalvo, updateFlares } from "./game-sim-flare";
 import { updatePatriotSystem } from "./game-sim-patriot";
 
@@ -124,9 +123,6 @@ function isThreatDoomedByActiveExplosion(g: GameState, target: Threat): boolean 
   return false;
 }
 
-let _burjDecalId = 0;
-let _burjDamageFxId = 0;
-let _buildingDestroyFxId = 0;
 const BURJ_INVULN_TICKS = 30;
 
 function addBurjImpactDamage(g: GameState, x: number, y: number, kind: BurjDamageKind) {
@@ -135,7 +131,7 @@ function addBurjImpactDamage(g: GameState, x: number, y: number, kind: BurjDamag
   const hitX = x + jitterX * 0.65;
   const hitY = y + jitterY * 0.65;
   g.burjDecals.push({
-    id: _burjDecalId++,
+    id: g.nextBurjDecalId++,
     x: x + jitterX,
     y: y + jitterY,
     kind,
@@ -143,7 +139,7 @@ function addBurjImpactDamage(g: GameState, x: number, y: number, kind: BurjDamag
     scale: rand(0.82, 1.14),
   });
   g.burjDamageFx.push({
-    id: _burjDamageFxId++,
+    id: g.nextBurjDamageFxId++,
     x: hitX,
     y: hitY,
     kind,
@@ -203,7 +199,7 @@ function updateBurjDamageFx(g: GameState): void {
 
 function addBuildingDestroyFx(g: GameState, building: { x: number; w: number; h: number }) {
   g.buildingDestroyFx.push({
-    id: _buildingDestroyFxId++,
+    id: g.nextBuildingDestroyFxId++,
     x: building.x + building.w / 2,
     y: GROUND_Y - 6 - building.h * 0.45,
     life: 70,
@@ -222,12 +218,6 @@ function updateBuildingDestroyFx(g: GameState, dt: number): void {
 }
 
 export function initGame(): GameState {
-  resetExplosionId();
-  _burjDecalId = 0;
-  _burjDamageFxId = 0;
-  _buildingDestroyFxId = 0;
-  resetEmpFxId();
-
   const allBuildings = createScenicBuildings();
 
   const commander = createCommander("balanced");
@@ -296,6 +286,11 @@ export function initGame(): GameState {
     patriotHoldTimer: 0,
     patriotFollowupTimer: 0,
     nextFlareId: 1,
+    nextExplosionId: 0,
+    nextEmpFxId: 0,
+    nextBurjDecalId: 0,
+    nextBurjDamageFxId: 0,
+    nextBuildingDestroyFxId: 0,
     flareReadyThisWave: false,
     flareSalvoQueue: [],
     empReadyThisWave: false,
@@ -2101,12 +2096,25 @@ function startWaveBonus(g: GameState, onEvent?: SimEventSink | null): void {
       multiShots: Math.max(0, g.stats.multiShots - (g._waveStartMultiShots ?? 0)),
       maxCombo: g._waveMaxCombo ?? 1,
     });
-  } else {
-    g._bonusScreenDone = true;
   }
 }
 
+export function completeWaveBonusAndOpenShop(g: GameState, onEvent?: SimEventSink | null): void {
+  g._bonusScreenDone = true;
+  if (g.shopOpened) return;
+
+  g.shopOpened = true;
+  if (!g.burjAlive) return;
+  recordWaveSummary(g);
+  g.state = "shop";
+  if (g._draftMode) {
+    g._draftOffers = draftPick3(g, g._debugUpgradeForceShowFamilies ?? []);
+  }
+  onEvent?.("shopOpen", { score: g.score, wave: g.wave, upgrades: { ...g.upgrades } });
+}
+
 export function update(g: GameState, dt: number, onEvent?: SimEventSink | null) {
+  if (dt <= 0) throw new Error(`Simulation dt must be positive; received ${dt}`);
   const _rng = getRng();
   const rawDt = dt;
   const simDt = dt * empScrubScale(g.empScrubTicks ?? 0);
@@ -2178,18 +2186,6 @@ export function update(g: GameState, dt: number, onEvent?: SimEventSink | null) 
     updateWaveCompleteVisuals(g, dt, onEvent);
     if ((g.waveClearedTimer ?? 0) <= 0) {
       startWaveBonus(g, onEvent);
-      if (!g.shopOpened && g._bonusScreenDone) {
-        g.shopOpened = true;
-        if (g.burjAlive) {
-          recordWaveSummary(g);
-          g.state = "shop";
-          // Draft pick consumes seeded RNG here so replay stays in sync
-          if (g._draftMode) {
-            g._draftOffers = draftPick3(g, g._debugUpgradeForceShowFamilies ?? []);
-          }
-          if (onEvent) onEvent("shopOpen", { score: g.score, wave: g.wave, upgrades: { ...g.upgrades } });
-        }
-      }
     }
     return;
   }

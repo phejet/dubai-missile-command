@@ -1,13 +1,13 @@
 {
   "seed": 314159,
-  "version": 2,
+  "version": 5,
   "draftMode": true,
   "bootstrap": {
     "startWave": 5,
     "startBurjHealth": 2,
     "acquiredUpgrades": [
-      "wildHornets",
-      "tridentFpvCell",
+      "wildHornetsLeft",
+      "wildHornetsRight",
       "roadrunner",
       "roadrunnerWingman",
       "patriot",

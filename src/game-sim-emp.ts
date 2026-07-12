@@ -15,8 +15,6 @@ import {
 } from "./game-logic";
 import type { EmpRing, GameState, SimEventSink, Threat } from "./types";
 
-let _empFxId = 0;
-
 const EMP_SHAKE_TIMER = 22;
 const EMP_SHAKE_INTENSITY = 14;
 const EMP_SCRUB_TICKS = 7;
@@ -39,10 +37,6 @@ const EMP_BURJ_Y = 1047;
 const EMP_BURJ_MAX_RADIUS = [650, 1040];
 const EMP_LAUNCHER_MAX_RADIUS = 500;
 const EMP_RANK2_EXPAND_RATE = 1.5;
-
-export function resetEmpFxId(): void {
-  _empFxId = 0;
-}
 
 export function empScrubScale(remainingTicks: number): number {
   if (remainingTicks <= 0) return 1;
@@ -78,9 +72,9 @@ export function updateEmpVisualFx(g: GameState, dt: number): void {
 }
 
 function spawnEmpKillBurst(g: GameState, x: number, y: number, originX: number, originY: number): void {
-  const seedBase = _empFxId + x * 17 + y * 31 + originX * 7 + originY * 3;
+  const seedBase = g.nextEmpFxId + x * 17 + y * 31 + originX * 7 + originY * 3;
   g.empBurstFlashes.push({
-    id: _empFxId++,
+    id: g.nextEmpFxId++,
     x,
     y,
     life: 4,
@@ -89,7 +83,7 @@ function spawnEmpKillBurst(g: GameState, x: number, y: number, originX: number, 
     alive: true,
   });
   g.empArcs.push({
-    id: _empFxId++,
+    id: g.nextEmpFxId++,
     x1: originX,
     y1: originY,
     x2: x,
@@ -204,12 +198,12 @@ export function fireEmp(g: GameState, onEvent?: SimEventSink | null) {
         expandRate,
       });
       g.empLauncherFlares.push({
-        id: _empFxId++,
+        id: g.nextEmpFxId++,
         x: LAUNCHERS[i].x,
         y: GAMEPLAY_SCENIC_LAUNCHER_Y,
         life: 6,
         maxLife: 6,
-        seed: _empFxId + LAUNCHERS[i].x * 13 + GAMEPLAY_SCENIC_LAUNCHER_Y,
+        seed: g.nextEmpFxId + LAUNCHERS[i].x * 13 + GAMEPLAY_SCENIC_LAUNCHER_Y,
         alive: true,
       });
       g.ammo[i] = ammoCap;
