@@ -16,6 +16,7 @@ This folder holds repo-specific notes for future maintenance, not player-facing 
 - [`spawn-commander-reference.md`](./spawn-commander-reference.md) — wave budgets, tactic selection, schedule generation, and spawn advancement.
 - [`upgrades-shop-progression.md`](./upgrades-shop-progression.md) — upgrade node graph, shop flow, draft flow, and progression state.
 - [`replay-system.md`](./replay-system.md) — replay data model, runner lifecycle, checkpoints, and save flow.
+- [`replay-divergence-root-cause-plan.md`](./replay-divergence-root-cause-plan.md) — proven root cause of human-replay divergence at the wave-end boundary, plus the phased fix/diagnostic/guard plan.
 
 ## Tooling And Workflow
 
