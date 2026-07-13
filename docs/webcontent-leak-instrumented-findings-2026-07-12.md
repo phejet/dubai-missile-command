@@ -163,16 +163,62 @@ npm run dev   # terminal 1
 npx tsx scripts/death-clip-leak-probe.ts 5   # terminal 2
 ```
 
+## Codebase sweep for the same bug class (2026-07-12)
+
+The sky bug is a compound of two patterns: (a) a cache keyed on **object identity** fed
+by per-`GameState` objects, and (b) **replaced GPU/canvas resources never destroyed**.
+After the fix, the rest of the runtime was swept for both patterns. Result: **no other
+instance of the leak class exists**; two bounded structural risks were identified.
+
+Checked and clean:
+
+- **All other `PixiTextureResources` / `canvas-render-resources` getters** (burj,
+  launchers, threats, interceptors, upgrade projectiles, buildings, defense sites,
+  planes, effects): every call site in `pixi-render.ts` passes compile-time-constant
+  keys (fixed scales / groundY / baseY) and runs at scene-build time, not per frame.
+  Their sources never change identity, so the (still-present) destroy-on-replace gap in
+  `pixi-textures.ts` can never fire for them. The sky getter was the only one fed a
+  per-`GameState` object on a per-frame path.
+- **`COLOR_HEX_CACHE`** (`pixi-render.ts`, string-keyed, fed by `particle.color` /
+  `explosion.color` every frame): every color the sim generates is a static literal or
+  `COL.*` constant — no interpolated strings, cache is bounded.
+- **Water band sub-textures** (`createPixiWaterSurface`): explicitly destroyed via a
+  `container.once("destroyed")` hook.
+- **Burj decal / damage-FX / entity node maps**: mark-and-sweep with `destroy()` on
+  removal; backing sim arrays are capped (`MAX_PARTICLES = 500`, trails shift at 12–21
+  points, decals bounded by Burj HP + repair consumption).
+- **Replay anchors** (`game.ts`): sanitized clones (`_actionLog`/checkpoints stripped),
+  capped at 24.
+- **Audio**: the `transientNodes: 348` game-over outlier from Finding 2 is a burst, not
+  a leak — `audio-node-lifecycle.ts` disconnects every transient node after a 3 s TTL;
+  348 is one death-carnage SFX volley inside a single TTL window.
+- **PNG / smoke-particle bundles**: loaded through Pixi `Assets`, cached by alias across
+  renderer instances.
+- **Death-clip mount/unmount cycle**: probed 4 mount→cleanup cycles in Chromium — JS
+  heap, DOM nodes, and event listeners all flat. The cleanup path genuinely releases.
+
+Two structural risks (bounded — no unbounded growth, but they consume the same
+WebContent headroom the leak used to exhaust):
+
+1. **Every death-clip mount builds a full second texture set.** The clip's
+   `PixiRenderer` constructs its own `PixiTextureResources`, so every gameover — and
+   every run-recap / progression toggle, since `closeRunRecap()` remounts the clip —
+   re-creates and re-uploads the whole gameplay sprite set into a fresh GL context
+   (~70–90 MB transient spike, freed on cleanup). That spike lands exactly where the
+   deep-run kills did (Finding 1: dead between `mount` and `renderer-create`). Cheapest
+   mitigation: pass the main renderer's `textures` instance into the clip renderer.
+2. **Prebake baseline: ~550 sprite canvases ≈ 380 MB of logical RGBA kept forever.**
+   Every prebaked canvas stays alive as a Pixi texture source after GPU upload (needed
+   today only for WebGL context restore). Against a ~2 GB per-process kill line that is
+   ~20% of the budget spent at boot. Releasing canvas backing after upload (accepting a
+   re-bake on context restore) is the biggest single lever for device headroom.
+
 Still open:
 
 - On-device validation against the acceptance criteria above (multi-wave run + repeated
   clip loops, watching `hostFreeMB`/`hostCompressedMB`).
 - The steady per-wave leak may not be fully explained: the sky rebuild fires per run/per
-  clip loop, not per wave. If the per-wave drain persists on device after this fix, the
-  audio `transientNodes` outlier is the next suspect, plus per-wave Safari heap
-  snapshots as planned.
-- Baseline, not a leak: the prebake pipeline keeps ~550 sprite canvases (~380 MB logical
-  RGBA) alive as texture sources, and each death-clip mount builds a second full
-  `PixiTextureResources` set for its own renderer. Bounding that baseline (e.g. sharing
-  the texture set with the main renderer, or releasing canvases after upload) would give
-  deep runs much more headroom at clip-mount time — the wave-9/12 mount kills.
+  clip loop, not per wave. The sweep above cleared the obvious suspects (audio
+  transients, render caches, sim arrays), so if the per-wave drain persists on device
+  after this fix, fall back to per-wave Safari heap snapshots as planned.
+- The two structural risks above, in that order, if deep-run mount kills persist.
