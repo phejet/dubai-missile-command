@@ -67,3 +67,4 @@ tasks/todo.md
 tasks/recap-option*.html
 tasks/recap-data.js
 leak-probe-results.json
+replay-leak-probe-results.json

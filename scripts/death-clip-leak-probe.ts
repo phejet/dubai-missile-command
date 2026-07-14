@@ -28,7 +28,10 @@ const BASE = process.env.GAME_URL ?? "http://localhost:5173/dubai-missile-comman
 const LOOPS = parseInt(process.argv[2] ?? "5", 10);
 const REPO = resolve(import.meta.dirname, "..");
 
-const GL_WRAP = `
+// Page init script that instruments WebGL contexts and 2d-canvas creation.
+// Exposes window.__glStats(), window.__liveTextures(), window.__liveCanvases().
+// Shared with scripts/replay-leak-probe.ts.
+export const GL_WRAP = `
 (() => {
   const stats = {
     buffers: 0, textures: 0, framebuffers: 0, renderbuffers: 0,
@@ -334,7 +337,12 @@ async function main() {
   await browser.close();
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+const isMain =
+  typeof process !== "undefined" && process.argv[1] && process.argv[1].endsWith("death-clip-leak-probe.ts");
+
+if (isMain) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
