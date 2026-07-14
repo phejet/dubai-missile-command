@@ -47,6 +47,19 @@ export const GL_WRAP = `
   const texInfo = new Map();
   let texSeq = 0;
   const texIdOf = new WeakMap();
+  // live buffer registry keyed by creation stack
+  const bufInfo = new Map();
+  let bufSeq = 0;
+  const bufIdOf = new WeakMap();
+  window.__liveBuffers = () => {
+    const byStack = {};
+    for (const info of bufInfo.values()) {
+      const b = (byStack[info.stack] = byStack[info.stack] || { count: 0, bytes: 0 });
+      b.count++;
+      b.bytes += info.bytes;
+    }
+    return byStack;
+  };
   window.__liveTextures = () => {
     const byStack = {};
     for (const info of texInfo.values()) {
@@ -79,8 +92,25 @@ export const GL_WRAP = `
     ]) {
       if (typeof gl[name] === "function") orig[name] = gl[name].bind(gl);
     }
-    gl.createBuffer = function() { stats.buffers++; return orig.createBuffer(); };
-    gl.deleteBuffer = function(b) { if (b) { stats.buffers--; const sz = bufBytes.get(b) ?? 0; stats.bufferBytes -= sz; bufBytes.delete(b); } return orig.deleteBuffer(b); };
+    gl.createBuffer = function() {
+      stats.buffers++;
+      const b = orig.createBuffer();
+      const id = ++bufSeq;
+      bufIdOf.set(b, id);
+      bufInfo.set(id, { stack: shortStack(), bytes: 0 });
+      return b;
+    };
+    gl.deleteBuffer = function(b) {
+      if (b) {
+        stats.buffers--;
+        const sz = bufBytes.get(b) ?? 0;
+        stats.bufferBytes -= sz;
+        bufBytes.delete(b);
+        const id = bufIdOf.get(b);
+        if (id) bufInfo.delete(id);
+      }
+      return orig.deleteBuffer(b);
+    };
     gl.bufferData = function(target, data, usage, ...rest) {
       stats.bufferDataCalls++;
       const size = typeof data === "number" ? data : (data?.byteLength ?? 0);
@@ -94,6 +124,9 @@ export const GL_WRAP = `
           const prev = bufBytes.get(bound) ?? 0;
           stats.bufferBytes += size - prev;
           bufBytes.set(bound, size);
+          const id = bufIdOf.get(bound);
+          const info = id ? bufInfo.get(id) : null;
+          if (info && size > info.bytes) info.bytes = size;
         } else {
           stats.bufferBytes += size;
         }

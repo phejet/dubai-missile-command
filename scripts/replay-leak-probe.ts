@@ -52,6 +52,7 @@ async function main() {
     const gl = await page.evaluate(() => (window as any).__glStats());
     const liveTextures = await page.evaluate(() => (window as any).__liveTextures());
     const liveCanvases = await page.evaluate(() => (window as any).__liveCanvases());
+    const liveBuffers = await page.evaluate(() => (window as any).__liveBuffers());
     let canvasCount = 0;
     let canvasBytes = 0;
     for (const info of Object.values<any>(liveCanvases)) {
@@ -68,6 +69,7 @@ async function main() {
       canvasBytes,
       liveTextures,
       liveCanvases,
+      liveBuffers,
     };
     results.push(row);
     console.log(
@@ -140,6 +142,20 @@ async function main() {
         any = true;
         console.log(
           `+${info.count - before.count} canvases, +${((info.bytes - before.bytes) / 1048576).toFixed(1)}MB  dims=${JSON.stringify(info.dims)}\n   ${stack}\n`,
+        );
+      }
+    }
+    if (!any) console.log("(none)");
+    const firstB = finished[0].liveBuffers as Record<string, any>;
+    const lastB = finished[finished.length - 1].liveBuffers as Record<string, any>;
+    console.log("\n=== GL buffer stacks that grew between first and last watch ===");
+    any = false;
+    for (const [stack, info] of Object.entries<any>(lastB)) {
+      const before = firstB[stack] ?? { count: 0, bytes: 0 };
+      if (info.count > before.count) {
+        any = true;
+        console.log(
+          `+${info.count - before.count} buffers, +${((info.bytes - before.bytes) / 1048576).toFixed(2)}MB (now ${info.count})\n   ${stack}\n`,
         );
       }
     }
