@@ -1673,6 +1673,15 @@ export class PixiRenderer implements GameRenderer {
           autoStart: false,
           preserveDrawingBuffer: this.preserveDrawingBuffer,
           preference: "webgl",
+          // Pixi 8.18's idle GC leaks instead of freeing: GCSystem.runOnHash
+          // nulls the managed-hash slot before resource.unload(), so
+          // GCManagedHash.remove early-returns and the gl.deleteBuffer /
+          // deleteVertexArray / deleteTexture in the onUnload hook never runs.
+          // Every idle-swept resource is then re-created on next use — a pure
+          // GPU-memory leak (measured: monotonic GL buffer growth per replay
+          // watch with zero deletes). Our asset population is bounded and our
+          // destroy paths free explicitly, so disable the sweep entirely.
+          gcActive: false,
         }),
       ]);
       if (this.destroyed) {
