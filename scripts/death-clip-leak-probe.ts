@@ -79,8 +79,28 @@ export const GL_WRAP = `
       .join(" < ");
   }
 
+  // per-context accounting: which GL context owns the live buffers/textures
+  const contextStats = [];
+  window.__glStatsByContext = () =>
+    contextStats.map((c) => ({
+      id: c.id,
+      alive: !!c.canvasRef.deref()?.isConnected && !c.canvasRef.deref()?.__ctx?.isContextLost?.(),
+      buffers: c.buffers,
+      bufferBytes: c.bufferBytes,
+      textures: c.textures,
+    }));
+
   function wrap(gl) {
     stats.contexts++;
+    const ctxStat = {
+      id: contextStats.length + 1,
+      canvasRef: new WeakRef(gl.canvas ?? {}),
+      buffers: 0,
+      bufferBytes: 0,
+      textures: 0,
+    };
+    if (gl.canvas) gl.canvas.__ctx = gl;
+    contextStats.push(ctxStat);
     const orig = {};
     for (const name of [
       "createBuffer","deleteBuffer","bufferData",
@@ -94,6 +114,7 @@ export const GL_WRAP = `
     }
     gl.createBuffer = function() {
       stats.buffers++;
+      ctxStat.buffers++;
       const b = orig.createBuffer();
       const id = ++bufSeq;
       bufIdOf.set(b, id);
@@ -103,8 +124,10 @@ export const GL_WRAP = `
     gl.deleteBuffer = function(b) {
       if (b) {
         stats.buffers--;
+        ctxStat.buffers--;
         const sz = bufBytes.get(b) ?? 0;
         stats.bufferBytes -= sz;
+        ctxStat.bufferBytes -= sz;
         bufBytes.delete(b);
         const id = bufIdOf.get(b);
         if (id) bufInfo.delete(id);
@@ -123,18 +146,21 @@ export const GL_WRAP = `
         if (bound) {
           const prev = bufBytes.get(bound) ?? 0;
           stats.bufferBytes += size - prev;
+          ctxStat.bufferBytes += size - prev;
           bufBytes.set(bound, size);
           const id = bufIdOf.get(bound);
           const info = id ? bufInfo.get(id) : null;
           if (info && size > info.bytes) info.bytes = size;
         } else {
           stats.bufferBytes += size;
+          ctxStat.bufferBytes += size;
         }
-      } catch { stats.bufferBytes += size; }
+      } catch { stats.bufferBytes += size; ctxStat.bufferBytes += size; }
       return orig.bufferData(target, data, usage, ...rest);
     };
     gl.createTexture = function() {
       stats.textures++;
+      ctxStat.textures++;
       const t = orig.createTexture();
       const id = ++texSeq;
       texIdOf.set(t, id);
@@ -144,6 +170,7 @@ export const GL_WRAP = `
     gl.deleteTexture = function(t) {
       if (t) {
         stats.textures--;
+        ctxStat.textures--;
         const sz = texBytes.get(t) ?? 0;
         stats.textureBytes -= sz;
         texBytes.delete(t);

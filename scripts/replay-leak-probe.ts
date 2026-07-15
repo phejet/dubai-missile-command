@@ -53,6 +53,7 @@ async function main() {
     const liveTextures = await page.evaluate(() => (window as any).__liveTextures());
     const liveCanvases = await page.evaluate(() => (window as any).__liveCanvases());
     const liveBuffers = await page.evaluate(() => (window as any).__liveBuffers());
+    const byContext = await page.evaluate(() => (window as any).__glStatsByContext());
     let canvasCount = 0;
     let canvasBytes = 0;
     for (const info of Object.values<any>(liveCanvases)) {
@@ -70,12 +71,16 @@ async function main() {
       liveTextures,
       liveCanvases,
       liveBuffers,
+      byContext,
     };
     results.push(row);
+    const ctxSummary = (byContext as any[])
+      .map((c) => `#${c.id}${c.alive ? "" : "(dead)"}:buf=${c.buffers},tex=${c.textures}`)
+      .join(" ");
     console.log(
       `${label.padEnd(20)} heap=${row.heapUsedMB}MB nodes=${row.nodes} ` +
         `glTex=${gl.textures}(${(gl.textureBytes / 1048576).toFixed(1)}MB) glBuf=${gl.buffers}(${(gl.bufferBytes / 1048576).toFixed(1)}MB) ` +
-        `canvases=${canvasCount}(${(canvasBytes / 1048576).toFixed(1)}MB)`,
+        `canvases=${canvasCount}(${(canvasBytes / 1048576).toFixed(1)}MB)\n${" ".repeat(21)}ctx: ${ctxSummary}`,
     );
   }
 
