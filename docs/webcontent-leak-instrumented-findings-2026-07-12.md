@@ -261,10 +261,51 @@ Verified with pool accounting (patching `BigPool` in-page): pre-fix the
 zero free entries, watch-over-watch buffer growth); post-fix returned entries appear and
 get reused (pool stabilizes at live concurrency, e.g. count 4 with free/reuse cycling).
 
+## Third root cause: Pixi's idle GC leaks GL objects instead of freeing them (2026-07-15)
+
+After the destroy-options fix, per-context probing showed GL buffers *still* growing in
+the main renderer's context (+12/watch) with the render-data pool provably static
+(0 new `GraphicsContextRenderData` constructions; boundary accounting `outstanding: 0`,
+full reuse). A geometry-uid probe closed the case: **8 REINITs of already-known
+`BatchGeometry` uids per watch, zero new geometry objects, zero GL deletes ever** — the
+same geometries kept losing their per-renderer GPU data and re-creating VAOs + buffers.
+
+The bug, in Pixi 8.18.1's `GCSystem` (enabled by default: sweep every 30 s, unload
+resources idle > 60 s):
+
+```js
+// GCSystem.runOnHash — sweep of each GCManagedHash's items
+hashValue[key] = null;      // slot nulled FIRST
+...
+resource.unload();          // then unload → emits "unload"
+```
+
+```js
+// GCManagedHash.remove — the "unload" listener that does the real GL free
+remove(item) {
+  if (!this.items[item.uid]) return;   // ← slot already null → early return
+  this._onUnload?.(item);              //   gl.deleteBuffer / deleteVertexArray /
+  ...                                  //   deleteTexture never runs
+}
+```
+
+`Buffer.unload()` / `Geometry.unload()` / `TextureSource.unload()` then wipe their own
+`_gpuData`, so the next bind re-creates a fresh GL object. Net effect: **every resource
+the idle GC sweeps is a permanent GPU-memory leak** — buffers, VAOs, and GL textures
+alike. On the phone this is a multiplier on everything measured before: during
+death-clip loops on the game-over screen the entire gameplay texture set idles past
+60 s, gets swept-and-leaked, and is fully re-uploaded on the next run or replay watch;
+pooled graphics geometries cycle the same way during play.
+
+Fix: `gcActive: false` at renderer init in `pixi-render.ts`. The game's GPU population
+is bounded (prebaked sprite sets + capped entity pools) and the app's destroy paths now
+free explicitly, so the idle sweep provided nothing but the leak.
+
 ## Still open
 
 - On-device validation against the acceptance criteria above (multi-wave run + repeated
   clip loops + repeated full-replay watches, watching `hostFreeMB`/`hostCompressedMB`).
 - The two structural risks above, in that order, if deep-run mount kills persist.
-- Consider reporting the `Graphics.destroy({ children: true })` context leak upstream to
-  PixiJS, and re-checking the behavior on future Pixi upgrades.
+- Report upstream to PixiJS: (a) the `GCSystem.runOnHash` null-before-unload GL leak,
+  (b) the `Graphics.destroy({ children: true })` owned-context leak. Re-check both on
+  any Pixi upgrade — and re-evaluate `gcActive: false` if (a) is fixed upstream.
