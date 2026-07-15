@@ -301,6 +301,17 @@ Fix: `gcActive: false` at renderer init in `pixi-render.ts`. The game's GPU popu
 is bounded (prebaked sprite sets + capped entity pools) and the app's destroy paths now
 free explicitly, so the idle sweep provided nothing but the leak.
 
+Final verification with all three fixes in (Chromium probes):
+
+- `replay-leak-probe`, 3 full watches: GL buffers **18 → 18 → 18** at watch finishes
+  (pre-fix 20 → 32 → 44), textures pinned at 204, canvases and heap flat, growth report
+  empty for buffers, textures, and canvases.
+- `death-clip-leak-probe`, 4 clip loops: GL buffers flat at 27 (pre-fix +2/loop), VAOs
+  flat at 13 (pre-fix +1/loop), textures plateau at 198 by loop 3 (lazy sky-frame
+  uploads), heap flat, cleanup releases.
+- Browser smoke suite: 10/12 passing; the 2 failures are pre-existing environment
+  timeouts that fail identically on the base commit.
+
 ## Still open
 
 - On-device validation against the acceptance criteria above (multi-wave run + repeated
