@@ -390,6 +390,14 @@ const TITLE_WATER_TOP = TITLE_GROUND_Y + WATER_SURFACE_OFFSET;
 const GAMEPLAY_TOWER_BASE_Y = GAMEPLAY_SCENIC_GROUND_Y - 6;
 const GAMEPLAY_WATER_TOP = GAMEPLAY_SCENIC_GROUND_Y + WATER_SURFACE_OFFSET;
 const GAMEPLAY_BUILDING_BLEND_WINDOW = 0.18;
+// Destroy options for containers whose children include Graphics. Pixi's
+// Graphics.destroy only destroys its owned GraphicsContext when called with
+// no options at all or with context: true — a bare { children: true } skips
+// both branches, permanently leaking the context's GPU geometry (GL buffers
+// + VAO) for every non-batchable Graphics. See the WebContent leak notes in
+// docs/webcontent-leak-instrumented-findings-2026-07-12.md.
+const DESTROY_NODE_OPTIONS = { children: true, context: true } as const;
+
 const GAMEPLAY_BUILDING_PLAYBACK_PERIOD_SECONDS = 20;
 const GAMEPLAY_BUILDING_ANIM_ALPHA = 0.58;
 const GAMEPLAY_LAUNCHER_SCALE = DEFAULT_GAMEPLAY_LAUNCHER_SCALE;
@@ -1633,7 +1641,7 @@ export class PixiRenderer implements GameRenderer {
     for (const child of [...this.gameplayScene.children]) {
       if (this.gameplayLayers.includes(child as Container)) continue;
       this.gameplayScene.removeChild(child);
-      child.destroy({ children: true });
+      child.destroy(DESTROY_NODE_OPTIONS);
     }
     this.gameplayProjectileLayer.mask = null;
     this.gameplayTrailLayer.mask = null;
@@ -1642,7 +1650,7 @@ export class PixiRenderer implements GameRenderer {
 
   private destroyChildren(container: Container): void {
     for (const child of container.removeChildren()) {
-      child.destroy({ children: true });
+      child.destroy(DESTROY_NODE_OPTIONS);
     }
   }
 
@@ -3218,7 +3226,7 @@ export class PixiRenderer implements GameRenderer {
       state.missiles,
       game.missiles,
       () => true,
-      (node) => node.container.destroy({ children: true }),
+      (node) => node.container.destroy(DESTROY_NODE_OPTIONS),
     );
 
     for (const missile of game.missiles) {
@@ -3303,7 +3311,7 @@ export class PixiRenderer implements GameRenderer {
       state.drones,
       game.drones,
       () => true,
-      (node) => node.container.destroy({ children: true }),
+      (node) => node.container.destroy(DESTROY_NODE_OPTIONS),
     );
 
     for (const drone of game.drones) {
@@ -3417,7 +3425,7 @@ export class PixiRenderer implements GameRenderer {
       state.interceptors,
       game.interceptors,
       () => true,
-      (node) => node.container.destroy({ children: true }),
+      (node) => node.container.destroy(DESTROY_NODE_OPTIONS),
     );
 
     for (const interceptor of game.interceptors) {
@@ -3466,19 +3474,19 @@ export class PixiRenderer implements GameRenderer {
       state.hornets,
       game.hornets,
       () => true,
-      (node) => node.container.destroy({ children: true }),
+      (node) => node.container.destroy(DESTROY_NODE_OPTIONS),
     );
     cleanupEntityMap(
       state.roadrunners,
       game.roadrunners,
       () => true,
-      (node) => node.container.destroy({ children: true }),
+      (node) => node.container.destroy(DESTROY_NODE_OPTIONS),
     );
     cleanupEntityMap(
       state.patriotMissiles,
       game.patriotMissiles,
       () => true,
-      (node) => node.container.destroy({ children: true }),
+      (node) => node.container.destroy(DESTROY_NODE_OPTIONS),
     );
 
     for (const hornet of game.hornets) {
@@ -3577,7 +3585,7 @@ export class PixiRenderer implements GameRenderer {
       state.flares,
       game.flares,
       (flare) => flare.alive,
-      (node) => node.container.destroy({ children: true }),
+      (node) => node.container.destroy(DESTROY_NODE_OPTIONS),
     );
 
     for (const flare of game.flares) {
@@ -3623,7 +3631,7 @@ export class PixiRenderer implements GameRenderer {
       state.planes,
       game.planes,
       (plane) => plane.alive,
-      (node) => node.container.destroy({ children: true }),
+      (node) => node.container.destroy(DESTROY_NODE_OPTIONS),
     );
 
     for (const plane of game.planes) {
@@ -3847,7 +3855,7 @@ export class PixiRenderer implements GameRenderer {
       state.explosions,
       game.explosions,
       () => true,
-      (node) => node.container.destroy({ children: true }),
+      (node) => node.container.destroy(DESTROY_NODE_OPTIONS),
     );
 
     for (const explosion of game.explosions) {

@@ -213,12 +213,58 @@ WebContent headroom the leak used to exhaust):
    ~20% of the budget spent at boot. Releasing canvas backing after upload (accepting a
    re-bake on context restore) is the biggest single lever for device headroom.
 
-Still open:
+## Second root cause: destroy({ children: true }) leaks Graphics GPU geometry (2026-07-15)
+
+On-device testing of the sky fix (deployed to the iPhone) reproduced a kill once more:
+several death-clip loops (now cheap) followed by several **full replay watches**, with the
+WebContent kill landing during the last watch. The full-replay path is effectively a live
+game (primary renderer + SFX + 30 tps sim) — the path of the still-open steady per-wave
+leak, which the death-clip probe never exercised.
+
+A new probe (`scripts/replay-leak-probe.ts`) watches a replay repeatedly via
+`__loadReplay` and samples GL resources per wave and per watch. Post-sky-fix it showed
+canvases, textures, and heap flat — but **GL buffers climbing steadily during playback**
+(26 → 58 buffers, 1.9 → 6.4 MB across three watches of the single-wave
+`perf-wave4-upgrades` fixture), created via `GlGeometrySystem.initGeometryVao` and never
+deleted. Buffer-creation-stack attribution put the growth on `GlGraphicsAdaptor.execute`:
+render-data batcher geometries for **non-batchable Graphics** (≥400 vertices — e.g.
+per-entity trail-dot Graphics, whose ~430-vertex circles cross the threshold).
+
+The mechanism, in Pixi 8.18.1's `Graphics.destroy(options)`:
+
+```js
+destroy(options) {
+  if (this._ownedContext && !options) {          // only when options is FALSY
+    this._ownedContext.destroy(options);
+  } else if (options === true || options?.context === true) {
+    this._context.destroy(options);
+  }
+  ...
+}
+```
+
+Calling `destroy({ children: true })` — which every entity-node teardown in
+`pixi-render.ts` did — hits **neither branch**: the owned `GraphicsContext` is never
+destroyed, its pooled `GraphicsContextRenderData` (a `DefaultBatcher` owning a
+`BatchGeometry`) is never returned, and Pixi's GC-managed hashes keep the GL buffers +
+VAO alive forever. One geometry pair leaks per destroyed non-batchable Graphics — i.e.
+per enemy killed with a long trail. That is the steady, playtime-proportional leak.
+(A bare `graphics.destroy()` is fine — micro-repro of create/render/destroy ×60 returned
+everything; only the options-object form leaks.)
+
+Fix: `DESTROY_NODE_OPTIONS = { children: true, context: true }` used at all 11 destroy
+sites in `pixi-render.ts` (entity node maps, `destroyChildren`, `clearGameplayScene`).
+`context: true` is ignored by non-Graphics children and does not touch shared textures.
+
+Verified with pool accounting (patching `BigPool` in-page): pre-fix the
+`GraphicsContextRenderData` pool ratcheted monotonically (outstanding 1→7 over 160 ticks,
+zero free entries, watch-over-watch buffer growth); post-fix returned entries appear and
+get reused (pool stabilizes at live concurrency, e.g. count 4 with free/reuse cycling).
+
+## Still open
 
 - On-device validation against the acceptance criteria above (multi-wave run + repeated
-  clip loops, watching `hostFreeMB`/`hostCompressedMB`).
-- The steady per-wave leak may not be fully explained: the sky rebuild fires per run/per
-  clip loop, not per wave. The sweep above cleared the obvious suspects (audio
-  transients, render caches, sim arrays), so if the per-wave drain persists on device
-  after this fix, fall back to per-wave Safari heap snapshots as planned.
+  clip loops + repeated full-replay watches, watching `hostFreeMB`/`hostCompressedMB`).
 - The two structural risks above, in that order, if deep-run mount kills persist.
+- Consider reporting the `Graphics.destroy({ children: true })` context leak upstream to
+  PixiJS, and re-checking the behavior on future Pixi upgrades.
