@@ -4,7 +4,6 @@ import {
   GROUND_Y,
   CITY_Y,
   GAMEPLAY_WATERLINE_Y,
-  GAMEPLAY_SCENIC_THREAT_FLOOR_Y,
   COL,
   BURJ_X,
   BURJ_H,
@@ -14,7 +13,9 @@ import {
   getDefenseSitePlacement,
   getGameplayBuildingBounds,
   getGameplayBurjCollisionTop,
+  getGameplayBurjCollisionBottom,
   getGameplayBurjHalfW,
+  getBurjBodyAimPoint,
   applyShake,
   getShahed136LevelFlightYRange,
   getGameplayLauncherPosition,
@@ -186,10 +187,10 @@ function applyBurjHitDamage(
 
 function isBurjImpactTarget(targetX: number | undefined, targetY: number | undefined): boolean {
   if (targetX === undefined || targetY === undefined) return false;
-  const burjTop = getGameplayBurjCollisionTop(2);
   return (
     Math.abs(targetX - BURJ_X) <= 40 &&
-    (targetY >= GAMEPLAY_SCENIC_THREAT_FLOOR_Y || (targetY >= burjTop && targetY <= GAMEPLAY_SCENIC_THREAT_FLOOR_Y))
+    targetY >= getGameplayBurjCollisionTop(2) &&
+    targetY <= getGameplayBurjCollisionBottom(2)
   );
 }
 
@@ -364,7 +365,7 @@ const MIN_INCOMING_MISSILE_HORIZONTAL_SLOPE = 0.42;
 
 function missileTargetCandidates(g: GameState): Array<{ x: number; y: number }> {
   const candidates: Array<{ x: number; y: number }> = [];
-  if (g.burjAlive) candidates.push({ x: BURJ_X, y: CITY_Y });
+  if (g.burjAlive) candidates.push(getBurjBodyAimPoint());
   g.defenseSites.forEach((site) => {
     if (site.alive) candidates.push({ x: site.x, y: site.y });
   });
@@ -575,7 +576,7 @@ export function spawnMissile(g: GameState, overrides?: SpawnEntry["overrides"]) 
 
 function getSplitCandidateTargets(g: GameState): Array<{ x: number; y: number }> {
   const candidates: Array<{ x: number; y: number }> = [];
-  if (g.burjAlive) candidates.push({ x: BURJ_X, y: CITY_Y - BURJ_H * 0.32 });
+  if (g.burjAlive) candidates.push(getBurjBodyAimPoint());
   for (const site of g.defenseSites) {
     if (site.alive) candidates.push({ x: site.x, y: site.y });
   }
@@ -715,7 +716,7 @@ export function spawnDroneOfType(
   };
   if (isJet) {
     const estimatedMidX = spawnX + (goingRight ? 1 : -1) * CANVAS_W * 0.4;
-    const target = pickTarget(g, estimatedMidX) || { x: BURJ_X, y: CITY_Y };
+    const target = pickTarget(g, estimatedMidX) || getBurjBodyAimPoint();
     const path = computeShahed238Path(spawnX, spawnY, goingRight, speed, target);
     drone.waypoints = path.waypoints;
     drone.pathIndex = 0;
@@ -725,7 +726,7 @@ export function spawnDroneOfType(
     drone.diveTarget = target;
   } else {
     const target = hasDive
-      ? pickTarget(g, spawnX + (goingRight ? 1 : -1) * CANVAS_W * rand(0.28, 0.42)) || { x: BURJ_X, y: CITY_Y }
+      ? pickTarget(g, spawnX + (goingRight ? 1 : -1) * CANVAS_W * rand(0.28, 0.42)) || getBurjBodyAimPoint()
       : { x: goingRight ? CANVAS_W + 80 : -80, y: spawnY };
     const path = hasDive
       ? computeShahed136Path(spawnX, spawnY, goingRight, speed, target)
@@ -1411,13 +1412,13 @@ function updateMissiles(g: GameState, dt: number, onEvent?: SimEventSink | null)
       boom(g, m.x, m.y, 18, "#ffb36b", false, onEvent, 0, { harmless: true });
       if (onEvent) onEvent("sfx", { name: "mirvSplit" });
     }
-    const burjTop = getGameplayBurjCollisionTop(2);
-    // Burj collision — hitbox matches the shared scenic Burj placement
+    // Burj collision — tower body only; the pedestal band at the base is
+    // excluded so impacts down there read as ground hits
     if (
       g.burjAlive &&
       m.alive &&
-      m.y >= burjTop &&
-      m.y <= GAMEPLAY_SCENIC_THREAT_FLOOR_Y &&
+      m.y >= getGameplayBurjCollisionTop(2) &&
+      m.y <= getGameplayBurjCollisionBottom(2) &&
       Math.abs(m.x - BURJ_X) <= getGameplayBurjHalfW(m.y, 2)
     ) {
       m.alive = false;
@@ -1472,13 +1473,10 @@ function updateMissiles(g: GameState, dt: number, onEvent?: SimEventSink | null)
         }
       });
     }
-    // Ground impact
+    // Ground impact — never damages the Burj; body hits are handled above
     if (m.alive && m.y >= GAMEPLAY_WATERLINE_Y) {
       m.alive = false;
       boom(g, m.x, GAMEPLAY_WATERLINE_Y, 50, "#ff4400", false, onEvent, 25);
-      if (g.burjAlive && isBurjImpactTarget(m.targetX, m.targetY)) {
-        applyBurjHitDamage(g, m.x, GAMEPLAY_SCENIC_THREAT_FLOOR_Y, "missile", onEvent);
-      }
     }
     if (m.x < -50 || m.x > CANVAS_W + 50 || m.y > CANVAS_H + 50) m.alive = false;
   });
@@ -1583,7 +1581,7 @@ function updateDrones(g: GameState, _rng: () => number, dt: number, onEvent?: Si
             d.diving = true;
             d.diveTelegraphing = false;
             const diveT = pickTarget(g, d.x);
-            d.diveTarget = diveT || { x: BURJ_X, y: CITY_Y };
+            d.diveTarget = diveT || getBurjBodyAimPoint();
           }
         }
       } else {
@@ -1605,13 +1603,12 @@ function updateDrones(g: GameState, _rng: () => number, dt: number, onEvent?: Si
       }
     }
     if (d.x < -60 || d.x > CANVAS_W + 60 || d.y > CANVAS_H + 20) d.alive = false;
-    const burjTop = getGameplayBurjCollisionTop(2);
-    // Burj body collision — match the shared scenic Burj placement
+    // Burj body collision — tower body only, pedestal band excluded
     if (
       d.alive &&
       g.burjAlive &&
-      d.y >= burjTop &&
-      d.y <= GAMEPLAY_SCENIC_THREAT_FLOOR_Y &&
+      d.y >= getGameplayBurjCollisionTop(2) &&
+      d.y <= getGameplayBurjCollisionBottom(2) &&
       Math.abs(d.x - BURJ_X) <= getGameplayBurjHalfW(d.y, 2)
     ) {
       d.alive = false;
@@ -1626,18 +1623,17 @@ function updateDrones(g: GameState, _rng: () => number, dt: number, onEvent?: Si
       const pathDone = d.waypoints && (d.pathIndex ?? 0) >= d.waypoints.length - 1;
       if (hitTarget || hitGround || pathDone) {
         const impactY = hitTarget ? d.y : Math.min(d.y, GAMEPLAY_WATERLINE_Y);
-        const burjTop = getGameplayBurjCollisionTop(2);
-        const targetY = d.diveTarget.y;
+        // Only a dive that actually reaches its aim point on the tower body
+        // damages the Burj — a dive ending on the ground stays a ground hit
         const targetIsBurj =
           g.burjAlive &&
           Math.abs(d.diveTarget.x - BURJ_X) <= Math.max(36, d.collisionRadius) &&
-          (targetY >= GAMEPLAY_SCENIC_THREAT_FLOOR_Y ||
-            (targetY >= burjTop && targetY <= GAMEPLAY_SCENIC_THREAT_FLOOR_Y));
+          isBurjImpactTarget(d.diveTarget.x, d.diveTarget.y);
         d.alive = false;
         boom(g, d.x, impactY, 70, "#ff6600", false, onEvent, 40);
         applyShake(g, 15, 6);
-        if (targetIsBurj) {
-          applyBurjHitDamage(g, d.x, Math.min(impactY, GAMEPLAY_SCENIC_THREAT_FLOOR_Y), "drone", onEvent);
+        if (targetIsBurj && (hitTarget || pathDone)) {
+          applyBurjHitDamage(g, d.x, Math.min(impactY, getGameplayBurjCollisionBottom(2)), "drone", onEvent);
         }
         g.buildings.forEach((b) => {
           const bounds = getGameplayBuildingBounds(b);

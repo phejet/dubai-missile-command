@@ -231,6 +231,21 @@ export function getGameplayBurjCollisionTop(artScale = 2): number {
   return GAMEPLAY_SCENIC_BASE_Y - (BURJ_H + 30) * artScale;
 }
 
+// The rendered tower flares into a wide stepped pedestal over roughly the
+// bottom 12% of its height. Hits down there read as ground impacts, so the
+// gameplay hit area stops above the pedestal.
+export const BURJ_PEDESTAL_FRAC = 0.12;
+
+export function getGameplayBurjCollisionBottom(artScale = 2): number {
+  return GAMEPLAY_SCENIC_BASE_Y - BURJ_H * BURJ_PEDESTAL_FRAC * artScale;
+}
+
+// Threats that target the Burj aim at a spot on the tower trunk, comfortably
+// above the pedestal, so strikes visibly hit the body instead of the ground.
+export function getBurjBodyAimPoint(artScale = 2): { x: number; y: number } {
+  return { x: BURJ_X, y: GAMEPLAY_SCENIC_BASE_Y - BURJ_H * artScale * rand(0.25, 0.55) };
+}
+
 export function getGameplayBurjHalfW(py: number, artScale = 2): number {
   const canonicalY = GROUND_Y + (py - GAMEPLAY_SCENIC_BASE_Y) / artScale;
   return burjHalfW(canonicalY) * artScale;
@@ -280,8 +295,8 @@ export function lerp(a: number, b: number, t: number): number {
 }
 
 export function pickTarget(g: GameState, fromX: number): { x: number; y: number } | null {
-  // 30% chance to target Burj
-  if (g.burjAlive && _rng() < 0.3) return { x: BURJ_X, y: CITY_Y };
+  // 30% chance to target Burj — aim at the tower trunk, not the pedestal/ground
+  if (g.burjAlive && _rng() < 0.3) return getBurjBodyAimPoint();
   // 70% target defense sites / launchers, closest first
   const all: { x: number; y: number }[] = [];
   g.defenseSites.forEach((s) => {
@@ -291,7 +306,7 @@ export function pickTarget(g: GameState, fromX: number): { x: number; y: number 
     if (g.launcherHP[i] > 0) all.push(getGameplayLauncherPosition(i));
   });
   if (all.length === 0) {
-    if (g.burjAlive) return { x: BURJ_X, y: CITY_Y };
+    if (g.burjAlive) return getBurjBodyAimPoint();
     return null;
   }
   all.sort((a, b) => Math.abs(a.x - fromX) - Math.abs(b.x - fromX));

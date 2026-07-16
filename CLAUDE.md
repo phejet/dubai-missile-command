@@ -113,9 +113,10 @@ Focused breakdowns:
 
 ### Targeting system (`pickTarget`)
 
-- 30% chance enemies target Burj directly
+- 30% chance enemies target the Burj directly, aiming at a random spot on the tower trunk (`getBurjBodyAimPoint`)
 - Otherwise, targets defense sites and alive launchers; picks closest-to-missile-spawn 70% of the time, second-closest 30%
 - Top-spawning missiles within 200px of their target are offset 300-500px for interceptable angles
+- The Burj hit area covers the tower body only — the pedestal band at the base (bottom `BURJ_PEDESTAL_FRAC` of `BURJ_H`) is excluded, and ground impacts never damage the Burj
 
 ### Upgrade systems
 
