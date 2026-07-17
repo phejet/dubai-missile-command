@@ -13,8 +13,6 @@ import {
   createScenicBuildings,
   getDefenseSitePlacement,
   getGameplayBuildingBounds,
-  getGameplayBurjCollisionTop,
-  getGameplayBurjHalfW,
   applyShake,
   getShahed136LevelFlightYRange,
   getGameplayLauncherPosition,
@@ -40,6 +38,14 @@ import {
   computeShahed238Path,
   GAMEPLAY_SCENIC_LAUNCHER_Y,
   INTERCEPTOR_TAP_FUSE_RADIUS,
+  IRON_BEAM_EMITTER_Y,
+  IRON_BEAM_RANGE,
+  IRON_BEAM_CHARGE_TIME,
+  IRON_BEAM_FIRE_WINDOW,
+  hitsBurjBody,
+  isBurjDiveTarget,
+  isBurjImpactTarget,
+  predictBurjImpactTicks,
   syncFireChargeForTick,
 } from "./game-logic";
 import { createCommander, generateWaveSchedule, advanceSpawnSchedule, isWaveFullySpawned } from "./wave-spawner";
@@ -182,15 +188,6 @@ function applyBurjHitDamage(
     }
     if (onEvent) onEvent("sfx", { name: "gameOver" });
   }
-}
-
-function isBurjImpactTarget(targetX: number | undefined, targetY: number | undefined): boolean {
-  if (targetX === undefined || targetY === undefined) return false;
-  const burjTop = getGameplayBurjCollisionTop(2);
-  return (
-    Math.abs(targetX - BURJ_X) <= 40 &&
-    (targetY >= GAMEPLAY_SCENIC_THREAT_FLOOR_Y || (targetY >= burjTop && targetY <= GAMEPLAY_SCENIC_THREAT_FLOOR_Y))
-  );
 }
 
 function updateBurjDamageFx(g: GameState): void {
@@ -1225,30 +1222,46 @@ export function updateAutoSystems(g: GameState, dt: number, allThreats: Threat[]
   });
 
   // ── IRON BEAM ──
+  // Last-resort Burj defense: the charge is reserved for threats that will
+  // actually hit the tower, and is only spent once one is about to land. A
+  // charged beam therefore guarantees the next Burj impactor gets burned down.
   if (g.upgrades.ironBeam > 0 && isSiteAlive(g, "ironBeam")) {
     const lvl = g.upgrades.ironBeam;
     const beamCount = lvl;
-    const range = [219, 280, 368][lvl - 1];
-    const chargeTime = [360, 240, 180][lvl - 1];
+    const spareRange = IRON_BEAM_RANGE[lvl - 1];
+    const chargeTime = IRON_BEAM_CHARGE_TIME[lvl - 1];
     g.ironBeamTimer += dt;
     if (g.ironBeamTimer >= chargeTime) {
-      const inRange = allThreats
-        .filter((t) => t.alive && dist(t.x, t.y, BURJ_X, 959) < range)
-        .sort((a, b) => b.y - a.y);
-      for (let i = 0; i < Math.min(beamCount, inRange.length); i++) {
-        const t = inRange[i];
-        g.laserBeams.push({
-          x1: BURJ_X,
-          y1: 959,
-          x2: t.x,
-          y2: t.y,
-          life: 20,
-          maxLife: 20,
-          targetRef: t,
-        });
-        damageTarget(g, t, t.type === "drone" ? 2 : 1, COL.laser, t.type === "drone" ? 20 : 15);
-      }
-      if (inRange.length > 0) {
+      const burjBound = allThreats
+        .map((t) => ({ t, eta: predictBurjImpactTicks(g, t, IRON_BEAM_FIRE_WINDOW) }))
+        .filter((e): e is { t: Threat; eta: number } => e.eta !== null)
+        .sort((a, b) => a.eta - b.eta);
+      if (burjBound.length > 0) {
+        const targets = burjBound.slice(0, beamCount).map((e) => e.t);
+        if (targets.length < beamCount) {
+          // Spare beams strafe the nearest other threats around the emitter.
+          const spares = allThreats
+            .filter(
+              (t) => t.alive && !targets.includes(t) && dist(t.x, t.y, BURJ_X, IRON_BEAM_EMITTER_Y) < spareRange,
+            )
+            .sort(
+              (a, b) =>
+                dist(a.x, a.y, BURJ_X, IRON_BEAM_EMITTER_Y) - dist(b.x, b.y, BURJ_X, IRON_BEAM_EMITTER_Y),
+            );
+          targets.push(...spares.slice(0, beamCount - targets.length));
+        }
+        for (const t of targets) {
+          g.laserBeams.push({
+            x1: BURJ_X,
+            y1: IRON_BEAM_EMITTER_Y,
+            x2: t.x,
+            y2: t.y,
+            life: 20,
+            maxLife: 20,
+            targetRef: t,
+          });
+          damageTarget(g, t, t.type === "drone" ? 2 : 1, COL.laser, t.type === "drone" ? 20 : 15);
+        }
         g.ironBeamTimer = 0;
         if (!g._laserHandle) {
           if (onEvent) onEvent("sfx", { name: "laserBeam" });
@@ -1411,15 +1424,8 @@ function updateMissiles(g: GameState, dt: number, onEvent?: SimEventSink | null)
       boom(g, m.x, m.y, 18, "#ffb36b", false, onEvent, 0, { harmless: true });
       if (onEvent) onEvent("sfx", { name: "mirvSplit" });
     }
-    const burjTop = getGameplayBurjCollisionTop(2);
     // Burj collision — hitbox matches the shared scenic Burj placement
-    if (
-      g.burjAlive &&
-      m.alive &&
-      m.y >= burjTop &&
-      m.y <= GAMEPLAY_SCENIC_THREAT_FLOOR_Y &&
-      Math.abs(m.x - BURJ_X) <= getGameplayBurjHalfW(m.y, 2)
-    ) {
+    if (m.alive && hitsBurjBody(g, m.x, m.y)) {
       m.alive = false;
       boom(g, m.x, m.y, 55, "#ff4400", false, onEvent, 30);
       applyShake(g, 10, 4);
@@ -1605,15 +1611,8 @@ function updateDrones(g: GameState, _rng: () => number, dt: number, onEvent?: Si
       }
     }
     if (d.x < -60 || d.x > CANVAS_W + 60 || d.y > CANVAS_H + 20) d.alive = false;
-    const burjTop = getGameplayBurjCollisionTop(2);
     // Burj body collision — match the shared scenic Burj placement
-    if (
-      d.alive &&
-      g.burjAlive &&
-      d.y >= burjTop &&
-      d.y <= GAMEPLAY_SCENIC_THREAT_FLOOR_Y &&
-      Math.abs(d.x - BURJ_X) <= getGameplayBurjHalfW(d.y, 2)
-    ) {
+    if (d.alive && hitsBurjBody(g, d.x, d.y)) {
       d.alive = false;
       boom(g, d.x, d.y, 70, "#ff6600", false, onEvent, 40);
       applyShake(g, 15, 6);
@@ -1626,13 +1625,7 @@ function updateDrones(g: GameState, _rng: () => number, dt: number, onEvent?: Si
       const pathDone = d.waypoints && (d.pathIndex ?? 0) >= d.waypoints.length - 1;
       if (hitTarget || hitGround || pathDone) {
         const impactY = hitTarget ? d.y : Math.min(d.y, GAMEPLAY_WATERLINE_Y);
-        const burjTop = getGameplayBurjCollisionTop(2);
-        const targetY = d.diveTarget.y;
-        const targetIsBurj =
-          g.burjAlive &&
-          Math.abs(d.diveTarget.x - BURJ_X) <= Math.max(36, d.collisionRadius) &&
-          (targetY >= GAMEPLAY_SCENIC_THREAT_FLOOR_Y ||
-            (targetY >= burjTop && targetY <= GAMEPLAY_SCENIC_THREAT_FLOOR_Y));
+        const targetIsBurj = isBurjDiveTarget(g, d);
         d.alive = false;
         boom(g, d.x, impactY, 70, "#ff6600", false, onEvent, 40);
         applyShake(g, 15, 6);
