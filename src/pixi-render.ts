@@ -25,6 +25,8 @@ import {
   GAMEPLAY_SCENIC_LAUNCHER_Y,
   GAMEPLAY_WATERLINE_Y,
   GROUND_Y,
+  IRON_BEAM_CHARGE_TIME,
+  IRON_BEAM_EMITTER_Y,
   LAUNCHERS,
   WATER_SURFACE_OFFSET,
   getDefenseSitePlacement,
@@ -2900,6 +2902,33 @@ export class PixiRenderer implements GameRenderer {
       state.defenseStatusOverlay
         .rect(site.x - hw, site.y - hh, hw * 2, hh * 2)
         .stroke({ width: 1, color: getDefenseSiteColor(site), alpha: pulse });
+    }
+
+    // Iron Beam charge indicator — a ready emitter is the player-facing signal
+    // that the next threat to reach the Burj will be burned down.
+    if (game.upgrades.ironBeam > 0) {
+      const beamSite = game.defenseSites.find((site) => site.key === "ironBeam");
+      if (!beamSite || beamSite.alive) {
+        const lvl = Math.max(1, Math.min(3, game.upgrades.ironBeam));
+        const chargeTime = IRON_BEAM_CHARGE_TIME[lvl - 1];
+        const charge = Math.max(0, Math.min(1, game.ironBeamTimer / chargeTime));
+        if (charge >= 1) {
+          const readyPulse = 0.5 + 0.5 * Math.sin(sceneTime * 6);
+          state.defenseStatusOverlay
+            .circle(BURJ_X, IRON_BEAM_EMITTER_Y, 3.4)
+            .fill({ color: COL_HEX.laser, alpha: 0.55 + readyPulse * 0.35 });
+          state.defenseStatusOverlay
+            .circle(BURJ_X, IRON_BEAM_EMITTER_Y, 9)
+            .stroke({ width: 1.4, color: COL_HEX.laser, alpha: 0.3 + readyPulse * 0.35 });
+        } else {
+          state.defenseStatusOverlay
+            .circle(BURJ_X, IRON_BEAM_EMITTER_Y, 2.6)
+            .fill({ color: COL_HEX.laser, alpha: 0.22 });
+          state.defenseStatusOverlay
+            .arc(BURJ_X, IRON_BEAM_EMITTER_Y, 9, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * charge)
+            .stroke({ width: 1.2, color: COL_HEX.laser, alpha: 0.42 });
+        }
+      }
     }
   }
 
