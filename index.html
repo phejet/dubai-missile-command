@@ -22,6 +22,24 @@
         data-ui-mode="phonePortrait"
       >
         <div class="game-shell__ambient" aria-hidden="true"></div>
+        <div class="replay-player" id="replay-player" role="group" aria-label="Replay controls" hidden>
+          <button
+            type="button"
+            class="replay-player__button"
+            id="replay-previous-wave"
+            aria-label="Previous wave start"
+          >
+            ◀◀
+          </button>
+          <button type="button" class="replay-player__button" id="replay-play-pause" aria-label="Pause replay">
+            Ⅱ
+          </button>
+          <button type="button" class="replay-player__button" id="replay-stop" aria-label="Stop replay">■</button>
+          <button type="button" class="replay-player__button" id="replay-next-wave" aria-label="Next wave start">
+            ▶▶
+          </button>
+          <div class="replay-player__counter" id="replay-player-status"></div>
+        </div>
         <div class="game-shell__content">
           <div class="battlefield-shell">
             <div class="battlefield-card" id="battlefield-card">
@@ -98,6 +116,10 @@
                 <button type="button" class="battlefield-option" id="option-perf">
                   <span class="battlefield-option__label">Perf</span>
                   <span class="battlefield-option__meta" id="option-perf-meta">Off</span>
+                </button>
+                <button type="button" class="battlefield-option" id="option-infinite-replay">
+                  <span class="battlefield-option__label">Infinite Replay</span>
+                  <span class="battlefield-option__meta" id="option-infinite-replay-meta">Off</span>
                 </button>
                 <button type="button" class="battlefield-option" id="option-upgrades-table">
                   <span class="battlefield-option__label">Upgrades Table</span>

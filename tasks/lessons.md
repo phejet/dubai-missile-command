@@ -1,5 +1,20 @@
 # Lessons
 
+## 2026-07-19 — Replay player polish
+
+- Do not show `Replay 1` in the full replay transport when one-shot playback is the normal case. Keep iteration metadata available to diagnostics/tests, and reserve visible repetition counters for surfaces that actually loop by default, such as the death clip.
+
+## 2026-07-19
+
+- Replay playback must be clocked by elapsed time at the simulation's fixed 60 Hz, not by one `runner.step()` per `requestAnimationFrame`. A wave seek can change render cadence or expose a 120 Hz device path, turning frame rate into playback speed with all the dignity of a gramophone on a trampoline.
+- Fast seek and realtime playback must have exclusive ownership of the runner. While `seekRunnerToTick()` is advancing in batches, the controller RAF must not also step that runner; reset the realtime accumulator when the seek hands control back.
+
+## 2026-07-18
+
+- Automated replay testing needs transport controls on the playback surface, not only a Settings loop toggle. If stopping a loop requires racing a menu that resets at replay boundaries, the debug workflow is controlling the tester instead of the other way around.
+- When adding previous/next replay navigation, define the semantic boundary before coding. Wave starts, wave-end bonus reports, and shops are distinct deterministic boundaries; calling all of them “phases” without a contract manufactures off-by-one UX with impressive efficiency.
+- The earlier hold-on-complete death-clip rule is superseded by the explicit stress-testing workflow: auto-loop only after caching the clip-start anchor, reuse the same gameplay-only renderer, and keep the loop number visible so repetition is observable rather than inferred.
+
 ## 2026-07-12
 
 - When a plan uses Phase 0 as prerequisite tests and Phase 1 as the actual fix, clarify whether "first phase" means Phase 0 alone or the complete Phase 0+1 red-to-green unit before implementation. Numbering should not silently decide delivery scope.

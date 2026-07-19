@@ -189,7 +189,7 @@ test.describe("Smoke tests", () => {
           .evaluate((node) => (node as HTMLCanvasElement).dataset.clipStatus),
       )
       .not.toBe("seeking");
-    await expect(page.locator("#gameover-panel .run-recap__death-status")).toBeHidden();
+    await expect(page.locator("#gameover-panel .run-recap__death-status")).toContainText("Replay 1");
 
     await page.getByRole("button", { name: /run recap/i }).click();
     await expect(page.locator("#run-recap-panel")).toBeVisible();
@@ -207,9 +207,12 @@ test.describe("Smoke tests", () => {
     await page.evaluate(() => {
       const replay = window.__lastReplay!;
       replay.initialState!.burjHealth = 0;
-      replay.actions = [];
+      replay.actions = [
+        { type: "wave_plan", tick: 0, wave: 1 },
+        { type: "wave_plan", tick: 60, wave: 2 },
+      ];
       replay.checkpoints = [];
-      replay.finalTick = 60;
+      replay.finalTick = 120;
     });
     await page.getByRole("button", { name: /watch replay/i }).click();
     await expect(page.locator("#game-shell")).toHaveAttribute("data-screen", "playing");
@@ -223,8 +226,35 @@ test.describe("Smoke tests", () => {
     await page.getByRole("button", { name: /watch replay/i }).click();
     await expect(page.locator("#game-shell")).toHaveAttribute("data-screen", "playing");
     await expect(page.locator("#game-canvas")).toHaveAttribute("data-pixi-gameplay-generation", firstReplayGeneration!);
+    await expect(page.locator("#replay-player")).toBeVisible();
+    await page.getByRole("button", { name: /pause replay/i }).click();
+    const pausedTick = await page.evaluate(() => window.__gameRef!.current!._replayTick ?? 0);
+    await page.waitForTimeout(250);
+    expect(await page.evaluate(() => window.__gameRef!.current!._replayTick ?? 0)).toBe(pausedTick);
+
+    await page.getByRole("button", { name: /next wave start/i }).click();
+    await expect.poll(() => page.evaluate(() => window.__gameRef!.current!._replayTick ?? 0)).toBe(60);
+    await page.getByRole("button", { name: /previous wave start/i }).click();
+    await expect.poll(() => page.evaluate(() => window.__gameRef!.current!._replayTick ?? 0)).toBe(0);
+    await page.getByRole("button", { name: /play replay/i }).click();
+    const realtimeStartTick = await page.evaluate(() => window.__gameRef!.current!._replayTick ?? 0);
+    await page.waitForTimeout(500);
+    const realtimeTickDelta =
+      (await page.evaluate(() => window.__gameRef!.current!._replayTick ?? 0)) - realtimeStartTick;
+    expect(realtimeTickDelta).toBeGreaterThanOrEqual(20);
+    expect(realtimeTickDelta).toBeLessThanOrEqual(40);
+
+    await page.locator("#options-button").click();
+    await page.locator("#option-infinite-replay").click();
+    await expect(page.locator("#option-infinite-replay-meta")).toHaveText("On");
+    await expect(page.locator("#replay-player")).toHaveAttribute("data-playback-number", /(?:[2-9]|[1-9]\d+)/, {
+      timeout: 10000,
+    });
+    await expect(page.locator("#replay-player-status")).not.toContainText("Replay");
+    await page.getByRole("button", { name: /stop replay/i }).click();
     await expect(page.locator("#run-recap-panel")).toBeVisible({ timeout: 10000 });
     await expect(page.locator("#game-shell")).toHaveAttribute("data-screen", "gameover");
+    await expect(page.locator("#replay-player")).toBeHidden();
     await page.getByRole("button", { name: /^back$/i }).click();
     await expect(page.locator("#gameover-panel")).toBeVisible();
     await expect(page.locator("#gameover-panel .run-recap__death-canvas")).toBeVisible();

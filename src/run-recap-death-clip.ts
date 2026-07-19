@@ -18,6 +18,7 @@ type ReplayRunner = ReturnType<typeof createReplayRunner>;
 
 export interface RunRecapDeathClipOptions {
   anchor?: ReplayStateAnchor | null;
+  autoLoop?: boolean;
 }
 
 interface RunnerAtTickResult {
@@ -77,7 +78,7 @@ async function createRunnerAtTick(
 export function mountRunRecapDeathClip(
   container: HTMLElement,
   replay: ReplayData,
-  { anchor = null }: RunRecapDeathClipOptions = {},
+  { anchor = null, autoLoop = true }: RunRecapDeathClipOptions = {},
 ): () => void {
   container.innerHTML = `<span>Preparing final seconds...</span>`;
   container.classList.add("run-recap__death-clip--live");
@@ -125,6 +126,7 @@ export function mountRunRecapDeathClip(
     anchorTick: anchor?.tick ?? null,
     anchorWave: anchor?.wave ?? null,
     isHuman: !!replay.isHuman,
+    autoLoop,
     ua: typeof navigator !== "undefined" ? navigator.userAgent : "-",
     memory: getMemorySample(),
   });
@@ -134,6 +136,7 @@ export function mountRunRecapDeathClip(
   const restartClip = () => {
     if (stopped) return;
     const currentGeneration = ++generation;
+    loopCount += 1;
     cancelAnimationFrame(raf);
     raf = 0;
     clearTimeout(seekTimeoutTimer);
@@ -149,10 +152,9 @@ export function mountRunRecapDeathClip(
     canvas.dataset.clipTick = "";
     canvas.dataset.clipSeekTick = "0";
     status.hidden = false;
-    status.textContent = "Preparing final seconds...";
+    status.textContent = `Replay ${loopCount} · Preparing...`;
     lastFrameTime = 0;
 
-    loopCount += 1;
     seekStartedAt = performance.now();
     lastProgressAt = seekStartedAt;
     const seekAnchor = clipStartAnchor ?? anchor;
@@ -260,7 +262,8 @@ export function mountRunRecapDeathClip(
         });
         seekingRunner = null;
         runner = nextRunner;
-        status.hidden = true;
+        status.hidden = false;
+        status.textContent = `Replay ${loopCount}`;
         canvas.dataset.clipStatus = "playing";
         playStartedAt = performance.now();
         const state = runner.getState();
@@ -356,8 +359,6 @@ export function mountRunRecapDeathClip(
       if (!runner.isFinished() && runner.getTick() < finalTick && !runner.isShopPaused() && !runner.isBonusPaused()) {
         runner.step();
       } else {
-        canvas.dataset.clipStatus = "complete";
-        container.classList.add("run-recap__death-clip--complete");
         if (!completionLogged) {
           completionLogged = true;
           clientLog("death-clip", "play-complete", {
@@ -369,6 +370,13 @@ export function mountRunRecapDeathClip(
           });
         }
         raf = 0;
+        if (autoLoop) {
+          restartClip();
+          return;
+        }
+        canvas.dataset.clipStatus = "complete";
+        status.hidden = true;
+        container.classList.add("run-recap__death-clip--complete");
         return;
       }
     }

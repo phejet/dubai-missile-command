@@ -23,9 +23,11 @@ import {
   saveDebugOptions,
   setForceShowUpgradeFamily,
   setGlassTower,
+  setInfiniteReplay,
   type DebugOptions,
 } from "./debug-options";
 import { mulberry32 } from "./headless/rng";
+import { accumulateFixedTicks } from "./fixed-step-clock";
 import { getFireChargeCount, type BufferedPlayerShot } from "./player-fire-limiter";
 import { buildReplayCheckpoint } from "./replay-debug";
 import {
@@ -52,6 +54,12 @@ import { isBonusUiPauseActive } from "./replay-loop";
 import { CURRENT_REPLAY_VERSION } from "./replay-version";
 import { createReplayStateAnchor } from "./replay-anchor";
 import { seekRunnerToTick } from "./replay-seek";
+import {
+  extractReplayWaveStarts,
+  findNextReplayWaveStart,
+  findPreviousReplayWaveStart,
+  type ReplayWaveStart,
+} from "./replay-wave-navigation";
 import { mountRunRecapDeathClip } from "./run-recap-death-clip";
 import { handleRunRecapReplayEvent } from "./run-recap-replay-events";
 import { buildRunRecapData } from "./run-recap";
@@ -72,6 +80,7 @@ import type {
   ReplayData,
   ReplayInitialState,
   ReplayStateAnchor,
+  RunRecapData,
   SimEvent,
   SimEventMap,
   UpgradeKey,
@@ -422,6 +431,10 @@ export class Game {
   private debugStartsEl: HTMLElement;
   private upgradesTableEl: HTMLElement;
   private perfOverlay: HTMLElement;
+  private replayPlayer: HTMLElement;
+  private replayPlayPauseButton: HTMLButtonElement;
+  private replayPreviousWaveButton: HTMLButtonElement;
+  private replayNextWaveButton: HTMLButtonElement;
 
   // Game state
   private gameRef: { current: GameState | null } = { current: null };
@@ -462,6 +475,14 @@ export class Game {
   private replaySeekGeneration = 0;
   private replayReturnsToRecap = false;
   private replaySeekOverlay: HTMLElement | null = null;
+  private replayPlayerStatus: HTMLElement;
+  private activeReplayData: ReplayData | null = null;
+  private replayPlaybackNumber = 0;
+  private replayWaveStarts: ReplayWaveStart[] = [];
+  private replayPaused = false;
+  private replayPausedAt: number | null = null;
+  private replaySeeking = false;
+  private lastRunRecapData: RunRecapData | null = null;
   private debugOptions: DebugOptions = loadDebugOptions();
 
   constructor({ canvas, renderer, onScreenChange, onFrameSample, onReplayFinished }: GameOptions) {
@@ -490,6 +511,11 @@ export class Game {
     this.debugStartsEl = document.getElementById("debug-starts")!;
     this.upgradesTableEl = document.getElementById("upgrades-table")!;
     this.perfOverlay = document.getElementById("perf-overlay")!;
+    this.replayPlayer = document.getElementById("replay-player")!;
+    this.replayPlayerStatus = document.getElementById("replay-player-status")!;
+    this.replayPlayPauseButton = document.getElementById("replay-play-pause") as HTMLButtonElement;
+    this.replayPreviousWaveButton = document.getElementById("replay-previous-wave") as HTMLButtonElement;
+    this.replayNextWaveButton = document.getElementById("replay-next-wave") as HTMLButtonElement;
 
     cacheHudElements();
     cacheTransientOverlayElements();
@@ -532,8 +558,13 @@ export class Game {
     document.getElementById("option-sound")!.addEventListener("click", () => void this.toggleMute());
     document.getElementById("option-debug")!.addEventListener("click", () => this.toggleDebug());
     document.getElementById("option-perf")!.addEventListener("click", () => this.togglePerf());
+    document.getElementById("option-infinite-replay")!.addEventListener("click", () => this.toggleInfiniteReplay());
     document.getElementById("option-upgrades-table")!.addEventListener("click", () => this.toggleUpgradesTable());
     document.getElementById("option-diagnostics")!.addEventListener("click", () => this.toggleDiagnostics());
+    this.replayPlayPauseButton.addEventListener("click", () => this.toggleReplayPause());
+    document.getElementById("replay-stop")!.addEventListener("click", () => this.stopReplayPlayback());
+    this.replayPreviousWaveButton.addEventListener("click", () => this.navigateReplayWave("previous"));
+    this.replayNextWaveButton.addEventListener("click", () => this.navigateReplayWave("next"));
     document
       .getElementById("option-diagnostics-share")!
       .addEventListener("click", () => void this.shareDiagnosticsLog());
@@ -860,6 +891,7 @@ export class Game {
     setRng(mulberry32(seed));
     this.replayAnchors = [];
     this.lastReplay = null;
+    this.lastRunRecapData = null;
     window.__lastReplay = null;
     this.gameRef.current = simInitGame();
     const game = this.gameRef.current;
@@ -915,6 +947,7 @@ export class Game {
     this.resetPlayerFireState();
     this.initGame();
     this.replayActive = false;
+    this.clearReplayPlaybackState();
     this.replayReturnsToRecap = false;
     this.shopOpen = false;
     this.bonusActive = false;
@@ -943,6 +976,7 @@ export class Game {
     this.resetPlayerFireState();
     this.initGame(preset);
     this.replayActive = false;
+    this.clearReplayPlaybackState();
     this.replayReturnsToRecap = false;
     this.shopOpen = false;
     this.bonusActive = false;
@@ -978,6 +1012,7 @@ export class Game {
       this.replayRunner = null;
     }
     this.replayActive = false;
+    this.clearReplayPlaybackState();
     this.replayReturnsToRecap = false;
     this.replayAnchors = [];
     this.shopOpen = false;
@@ -1018,6 +1053,109 @@ export class Game {
     this.replaySeekOverlay = null;
   }
 
+  private showReplayLoopCounter(playbackNumber: number): void {
+    this.replayPlaybackNumber = playbackNumber;
+    this.replayPlayer.hidden = false;
+    this.syncReplayPlayer();
+  }
+
+  private clearReplayPlaybackState(): void {
+    this.activeReplayData = null;
+    this.replayPlaybackNumber = 0;
+    this.replayWaveStarts = [];
+    this.replayPaused = false;
+    this.replayPausedAt = null;
+    this.replaySeeking = false;
+    this.replayPlayer.hidden = true;
+    delete this.replayPlayer.dataset.playbackNumber;
+  }
+
+  private syncReplayPlayer(): void {
+    if (!this.replayActive || !this.activeReplayData || !this.replayRunner) return;
+    const tick = this.replayRunner.getTick();
+    const game = this.gameRef.current;
+    this.replayPlayer.hidden = false;
+    this.replayPlayer.dataset.playbackNumber = String(this.replayPlaybackNumber);
+    this.replayPlayerStatus.textContent = `Wave ${game?.wave ?? 1}${this.replayPaused ? " · Paused" : ""}`;
+    this.replayPlayPauseButton.textContent = this.replayPaused ? "▶" : "Ⅱ";
+    this.replayPlayPauseButton.setAttribute("aria-label", this.replayPaused ? "Play replay" : "Pause replay");
+    this.replayPreviousWaveButton.disabled = findPreviousReplayWaveStart(this.replayWaveStarts, tick) === null;
+    this.replayNextWaveButton.disabled = findNextReplayWaveStart(this.replayWaveStarts, tick) === null;
+  }
+
+  private toggleReplayPause(): void {
+    if (!this.replayActive || !this.replayRunner) return;
+    const now = performance.now();
+    if (this.replayPaused) {
+      const pausedFor = this.replayPausedAt === null ? 0 : now - this.replayPausedAt;
+      const game = this.gameRef.current;
+      if (game?._replayShopTimer) game._replayShopTimer += pausedFor;
+      this.replayPaused = false;
+      this.replayPausedAt = null;
+    } else {
+      this.replayPaused = true;
+      this.replayPausedAt = now;
+    }
+    if (this.gameRef.current) this.gameRef.current._timeAccum = 0;
+    clientLog("replay", this.replayPaused ? "pause" : "play", {
+      playbackNumber: this.replayPlaybackNumber,
+      tick: this.replayRunner.getTick(),
+    });
+    this.syncReplayPlayer();
+  }
+
+  private navigateReplayWave(direction: "previous" | "next"): void {
+    const replay = this.activeReplayData;
+    const runner = this.replayRunner;
+    if (!replay || !runner) return;
+    const target =
+      direction === "previous"
+        ? findPreviousReplayWaveStart(this.replayWaveStarts, runner.getTick())
+        : findNextReplayWaveStart(this.replayWaveStarts, runner.getTick());
+    if (!target) return;
+    clientLog("replay", "wave-seek", {
+      direction,
+      fromTick: runner.getTick(),
+      playbackNumber: this.replayPlaybackNumber,
+      targetTick: target.tick,
+      targetWave: target.wave,
+    });
+    this.replaySeeking = true;
+    if (this.gameRef.current) this.gameRef.current._timeAccum = 0;
+    void this.startReplay(replay, {
+      seekToTick: target.tick,
+      returnToRecap: this.replayReturnsToRecap,
+      playbackNumber: this.replayPlaybackNumber,
+      startPaused: this.replayPaused,
+    });
+  }
+
+  private stopReplayPlayback(): void {
+    if (!this.replayActive && !this.replayRunner) return;
+    const returnToRecap = this.replayReturnsToRecap;
+    clientLog("replay", "stop", {
+      playbackNumber: this.replayPlaybackNumber,
+      returnToRecap,
+      tick: this.replayRunner?.getTick() ?? this.gameRef.current?._replayTick ?? 0,
+    });
+    this.cancelReplaySeek();
+    this.replayRunner?.cleanup();
+    this.replayRunner = null;
+    this.replayActive = false;
+    this.replayReturnsToRecap = false;
+    this.shopOpen = false;
+    this.bonusActive = false;
+    this.clearReplayPlaybackState();
+    uiHideShop();
+    hideBonusScreen();
+    this.canvas.style.pointerEvents = "";
+    this.canvas.classList.remove("game-canvas--active");
+    this.battlefieldCard.classList.remove("battlefield-card--blurred");
+    this.runRecapOpen = returnToRecap;
+    this.setScreen("gameover", { retainGameplayResources: returnToRecap });
+    if (returnToRecap) this.openRunRecap();
+  }
+
   private cancelReplaySeek(): void {
     this.replaySeekGeneration++;
     this.hideReplaySeekOverlay();
@@ -1038,6 +1176,7 @@ export class Game {
     this.replayRunner?.cleanup();
     this.replayRunner = null;
     this.replayActive = false;
+    this.clearReplayPlaybackState();
     this.shopOpen = false;
     this.bonusActive = false;
     uiHideShop();
@@ -1050,19 +1189,27 @@ export class Game {
 
   private async startReplay(
     replayData: ReplayData,
-    opts: { seekToTick?: number; returnToRecap?: boolean } = {},
+    opts: { seekToTick?: number; returnToRecap?: boolean; playbackNumber?: number; startPaused?: boolean } = {},
   ): Promise<void> {
     await SFX.init();
     SFX.prewarm();
     const seekToTick = Math.max(0, Math.floor(opts.seekToTick ?? 0));
+    const playbackNumber = Math.max(1, Math.floor(opts.playbackNumber ?? 1));
     clientLog("replay", "start", {
       seed: replayData.seed,
       actions: replayData.actions?.length ?? 0,
       seekToTick,
       returnToRecap: opts.returnToRecap === true,
+      playbackNumber,
+      startPaused: opts.startPaused === true,
     });
+    this.activeReplayData = replayData;
+    this.replayWaveStarts = extractReplayWaveStarts(replayData);
+    this.replayPlaybackNumber = playbackNumber;
+    this.showReplayLoopCounter(playbackNumber);
     this.replayReturnsToRecap = opts.returnToRecap === true;
     const shouldSeek = seekToTick > 0;
+    this.replaySeeking = shouldSeek;
     const currentSeekGeneration = ++this.replaySeekGeneration;
     this.clearPointerCapture();
     this.resetPlayerFireState();
@@ -1106,9 +1253,11 @@ export class Game {
       const currentGame = this.gameRef.current;
       if (currentGame) currentGame._purchaseToast = { items: [message], timer: 300 };
       this.showReplayFailure(`REPLAY NOT LOADED - ${message}`);
+      this.clearReplayPlaybackState();
       return;
     }
     this.gameRef.current = replayGameState;
+    replayGameState._timeAccum = 0;
     if (replayGameState) {
       replayGameState._replay = true;
       replayGameState._replayIsHuman = !!replayData.isHuman;
@@ -1117,6 +1266,8 @@ export class Game {
     window.__gameRef = this.gameRef;
     this.replayRunner = runner;
     this.replayActive = true;
+    this.replayPaused = opts.startPaused === true;
+    this.replayPausedAt = this.replayPaused ? performance.now() : null;
     this.shopOpen = false;
     this.progressionOpen = false;
     this.runRecapOpen = false;
@@ -1152,14 +1303,20 @@ export class Game {
         runner.cleanup();
         if (this.replayRunner === runner) this.replayRunner = null;
         this.replayActive = false;
+        this.replaySeeking = false;
+        this.clearReplayPlaybackState();
         this.hideReplaySeekOverlay();
         this.setScreen("gameover");
         return;
       }
     }
     seeking = false;
+    this.replaySeeking = false;
+    replayGameState._timeAccum = 0;
+    this.lastTime = null;
     this.hideReplaySeekOverlay();
     this.setScreen("playing");
+    this.syncReplayPlayer();
   }
 
   async loadReplay(replayData: ReplayData): Promise<void> {
@@ -1416,6 +1573,8 @@ export class Game {
     if (this.screen !== "gameover" || this.shopOpen) return;
     const game = this.gameRef.current;
     if (!game) return;
+    const recapData = this.lastRunRecapData ?? buildRunRecapData(game, this.lastReplay);
+    this.lastRunRecapData = recapData;
     this.runRecapOpen = true;
     this.progressionOpen = false;
     this.stopDeathClip();
@@ -1425,7 +1584,7 @@ export class Game {
     this.runRecapPanel.hidden = false;
     this.runRecapPanel.inert = false;
     this.battlefieldCard.hidden = true;
-    uiShowRunRecap(buildRunRecapData(game, this.lastReplay), {
+    uiShowRunRecap(recapData, {
       onClose: () => this.closeRunRecap(),
       onWatchFullReplay: () => {
         if (this.lastReplay) {
@@ -1672,6 +1831,18 @@ export class Game {
       button.setAttribute("aria-expanded", String(this.showOptionsMenu));
       button.setAttribute("aria-label", this.showOptionsMenu ? "Close options" : "Open options");
     }
+    const infiniteReplayButton = document.getElementById("option-infinite-replay")!;
+    infiniteReplayButton.classList.toggle("battlefield-option--active", this.debugOptions.infiniteReplay);
+    document.getElementById("option-infinite-replay-meta")!.textContent = this.debugOptions.infiniteReplay
+      ? "On"
+      : "Off";
+  }
+
+  private toggleInfiniteReplay(): void {
+    this.debugOptions = setInfiniteReplay(this.debugOptions, !this.debugOptions.infiniteReplay);
+    saveDebugOptions(this.debugOptions);
+    this.syncOptionsButtons();
+    clientLog("replay", "infinite-toggle", { enabled: this.debugOptions.infiniteReplay });
   }
 
   private async toggleMute(): Promise<void> {
@@ -1820,40 +1991,60 @@ export class Game {
           game._fpsFrames = 0;
           game._fpsAccum = 0;
         }
-        game._timeAccum = (game._timeAccum || 0) + Math.min(elapsed / (1000 / 60), 3);
+        game._timeAccum = accumulateFixedTicks(game._timeAccum || 0, elapsed);
 
         if (this.replayRunner) {
           const runner = this.replayRunner;
           try {
-            if (runner.isBonusPaused()) {
-              if (game._bonusScreenDone) {
-                runner.resumeFromBonusScreen();
-              }
-            } else if (runner.isShopPaused()) {
-              if (!game._replayShopTimer) {
-                game._replayShopTimer = performance.now();
-                const bought = game._replayShopBought || [];
-                if (bought.length > 0) {
-                  game._purchaseToast = { items: [...bought], timer: 300 };
+            if (!this.replayPaused && !this.replaySeeking) {
+              if (runner.isBonusPaused()) {
+                game._timeAccum = 0;
+                if (game._bonusScreenDone) {
+                  runner.resumeFromBonusScreen();
                 }
-                delete game._replayShopBought;
-              } else if (performance.now() - game._replayShopTimer > 1000) {
-                delete game._replayShopTimer;
-                runner.resumeFromShop();
-                this.shopOpen = false;
-                uiHideShop();
-                this.battlefieldCard.classList.remove("battlefield-card--blurred");
+              } else if (runner.isShopPaused()) {
+                game._timeAccum = 0;
+                if (!game._replayShopTimer) {
+                  game._replayShopTimer = performance.now();
+                  const bought = game._replayShopBought || [];
+                  if (bought.length > 0) {
+                    game._purchaseToast = { items: [...bought], timer: 300 };
+                  }
+                  delete game._replayShopBought;
+                } else if (performance.now() - game._replayShopTimer > 1000) {
+                  delete game._replayShopTimer;
+                  runner.resumeFromShop();
+                  this.shopOpen = false;
+                  uiHideShop();
+                  this.battlefieldCard.classList.remove("battlefield-card--blurred");
+                }
+              } else {
+                while (game._timeAccum >= 1 && !runner.isFinished()) {
+                  game._timeAccum -= 1;
+                  runner.step();
+                  if (runner.isShopPaused() || runner.isBonusPaused()) {
+                    game._timeAccum = 0;
+                    break;
+                  }
+                }
               }
             } else {
-              runner.step();
+              game._timeAccum = 0;
             }
           } catch (error) {
             this.abortReplayPlayback(error);
             return;
           }
           if (runner.isFinished()) {
-            clientLog("replay", "finish", { tick: game._replayTick ?? 0, wave: game.wave, score: game.score });
+            clientLog("replay", "finish", {
+              tick: game._replayTick ?? 0,
+              wave: game.wave,
+              score: game.score,
+              playbackNumber: this.replayPlaybackNumber,
+            });
             const returnToRecap = this.replayReturnsToRecap;
+            const loopReplay = returnToRecap && this.debugOptions.infiniteReplay ? this.activeReplayData : null;
+            const nextPlaybackNumber = this.replayPlaybackNumber + 1;
             runner.cleanup();
             this.replayRunner = null;
             this.replayActive = false;
@@ -1866,11 +2057,20 @@ export class Game {
               tick: game._replayTick ?? 0,
               wave: game.wave,
             };
-            this.canvas.classList.remove("game-canvas--active");
-            this.setScreen("gameover", { retainGameplayResources: returnToRecap });
-            if (returnToRecap) {
-              this.replayReturnsToRecap = false;
-              this.openRunRecap();
+            if (loopReplay) {
+              clientLog("replay", "loop", { fromPlayback: this.replayPlaybackNumber, toPlayback: nextPlaybackNumber });
+              void this.startReplay(loopReplay, {
+                returnToRecap: true,
+                playbackNumber: nextPlaybackNumber,
+              });
+            } else {
+              this.clearReplayPlaybackState();
+              this.canvas.classList.remove("game-canvas--active");
+              this.setScreen("gameover", { retainGameplayResources: returnToRecap });
+              if (returnToRecap) {
+                this.replayReturnsToRecap = false;
+                this.openRunRecap();
+              }
             }
           }
         } else if (game.state === "playing") {
@@ -1908,6 +2108,7 @@ export class Game {
         const interpolationAlpha = game.state === "playing" ? (game._timeAccum ?? 0) : 1;
         this.tickControllerOnlyTimers(game);
         this.syncHud();
+        this.syncReplayPlayer();
         this.syncTransientOverlays();
         if (this.screen === "playing") {
           this.renderer.renderGameplay(game, { showShop: this.shopOpen, interpolationAlpha });

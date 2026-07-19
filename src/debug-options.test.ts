@@ -6,6 +6,7 @@ import {
   loadDebugOptions,
   saveDebugOptions,
   setForceShowUpgradeFamily,
+  setInfiniteReplay,
 } from "./debug-options";
 
 describe("debug options", () => {
@@ -20,12 +21,17 @@ describe("debug options", () => {
   });
 
   it("loads an empty force-show list by default", () => {
-    expect(loadDebugOptions()).toEqual({ forceShowUpgradeFamilies: [], glassTower: false });
+    expect(loadDebugOptions()).toEqual({ forceShowUpgradeFamilies: [], glassTower: false, infiniteReplay: false });
   });
 
   it("persists force-show families and filters invalid stored values", () => {
-    saveDebugOptions({ forceShowUpgradeFamilies: ["roadrunner", "wildHornets"], glassTower: false });
+    saveDebugOptions({
+      forceShowUpgradeFamilies: ["roadrunner", "wildHornets"],
+      glassTower: false,
+      infiniteReplay: true,
+    });
     expect(loadDebugOptions().forceShowUpgradeFamilies).toEqual(["roadrunner", "wildHornets"]);
+    expect(loadDebugOptions().infiniteReplay).toBe(true);
 
     localStorage.setItem(
       "dubai-missile-command.debug-options.v1",
@@ -35,12 +41,27 @@ describe("debug options", () => {
   });
 
   it("toggles a family without duplicating it", () => {
-    const enabled = setForceShowUpgradeFamily({ forceShowUpgradeFamilies: [], glassTower: false }, "roadrunner", true);
+    const enabled = setForceShowUpgradeFamily(
+      { forceShowUpgradeFamilies: [], glassTower: false, infiniteReplay: false },
+      "roadrunner",
+      true,
+    );
     const enabledAgain = setForceShowUpgradeFamily(enabled, "roadrunner", true);
     const disabled = setForceShowUpgradeFamily(enabledAgain, "roadrunner", false);
 
     expect(enabledAgain.forceShowUpgradeFamilies).toEqual(["roadrunner"]);
     expect(disabled.forceShowUpgradeFamilies).toEqual([]);
+  });
+
+  it("toggles infinite replay without changing other debug options", () => {
+    const options = setForceShowUpgradeFamily(
+      { forceShowUpgradeFamilies: [], glassTower: true, infiniteReplay: false },
+      "roadrunner",
+      true,
+    );
+    const enabled = setInfiniteReplay(options, true);
+
+    expect(enabled).toEqual({ forceShowUpgradeFamilies: ["roadrunner"], glassTower: true, infiniteReplay: true });
   });
 
   it("marks Burj Repair as not draftable in the title debug table data", () => {

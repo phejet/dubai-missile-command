@@ -136,7 +136,8 @@ describe("run recap death clip", () => {
 
     const canvas = container.querySelector(".run-recap__death-canvas") as HTMLCanvasElement;
     expect(canvas.dataset.clipStatus).toBe("playing");
-    expect(container.querySelector(".run-recap__death-status")).toHaveProperty("hidden", true);
+    expect(container.querySelector(".run-recap__death-status")?.textContent).toBe("Replay 1");
+    expect(container.querySelector(".run-recap__death-status")).toHaveProperty("hidden", false);
     expect(mocks.renderGameplay).toHaveBeenCalled();
 
     cleanup();
@@ -181,12 +182,12 @@ describe("run recap death clip", () => {
     cleanup();
   });
 
-  it("holds the completed frame instead of automatically seeking again", async () => {
+  it("can hold the completed frame when automatic looping is disabled", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const replay: ReplayData = { version: 6, seed: 7, actions: [], finalTick: 2, isHuman: true };
 
-    const cleanup = mountRunRecapDeathClip(container, replay);
+    const cleanup = mountRunRecapDeathClip(container, replay, { autoLoop: false });
     await flushTasks();
 
     runNextRaf(16);
@@ -222,6 +223,28 @@ describe("run recap death clip", () => {
 
     expect(canvas.dataset.clipStatus).toBe("seeking");
     expect(parentClick).not.toHaveBeenCalled();
+
+    cleanup();
+  });
+
+  it("automatically starts the next numbered replay on the same renderer", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const replay: ReplayData = { version: 6, seed: 7, actions: [], finalTick: 2, isHuman: true };
+
+    const cleanup = mountRunRecapDeathClip(container, replay);
+    await flushTasks();
+
+    for (const time of [16, 60, 110, 160, 190, 270]) {
+      runNextRaf(time);
+      await flushTasks();
+    }
+    await flushTasks();
+
+    const canvas = container.querySelector(".run-recap__death-canvas") as HTMLCanvasElement;
+    expect(canvas.dataset.clipStatus).toBe("playing");
+    expect(container.querySelector(".run-recap__death-status")?.textContent).toBe("Replay 2");
+    expect(mocks.pixiOptions).toHaveLength(1);
 
     cleanup();
   });

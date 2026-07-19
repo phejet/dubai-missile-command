@@ -6,6 +6,7 @@ const STORAGE_KEY = "dubai-missile-command.debug-options.v1";
 export interface DebugOptions {
   forceShowUpgradeFamilies: UpgradeKey[];
   glassTower: boolean;
+  infiniteReplay: boolean;
 }
 
 export interface DebugUpgradeFamilyOption {
@@ -16,7 +17,7 @@ export interface DebugUpgradeFamilyOption {
 }
 
 export function createDefaultDebugOptions(): DebugOptions {
-  return { forceShowUpgradeFamilies: [], glassTower: false };
+  return { forceShowUpgradeFamilies: [], glassTower: false, infiniteReplay: false };
 }
 
 export function getDebugUpgradeFamilyOptions(): DebugUpgradeFamilyOption[] {
@@ -55,6 +56,7 @@ export function loadDebugOptions(): DebugOptions {
     return {
       forceShowUpgradeFamilies: normalizeForceShowFamilies(parsed?.forceShowUpgradeFamilies),
       glassTower: parsed?.glassTower === true,
+      infiniteReplay: parsed?.infiniteReplay === true,
     };
   } catch {
     return createDefaultDebugOptions();
@@ -69,6 +71,7 @@ export function saveDebugOptions(options: DebugOptions): void {
       JSON.stringify({
         forceShowUpgradeFamilies: normalizeForceShowFamilies(options.forceShowUpgradeFamilies),
         glassTower: options.glassTower === true,
+        infiniteReplay: options.infiniteReplay === true,
       }),
     );
   } catch {
@@ -84,4 +87,8 @@ export function setForceShowUpgradeFamily(options: DebugOptions, family: Upgrade
 
 export function setGlassTower(options: DebugOptions, enabled: boolean): DebugOptions {
   return { ...options, glassTower: enabled };
+}
+
+export function setInfiniteReplay(options: DebugOptions, enabled: boolean): DebugOptions {
+  return { ...options, infiniteReplay: enabled };
 }

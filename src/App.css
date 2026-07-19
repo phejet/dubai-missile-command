@@ -798,6 +798,57 @@
   pointer-events: none;
 }
 
+.replay-player {
+  position: absolute;
+  bottom: max(2.5%, calc(env(safe-area-inset-bottom) + 8px));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px;
+  border: 1px solid rgba(109, 217, 255, 0.45);
+  border-radius: 14px;
+  background: rgba(4, 10, 18, 0.78);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.34);
+  pointer-events: auto;
+  white-space: nowrap;
+  z-index: 60;
+}
+
+.replay-player[hidden] {
+  display: none;
+}
+
+.replay-player__button {
+  width: 34px;
+  height: 30px;
+  border: 1px solid rgba(109, 217, 255, 0.26);
+  border-radius: 8px;
+  background: rgba(15, 35, 52, 0.9);
+  color: #effcff;
+  font:
+    700 12px/1 "Courier New",
+    monospace;
+  cursor: pointer;
+}
+
+.replay-player__button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.replay-player__counter {
+  min-width: 112px;
+  padding: 0 6px;
+  color: #effcff;
+  font-size: clamp(0.62rem, 2.25cqw, 1rem);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
 .title-overlay {
   --title-overlay-hud: #9affdd;
   --title-overlay-hud-core: #effff8;
