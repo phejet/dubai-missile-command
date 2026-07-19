@@ -735,6 +735,7 @@ export class Game {
       uiShowGameOver(this.finalScore, this.finalWave, this.finalStats);
       if (!this.progressionOpen && !this.runRecapOpen) this.mountGameOverDeathClip();
     }
+    this.syncHud(true);
     this.syncTransientOverlays();
     this.onScreenChange?.(s);
   }
@@ -1932,7 +1933,7 @@ export class Game {
     const now = performance.now();
     if (!force && now - this.hudRefreshTime < HUD_REFRESH_MS) return;
     this.hudRefreshTime = now;
-    updateHud(buildHudSnapshot(this.gameRef.current));
+    updateHud(buildHudSnapshot(this.screen === "playing" ? this.gameRef.current : null));
   }
 
   private syncTransientOverlays(): void {

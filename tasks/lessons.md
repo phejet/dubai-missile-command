@@ -1,5 +1,9 @@
 # Lessons
 
+## 2026-07-19 — Replay exit must clear gameplay chrome
+
+- A replay Stop path is not complete merely because the runner and transport are cleared. Returning through recap and then title must reset every state-derived gameplay overlay at the screen boundary; otherwise the last replay frame can leave active-upgrade banners haunting the title screen.
+
 ## 2026-07-19 — Replay player polish
 
 - Do not show `Replay 1` in the full replay transport when one-shot playback is the normal case. Keep iteration metadata available to diagnostics/tests, and reserve visible repetition counters for surfaces that actually loop by default, such as the death clip.
@@ -164,6 +168,10 @@
 - Do not rotate compact timeline text vertically unless there is a strong readability reason. Dense recap labels should scan horizontally first; clever rotated typography is usually just friction wearing eyeliner.
 - When comparing recap concepts, put tabs at the after-action screen level, not inside one subsection. If the question is screen architecture, subsection tabs answer the wrong question with great confidence.
 
+## 2026-07-19
+
+- A connected device is not authorization to treat its current foreground app or process state as part of an investigation. Unless the user explicitly asks for a live-device experiment and confirms the target app/state, restrict conclusions to already captured artifacts and controlled local tests.
+
 ## Tooling: parallel Bash + non-zero exit = cancel cascade
 
 - A Bash tool call exiting non-zero is treated as an ERRORED call.
@@ -180,3 +188,9 @@
 - grep exits 1 on no-match (normal!). Use grep -q, append || true, or run solo.
 - zsh nomatch: unquoted globs like --include=_.ts are fatal before the command runs. Quote them: --include='_.ts'.
 - The "Cancelled" lines echo a TRUNCATED COMMAND preview, not truncated stdout. Do not mistake them for garbled output.
+
+## 2026-07-20 — Do not substitute desktop timing for an iPhone question
+
+- When the user asks how a runtime behavior works or performs specifically on iPhone, do not run a local browser benchmark as though it can answer the device question.
+- Use existing iPhone evidence for established facts. State device timing as unknown unless it was actually measured on-device.
+- Offer new device instrumentation as a separate next step only when the user wants it, especially after they have said the app is no longer open on the connected phone.

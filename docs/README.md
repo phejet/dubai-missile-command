@@ -27,6 +27,7 @@ This folder holds repo-specific notes for future maintenance, not player-facing 
 - [`performance-notes.md`](./performance-notes.md) — known perf cliffs and constraints for future optimization.
 - [`death-clip-webcontent-kill-handover.md`](./death-clip-webcontent-kill-handover.md) — proven root cause of the iPhone death-clip "kick to title" bug (WebContent memory kill), diagnostics-log + jetsam evidence, and the open ~2GB memory-leak hunt.
 - [`webcontent-leak-instrumented-findings-2026-07-12.md`](./webcontent-leak-instrumented-findings-2026-07-12.md) — quantified kill pattern (wave depth vs kill point), native memory probe design, and the instrumented run isolating two leak rates (~50 MB/wave in play, ~15 MB/s during clip playback).
+- [`webcontent-memory-limit-proof-2026-07-19.md`](./webcontent-memory-limit-proof-2026-07-19.md) — direct iOS kernel proof that the infinite death-window run hit WebContent's 2,048 MB hard limit, cross-log timing, measured residual growth, and the next isolation experiments.
 - [`overlay-state-machine-proposal.md`](./overlay-state-machine-proposal.md) — proposed replacement for controller overlay boolean state.
 
 Repo-root files should be maintained entrypoints, project config, or committed fixtures with active consumers; one-off generated analysis output belongs under a named artifacts folder or outside the repo.

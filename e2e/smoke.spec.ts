@@ -251,6 +251,13 @@ test.describe("Smoke tests", () => {
       timeout: 10000,
     });
     await expect(page.locator("#replay-player-status")).not.toContainText("Replay");
+    await page.evaluate(() => {
+      const game = window.__gameRef!.current!;
+      game.upgrades.flare = 2;
+      game.flareReadyThisWave = true;
+    });
+    await expect(page.locator("#active-button")).toBeVisible();
+    await expect(page.locator("#active-label")).toHaveText("Counter-Salvo");
     await page.getByRole("button", { name: /stop replay/i }).click();
     await expect(page.locator("#run-recap-panel")).toBeVisible({ timeout: 10000 });
     await expect(page.locator("#game-shell")).toHaveAttribute("data-screen", "gameover");
@@ -258,6 +265,9 @@ test.describe("Smoke tests", () => {
     await page.getByRole("button", { name: /^back$/i }).click();
     await expect(page.locator("#gameover-panel")).toBeVisible();
     await expect(page.locator("#gameover-panel .run-recap__death-canvas")).toBeVisible();
+    await page.getByRole("button", { name: /title menu/i }).click();
+    await expect(page.locator("#game-shell")).toHaveAttribute("data-screen", "title");
+    await expect(page.locator("#active-button")).toBeHidden();
   });
 
   test("releases gameplay resources while preserving the primary renderer", async ({ page }) => {

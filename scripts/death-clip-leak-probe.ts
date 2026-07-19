@@ -18,15 +18,124 @@
  *   npx tsx scripts/death-clip-leak-probe.ts [loops]   # default 5 loops
  *
  * Env: GAME_URL to point at a non-default dev server;
- *      PW_EXECUTABLE_PATH to pin the Chromium binary.
+ *      PW_EXECUTABLE_PATH to pin the browser binary;
+ *      PROBE_BROWSER=webkit to use WebKit instead of Chromium;
+ *      PROBE_RECORDED_SEED to generate a current full-run replay (default 114);
+ *      PROBE_REPLAY_FILE to use a replay with an explicit finalTick instead;
+ *      PROBE_FORCE_GC=0 to observe natural collector/allocator high-water behavior.
  */
-import { chromium } from "@playwright/test";
+import { chromium, webkit } from "@playwright/test";
 import { readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
+import { execFileSync } from "child_process";
+import { runGame } from "../src/headless/sim-runner";
+import { createReplayRunner } from "../src/replay";
+import type { ReplayData } from "../src/types";
 
 const BASE = process.env.GAME_URL ?? "http://localhost:5173/dubai-missile-command/";
 const LOOPS = parseInt(process.argv[2] ?? "5", 10);
 const REPO = resolve(import.meta.dirname, "..");
+const FORCE_GC = process.env.PROBE_FORCE_GC !== "0";
+const BROWSER_ENGINE = process.env.PROBE_BROWSER === "webkit" ? "webkit" : "chromium";
+
+interface GlStats {
+  buffers: number;
+  textures: number;
+  framebuffers: number;
+  renderbuffers: number;
+  programs: number;
+  shaders: number;
+  vaos: number;
+  queries: number;
+  bufferBytes: number;
+  textureBytes: number;
+  bufferDataCalls: number;
+  texImageCalls: number;
+  contexts: number;
+}
+
+interface AllocationStackInfo {
+  count: number;
+  bytes: number;
+  dims: Record<string, number>;
+}
+
+type AllocationStacks = Record<string, AllocationStackInfo>;
+
+interface ProbePixiRenderer {
+  constructor: { name: string };
+  type?: number | string;
+  gl?: unknown;
+  context?: { gl?: unknown };
+  gpu?: { device?: unknown };
+}
+
+interface ProbeWindow extends Window {
+  __probeCleanup?: () => void;
+  __glStats: () => GlStats;
+  __liveTextures: () => AllocationStacks;
+  __liveCanvases: () => AllocationStacks;
+  __pixiApp?: { renderer?: ProbePixiRenderer };
+}
+
+interface BrowserProcessRow {
+  pid: number;
+  rssKB: number;
+  command: string;
+}
+
+interface BrowserProcessMemory {
+  rssMB: number;
+  processes: BrowserProcessRow[];
+}
+
+interface ProbeResult {
+  label: string;
+  heapUsedMB: number;
+  heapTotalMB: number;
+  nodes: number;
+  listeners: number;
+  documents: number;
+  renderer: {
+    clipStatus: string | null;
+    clipTick: string | null;
+    pixiContext: string | null;
+    pixiGameplayStatic: string | null;
+    rendererName: string | null;
+    rendererType: number | string | null;
+    hasGl: boolean;
+    hasGpuDevice: boolean;
+  };
+  osMemory: BrowserProcessMemory;
+  liveTextures: AllocationStacks;
+  liveCanvases: AllocationStacks;
+}
+
+type FullProbeResult = ProbeResult & GlStats;
+
+function browserProcessMemory(): BrowserProcessMemory {
+  try {
+    const rows = execFileSync("/bin/ps", ["-axo", "pid=,rss=,command="], { encoding: "utf8" })
+      .split("\n")
+      .filter((line) =>
+        BROWSER_ENGINE === "webkit"
+          ? line.includes("ms-playwright/webkit-")
+          : line.includes("ms-playwright/chromium-") || line.includes("chromium_headless_shell-"),
+      )
+      .map((line) => {
+        const match = line.trim().match(/^(\d+)\s+(\d+)\s+(.+)$/);
+        if (!match) return null;
+        return { pid: Number(match[1]), rssKB: Number(match[2]), command: match[3] };
+      })
+      .filter((row): row is BrowserProcessRow => row !== null);
+    return {
+      rssMB: +(rows.reduce((sum, row) => sum + row.rssKB, 0) / 1024).toFixed(1),
+      processes: rows,
+    };
+  } catch {
+    return { rssMB: 0, processes: [] };
+  }
+}
 
 const GL_WRAP = `
 (() => {
@@ -212,11 +321,46 @@ const GL_WRAP = `
 `;
 
 async function main() {
-  const replay = JSON.parse(readFileSync(resolve(REPO, "public/replays/perf-wave4-upgrades.json"), "utf-8"));
+  const replayFile = process.env.PROBE_REPLAY_FILE;
+  const replay: ReplayData = replayFile
+    ? JSON.parse(readFileSync(resolve(REPO, replayFile), "utf-8"))
+    : (() => {
+        const seed = parseInt(process.env.PROBE_RECORDED_SEED ?? "114", 10);
+        const result = runGame(null, { seed, record: true, draftMode: true });
+        if (!result.version || !result.actions || !result.initialState) {
+          throw new Error("Recorded probe run did not return complete replay data");
+        }
+        const generated: ReplayData = {
+          version: result.version,
+          seed,
+          actions: result.actions,
+          initialState: result.initialState,
+          draftMode: true,
+        };
+        // Use the replay runner's own terminal tick. The headless bot's runtime
+        // tick is not a safe death-window boundary if replay reconstruction
+        // diverges, because the clip would then begin after game over and finish
+        // immediately without rendering 300 frames.
+        const runner = createReplayRunner(generated);
+        runner.init();
+        for (let guard = 0; guard < 100_000 && !runner.isFinished(); guard++) {
+          if (runner.isBonusPaused()) runner.resumeFromBonusScreen();
+          if (runner.isShopPaused()) runner.resumeFromShop();
+          runner.step();
+        }
+        const finalTick = runner.getTick();
+        runner.cleanup();
+        return { ...generated, finalTick };
+      })();
 
-  const browser = await chromium.launch({
+  console.log(`replay seed=${replay.seed} finalTick=${replay.finalTick ?? "derived"} actions=${replay.actions.length}`);
+
+  const browserType = BROWSER_ENGINE === "webkit" ? webkit : chromium;
+  const browser = await browserType.launch({
     ...(process.env.PW_EXECUTABLE_PATH ? { executablePath: process.env.PW_EXECUTABLE_PATH } : {}),
-    args: ["--enable-precise-memory-info", "--js-flags=--expose-gc"],
+    ...(BROWSER_ENGINE === "chromium"
+      ? { args: ["--enable-precise-memory-info", "--enable-unsafe-swiftshader", "--js-flags=--expose-gc"] }
+      : {}),
   });
   const page = await browser.newPage({ viewport: { width: 500, height: 900 } });
   await page.addInitScript(GL_WRAP);
@@ -226,10 +370,19 @@ async function main() {
   });
   page.on("pageerror", (err) => console.log("[pageerror]", String(err).slice(0, 300)));
 
-  const cdp = await page.context().newCDPSession(page);
-  await cdp.send("Performance.enable");
+  const cdp = BROWSER_ENGINE === "chromium" ? await page.context().newCDPSession(page) : null;
+  await cdp?.send("Performance.enable");
 
   async function metrics() {
+    if (!cdp) {
+      return {
+        heapUsedMB: 0,
+        heapTotalMB: 0,
+        nodes: await page.locator("*").count(),
+        listeners: 0,
+        documents: 1,
+      };
+    }
     const { metrics } = await cdp.send("Performance.getMetrics");
     const get = (n: string) => metrics.find((m) => m.name === n)?.value ?? 0;
     return {
@@ -244,38 +397,88 @@ async function main() {
   await page.goto(BASE, { waitUntil: "load" });
   await page.waitForFunction(() => !!window.__gameRef, undefined, { timeout: 30000 });
 
-  // Mount the death clip directly, exactly as game.ts does at gameover.
+  // Mount the death clip with the same nearby replay anchor that game.ts passes
+  // at game over. Starting a deep replay at tick 0 can hit the clip's 1.5 s seek
+  // timeout and sample unrelated static-fallback frames instead of a 300-tick
+  // playback loop.
   const modulePath = `${new URL(BASE).pathname}src/run-recap-death-clip.ts`;
   await page.evaluate(
     async ({ replayData, path }) => {
       const mod = await import(path);
+      const replayMod = await import(path.replace("run-recap-death-clip.ts", "replay.ts"));
+      const anchorMod = await import(path.replace("run-recap-death-clip.ts", "replay-anchor.ts"));
+      const finalTick = replayData.finalTick;
+      if (typeof finalTick !== "number") throw new Error("Probe replay requires an explicit finalTick");
+      const startTick = Math.max(0, finalTick - 300);
+      const anchorRunner = replayMod.createReplayRunner(replayData);
+      anchorRunner.init();
+      for (let guard = 0; guard < 100_000 && anchorRunner.getTick() < startTick; guard++) {
+        if (anchorRunner.isBonusPaused()) anchorRunner.resumeFromBonusScreen();
+        if (anchorRunner.isShopPaused()) anchorRunner.resumeFromShop();
+        if (anchorRunner.isFinished()) break;
+        anchorRunner.step();
+      }
+      if (anchorRunner.getTick() !== startTick || !anchorRunner.getState()) {
+        const reached = anchorRunner.getTick();
+        anchorRunner.cleanup();
+        throw new Error(`Probe replay ended at ${reached} before death-window start ${startTick}`);
+      }
+      const anchor = anchorMod.createReplayStateAnchor(anchorRunner.getState(), "leakProbeStart");
+      anchorRunner.cleanup();
       const host = document.createElement("div");
       host.id = "leak-probe-host";
       host.style.cssText = "position:fixed;top:0;left:0;width:450px;height:800px;z-index:9999;background:#000";
       document.body.appendChild(host);
-      (window as any).__probeCleanup = mod.mountRunRecapDeathClip(host, replayData, { anchor: null });
+      // The product clip now auto-loops by default. Keep this diagnostic in
+      // explicit/manual-loop mode so each completed loop has a stable sampling
+      // boundary before the next runner is allocated.
+      (window as unknown as ProbeWindow).__probeCleanup = mod.mountRunRecapDeathClip(host, replayData, {
+        anchor,
+        autoLoop: false,
+      });
     },
     { replayData: replay, path: modulePath },
   );
 
   const canvas = page.locator("#leak-probe-host canvas");
-  const results: any[] = [];
+  const results: FullProbeResult[] = [];
 
   async function sample(label: string) {
-    // Force GC via CDP for a clean heap reading
-    await cdp.send("HeapProfiler.enable").catch(() => {});
-    await cdp.send("HeapProfiler.collectGarbage").catch(() => {});
+    // Forced-GC samples prove whether allocations remain reachable. Natural-GC
+    // mode tests allocator/collector high-water growth that a forced collection
+    // would conceal.
+    if (FORCE_GC && cdp) {
+      await cdp.send("HeapProfiler.enable").catch(() => {});
+      await cdp.send("HeapProfiler.collectGarbage").catch(() => {});
+    }
     await page.waitForTimeout(300);
     const m = await metrics();
-    const gl = await page.evaluate(() => (window as any).__glStats());
-    const liveTextures = await page.evaluate(() => (window as any).__liveTextures());
-    const liveCanvases = await page.evaluate(() => (window as any).__liveCanvases());
-    const row = { label, ...m, ...gl, liveTextures, liveCanvases };
+    const gl = await page.evaluate(() => (window as unknown as ProbeWindow).__glStats());
+    const liveTextures = await page.evaluate(() => (window as unknown as ProbeWindow).__liveTextures());
+    const liveCanvases = await page.evaluate(() => (window as unknown as ProbeWindow).__liveCanvases());
+    const renderer = await page.evaluate(() => {
+      const canvas = document.querySelector<HTMLCanvasElement>("#leak-probe-host canvas");
+      const pixiRenderer = (window as unknown as ProbeWindow).__pixiApp?.renderer;
+      return {
+        clipStatus: canvas?.dataset.clipStatus ?? null,
+        clipTick: canvas?.dataset.clipTick ?? null,
+        pixiContext: canvas?.dataset.pixiContext ?? null,
+        pixiGameplayStatic: canvas?.dataset.pixiGameplayStatic ?? null,
+        rendererName: pixiRenderer?.constructor?.name ?? null,
+        rendererType: pixiRenderer?.type ?? null,
+        hasGl: !!pixiRenderer?.gl || !!pixiRenderer?.context?.gl,
+        hasGpuDevice: !!pixiRenderer?.gpu?.device,
+      };
+    });
+    const osMemory = browserProcessMemory();
+    const row = { label, ...m, ...gl, renderer, osMemory, liveTextures, liveCanvases };
     results.push(row);
     console.log(
       `${label.padEnd(16)} heap=${m.heapUsedMB}MB nodes=${m.nodes} listeners=${m.listeners} ` +
         `glBuf=${gl.buffers}(${(gl.bufferBytes / 1048576).toFixed(1)}MB) glTex=${gl.textures}(${(gl.textureBytes / 1048576).toFixed(1)}MB) ` +
-        `fbo=${gl.framebuffers} prog=${gl.programs} shaders=${gl.shaders} vao=${gl.vaos}`,
+        `fbo=${gl.framebuffers} prog=${gl.programs} shaders=${gl.shaders} vao=${gl.vaos} ` +
+        `rss=${osMemory.rssMB}MB renderer=${renderer.rendererName}/${renderer.rendererType} ` +
+        `status=${renderer.clipStatus}@${renderer.clipTick}`,
     );
   }
 
@@ -299,7 +502,7 @@ async function main() {
   }
 
   // Cleanup path check: does destroy() release everything?
-  await page.evaluate(() => (window as any).__probeCleanup());
+  await page.evaluate(() => (window as unknown as ProbeWindow).__probeCleanup?.());
   await page.waitForTimeout(500);
   await sample("after-cleanup");
 
@@ -311,7 +514,7 @@ async function main() {
   const first = results.find((r) => r.label === "loop-1-done")?.liveTextures ?? {};
   const last = [...results].reverse().find((r) => r.label.startsWith("loop-"))?.liveTextures ?? {};
   console.log("\n=== texture stacks that grew between loop 1 and last loop ===");
-  for (const [stack, info] of Object.entries<any>(last)) {
+  for (const [stack, info] of Object.entries(last)) {
     const before = first[stack] ?? { count: 0, bytes: 0 };
     if (info.count > before.count) {
       console.log(
@@ -323,7 +526,7 @@ async function main() {
   const firstC = results.find((r) => r.label === "loop-1-done")?.liveCanvases ?? {};
   const lastC = [...results].reverse().find((r) => r.label.startsWith("loop-"))?.liveCanvases ?? {};
   console.log("\n=== live 2d-canvas stacks that grew between loop 1 and last loop ===");
-  for (const [stack, info] of Object.entries<any>(lastC)) {
+  for (const [stack, info] of Object.entries(lastC)) {
     const before = firstC[stack] ?? { count: 0, bytes: 0 };
     if (info.count > before.count) {
       console.log(
