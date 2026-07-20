@@ -1,5 +1,9 @@
 # Lessons
 
+## 2026-07-21 — Git push authentication follows the remote transport
+
+- For a commit-and-push request against an SSH Git remote, verify SSH access with Git and push directly. Do not block on `gh auth`; GitHub CLI authentication is only relevant when the requested workflow needs GitHub API operations such as creating a PR.
+
 ## 2026-07-19 — Replay exit must clear gameplay chrome
 
 - A replay Stop path is not complete merely because the runner and transport are cleared. Returning through recap and then title must reset every state-derived gameplay overlay at the screen boundary; otherwise the last replay frame can leave active-upgrade banners haunting the title screen.

@@ -1,6 +1,7 @@
 import { Texture } from "pixi.js";
 import {
   getCanvasRenderResources,
+  getStarsContentKey,
   type BuildingAssets,
   type BurjAssets,
   type CanvasRenderResources,
@@ -103,7 +104,9 @@ export interface PixiTextureResources {
   getDefenseSiteAssets(): PixiDefenseSiteAssets;
   getPlaneAssets(): PixiPlaneAssets;
   getEffectSpriteAssets(): PixiEffectSpriteAssets;
-  reupload(): void;
+  releaseUploadedCanvasBacking(isUploaded: (texture: Texture) => boolean): number;
+  invalidateForContextLoss(): void;
+  getCanvasBackingStats(): ReturnType<CanvasRenderResources["getPrebakedCanvasBackingStats"]>;
 }
 
 function mapRecord<T extends Record<string, unknown>, Mapped>(
@@ -124,10 +127,14 @@ function cloneTuple<T, Mapped>(
 
 class DefaultPixiTextureResources implements PixiTextureResources {
   private textureCache = new WeakMap<HTMLCanvasElement, Texture>();
+  private readonly trackedCanvasTextures = new Map<HTMLCanvasElement, Texture>();
+  private readonly textures = new Set<Texture>();
   private titleSkyAssets: PixiSkyAssets | null = null;
-  private gameplaySkyCache = new Map<number, { source: SkyAssets; assets: PixiSkyAssets }>();
-  private gameplayBuildingAssets: PixiBuildingAssets | null = null;
-  private gameplayBuildingSource: BuildingAssets | null = null;
+  private gameplaySkyCache = new Map<
+    number,
+    { starsKey: string; starsRef: Star[]; source: SkyAssets; assets: PixiSkyAssets }
+  >();
+  private gameplayBuildingAssets = new Map<number, { source: BuildingAssets; assets: PixiBuildingAssets }>();
   private titleBuildingAssets = new Map<number, { source: BuildingAssets; assets: PixiBuildingAssets }>();
   private burjAssets = new Map<string, { source: BurjAssets; assets: PixiBurjAssets }>();
   private launcherAssets = new Map<string, { source: LauncherAssets; assets: PixiLauncherAssets }>();
@@ -147,17 +154,22 @@ class DefaultPixiTextureResources implements PixiTextureResources {
   constructor(private readonly canvasResources: CanvasRenderResources) {}
 
   getGameplaySkyAssets(stars: Star[], groundY: number): PixiSkyAssets {
-    const source = this.canvasResources.getGameplaySkyAssets(stars, groundY);
     const cached = this.gameplaySkyCache.get(groundY);
-    if (cached?.source === source) return cached.assets;
+    if (cached?.starsRef === stars) return cached.assets;
+    const starsKey = getStarsContentKey(stars);
+    if (cached?.starsKey === starsKey) {
+      cached.starsRef = stars;
+      return cached.assets;
+    }
+    const source = this.canvasResources.getGameplaySkyAssets(stars, groundY);
     // A replaced sky set means new full-screen frame canvases. Destroy the old
     // textures (and their sources) or the renderer retains every superseded
     // 900x1600 frame — the WebContent memory leak behind the death-clip kills.
     if (cached) {
-      for (const frame of cached.assets.frames) frame.destroy(true);
+      for (const frame of cached.assets.frames) this.destroyTexture(frame);
     }
     const assets = this.mapSkyAssets(source, `gameplay-sky:${groundY}`);
-    this.gameplaySkyCache.set(groundY, { source, assets });
+    this.gameplaySkyCache.set(groundY, { starsKey, starsRef: stars, source, assets });
     return assets;
   }
 
@@ -169,18 +181,19 @@ class DefaultPixiTextureResources implements PixiTextureResources {
   }
 
   getGameplayBuildingAssets(baseY?: number): PixiBuildingAssets {
+    const key = baseY ?? 0;
+    const cached = this.gameplayBuildingAssets.get(key);
+    if (cached) return cached.assets;
     const source = this.canvasResources.getGameplayBuildingAssets(baseY);
-    if (!this.gameplayBuildingAssets || this.gameplayBuildingSource !== source) {
-      this.gameplayBuildingAssets = this.mapBuildingAssets(source, "gameplay-buildings");
-      this.gameplayBuildingSource = source;
-    }
-    return this.gameplayBuildingAssets;
+    const assets = this.mapBuildingAssets(source, `gameplay-buildings:${key}`);
+    this.gameplayBuildingAssets.set(key, { source, assets });
+    return assets;
   }
 
   getTitleBuildingAssets(baseY: number): PixiBuildingAssets {
-    const source = this.canvasResources.getTitleBuildingAssets(baseY);
     const cached = this.titleBuildingAssets.get(baseY);
-    if (cached?.source === source) return cached.assets;
+    if (cached) return cached.assets;
+    const source = this.canvasResources.getTitleBuildingAssets(baseY);
     const assets = this.mapBuildingAssets(source, `title-buildings:${baseY}`);
     this.titleBuildingAssets.set(baseY, { source, assets });
     return assets;
@@ -188,9 +201,9 @@ class DefaultPixiTextureResources implements PixiTextureResources {
 
   getBurjAssets(groundY: number, artScale: number): PixiBurjAssets {
     const key = `${groundY}:${artScale}`;
-    const source = this.canvasResources.getBurjAssets(groundY, artScale);
     const cached = this.burjAssets.get(key);
-    if (cached?.source === source) return cached.assets;
+    if (cached) return cached.assets;
+    const source = this.canvasResources.getBurjAssets(groundY, artScale);
     const assets = this.mapBurjAssets(source, `burj:${key}`);
     this.burjAssets.set(key, { source, assets });
     return assets;
@@ -198,9 +211,9 @@ class DefaultPixiTextureResources implements PixiTextureResources {
 
   getLauncherAssets(scale: number, damaged: boolean): PixiLauncherAssets {
     const key = `${scale.toFixed(3)}:${damaged ? 1 : 0}`;
-    const source = this.canvasResources.getLauncherAssets(scale, damaged);
     const cached = this.launcherAssets.get(key);
-    if (cached?.source === source) return cached.assets;
+    if (cached) return cached.assets;
+    const source = this.canvasResources.getLauncherAssets(scale, damaged);
     const assets = this.mapLauncherAssets(source, `launcher:${key}`);
     this.launcherAssets.set(key, { source, assets });
     return assets;
@@ -208,9 +221,9 @@ class DefaultPixiTextureResources implements PixiTextureResources {
 
   getThreatSpriteAssets(scale: number): PixiThreatSpriteAssets {
     const key = scale.toFixed(3);
-    const source = this.canvasResources.getThreatSpriteAssets(scale);
     const cached = this.threatSpriteAssets.get(key);
-    if (cached?.source === source) return cached.assets;
+    if (cached) return cached.assets;
+    const source = this.canvasResources.getThreatSpriteAssets(scale);
     const assets = mapRecord(source, (asset, kind) => this.mapProjectileAsset(asset, `threat:${String(kind)}:${key}`));
     this.threatSpriteAssets.set(key, { source, assets });
     return assets;
@@ -218,9 +231,9 @@ class DefaultPixiTextureResources implements PixiTextureResources {
 
   getInterceptorSpriteAssets(scale: number): PixiInterceptorSpriteAssets {
     const key = scale.toFixed(3);
-    const source = this.canvasResources.getInterceptorSpriteAssets(scale);
     const cached = this.interceptorSpriteAssets.get(key);
-    if (cached?.source === source) return cached.assets;
+    if (cached) return cached.assets;
+    const source = this.canvasResources.getInterceptorSpriteAssets(scale);
     const assets = mapRecord(source, (asset, kind) =>
       this.mapProjectileAsset(asset, `interceptor:${String(kind)}:${key}`),
     );
@@ -230,9 +243,9 @@ class DefaultPixiTextureResources implements PixiTextureResources {
 
   getUpgradeProjectileSpriteAssets(scale: number): PixiUpgradeProjectileSpriteAssets {
     const key = scale.toFixed(3);
-    const source = this.canvasResources.getUpgradeProjectileSpriteAssets(scale);
     const cached = this.upgradeProjectileSpriteAssets.get(key);
-    if (cached?.source === source) return cached.assets;
+    if (cached) return cached.assets;
+    const source = this.canvasResources.getUpgradeProjectileSpriteAssets(scale);
     const assets = mapRecord(source, (asset, kind) =>
       this.mapProjectileAsset(asset, `upgrade-projectile:${String(kind)}:${key}`),
     );
@@ -241,16 +254,16 @@ class DefaultPixiTextureResources implements PixiTextureResources {
   }
 
   getDefenseSiteAssets(): PixiDefenseSiteAssets {
+    if (this.defenseSiteAssets) return this.defenseSiteAssets.assets;
     const source = this.canvasResources.getDefenseSiteAssets();
-    if (this.defenseSiteAssets?.source === source) return this.defenseSiteAssets.assets;
     const assets = this.mapDefenseSiteAssets(source);
     this.defenseSiteAssets = { source, assets };
     return assets;
   }
 
   getPlaneAssets(): PixiPlaneAssets {
+    if (this.planeAssets) return this.planeAssets.assets;
     const source = this.canvasResources.getPlaneAssets();
-    if (this.planeAssets?.source === source) return this.planeAssets.assets;
     const assets = {
       f15AirframeRight: this.mapStaticSpriteAsset(source.f15AirframeRight, "plane:f15AirframeRight"),
       f15AirframeLeft: this.mapStaticSpriteAsset(source.f15AirframeLeft, "plane:f15AirframeLeft"),
@@ -260,19 +273,35 @@ class DefaultPixiTextureResources implements PixiTextureResources {
   }
 
   getEffectSpriteAssets(): PixiEffectSpriteAssets {
+    if (this.effectSpriteAssets) return this.effectSpriteAssets.assets;
     const source = this.canvasResources.getEffectSpriteAssets();
-    if (this.effectSpriteAssets?.source === source) return this.effectSpriteAssets.assets;
     const assets = this.mapEffectSpriteAssets(source);
     this.effectSpriteAssets = { source, assets };
     return assets;
   }
 
-  reupload(): void {
+  releaseUploadedCanvasBacking(isUploaded: (texture: Texture) => boolean): number {
+    const released: HTMLCanvasElement[] = [];
+    for (const [canvas, texture] of this.trackedCanvasTextures) {
+      if (!isUploaded(texture)) continue;
+      this.trackedCanvasTextures.delete(canvas);
+      released.push(canvas);
+    }
+    if (released.length > 0) this.canvasResources.releasePrebakedCanvasBacking(released);
+    return released.length;
+  }
+
+  getCanvasBackingStats(): ReturnType<CanvasRenderResources["getPrebakedCanvasBackingStats"]> {
+    return this.canvasResources.getPrebakedCanvasBackingStats();
+  }
+
+  invalidateForContextLoss(): void {
+    for (const texture of [...this.textures]) this.destroyTexture(texture);
     this.textureCache = new WeakMap();
+    this.trackedCanvasTextures.clear();
     this.titleSkyAssets = null;
     this.gameplaySkyCache.clear();
-    this.gameplayBuildingAssets = null;
-    this.gameplayBuildingSource = null;
+    this.gameplayBuildingAssets.clear();
     this.titleBuildingAssets.clear();
     this.burjAssets.clear();
     this.launcherAssets.clear();
@@ -290,7 +319,18 @@ class DefaultPixiTextureResources implements PixiTextureResources {
     const texture = Texture.from({ resource: canvas, resolution }, true);
     texture.label = label;
     this.textureCache.set(canvas, texture);
+    this.trackedCanvasTextures.set(canvas, texture);
+    this.textures.add(texture);
     return texture;
+  }
+
+  private destroyTexture(texture: Texture): void {
+    this.textures.delete(texture);
+    const resource = texture.source.resource;
+    if (resource && typeof resource === "object" && "getContext" in resource) {
+      this.trackedCanvasTextures.delete(resource as HTMLCanvasElement);
+    }
+    texture.destroy(true);
   }
 
   private mapSkyAssets(source: SkyAssets, label: string): PixiSkyAssets {

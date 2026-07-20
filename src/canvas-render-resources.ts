@@ -69,6 +69,8 @@ interface CanvasRenderPreloadOptions {
 export interface CanvasRenderResources {
   preload(options?: Partial<CanvasRenderPreloadOptions>): void;
   resetForTest(): void;
+  releasePrebakedCanvasBacking(canvases: Iterable<HTMLCanvasElement>): void;
+  getPrebakedCanvasBackingStats(): PrebakedCanvasBackingStats;
   getSkyImage(): HTMLImageElement | null;
   getTitleWaterImage(): HTMLImageElement | null;
   getInterceptorHitFlashImage(): HTMLImageElement | null;
@@ -95,6 +97,38 @@ export interface CanvasRenderResources {
   getThreatSpriteCacheKeys(): string[];
   getInterceptorSpriteCacheKeys(): string[];
   getUpgradeProjectileSpriteCacheKeys(): string[];
+}
+
+export interface PrebakedCanvasBackingStats {
+  canvasCount: number;
+  logicalBytes: number;
+}
+
+function hasCanvasBacking(canvas: HTMLCanvasElement): boolean {
+  return canvas.width > 0 && canvas.height > 0;
+}
+
+function collectCanvases(value: unknown, canvases: Set<HTMLCanvasElement>, visited: Set<object>): void {
+  if (!value || typeof value !== "object" || visited.has(value)) return;
+  visited.add(value);
+  if (
+    "width" in value &&
+    "height" in value &&
+    "getContext" in value &&
+    typeof value.width === "number" &&
+    typeof value.height === "number" &&
+    typeof value.getContext === "function"
+  ) {
+    canvases.add(value as HTMLCanvasElement);
+    return;
+  }
+  for (const child of Object.values(value)) collectCanvases(child, canvases, visited);
+}
+
+function hasCompleteCanvasBacking(value: unknown): boolean {
+  const canvases = new Set<HTMLCanvasElement>();
+  collectCanvases(value, canvases, new Set());
+  return canvases.size > 0 && [...canvases].every(hasCanvasBacking);
 }
 
 function hash01(a: number, b = 0, c = 0, d = 0) {
@@ -135,7 +169,7 @@ interface GameplaySkyCacheEntry {
 // Content key so a rebuilt-but-identical stars array (fresh GameState per
 // replay loop / run with the same seed) hits the cache instead of re-baking
 // the full-screen sky frame set.
-function starsContentKey(stars: Star[]): string {
+export function getStarsContentKey(stars: Star[]): string {
   let key = "";
   for (const star of stars) {
     key += `${star.x.toFixed(2)},${star.y.toFixed(2)},${star.size.toFixed(3)},${star.twinkle.toFixed(3)};`;
@@ -143,7 +177,7 @@ function starsContentKey(stars: Star[]): string {
   return key;
 }
 
-function createCanvasRenderResources(): CanvasRenderResources {
+export function createCanvasRenderResources(): CanvasRenderResources {
   const gameplaySkyCache = new Map<number, GameplaySkyCacheEntry>();
   let titleSkyAssets: SkyAssets | null = null;
   let gameplayBuildingAssets: BuildingAssets | null = null;
@@ -184,9 +218,9 @@ function createCanvasRenderResources(): CanvasRenderResources {
   const getGameplaySkyAssets = (stars: Star[], groundY: number): SkyAssets => {
     const cached = gameplaySkyCache.get(groundY);
     // Fast path: same stars array as last time for this groundY.
-    if (cached && cached.starsRef === stars) return cached.assets;
-    const starsKey = starsContentKey(stars);
-    if (cached && cached.starsKey === starsKey) {
+    if (cached && cached.starsRef === stars && hasCompleteCanvasBacking(cached.assets)) return cached.assets;
+    const starsKey = getStarsContentKey(stars);
+    if (cached && cached.starsKey === starsKey && hasCompleteCanvasBacking(cached.assets)) {
       cached.starsRef = stars;
       return cached.assets;
     }
@@ -196,7 +230,7 @@ function createCanvasRenderResources(): CanvasRenderResources {
   };
 
   const getTitleSkyAssets = (): SkyAssets => {
-    if (!titleSkyAssets) {
+    if (!titleSkyAssets || !hasCompleteCanvasBacking(titleSkyAssets)) {
       const titleStars: Star[] = Array.from({ length: 120 }, (_, i) => ({
         x: hash01(i, 2, 7) * CANVAS_W,
         y: hash01(i, 5, 11) * CANVAS_H * 0.6,
@@ -209,7 +243,11 @@ function createCanvasRenderResources(): CanvasRenderResources {
   };
 
   const getGameplayBuildingAssets = (baseY = GAMEPLAY_SCENIC_BASE_Y): BuildingAssets => {
-    if (!gameplayBuildingAssets || gameplayBuildingBaseY !== baseY) {
+    if (
+      !gameplayBuildingAssets ||
+      gameplayBuildingBaseY !== baseY ||
+      !hasCompleteCanvasBacking(gameplayBuildingAssets)
+    ) {
       gameplayBuildingAssets = buildBuildingAssets(baseY);
       gameplayBuildingBaseY = baseY;
     }
@@ -217,7 +255,7 @@ function createCanvasRenderResources(): CanvasRenderResources {
   };
 
   const getTitleBuildingAssets = (baseY: number): BuildingAssets => {
-    if (!titleBuildingAssets || titleBuildingBaseY !== baseY) {
+    if (!titleBuildingAssets || titleBuildingBaseY !== baseY || !hasCompleteCanvasBacking(titleBuildingAssets)) {
       titleBuildingAssets = buildTitleBuildingAssets(baseY);
       titleBuildingBaseY = baseY;
     }
@@ -227,7 +265,7 @@ function createCanvasRenderResources(): CanvasRenderResources {
   const getBurjAssets = (groundY: number, artScale: number): BurjAssets => {
     const key = `${groundY}:${artScale}`;
     const cached = burjAssetsCache.get(key);
-    if (cached) return cached;
+    if (cached && hasCompleteCanvasBacking(cached)) return cached;
     const assets = buildBurjAssets(groundY, artScale);
     burjAssetsCache.set(key, assets);
     return assets;
@@ -236,7 +274,7 @@ function createCanvasRenderResources(): CanvasRenderResources {
   const getLauncherAssets = (scale: number, damaged: boolean): LauncherAssets => {
     const key = `${scale.toFixed(3)}:${damaged ? 1 : 0}`;
     const cached = launcherAssetsCache.get(key);
-    if (cached) return cached;
+    if (cached && hasCompleteCanvasBacking(cached)) return cached;
     const assets = buildLauncherAssets(scale, damaged);
     launcherAssetsCache.set(key, assets);
     return assets;
@@ -245,7 +283,7 @@ function createCanvasRenderResources(): CanvasRenderResources {
   const getThreatSpriteAssets = (scale: number): ThreatSpriteAssets => {
     const key = scale.toFixed(3);
     const cached = threatSpriteAssetsCache.get(key);
-    if (cached) return cached;
+    if (cached && hasCompleteCanvasBacking(cached)) return cached;
     const assets = buildThreatSpriteAssets(scale);
     threatSpriteAssetsCache.set(key, assets);
     return assets;
@@ -254,7 +292,7 @@ function createCanvasRenderResources(): CanvasRenderResources {
   const getInterceptorSpriteAssets = (scale: number): InterceptorSpriteAssets => {
     const key = scale.toFixed(3);
     const cached = interceptorSpriteAssetsCache.get(key);
-    if (cached) return cached;
+    if (cached && hasCompleteCanvasBacking(cached)) return cached;
     const assets = buildInterceptorSpriteAssets(scale);
     interceptorSpriteAssetsCache.set(key, assets);
     return assets;
@@ -263,25 +301,67 @@ function createCanvasRenderResources(): CanvasRenderResources {
   const getUpgradeProjectileSpriteAssets = (scale: number): UpgradeProjectileSpriteAssets => {
     const key = scale.toFixed(3);
     const cached = upgradeProjectileSpriteAssetsCache.get(key);
-    if (cached) return cached;
+    if (cached && hasCompleteCanvasBacking(cached)) return cached;
     const assets = buildUpgradeProjectileSpriteAssets(scale);
     upgradeProjectileSpriteAssetsCache.set(key, assets);
     return assets;
   };
 
   const getDefenseSiteAssets = (): DefenseSiteAssets => {
-    if (!defenseSiteAssets) defenseSiteAssets = buildDefenseSiteAssets();
+    if (!defenseSiteAssets || !hasCompleteCanvasBacking(defenseSiteAssets)) {
+      defenseSiteAssets = buildDefenseSiteAssets();
+    }
     return defenseSiteAssets;
   };
 
   const getPlaneAssets = (): PlaneAssets => {
-    if (!planeAssets) planeAssets = buildPlaneAssets();
+    if (!planeAssets || !hasCompleteCanvasBacking(planeAssets)) planeAssets = buildPlaneAssets();
     return planeAssets;
   };
 
   const getEffectSpriteAssets = (): EffectSpriteAssets => {
-    if (!effectSpriteAssets) effectSpriteAssets = buildEffectSpriteAssets();
+    if (!effectSpriteAssets || !hasCompleteCanvasBacking(effectSpriteAssets)) {
+      effectSpriteAssets = buildEffectSpriteAssets();
+    }
     return effectSpriteAssets;
+  };
+
+  const getPrebakedCanvases = (): Set<HTMLCanvasElement> => {
+    const canvases = new Set<HTMLCanvasElement>();
+    const visited = new Set<object>();
+    collectCanvases(
+      {
+        gameplaySky: [...gameplaySkyCache.values()].map((entry) => entry.assets),
+        titleSkyAssets,
+        gameplayBuildingAssets,
+        titleBuildingAssets,
+        burjAssets: [...burjAssetsCache.values()],
+        launcherAssets: [...launcherAssetsCache.values()],
+        threatSpriteAssets: [...threatSpriteAssetsCache.values()],
+        interceptorSpriteAssets: [...interceptorSpriteAssetsCache.values()],
+        upgradeProjectileSpriteAssets: [...upgradeProjectileSpriteAssetsCache.values()],
+        defenseSiteAssets,
+        planeAssets,
+        effectSpriteAssets,
+      },
+      canvases,
+      visited,
+    );
+    return canvases;
+  };
+
+  const releasePrebakedCanvasBacking = (canvases: Iterable<HTMLCanvasElement>): void => {
+    for (const canvas of canvases) {
+      canvas.width = 0;
+      canvas.height = 0;
+    }
+  };
+
+  const getPrebakedCanvasBackingStats = (): PrebakedCanvasBackingStats => {
+    const canvases = getPrebakedCanvases();
+    let logicalBytes = 0;
+    for (const canvas of canvases) logicalBytes += canvas.width * canvas.height * 4;
+    return { canvasCount: canvases.size, logicalBytes };
   };
 
   const preload = (options: Partial<CanvasRenderPreloadOptions> = {}): void => {
@@ -349,6 +429,8 @@ function createCanvasRenderResources(): CanvasRenderResources {
   return {
     preload,
     resetForTest,
+    releasePrebakedCanvasBacking,
+    getPrebakedCanvasBackingStats,
     getSkyImage: () => readCachedImage(skyImage),
     getTitleWaterImage: () => readCachedImage(titleWaterImage),
     getInterceptorHitFlashImage: () => readCachedImage(interceptorHitFlashImage),

@@ -1415,6 +1415,7 @@ export class PixiRenderer implements GameRenderer {
   private gameplaySceneGeneration = 0;
   private appDestroyed = false;
   private contextLost = false;
+  private contextLifecycleGeneration = 0;
   private initError: Error | null = null;
   private screen: PixiScreen = "title";
   private readonly renderInitialFrame: boolean;
@@ -1541,6 +1542,7 @@ export class PixiRenderer implements GameRenderer {
       gameplayOnly: this.gameplayOnly,
       initialized: this.initialized,
       contextLost: this.contextLost,
+      prebakedCanvasBacking: this.textures.getCanvasBackingStats(),
       gameplaySceneGeneration: this.gameplaySceneGeneration,
       entityNodes,
       pools: dynamic
@@ -1593,20 +1595,25 @@ export class PixiRenderer implements GameRenderer {
   private handleWebGlContextLost(event: Event): void {
     event.preventDefault();
     if (this.destroyed) return;
+    this.contextLifecycleGeneration += 1;
     this.contextLost = true;
     this.canvas.dataset.pixiContext = "lost";
+    this.textures.invalidateForContextLoss();
   }
 
   private handleWebGlContextRestored(): void {
     if (this.destroyed) return;
-    this.contextLost = false;
+    const generation = this.contextLifecycleGeneration;
     this.canvas.dataset.pixiContext = "restoring";
-    if (this.initialized && !this.initError) {
-      this.textures.reupload();
-      this.rebuildScenesAfterContextRestore();
-    }
-    this.canvas.dataset.pixiContext = "active";
-    this.renderIfReady();
+    // This listener is registered before Pixi's. Let Pixi rebuild its GL systems
+    // before we create and bind a replacement prebake generation.
+    queueMicrotask(() => {
+      if (this.destroyed || generation !== this.contextLifecycleGeneration) return;
+      this.contextLost = false;
+      if (this.initialized && !this.initError) this.rebuildScenesAfterContextRestore();
+      this.canvas.dataset.pixiContext = "active";
+      this.renderIfReady();
+    });
   }
 
   private rebuildScenesAfterContextRestore(): void {
@@ -2438,6 +2445,16 @@ export class PixiRenderer implements GameRenderer {
       );
     }
     this.app.render();
+    this.releaseUploadedCanvasBacking();
+  }
+
+  private releaseUploadedCanvasBacking(): void {
+    const textureSystem = this.app.renderer.texture as unknown as {
+      managedTextures?: ReadonlyArray<Texture["source"]>;
+    };
+    const uploadedSources = new Set(textureSystem.managedTextures ?? []);
+    if (uploadedSources.size === 0) return;
+    this.textures.releaseUploadedCanvasBacking((texture) => uploadedSources.has(texture.source));
   }
 
   private updateGameplayScene(

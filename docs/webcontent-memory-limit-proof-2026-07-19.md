@@ -694,6 +694,34 @@ Measure:
 This is the highest-leverage experiment because it targets the only application-controlled
 owner directly matching the device's JSC-extra and CG-raster categories.
 
+#### Implemented follow-up (2026-07-20)
+
+The runtime now downsizes each prebaked canvas to `0×0` only after Pixi's WebGL texture
+registry confirms that canvas's texture source is resident in the current renderer. Sources
+that have not been uploaded remain intact; the optimization therefore does not manufacture a
+GPU copy merely to discard CPU backing. Canvas-renderer fallback also retains backing because
+it has no independent GPU copy.
+
+Released source families remain valid GPU texture descriptors during normal rendering. On
+`webglcontextlost`, the renderer invalidates those descriptors; after Pixi has restored its GL
+systems, the shared art recipes rebuild fresh canvas sources, reconstruct the scenes, upload on
+the next render, and release the new backing again.
+
+Local verification:
+
+- a real Chromium WebGL render reported 59 resident prebake canvas sources and zero logical
+  backing bytes across them;
+- a forced `WEBGL_lose_context` / restore cycle rebuilt the gameplay generation, rendered a
+  nonblank frame, and again left every resident prebake source at zero logical bytes;
+- the existing two-loop death-clip probe reduced total live logical canvas backing from
+  495.7 MiB after mount to 438.1 MiB after first-use uploads, then stayed exactly flat through
+  loop 2; WebGL texture bytes likewise plateaued after loop 1.
+
+The last probe does not claim that every historical 381.6 MiB is released immediately. This
+is deliberately lazy: canvases for animation frames and sprite variants the sampled clip never
+binds remain backed until their first real GPU upload. The iPhone multi-wave/clip acceptance
+run remains the authoritative measurement of process headroom.
+
 ### 2. Separate the second renderer's bounded cost
 
 Add a pre-mount sample to the probe, then compare:

@@ -653,34 +653,40 @@ describe("PixiRenderer WebGL context resilience", () => {
     const self = {
       destroyed: false,
       contextLost: false,
+      contextLifecycleGeneration: 0,
       canvas: { dataset: {} },
+      textures: { invalidateForContextLoss: vi.fn() },
     };
 
     methods.handleWebGlContextLost.call(self, { preventDefault });
 
     expect(preventDefault).toHaveBeenCalledOnce();
     expect(self.contextLost).toBe(true);
+    expect(self.contextLifecycleGeneration).toBe(1);
+    expect(self.textures.invalidateForContextLoss).toHaveBeenCalledOnce();
     expect(self.canvas.dataset).toMatchObject({ pixiContext: "lost" });
     expect(methods.isRenderPaused.call(self)).toBe(true);
   });
 
-  it("reuploads baked textures, rebuilds scenes, and resumes after context restore", () => {
+  it("rebuilds baked textures after Pixi handles context restoration", async () => {
     const { methods } = rendererInternals();
     const self = {
       destroyed: false,
       contextLost: true,
+      contextLifecycleGeneration: 1,
       initialized: true,
       initError: null,
       canvas: { dataset: {} },
-      textures: { reupload: vi.fn() },
       rebuildScenesAfterContextRestore: vi.fn(),
       renderIfReady: vi.fn(),
     };
 
     methods.handleWebGlContextRestored.call(self);
+    expect(self.canvas.dataset).toMatchObject({ pixiContext: "restoring" });
+
+    await new Promise<void>((resolve) => queueMicrotask(resolve));
 
     expect(self.contextLost).toBe(false);
-    expect(self.textures.reupload).toHaveBeenCalledOnce();
     expect(self.rebuildScenesAfterContextRestore).toHaveBeenCalledOnce();
     expect(self.renderIfReady).toHaveBeenCalledOnce();
     expect(self.canvas.dataset).toMatchObject({ pixiContext: "active" });
@@ -707,6 +713,7 @@ describe("PixiRenderer game-over routing", () => {
       app: { render: () => (rendered = true) },
       updateTitleScene: () => undefined,
       updateGameplayScene: () => undefined,
+      releaseUploadedCanvasBacking: () => undefined,
     };
 
     methods.renderIfReady.call(self);
