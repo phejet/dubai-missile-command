@@ -1,4 +1,5 @@
 import { Texture } from "pixi.js";
+import { CANVAS_H, CANVAS_W } from "./game-logic";
 import {
   getCanvasRenderResources,
   getStarsContentKey,
@@ -108,6 +109,11 @@ export interface PixiTextureResources {
   invalidateForContextLoss(): void;
   getCanvasBackingStats(): ReturnType<CanvasRenderResources["getPrebakedCanvasBackingStats"]>;
 }
+
+// Half of a full-screen frame. The prebaked sky frames are CANVAS_W x CANVAS_H;
+// the largest sprite canvas is well under this, so the threshold cleanly keeps
+// every sprite backing resident while still releasing the memory-heavy sky frames.
+const LARGE_CANVAS_BACKING_AREA = (CANVAS_W * CANVAS_H) / 2;
 
 function mapRecord<T extends Record<string, unknown>, Mapped>(
   record: T,
@@ -284,6 +290,18 @@ class DefaultPixiTextureResources implements PixiTextureResources {
     const released: HTMLCanvasElement[] = [];
     for (const [canvas, texture] of this.trackedCanvasTextures) {
       if (!isUploaded(texture)) continue;
+      // Freeing a prebaked canvas' backing (setting it to 0x0) is only safe if the
+      // GPU copy is never dropped: WebGL re-uploads a texture from its source
+      // canvas, and a 0x0 source yields an invisible sprite. WebKit can drop and
+      // re-upload GPU textures out from under us (memory pressure, GPU-process
+      // recycling) without a webglcontextlost event, so the scene rebuild that
+      // would re-bake the canvas never runs. That is the game-over death-clip
+      // "everything plays but nothing renders" bug. Only the full-screen sky
+      // frames are large enough to matter for the WebContent memory limit (~46 MB
+      // vs. ~6 MB for every sprite canvas combined) and they carry their own
+      // rebuild-on-demand safety net, so keep the small sprite backings resident
+      // and only release the large ones.
+      if (canvas.width * canvas.height < LARGE_CANVAS_BACKING_AREA) continue;
       this.trackedCanvasTextures.delete(canvas);
       released.push(canvas);
     }
