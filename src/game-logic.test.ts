@@ -10,10 +10,11 @@ import {
   setRng,
   CANVAS_W,
   BURJ_X,
-  CITY_Y,
   GROUND_Y,
   BURJ_H,
   LAUNCHERS,
+  getGameplayBurjCollisionTop,
+  getGameplayBurjCollisionBottom,
   COL,
   LAUNCHER_ARMOR_NODE,
   LAUNCHER_DOUBLE_MAGAZINE_NODE,
@@ -209,11 +210,13 @@ describe("pickTarget", () => {
     setRng(Math.random);
   });
 
-  it("returns Burj when random < 0.3 and burjAlive", () => {
+  it("returns a Burj body aim point when random < 0.3 and burjAlive", () => {
     setRng(() => 0.1);
     const g = makeGameState();
     const target = pickTarget(g, 100);
-    expect(target).toEqual({ x: BURJ_X, y: CITY_Y });
+    expect(target!.x).toBe(BURJ_X);
+    expect(target!.y).toBeGreaterThanOrEqual(getGameplayBurjCollisionTop(2));
+    expect(target!.y).toBeLessThan(getGameplayBurjCollisionBottom(2));
   });
 
   it("returns defense/launcher target when random >= 0.3", () => {
@@ -224,11 +227,13 @@ describe("pickTarget", () => {
     expect(target!.x).toBe(LAUNCHERS[0].x);
   });
 
-  it("falls back to Burj when no defenses alive", () => {
+  it("falls back to a Burj body aim point when no defenses alive", () => {
     setRng(() => 0.5);
     const g = makeGameState({ launcherHP: [0, 0] });
     const target = pickTarget(g, 100);
-    expect(target).toEqual({ x: BURJ_X, y: CITY_Y });
+    expect(target!.x).toBe(BURJ_X);
+    expect(target!.y).toBeGreaterThanOrEqual(getGameplayBurjCollisionTop(2));
+    expect(target!.y).toBeLessThan(getGameplayBurjCollisionBottom(2));
   });
 
   it("returns null when nothing alive and Burj dead", () => {

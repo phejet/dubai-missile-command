@@ -9,6 +9,7 @@ import {
   BURJ_X,
   BURJ_H,
   getGameplayBurjCollisionTop,
+  getGameplayBurjCollisionBottom,
   getShahed136LevelFlightYRange,
   LAUNCHER_ARMOR_NODE,
   LAUNCHER_DOUBLE_MAGAZINE_NODE,
@@ -593,12 +594,14 @@ describe("summary stats", () => {
 });
 
 describe("terminal Burj impacts", () => {
+  const burjBodyY = (getGameplayBurjCollisionTop(2) + getGameplayBurjCollisionBottom(2)) / 2;
+
   it.each([
     { type: "missile" as const, label: "missile" },
     { type: "bomb" as const, label: "bomb" },
     { type: "mirv_warhead" as const, label: "MIRV warhead" },
     { type: "stack_child" as const, label: "stack child" },
-  ])("ends the run when a $label reaches ground at a Burj target", ({ type }) => {
+  ])("ends the run when a $label strikes the Burj body", ({ type }) => {
     const { sim, g } = makeCleanGame();
     g.burjHealth = 1; // killing blow — the Burj now takes multiple hits
     g.schedule = [{ type: "missile", tick: 999999 }];
@@ -607,11 +610,11 @@ describe("terminal Burj impacts", () => {
       makeMissile({
         type,
         x: BURJ_X,
-        y: GAMEPLAY_WATERLINE_Y - 2,
+        y: burjBodyY - 2,
         vx: 0,
         vy: 8,
         targetX: BURJ_X,
-        targetY: CITY_Y,
+        targetY: burjBodyY,
       }),
     ];
 
@@ -633,11 +636,11 @@ describe("terminal Burj impacts", () => {
       makeMissile({
         type: "missile",
         x: BURJ_X,
-        y: GAMEPLAY_WATERLINE_Y - 2,
+        y: burjBodyY - 2,
         vx: 0,
         vy: 8,
         targetX: BURJ_X,
-        targetY: CITY_Y,
+        targetY: burjBodyY,
       }),
     ];
 
@@ -646,6 +649,51 @@ describe("terminal Burj impacts", () => {
     expect(g.burjHealth).toBe(6);
     expect(g.burjAlive).toBe(true);
     expect(g.gameOverTimer ?? 0).toBe(0);
+  });
+
+  it("does not damage the Burj when a missile falls through the pedestal band", () => {
+    const { sim, g } = makeCleanGame();
+    const healthBefore = g.burjHealth;
+    g.schedule = [{ type: "missile", tick: 999999 }];
+    g.scheduleIdx = 0;
+    g.missiles = [
+      makeMissile({
+        x: BURJ_X,
+        y: getGameplayBurjCollisionBottom(2) + 2,
+        vx: 0,
+        vy: 8,
+        targetX: BURJ_X,
+        targetY: burjBodyY,
+      }),
+    ];
+
+    sim.update(g, 1);
+
+    expect(g.burjHealth).toBe(healthBefore);
+    expect(g.missiles[0].alive).toBe(true);
+  });
+
+  it("does not damage the Burj when a missile ground impact lands at its base", () => {
+    const { sim, g } = makeCleanGame();
+    const healthBefore = g.burjHealth;
+    g.schedule = [{ type: "missile", tick: 999999 }];
+    g.scheduleIdx = 0;
+    g.missiles = [
+      makeMissile({
+        x: BURJ_X,
+        y: GAMEPLAY_WATERLINE_Y - 2,
+        vx: 0,
+        vy: 8,
+        targetX: BURJ_X,
+        targetY: burjBodyY,
+      }),
+    ];
+
+    sim.update(g, 1);
+
+    expect(g.missiles).toHaveLength(0);
+    expect(g.burjHealth).toBe(healthBefore);
+    expect(g.burjAlive).toBe(true);
   });
 
   it("does not damage the Burj when a missile ground impact was aimed elsewhere", () => {
@@ -1000,7 +1048,8 @@ describe("Missile spawn angles", () => {
 
     const missile = g.missiles[0];
     expect(missile.targetX).toBe(BURJ_X);
-    expect(Math.abs(missile.x - BURJ_X)).toBeGreaterThan(600);
+    // Required offset is 0.42 × the vertical drop to the body aim point
+    expect(Math.abs(missile.x - BURJ_X)).toBeGreaterThan(400);
     expectPlayableMissileAngle(missile);
   });
 
@@ -1891,10 +1940,32 @@ describe("Shahed-136 (prop) diving", () => {
     expect(g.explosions.length).toBeGreaterThan(0);
   });
 
-  it("damages the Burj when terminal dive reaches a Burj target below the body hitbox", () => {
+  it("damages the Burj when terminal dive reaches its aim point on the tower body", () => {
     setRng(() => 0.5);
     const { sim, g } = makeCleanGame(5);
     g.burjHealth = 1; // killing blow — the Burj now takes multiple hits
+    const bodyY = (getGameplayBurjCollisionTop(2) + getGameplayBurjCollisionBottom(2)) / 2;
+    const prop = makePropDrone({
+      diving: true,
+      diveTarget: { x: BURJ_X, y: bodyY },
+      diveSpeed: 8,
+      x: BURJ_X,
+      y: bodyY - 6,
+    });
+    g.drones.push(prop);
+
+    sim.update(g, 1);
+
+    expect(prop.alive).toBe(false);
+    expect(g.burjHealth).toBe(0);
+    expect(g.burjAlive).toBe(false);
+    expect(g.burjDecals[g.burjDecals.length - 1]?.kind).toBe("drone");
+  });
+
+  it("does not damage the Burj when a terminal dive ends on the ground at its base", () => {
+    setRng(() => 0.5);
+    const { sim, g } = makeCleanGame(5);
+    const healthBefore = g.burjHealth;
     const prop = makePropDrone({
       diving: true,
       diveTarget: { x: BURJ_X, y: CITY_Y },
@@ -1907,9 +1978,8 @@ describe("Shahed-136 (prop) diving", () => {
     sim.update(g, 1);
 
     expect(prop.alive).toBe(false);
-    expect(g.burjHealth).toBe(0);
-    expect(g.burjAlive).toBe(false);
-    expect(g.burjDecals[g.burjDecals.length - 1]?.kind).toBe("drone");
+    expect(g.burjHealth).toBe(healthBefore);
+    expect(g.burjAlive).toBe(true);
   });
 });
 

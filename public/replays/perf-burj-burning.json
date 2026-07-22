@@ -1,7 +1,25 @@
 {
-  "seed": 314159,
   "version": 6,
-  "initialState": { "metaProgression": { "version": 1, "completedObjectives": [] }, "forcedUpgradeFamilies": [], "burjHealth": 2 },
+  "initialState": {
+    "metaProgression": {
+      "version": 1,
+      "completedObjectives": []
+    },
+    "forcedUpgradeFamilies": [],
+    "burjHealth": 2
+  },
+  "seed": 314159,
+  "actions": [
+    {
+      "tick": 0,
+      "type": "wave_plan",
+      "wave": 5,
+      "tactics": [
+        "MIRV_STRIKE"
+      ],
+      "style": "balanced"
+    }
+  ],
   "draftMode": true,
   "bootstrap": {
     "startWave": 5,
@@ -18,8 +36,8 @@
       "launcherArmorKit"
     ]
   },
-  "stopCondition": { "type": "waveComplete", "wave": 5 },
-  "actions": [
-    { "tick": 0, "type": "wave_plan", "wave": 5, "tactics": [], "style": "balanced" }
-  ]
+  "stopCondition": {
+    "type": "waveComplete",
+    "wave": 5
+  }
 }
