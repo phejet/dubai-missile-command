@@ -120,18 +120,18 @@ Focused breakdowns:
 
 ### Upgrade systems
 
-| Upgrade           | What it does                                                                         |
-| ----------------- | ------------------------------------------------------------------------------------ |
-| Wild Hornets      | FPV kamikaze drones that auto-track threats                                          |
-| Roadrunner        | AI-guided vertical-launch interceptors                                               |
-| Decoy Flares      | Burj launches IR decoys that lure missiles off course                                |
-| Iron Beam         | Laser burns down threats near Burj                                                   |
-| Phalanx CIWS      | Rapid-fire autocannon turrets                                                        |
-| Patriot Battery   | Long-range SAM with massive blast radius                                             |
-| Launcher Kit      | Tree of four nodes (see below)                                                       |
-| EMP Shockwave     | Once-per-wave AoE pulse from Burj; rank 2 adds launcher pulses + ammo refill         |
-| F-15 Eagle Patrol | Once-per-wave fighter formation that sweeps the upper sky; rank 2 adds a return pass |
-| Burj Repair Kit   | Consumable that restores 1 Burj HP                                                   |
+| Upgrade           | What it does                                                                                                 |
+| ----------------- | ------------------------------------------------------------------------------------------------------------ |
+| Wild Hornets      | FPV kamikaze drones that auto-track threats                                                                  |
+| Roadrunner        | AI-guided vertical-launch interceptors                                                                       |
+| Decoy Flares      | Burj launches IR decoys that lure missiles off course                                                        |
+| Iron Beam         | Last-resort laser: holds charge, burns down threats about to hit the Burj; spare beams strafe nearby threats |
+| Phalanx CIWS      | Rapid-fire autocannon turrets                                                                                |
+| Patriot Battery   | Long-range SAM with massive blast radius                                                                     |
+| Launcher Kit      | Tree of four nodes (see below)                                                                               |
+| EMP Shockwave     | Once-per-wave AoE pulse from Burj; rank 2 adds launcher pulses + ammo refill                                 |
+| F-15 Eagle Patrol | Once-per-wave fighter formation that sweeps the upper sky; rank 2 adds a return pass                         |
+| Burj Repair Kit   | Consumable that restores 1 Burj HP                                                                           |
 
 The `launcherKit` family expands into a four-node tree (see `UPGRADE_NODES` in `src/game-sim-upgrades.ts`):
 

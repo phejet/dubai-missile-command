@@ -8,6 +8,8 @@ import {
   GAMEPLAY_WATERLINE_Y,
   BURJ_X,
   BURJ_H,
+  IRON_BEAM_CHARGE_TIME,
+  computeShahed136StraightPath,
   getGameplayBurjCollisionTop,
   getGameplayBurjCollisionBottom,
   getShahed136LevelFlightYRange,
@@ -2476,5 +2478,184 @@ describe("EMP active upgrade", () => {
     }
 
     expect(diver.alive).toBe(false);
+  });
+});
+
+describe("Iron Beam last-resort targeting", () => {
+  afterEach(() => setRng(Math.random));
+
+  function makeChargedBeamGame(level = 1) {
+    const { sim, g } = makeCleanGame(5);
+    g.schedule = [];
+    g.scheduleIdx = 0;
+    g.waveTick = 0;
+    g.upgrades.ironBeam = level;
+    g.ironBeamTimer = IRON_BEAM_CHARGE_TIME[level - 1];
+    return { sim, g };
+  }
+
+  // Heads for the right launcher and passes close to the emitter — the old
+  // "anything in range" trigger would have spent the charge on it.
+  function makePasserbyMissile(): Missile {
+    return makeMissile({ x: 560, y: 970, vx: 2, vy: 2, targetX: 860, targetY: 1392 });
+  }
+
+  // Enters the top of the tower body outside the old emitter-centered range.
+  function makeBurjBoundMissile(): Missile {
+    const burjTop = getGameplayBurjCollisionTop(2);
+    const bodyY = (burjTop + getGameplayBurjCollisionBottom(2)) / 2;
+    return makeMissile({
+      x: BURJ_X,
+      y: burjTop - 6,
+      vx: 0,
+      vy: 6,
+      targetX: BURJ_X,
+      targetY: bodyY,
+    });
+  }
+
+  it("holds its charge instead of zapping a passerby that will not hit the Burj", () => {
+    const { sim, g } = makeChargedBeamGame();
+    const passerby = makePasserbyMissile();
+    g.missiles = [passerby];
+
+    sim.update(g, 1);
+
+    expect(g.laserBeams).toHaveLength(0);
+    expect(passerby.alive).toBe(true);
+    expect(g.ironBeamTimer).toBeGreaterThanOrEqual(IRON_BEAM_CHARGE_TIME[0]);
+  });
+
+  it("burns down a spire impactor that the old range circle never covered", () => {
+    const { sim, g } = makeChargedBeamGame();
+    const attacker = makeBurjBoundMissile();
+    g.missiles = [attacker];
+
+    sim.update(g, 1);
+
+    expect(g.laserBeams).toHaveLength(1);
+    expect(g.laserBeams[0].targetRef).toBe(attacker);
+    expect(attacker.alive).toBe(false);
+    expect(g.ironBeamTimer).toBe(0);
+  });
+
+  it("holds its charge for a ground impact at the Burj pedestal", () => {
+    const { sim, g } = makeChargedBeamGame();
+    const groundImpact = makeMissile({
+      x: BURJ_X,
+      y: GAMEPLAY_WATERLINE_Y - 2,
+      vx: 0,
+      vy: 8,
+      targetX: BURJ_X,
+      targetY: CITY_Y,
+    });
+    g.missiles = [groundImpact];
+    const healthBefore = g.burjHealth;
+
+    sim.update(g, 1);
+
+    expect(g.laserBeams).toHaveLength(0);
+    expect(g.ironBeamTimer).toBeGreaterThanOrEqual(IRON_BEAM_CHARGE_TIME[0]);
+    expect(g.burjHealth).toBe(healthBefore);
+  });
+
+  it("skips a shielded impact and reserves the beam for the first post-shield threat", () => {
+    const { sim, g } = makeChargedBeamGame();
+    const burjTop = getGameplayBurjCollisionTop(2);
+    const bodyY = (burjTop + getGameplayBurjCollisionBottom(2)) / 2;
+    const shielded = makeMissile({
+      x: BURJ_X,
+      y: burjTop - 20,
+      vx: 0,
+      vy: 20,
+      targetX: BURJ_X,
+      targetY: bodyY,
+    });
+    const postShield = makeMissile({
+      x: BURJ_X,
+      y: 0,
+      vx: 0,
+      vy: 20,
+      targetX: BURJ_X,
+      targetY: bodyY,
+    });
+    g.burjInvulnTimer = 30;
+    g.missiles = [shielded, postShield];
+    const healthBefore = g.burjHealth;
+
+    sim.update(g, 1);
+
+    expect(g.laserBeams).toHaveLength(1);
+    expect(g.laserBeams[0].targetRef).toBe(postShield);
+    expect(g.burjHealth).toBe(healthBefore);
+    expect(g.ironBeamTimer).toBe(0);
+  });
+
+  it("zaps a level-flight Shahed cruising into the spire band", () => {
+    const { sim, g } = makeChargedBeamGame();
+    const cruiser = makeDrone({
+      x: 340,
+      y: 750,
+      vx: 3,
+      waypoints: computeShahed136StraightPath(340, 750, 3, { x: CANVAS_W + 80, y: 750 }),
+      pathIndex: 0,
+    });
+    g.drones = [cruiser];
+
+    sim.update(g, 1);
+
+    expect(g.laserBeams).toHaveLength(1);
+    expect(g.laserBeams[0].targetRef).toBe(cruiser);
+    expect(cruiser.alive).toBe(false);
+  });
+
+  it("prioritizes the Burj-bound threat over a closer passerby", () => {
+    const { sim, g } = makeChargedBeamGame();
+    const passerby = makePasserbyMissile();
+    const attacker = makeBurjBoundMissile();
+    g.missiles = [passerby, attacker];
+
+    sim.update(g, 1);
+
+    expect(g.laserBeams).toHaveLength(1);
+    expect(g.laserBeams[0].targetRef).toBe(attacker);
+    expect(attacker.alive).toBe(false);
+    expect(passerby.alive).toBe(true);
+  });
+
+  it("does not fire early at a Burj-bound threat still outside the fire window", () => {
+    const { sim, g } = makeChargedBeamGame();
+    const distant = makeMissile({ x: BURJ_X, y: 200, vx: 0, vy: 2, targetX: BURJ_X, targetY: CITY_Y });
+    g.missiles = [distant];
+
+    sim.update(g, 1);
+
+    expect(g.laserBeams).toHaveLength(0);
+    expect(distant.alive).toBe(true);
+    expect(g.ironBeamTimer).toBeGreaterThanOrEqual(IRON_BEAM_CHARGE_TIME[0]);
+  });
+
+  it("strafes nearby threats with spare beams when it fires at a Burj threat", () => {
+    const { sim, g } = makeChargedBeamGame(2);
+    const attacker = makeBurjBoundMissile();
+    g.missiles = [attacker];
+    const passerby = makeDrone({
+      x: 560,
+      y: 1000,
+      vx: 3,
+      waypoints: computeShahed136StraightPath(560, 1000, 3, { x: CANVAS_W + 80, y: 1000 }),
+      pathIndex: 0,
+    });
+    g.drones = [passerby];
+
+    sim.update(g, 1);
+
+    expect(g.laserBeams).toHaveLength(2);
+    const targets = g.laserBeams.map((b) => b.targetRef);
+    expect(targets).toContain(attacker);
+    expect(targets).toContain(passerby);
+    expect(attacker.alive).toBe(false);
+    expect(passerby.alive).toBe(false);
+    expect(g.ironBeamTimer).toBe(0);
   });
 });

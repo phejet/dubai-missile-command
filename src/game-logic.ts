@@ -1,10 +1,13 @@
 import {
   DESTROYED_TYPE_KEYS,
+  shahed136HasDive,
   type RNG,
   type StatefulRNG,
   type GameState,
   type DefenseSite,
   type Threat,
+  type Missile,
+  type Drone,
   type Building,
   type ExplosionVisualType,
   type UpgradeNodeId,
@@ -188,6 +191,17 @@ export const LAUNCHERS: { x: number; y: number }[] = [
   { x: 860, y: GROUND_Y - 5 },
 ];
 
+// ── Iron Beam ──
+export const IRON_BEAM_EMITTER_Y = 959;
+// Spare-beam strafing radius around the emitter, per level.
+export const IRON_BEAM_RANGE = [219, 280, 368] as const;
+export const IRON_BEAM_CHARGE_TIME = [360, 240, 180] as const;
+// How close to impact (in ticks) a Burj-bound threat must be before the beam
+// takes the shot. Holding until the last moment leaves interceptors and other
+// systems room to claim the kill first, so a charged beam is reserved for
+// whatever actually gets through.
+export const IRON_BEAM_FIRE_WINDOW = 60;
+
 export function getGameplayLauncherPosition(index: number): { x: number; y: number } {
   return { x: LAUNCHERS[index].x, y: GAMEPLAY_SCENIC_LAUNCHER_Y };
 }
@@ -207,7 +221,7 @@ export function getDefenseSitePlacement(key: string): { x: number; y: number; hw
     case "launcherKit":
       return { x: 800, y: GAMEPLAY_SUPPORT_SITE_Y + 2, hw: 30, hh: 24 };
     case "ironBeam":
-      return { x: BURJ_X, y: 959, hw: 10, hh: 15 };
+      return { x: BURJ_X, y: IRON_BEAM_EMITTER_Y, hw: 10, hh: 15 };
     default:
       return null;
   }
@@ -995,4 +1009,131 @@ export function damageTarget(
     recordThreatDestroyed(g, target);
     if (!noExplosion) createExplosion(g, target.x, target.y, radius, color, false, 0, { visualType: "missile" });
   }
+}
+
+// ── Burj impact prediction ──
+// These predicates mirror the live collision rules in updateMissiles/updateDrones,
+// so "will hit" here means the sim really would apply Burj damage on that course.
+
+export function hitsBurjBody(g: GameState, x: number, y: number): boolean {
+  return (
+    g.burjAlive &&
+    y >= getGameplayBurjCollisionTop(2) &&
+    y <= getGameplayBurjCollisionBottom(2) &&
+    Math.abs(x - BURJ_X) <= getGameplayBurjHalfW(y, 2)
+  );
+}
+
+// Burj-targeted systems aim only at the visible tower body. Pedestal and ground
+// impacts are deliberately excluded from gameplay damage.
+export function isBurjImpactTarget(targetX: number | undefined, targetY: number | undefined): boolean {
+  if (targetX === undefined || targetY === undefined) return false;
+  return (
+    Math.abs(targetX - BURJ_X) <= 40 &&
+    targetY >= getGameplayBurjCollisionTop(2) &&
+    targetY <= getGameplayBurjCollisionBottom(2)
+  );
+}
+
+// Shahed dive impacts count as Burj hits when the dive was aimed at the tower.
+export function isBurjDiveTarget(g: GameState, d: Drone): boolean {
+  if (!g.burjAlive || !d.diveTarget) return false;
+  return (
+    Math.abs(d.diveTarget.x - BURJ_X) <= Math.max(36, d.collisionRadius) &&
+    isBurjImpactTarget(d.diveTarget.x, d.diveTarget.y)
+  );
+}
+
+// Predicts whether a threat's current course damages the Burj within `horizon`
+// ticks by stepping the same motion model the sim uses. Returns the estimated
+// tick count to impact, or null when the threat is no danger to the tower.
+// Building/site/launcher shadowing is deliberately ignored: a threat that would
+// die on a defense structure next to the tower is still worth the shot.
+export function predictBurjImpactTicks(g: GameState, t: Threat, horizon: number): number | null {
+  if (!t.alive || !g.burjAlive || t.flareControl) return null;
+  const impactTicks =
+    t.type === "drone" ? predictDroneBurjImpact(g, t, horizon) : predictMissileBurjImpact(g, t, horizon);
+  if (impactTicks === null || impactTicks <= g.burjInvulnTimer) return null;
+  return impactTicks;
+}
+
+function predictMissileBurjImpact(g: GameState, m: Missile, horizon: number): number | null {
+  let x = m.x;
+  let y = m.y;
+  let vx = m.vx;
+  let vy = m.vy;
+  const splitY = m.type === "mirv" && !m.splitTriggered ? (m.splitY ?? Infinity) : Infinity;
+  for (let tick = 1; tick <= horizon; tick++) {
+    if (m.accel) {
+      vx *= m.accel;
+      vy *= m.accel;
+    }
+    x += vx;
+    y += vy;
+    if (y >= splitY) return null; // splits into warheads before reaching the tower
+    if (hitsBurjBody(g, x, y)) return tick;
+    if (y >= GAMEPLAY_WATERLINE_Y) return null;
+    if (x < -50 || x > CANVAS_W + 50) return null;
+  }
+  return null;
+}
+
+function predictDroneBurjImpact(g: GameState, d: Drone, horizon: number): number | null {
+  if (d.waypoints && d.waypoints.length >= 2) {
+    const diveStart = d.diveStartIndex ?? Infinity;
+    const isShahed136Diver = d.subtype === "shahed136" && shahed136HasDive(d.shahedVariant ?? "shahed-136-dive-bomber");
+    let pathIndex = d.pathIndex ?? 0;
+    let diveSpeed = d.diveSpeed ?? 1.0;
+    for (let tick = 1; tick <= horizon; tick++) {
+      let pathSpeed = 1;
+      if (isShahed136Diver && pathIndex >= diveStart) {
+        diveSpeed = Math.min(4.0, Math.max(diveSpeed, 1.0) * 1.06);
+        pathSpeed = diveSpeed;
+      }
+      pathIndex = Math.min(pathIndex + pathSpeed, d.waypoints.length - 1);
+      const i0 = Math.floor(pathIndex);
+      const i1 = Math.min(i0 + 1, d.waypoints.length - 1);
+      const frac = pathIndex - i0;
+      const x = d.waypoints[i0].x + (d.waypoints[i1].x - d.waypoints[i0].x) * frac;
+      const y = d.waypoints[i0].y + (d.waypoints[i1].y - d.waypoints[i0].y) * frac;
+      if (x < -60 || x > CANVAS_W + 60 || y > CANVAS_H + 20) return null;
+      if (hitsBurjBody(g, x, y)) return tick;
+      const pathDone = pathIndex >= d.waypoints.length - 1;
+      if (d.diveTarget) {
+        const hitTarget = dist(x, y, d.diveTarget.x, d.diveTarget.y) < 20;
+        if (hitTarget || y >= GAMEPLAY_WATERLINE_Y || pathDone) {
+          return isBurjDiveTarget(g, d) && (hitTarget || pathDone) ? tick : null;
+        }
+      } else if (y >= GAMEPLAY_WATERLINE_Y || pathDone) {
+        return null;
+      }
+    }
+    return null;
+  }
+  // Straight movers without a waypoint path (legacy spawn/dive fallback).
+  let x = d.x;
+  let y = d.y;
+  let vx = d.vx;
+  let vy = d.vy;
+  if (d.diving && d.diveTarget) {
+    const diveSpeed = d.diveSpeed || Math.max(Math.abs(d.vx), 1.0) * 2.7;
+    const dx = d.diveTarget.x - x;
+    const dy = d.diveTarget.y - y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 0.01) return null;
+    vx = (dx / len) * diveSpeed;
+    vy = (dy / len) * diveSpeed;
+  }
+  for (let tick = 1; tick <= horizon; tick++) {
+    x += vx;
+    y += vy;
+    if (x < -60 || x > CANVAS_W + 60 || y > CANVAS_H + 20) return null;
+    if (hitsBurjBody(g, x, y)) return tick;
+    const hitTarget = !!d.diveTarget && dist(x, y, d.diveTarget.x, d.diveTarget.y) < 20;
+    if (d.diveTarget && (hitTarget || y >= GAMEPLAY_WATERLINE_Y)) {
+      return hitTarget && isBurjDiveTarget(g, d) ? tick : null;
+    }
+    if (!d.diveTarget && y >= GAMEPLAY_WATERLINE_Y) return null;
+  }
+  return null;
 }
