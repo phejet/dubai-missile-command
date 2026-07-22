@@ -1,0 +1,7727 @@
+{
+  "autoquit": false,
+  "buildId": "b49db72",
+  "deviceInfo": {
+    "dpr": 3,
+    "drawingBufferSize": {
+      "height": 1600,
+      "width": 900
+    },
+    "isCapacitor": false,
+    "screenSize": {
+      "height": 852,
+      "width": 393
+    },
+    "ua": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"
+  },
+  "frames": [
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 0,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 0
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 86,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 3
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 64,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 6
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 9,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 6
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 7
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 45,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 10
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 22,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 11
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 4,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 11
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 13,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 12
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 13
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 14
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 15
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 16
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 17
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 18
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 19
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 20
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 21
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 22
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 23
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 24
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 25
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 26
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 27
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 28
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 29
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 30
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 31
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 32
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 33
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 34
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 35
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 36
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 22,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 37
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 13,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 38
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 15,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 39
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 40
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 41
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 42
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 43
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 44
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 45
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 46
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 47
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 48
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 49
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 50
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 51
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 52
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 53
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 54
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 55
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 56
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 57
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 58
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 59
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 60
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 61
+    },
+    {
+      "drones": 2,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 62
+    },
+    {
+      "drones": 2,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 63
+    },
+    {
+      "drones": 2,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 64
+    },
+    {
+      "drones": 2,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 65
+    },
+    {
+      "drones": 2,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 66
+    },
+    {
+      "drones": 2,
+      "explosions": 0,
+      "frameMs": 23,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 67
+    },
+    {
+      "drones": 2,
+      "explosions": 0,
+      "frameMs": 10,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 68
+    },
+    {
+      "drones": 2,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 69
+    },
+    {
+      "drones": 2,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 70
+    },
+    {
+      "drones": 2,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 71
+    },
+    {
+      "drones": 2,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 72
+    },
+    {
+      "drones": 2,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 73
+    },
+    {
+      "drones": 2,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 74
+    },
+    {
+      "drones": 2,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 75
+    },
+    {
+      "drones": 2,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 76
+    },
+    {
+      "drones": 2,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 77
+    },
+    {
+      "drones": 2,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 78
+    },
+    {
+      "drones": 2,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 79
+    },
+    {
+      "drones": 2,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 80
+    },
+    {
+      "drones": 2,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 81
+    },
+    {
+      "drones": 2,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 82
+    },
+    {
+      "drones": 2,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 83
+    },
+    {
+      "drones": 2,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 84
+    },
+    {
+      "drones": 2,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 85
+    },
+    {
+      "drones": 2,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 86
+    },
+    {
+      "drones": 2,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 87
+    },
+    {
+      "drones": 2,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 88
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 103,
+      "tick": 89
+    },
+    {
+      "drones": 1,
+      "explosions": 3,
+      "frameMs": 21,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 143,
+      "tick": 90
+    },
+    {
+      "drones": 2,
+      "explosions": 3,
+      "frameMs": 13,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 143,
+      "tick": 91
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 19,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 143,
+      "tick": 92
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 14,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 143,
+      "tick": 93
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 143,
+      "tick": 94
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 143,
+      "tick": 95
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 143,
+      "tick": 96
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 143,
+      "tick": 97
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 143,
+      "tick": 98
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 142,
+      "tick": 99
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 140,
+      "tick": 100
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 137,
+      "tick": 101
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 135,
+      "tick": 102
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 134,
+      "tick": 103
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 130,
+      "tick": 104
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 128,
+      "tick": 105
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 128,
+      "tick": 106
+    },
+    {
+      "drones": 2,
+      "explosions": 5,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 172,
+      "tick": 107
+    },
+    {
+      "drones": 2,
+      "explosions": 6,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 210,
+      "tick": 108
+    },
+    {
+      "drones": 2,
+      "explosions": 6,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 208,
+      "tick": 109
+    },
+    {
+      "drones": 2,
+      "explosions": 5,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 205,
+      "tick": 110
+    },
+    {
+      "drones": 2,
+      "explosions": 5,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 202,
+      "tick": 111
+    },
+    {
+      "drones": 2,
+      "explosions": 5,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 199,
+      "tick": 112
+    },
+    {
+      "drones": 2,
+      "explosions": 5,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 196,
+      "tick": 113
+    },
+    {
+      "drones": 2,
+      "explosions": 4,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 192,
+      "tick": 114
+    },
+    {
+      "drones": 2,
+      "explosions": 4,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 187,
+      "tick": 115
+    },
+    {
+      "drones": 2,
+      "explosions": 4,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 184,
+      "tick": 116
+    },
+    {
+      "drones": 2,
+      "explosions": 4,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 180,
+      "tick": 117
+    },
+    {
+      "drones": 2,
+      "explosions": 4,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 178,
+      "tick": 118
+    },
+    {
+      "drones": 2,
+      "explosions": 4,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 176,
+      "tick": 119
+    },
+    {
+      "drones": 2,
+      "explosions": 4,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 170,
+      "tick": 120
+    },
+    {
+      "drones": 2,
+      "explosions": 4,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 165,
+      "tick": 121
+    },
+    {
+      "drones": 2,
+      "explosions": 4,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 162,
+      "tick": 122
+    },
+    {
+      "drones": 2,
+      "explosions": 4,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 155,
+      "tick": 123
+    },
+    {
+      "drones": 2,
+      "explosions": 4,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 148,
+      "tick": 124
+    },
+    {
+      "drones": 2,
+      "explosions": 4,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 147,
+      "tick": 125
+    },
+    {
+      "drones": 2,
+      "explosions": 4,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 143,
+      "tick": 126
+    },
+    {
+      "drones": 1,
+      "explosions": 5,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 238,
+      "tick": 127
+    },
+    {
+      "drones": 1,
+      "explosions": 5,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 276,
+      "tick": 128
+    },
+    {
+      "drones": 1,
+      "explosions": 5,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 273,
+      "tick": 129
+    },
+    {
+      "drones": 1,
+      "explosions": 5,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 269,
+      "tick": 130
+    },
+    {
+      "drones": 1,
+      "explosions": 5,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 266,
+      "tick": 131
+    },
+    {
+      "drones": 1,
+      "explosions": 4,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 263,
+      "tick": 132
+    },
+    {
+      "drones": 1,
+      "explosions": 4,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 257,
+      "tick": 133
+    },
+    {
+      "drones": 1,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 254,
+      "tick": 134
+    },
+    {
+      "drones": 1,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 245,
+      "tick": 135
+    },
+    {
+      "drones": 2,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 240,
+      "tick": 136
+    },
+    {
+      "drones": 2,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 235,
+      "tick": 137
+    },
+    {
+      "drones": 2,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 227,
+      "tick": 138
+    },
+    {
+      "drones": 2,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 219,
+      "tick": 139
+    },
+    {
+      "drones": 2,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 214,
+      "tick": 140
+    },
+    {
+      "drones": 2,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 210,
+      "tick": 141
+    },
+    {
+      "drones": 2,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 201,
+      "tick": 142
+    },
+    {
+      "drones": 2,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 192,
+      "tick": 143
+    },
+    {
+      "drones": 2,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 180,
+      "tick": 144
+    },
+    {
+      "drones": 2,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 170,
+      "tick": 145
+    },
+    {
+      "drones": 2,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 164,
+      "tick": 146
+    },
+    {
+      "drones": 2,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 159,
+      "tick": 147
+    },
+    {
+      "drones": 2,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 151,
+      "tick": 148
+    },
+    {
+      "drones": 2,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 146,
+      "tick": 149
+    },
+    {
+      "drones": 2,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 142,
+      "tick": 150
+    },
+    {
+      "drones": 2,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 138,
+      "tick": 151
+    },
+    {
+      "drones": 2,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 149,
+      "tick": 152
+    },
+    {
+      "drones": 2,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 147,
+      "tick": 153
+    },
+    {
+      "drones": 2,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 138,
+      "tick": 154
+    },
+    {
+      "drones": 2,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 133,
+      "tick": 155
+    },
+    {
+      "drones": 2,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 130,
+      "tick": 156
+    },
+    {
+      "drones": 2,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 126,
+      "tick": 157
+    },
+    {
+      "drones": 2,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 122,
+      "tick": 158
+    },
+    {
+      "drones": 2,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 115,
+      "tick": 159
+    },
+    {
+      "drones": 2,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 107,
+      "tick": 160
+    },
+    {
+      "drones": 2,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 97,
+      "tick": 161
+    },
+    {
+      "drones": 2,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 89,
+      "tick": 162
+    },
+    {
+      "drones": 2,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 87,
+      "tick": 163
+    },
+    {
+      "drones": 2,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 80,
+      "tick": 164
+    },
+    {
+      "drones": 2,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 71,
+      "tick": 165
+    },
+    {
+      "drones": 3,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 71,
+      "tick": 166
+    },
+    {
+      "drones": 3,
+      "explosions": 4,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 116,
+      "tick": 167
+    },
+    {
+      "drones": 3,
+      "explosions": 5,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 152,
+      "tick": 168
+    },
+    {
+      "drones": 3,
+      "explosions": 5,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 147,
+      "tick": 169
+    },
+    {
+      "drones": 3,
+      "explosions": 5,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 144,
+      "tick": 170
+    },
+    {
+      "drones": 3,
+      "explosions": 5,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 142,
+      "tick": 171
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 137,
+      "tick": 172
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 134,
+      "tick": 173
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 130,
+      "tick": 174
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 125,
+      "tick": 175
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 122,
+      "tick": 176
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 117,
+      "tick": 177
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 113,
+      "tick": 178
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 108,
+      "tick": 179
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 107,
+      "tick": 180
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 23,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 105,
+      "tick": 181
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 11,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 100,
+      "tick": 182
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 94,
+      "tick": 183
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 88,
+      "tick": 184
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 81,
+      "tick": 185
+    },
+    {
+      "drones": 3,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 77,
+      "tick": 186
+    },
+    {
+      "drones": 3,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 73,
+      "tick": 187
+    },
+    {
+      "drones": 3,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 70,
+      "tick": 188
+    },
+    {
+      "drones": 3,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 66,
+      "tick": 189
+    },
+    {
+      "drones": 3,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 62,
+      "tick": 190
+    },
+    {
+      "drones": 3,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 60,
+      "tick": 191
+    },
+    {
+      "drones": 3,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 58,
+      "tick": 192
+    },
+    {
+      "drones": 3,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 58,
+      "tick": 193
+    },
+    {
+      "drones": 3,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 53,
+      "tick": 194
+    },
+    {
+      "drones": 3,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 52,
+      "tick": 195
+    },
+    {
+      "drones": 3,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 3,
+      "particles": 50,
+      "tick": 196
+    },
+    {
+      "drones": 2,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 97,
+      "tick": 197
+    },
+    {
+      "drones": 2,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 95,
+      "tick": 198
+    },
+    {
+      "drones": 2,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 91,
+      "tick": 199
+    },
+    {
+      "drones": 2,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 89,
+      "tick": 200
+    },
+    {
+      "drones": 2,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 88,
+      "tick": 201
+    },
+    {
+      "drones": 2,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 86,
+      "tick": 202
+    },
+    {
+      "drones": 2,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 81,
+      "tick": 203
+    },
+    {
+      "drones": 2,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 80,
+      "tick": 204
+    },
+    {
+      "drones": 2,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 78,
+      "tick": 205
+    },
+    {
+      "drones": 1,
+      "explosions": 4,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 3,
+      "particles": 125,
+      "tick": 206
+    },
+    {
+      "drones": 1,
+      "explosions": 4,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 3,
+      "particles": 124,
+      "tick": 207
+    },
+    {
+      "drones": 1,
+      "explosions": 4,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 3,
+      "particles": 121,
+      "tick": 208
+    },
+    {
+      "drones": 1,
+      "explosions": 4,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 3,
+      "particles": 114,
+      "tick": 209
+    },
+    {
+      "drones": 1,
+      "explosions": 4,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 3,
+      "particles": 112,
+      "tick": 210
+    },
+    {
+      "drones": 1,
+      "explosions": 4,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 3,
+      "particles": 109,
+      "tick": 211
+    },
+    {
+      "drones": 1,
+      "explosions": 4,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 3,
+      "particles": 107,
+      "tick": 212
+    },
+    {
+      "drones": 1,
+      "explosions": 4,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 3,
+      "particles": 103,
+      "tick": 213
+    },
+    {
+      "drones": 1,
+      "explosions": 4,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 3,
+      "particles": 101,
+      "tick": 214
+    },
+    {
+      "drones": 1,
+      "explosions": 4,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 95,
+      "tick": 215
+    },
+    {
+      "drones": 1,
+      "explosions": 4,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 89,
+      "tick": 216
+    },
+    {
+      "drones": 1,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 85,
+      "tick": 217
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 82,
+      "tick": 218
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 79,
+      "tick": 219
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 72,
+      "tick": 220
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 70,
+      "tick": 221
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 69,
+      "tick": 222
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 67,
+      "tick": 223
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 65,
+      "tick": 224
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 64,
+      "tick": 225
+    },
+    {
+      "drones": 1,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 63,
+      "tick": 226
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 58,
+      "tick": 227
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 56,
+      "tick": 228
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 49,
+      "tick": 229
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 45,
+      "tick": 230
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 43,
+      "tick": 231
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 42,
+      "tick": 232
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 39,
+      "tick": 233
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 38,
+      "tick": 234
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 35,
+      "tick": 235
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 30,
+      "tick": 236
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 29,
+      "tick": 237
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 27,
+      "tick": 238
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 26,
+      "tick": 239
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 3,
+      "particles": 22,
+      "tick": 240
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 2,
+      "particles": 69,
+      "tick": 241
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 2,
+      "particles": 67,
+      "tick": 242
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 2,
+      "particles": 67,
+      "tick": 243
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 2,
+      "particles": 64,
+      "tick": 244
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 62,
+      "tick": 245
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 62,
+      "tick": 246
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 60,
+      "tick": 247
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 59,
+      "tick": 248
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 58,
+      "tick": 249
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 57,
+      "tick": 250
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 56,
+      "tick": 251
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 53,
+      "tick": 252
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 49,
+      "tick": 253
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 49,
+      "tick": 254
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 47,
+      "tick": 255
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 47,
+      "tick": 256
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 43,
+      "tick": 257
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 43,
+      "tick": 258
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 43,
+      "tick": 259
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 40,
+      "tick": 260
+    },
+    {
+      "drones": 1,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 38,
+      "tick": 261
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 36,
+      "tick": 262
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 36,
+      "tick": 263
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 31,
+      "tick": 264
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 28,
+      "tick": 265
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 28,
+      "tick": 266
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 27,
+      "tick": 267
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 72,
+      "tick": 268
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 72,
+      "tick": 269
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 72,
+      "tick": 270
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 71,
+      "tick": 271
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 71,
+      "tick": 272
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 70,
+      "tick": 273
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 70,
+      "tick": 274
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 70,
+      "tick": 275
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 68,
+      "tick": 276
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 66,
+      "tick": 277
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 62,
+      "tick": 278
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 57,
+      "tick": 279
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 55,
+      "tick": 280
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 55,
+      "tick": 281
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 51,
+      "tick": 282
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 50,
+      "tick": 283
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 47,
+      "tick": 284
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 44,
+      "tick": 285
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 44,
+      "tick": 286
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 43,
+      "tick": 287
+    },
+    {
+      "drones": 1,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 41,
+      "tick": 288
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 38,
+      "tick": 289
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 38,
+      "tick": 290
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 32,
+      "tick": 291
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 30,
+      "tick": 292
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 30,
+      "tick": 293
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 30,
+      "tick": 294
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 29,
+      "tick": 295
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 29,
+      "tick": 296
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 27,
+      "tick": 297
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 26,
+      "tick": 298
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 24,
+      "tick": 299
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 22,
+      "tick": 300
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 22,
+      "tick": 301
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 21,
+      "tick": 302
+    },
+    {
+      "drones": 1,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 67,
+      "tick": 303
+    },
+    {
+      "drones": 1,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 106,
+      "tick": 304
+    },
+    {
+      "drones": 1,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 105,
+      "tick": 305
+    },
+    {
+      "drones": 1,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 102,
+      "tick": 306
+    },
+    {
+      "drones": 1,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 99,
+      "tick": 307
+    },
+    {
+      "drones": 1,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 97,
+      "tick": 308
+    },
+    {
+      "drones": 1,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 97,
+      "tick": 309
+    },
+    {
+      "drones": 1,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 97,
+      "tick": 310
+    },
+    {
+      "drones": 1,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 96,
+      "tick": 311
+    },
+    {
+      "drones": 1,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 94,
+      "tick": 312
+    },
+    {
+      "drones": 1,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 91,
+      "tick": 313
+    },
+    {
+      "drones": 1,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 85,
+      "tick": 314
+    },
+    {
+      "drones": 1,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 84,
+      "tick": 315
+    },
+    {
+      "drones": 1,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 83,
+      "tick": 316
+    },
+    {
+      "drones": 1,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 80,
+      "tick": 317
+    },
+    {
+      "drones": 1,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 79,
+      "tick": 318
+    },
+    {
+      "drones": 1,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 76,
+      "tick": 319
+    },
+    {
+      "drones": 1,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 74,
+      "tick": 320
+    },
+    {
+      "drones": 1,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 73,
+      "tick": 321
+    },
+    {
+      "drones": 0,
+      "explosions": 5,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 118,
+      "tick": 322
+    },
+    {
+      "drones": 0,
+      "explosions": 5,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 156,
+      "tick": 323
+    },
+    {
+      "drones": 0,
+      "explosions": 4,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 153,
+      "tick": 324
+    },
+    {
+      "drones": 0,
+      "explosions": 4,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 150,
+      "tick": 325
+    },
+    {
+      "drones": 0,
+      "explosions": 4,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 147,
+      "tick": 326
+    },
+    {
+      "drones": 0,
+      "explosions": 4,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 143,
+      "tick": 327
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 141,
+      "tick": 328
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 141,
+      "tick": 329
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 141,
+      "tick": 330
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 139,
+      "tick": 331
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 138,
+      "tick": 332
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 133,
+      "tick": 333
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 132,
+      "tick": 334
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 130,
+      "tick": 335
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 123,
+      "tick": 336
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 121,
+      "tick": 337
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 116,
+      "tick": 338
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 112,
+      "tick": 339
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 110,
+      "tick": 340
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 108,
+      "tick": 341
+    },
+    {
+      "drones": 0,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 105,
+      "tick": 342
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 104,
+      "tick": 343
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 101,
+      "tick": 344
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 98,
+      "tick": 345
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 94,
+      "tick": 346
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 92,
+      "tick": 347
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 88,
+      "tick": 348
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 86,
+      "tick": 349
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 85,
+      "tick": 350
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 84,
+      "tick": 351
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 74,
+      "tick": 352
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 67,
+      "tick": 353
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 63,
+      "tick": 354
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 62,
+      "tick": 355
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 56,
+      "tick": 356
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 52,
+      "tick": 357
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 48,
+      "tick": 358
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 44,
+      "tick": 359
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 41,
+      "tick": 360
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 25,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 35,
+      "tick": 362
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 8,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 35,
+      "tick": 362
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 33,
+      "tick": 363
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 28,
+      "tick": 364
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 26,
+      "tick": 365
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 21,
+      "tick": 366
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 20,
+      "tick": 367
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 18,
+      "tick": 368
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 16,
+      "tick": 369
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 15,
+      "tick": 370
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 14,
+      "tick": 371
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 13,
+      "tick": 372
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 12,
+      "tick": 373
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 11,
+      "tick": 374
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 10,
+      "tick": 375
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 9,
+      "tick": 376
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 8,
+      "tick": 377
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 6,
+      "tick": 378
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 5,
+      "tick": 379
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 3,
+      "tick": 380
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 2,
+      "tick": 381
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 1,
+      "tick": 382
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 1,
+      "tick": 383
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 1,
+      "tick": 384
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 1,
+      "tick": 385
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 1,
+      "tick": 386
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 1,
+      "tick": 387
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 388
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 389
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 390
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 391
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 392
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 393
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 394
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 395
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 396
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 397
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 398
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 399
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 400
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 401
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 402
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 403
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 404
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 405
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 406
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 407
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 408
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 409
+    },
+    {
+      "drones": 1,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 410
+    },
+    {
+      "drones": 0,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 47,
+      "tick": 411
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 412
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 413
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 414
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 415
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 416
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 417
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 418
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 419
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 420
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 421
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 85,
+      "tick": 422
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 82,
+      "tick": 423
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 81,
+      "tick": 424
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 79,
+      "tick": 425
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 75,
+      "tick": 426
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 72,
+      "tick": 427
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 71,
+      "tick": 428
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 69,
+      "tick": 429
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 67,
+      "tick": 430
+    },
+    {
+      "drones": 0,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 66,
+      "tick": 431
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 62,
+      "tick": 432
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 60,
+      "tick": 433
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 58,
+      "tick": 434
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 58,
+      "tick": 435
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 56,
+      "tick": 436
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 55,
+      "tick": 437
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 55,
+      "tick": 438
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 54,
+      "tick": 439
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 52,
+      "tick": 440
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 51,
+      "tick": 441
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 49,
+      "tick": 442
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 46,
+      "tick": 443
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 42,
+      "tick": 444
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 40,
+      "tick": 445
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 37,
+      "tick": 446
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 35,
+      "tick": 447
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 35,
+      "tick": 448
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 34,
+      "tick": 449
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 32,
+      "tick": 450
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 31,
+      "tick": 451
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 29,
+      "tick": 452
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 26,
+      "tick": 453
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 24,
+      "tick": 454
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 24,
+      "tick": 455
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 22,
+      "tick": 456
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 20,
+      "tick": 457
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 19,
+      "tick": 458
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 18,
+      "tick": 459
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 17,
+      "tick": 460
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 15,
+      "tick": 461
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 14,
+      "tick": 462
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 12,
+      "tick": 463
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 11,
+      "tick": 464
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 8,
+      "tick": 465
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 8,
+      "tick": 466
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 8,
+      "tick": 467
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 8,
+      "tick": 468
+    },
+    {
+      "drones": 0,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 52,
+      "tick": 469
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 90,
+      "tick": 470
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 89,
+      "tick": 471
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 89,
+      "tick": 472
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 89,
+      "tick": 473
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 89,
+      "tick": 474
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 88,
+      "tick": 475
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 88,
+      "tick": 476
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 88,
+      "tick": 477
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 478
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 479
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 480
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 85,
+      "tick": 481
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 84,
+      "tick": 482
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 83,
+      "tick": 483
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 83,
+      "tick": 484
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 82,
+      "tick": 485
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 80,
+      "tick": 486
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 76,
+      "tick": 487
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 76,
+      "tick": 488
+    },
+    {
+      "drones": 0,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 72,
+      "tick": 489
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 70,
+      "tick": 490
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 66,
+      "tick": 491
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 64,
+      "tick": 492
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 59,
+      "tick": 493
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 58,
+      "tick": 494
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 55,
+      "tick": 495
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 53,
+      "tick": 496
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 52,
+      "tick": 497
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 64,
+      "tick": 498
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 62,
+      "tick": 499
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 61,
+      "tick": 500
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 59,
+      "tick": 501
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 57,
+      "tick": 502
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 53,
+      "tick": 503
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 53,
+      "tick": 504
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 49,
+      "tick": 505
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 46,
+      "tick": 506
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 43,
+      "tick": 507
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 39,
+      "tick": 508
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 38,
+      "tick": 509
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 36,
+      "tick": 510
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 33,
+      "tick": 511
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 32,
+      "tick": 512
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 79,
+      "tick": 513
+    },
+    {
+      "drones": 0,
+      "explosions": 4,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 115,
+      "tick": 514
+    },
+    {
+      "drones": 0,
+      "explosions": 4,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 111,
+      "tick": 515
+    },
+    {
+      "drones": 0,
+      "explosions": 4,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 110,
+      "tick": 516
+    },
+    {
+      "drones": 0,
+      "explosions": 4,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 109,
+      "tick": 517
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 104,
+      "tick": 518
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 104,
+      "tick": 519
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 104,
+      "tick": 520
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 104,
+      "tick": 521
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 103,
+      "tick": 522
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 101,
+      "tick": 523
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 97,
+      "tick": 524
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 93,
+      "tick": 525
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 92,
+      "tick": 526
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 90,
+      "tick": 527
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 86,
+      "tick": 528
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 84,
+      "tick": 529
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 82,
+      "tick": 530
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 79,
+      "tick": 531
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 77,
+      "tick": 532
+    },
+    {
+      "drones": 0,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 75,
+      "tick": 533
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 71,
+      "tick": 534
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 69,
+      "tick": 535
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 69,
+      "tick": 536
+    },
+    {
+      "drones": 0,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 79,
+      "tick": 537
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 78,
+      "tick": 538
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 76,
+      "tick": 539
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 74,
+      "tick": 540
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 27,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 73,
+      "tick": 542
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 12,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 73,
+      "tick": 542
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 12,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 71,
+      "tick": 543
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 69,
+      "tick": 544
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 64,
+      "tick": 545
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 57,
+      "tick": 546
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 52,
+      "tick": 547
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 50,
+      "tick": 548
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 50,
+      "tick": 549
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 49,
+      "tick": 550
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 49,
+      "tick": 551
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 47,
+      "tick": 552
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 44,
+      "tick": 553
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 42,
+      "tick": 554
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 41,
+      "tick": 555
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 41,
+      "tick": 556
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 38,
+      "tick": 557
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 37,
+      "tick": 558
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 32,
+      "tick": 559
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 28,
+      "tick": 560
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 25,
+      "tick": 561
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 23,
+      "tick": 562
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 21,
+      "tick": 563
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 16,
+      "tick": 564
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 15,
+      "tick": 565
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 15,
+      "tick": 566
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 13,
+      "tick": 567
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 11,
+      "tick": 568
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 11,
+      "tick": 569
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 11,
+      "tick": 570
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 10,
+      "tick": 571
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 9,
+      "tick": 572
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 5,
+      "tick": 573
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 5,
+      "tick": 574
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 5,
+      "tick": 575
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 5,
+      "tick": 576
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 5,
+      "tick": 577
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 5,
+      "tick": 578
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 4,
+      "tick": 579
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 3,
+      "tick": 580
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 2,
+      "tick": 581
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 2,
+      "tick": 582
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 2,
+      "tick": 583
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 2,
+      "tick": 584
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 1,
+      "tick": 585
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 586
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 587
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 588
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 589
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 590
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 591
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 0,
+      "tick": 592
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 593
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 594
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 595
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 596
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 597
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 598
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 599
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 600
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 601
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 602
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 603
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 604
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 605
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 606
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 607
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 608
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 609
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 610
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 611
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 612
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 613
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 614
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 615
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 616
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 617
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 618
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 619
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 620
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 621
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 0,
+      "tick": 622
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 623
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 624
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 625
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 626
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 627
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 628
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 629
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 630
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 631
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 632
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 633
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 634
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 635
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 636
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 637
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 638
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 639
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 640
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 641
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 642
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 643
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 644
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 645
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 646
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 647
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 648
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 649
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 650
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 651
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 652
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 653
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 654
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 655
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 656
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 657
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 658
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 659
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 660
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 661
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 662
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 663
+    },
+    {
+      "drones": 0,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 47,
+      "tick": 664
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 665
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 666
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 667
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 668
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 669
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 670
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 671
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 672
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 673
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 674
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 85,
+      "tick": 675
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 84,
+      "tick": 676
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 83,
+      "tick": 677
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 80,
+      "tick": 678
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 80,
+      "tick": 679
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 78,
+      "tick": 680
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 78,
+      "tick": 681
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 77,
+      "tick": 682
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 75,
+      "tick": 683
+    },
+    {
+      "drones": 0,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 74,
+      "tick": 684
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 72,
+      "tick": 685
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 115,
+      "tick": 686
+    },
+    {
+      "drones": 0,
+      "explosions": 4,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 154,
+      "tick": 687
+    },
+    {
+      "drones": 0,
+      "explosions": 4,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 149,
+      "tick": 688
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 148,
+      "tick": 689
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 146,
+      "tick": 690
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 146,
+      "tick": 691
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 145,
+      "tick": 692
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 144,
+      "tick": 693
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 143,
+      "tick": 694
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 141,
+      "tick": 695
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 137,
+      "tick": 696
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 127,
+      "tick": 697
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 123,
+      "tick": 698
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 117,
+      "tick": 699
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 113,
+      "tick": 700
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 108,
+      "tick": 701
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 101,
+      "tick": 702
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 101,
+      "tick": 703
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 98,
+      "tick": 704
+    },
+    {
+      "drones": 0,
+      "explosions": 4,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 138,
+      "tick": 705
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 136,
+      "tick": 706
+    },
+    {
+      "drones": 0,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 133,
+      "tick": 707
+    },
+    {
+      "drones": 0,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 126,
+      "tick": 708
+    },
+    {
+      "drones": 0,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 121,
+      "tick": 709
+    },
+    {
+      "drones": 0,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 115,
+      "tick": 710
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 113,
+      "tick": 711
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 111,
+      "tick": 712
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 108,
+      "tick": 713
+    },
+    {
+      "drones": 0,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 121,
+      "tick": 714
+    },
+    {
+      "drones": 0,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 120,
+      "tick": 715
+    },
+    {
+      "drones": 0,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 117,
+      "tick": 716
+    },
+    {
+      "drones": 0,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 111,
+      "tick": 717
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 144,
+      "tick": 718
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 139,
+      "tick": 719
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 131,
+      "tick": 720
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 124,
+      "tick": 721
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 121,
+      "tick": 722
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 118,
+      "tick": 723
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 116,
+      "tick": 724
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 113,
+      "tick": 725
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 111,
+      "tick": 726
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 0,
+      "particles": 109,
+      "tick": 727
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 106,
+      "tick": 728
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 102,
+      "tick": 729
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 99,
+      "tick": 730
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 96,
+      "tick": 731
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 93,
+      "tick": 732
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 89,
+      "tick": 733
+    },
+    {
+      "drones": 0,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 86,
+      "tick": 734
+    },
+    {
+      "drones": 0,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 82,
+      "tick": 735
+    },
+    {
+      "drones": 0,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 77,
+      "tick": 736
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 76,
+      "tick": 737
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 70,
+      "tick": 738
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 69,
+      "tick": 739
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 67,
+      "tick": 740
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 63,
+      "tick": 741
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 60,
+      "tick": 742
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 57,
+      "tick": 743
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 56,
+      "tick": 744
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 0,
+      "missiles": 1,
+      "particles": 56,
+      "tick": 745
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 51,
+      "tick": 746
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 46,
+      "tick": 747
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 43,
+      "tick": 748
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 41,
+      "tick": 749
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 39,
+      "tick": 750
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 38,
+      "tick": 751
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 37,
+      "tick": 752
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 36,
+      "tick": 753
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 33,
+      "tick": 754
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 30,
+      "tick": 755
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 28,
+      "tick": 756
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 25,
+      "tick": 757
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 23,
+      "tick": 758
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 22,
+      "tick": 759
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 21,
+      "tick": 760
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 21,
+      "tick": 761
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 19,
+      "tick": 762
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 17,
+      "tick": 763
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 17,
+      "tick": 764
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 16,
+      "tick": 765
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 15,
+      "tick": 766
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 13,
+      "tick": 767
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 13,
+      "tick": 768
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 11,
+      "tick": 769
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 11,
+      "tick": 770
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 7,
+      "tick": 771
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 6,
+      "tick": 772
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 5,
+      "tick": 773
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 4,
+      "tick": 774
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 2,
+      "particles": 4,
+      "tick": 775
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 3,
+      "tick": 776
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 3,
+      "tick": 777
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 3,
+      "tick": 778
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 3,
+      "tick": 779
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 3,
+      "tick": 780
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 3,
+      "tick": 781
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 2,
+      "tick": 782
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 2,
+      "tick": 783
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 1,
+      "tick": 784
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 1,
+      "tick": 785
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 1,
+      "tick": 786
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 787
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 788
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 2,
+      "particles": 0,
+      "tick": 789
+    },
+    {
+      "drones": 0,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 47,
+      "tick": 790
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 791
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 792
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 793
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 794
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 795
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 796
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 797
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 798
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 87,
+      "tick": 799
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 86,
+      "tick": 800
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 86,
+      "tick": 801
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 85,
+      "tick": 802
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 84,
+      "tick": 803
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 82,
+      "tick": 804
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 79,
+      "tick": 805
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 78,
+      "tick": 806
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 73,
+      "tick": 807
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 72,
+      "tick": 808
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 70,
+      "tick": 809
+    },
+    {
+      "drones": 0,
+      "explosions": 2,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 68,
+      "tick": 810
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 67,
+      "tick": 811
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 65,
+      "tick": 812
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 62,
+      "tick": 813
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 60,
+      "tick": 814
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 59,
+      "tick": 815
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 59,
+      "tick": 816
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 57,
+      "tick": 817
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 69,
+      "tick": 818
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 69,
+      "tick": 819
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 69,
+      "tick": 820
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 69,
+      "tick": 821
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 65,
+      "tick": 822
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 61,
+      "tick": 823
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 58,
+      "tick": 824
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 57,
+      "tick": 825
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 55,
+      "tick": 826
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 1,
+      "particles": 53,
+      "tick": 827
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 47,
+      "tick": 828
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 47,
+      "tick": 829
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 45,
+      "tick": 830
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 42,
+      "tick": 831
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 39,
+      "tick": 832
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 36,
+      "tick": 833
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 34,
+      "tick": 834
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 33,
+      "tick": 835
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 30,
+      "tick": 836
+    },
+    {
+      "drones": 0,
+      "explosions": 1,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 28,
+      "tick": 837
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 24,
+      "tick": 838
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 21,
+      "tick": 839
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 16,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 18,
+      "tick": 840
+    },
+    {
+      "drones": 0,
+      "explosions": 0,
+      "frameMs": 17,
+      "interceptors": 2,
+      "missiles": 1,
+      "particles": 17,
+      "tick": 841
+    },
+    {
+      "drones": 0,
+      "explosions": 2,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 62,
+      "tick": 842
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 102,
+      "tick": 843
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 100,
+      "tick": 844
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 98,
+      "tick": 845
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 98,
+      "tick": 846
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 97,
+      "tick": 847
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 97,
+      "tick": 848
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 97,
+      "tick": 849
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 96,
+      "tick": 850
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 95,
+      "tick": 851
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 92,
+      "tick": 852
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 89,
+      "tick": 853
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 87,
+      "tick": 854
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 83,
+      "tick": 855
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 16,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 81,
+      "tick": 856
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 77,
+      "tick": 857
+    },
+    {
+      "drones": 0,
+      "explosions": 3,
+      "frameMs": 17,
+      "interceptors": 1,
+      "missiles": 0,
+      "particles": 77,
+      "tick": 858
+    }
+  ],
+  "replayId": "perf-wave4-upgrades",
+  "replayUrl": "/replays/perf-wave4-upgrades.json",
+  "runId": "bench-perf-wave4-upgrades-run-3-1784728400",
+  "schemaVersion": 1,
+  "summary": {
+    "p50": 17,
+    "p95": 17,
+    "p99": 21.46,
+    "longFrameCount16": 567,
+    "longFrameCount33": 3
+  },
+  "_buildId": "b49db72",
+  "_savedAt": "2026-07-22T13:53:37.667Z"
+}
