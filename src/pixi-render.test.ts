@@ -595,6 +595,18 @@ describe("PixiRenderer dynamic entity updates", () => {
     expect(state.missiles.get(missile)!.spriteRoot.position).toMatchObject({ x: 100, y: 120 });
     expect(state.planes.get(plane)!.container.position).toMatchObject({ x: 340, y: 360 });
     expect(state.flares.get(flare)!.glow.visible).toBe(true);
+    const laserPool = state.laserPool as Graphics[];
+    expect(laserPool).toHaveLength(1);
+    expect(laserPool[0].getBounds()).toMatchObject({
+      minX: 532,
+      minY: 552,
+      maxX: 588,
+      maxY: 598,
+    });
+
+    game.laserBeams.length = 0;
+    methods.updateGameplayLasers.call(self, state, game);
+    expect(laserPool[0].visible).toBe(false);
 
     game.missiles.length = 0;
     methods.updateGameplayMissiles.call(self, state, game, 2);

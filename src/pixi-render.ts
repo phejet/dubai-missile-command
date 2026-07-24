@@ -329,7 +329,7 @@ interface GameplayDynamicState {
   empArcPool: Graphics[];
   empBurstFlashPool: Graphics[];
   empLauncherFlarePool: Graphics[];
-  laserPool: Sprite[];
+  laserPool: Graphics[];
   phalanxPool: Sprite[];
   particleGraphic: Graphics;
   trailBatch: TrailBatch | null;
@@ -3716,22 +3716,19 @@ export class PixiRenderer implements GameRenderer {
       const dy = beam.y2 - beam.y1;
       const length = Math.hypot(dx, dy);
       if (length < 1) continue;
-      const sprite = getPooledSprite(
-        state.laserPool,
-        this.gameplayEffectsLayer,
-        used++,
-        state.effectAssets.laserBeam.sprite,
-        0,
-        0.5,
-      );
-      sprite.position.set(beam.x1, beam.y1);
-      sprite.rotation = Math.atan2(dy, dx);
-      sprite.width = length;
-      sprite.height = 8 * GAMEPLAY_EFFECT_SCALE;
-      sprite.alpha = Math.max(0, Math.min(1, alpha * 0.92));
-      sprite.tint = COL_HEX.laser;
+      const beamAlpha = Math.max(0, Math.min(1, alpha));
+      const graphic = getPooledGraphic(state.laserPool, this.gameplayEffectsLayer, used++);
+      graphic.blendMode = "add";
+      graphic
+        .moveTo(beam.x1, beam.y1)
+        .lineTo(beam.x2, beam.y2)
+        .stroke({ width: 8 * GAMEPLAY_EFFECT_SCALE, color: COL_HEX.laser, alpha: beamAlpha * 0.28, cap: "round" });
+      graphic
+        .moveTo(beam.x1, beam.y1)
+        .lineTo(beam.x2, beam.y2)
+        .stroke({ width: 2 * GAMEPLAY_EFFECT_SCALE, color: COL_HEX.laser, alpha: beamAlpha * 0.92, cap: "round" });
     }
-    hideUnusedSprites(state.laserPool, used);
+    hideUnusedGraphics(state.laserPool, used);
   }
 
   private updateGameplayEmpRings(state: GameplayDynamicState, game: GameState): void {

@@ -1,5 +1,10 @@
 # Lessons
 
+## 2026-07-23 — Classify screenshot geometry by the whole layer
+
+- Do not identify a debug overlay from one familiar primitive. Check the complete layer signature: here, the missing spawn bands, cyan Burj outline, and building bounds disproved the collider hypothesis; the red line was the Iron Beam and the rings were normal dive warnings.
+- When a screenshot shows the correct entity being affected but the effect geometry is wrong, preserve gameplay semantics and inspect render bounds, texture lifecycle, and pooling first. Do not tune targeting to hide a visual defect.
+
 ## 2026-07-21 — Git push authentication follows the remote transport
 
 - For a commit-and-push request against an SSH Git remote, verify SSH access with Git and push directly. Do not block on `gh auth`; GitHub CLI authentication is only relevant when the requested workflow needs GitHub API operations such as creating a PR.
