@@ -34,6 +34,7 @@ import {
   fireFlareSalvo,
   fireF15Pair,
   fireEmp,
+  hornetInterceptTicks,
   spawnMirv,
   spawnDrone,
   spawnDroneOfType,
@@ -45,7 +46,7 @@ import { updateEmpRings } from "./game-sim-emp";
 import { buildShopEntries, normalizeLegacyFlareActiveState } from "./game-sim-shop";
 import { getUpgradeNodeDef } from "./game-sim-upgrades";
 import { getBurjDamageFireLayout } from "./art-render";
-import type { Drone, Interceptor, Missile, PatriotMissile, UpgradeKey } from "./types";
+import type { Drone, Hornet, Interceptor, Missile, PatriotMissile, UpgradeKey } from "./types";
 
 describe("MIRV behavior", () => {
   afterEach(() => setRng(Math.random));
@@ -1691,14 +1692,14 @@ describe("Auto-defense targeting spread", () => {
     expect(g.patriotFollowupTimer).toBeGreaterThan(0);
   });
 
-  it("hornets without skyHunterMesh crash when their target dies", () => {
+  it("hornets without skyHunterMesh stand down when their target dies", () => {
     const { sim, g } = makeCleanGame(5);
     g.upgrades.wildHornets = 1;
     g.ownedUpgradeNodes.add("wildHornetsLeft");
     g.hornetSites = [{ key: "wildHornetsLeft", ammo: 0, reloadTimer: 0, launchCooldown: 0 }];
     const deadTarget = makeBallisticMissile({ x: 200, y: 220, alive: false });
     const fallbackTarget = makeBallisticMissile({ x: 760, y: 230, vx: 0, vy: 1 });
-    const dumbHornet = {
+    const dumbHornet: Hornet = {
       x: 210,
       y: 480,
       targetRef: deadTarget,
@@ -1715,8 +1716,11 @@ describe("Auto-defense targeting spread", () => {
 
     sim.updateAutoSystems(g, 1, [fallbackTarget]);
 
-    expect(dumbHornet.alive).toBe(false);
-    expect(g.hornets).not.toContain(dumbHornet);
+    expect(dumbHornet.alive).toBe(true);
+    expect(dumbHornet.phase).toBe("dying");
+    expect(dumbHornet.fate).toBe("standDown");
+    expect(dumbHornet.targetRef).toBeNull();
+    expect(g.explosions).toHaveLength(0);
   });
 
   it("skyHunterMesh hornets retarget indefinitely until life expires", () => {
@@ -1759,7 +1763,7 @@ describe("Auto-defense targeting spread", () => {
     expect(smartHornet.retargetsRemaining).toBe(Number.POSITIVE_INFINITY);
   });
 
-  it("does not treat a live below-hornet target as a dead-target crash", () => {
+  it("relinquishes a live target that has passed below instead of climbing away while reserving it", () => {
     const { sim, g } = makeCleanGame(5);
     g.upgrades.wildHornets = 1;
     g.ownedUpgradeNodes.add("wildHornetsLeft");
@@ -1782,8 +1786,254 @@ describe("Auto-defense targeting spread", () => {
     sim.updateAutoSystems(g, 1, [lowTarget]);
 
     expect(g.hornets[0].alive).toBe(true);
-    expect(g.hornets[0].targetRef).toBe(lowTarget);
-    expect(g.hornets[0].y).toBeLessThan(360);
+    expect(g.hornets[0].targetRef).toBeNull();
+    expect(g.hornets[0].phase).toBe("dying");
+    expect(g.hornets[0].fate).toBe("standDown");
+    expect(g.hornets[0].y).toBe(360);
+  });
+
+  it("turns a fuel-out into a tumble without creating a damaging explosion", () => {
+    const { sim, g } = makeCleanGame(5);
+    const target = makeBallisticMissile({ x: 300, y: 250, vx: 0, vy: 1 });
+    const hornet: Hornet = {
+      x: 210,
+      y: 480,
+      targetRef: target,
+      speed: 5,
+      trail: [],
+      alive: true,
+      blastRadius: 30,
+      wobble: 0,
+      life: 1,
+      maxLife: 168,
+      retargetsRemaining: 0,
+    };
+    g.hornets.push(hornet);
+
+    sim.updateAutoSystems(g, 1, [target]);
+
+    expect(hornet.phase).toBe("dying");
+    expect(hornet.fate).toBe("fuelOut");
+    expect(hornet.targetRef).toBeNull();
+    expect(g.explosions).toHaveLength(0);
+    expect(g.particles.some((particle) => particle.type === "spark")).toBe(true);
+  });
+
+  it("does not let a dying hornet reserve the only catchable launch target", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.wildHornets = 1;
+    g.ownedUpgradeNodes.add("wildHornetsLeft");
+    g.ownedUpgradeNodes.add("wildHornetsRight");
+    g.hornetSites = [
+      { key: "wildHornetsLeft", ammo: 0, reloadTimer: 0, launchCooldown: 0 },
+      { key: "wildHornetsRight", ammo: 1, reloadTimer: 0, launchCooldown: 0, loadedSpeed: 6.72 },
+    ];
+    const target = makeBallisticMissile({ x: 650, y: 900, vx: 0, vy: 1, accel: 1 });
+    g.hornets.push({
+      x: 400,
+      y: 700,
+      targetRef: null,
+      speed: 5,
+      trail: [],
+      alive: true,
+      blastRadius: 30,
+      wobble: 0,
+      life: 0,
+      maxLife: 168,
+      retargetsRemaining: 0,
+      phase: "dying",
+      fate: "standDown",
+      dyingTicks: 1,
+    });
+
+    sim.updateAutoSystems(g, 1, [target]);
+
+    expect(g.hornets.some((hornet) => hornet.phase === "flying" && hornet.targetRef === target)).toBe(true);
+  });
+
+  it("does not let a dying hornet detonate while tumbling through fuze range", () => {
+    const { sim, g } = makeCleanGame(5);
+    const target = makeBallisticMissile({ x: 210, y: 480, vx: 0, vy: 0, accel: 1 });
+    const hornet: Hornet = {
+      x: 210,
+      y: 480,
+      targetRef: target,
+      speed: 5,
+      trail: [],
+      alive: true,
+      blastRadius: 30,
+      wobble: 0,
+      life: 0,
+      maxLife: 168,
+      retargetsRemaining: 0,
+      phase: "dying",
+      fate: "fuelOut",
+      dyingTicks: 1,
+    };
+    g.hornets.push(hornet);
+
+    sim.updateAutoSystems(g, 1, [target]);
+
+    expect(target.alive).toBe(true);
+    expect(hornet.targetRef).toBeNull();
+    expect(g.explosions).toHaveLength(0);
+  });
+
+  it("detonates a hornet warhead at the hornet rather than teleporting it to the target", () => {
+    const { sim, g } = makeCleanGame(5);
+    const target = makeBallisticMissile({ x: 108, y: 100, vx: 0, vy: 0, accel: 1 });
+    g.hornets.push({
+      x: 100,
+      y: 100,
+      targetRef: target,
+      speed: 5,
+      trail: [],
+      alive: true,
+      blastRadius: 30,
+      wobble: 0,
+      life: 100,
+      maxLife: 168,
+      retargetsRemaining: 0,
+    });
+
+    sim.updateAutoSystems(g, 1, [target]);
+
+    expect(g.explosions).toHaveLength(1);
+    expect(g.explosions[0].x).toBe(100);
+    expect(g.explosions[0].y).toBe(100);
+    expect(g.explosions[0].x).not.toBe(target.x);
+  });
+
+  it("batch-picks distinct same-side targets for simultaneously eligible hornet pads", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.wildHornets = 1;
+    g.ownedUpgradeNodes.add("wildHornetsLeft");
+    g.ownedUpgradeNodes.add("wildHornetsRight");
+    g.hornetSites = [
+      { key: "wildHornetsLeft", ammo: 1, reloadTimer: 0, launchCooldown: 0, loadedSpeed: 6.72 },
+      { key: "wildHornetsRight", ammo: 1, reloadTimer: 0, launchCooldown: 0, loadedSpeed: 6.72 },
+    ];
+    const left = makeBallisticMissile({ x: 220, y: 900, vx: 0, vy: 1, accel: 1 });
+    const right = makeBallisticMissile({ x: 650, y: 900, vx: 0, vy: 1, accel: 1 });
+
+    sim.updateAutoSystems(g, 1, [left, right]);
+
+    expect(g.hornets).toHaveLength(2);
+    expect(new Set(g.hornets.map((hornet) => hornet.targetRef))).toEqual(new Set([left, right]));
+    expect(g.hornets.find((hornet) => hornet.x < 400)?.targetRef).toBe(left);
+    expect(g.hornets.find((hornet) => hornet.x > 500)?.targetRef).toBe(right);
+  });
+
+  it("matches the accel-aware intercept reference cases", () => {
+    const threat = (vy: number) => makeBallisticMissile({ x: 206, y: 0, vx: 0, vy, accel: 1.018 });
+
+    expect(hornetInterceptTicks(206, 1388, threat(1.3), 4.476)).toBe(137);
+    expect(hornetInterceptTicks(206, 1388, threat(1.3), 6.72)).toBe(122);
+    expect(hornetInterceptTicks(206, 1388, threat(2), 4.476)).toBe(120);
+    expect(hornetInterceptTicks(206, 1388, threat(2), 6.72)).toBe(108);
+    // Continuous crossing is 99.47 ticks; the source plan's hand table rounded
+    // this row up while rounding the other rows to nearest.
+    expect(hornetInterceptTicks(206, 1388, threat(3), 5.6)).toBe(99);
+  });
+
+  it("holds a preloaded hornet when nothing is catchable without rerolling its speed", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.wildHornets = 1;
+    g.ownedUpgradeNodes.add("wildHornetsLeft");
+    g.hornetSites = [{ key: "wildHornetsLeft", ammo: 1, reloadTimer: 0, launchCooldown: 0, loadedSpeed: 4.476 }];
+    const escaping = makeBallisticMissile({ x: 206, y: 0, vx: 0, vy: -20, accel: 1 });
+
+    sim.updateAutoSystems(g, 1, [escaping]);
+    sim.updateAutoSystems(g, 1, [escaping]);
+
+    expect(g.hornets).toHaveLength(0);
+    expect(g.hornetSites[0].ammo).toBe(1);
+    expect(g.hornetSites[0].loadedSpeed).toBe(4.476);
+  });
+
+  it("rejects an uncatchable fast missile but launches at a catchable diving drone", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.wildHornets = 1;
+    g.ownedUpgradeNodes.add("wildHornetsLeft");
+    g.hornetSites = [{ key: "wildHornetsLeft", ammo: 1, reloadTimer: 0, launchCooldown: 0, loadedSpeed: 4.476 }];
+    const escaping = makeBallisticMissile({ x: 206, y: 0, vx: 0, vy: -20, accel: 1 });
+    const diving = makeDrone({ x: 220, y: 900, vx: 0, vy: 12, diving: true });
+
+    sim.updateAutoSystems(g, 1, [escaping, diving]);
+
+    expect(g.hornets).toHaveLength(1);
+    expect(g.hornets[0].targetRef).toBe(diving);
+  });
+
+  it("leaves MIRV-family targets to heavier defenses when another catchable threat exists", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.wildHornets = 1;
+    g.ownedUpgradeNodes.add("wildHornetsLeft");
+    g.hornetSites = [{ key: "wildHornetsLeft", ammo: 1, reloadTimer: 0, launchCooldown: 0, loadedSpeed: 6.72 }];
+    const mirv = makeBallisticMissile({ x: 206, y: 900, vx: 0, vy: 1, accel: 1, type: "mirv" });
+    const ordinary = makeBallisticMissile({ x: 240, y: 900, vx: 0, vy: 1, accel: 1 });
+
+    sim.updateAutoSystems(g, 1, [mirv, ordinary]);
+
+    expect(g.hornets).toHaveLength(1);
+    expect(g.hornets[0].targetRef).toBe(ordinary);
+  });
+
+  it("lets a SkyMesh hornet loiter beyond normal fuel life near its anchor", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.wildHornets = 1;
+    g.ownedUpgradeNodes.add("skyHunterMesh");
+    const deadTarget = makeBallisticMissile({ alive: false });
+    const hornet: Hornet = {
+      x: 400,
+      y: 600,
+      targetRef: deadTarget,
+      speed: 5,
+      trail: [],
+      alive: true,
+      blastRadius: 30,
+      wobble: 0,
+      life: 168,
+      maxLife: 168,
+      retargetsRemaining: Number.POSITIVE_INFINITY,
+    };
+    g.hornets.push(hornet);
+
+    for (let tick = 0; tick < 200; tick++) sim.updateAutoSystems(g, 1, []);
+
+    expect(hornet.alive).toBe(true);
+    expect(hornet.phase).toBe("loitering");
+    expect(Math.hypot(hornet.x - hornet.loiterX!, hornet.y - hornet.loiterY!)).toBeLessThan(30);
+  });
+
+  it("reactivates a loitering SkyMesh hornet within one tick when a catchable threat appears", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.wildHornets = 1;
+    g.ownedUpgradeNodes.add("skyHunterMesh");
+    const hornet: Hornet = {
+      x: 400,
+      y: 600,
+      targetRef: null,
+      speed: 5,
+      trail: [],
+      alive: true,
+      blastRadius: 30,
+      wobble: 0,
+      life: 120,
+      maxLife: 168,
+      retargetsRemaining: Number.POSITIVE_INFINITY,
+      phase: "loitering",
+      loiterX: 400,
+      loiterY: 600,
+      loiterAngle: 1,
+    };
+    const target = makeBallisticMissile({ x: 480, y: 520, vx: 0, vy: 1, accel: 1 });
+    g.hornets.push(hornet);
+
+    sim.updateAutoSystems(g, 1, [target]);
+
+    expect(hornet.phase).toBe("flying");
+    expect(hornet.targetRef).toBe(target);
   });
 
   it("keeps patriot retargets off another patriot's live target", () => {

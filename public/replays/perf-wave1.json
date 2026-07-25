@@ -1,13 +1,5 @@
 {
-  "version": 6,
-  "initialState": {
-    "metaProgression": {
-      "version": 1,
-      "completedObjectives": []
-    },
-    "forcedUpgradeFamilies": [],
-    "burjHealth": 7
-  },
+  "version": 7,
   "seed": 74,
   "actions": [
     {
@@ -756,11 +748,17 @@
       "y": 225
     }
   ],
+  "initialState": {
+    "metaProgression": {
+      "version": 1,
+      "completedObjectives": []
+    },
+    "forcedUpgradeFamilies": [],
+    "burjHealth": 7
+  },
   "draftMode": false,
   "stopCondition": {
     "type": "waveComplete",
     "wave": 1
-  },
-  "score": 618,
-  "wave": 1
+  }
 }

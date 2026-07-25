@@ -38,6 +38,7 @@ interface RunGameOptions {
   checkpoints?: boolean;
   initialState?: ReplayData["initialState"];
   isHuman?: boolean;
+  passive?: boolean;
 }
 
 export function runGame(botConfig: Record<string, unknown> | null, options: RunGameOptions = {}) {
@@ -49,6 +50,7 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
   const record = options.record ?? false;
   const draftMode = options.draftMode ?? true;
   const isHuman = options.isHuman ?? false;
+  const passive = options.passive ?? false;
   const dt = 1; // fixed timestep per tick
   const startWave = resolveReplayStartWave(options);
   const stopWave = resolveReplayStopWave(options, startWave);
@@ -150,7 +152,7 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
       // processes the first step() after resumeFromShop()
     }
 
-    if (g.flareReadyThisWave) {
+    if (!passive && g.flareReadyThisWave) {
       const flareCfg = config.flare || {};
       const minThreats = g.upgrades.flare >= 2 ? flareCfg.minThreatsL2 || 4 : flareCfg.minThreatsL1 || 6;
       const threats =
@@ -162,7 +164,7 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
     }
 
     // Bot fires EMP when threats are about to hit Burj
-    if (g.empReadyThisWave) {
+    if (!passive && g.empReadyThisWave) {
       const empCfg = config.emp || {};
       const impactY = empCfg.impactY || 420;
       const impactRadius = empCfg.impactRadius || 200;
@@ -181,7 +183,7 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
     }
 
     // Bot calls in F-15 patrol when threats are massing on screen
-    if (g.f15ReadyThisWave) {
+    if (!passive && g.f15ReadyThisWave) {
       const f15Cfg = config.f15 || {};
       const impactY = f15Cfg.impactY || 700;
       const impactRadius = f15Cfg.impactRadius || 400;
@@ -200,7 +202,7 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
     }
 
     // Bot decides whether to fire
-    const action = withBotRng(() => botDecideAction(g, config, lastFireTick, tick));
+    const action = passive ? null : withBotRng(() => botDecideAction(g, config, lastFireTick, tick));
     if (action) {
       g.crosshairX = action.x;
       g.crosshairY = action.y;
@@ -212,7 +214,7 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
       }
     }
     // Record bot cursor position every 3 ticks for replay crosshair
-    if (record && tick % 3 === 0) {
+    if (record && !passive && tick % 3 === 0) {
       actions!.push({ tick, type: "cursor", x: Math.round(g.crosshairX || 450), y: Math.round(g.crosshairY || 300) });
     }
 

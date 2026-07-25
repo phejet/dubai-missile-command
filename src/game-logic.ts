@@ -202,6 +202,25 @@ export const IRON_BEAM_CHARGE_TIME = [360, 240, 180] as const;
 // whatever actually gets through.
 export const IRON_BEAM_FIRE_WINDOW = 60;
 
+// ── Wild Hornets tuning ──
+export const HORNET_LIFE = 168;
+export const HORNET_SPEED_MIN = 4.476;
+export const HORNET_SPEED_MAX = 6.72;
+export const HORNET_BLAST_RADIUS = 30;
+export const HORNET_FUZE_RADIUS = 12;
+export const HORNET_RELOAD_TICKS = 60;
+export const HORNET_LAUNCH_GAP = 24;
+// Deliberate under-lead: the visible tail chase is part of the hornet's character.
+export const HORNET_LEAD_FRACTION = 0.3;
+export const HORNET_DIVE_SLACK = 80;
+export const HORNET_DYING_TICKS = 42;
+export const HORNET_TUMBLE_GRAVITY = 0.18;
+export const HORNET_INTERCEPT_MARGIN = 0.9;
+export const HORNET_LOITER_RADIUS = 22;
+export const HORNET_LOITER_RATE = 0.06;
+export const HORNET_LOITER_BURN = 0.35;
+export const HORNET_LOITER_MAX_CONCURRENT = 6;
+
 export function getGameplayLauncherPosition(index: number): { x: number; y: number } {
   return { x: LAUNCHERS[index].x, y: GAMEPLAY_SCENIC_LAUNCHER_Y };
 }

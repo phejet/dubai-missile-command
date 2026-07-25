@@ -288,6 +288,8 @@ export interface HornetSiteState {
   ammo: number;
   reloadTimer: number;
   launchCooldown: number;
+  /** Speed of the next physical drone in the tube; fixed while a pad holds fire. */
+  loadedSpeed?: number;
 }
 
 export interface UpgradeProgressionState {
@@ -335,6 +337,14 @@ export interface Hornet {
   life: number;
   maxLife: number;
   retargetsRemaining: number;
+  phase?: "flying" | "loitering" | "dying";
+  fate?: "fuelOut" | "standDown";
+  dyingTicks?: number;
+  spin?: number;
+  vy?: number;
+  loiterX?: number;
+  loiterY?: number;
+  loiterAngle?: number;
 }
 
 export interface Roadrunner {
@@ -795,7 +805,8 @@ export type SfxPayload =
         | "flareLaunch"
         | "empBlast"
         | "multiKill";
-    };
+    }
+  | { name: "hornetFizzle"; fate: "fuelOut" | "standDown" };
 
 export interface SimEventMap {
   sfx: SfxPayload;

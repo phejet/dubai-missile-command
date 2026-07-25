@@ -3536,22 +3536,33 @@ export class PixiRenderer implements GameRenderer {
       }
       const prev = hornet.trail[hornet.trail.length - 1];
       const pos = getRenderPosition(hornet, interpolationAlpha);
-      const heading = prev ? Math.atan2(pos.y - prev.y, pos.x - prev.x) : 0;
+      const phase = hornet.phase ?? "flying";
+      const heading =
+        (prev ? Math.atan2(pos.y - prev.y, pos.x - prev.x) : 0) + (phase === "dying" ? (hornet.spin ?? 0) : 0);
       node.trail.clear();
       // Trail visually depletes with hornet's remaining life — bright yellow → dim red-orange
       const lifeFrac = Math.max(0, Math.min(1, hornet.life / Math.max(1, hornet.maxLife)));
       const fade = 1 - lifeFrac;
       const widthMul = 0.5 + 0.5 * lifeFrac;
-      drawBatchedTrailOrDots(state.trailBatch, node.trail, hornet.trail, pos.x, pos.y, {
-        outerColor: lerpHex(0xffcc00, 0xff3300, fade),
-        coreColor: lerpHex(0xfff8b0, 0xff8844, fade),
-        headColor: lerpHex(0xffdc5c, 0xff5522, fade),
-        width: 3 * GAMEPLAY_EFFECT_SCALE * widthMul,
-        coreWidth: 1.2 * GAMEPLAY_EFFECT_SCALE * widthMul,
-        headRadius: 1.7 * GAMEPLAY_EFFECT_SCALE * widthMul,
-        alpha: 0.4 + 0.6 * lifeFrac,
-      });
+      const dyingFrac = Math.max(0, 1 - (hornet.dyingTicks ?? 0) / 18);
+      if (!(phase === "dying" && hornet.fate === "standDown")) {
+        drawBatchedTrailOrDots(state.trailBatch, node.trail, hornet.trail, pos.x, pos.y, {
+          outerColor: lerpHex(0xffcc00, 0xff3300, fade),
+          coreColor: lerpHex(0xfff8b0, 0xff8844, fade),
+          headColor: lerpHex(0xffdc5c, 0xff5522, fade),
+          width: 3 * GAMEPLAY_EFFECT_SCALE * widthMul,
+          coreWidth: 1.2 * GAMEPLAY_EFFECT_SCALE * widthMul,
+          headRadius: 1.7 * GAMEPLAY_EFFECT_SCALE * widthMul,
+          alpha: (0.4 + 0.6 * lifeFrac) * (phase === "dying" ? dyingFrac : 1),
+        });
+      }
       node.overlay.clear();
+      const spriteAlpha =
+        phase === "dying"
+          ? hornet.fate === "standDown"
+            ? Math.max(0.2, dyingFrac * 0.45)
+            : Math.max(0.35, dyingFrac * 0.8)
+          : 1;
       syncProjectileNode(
         node,
         state.upgradeProjectileAssets.wildHornet,
@@ -3559,9 +3570,19 @@ export class PixiRenderer implements GameRenderer {
         pos.y,
         heading + Math.PI / 2,
         sceneTime,
-        1,
-        true,
+        spriteAlpha,
+        phase !== "dying",
       );
+      const tint = phase === "dying" ? (hornet.fate === "standDown" ? 0x555962 : 0xa86c3b) : 0xffffff;
+      node.anim.primary.tint = tint;
+      node.anim.secondary.tint = tint;
+      if (phase === "loitering") {
+        node.localOverlay.circle(0, 0, 7 * GAMEPLAY_EFFECT_SCALE).stroke({
+          color: 0x66ffee,
+          width: 0.8 * GAMEPLAY_EFFECT_SCALE,
+          alpha: 0.42,
+        });
+      }
     }
 
     for (const roadrunner of game.roadrunners) {

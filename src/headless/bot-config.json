@@ -101,10 +101,10 @@
     },
     "average": {
       "upgradePriority": [
+        "wildHornets",
+        "emp",
         "patriot",
         "launcherKit",
-        "emp",
-        "wildHornets",
         "phalanx",
         "ironBeam",
         "flare",

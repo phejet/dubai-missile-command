@@ -32,6 +32,7 @@ Only `sfx` is directly about audio, but the other events also trigger audio indi
 - `planeIncoming`
 - `planePass`
 - `hornetBuzz`
+- `hornetFizzle`
 - `patriotLaunch`
 - `laserBeam`
 - `waveCleared`
@@ -46,6 +47,7 @@ Some names require extra payload fields:
 - `explosion.size`
 - `chainExplosion.size`
 - `chainExplosion.chainLevel`
+- `hornetFizzle.fate` (`fuelOut` or `standDown`)
 
 ## Direct Runtime Audio Calls
 

@@ -37,6 +37,8 @@ for (const cfg of CONFIGS) {
       `orphan=${p(orph, h.length).padStart(4)}%`,
       `unreachable=${p(unreach, h.length).padStart(4)}%`,
       `trailAtCPA=${p(trail.filter((x) => x.trailingAtCpa).length, trail.length).padStart(4)}%`,
+      `loiterPeak=${Math.max(...runs.map((r) => r.peakConcurrentLoiterers))}`,
+      `loiterP95=${mean(runs.map((r) => r.p95ConcurrentLoiterers)).toFixed(1)}`,
     ].join("  "),
   );
 }

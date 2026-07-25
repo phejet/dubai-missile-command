@@ -49,11 +49,15 @@ describe("createReplayRunner lifecycle", () => {
     expect(() => createRawReplayRunner({ seed: SEED, actions: [] } as unknown as ReplayData).init()).toThrow(
       /version is missing/,
     );
-    expect(() => createRawReplayRunner({ version: 5, seed: SEED, actions: [] }).init()).toThrow(/no longer supported/);
-    expect(() => createRawReplayRunner({ version: 7, seed: SEED, actions: [] }).init()).toThrow(/newer format/);
+    expect(() =>
+      createRawReplayRunner({ version: CURRENT_REPLAY_VERSION - 1, seed: SEED, actions: [] }).init(),
+    ).toThrow(/no longer supported/);
+    expect(() =>
+      createRawReplayRunner({ version: CURRENT_REPLAY_VERSION + 1, seed: SEED, actions: [] }).init(),
+    ).toThrow(/newer format/);
   });
 
-  it("rejects v6 recordings without deterministic initial state", () => {
+  it("rejects current-version recordings without deterministic initial state", () => {
     expect(() => createRawReplayRunner({ version: CURRENT_REPLAY_VERSION, seed: SEED, actions: [] }).init()).toThrow(
       /initial state is missing/,
     );

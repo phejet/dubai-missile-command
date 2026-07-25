@@ -43,6 +43,22 @@ import {
   IRON_BEAM_RANGE,
   IRON_BEAM_CHARGE_TIME,
   IRON_BEAM_FIRE_WINDOW,
+  HORNET_LIFE,
+  HORNET_SPEED_MIN,
+  HORNET_SPEED_MAX,
+  HORNET_BLAST_RADIUS,
+  HORNET_FUZE_RADIUS,
+  HORNET_RELOAD_TICKS,
+  HORNET_LAUNCH_GAP,
+  HORNET_LEAD_FRACTION,
+  HORNET_DIVE_SLACK,
+  HORNET_DYING_TICKS,
+  HORNET_TUMBLE_GRAVITY,
+  HORNET_INTERCEPT_MARGIN,
+  HORNET_LOITER_RADIUS,
+  HORNET_LOITER_RATE,
+  HORNET_LOITER_BURN,
+  HORNET_LOITER_MAX_CONCURRENT,
   hitsBurjBody,
   isBurjDiveTarget,
   isBurjImpactTarget,
@@ -68,6 +84,7 @@ import type {
   BurjDamageKind,
   Interceptor,
   Hornet,
+  HornetSiteState,
   HornetSiteKey,
   Roadrunner,
   SpawnEntry,
@@ -79,6 +96,7 @@ import { updateBurjFireParticles } from "./game-sim-burj-fire";
 import { empScrubScale, fireEmp, updateEmpRings, updateEmpVisualFx } from "./game-sim-emp";
 import { fireFlareSalvo, updateFlares } from "./game-sim-flare";
 import { updatePatriotSystem } from "./game-sim-patriot";
+import { getWhiteSmokeParticleVariantId } from "./smoke-particle-assets";
 
 export { updateBurjFireParticles };
 export { fireEmp };
@@ -833,26 +851,84 @@ function pickHornetTarget(
   return topBand[randInt(0, topBand.length - 1)].target;
 }
 
-function pickHornetLaunchTarget(allThreats: Threat[], activeHornets: Hornet[], siteKey: HornetSiteKey): Threat | null {
+export function hornetInterceptTicks(
+  fromX: number,
+  fromY: number,
+  threat: Threat,
+  hornetSpeed: number,
+  maxTicks = 400,
+): number | null {
+  if (hornetSpeed <= 0 || maxTicks < 1) return null;
+  const accel = threat.type === "drone" ? 1 : threat.accel || 1;
+  const limit = Math.max(1, Math.floor(maxTicks));
+
+  // Scan for the first intercept window, then refine its continuous crossing.
+  // Reachability is not globally monotonic when an accelerating threat first
+  // approaches and then outruns the hornet, so a blind bisection can skip it.
+  const separationAt = (ticks: number) => {
+    const displacementFactor = Math.abs(accel - 1) < 1e-9 ? ticks : (accel * (accel ** ticks - 1)) / (accel - 1);
+    const threatX = threat.x + (threat.vx || 0) * displacementFactor;
+    const threatY = threat.y + (threat.vy || 0) * displacementFactor;
+    return dist(fromX, fromY, threatX, threatY);
+  };
+  for (let ticks = 1; ticks <= limit; ticks++) {
+    if (hornetSpeed * ticks < separationAt(ticks)) continue;
+    let low = ticks - 1;
+    let high = ticks;
+    for (let step = 0; step < 16; step++) {
+      const mid = (low + high) * 0.5;
+      if (hornetSpeed * mid >= separationAt(mid)) high = mid;
+      else low = mid;
+    }
+    return Math.round(high);
+  }
+  return null;
+}
+
+interface HornetLaunchCandidate {
+  target: Threat;
+  score: number;
+}
+
+function isHornetPoorLaunchTarget(target: Threat): boolean {
+  return (
+    target.type === "mirv" || target.type === "mirv_warhead" || target.type === "stack2" || target.type === "stack3"
+  );
+}
+
+function getHornetLaunchCandidates(
+  allThreats: Threat[],
+  activeHornets: Hornet[],
+  siteKey: HornetSiteKey,
+  hornetSpeed: number,
+): HornetLaunchCandidate[] {
   const aliveThreats = allThreats.filter((t) => t.alive);
-  if (aliveThreats.length === 0) return null;
+  if (aliveThreats.length === 0) return [];
 
   const placement = getDefenseSitePlacement(siteKey);
   const siteX = placement?.x ?? 206;
+  const siteY = (placement?.y ?? GROUND_Y) - 20;
   const assignmentCounts = getHornetAssignmentCounts(activeHornets);
   const activeTargets = Array.from(assignmentCounts.keys());
 
   // Hold-fire on reserved: if every live target is already being chased by another
   // hornet, keep this slot in the magazine rather than launching a wasted second.
   const unassigned = aliveThreats.filter((t) => !assignmentCounts.has(t));
-  if (unassigned.length === 0) return null;
+  if (unassigned.length === 0) return [];
+  const preferredTypes = unassigned.filter((target) => !isHornetPoorLaunchTarget(target));
+  const rolePool = preferredTypes.length > 0 ? preferredTypes : unassigned;
+  const catchable = rolePool.filter((target) => {
+    const ticks = hornetInterceptTicks(siteX, siteY, target, hornetSpeed);
+    return ticks !== null && ticks <= HORNET_LIFE * HORNET_INTERCEPT_MARGIN;
+  });
+  if (catchable.length === 0) return [];
   const localHalf =
     siteKey === "wildHornetsLeft"
-      ? unassigned.filter((target) => target.x < BURJ_X)
-      : unassigned.filter((target) => target.x >= BURJ_X);
-  const spatialPool = localHalf.length > 0 ? localHalf : unassigned;
+      ? catchable.filter((target) => target.x < BURJ_X)
+      : catchable.filter((target) => target.x >= BURJ_X);
+  const spatialPool = localHalf.length > 0 ? localHalf : catchable;
 
-  const scored = spatialPool
+  return spatialPool
     .map((target) => {
       const assigned = assignmentCounts.get(target) || 0;
       const spatialPenalty = (Math.abs(target.x - siteX) / 600) * 80;
@@ -863,21 +939,57 @@ function pickHornetLaunchTarget(allThreats: Threat[], activeHornets: Hornet[], s
       };
     })
     .sort((a, b) => b.score - a.score);
-
-  const topScore = scored[0].score;
-  const topBand = scored.filter((s) => s.score >= topScore - 25);
-  return topBand[randInt(0, topBand.length - 1)].target;
 }
 
-const HORNET_DIVE_SLACK = 80;
+function pickHornetLaunchBatch(
+  allThreats: Threat[],
+  activeHornets: Hornet[],
+  eligibleSites: readonly HornetSiteState[],
+): Map<HornetSiteState, Threat> {
+  const candidates = eligibleSites.map((site) => ({
+    site,
+    options: getHornetLaunchCandidates(allThreats, activeHornets, site.key, site.loadedSpeed!),
+  }));
+  let best: { picks: Map<HornetSiteState, Threat>; count: number; score: number } = {
+    picks: new Map(),
+    count: 0,
+    score: -Infinity,
+  };
+
+  const search = (index: number, used: Set<Threat>, picks: Map<HornetSiteState, Threat>, score: number) => {
+    if (index >= candidates.length) {
+      if (picks.size > best.count || (picks.size === best.count && score > best.score)) {
+        best = { picks: new Map(picks), count: picks.size, score };
+      }
+      return;
+    }
+    const entry = candidates[index];
+    search(index + 1, used, picks, score);
+    for (const option of entry.options) {
+      if (used.has(option.target)) continue;
+      used.add(option.target);
+      picks.set(entry.site, option.target);
+      search(index + 1, used, picks, score + option.score);
+      picks.delete(entry.site);
+      used.delete(option.target);
+    }
+  };
+  search(0, new Set(), new Map(), 0);
+  return best.picks;
+}
 
 function pickHornetRetargetTarget(
   h: Hornet,
   allThreats: Threat[],
   activeHornets: Hornet[],
   lvl: number,
+  options: { allowBelow?: boolean } = {},
 ): Threat | null {
-  const alive = allThreats.filter((t) => t.alive && t.y <= h.y + HORNET_DIVE_SLACK);
+  const alive = allThreats.filter((t) => {
+    if (!t.alive || (!options.allowBelow && t.y > h.y + HORNET_DIVE_SLACK)) return false;
+    const ticks = hornetInterceptTicks(h.x, h.y, t, h.speed);
+    return ticks !== null && ticks <= h.life * HORNET_INTERCEPT_MARGIN;
+  });
   if (alive.length === 0) return null;
 
   // Prefer targets in the forward cone first
@@ -955,6 +1067,79 @@ function normalizeAngle(angle: number): number {
   return ((((angle + Math.PI) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)) - Math.PI;
 }
 
+function pushHornetTrail(h: Hornet): void {
+  h.trail.push({ x: h.x, y: h.y });
+  if (h.trail.length > 12) h.trail.shift();
+}
+
+function spawnHornetSmokePuff(g: GameState, h: Hornet, faint: boolean): void {
+  const count = faint ? 1 : 2;
+  for (let index = 0; index < count; index++) {
+    const life = rand(18, 30);
+    g.particles.push({
+      x: h.x + rand(-2, 2),
+      y: h.y + rand(-2, 2),
+      vx: rand(-0.25, 0.25),
+      vy: rand(-0.45, -0.12),
+      life,
+      maxLife: life,
+      color: faint ? "#77777f" : "#89817a",
+      size: rand(2.2, 3.8),
+      type: "smokePuff",
+      textureVariant: getWhiteSmokeParticleVariantId(randInt(0, 7)),
+      angle: rand(-Math.PI, Math.PI),
+      drag: 0.98,
+      gravity: -0.003,
+    });
+  }
+}
+
+function spawnHornetFuelSparks(g: GameState, h: Hornet, count: number): void {
+  for (let index = 0; index < count; index++) {
+    const life = rand(8, 18);
+    g.particles.push({
+      x: h.x + rand(-2, 2),
+      y: h.y + rand(-2, 2),
+      vx: rand(-0.8, 0.8),
+      vy: rand(0.2, 1.4),
+      life,
+      maxLife: life,
+      color: rand(0, 1) > 0.5 ? "#ff6600" : "#ffaa44",
+      size: rand(0.8, 1.6),
+      type: "spark",
+      drag: 0.93,
+      gravity: 0.04,
+    });
+  }
+}
+
+function enterHornetDying(g: GameState, h: Hornet, fate: "fuelOut" | "standDown", onEvent?: SimEventSink | null): void {
+  if (h.phase === "dying") return;
+  h.phase = "dying";
+  h.fate = fate;
+  h.dyingTicks = 0;
+  h.targetRef = null;
+  h.vy = fate === "fuelOut" ? 0.3 : 0.1;
+  h.spin = rand(-0.35, 0.35);
+  if (fate === "fuelOut") spawnHornetFuelSparks(g, h, 6);
+  onEvent?.("sfx", { name: "hornetFizzle", fate });
+}
+
+function updateDyingHornet(g: GameState, h: Hornet, dt: number): void {
+  h.dyingTicks = (h.dyingTicks ?? 0) + dt;
+  h.vy = (h.vy ?? 0) + HORNET_TUMBLE_GRAVITY * dt;
+  h.y += h.vy * dt;
+  h.x += Math.sin((h.dyingTicks ?? 0) * 0.18) * 0.35 * dt;
+  h.spin = (h.spin ?? 0) + (h.fate === "fuelOut" ? 0.22 : 0.12) * dt;
+  if (h.fate === "fuelOut" && h.dyingTicks < 18 && rand(0, 1) < 0.12 * dt) {
+    spawnHornetFuelSparks(g, h, 1);
+  }
+  if (h.dyingTicks >= HORNET_DYING_TICKS || h.x < -60 || h.x > CANVAS_W + 60 || h.y < -60 || h.y > CANVAS_H + 20) {
+    spawnHornetSmokePuff(g, h, h.fate === "standDown");
+    h.alive = false;
+  }
+}
+
 export function updateAutoSystems(g: GameState, dt: number, allThreats: Threat[], onEvent?: SimEventSink | null) {
   const _rng = getRng();
   // ── WILD HORNETS ──
@@ -962,9 +1147,6 @@ export function updateAutoSystems(g: GameState, dt: number, allThreats: Threat[]
   // Sites and retargeting are independent purchases — read directly from owned nodes.
   if (g.upgrades.wildHornets > 0) {
     const hasRetarget = g.ownedUpgradeNodes.has("skyHunterMesh");
-    const reloadPerSlot = 60;
-    const launchGap = 24;
-    const blastR = 30;
     const retargetBudget = hasRetarget ? Number.POSITIVE_INFINITY : 0;
     const siteKeys = getActiveHornetSiteKeys(g);
 
@@ -982,72 +1164,123 @@ export function updateAutoSystems(g: GameState, dt: number, allThreats: Threat[]
       const siteAlive = isSiteAlive(g, siteState.key);
       if (siteAlive && siteState.ammo < HORNET_SITE_CAPACITY) {
         siteState.reloadTimer += dt;
-        while (siteState.reloadTimer >= reloadPerSlot && siteState.ammo < HORNET_SITE_CAPACITY) {
+        while (siteState.reloadTimer >= HORNET_RELOAD_TICKS && siteState.ammo < HORNET_SITE_CAPACITY) {
           siteState.ammo++;
-          siteState.reloadTimer -= reloadPerSlot;
+          siteState.reloadTimer -= HORNET_RELOAD_TICKS;
         }
       }
       if (siteState.ammo >= HORNET_SITE_CAPACITY) siteState.reloadTimer = 0;
       if (siteState.launchCooldown > 0) {
         siteState.launchCooldown = Math.max(0, siteState.launchCooldown - dt);
       }
-
-      if (siteAlive && siteState.ammo > 0 && siteState.launchCooldown <= 0 && allThreats.length > 0) {
-        const target = pickHornetLaunchTarget(allThreats, g.hornets, siteState.key);
-        if (target) {
-          const hornetSite = getDefenseSitePlacement(siteState.key);
-          g.hornets.push({
-            x: (hornetSite?.x ?? 206) + rand(-12, 12),
-            y: (hornetSite?.y ?? GROUND_Y) - 20,
-            targetRef: target,
-            speed: rand(4.476, 6.72),
-            trail: [],
-            alive: true,
-            blastRadius: blastR,
-            wobble: rand(0, Math.PI * 2),
-            life: 168,
-            maxLife: 168,
-            retargetsRemaining: retargetBudget,
-          });
-          siteState.ammo--;
-          siteState.launchCooldown = launchGap;
-          if (onEvent) onEvent("sfx", { name: "hornetBuzz" });
-        }
+      if (siteAlive && siteState.ammo > 0 && siteState.loadedSpeed === undefined) {
+        siteState.loadedSpeed = rand(HORNET_SPEED_MIN, HORNET_SPEED_MAX);
       }
+    }
+
+    const eligibleSites = g.hornetSites.filter(
+      (site) =>
+        siteKeys.includes(site.key) &&
+        isSiteAlive(g, site.key) &&
+        site.ammo > 0 &&
+        site.launchCooldown <= 0 &&
+        site.loadedSpeed !== undefined,
+    );
+    const launchBatch = pickHornetLaunchBatch(allThreats, g.hornets, eligibleSites);
+    for (const siteState of eligibleSites) {
+      const target = launchBatch.get(siteState);
+      if (!target) continue;
+      const hornetSite = getDefenseSitePlacement(siteState.key);
+      g.hornets.push({
+        x: (hornetSite?.x ?? 206) + rand(-12, 12),
+        y: (hornetSite?.y ?? GROUND_Y) - 20,
+        targetRef: target,
+        speed: siteState.loadedSpeed!,
+        trail: [],
+        alive: true,
+        blastRadius: HORNET_BLAST_RADIUS,
+        wobble: rand(0, Math.PI * 2),
+        life: HORNET_LIFE,
+        maxLife: HORNET_LIFE,
+        retargetsRemaining: retargetBudget,
+        phase: "flying",
+      });
+      siteState.ammo--;
+      siteState.loadedSpeed = undefined;
+      siteState.launchCooldown = HORNET_LAUNCH_GAP;
+      onEvent?.("sfx", { name: "hornetBuzz" });
     }
   }
   // Hornet in-flight update — always runs so hornets don't freeze when site is destroyed
+  let loiteringCount = g.hornets.filter((hornet) => hornet.alive && hornet.phase === "loitering").length;
   g.hornets.forEach((h: Hornet) => {
     if (!h.alive) return;
-    h.life -= dt;
-    if (h.life <= 0 || h.x < -60 || h.x > CANVAS_W + 60 || h.y < -60 || h.y > CANVAS_H + 20) {
+    if (h.phase === "dying") {
+      h.targetRef = null;
+      updateDyingHornet(g, h, dt);
+      return;
+    }
+
+    if (h.phase === "loitering") {
+      h.life -= HORNET_LOITER_BURN * dt;
+      if (h.life <= 0) {
+        loiteringCount--;
+        enterHornetDying(g, h, "fuelOut", onEvent);
+        return;
+      }
+      const newTarget = pickHornetRetargetTarget(
+        h,
+        allThreats,
+        g.hornets.filter((other) => other !== h),
+        g.upgrades.wildHornets,
+        { allowBelow: true },
+      );
+      if (newTarget) {
+        h.targetRef = newTarget;
+        h.phase = "flying";
+        h.loiterX = undefined;
+        h.loiterY = undefined;
+        h.loiterAngle = undefined;
+        loiteringCount--;
+      } else {
+        h.loiterAngle = (h.loiterAngle ?? 0) + HORNET_LOITER_RATE * dt;
+        const orbitX = (h.loiterX ?? h.x) + Math.cos(h.loiterAngle) * HORNET_LOITER_RADIUS;
+        const orbitY = (h.loiterY ?? h.y) + Math.sin(h.loiterAngle) * HORNET_LOITER_RADIUS * 0.55;
+        const orbitDx = orbitX - h.x;
+        const orbitDy = orbitY - h.y;
+        const orbitDist = Math.hypot(orbitDx, orbitDy) || 1;
+        const orbitStep = Math.min(orbitDist, h.speed * 0.35 * dt);
+        pushHornetTrail(h);
+        h.x += (orbitDx / orbitDist) * orbitStep;
+        h.y += (orbitDy / orbitDist) * orbitStep;
+        return;
+      }
+    } else {
+      h.phase = "flying";
+      h.life -= dt;
+    }
+
+    if (h.life <= 0) {
+      enterHornetDying(g, h, "fuelOut", onEvent);
+      return;
+    }
+    if (h.x < -60 || h.x > CANVAS_W + 60 || h.y < -60 || h.y > CANVAS_H + 20) {
       h.alive = false;
-      boom(g, h.x, h.y, h.blastRadius * 0.5, COL.hornet, false, onEvent, h.blastRadius * 0.2);
       return;
     }
     // Fuel sputter — when hornet is running out of life, drop sparks like a coughing engine
     if (h.life < 30 && rand(0, 1) < 0.18 * dt) {
-      g.particles.push({
-        x: h.x + rand(-2, 2),
-        y: h.y + rand(-2, 2),
-        vx: rand(-0.8, 0.8),
-        vy: rand(0.2, 1.4),
-        life: rand(8, 18),
-        maxLife: 18,
-        color: rand(0, 1) > 0.5 ? "#ff6600" : "#ffaa44",
-        size: rand(0.8, 1.6),
-        type: "spark",
-        drag: 0.93,
-        gravity: 0.04,
-      });
+      spawnHornetFuelSparks(g, h, 1);
+    }
+    if (h.targetRef?.alive && h.targetRef.y > h.y + HORNET_DIVE_SLACK) {
+      h.targetRef = null;
     }
     const t = h.targetRef;
     // Hornets are kamikaze drones. Without Sky Hunter Mesh they crash when their
-    // target dies; with it they keep retargeting until life expires (Infinity budget).
+    // target dies; with it they retarget or hold station as part of the mesh.
     if (!t || !t.alive) {
       if ((h.retargetsRemaining ?? 0) <= 0) {
-        h.alive = false;
-        boom(g, h.x, h.y, h.blastRadius * 0.5, COL.hornet, false, onEvent, h.blastRadius * 0.2);
+        enterHornetDying(g, h, "standDown", onEvent);
         return;
       }
       const newT = pickHornetRetargetTarget(
@@ -1059,41 +1292,35 @@ export function updateAutoSystems(g: GameState, dt: number, allThreats: Threat[]
       if (newT) {
         h.targetRef = newT;
         h.retargetsRemaining = (h.retargetsRemaining ?? 0) - 1;
+      } else if (loiteringCount < HORNET_LOITER_MAX_CONCURRENT) {
+        h.targetRef = null;
+        h.phase = "loitering";
+        h.loiterX = h.x;
+        h.loiterY = h.y;
+        h.loiterAngle = 0;
+        loiteringCount++;
+        return;
       } else {
-        // No targets — drift forward, life timer will eventually expire
-        h.wobble += 0.15 * dt;
-        h.trail.push({ x: h.x, y: h.y });
-        if (h.trail.length > 12) h.trail.shift();
-        h.y -= h.speed * 0.5 * dt;
-        h.x += Math.sin(h.wobble) * 0.8 * dt;
+        enterHornetDying(g, h, "standDown", onEvent);
         return;
       }
-    }
-    const currentTarget = h.targetRef;
-    if (currentTarget?.alive && currentTarget.y > h.y + HORNET_DIVE_SLACK) {
-      h.wobble += 0.15 * dt;
-      h.trail.push({ x: h.x, y: h.y });
-      if (h.trail.length > 12) h.trail.shift();
-      h.y -= h.speed * 0.5 * dt;
-      h.x += Math.sin(h.wobble) * 0.8 * dt;
-      return;
     }
     h.wobble += 0.15 * dt;
     const hTarget = h.targetRef!;
     const dx = hTarget.x - h.x;
     const dy = hTarget.y - h.y;
     const d = Math.sqrt(dx * dx + dy * dy);
-    if (d < 12) {
+    if (d < HORNET_FUZE_RADIUS) {
       h.alive = false;
-      boom(g, hTarget.x, hTarget.y, h.blastRadius, COL.hornet, false, onEvent, h.blastRadius * 0.5);
+      boom(g, h.x, h.y, h.blastRadius, COL.hornet, false, onEvent, h.blastRadius * 0.5);
       return;
     }
-    h.trail.push({ x: h.x, y: h.y });
-    if (h.trail.length > 12) h.trail.shift();
+    pushHornetTrail(h);
     // Lead the target slightly
-    const hLeadFrames = d / h.speed;
-    const hlx = hTarget.x + (hTarget.vx || 0) * hLeadFrames * 0.3;
-    const hly = hTarget.y + (hTarget.vy || 0) * hLeadFrames * 0.3;
+    const interceptTicks = hornetInterceptTicks(h.x, h.y, hTarget, h.speed, Math.ceil(h.life));
+    const hLeadFrames = interceptTicks === null ? 0 : Math.min(d / h.speed, h.life);
+    const hlx = hTarget.x + (hTarget.vx || 0) * hLeadFrames * HORNET_LEAD_FRACTION;
+    const hly = hTarget.y + (hTarget.vy || 0) * hLeadFrames * HORNET_LEAD_FRACTION;
     const hld = Math.sqrt((hlx - h.x) ** 2 + (hly - h.y) ** 2) || 1;
     h.x += (((hlx - h.x) / hld) * h.speed + Math.sin(h.wobble) * 0.8) * dt;
     h.y += (((hly - h.y) / hld) * h.speed + Math.cos(h.wobble) * 0.5) * dt;

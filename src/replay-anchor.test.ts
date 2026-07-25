@@ -6,6 +6,7 @@ import { createReplayRunner, createReplayRunnerFromAnchor } from "./replay";
 import { createReplayStateAnchor } from "./replay-anchor";
 import { buildReplayCheckpoint } from "./replay-debug";
 import { buildReplayCausalSnapshot } from "./replay-causal-snapshot";
+import { CURRENT_REPLAY_VERSION } from "./replay-version";
 import type { Hornet, Missile, ReplayData } from "./types";
 
 afterEach(() => {
@@ -79,7 +80,7 @@ describe("replay state anchors", () => {
       seed: 77,
       actions: [],
       draftMode: true,
-      version: 6,
+      version: CURRENT_REPLAY_VERSION,
       initialState: {
         metaProgression: { version: 1, completedObjectives: [] },
         forcedUpgradeFamilies: [],

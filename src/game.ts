@@ -1352,6 +1352,9 @@ export class Game {
           case "hornetBuzz":
             SFX.hornetBuzz();
             break;
+          case "hornetFizzle":
+            SFX.hornetFizzle(event.data.fate);
+            break;
           case "patriotLaunch":
             SFX.patriotLaunch();
             break;

@@ -297,6 +297,7 @@ const SFX = {
     this.planePass();
     this.patriotLaunch();
     this.hornetBuzz();
+    this.hornetFizzle("fuelOut");
     this.burjHit();
     this.launcherDestroyed();
     this.empBlast();
@@ -955,6 +956,29 @@ const SFX = {
     o1.stop(t + 0.15);
     o2.stop(t + 0.15);
     scheduleRelease(0.15);
+  },
+
+  hornetFizzle(fate: "fuelOut" | "standDown") {
+    if (!ensureCtx() || !trackVoice()) return;
+    const t = now();
+    const tone = getCtx().createOscillator();
+    tone.type = fate === "fuelOut" ? "sawtooth" : "sine";
+    tone.frequency.setValueAtTime(fate === "fuelOut" ? 210 : 360, t);
+    tone.frequency.exponentialRampToValueAtTime(fate === "fuelOut" ? 55 : 90, t + 0.28);
+    const gain = getCtx().createGain();
+    gain.gain.setValueAtTime(fate === "fuelOut" ? 0.07 : 0.045, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+    tone.connect(gain);
+    gain.connect(getMaster());
+    tone.start(t);
+    tone.stop(t + 0.3);
+
+    if (fate === "fuelOut") {
+      const sputter = noise(0.16, "bandpass", 1250, 2);
+      sputter.gain.gain.setValueAtTime(0.045, t);
+      sputter.gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+    }
+    scheduleRelease(0.3);
   },
 
   // Short electronic blip for bonus screen counting ticks

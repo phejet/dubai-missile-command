@@ -79,6 +79,7 @@ export interface HornetRec {
   terminalClosingN: number;
   lastTarget: Threat | null;
   lastDist: number;
+  classified?: boolean;
 }
 
 export interface ProbeResult {
@@ -93,6 +94,8 @@ export interface ProbeResult {
   missileKills: number;
   droneKills: number;
   hornets: HornetRec[];
+  peakConcurrentLoiterers: number;
+  p95ConcurrentLoiterers: number;
 }
 
 function threatKey(t: Threat): string {
@@ -135,6 +138,7 @@ export function probeGame(opts: { label: string; seed: number; acquired: string[
   const recs = new Map<Hornet, HornetRec>();
   const finished: HornetRec[] = [];
   const pendingKill: { rec: HornetRec; target: Threat; untilTick: number }[] = [];
+  const concurrentLoiterers: number[] = [];
   let lastFireTick = -Infinity;
   let deathCause = "timeout";
   let tick = 0;
@@ -193,6 +197,7 @@ export function probeGame(opts: { label: string; seed: number; acquired: string[
 
     update(g, 1, null);
     if (isBonusUiPauseActive(g)) completeWaveBonusAndOpenShop(g, null);
+    concurrentLoiterers.push(g.hornets.filter((hornet) => hornet.phase === "loitering").length);
 
     for (const h of g.hornets) {
       if (recs.has(h)) continue;
@@ -249,6 +254,13 @@ export function probeGame(opts: { label: string; seed: number; acquired: string[
     for (const h of g.hornets) {
       const r = recs.get(h)!;
       r.liveTicks++;
+      if (h.phase === "dying" && !r.classified) {
+        r.outcome = h.fate === "fuelOut" ? "fuel" : "orphan";
+        r.ticksAlive = tick - r.launchTick + 1;
+        r.hadTargetAtDeath = !!r.lastTarget?.alive;
+        r.deathY = h.y;
+        r.classified = true;
+      }
       // Swept closest approach: the sim only tests d<12 at tick start, but both
       // bodies move several px per tick. Compute the true minimum over the tick.
       const hp0 = preH.get(h);
@@ -274,7 +286,7 @@ export function probeGame(opts: { label: string; seed: number; acquired: string[
           r.trailingAtCpa = tv > 0.01 && toH > 0.01 ? (tvx * -cx + tvy * -cy) / (tv * toH) < -0.3 : false;
         }
       }
-      const loiterNow = (h as unknown as { _loiter?: number })._loiter ?? 0;
+      const loiterNow = h.phase === "loitering" ? (h.loiterAngle ?? 1) : 0;
       const wasLoitering = r.loiterTicks > 0 && r._prevLoiter! > 0;
       if (loiterNow > 0) {
         if (!r._prevLoiter) r.loiterEntries++;
@@ -318,16 +330,18 @@ export function probeGame(opts: { label: string; seed: number; acquired: string[
       r.hadTargetAtDeath = !!(t && t.alive);
       r.deathY = hp?.y ?? h.y;
       if (Number.isFinite(d)) r.finalDist = d;
-      if (!hp) r.outcome = "waveReset";
-      else if (hp.life - 1 <= 0) r.outcome = "fuel";
-      else if (hp.x < -60 || hp.x > 960 || hp.y < -60 || hp.y > 1620) r.outcome = "bounds";
-      else if (!t || !tp || !tp.alive) r.outcome = "orphan";
-      else if (d < FUZE) {
-        r.outcome = "detonate";
-        r.killY = tp ? tp.y : hp.y;
-        r.killedAfterLoiter = r.everLoitered;
-        pendingKill.push({ rec: r, target: t, untilTick: tick + 12 });
-      } else r.outcome = "waveReset";
+      if (!r.classified) {
+        if (!hp) r.outcome = "waveReset";
+        else if (hp.life - 1 <= 0) r.outcome = "fuel";
+        else if (hp.x < -60 || hp.x > 960 || hp.y < -60 || hp.y > 1620) r.outcome = "bounds";
+        else if (!t || !tp || !tp.alive) r.outcome = "orphan";
+        else if (d < FUZE) {
+          r.outcome = "detonate";
+          r.killY = hp.y;
+          r.killedAfterLoiter = r.everLoitered;
+          pendingKill.push({ rec: r, target: t, untilTick: tick + 12 });
+        } else r.outcome = "waveReset";
+      }
       finished.push(r);
       recs.delete(h);
     }
@@ -359,5 +373,9 @@ export function probeGame(opts: { label: string; seed: number; acquired: string[
     missileKills: g.stats.missileKills,
     droneKills: g.stats.droneKills,
     hornets: finished,
+    peakConcurrentLoiterers: concurrentLoiterers.length ? Math.max(...concurrentLoiterers) : 0,
+    p95ConcurrentLoiterers: concurrentLoiterers.length
+      ? [...concurrentLoiterers].sort((a, b) => a - b)[Math.floor(concurrentLoiterers.length * 0.95)]
+      : 0,
   };
 }
