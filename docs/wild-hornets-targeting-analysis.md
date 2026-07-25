@@ -6,11 +6,27 @@
 **Status:** analysis only — no gameplay code was changed by this document. Every counterfactual
 below was implemented behind a temporary env flag, measured, and reverted.
 
+**This document has two parts.**
+
+- **Part I — Findings.** Written to be read. What hornets do, what is wrong with it, what to
+  change, and why. Skip Part II entirely unless you are checking the work.
+- **Part II — Evidence & reproduction.** Written for a reviewing agent (or a future session
+  re-deriving this). Full methodology, the complete experiment inventory with raw numbers,
+  threats to validity, and the runnable harness. Every claim in Part I is traceable to a
+  numbered experiment in Appendix D.
+
+The harness is vendored at
+[`docs/analysis-harness/wild-hornets/`](./analysis-harness/wild-hornets/) — it is analysis-only,
+not imported by `src/`, and its README documents the exact `src/game-sim.ts` patch each
+counterfactual required.
+
 This document states the **current conclusions**. The investigation trail — claims that were
 measured, overturned, and replaced, plus the negative results worth not repeating — is in
 [Appendix C](#appendix-c--investigation-trail-superseded-claims-and-negative-results).
 
 ---
+
+# Part I — Findings
 
 ## 1. What this analysis is for
 
@@ -664,30 +680,52 @@ is a judgement only the controller-holder can make.
 
 ---
 
-## Appendix A — Reproducing this
+# Part II — Evidence & reproduction
 
-The harness was temporary and has been removed; the tree is unmodified. To rebuild it:
+> Everything below is for verification, not for reading end to end. Appendix D is the raw
+> experiment inventory; Appendix E lists what would most plausibly overturn these conclusions.
 
-1. Copy `src/headless/sim-runner.ts`'s main loop into a scratch script. Replace the shop block
-   with a bare `closeShop(g)` so nothing but hornets is purchased, and force the loadout up front
-   with `buyDraftUpgrade(g, id)` (free) followed by `prepareWaveStart(g)`.
-2. Each tick, before `update()`, snapshot `{x, y, life}` for every hornet and `{x, y, alive}` for
-   every missile and drone.
-3. After `update()`, register newly-appeared hornets, track per-tick distance to `targetRef`, and
-   classify any hornet missing from `g.hornets` **using the pre-update snapshot**, in the sim's
-   own branch order: `life - dt <= 0` → fuel · out of bounds → bounds · target dead → orphan ·
-   `d < 12` → detonate · otherwise → wave-reset despawn (`game-sim-shop.ts:407` clears
-   `g.hornets` between waves).
-4. For counterfactuals, gate each mechanism behind a `process.env` read (fuze radius,
-   self-detonation, lead mode, reachability, half-map fallback, `reloadPerSlot`, loiter), run
-   identical seed sets per variant, and revert.
-5. For player-profile realism, post-filter `botDecideAction`'s result: drop a fixed fraction of
-   firing opportunities via a third seeded RNG, and/or null the action when `action.targetRef.y`
-   exceeds a focus threshold. Pad identity is recoverable from spawn x (left 206 ± 12, right
-   622 ± 12).
+## Appendix A — The harness
 
-Two independent seed bases (70000, 91000), 20 games each, were used for headline comparisons; all
-replicated within ~5% unless noted.
+Vendored, runnable, and unmodified from what produced these numbers:
+[`docs/analysis-harness/wild-hornets/`](./analysis-harness/wild-hornets/).
+Its [README](./analysis-harness/wild-hornets/README.md) is the authoritative reference for
+running it and for the exact `src/game-sim.ts` patch behind every env flag.
+
+```bash
+# outcome mix across the three hornet loadouts (realistic profile, 20 games, seed base 70000)
+BOT_SKIP=0.35 BOT_FOCUS_Y=700 npx tsx docs/analysis-harness/wild-hornets/variants.ts 20 70000 label
+
+# marginal value on a built Roadrunner+Patriot+Phalanx core
+BOT_SKIP=0.35 npx tsx docs/analysis-harness/wild-hornets/marginal.ts
+```
+
+**Design in three points:**
+
+1. Mirrors `src/headless/sim-runner.ts`'s loop; forces an exact loadout with `buyDraftUpgrade`
+   (free — `game-sim-shop.ts:344`) + `prepareWaveStart(g)`; **buys nothing in the shop**, so in
+   isolation runs hornets are the only auto-defense and every effect is attributable.
+2. Classifies each hornet's fate by reproducing the sim's own branch order against a
+   **pre-update snapshot**. This is mandatory, not stylistic: `updateAutoSystems()` runs before
+   `updateExplosions()` (`game-sim.ts:2231` vs `:2234`), so a hornet's blast kills its target in
+   the same tick, and post-update classification makes every hit look like "died to something
+   else". The first version of this harness reported a 0.2% detonation rate for exactly that
+   reason — see Appendix C.
+3. Player realism via two env knobs, `BOT_SKIP` (drop a fraction of firing opportunities, third
+   seeded RNG) and `BOT_FOCUS_Y` (ignore threats below a y, ceding the lower screen).
+
+**Profile definitions used throughout:**
+
+| Name          | Flags                           | Used for                                           |
+| ------------- | ------------------------------- | -------------------------------------------------- |
+| bot-default   | none                            | E1–E6, E9(a)                                       |
+| **realistic** | `BOT_SKIP=0.35 BOT_FOCUS_Y=700` | most of the analysis; the full-hornet-build player |
+| complement    | `BOT_SKIP=0.35` only            | E24–E25; the player who did _not_ cede the bottom  |
+
+**Counterfactuals require patching `src/game-sim.ts`.** Every one was applied behind an env
+flag, measured, then reverted with `git checkout src/game-sim.ts`. The patch table is in the
+harness README. `src/` is currently unmodified — verify with `git diff --stat src/` (empty) and
+`npx vitest run src/game-sim.test.ts` (134 passing).
 
 ---
 
@@ -710,6 +748,8 @@ replicated within ~5% unless noted.
 | Pad iteration order (left always first)         | `src/game-sim-shop.ts:131–136`    |
 | Hornet wipe between waves                       | `src/game-sim-shop.ts:407`        |
 | Pad placements                                  | `src/game-logic.ts:213–216`       |
+
+---
 
 ---
 
@@ -765,3 +805,340 @@ Speed fixes arrival _and_ shortens the target reservation, so it compounds inste
 launches/run go _up_ (98 → 107 at 2 pads, 112 → 129 at SkyMesh). **In an assignment-limited
 system, latency beats endurance.** Not recommended regardless (§7), because it erases the role's
 intended weakness — but it explains the reload result and why hold-fire variants lose.
+
+---
+
+## Appendix D — Experiment inventory (raw)
+
+Every run behind this document. Unless a row says otherwise: **20 games, seed base 70000
+("A"), 24 games for E24–E25.** Seed base 91000 is "B". Scores are means. Configs within an
+experiment share seeds, so paired comparisons are like-for-like.
+
+### E1 — Baseline outcome mix · bot-default
+
+| Loadout | Score  | Wave | Launch/run | Detonate | Fuel  | Orphan | Bounds | WaveReset | Kills/run |
+| ------- | ------ | ---- | ---------- | -------- | ----- | ------ | ------ | --------- | --------- |
+| 1 pad   | 10,020 | 5.35 | 56         | 28.9%    | 4.1%  | 57.4%  | 0.0%   | 9.6%      | 16.2      |
+| 2 pads  | 13,252 | 6.05 | 102        | 31.0%    | 7.7%  | 53.2%  | 0.0%   | 8.1%      | 31.4      |
+| 2+mesh  | 16,609 | 6.65 | 117        | 43.8%    | 44.3% | 0.0%   | 0.0%   | 11.9%     | 51.5      |
+
+### E1b — Baseline · realistic profile
+
+| Loadout | Score A / B     | Launch/run | Detonate      | Fuel          | Orphan        |
+| ------- | --------------- | ---------- | ------------- | ------------- | ------------- |
+| 1 pad   | 5,217 / 6,117   | 42         | 44.7%         | 6.7%          | 39.1%         |
+| 2 pads  | 12,165 / 11,056 | 98 / 95    | 44.7% / 43.2% | 9.4% / 8.2%   | 38.6% / 41.5% |
+| 2+mesh  | 13,377 / 15,459 | 103 / 112  | 52.2% / 51.4% | 37.8% / 37.5% | 0.0%          |
+
+### E2 — Terminal funnel · bot-default · % of hornets reaching each band that then detonated
+
+| Ever within | 1 pad | 2 pads | 2+mesh |
+| ----------- | ----- | ------ | ------ |
+| 200px       | 59.8% | 59.0%  | 56.7%  |
+| 150px       | 65.9% | 64.2%  | 61.1%  |
+| 100px       | 74.5% | 71.2%  | 67.7%  |
+| 60px        | 82.4% | 79.6%  | 75.1%  |
+| 40px        | 85.7% | 85.7%  | 80.8%  |
+| 25px        | 90.8% | 89.6%  | 86.5%  |
+
+Near misses (closed <100px, never detonated): **9.9% / 12.5% / 20.9%** of all hornets.
+
+### E3 — Fuze tunnelling (swept CPA vs tick-start sample) · bot-default
+
+Passed within 12px continuously but never detonated: **0.4% / 1.2% / 1.3%**.
+Median (sampled minDist − swept CPA) for hornets closing <100px: **0.0px**. Hypothesis rejected.
+
+### E4 — Terminal geometry · bot-default
+
+Trailing at closest approach: 36.4% / 52.9% / 57.0%.
+Conversion when trailing 58.1% / 59.5% / 57.1%, vs head-on/crossing 70.3% / 69.6% / 66.4%.
+
+### E5 — Fuze counterfactuals · bot-default · score
+
+| Variant                             | 1 pad          | 2 pads          | 2+mesh          |
+| ----------------------------------- | -------------- | --------------- | --------------- |
+| base (fuze 12, blast on target)     | 10,020         | 13,252          | 16,609          |
+| fuze 30, blast on target            | 9,333          | 14,497          | 19,882          |
+| fuze 45, blast on target            | 10,299         | 15,384          | 19,453          |
+| fuze 30, blast at hornet (r=35)     | 9,291          | 12,754          | 18,965          |
+| **fuze 45, blast at hornet (r=52)** | **10,682**     | **14,453**      | **20,246**      |
+| lead-solve + fuze 40 + selfboom     | 10,900         | 12,783          | 17,918          |
+| lead-solve + fuze 45 (on target)    | 9,439 / 10,401 | 14,172 / 13,122 | 20,087 / 20,222 |
+
+Kills/run for `fuze 45 @ hornet`: 18.8 / 43.3 / 70.8 (baseline 16.2 / 31.4 / 51.5).
+
+### E6 — Lead calculation · score
+
+| Variant                              | Profile     | 1 pad  | 2 pads | 2+mesh |
+| ------------------------------------ | ----------- | ------ | ------ | ------ |
+| base (0.3 multiplier)                | bot-default | 10,020 | 13,252 | 16,609 |
+| naive full lead (×1.0, iterative t)  | bot-default | 9,593  | 12,505 | 14,867 |
+| closed-form solve + pursuit fallback | bot-default | 8,750  | 13,903 | 18,751 |
+| closed-form solve                    | realistic   | 5,934  | 12,346 | 16,144 |
+
+### E7 — Player profile sensitivity · 2 pads
+
+| Profile           | Hit rate | Orphan |
+| ----------------- | -------- | ------ |
+| bot-default       | 31.0%    | 53.2%  |
+| `BOT_SKIP=0.4`    | 35.6%    | 47.0%  |
+| `BOT_FOCUS_Y=700` | 43.8%    | 41.4%  |
+| realistic (both)  | 44.7%    | 38.6%  |
+
+### E8 — Magazine telemetry · 2 pads
+
+| Pad                 | Launch/run | Mean ammo | Dry (ammo=0) | At cap (no reload progress) |
+| ------------------- | ---------- | --------- | ------------ | --------------------------- |
+| left (bot-default)  | 58.1       | 0.69 / 2  | 51.0%        | —                           |
+| right (bot-default) | 43.5       | 1.03 / 2  | 39.1%        | —                           |
+| left (realistic)    | 55.4       | 0.70 / 2  | 50.7%        | 20.8%                       |
+| right (realistic)   | 42.6       | 1.02 / 2  | 38.6%        | 41.1%                       |
+
+### E9 — Cross-side launches
+
+(a) **bot-default**: cross-side share 32.6% (2 pads) / 34.1% (mesh); fired while own half had
+live threats 63.0% / 64.0%, of which own-half _unassigned_ count was 0 in 100% of cases.
+Hit rate same 34.1% vs cross 24.4% (2 pads); 48.8% vs 34.3% (mesh).
+
+(b) **realistic, all launches**: same 44.8% (n=1252) vs cross 44.4% (n=709) — 2 pads;
+mesh same 53.8% vs cross 49.4%.
+
+(c) **realistic, conditioned on arrival (closed <150px)** — the decisive cut:
+
+|                   | Arrived | → Converted | Median CPA |
+| ----------------- | ------- | ----------- | ---------- |
+| 2 pads same-side  | 61.4%   | 73.0%       | 10.3px     |
+| 2 pads cross-side | 54.0%   | **82.2%**   | 9.6px      |
+| mesh same-side    | 78.5%   | 68.5%       | 10.3px     |
+| mesh cross-side   | 68.8%   | **71.8%**   | 10.1px     |
+
+(d) **non-arrivals, 2 pads**: same-side fuel-out 8.7%, cross-side 16.3%.
+
+### E10 — Hold-fire cost (block cross-side when own half busy) · realistic · 2 pads
+
+|           | Launch/run | Hit   | At-cap (left) | Score  |
+| --------- | ---------- | ----- | ------------- | ------ |
+| base      | 98         | 44.7% | 20.8%         | 12,165 |
+| hold fire | 91         | 45.3% | 24.1%         | 10,618 |
+
+### E11 — Reload buff (`reloadPerSlot` 60→40) · realistic · score
+
+1 pad 8,496 · 2 pads 13,589 · mesh 15,763. With cross-side hold-fire added: mesh 16,575.
+
+### E12 — Endurance vs latency · realistic · score
+
+| Variant        | 1 pad         | 2 pads A / B        | mesh A / B          | Fuel-out (2 pads) |
+| -------------- | ------------- | ------------------- | ------------------- | ----------------- |
+| base           | 5,217 / 6,117 | 12,165 / 11,056     | 13,377 / 15,459     | 9.4%              |
+| life 168→220   | — / 5,969     | 12,244 / 11,888     | — / 16,003          | 0.6%              |
+| life 168→260   | —             | 12,103              | —                   | 0.0%              |
+| **speed ×1.3** | — / 5,823     | **14,571 / 13,203** | **19,554 / 19,327** | 2.0% / 2.4%       |
+
+Launches/run under speed ×1.3: 107 (2 pads, base 98), 129 (mesh, base 112).
+
+### E13 — Role fit · realistic
+
+|                             | Share of launches | Hit rate |
+| --------------------------- | ----------------- | -------- |
+| 2 pads in-role (bomb/drone) | 63.6% (n=1247)    | 54.5%    |
+| 2 pads out-of-role          | 36.4% (n=714)     | 27.5%    |
+| mesh in-role                | 62.9%             | 62.0%    |
+| mesh out-of-role            | 37.1%             | 35.6%    |
+
+Of out-of-role launches (2 pads): in-role threat on screen 68.2%; free and passed over 9.4%;
+in-role present but **all assigned 58.8%**; no in-role threat existed 31.8%.
+
+### E14 — Forcing role purity (double up on covered bombs) · realistic
+
+|               | 1 pad A / B   | 2 pads A / B      | mesh A / B      | Orphan (2 pads) |
+| ------------- | ------------- | ----------------- | --------------- | --------------- |
+| base          | 5,217 / 6,117 | 12,165 / 11,056   | 13,377 / 15,459 | 38.6%           |
+| force in-role | 5,427 / 4,984 | **9,817 / 9,136** | 15,056 / 13,760 | **51.9%**       |
+
+### E15/E16 — MIRV exclusion and never-hold reachability · realistic
+
+| Variant                                         | 1 pad             | 2 pads | mesh   |
+| ----------------------------------------------- | ----------------- | ------ | ------ |
+| `HORNET_NOMIRV=1`                               | 5,217             | 12,320 | 14,637 |
+| `HORNET_REACH=1.0` (const-velocity, never hold) | 5,590 (fuel 3.4%) | 13,169 | 14,408 |
+| both, seed B                                    | 7,119             | 12,262 | 14,486 |
+
+### E17 — Accel-aware intercept prediction · realistic
+
+Closed form: threat displacement after `n` ticks = `v0·a(aⁿ−1)/(a−1)` (accel applied before the
+move); solve `speed·n ≥ |P_threat(n) − P_launch|` by bisection.
+
+|                                             | 2 pads    | mesh      |
+| ------------------------------------------- | --------- | --------- |
+| solvable at all (within 400 ticks)          | 65.4%     | 64.1%     |
+| predicted interceptable within 168 ticks    | 46.9%     | 45.9%     |
+| median predicted ticks                      | 127       | 129       |
+| **median actual ÷ predicted**               | **1.01×** | **1.01×** |
+| 90th percentile ratio                       | 1.06×     | 1.10×     |
+| fuel-outs the model had flagged uncatchable | **98.9%** | 43.4%     |
+
+Hand-check of the model against a top-spawning missile (hornet spawn y=1388, life 168):
+
+| Missile v0 | Hornet speed | Accel-aware | Constant-velocity |
+| ---------- | ------------ | ----------- | ----------------- |
+| 1.3        | 4.476        | 137 ticks   | 240               |
+| 1.3        | 6.72         | 122         | 173               |
+| 2.0        | 4.476        | 120         | 214               |
+| 2.0        | 6.72         | 108         | 159               |
+| 3.0        | 5.6          | 100         | 161               |
+
+### E18 — Accel-aware fuel gate · realistic · score / fuel-out
+
+| Variant                          | 1 pad                         | 2 pads                          | mesh                                  |
+| -------------------------------- | ----------------------------- | ------------------------------- | ------------------------------------- |
+| base                             | 5,217 / 6.7%                  | 12,165 / 9.4%                   | 13,377 / 37.8%                        |
+| gate 1.0, fall back to full pool | 6,746 / 3.8%                  | 12,821 / 8.3%                   | 15,018 / 37.0%                        |
+| gate 0.9, fall back              | 6,565 / 3.5%                  | 13,174 / 8.4%                   | 15,552 / 37.9%                        |
+| **gate 0.9 + hold**              | **6,786 / 0.5%**              | **12,173 / 0.3%**               | 13,802 / 29.3%                        |
+| gate 0.9 + hold + retarget-fuel  | 6,786 / 0.5% (B 7,393 / 0.2%) | 12,173 / 0.3% (B 12,395 / 0.9%) | **15,642 / 29.2%** (B 14,157 / 29.4%) |
+
+Launches/run for the last row: 43 / 87 / 99.
+
+> **Nuance a reviewer should note:** fuel-aware _retargeting_ leaves the mesh fuel-out rate
+> unchanged (29.3% → 29.2%) but does move mesh **score** 13,802 → 15,642. §6's claim that it
+> "does not move it" refers strictly to the fuel-out rate.
+
+### E19 — SkyMesh remaining fuel-outs (with gate)
+
+Had a live target when fuel expired: **4.0%**. Had no target at all: **96.0%**.
+Mean retargets before dying 0.87; median closest approach ever 76px.
+
+### E20 — SkyMesh loiter
+
+Score / hit / fuel-out, realistic:
+
+| Variant                              | mesh A / B          | Hit       | Fuel-out          |
+| ------------------------------------ | ------------------- | --------- | ----------------- |
+| base                                 | 13,377 / 15,459     | 52.2%     | 37.8%             |
+| fuel gate only                       | 15,642 / **14,157** | 60.3%     | 29.2%             |
+| gate + loiter (grace 600, burn 0.25) | 16,588              | 63.9%     | 19.4%             |
+| **gate + loiter + engage-below**     | **17,338 / 17,253** | **64.9%** | **18.2% / 19.1%** |
+
+Loiter without the gate (grace sweep): 60t → 13,976 · 180t → 15,242 · 600t → 15,242 ·
+600t+engage-below → 14,928.
+
+Loiter behaviour:
+
+|                                      | without gate         | with gate + engage-below |
+| ------------------------------------ | -------------------- | ------------------------ |
+| entered loiter at least once         | 5.3%                 | **33.0%**                |
+| of those, reactivated                | 93.0%                | 52.9%                    |
+| median wait to reactivation          | 25t (0.42s)          | 31t (0.52s)              |
+| reactivated within 60t / 120t / 300t | 85.8% / 94.3% / 100% | 78.3% / 93.6% / 100%     |
+| mean loiter stints per hornet        | 1.07                 | 1.28                     |
+| median total ticks loitering         | 28                   | 108                      |
+| **kills occurring after a loiter**   | 1.3%                 | **11.4%**                |
+
+Control: with loiter enabled, 1-pad and 2-pad results are **identical to base** (5,217 /
+12,165), confirming SkyMesh-exclusivity by construction.
+
+### E21 — Activation border (launch only at `t.y >= Y`) · realistic
+
+| Config               | Score  | Launch/run | Hit   | Orphan | Fuel  | In-role | Mean target speed | Median kill Y |
+| -------------------- | ------ | ---------- | ----- | ------ | ----- | ------- | ----------------- | ------------- |
+| 2 pads Y=0           | 12,165 | 98         | 44.7% | 38.6%  | 9.4%  | 63.6%   | 3.02              | 811           |
+| 2 pads Y=200         | 10,975 | 85         | 46.1% | 44.5%  | 2.4%  | 64.6%   | 3.53              | 846           |
+| 2 pads Y=400         | 11,468 | 79         | 46.9% | 45.1%  | 0.4%  | 64.9%   | 4.17              | 879           |
+| 2 pads Y=600         | 9,550  | 60         | 51.3% | 41.3%  | 0.2%  | 68.2%   | 4.28              | 917           |
+| 2 pads Y=800         | 4,609  | 23         | 71.5% | 20.8%  | 0.0%  | 79.4%   | 3.59              | 956           |
+| 2 pads Y=0, seed B   | 11,056 | 95         | 43.2% | 41.5%  | 8.2%  | 63.3%   | 2.98              | 827           |
+| 2 pads Y=400, seed B | 11,453 | 76         | 46.2% | 46.7%  | 0.4%  | 67.3%   | 4.08              | 890           |
+| mesh Y=0             | 13,377 | 103        | 52.2% | 0.0%   | 37.8% | 62.9%   | 3.02              | 775           |
+| mesh Y=400           | 13,808 | 79         | 60.8% | 0.0%   | 28.1% | 64.4%   | 4.19              | 836           |
+| mesh Y=600           | 11,894 | 57         | 66.4% | 0.0%   | 22.2% | 70.1%   | 4.59              | 875           |
+
+### E22/E23 — Speed-based engagement rules · realistic · 2 pads
+
+| Config                   | Score      | Launch/run | Hit   | Orphan    | Fuel  | In-role   | Mean target speed |
+| ------------------------ | ---------- | ---------- | ----- | --------- | ----- | --------- | ----------------- |
+| flat cap ≤3.0            | 12,342     | 91         | 48.6% | **30.7%** | 14.1% | **57.6%** | 2.28              |
+| flat cap ≤4.0            | 11,348     | 91         | 46.9% | 33.6%     | 11.8% | 63.3%     | 2.39              |
+| flat cap ≤5.0            | 12,093     | 94         | 46.2% | 34.9%     | 11.5% | 62.4%     | 2.43              |
+| Y=300 + cap ≤4.0         | 10,096     | 56         | 57.8% | 34.1%     | 0.9%  | 70.8%     | 2.72              |
+| Y=300 + cap ≤4.0, seed B | 10,317     | 57         | 59.6% | 32.2%     | 1.0%  | 73.3%     | 2.72              |
+| **role-shaped ≤2.5**     | 10,217     | 84         | 47.4% | 34.6%     | 10.8% | **72.7%** | 2.74              |
+| **role-shaped ≤3.5**     | **12,712** | 92         | 43.7% | 39.1%     | 10.2% | 66.8%     | 2.77              |
+| **role-shaped ≤4.5**     | **13,148** | 99         | 45.4% | 37.4%     | 10.1% | 66.3%     | 2.80              |
+| role-shaped ≤3.5, seed B | 11,535     | 91         | 45.8% | 38.3%     | 9.3%  | 68.5%     | 2.82              |
+| role-shaped ≤3.5, mesh   | 14,693     | 104        | 54.0% | 0.0%      | 37.3% | 67.4%     | 2.81              |
+
+"Role-shaped" = drones and bombs always eligible; other types only while `hypot(vx,vy) <= cap`.
+
+### E24 — Marginal ablation · core = Roadrunner + Patriot + Phalanx · `BOT_SKIP=0.35` · 24 games
+
+| Loadout              | Score  | Δ       | Wave | Total kills/run | Hornet hits/run | Share of kills | Launch/run | Hit   | Orphan |
+| -------------------- | ------ | ------- | ---- | --------------- | --------------- | -------------- | ---------- | ----- | ------ |
+| core only            | 11,144 | —       | 5.63 | 82              | —               | —              | —          | —     | —      |
+| core + 1 pad         | 14,315 | +28.5%  | 6.29 | 109             | 13.0            | 11.9%          | 67         | 19.3% | 69.4%  |
+| core + Iron Beam     | 14,536 | +30.4%  | 6.21 | 109             | —               | —              | —          | —     | —      |
+| core + 1 pad + mesh  | 17,121 | +53.6%  | 6.63 | 133             | 26.1            | 19.7%          | 72         | 36.4% | 0.0%   |
+| core + 2 pads        | 20,544 | +84.4%  | 7.13 | 153             | 31.4            | 20.5%          | 133        | 23.6% | 66.5%  |
+| core + 2 pads + mesh | 27,769 | +149.2% | 8.13 | 201             | 57.1            | 28.4%          | 154        | 37.0% | 0.0%   |
+
+### E25 — Cede-the-bottom strategy · same core · 24 games
+
+| Loadout              | spread (skip 35%) | cede (skip 35%, y>700) | cede (skip 15%) | cede (skip 0%) |
+| -------------------- | ----------------- | ---------------------- | --------------- | -------------- |
+| core + 1 pad         | **14,315**        | 9,680                  | 9,957           | 11,072         |
+| core + 2 pads        | **20,544**        | 16,310                 | 19,995          | 19,174         |
+| core + 2 pads + mesh | **27,769**        | 25,200                 | 24,994          | 26,953         |
+
+Hornet efficiency when ceding (1 pad): hit 19.3% → 24.0% / 24.4% / 21.0%; orphan 69.4% →
+64.0% / 64.3% / 67.8%. See §4.7 for why this comparison should not be read as a verdict.
+
+---
+
+## Appendix E — Threats to validity
+
+Ordered by how likely each is to change a conclusion.
+
+1. **The bot is not a human.** Every number comes from a scripted player. The two profiles
+   (§3.1) bracket the gap but neither _is_ a human — the bot has perfect information, uniform
+   reaction time, and no attention cost. This most affects E25 (cede-the-bottom), whose baseline
+   is whole-screen play no human achieves, and it inflates orphan rates generally. Findings that
+   depend on _hornet-internal_ mechanics (E2, E3, E17, E19) are largely immune.
+2. **No significance testing.** n = 20–24 games per config, 1–2 seed bases. Run-to-run spread on
+   an unchanged config is roughly ±5–10% (compare E1b seed A vs B: 12,165 vs 11,056 on identical
+   settings). **Treat any delta under ~10% as unresolved.** This directly weakens: the
+   role-shaped cap being "+4–8%" (E23), the fuel gate being "score-neutral" (E18), and the
+   Iron-Beam-vs-pad tie (E24). It does not threaten the large effects (E5 fuze, E12 speed, E14
+   role purity, E20 loiter, E24 superlinearity).
+3. **Shallow wave depth.** Runs end around wave 5.5–8.1, so late-wave threat composition —
+   diving Shahed density, MIRV frequency — is under-sampled. This _understates_ the cost of the
+   flat speed cap (E22), which excludes fast drones, and makes E13's role mix unrepresentative
+   of the waves where hornets matter most.
+4. **Isolation runs are unrealistic by construction.** E1–E23 buy nothing but hornets. That buys
+   clean attribution at the cost of realism; E24 is the only experiment against a built defense,
+   and only against _one_ core (Roadrunner + Patriot + Phalanx). Conclusions about orphan rates
+   in particular differ sharply between the two settings (38.6% isolated vs 69.4% on a core).
+5. **Counterfactual patches are minimal, not production implementations.** Each is the smallest
+   edit that tests the idea. A real implementation may interact with replay determinism, the
+   editor overrides, or perf in ways not measured here. None of the patches were run against the
+   replay or perf suites.
+6. **Kill attribution is approximate; detonation counts are exact.** `outcome === "detonate"`
+   reproduces the sim's own branch and is reliable. The `killed` flag uses a 12-tick window after
+   detonation and can false-positive when other systems are firing, so E24 reports hornet
+   _detonations_, not attributed kills. Do not treat "share of all kills" as strict causal
+   attribution.
+7. **Score is a proxy.** The stated rubric is consistency and legibility (§1), which score does
+   not measure. Score is used to check that a legibility fix does not cost capability — it is
+   evidence of _no harm_, not evidence of _benefit_.
+8. **Determinism assumed, spot-checked.** The harness sets a seeded RNG and `sim-runner.ts` has
+   its own determinism check, but this analysis did not re-verify determinism after each patch.
+   A patch that consumed RNG differently would shift results without being a real effect. The
+   patches were written to avoid RNG use; this was not proven.
+
+### What would most efficiently falsify the main claims
+
+| Claim                                    | Cheapest disconfirming test                                                                                                                     |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| L1 is the highest-value fix              | Implement the three distinct presentations, then have a human play a lone pad and report whether hornets still read as "broken"                 |
+| Wider fuze is right (§5.2)               | A human feel-check: do hornets popping ~45px out read as premature?                                                                             |
+| Role-shaped cap is score-positive (§5.6) | Re-run E23 at 60+ games across ≥4 seed bases; the current +4–8% is inside the noise floor                                                       |
+| Loiter is worth it (§6)                  | Re-run E20 with 40+ games and a second core; and a human check that orbiting hornets read as "mesh" not "confused"                              |
+| Hornets are superlinear (§4.7)           | Re-run E24 against a different core (e.g. Iron Beam + Flare + Launcher Kit) — if superlinearity is core-specific it is much weaker than claimed |
