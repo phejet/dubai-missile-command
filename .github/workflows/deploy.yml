@@ -1,8 +1,16 @@
 name: Deploy to GitHub Pages
 
 on:
+  # Docs-only commits produce a byte-identical build, so skip the deploy for them.
+  # workflow_dispatch stays available to force a redeploy by hand.
   push:
     branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - ".github/ISSUE_TEMPLATE/**"
+      - "LICENSE"
+  workflow_dispatch:
 
 permissions:
   contents: read

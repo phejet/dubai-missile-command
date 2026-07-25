@@ -40,6 +40,7 @@ Two consequences for reading what follows:
 | **L2** | Hornet commits to targets it cannot reach with the fuel it has                                                                                                         | **Yes**                              | **Solved** (§5.3) — accel-aware fuel gate takes fuel-outs from ~9% to ~0.3% at no score cost |
 | **L3** | 12px proximity fuze under a 30px warhead — the hornet visually overlaps the threat and nothing happens; the blast then teleports onto the target                       | **Yes**                              | Fix (§5.2)                                                                                   |
 | **L4** | Hornets launch at MIRVs and go **0-for-33** — a class Roadrunner and Patriot both own outright                                                                         | **Yes**                              | Fix, score-neutral (§5.4)                                                                    |
+| **L7** | The engagement rule is "anything unassigned" — not something a player can hold in their head, so the role reads as fuzzy                                               | **Yes**                              | Fix (§5.6): "drones and bombs always; missiles only while still slow". Score-**positive**    |
 | **L5** | Left pad silently does 33% more work than the right (iteration order); dry 51% vs 39%                                                                                  | Mildly                               | Fix, free (§5.5)                                                                             |
 | **L6** | Hornet climbs _away_ from a target below it (`HORNET_DIVE_SLACK`)                                                                                                      | Rare but yes                         | Fix, cheap (§5.5)                                                                            |
 | **P1** | _Proposal:_ SkyMesh hornets loiter on reduced fuel instead of fizzling when out of work                                                                                | Turns L1 into a feature              | **Measured (§6):** +11–30%, fuel-outs halved, 11% of kills come from reactivated loiterers   |
@@ -354,6 +355,73 @@ sharpens the role boundary the player is supposed to learn. See §4.3.
 
 ---
 
+### 5.6 Defining the role by an explicit rule (so the player can learn it)
+
+Separate question from "does it work": **what single rule best lets a player predict what
+hornets will and will not engage?** Today the answer is "anything unassigned", which is not a
+rule a player can hold in their head — and it is why the role reads as fuzzy.
+
+Three candidate rules were implemented and measured (2 pads, realistic, seed A / seed B):
+
+| Rule                                                                            | Score                          | Launch/run | Hit   | Orphan    | Fuel-out | In-role           | Mean target speed |
+| ------------------------------------------------------------------------------- | ------------------------------ | ---------- | ----- | --------- | -------- | ----------------- | ----------------- |
+| base — "anything unassigned"                                                    | 12,165 / 11,056                | 98 / 95    | 44.7% | 38.6%     | 9.4%     | 63.6%             | 3.02              |
+| **A.** altitude border, engage below y=400                                      | 11,468 / 11,453                | 79 / 76    | 46.9% | **45.1%** | **0.4%** | 64.9%             | **4.17**          |
+| **B.** flat speed cap, ignore anything > 3.0 px/tick                            | 12,342                         | 91         | 48.6% | **30.7%** | 14.1%    | **57.6%**         | 2.28              |
+| **C.** role-shaped: drones/bombs always, ballistic only while slow (<= 3.5-4.5) | **12,712 / 11,535 ... 13,148** | 92 / 99    | 45.4% | 39.1%     | 10.2%    | **66.8% / 68.5%** | 2.77              |
+
+**C wins, and is the only one that is score-positive on both seeds** (+4.3% to +8% at 2 pads,
++9.8% at SkyMesh: 13,377 -> 14,693). It also raises in-role share and lowers the mean speed of
+what hornets engage — it does what the rule says on the tin.
+
+Stated as player-facing intuition, C is one sentence:
+
+> **Hornets take drones and bombs, whatever they are doing. They will take a missile only while
+> it is still slow — once it has built up speed, that is the Patriot's and Roadrunner's job.**
+
+That is learnable, matches the shop text ("anti-bomb and anti-drone specialist"), and matches the
+physics: a slow hornet genuinely cannot run down an accelerating ballistic threat.
+
+#### Why the altitude border fails its own rationale
+
+The border is the most _visible_ rule — hornets consistently activating at an altitude is
+something a player can infer without any UI. But it does not deliver "hornets are not meant for
+fast movers". It delivers the **opposite**:
+
+- **Mean engaged target speed goes UP, 3.02 -> 4.17 px/tick.** Missiles accelerate as they
+  descend, so waiting for a threat to cross a line means engaging it _faster_, not slower.
+- **Orphan rate goes UP, 38.6% -> 45.1%.** Waiting does not dodge the player's interceptors,
+  because those are already in flight while the threat descends — the threat is still alive when
+  the hornet commits, and dies shortly after.
+- Kills happen lower (median kill Y 811 -> 879), i.e. closer to what is being protected.
+
+It does eliminate fuel-outs (9.4% -> 0.4%) and is roughly score-neutral, so it is not a bad
+mechanic — it is just a poor expression of _this_ role. §5.3's fuel gate achieves the same
+fuel-out result at no score cost.
+
+#### Why a flat speed cap is wrong
+
+It cuts orphans nicely (38.6% -> 30.7%, because the player's interceptors preferentially chase
+fast threats, so avoiding those avoids contested targets) — but it also excludes **diving Shaheds
+and other fast drones**, which are exactly what an anti-drone specialist should be eating.
+In-role share drops to 57.6%, the worst of any variant.
+
+This penalty is **understated above**: these runs end around wave 6, so late-wave diving-Shahed
+density is under-represented. In the waves where those dominate, a flat cap would blind hornets
+to their primary job.
+
+#### Composition
+
+C is a _targeting_ rule and does not fix fizzle — fuel-outs stay ~10%. It composes with §5.3
+(the accel-aware fuel gate, which takes fuel-outs to ~0.3%): **C decides what is our job, the
+fuel gate decides whether we can actually get there.** Two rules answering different questions,
+and only C needs to be legible to the player.
+
+C also largely subsumes §5.4's MIRV exclusion, since MIRV busses are fast ballistic threats and
+fail the speed test on their own once accelerated.
+
+---
+
 ## 6. Proposal, measured: SkyMesh loiter
 
 §5.3 leaves one thing unresolved — with the fuel gate in place, the remaining SkyMesh fuel-outs
@@ -442,13 +510,19 @@ insects" depends on orbit rate, radius, and whether they visibly spread or clust
    gain is a side effect. **Needs a feel-check.**
 3. **Gate launches on accel-aware intercept time; hold the slot when nothing is catchable**
    (§5.3). Fuel-outs ~9% → ~0.3% at no score cost.
-4. **Exclude the MIRV class from hornet launch selection** (§5.4). Score-neutral.
-5. **Alternate pad iteration order** (§5.5). Free.
-6. **Stop the climb-away branch** (§5.5). Cheap.
+4. **Adopt the role-shaped engagement rule** (§5.6): drones and bombs always; ballistic threats
+   only while still slow (~3.5-4.5 px/tick). The only candidate rule that is score-**positive**
+   on both seed sets (+4-8% at 2 pads, +10% at SkyMesh), it raises in-role share, and it gives
+   the player one sentence they can actually learn. Largely subsumes item 5. Keep drones
+   eligible at _any_ speed — diving Shaheds are the job, and they dominate later waves.
+5. **Exclude the MIRV class from hornet launch selection** (§5.4). Score-neutral; mostly
+   redundant once item 4 lands.
+6. **Alternate pad iteration order** (§5.5). Free.
+7. **Stop the climb-away branch** (§5.5). Cheap.
 
 ### Tier 2b — the SkyMesh proposal (balance decision, measured)
 
-7. **Give SkyMesh hornets a loiter state** (§6): hold station on 0.25× fuel burn when nothing is
+8. **Give SkyMesh hornets a loiter state** (§6): hold station on 0.25× fuel burn when nothing is
    catchable. SkyMesh-exclusive by construction. Worth +11–30% and halves fuel-outs — but only
    works _paired with_ item 3, which is a wash-to-negative for SkyMesh on its own. Prefer "loiter
    until fuel expires" over a fixed grace; if a timer is used, 2s not 1s. Also let a loitering
@@ -456,7 +530,7 @@ insects" depends on orbit rate, radius, and whether they visibly spread or clust
 
 ### Tier 3 — correctness without changing the feel
 
-8. **Fix only the uncatchable case in the lead calculation** (§4.5). Keep the 30% under-lead —
+9. **Fix only the uncatchable case in the lead calculation** (§4.5). Keep the 30% under-lead —
    the tail chase is the drama. Clamp lead time to remaining fuel and fall back to pure pursuit
    when no intercept solution exists. Do **not** raise the multiplier; that is measurably worse
    than doing nothing.
@@ -470,6 +544,10 @@ insects" depends on orbit rate, radius, and whether they visibly spread or clust
 - **Block cross-side launches** — they are the better intercept (§4.4).
 - **Force hornets to stay in-role** — measurably worse (§4.3).
 - **A swept-collision fuze test** — tunnelling does not happen (Appendix C).
+- **An altitude activation border** (§5.6) — score-neutral and it does kill fuel-outs, but it
+  makes hornets engage _faster_ targets and raises the orphan rate, so it expresses the opposite
+  of the intended role. The role-shaped rule (item 4) and the fuel gate (item 3) each do the job
+  it was reaching for, better.
 - **The rank-1 orphan rate is a design decision**, not a bug. Only its presentation needs fixing.
 
 **Everything here still needs a feel-check in the real game.** These are throughput numbers from
