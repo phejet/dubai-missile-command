@@ -15,6 +15,7 @@ This folder holds repo-specific notes for future maintenance, not player-facing 
 
 - [`spawn-commander-reference.md`](./spawn-commander-reference.md) — wave budgets, tactic selection, schedule generation, and spawn advancement.
 - [`upgrades-shop-progression.md`](./upgrades-shop-progression.md) — upgrade node graph, shop flow, draft flow, and progression state.
+- [`wild-hornets-targeting-analysis.md`](./wild-hornets-targeting-analysis.md) — hornet launch/guidance/magazine behaviour judged against role consistency and player legibility, with the other auto-defense systems' roles mapped alongside; measured counterfactual fixes, a SkyMesh loiter proposal, and an appendix of superseded claims and negative results.
 - [`replay-system.md`](./replay-system.md) — replay data model, runner lifecycle, checkpoints, and save flow.
 - [`replay-divergence-root-cause-plan.md`](./replay-divergence-root-cause-plan.md) — proven root cause of human-replay divergence at the wave-end boundary, plus the phased fix/diagnostic/guard plan.
 
