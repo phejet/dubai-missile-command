@@ -34,21 +34,22 @@ Two consequences for reading what follows:
 
 ## 2. Findings, ranked by "does this break player intuition?"
 
-| #      | Finding                                                                                                                                                                | Breaks intuition?                    | Verdict                                                                                      |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------- |
-| **L1** | **Three different outcomes render identically.** Fuel-out, orphan-suicide and a real kill all call `boom()` in hornet yellow; the first two are _byte-identical_ calls | **Yes — the core problem**           | Fix. No balance impact                                                                       |
-| **L2** | Hornet commits to targets it cannot reach with the fuel it has                                                                                                         | **Yes**                              | **Solved** (§5.3) — accel-aware fuel gate takes fuel-outs from ~9% to ~0.3% at no score cost |
-| **L3** | 12px proximity fuze under a 30px warhead — the hornet visually overlaps the threat and nothing happens; the blast then teleports onto the target                       | **Yes**                              | Fix (§5.2)                                                                                   |
-| **L4** | Hornets launch at MIRVs and go **0-for-33** — a class Roadrunner and Patriot both own outright                                                                         | **Yes**                              | Fix, score-neutral (§5.4)                                                                    |
-| **L7** | The engagement rule is "anything unassigned" — not something a player can hold in their head, so the role reads as fuzzy                                               | **Yes**                              | Fix (§5.6): "drones and bombs always; missiles only while still slow". Score-**positive**    |
-| **L5** | Left pad silently does 33% more work than the right (iteration order); dry 51% vs 39%                                                                                  | Mildly                               | Fix, free (§5.5)                                                                             |
-| **L6** | Hornet climbs _away_ from a target below it (`HORNET_DIVE_SLACK`)                                                                                                      | Rare but yes                         | Fix, cheap (§5.5)                                                                            |
-| **P1** | _Proposal:_ SkyMesh hornets loiter on reduced fuel instead of fizzling when out of work                                                                                | Turns L1 into a feature              | **Measured (§6):** +11–30%, fuel-outs halved, 11% of kills come from reactivated loiterers   |
-| —      | Tail-chase geometry from 30% under-leading                                                                                                                             | **No — this is the drama**           | **Keep.** Only fix the uncatchable case                                                      |
-| —      | Cross-side launches (33% of all)                                                                                                                                       | No                                   | **Keep** — arriving cross-side hornets convert _better_ (§4.4)                               |
-| —      | Reaching for missiles when bombs/drones are covered                                                                                                                    | No                                   | **Keep** — forcing role purity is measurably worse (§4.3)                                    |
-| —      | 39–53% orphan rate at rank 1                                                                                                                                           | No — it is SkyMesh's reason to exist | Balance call, not a bug                                                                      |
-| —      | Slow speed / short range                                                                                                                                               | No — this _is_ the role's weakness   | **Keep**                                                                                     |
+| #      | Finding                                                                                                                                                                                   | Breaks intuition?                    | Verdict                                                                                      |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------- |
+| **L1** | **Three different outcomes render identically.** Fuel-out, orphan-suicide and a real kill all call `boom()` in hornet yellow; the first two are _byte-identical_ calls                    | **Yes — the core problem**           | Fix. No balance impact                                                                       |
+| **L2** | Hornet commits to targets it cannot reach with the fuel it has                                                                                                                            | **Yes**                              | **Solved** (§5.3) — accel-aware fuel gate takes fuel-outs from ~9% to ~0.3% at no score cost |
+| **L3** | 12px proximity fuze under a 30px warhead — the hornet visually overlaps the threat and nothing happens; the blast then teleports onto the target                                          | **Yes**                              | Fix (§5.2)                                                                                   |
+| **L4** | Hornets launch at MIRVs and go **0-for-33** — a class Roadrunner and Patriot both own outright                                                                                            | **Yes**                              | Fix, score-neutral (§5.4)                                                                    |
+| **L7** | The engagement rule is "anything unassigned" — not something a player can hold in their head, so the role reads as fuzzy                                                                  | **Yes**                              | Fix (§5.6): "drones and bombs always; missiles only while still slow". Score-**positive**    |
+| **L5** | Left pad silently does 33% more work than the right (iteration order); dry 51% vs 39%                                                                                                     | Mildly                               | Fix, free (§5.5)                                                                             |
+| **L6** | Hornet climbs _away_ from a target below it (`HORNET_DIVE_SLACK`)                                                                                                                         | Rare but yes                         | Fix, cheap (§5.5)                                                                            |
+| **P1** | _Proposal:_ SkyMesh hornets loiter on reduced fuel instead of fizzling when out of work                                                                                                   | Turns L1 into a feature              | **Measured (§6):** +11–30%, fuel-outs halved, 11% of kills come from reactivated loiterers   |
+| —      | Tail-chase geometry from 30% under-leading                                                                                                                                                | **No — this is the drama**           | **Keep.** Only fix the uncatchable case                                                      |
+| —      | Cross-side launches (33% of all)                                                                                                                                                          | No                                   | **Keep** — arriving cross-side hornets convert _better_ (§4.4)                               |
+| —      | Reaching for missiles when bombs/drones are covered                                                                                                                                       | No                                   | **Keep** — forcing role purity is measurably worse (§4.3)                                    |
+| **V1** | A lone pad alongside a built core orphans **69%** of its hornets and lands 19.3% — real but weak. The upgrade is **superlinear** (+28% / +84% / +149%), and nothing tells the player that | Yes, economically                    | Consider signalling that hornets are an investment, not a complement (§4.7)                  |
+| —      | 39–53% orphan rate at rank 1                                                                                                                                                              | No — it is SkyMesh's reason to exist | Balance call, not a bug                                                                      |
+| —      | Slow speed / short range                                                                                                                                                                  | No — this _is_ the role's weakness   | **Keep**                                                                                     |
 
 **The single highest-value change is L1, and it is not a balance change.** A hornet that runs
 out of fuel, a hornet whose target was killed by someone else, and a hornet that scores a kill
@@ -238,6 +239,69 @@ tick, including the right pad's half.
 This constraint explains most negative results in Appendix C: **holding fire generally trades
 launch volume for a conversion gain too small to pay for it.** The one exception is a hold whose
 condition is rare and provably correct (§5.3).
+
+---
+
+### 4.7 What one pad is actually worth (and why hornets are an all-in upgrade)
+
+Every measurement above isolates hornets by buying nothing else. That answers "how well do
+hornets work", but not the question a drafting player actually faces: **is one pad, taken as a
+complement to an already-built defense, doing anything useful?**
+
+Ablation against a built core (Roadrunner + Patriot + Phalanx), player covering the whole
+screen, 24 games:
+
+| Loadout                      | Score  | Δ vs core   | Hornet hits/run | Share of all kills | Hornet hit rate | Orphan    |
+| ---------------------------- | ------ | ----------- | --------------- | ------------------ | --------------- | --------- |
+| core only                    | 11,144 | —           | —               | —                  | —               | —         |
+| **core + 1 pad**             | 14,315 | **+28.5%**  | 13.0            | **11.9%**          | **19.3%**       | **69.4%** |
+| core + Iron Beam (same slot) | 14,536 | +30.4%      | —               | —                  | —               | —         |
+| core + 2 pads                | 20,544 | **+84.4%**  | 31.4            | 20.5%              | 23.6%           | 66.5%     |
+| core + 2 pads + SkyMesh      | 27,769 | **+149.2%** | 57.1            | 28.4%              | 37.0%           | 0.0%      |
+
+**A single pad is contributing real work — about an eighth of all kills and a ~28% score lift —
+but it is the least efficient way to own hornets.** Alongside a built core, **69% of its hornets
+are orphaned** and its hit rate collapses from 44.7% (hornets alone) to **19.3%**, because
+Roadrunner, Patriot and Phalanx keep killing its targets first. Roughly seven of every ten
+hornets it launches are wasted motion.
+
+Against Iron Beam in the same draft slot it is a statistical tie (+28.5% vs +30.4%). So "take a
+pad when nothing better is offered" is a defensible pick — it is just not a _good_ one.
+
+#### The upgrade is superlinear, which is unusual
+
+Marginal value of each successive hornet purchase: **pad 1 = +28.5pp, pad 2 = +55.9pp more,
+SkyMesh = +64.8pp more.** Each purchase is worth more than the one before it. Hit rate climbs
+(19.3% → 23.6% → 37.0%) and orphaning collapses (69.4% → 66.5% → 0%) as investment deepens.
+
+This validates the two play patterns players converge on — go all-in, or use a pad as filler —
+and explains why the middle feels unsatisfying. But it also means **a lone pad is the weakest
+slice of a strongly compounding upgrade**, and the shop gives no hint of that. If hornets are
+meant to be an investment rather than a complement, the rank-1 node arguably owes the player
+that information.
+
+#### On ceding the bottom half — the model cannot settle it
+
+Same loadouts, comparing a player who spreads attention across the screen against one who cedes
+everything below y = 700 to hornets and concentrates up top, at a **constant attention budget**:
+
+| Loadout                 | spread (skip 35%) | concentrated (skip 0%, ignore below y=700) |
+| ----------------------- | ----------------- | ------------------------------------------ |
+| core + 1 pad            | **14,315**        | 11,072                                     |
+| core + 2 pads           | **20,544**        | 19,174                                     |
+| core + 2 pads + SkyMesh | **27,769**        | 26,953                                     |
+
+Ceding never wins here, but the penalty shrinks sharply with hornet investment (−23% → −7% →
+−3%), converging on break-even exactly where the strategy is meant to be used. And it
+demonstrably does make hornets better at their job: hit rate 19.3% → 24.4%, orphan 69.4% →
+64.3%.
+
+**This is the one result in the document I would not trust as guidance.** The baseline it loses
+to is a bot with perfect information and instant reaction covering the entire screen — a
+standard no human meets. The real value of ceding is reduced cognitive load and reaction
+demand, which a bot does not pay for and this harness cannot measure. Read the shrinking penalty
+and the improved hornet efficiency as supportive; do not read the raw score comparison as a
+verdict on the strategy.
 
 ---
 
