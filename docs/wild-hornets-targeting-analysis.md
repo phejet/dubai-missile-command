@@ -256,6 +256,7 @@ screen, 24 games:
 | core only                    | 11,144 | —           | —               | —                  | —               | —         |
 | **core + 1 pad**             | 14,315 | **+28.5%**  | 13.0            | **11.9%**          | **19.3%**       | **69.4%** |
 | core + Iron Beam (same slot) | 14,536 | +30.4%      | —               | —                  | —               | —         |
+| **core + 1 pad + SkyMesh**   | 17,121 | **+53.6%**  | 26.1            | 19.7%              | **36.4%**       | **0.0%**  |
 | core + 2 pads                | 20,544 | **+84.4%**  | 31.4            | 20.5%              | 23.6%           | 66.5%     |
 | core + 2 pads + SkyMesh      | 27,769 | **+149.2%** | 57.1            | 28.4%              | 37.0%           | 0.0%      |
 
@@ -268,10 +269,40 @@ hornets it launches are wasted motion.
 Against Iron Beam in the same draft slot it is a statistical tie (+28.5% vs +30.4%). So "take a
 pad when nothing better is offered" is a defensible pick — it is just not a _good_ one.
 
+#### 1 pad + SkyMesh — the efficient compact build
+
+SkyMesh only requires `anyOf: [left, right]`, so **1 pad + SkyMesh is a legal build**, and it
+costs the same _two draft picks_ as a second pad. They are not equivalent:
+
+| Two picks       | Score      | Launches/run | Hornet hits/run | Hit rate  | Orphan   |
+| --------------- | ---------- | ------------ | --------------- | --------- | -------- |
+| 1 pad + SkyMesh | 17,121     | 72           | 26.1            | **36.4%** | **0.0%** |
+| 2 pads          | **20,544** | **133**      | **31.4**        | 23.6%     | 66.5%    |
+
+**Two pads win on output; 1 pad + SkyMesh wins on efficiency.** Mesh nearly doubles a lone pad's
+hit rate (19.3% → 36.4%) and eliminates orphaning entirely — it is precisely the fix for the
+lone pad's core weakness. But raw volume still beats it: two pads launch 85% more hornets and
+land 20% more kills.
+
+**Draft ordering heuristic: take the second pad before SkyMesh.** Both routes converge on the
+same endpoint, but the intermediate state does not:
+
+| Route            | after pick 1 | after pick 2 | after pick 3 |
+| ---------------- | ------------ | ------------ | ------------ |
+| pad → pad → mesh | +28.5%       | **+84.4%**   | +149.2%      |
+| pad → mesh → pad | +28.5%       | +53.6%       | +149.2%      |
+
+If there is any chance of not completing the set — which in draft mode there always is —
+pads-first is the safer line by a wide margin.
+
 #### The upgrade is superlinear, which is unusual
 
 Marginal value of each successive hornet purchase: **pad 1 = +28.5pp, pad 2 = +55.9pp more,
-SkyMesh = +64.8pp more.** Each purchase is worth more than the one before it. Hit rate climbs
+SkyMesh = +64.8pp more.** Each purchase is worth more than the one before it.
+
+The synergy is genuinely multiplicative rather than additive, and the 1-pad-mesh data pins it
+down: **SkyMesh is worth +25.1pp on one pad but +64.8pp on two.** The same upgrade is worth
+two and a half times more depending on what it is paired with. Hit rate climbs
 (19.3% → 23.6% → 37.0%) and orphaning collapses (69.4% → 66.5% → 0%) as investment deepens.
 
 This validates the two play patterns players converge on — go all-in, or use a pad as filler —
