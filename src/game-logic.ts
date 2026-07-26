@@ -211,7 +211,21 @@ export const HORNET_FUZE_RADIUS = 12;
 export const HORNET_RELOAD_TICKS = 60;
 export const HORNET_LAUNCH_GAP = 24;
 // Deliberate under-lead: the visible tail chase is part of the hornet's character.
+// It is the *opening* of the attack, not the whole of it — see HORNET_COMMIT_* below.
 export const HORNET_LEAD_FRACTION = 0.3;
+// The chase is the drama; the commit is the kill. Lead ramps from HORNET_LEAD_FRACTION
+// up to a true intercept as the hornet closes the range or burns down its fuel, so a
+// hornet that has decided to kill something actually converges on it instead of
+// trailing it forever at a fixed under-lead.
+export const HORNET_COMMIT_RANGE = 220;
+export const HORNET_COMMIT_FUEL = 60;
+// A pursuit curve costs more than the straight-line intercept the solver models, so a
+// gate that compares the raw solution against remaining fuel launches hornets that
+// cannot actually finish. Discount the solution by this before believing it.
+// Calibrated against the measured actual/predicted flight-time ratio *after* the
+// commit-on-close guidance landed — penalising the fixed guidance with a number taken
+// from the broken guidance would reject reachable targets twice over.
+export const HORNET_PURSUIT_PENALTY = 1.0;
 // Launch targets scoring within this of the best are treated as equally good and
 // chosen at random, so pads vary their picks instead of replaying one answer.
 export const HORNET_LAUNCH_SCORE_BAND = 25;
@@ -220,6 +234,11 @@ export const HORNET_DIVE_SLACK = 80;
 // so the sprite always reaches zero alpha on exactly the frame it is culled —
 // anything shorter and the hornet blinks out mid-air while still clearly visible.
 export const HORNET_DYING_TICKS = 66;
+// ...but 66 only covers a fall of about 400px. A hornet that dies high was being
+// deleted in mid-air hundreds of pixels up, which is the exact "the game removed it"
+// read the tumble exists to prevent. The real tumble length is derived per hornet
+// from the altitude it died at; this caps the pathological case near the screen top.
+export const HORNET_DYING_TICKS_CAP = 150;
 // Fraction of the tumble over which the exhaust trail collapses. The engine is
 // dead well before the airframe stops falling.
 export const HORNET_DYING_TRAIL_FRAC = 0.3;
@@ -230,10 +249,20 @@ export const HORNET_TUMBLE_SMOKE_CHANCE = 0.22;
 // Terminal puff size — the beat that says "it landed" rather than "it despawned".
 export const HORNET_IMPACT_PUFF = 5;
 export const HORNET_INTERCEPT_MARGIN = 0.9;
-export const HORNET_LOITER_RADIUS = 22;
-export const HORNET_LOITER_RATE = 0.06;
-export const HORNET_LOITER_BURN = 0.35;
-export const HORNET_LOITER_MAX_CONCURRENT = 6;
+// ── Coasting ──
+// A hornet that loses its target and cannot reacquire keeps flying for a moment and
+// then scuttles. It deliberately does NOT hold station: a hovering aircraft reads as
+// a broken one, draws the eye, and looks worst next to live threats it is ignoring.
+// Coasting costs no fuel, so the hornet keeps its full strike budget for a late
+// reacquire instead of watching the intercept gate tighten under it every tick.
+export const HORNET_COAST_BURN = 0;
+// Half a second — long enough to reacquire if anything shows up, short enough that the
+// hornet never looks idle. Also what bounds the banked population, since coasting is free.
+export const HORNET_COAST_MAX_TICKS = 30;
+// Upward bias blended into the retained heading, so the coast drifts skyward and clear
+// of the city rather than continuing into the rooftops.
+export const HORNET_COAST_CLIMB = 0.35;
+export const HORNET_COAST_MAX_CONCURRENT = 6;
 
 export function getGameplayLauncherPosition(index: number): { x: number; y: number } {
   return { x: LAUNCHERS[index].x, y: GAMEPLAY_SCENIC_LAUNCHER_Y };
@@ -339,6 +368,9 @@ export function randInt(a: number, b: number): number {
 }
 export function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
+}
+export function clamp01(t: number): number {
+  return t < 0 ? 0 : t > 1 ? 1 : t;
 }
 
 export function pickTarget(g: GameState, fromX: number): { x: number; y: number } | null {

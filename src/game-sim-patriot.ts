@@ -291,6 +291,15 @@ export function updatePatriotSystem(
     g.patriotHoldTimer = 0;
     g.patriotFollowupTimer = 0;
   }
+  updatePatriotFlight(g, dt, allThreats, detonate);
+}
+
+/**
+ * In-flight update for Patriot missiles, split out from the battery so it can also
+ * run while a wave is completing — otherwise every SAM in the air freezes mid-flight
+ * for the length of the cleared timer and the bonus screen.
+ */
+export function updatePatriotFlight(g: GameState, dt: number, allThreats: Threat[], detonate: PatriotDetonate): void {
   // Patriot in-flight update — guided SAM with limited steering.
   g.patriotMissiles.forEach((p: PatriotMissile) => {
     if (!p.alive) return;

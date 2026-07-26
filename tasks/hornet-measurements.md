@@ -211,3 +211,123 @@ wave 7.3, and 0.875 shot efficiency.
 - Median iPhone p95: 17 ms for both `perf-wave1` and `perf-wave4-upgrades`.
 - Matching desktop and device reports:
   `perf-results/baselines/3a7c432+4c2779e5/`.
+
+---
+
+# Replay-driven behaviour fixes (2026-07-26)
+
+Source: instrumented trace of the human replay `dmc-w6-s29898-1785030468297` (87 hornets,
+waves 2–6, reproduced bit-exact at score 29,898). Seven findings; plan in
+`.claude/plans/crispy-enchanting-spring.md`.
+
+## What changed
+
+| Phase | Change                                                                                                                                                                                                        |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A     | Commit-on-close lead: uses the solver's `interceptTicks` and ramps `HORNET_LEAD_FRACTION` → 1 as range/fuel fall (`HORNET_COMMIT_RANGE`, `HORNET_COMMIT_FUEL`). Non-zero lead when the solver returns `null`. |
+| A     | Proximity fuze detonates on any live threat in range, not only `targetRef`.                                                                                                                                   |
+| B     | Loiter replaced by **coasting** — see the revision below. Reacquire no longer passes `allowBelow`, which contradicted the dive-slack relinquish in the flying path and pinned hornets in place.               |
+| C     | `dyingMaxTicks` derived per hornet from death altitude (`HORNET_DYING_TICKS_CAP`); render fade derives from it.                                                                                               |
+| C     | Dead-man's fuze: running dry inside `blastRadius` of a live threat detonates instead of tumbling.                                                                                                             |
+| D     | `updateHornetFlight` / `updateRoadrunnerFlight` / `updatePatriotFlight` split out and called from `updateWaveCompleteVisuals`; hornets retire into `standDown` on wave complete.                              |
+| E     | `CURRENT_REPLAY_VERSION` 7 → 8; all three perf fixtures re-recorded.                                                                                                                                          |
+
+## Behaviour metrics (20 games, 2 pads + SkyMesh, seed base 70000)
+
+| Metric                             |           Before |                        After |
+| ---------------------------------- | ---------------: | ---------------------------: |
+| Longest sustained hornet freeze    |        115 ticks |                        **3** |
+| Fuel lost while loitering          |        0.35/tick |                        **0** |
+| Longest single hold                |        unbounded |             **60** (the cap) |
+| Dying hornets culled mid-air       |          27 / 30 |      **0** (32 reach ground) |
+| Ticks parked 12–45px behind target | 5.8s in one game | **0.8%** of live hornet-time |
+| Fuel-out tumbles                   |          14 / 87 |                        **0** |
+
+Sub-tick fuze misses were re-measured properly (relative-vector segment closest approach):
+**9362 pairs, 0 misses**. The fuze radius was never the bug, so `HORNET_FUZE_RADIUS` stays 12.
+`HORNET_PURSUIT_PENALTY` is present but set to **1.0** — the 1.15 originally planned was
+calibrated on the _broken_ guidance and double-counted once commit-on-close landed.
+
+## Balance (`variants.ts`, 20 games/config, both seed bases)
+
+| Config |    pre |  post A (70000) |  post B (91000) |
+| ------ | -----: | --------------: | --------------: |
+| 1 pad  |  9,536 |   9,828 (+3.1%) |   9,877 (+3.6%) |
+| 2 pads | 12,978 |  13,861 (+6.8%) |  14,022 (+8.0%) |
+| 2+mesh | 19,027 | 21,404 (+12.5%) | 22,418 (+17.8%) |
+
+1-pad and 2-pad deltas are inside the ±5–10% noise floor. The 2+mesh gain replicates on both
+seeds and is a real SkyMesh buff — hornets now finish attacks they used to abandon.
+
+> **Caveat on the harness `orphan` column** (0.1% → ~38% at 2+mesh): the vendored classifier
+> predates the loiter scuttle and files it under `orphan`. Direct instrumentation shows the
+> loiter outcome split is 23 reacquires / 43 scuttles per 20 games — not a regression in
+> orphaning. The classifier needs teaching before that column means anything again.
+
+## Verification
+
+- Unit: 479 passing. Determinism seed `12345`: score 98,366, wave 11; repeat matched.
+- Browser: 12 smoke + replay tests passing. The 2 `editor.spec.ts` failures are pre-existing
+  (verified failing on a stashed clean tree) and unrelated.
+- **Not yet done:** device feel-check and the iPhone/desktop perf re-baseline.
+
+---
+
+# Revision after device feel-check (2026-07-26, replay `dmc-w10-s104174`)
+
+Two things came out of playing the deployed build. The replay reproduced bit-exact
+(9,434 ticks, 104,174, wave 10, **0 divergences**), and confirmed the wins held in real
+play: **0 fuel-out tumbles** (was 14/87), 0 fuel burned holding, hold capped at 60,
+1.5% of hornet-time parked behind a target. But:
+
+## 1. Loiter-then-scuttle read as broken (player report)
+
+> "hornet visually stopping, hovering and then self destructing ... it attracts attention
+> and raises 'what is it doing???' ... especially odd if there are active targets on the
+> screen. Previous behavior looked more intuitive."
+
+Correct, and the fix is better than the original design. An aircraft that **stops** demands
+an explanation; one that flies on and scuttles does not. Loiter is replaced by a **coast**:
+
+| Was                                                                        | Now                                                                                        |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Stop, orbit a fixed anchor for up to 60 ticks, then scuttle                | Retain heading with an upward bias, fly on at full speed for 30 ticks (0.5s), then scuttle |
+| `phase: "loitering"`, `loiterX/Y/Angle`, cyan holding ring in the renderer | `phase: "coasting"`, `coastTicks` only, no indicator                                       |
+| `HORNET_LOITER_*`                                                          | `HORNET_COAST_BURN` / `_MAX_TICKS` / `_CLIMB` / `_MAX_CONCURRENT`                          |
+
+Measured: coasting hornets move **5.70 px/tick** (full speed — they never hover), coast
+capped at exactly 30 ticks, 0 fuel burned. Balance is unchanged versus the hover version
+and slightly better: hit rate 54.5% → **57.7%**.
+
+## 2. A third instance of the wave-complete freeze
+
+`game-sim.ts` returned early on `gameOverTimer` exactly as it did on `waveComplete`, so the
+60-tick death sequence froze every airframe **and stopped the Burj's own explosion from
+expanding**. `updateWaveCompleteVisuals` is renamed `updateHaltedSimVisuals` and is now
+called from both halted paths.
+
+| Metric                          |  Original | After first pass |     After coast + gameover fix |
+| ------------------------------- | --------: | ---------------: | -----------------------------: |
+| Longest sustained hornet freeze | 115 ticks |                3 | **1** (state transitions only) |
+| Dying hornets culled mid-air    |   27 / 30 |                0 |                          **0** |
+| Fuel burned while holding       | 0.35/tick |                0 |                          **0** |
+
+> **Correction to the first pass:** the "16 mid-air culls" reported from the w10 replay were
+> a probe artifact. The sim clamps `y` to `GROUND_Y` and removes the hornet in the same tick,
+> so the last observable frame is always a few px short. All 30 landed (final observed Y
+> 1512–1530, ground = 1530).
+
+## Balance after the coast rework (20 games/config, both seed bases)
+
+| Config |    pre | coast A (70000) | coast B (91000) |
+| ------ | -----: | --------------: | --------------: |
+| 1 pad  |  9,536 |   9,920 (+4.0%) |   9,964 (+4.5%) |
+| 2 pads | 12,978 |  14,064 (+8.4%) |  14,091 (+8.6%) |
+| 2+mesh | 19,027 | 22,465 (+18.1%) | 21,555 (+13.3%) |
+
+1-pad and 2-pad remain inside the ±5-10% noise floor. The 2+mesh gain replicates.
+
+`CURRENT_REPLAY_VERSION` 8 → **9**: the deployed build was v8, so v8 captures must be
+rejected loudly rather than silently replaying against changed hornet behaviour. The harness
+`loiterPeak`/`loiterP95` columns now read 0 for everything — they key off the removed
+`"loitering"` phase and need updating before they mean anything again.

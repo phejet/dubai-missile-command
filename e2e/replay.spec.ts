@@ -25,7 +25,7 @@ async function startGameFromScreen(page: Page) {
 // Short replay fixture — a few fire actions, enough to exercise the replay runner.
 // No hardcoded expected scores; tests compare two runs of the same replay.
 const SHORT_REPLAY: ReplayData = {
-  version: 7,
+  version: 9,
   seed: 12345,
   initialState: { metaProgression: { version: 1, completedObjectives: [] }, forcedUpgradeFamilies: [], burjHealth: 7 },
   actions: [
@@ -145,7 +145,7 @@ test.describe("Replay", () => {
     await page.waitForFunction(() => window.__loadReplay != null, { timeout: 5000 });
 
     const replayData: ReplayData = {
-      version: 7,
+      version: 9,
       seed: 2468,
       actions: [],
       initialState: {

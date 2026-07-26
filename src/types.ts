@@ -337,14 +337,15 @@ export interface Hornet {
   life: number;
   maxLife: number;
   retargetsRemaining: number;
-  phase?: "flying" | "loitering" | "dying";
+  phase?: "flying" | "coasting" | "dying";
   fate?: "fuelOut" | "standDown";
   dyingTicks?: number;
+  /** Ticks the tumble is allowed to run, derived from the altitude it died at. */
+  dyingMaxTicks?: number;
   spin?: number;
   vy?: number;
-  loiterX?: number;
-  loiterY?: number;
-  loiterAngle?: number;
+  /** Ticks spent coasting after losing a target; scuttles at HORNET_COAST_MAX_TICKS. */
+  coastTicks?: number;
 }
 
 export interface Roadrunner {

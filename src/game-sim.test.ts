@@ -25,6 +25,8 @@ import {
   INTERCEPTOR_SOLO_TAP_FUSE_RADIUS,
   INTERCEPTOR_TAP_FUSE_RADIUS,
   HORNET_DYING_TICKS,
+  HORNET_DYING_TICKS_CAP,
+  HORNET_COAST_MAX_TICKS,
   HORNET_IMPACT_PUFF,
 } from "./game-logic";
 import {
@@ -1892,6 +1894,151 @@ describe("Auto-defense targeting spread", () => {
     expect(hornet.dyingTicks).toBeLessThan(HORNET_DYING_TICKS);
   });
 
+  it("flies a high fuel-out hornet all the way to the ground rather than culling it mid-air", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.wildHornets = 1;
+    const hornet: Hornet = {
+      x: 400,
+      y: 500,
+      targetRef: null,
+      speed: 5,
+      trail: [],
+      alive: true,
+      blastRadius: 30,
+      wobble: 0,
+      life: 0.5,
+      maxLife: 168,
+      retargetsRemaining: 0,
+    };
+    g.hornets.push(hornet);
+
+    // A fixed 66-tick tumble only covers ~400px of fall, so a hornet expiring at
+    // y=500 used to vanish around y=900 with a kilometre of sky still under it.
+    for (let tick = 0; tick < HORNET_DYING_TICKS && hornet.alive; tick++) sim.updateAutoSystems(g, 1, []);
+    expect(hornet.alive).toBe(true);
+    expect(hornet.fate).toBe("fuelOut");
+
+    for (let tick = 0; tick < HORNET_DYING_TICKS_CAP && hornet.alive; tick++) sim.updateAutoSystems(g, 1, []);
+    expect(hornet.alive).toBe(false);
+    expect(hornet.y).toBe(GROUND_Y);
+  });
+
+  it("detonates a hornet that runs dry on top of a threat instead of fizzling", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.wildHornets = 1;
+    const target = makeBallisticMissile({ x: 420, y: 500, vx: 0, vy: 1, accel: 1 });
+    const hornet: Hornet = {
+      x: 400,
+      y: 500,
+      targetRef: target,
+      speed: 5,
+      trail: [],
+      alive: true,
+      blastRadius: 30,
+      wobble: 0,
+      life: 0.5,
+      maxLife: 168,
+      retargetsRemaining: 0,
+    };
+    g.hornets.push(hornet);
+
+    sim.updateAutoSystems(g, 1, [target]);
+
+    // 20px away: outside the 12px fuze, well inside the 30px warhead.
+    expect(hornet.alive).toBe(false);
+    expect(hornet.phase).not.toBe("dying");
+    expect(g.explosions.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("still tumbles a hornet that runs dry with nothing in blast range", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.wildHornets = 1;
+    const target = makeBallisticMissile({ x: 700, y: 500, vx: 0, vy: 1, accel: 1 });
+    const hornet: Hornet = {
+      x: 400,
+      y: 500,
+      targetRef: target,
+      speed: 5,
+      trail: [],
+      alive: true,
+      blastRadius: 30,
+      wobble: 0,
+      life: 0.5,
+      maxLife: 168,
+      retargetsRemaining: 0,
+    };
+    g.hornets.push(hornet);
+
+    sim.updateAutoSystems(g, 1, [target]);
+
+    expect(hornet.phase).toBe("dying");
+    expect(hornet.fate).toBe("fuelOut");
+    expect(g.explosions).toHaveLength(0);
+  });
+
+  it("keeps hornets moving through wave completion instead of freezing them mid-air", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.wildHornets = 1;
+    const hornet: Hornet = {
+      x: 400,
+      y: 600,
+      targetRef: null,
+      speed: 5,
+      trail: [],
+      alive: true,
+      blastRadius: 30,
+      wobble: 0,
+      life: 120,
+      maxLife: 168,
+      retargetsRemaining: 0,
+      phase: "dying",
+      fate: "standDown",
+      dyingTicks: 0,
+      dyingMaxTicks: 120,
+      vy: 0.1,
+      spin: 0,
+    };
+    g.hornets.push(hornet);
+    // Force the wave-complete branch of update(), which returns before updateAutoSystems.
+    g.waveComplete = true;
+    g.waveClearedTimer = 120;
+    const startY = hornet.y;
+
+    for (let tick = 0; tick < 30; tick++) sim.update(g, 1);
+
+    expect(hornet.y).toBeGreaterThan(startY);
+    expect(hornet.dyingTicks).toBeGreaterThan(0);
+  });
+
+  it("retires airborne hornets when the wave completes rather than deleting them later", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.wildHornets = 1;
+    const hornet: Hornet = {
+      x: 400,
+      y: 600,
+      targetRef: null,
+      speed: 5,
+      trail: [],
+      alive: true,
+      blastRadius: 30,
+      wobble: 0,
+      life: 120,
+      maxLife: 168,
+      retargetsRemaining: 0,
+      phase: "flying",
+    };
+    g.hornets.push(hornet);
+    g.missiles = [];
+    g.drones = [];
+    g.scheduleIdx = g.schedule.length;
+
+    sim.update(g, 1);
+
+    expect(g.waveComplete).toBe(true);
+    expect(hornet.phase).toBe("dying");
+    expect(hornet.fate).toBe("standDown");
+  });
+
   it("does not let a dying hornet reserve the only catchable launch target", () => {
     const { sim, g } = makeCleanGame(5);
     g.upgrades.wildHornets = 1;
@@ -2085,7 +2232,7 @@ describe("Auto-defense targeting spread", () => {
     expect(pickWith(0.999)).toBe("far");
   });
 
-  it("lets a SkyMesh hornet loiter beyond normal fuel life near its anchor", () => {
+  it("coasts a SkyMesh hornet onward without spending fuel", () => {
     const { sim, g } = makeCleanGame(5);
     g.upgrades.wildHornets = 1;
     g.ownedUpgradeNodes.add("skyHunterMesh");
@@ -2105,14 +2252,56 @@ describe("Auto-defense targeting spread", () => {
     };
     g.hornets.push(hornet);
 
-    for (let tick = 0; tick < 200; tick++) sim.updateAutoSystems(g, 1, []);
+    // One tick of flight to notice the target is gone, then it coasts.
+    sim.updateAutoSystems(g, 1, []);
+    expect(hornet.phase).toBe("coasting");
+    const lifeOnEntry = hornet.life;
+    const entryX = hornet.x;
+    const entryY = hornet.y;
+
+    for (let tick = 1; tick < HORNET_COAST_MAX_TICKS; tick++) sim.updateAutoSystems(g, 1, []);
 
     expect(hornet.alive).toBe(true);
-    expect(hornet.phase).toBe("loitering");
-    expect(Math.hypot(hornet.x - hornet.loiterX!, hornet.y - hornet.loiterY!)).toBeLessThan(30);
+    expect(hornet.phase).toBe("coasting");
+    // Coasting is free: the strike budget must survive intact, or the reacquire gate
+    // tightens every tick and the hornet can never take a target again.
+    expect(hornet.life).toBe(lifeOnEntry);
+    // ...and it must keep flying. A hornet that stops and hovers is the exact visual
+    // this behaviour exists to avoid — it draws the eye and reads as a broken drone.
+    expect(Math.hypot(hornet.x - entryX, hornet.y - entryY)).toBeGreaterThan(hornet.speed * 10);
+    expect(hornet.y).toBeLessThan(entryY);
   });
 
-  it("reactivates a loitering SkyMesh hornet within one tick when a catchable threat appears", () => {
+  it("scuttles a coasting hornet once it exceeds the coast limit", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.wildHornets = 1;
+    g.ownedUpgradeNodes.add("skyHunterMesh");
+    const deadTarget = makeBallisticMissile({ alive: false });
+    const hornet: Hornet = {
+      x: 400,
+      y: 600,
+      targetRef: deadTarget,
+      speed: 5,
+      trail: [],
+      alive: true,
+      blastRadius: 30,
+      wobble: 0,
+      life: 168,
+      maxLife: 168,
+      retargetsRemaining: Number.POSITIVE_INFINITY,
+    };
+    g.hornets.push(hornet);
+
+    for (let tick = 0; tick < HORNET_COAST_MAX_TICKS + 5; tick++) sim.updateAutoSystems(g, 1, []);
+
+    // A scuttle is a detonation, not a fizzle: it leaves an explosion and no tumble.
+    expect(g.hornets).toHaveLength(0);
+    expect(hornet.phase).toBe("coasting");
+    expect(hornet.fate).toBeUndefined();
+    expect(g.explosions.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("reactivates a coasting SkyMesh hornet within one tick when a catchable threat appears", () => {
     const { sim, g } = makeCleanGame(5);
     g.upgrades.wildHornets = 1;
     g.ownedUpgradeNodes.add("skyHunterMesh");
@@ -2128,12 +2317,41 @@ describe("Auto-defense targeting spread", () => {
       life: 120,
       maxLife: 168,
       retargetsRemaining: Number.POSITIVE_INFINITY,
-      phase: "loitering",
-      loiterX: 400,
-      loiterY: 600,
-      loiterAngle: 1,
+      phase: "coasting",
+      coastTicks: 0,
     };
     const target = makeBallisticMissile({ x: 480, y: 520, vx: 0, vy: 1, accel: 1 });
+    g.hornets.push(hornet);
+
+    sim.updateAutoSystems(g, 1, [target]);
+
+    expect(hornet.phase).toBe("flying");
+    expect(hornet.targetRef).toBe(target);
+  });
+
+  it("reactivates a low-fuel coasting hornet instead of stranding it on a stale gate", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.wildHornets = 1;
+    g.ownedUpgradeNodes.add("skyHunterMesh");
+    // Before coasting was made free this hornet was unreachable-by-construction: the
+    // burn drove life down until interceptTicks could never fit inside the gate
+    // again, so it hovered until it dropped with work directly in front of it.
+    const hornet: Hornet = {
+      x: 400,
+      y: 600,
+      targetRef: null,
+      speed: 5,
+      trail: [],
+      alive: true,
+      blastRadius: 30,
+      wobble: 0,
+      life: 34,
+      maxLife: 168,
+      retargetsRemaining: Number.POSITIVE_INFINITY,
+      phase: "coasting",
+      coastTicks: 0,
+    };
+    const target = makeBallisticMissile({ x: 430, y: 570, vx: 0, vy: 1, accel: 1 });
     g.hornets.push(hornet);
 
     sim.updateAutoSystems(g, 1, [target]);

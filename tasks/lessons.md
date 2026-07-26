@@ -241,3 +241,66 @@
 - Bonus: the measurement that corrected me found something better than the perf claim
   (89.2% of loiter rejections are fuel-gated, not geometric). Measuring a suspicion
   usually beats asserting it, even when the suspicion is wrong.
+
+## Measure the mechanism the code actually uses (2026-07-26, hornet replay review)
+
+Claimed "0 fuze tunneling" from a check that compared **post-update** hornet/target
+positions. The fuze reads distance at the _top_ of the hornet's update, before the
+threat moves — a different quantity. The conclusion happened to survive re-measurement
+(9362 segment pairs, 0 true misses), but only by luck: the first check could not have
+detected the thing it claimed to rule out.
+
+**Why:** "I measured it" is worth nothing if the measurement doesn't reproduce the code
+path's own semantics. Sampling around a tick boundary is not the same as sampling at it.
+
+**How to apply:** before reporting a measurement about a discrete-time rule, write down
+which line reads the value and at what point in the tick, then confirm the probe samples
+exactly there. For continuous motion sampled per tick, check the _segment_ closest
+approach, not the endpoints.
+
+## Don't apply a correction calibrated on the broken version to the fixed version
+
+Set `HORNET_PURSUIT_PENALTY = 1.15` from the measured 2.27x flight-time overrun, then
+applied it on top of the guidance fix that removed the overrun. It rejected reachable
+targets twice over and broke 4 tests immediately.
+
+**Why:** a constant derived from observing a bug encodes the bug. Once the bug is fixed
+the constant is measuring nothing.
+
+**How to apply:** land the mechanism fix with the compensating constant neutral (1.0 /
+no-op), re-measure, then set it from the new numbers. If it turns out to be unnecessary,
+leave it in as a documented knob at its neutral value rather than deleting the concept.
+
+## A zero-movement tick is not the same bug as a freeze
+
+Verification probe reported 180 "frozen hornet-ticks" post-fix and I nearly attributed
+them to an orbit-stutter I had already "fixed". They were single-tick state transitions —
+benign. But tracking the _longest consecutive run_ instead surfaced a real 72-tick freeze
+hiding in the same total: loiter reacquire passed `allowBelow: true`, the flying path
+relinquished below-targets on the next statement, and the hornet oscillated in place every
+tick, resetting its hold counter so the scuttle cap never fired.
+
+**Why:** an aggregate count mixes a harmless per-transition cost with a pathological
+sustained one. The user-visible symptom is duration, so duration is the metric.
+
+**How to apply:** when the complaint is "it hangs", measure the longest run, not the total.
+And when two code paths disagree about what is a valid target, expect an oscillation, not
+a stall.
+
+## The player's "looks odd" beats the metric that says it's fine (2026-07-26)
+
+Capped loiter at 1s and verified it hard: 0 fuel burned, hold bounded, freeze gone,
+score up. Every number said solved. On device it read as broken — the hornet visibly
+_stopped_, hovered, then exploded, which pulls the eye and asks "what is that doing?",
+worst of all next to threats it was ignoring. The player's fix (keep flying, then
+scuttle) was better than mine and cost nothing: balance unchanged, hit rate 54.5% → 57.7%.
+
+**Why:** I measured whether the hornet was _stuck_. The complaint was that it looked like
+it was _deciding_. A hovering aircraft is legible as a bug no matter how briefly it hovers
+or how little fuel it wastes — motion state is a narrative signal, not just a physics one.
+
+**How to apply:** for anything with a visible airframe, ask "what does this pose say to
+someone who can't see the state machine?" A full stop says malfunction. Prefer states that
+preserve momentum. And when a feel report contradicts clean metrics, the metric is measuring
+the wrong quantity — find the one that would have caught it (here: px moved per tick while
+in the state) rather than defending the old one.

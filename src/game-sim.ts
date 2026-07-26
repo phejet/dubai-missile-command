@@ -20,6 +20,8 @@ import {
   dist,
   rand,
   randInt,
+  lerp,
+  clamp01,
   pickTarget,
   pickBuildingTarget,
   createExplosion,
@@ -51,17 +53,21 @@ import {
   HORNET_RELOAD_TICKS,
   HORNET_LAUNCH_GAP,
   HORNET_LEAD_FRACTION,
+  HORNET_COMMIT_RANGE,
+  HORNET_COMMIT_FUEL,
+  HORNET_PURSUIT_PENALTY,
   HORNET_LAUNCH_SCORE_BAND,
   HORNET_DIVE_SLACK,
   HORNET_DYING_TICKS,
+  HORNET_DYING_TICKS_CAP,
   HORNET_TUMBLE_GRAVITY,
   HORNET_TUMBLE_SMOKE_CHANCE,
   HORNET_IMPACT_PUFF,
   HORNET_INTERCEPT_MARGIN,
-  HORNET_LOITER_RADIUS,
-  HORNET_LOITER_RATE,
-  HORNET_LOITER_BURN,
-  HORNET_LOITER_MAX_CONCURRENT,
+  HORNET_COAST_BURN,
+  HORNET_COAST_MAX_CONCURRENT,
+  HORNET_COAST_MAX_TICKS,
+  HORNET_COAST_CLIMB,
   hitsBurjBody,
   isBurjDiveTarget,
   isBurjImpactTarget,
@@ -98,7 +104,7 @@ import { shahed136HasBomb, shahed136HasDive } from "./types";
 import { updateBurjFireParticles } from "./game-sim-burj-fire";
 import { empScrubScale, fireEmp, updateEmpRings, updateEmpVisualFx } from "./game-sim-emp";
 import { fireFlareSalvo, updateFlares } from "./game-sim-flare";
-import { updatePatriotSystem } from "./game-sim-patriot";
+import { updatePatriotSystem, updatePatriotFlight } from "./game-sim-patriot";
 import { getWhiteSmokeParticleVariantId } from "./smoke-particle-assets";
 
 export { updateBurjFireParticles };
@@ -924,7 +930,7 @@ function getHornetLaunchCandidates(
   // sits on a loaded drone with work on screen.
   const catchable = unassigned.filter((target) => {
     const ticks = hornetInterceptTicks(siteX, siteY, target, hornetSpeed);
-    return ticks !== null && ticks <= HORNET_LIFE * HORNET_INTERCEPT_MARGIN;
+    return ticks !== null && ticks * HORNET_PURSUIT_PENALTY <= HORNET_LIFE * HORNET_INTERCEPT_MARGIN;
   });
   if (catchable.length === 0) return [];
   const preferredTypes = catchable.filter((target) => !isHornetPoorLaunchTarget(target));
@@ -1015,7 +1021,7 @@ function pickHornetRetargetTarget(
   const alive = allThreats.filter((t) => {
     if (!t.alive || (!options.allowBelow && t.y > h.y + HORNET_DIVE_SLACK)) return false;
     const ticks = hornetInterceptTicks(h.x, h.y, t, h.speed);
-    return ticks !== null && ticks <= h.life * HORNET_INTERCEPT_MARGIN;
+    return ticks !== null && ticks * HORNET_PURSUIT_PENALTY <= h.life * HORNET_INTERCEPT_MARGIN;
   });
   if (alive.length === 0) return null;
 
@@ -1139,6 +1145,19 @@ function spawnHornetFuelSparks(g: GameState, h: Hornet, count: number): void {
   }
 }
 
+/**
+ * Ticks the airframe needs to actually reach the ground from where it died, under
+ * the same constant-gravity integration `updateDyingHornet` performs. A fixed tumble
+ * length cannot serve both a hornet that expires over the rooftops and one that
+ * expires near the top of the screen — the latter gets deleted in mid-air, hundreds
+ * of pixels up, while still plainly visible.
+ */
+function getHornetTumbleTicks(y: number, vy: number): number {
+  const drop = Math.max(0, GROUND_Y - y);
+  const ticks = (-vy + Math.sqrt(vy * vy + 2 * HORNET_TUMBLE_GRAVITY * drop)) / HORNET_TUMBLE_GRAVITY;
+  return Math.min(HORNET_DYING_TICKS_CAP, Math.max(HORNET_DYING_TICKS, Math.ceil(ticks)));
+}
+
 function enterHornetDying(g: GameState, h: Hornet, fate: "fuelOut" | "standDown", onEvent?: SimEventSink | null): void {
   if (h.phase === "dying") return;
   h.phase = "dying";
@@ -1146,9 +1165,25 @@ function enterHornetDying(g: GameState, h: Hornet, fate: "fuelOut" | "standDown"
   h.dyingTicks = 0;
   h.targetRef = null;
   h.vy = fate === "fuelOut" ? 0.3 : 0.1;
+  h.dyingMaxTicks = getHornetTumbleTicks(h.y, h.vy);
   h.spin = rand(-0.35, 0.35);
   if (fate === "fuelOut") spawnHornetFuelSparks(g, h, 6);
   onEvent?.("sfx", { name: "hornetFizzle", fate });
+}
+
+/**
+ * A hornet that runs dry while sitting on top of a threat should go off, not fizzle.
+ * The fuze is 12px but the warhead reaches 30, so the measured cluster of fuel-outs
+ * dying 16–36px from their target were all inside their own blast radius.
+ */
+function hornetRunOutOfFuel(g: GameState, h: Hornet, allThreats: Threat[], onEvent?: SimEventSink | null): void {
+  const inBlast = allThreats.some((t) => t.alive && dist(t.x, t.y, h.x, h.y) < h.blastRadius);
+  if (inBlast) {
+    h.alive = false;
+    boom(g, h.x, h.y, h.blastRadius, COL.hornet, false, onEvent, h.blastRadius * 0.5);
+    return;
+  }
+  enterHornetDying(g, h, "fuelOut", onEvent);
 }
 
 function updateDyingHornet(g: GameState, h: Hornet, dt: number): void {
@@ -1162,19 +1197,248 @@ function updateDyingHornet(g: GameState, h: Hornet, dt: number): void {
   // Emit for the whole fall, thinning as it goes. Effects that stop a third of
   // the way down leave the hornet silently rotating until it is culled, which is
   // what made a fuel-out read as the game deleting it.
-  const remaining = Math.max(0, 1 - ticks / HORNET_DYING_TICKS);
+  const maxTicks = h.dyingMaxTicks ?? HORNET_DYING_TICKS;
+  const remaining = Math.max(0, 1 - ticks / maxTicks);
   if (fuelOut && rand(0, 1) < 0.12 * remaining * dt) spawnHornetFuelSparks(g, h, 1);
   if (rand(0, 1) < HORNET_TUMBLE_SMOKE_CHANCE * (fuelOut ? 1 : 0.4) * dt) {
     spawnHornetSmokePuff(g, h, !fuelOut, 1);
   }
 
   const grounded = h.y >= GROUND_Y;
-  if (grounded || ticks >= HORNET_DYING_TICKS || h.x < -60 || h.x > CANVAS_W + 60 || h.y < -60) {
+  if (grounded || ticks >= maxTicks || h.x < -60 || h.x > CANVAS_W + 60 || h.y < -60) {
     if (grounded) h.y = GROUND_Y;
     spawnHornetSmokePuff(g, h, !fuelOut, fuelOut ? HORNET_IMPACT_PUFF : 2);
     if (grounded && fuelOut) spawnHornetFuelSparks(g, h, 4);
     h.alive = false;
   }
+}
+
+/**
+ * In-flight update for hornets, split out from the launch logic so it can also run
+ * while a wave is completing. `update()` returns early on `g.waveComplete`, which
+ * used to freeze every airframe in the sky mid-arc for the length of the cleared
+ * timer and the bonus screen before they were deleted outright.
+ */
+export function updateHornetFlight(
+  g: GameState,
+  dt: number,
+  allThreats: Threat[],
+  onEvent?: SimEventSink | null,
+): void {
+  // Hornet in-flight update — always runs so hornets don't freeze when site is destroyed
+  let coastingCount = g.hornets.filter((hornet) => hornet.alive && hornet.phase === "coasting").length;
+  g.hornets.forEach((h: Hornet) => {
+    if (!h.alive) return;
+    if (h.phase === "dying") {
+      h.targetRef = null;
+      updateDyingHornet(g, h, dt);
+      return;
+    }
+
+    if (h.phase === "coasting") {
+      h.life -= HORNET_COAST_BURN * dt;
+      h.coastTicks = (h.coastTicks ?? 0) + dt;
+      if (h.life <= 0) {
+        coastingCount--;
+        enterHornetDying(g, h, "fuelOut", onEvent);
+        return;
+      }
+      // A hornet with nothing to kill keeps flying and then scuttles. It must not stop:
+      // an aircraft that halts in mid-air and hovers reads as a bug — it pulls the eye,
+      // asks the player "what is that doing?", and looks worst when there are live
+      // threats on screen it is visibly ignoring. Coasting on and going off does not.
+      if (h.coastTicks > HORNET_COAST_MAX_TICKS) {
+        coastingCount--;
+        h.alive = false;
+        boom(g, h.x, h.y, h.blastRadius, COL.hornet, false, onEvent, h.blastRadius * 0.5);
+        return;
+      }
+      // No `allowBelow` here, deliberately. Letting a coasting hornet accept a target
+      // below it contradicts the dive-slack relinquish in the flying path below, which
+      // drops that same target on the very next statement. The hornet then re-entered
+      // this branch, reset its countdown, and repeated — pinned in place forever,
+      // never moving and never scuttling. Both paths must agree on what is reachable.
+      const newTarget = pickHornetRetargetTarget(
+        h,
+        allThreats,
+        g.hornets.filter((other) => other !== h),
+        g.upgrades.wildHornets,
+      );
+      if (newTarget) {
+        h.targetRef = newTarget;
+        h.phase = "flying";
+        h.coastTicks = undefined;
+        coastingCount--;
+      } else {
+        // Hold the heading it already had and bleed upward, so the coast reads as a
+        // drone continuing its run rather than as one deciding something.
+        pushHornetTrail(h);
+        h.wobble += 0.15 * dt;
+        const prevTrail = h.trail[h.trail.length - 2];
+        let dirX = prevTrail ? h.x - prevTrail.x : 0;
+        let dirY = prevTrail ? h.y - prevTrail.y : -1;
+        const dirLen = Math.hypot(dirX, dirY);
+        if (dirLen < 0.001) {
+          dirX = 0;
+          dirY = -1;
+        } else {
+          dirX /= dirLen;
+          dirY /= dirLen;
+        }
+        dirY -= HORNET_COAST_CLIMB;
+        const norm = Math.hypot(dirX, dirY) || 1;
+        h.x += ((dirX / norm) * h.speed + Math.sin(h.wobble) * 0.8) * dt;
+        h.y += ((dirY / norm) * h.speed + Math.cos(h.wobble) * 0.5) * dt;
+        return;
+      }
+    } else {
+      h.phase = "flying";
+      h.life -= dt;
+    }
+
+    if (h.life <= 0) {
+      hornetRunOutOfFuel(g, h, allThreats, onEvent);
+      return;
+    }
+    if (h.x < -60 || h.x > CANVAS_W + 60 || h.y < -60 || h.y > CANVAS_H + 20) {
+      h.alive = false;
+      return;
+    }
+    // Fuel sputter — when hornet is running out of life, drop sparks like a coughing engine
+    if (h.life < 30 && rand(0, 1) < 0.18 * dt) {
+      spawnHornetFuelSparks(g, h, 1);
+    }
+    if (h.targetRef?.alive && h.targetRef.y > h.y + HORNET_DIVE_SLACK) {
+      h.targetRef = null;
+    }
+    const t = h.targetRef;
+    // Hornets are kamikaze drones. Without Sky Hunter Mesh they crash when their
+    // target dies; with it they retarget or hold station as part of the mesh.
+    if (!t || !t.alive) {
+      if ((h.retargetsRemaining ?? 0) <= 0) {
+        enterHornetDying(g, h, "standDown", onEvent);
+        return;
+      }
+      const newT = pickHornetRetargetTarget(
+        h,
+        allThreats,
+        g.hornets.filter((other) => other !== h),
+        g.upgrades.wildHornets,
+      );
+      if (newT) {
+        h.targetRef = newT;
+        h.retargetsRemaining = (h.retargetsRemaining ?? 0) - 1;
+      } else if (coastingCount < HORNET_COAST_MAX_CONCURRENT) {
+        h.targetRef = null;
+        h.phase = "coasting";
+        h.coastTicks = 0;
+        coastingCount++;
+        return;
+      } else {
+        enterHornetDying(g, h, "standDown", onEvent);
+        return;
+      }
+    }
+    h.wobble += 0.15 * dt;
+    const hTarget = h.targetRef!;
+    const dx = hTarget.x - h.x;
+    const dy = hTarget.y - h.y;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    // A proximity fuze does not check target ID. Anything the hornet gets this close
+    // to sets it off — otherwise it flies straight through a threat it did not happen
+    // to be assigned and does nothing, which reads as the warhead failing.
+    if (d < HORNET_FUZE_RADIUS || allThreats.some((t) => t.alive && dist(t.x, t.y, h.x, h.y) < HORNET_FUZE_RADIUS)) {
+      h.alive = false;
+      boom(g, h.x, h.y, h.blastRadius, COL.hornet, false, onEvent, h.blastRadius * 0.5);
+      return;
+    }
+    pushHornetTrail(h);
+    // Lead the target. The hornet opens with a loose under-lead — the visible tail
+    // chase is its character — then tightens onto the solver's actual intercept as it
+    // closes the range or burns down its fuel. Holding the under-lead all the way in
+    // converges to a stable stern offset just outside the fuze, where the hornet
+    // shadows its target until it runs dry instead of ever killing it.
+    const interceptTicks = hornetInterceptTicks(h.x, h.y, hTarget, h.speed, Math.ceil(h.life));
+    // No solution means the target is outrunning us. Best-effort pursuit lead still
+    // beats aiming at where it is right now, which guarantees a stern chase.
+    const hLeadFrames = interceptTicks ?? Math.min(d / h.speed, h.life);
+    const commit = Math.max(
+      clamp01((HORNET_COMMIT_RANGE - d) / HORNET_COMMIT_RANGE),
+      clamp01((HORNET_COMMIT_FUEL - h.life) / HORNET_COMMIT_FUEL),
+    );
+    const hLeadFraction = lerp(HORNET_LEAD_FRACTION, 1, commit);
+    const hlx = hTarget.x + (hTarget.vx || 0) * hLeadFrames * hLeadFraction;
+    const hly = hTarget.y + (hTarget.vy || 0) * hLeadFrames * hLeadFraction;
+    const hld = Math.sqrt((hlx - h.x) ** 2 + (hly - h.y) ** 2) || 1;
+    h.x += (((hlx - h.x) / hld) * h.speed + Math.sin(h.wobble) * 0.8) * dt;
+    h.y += (((hly - h.y) / hld) * h.speed + Math.cos(h.wobble) * 0.5) * dt;
+  });
+  g.hornets = g.hornets.filter((h) => h.alive);
+}
+
+/** In-flight update for roadrunners. Split out for the same reason as hornets. */
+export function updateRoadrunnerFlight(
+  g: GameState,
+  dt: number,
+  allThreats: Threat[],
+  onEvent?: SimEventSink | null,
+): void {
+  // Roadrunner in-flight update — always runs so missiles don't freeze when site is destroyed
+  g.roadrunners.forEach((r: Roadrunner) => {
+    if (!r.alive) return;
+    r.life -= dt;
+    if (r.life <= 0) {
+      r.alive = false;
+      boom(g, r.x, r.y, r.blastRadius, COL.roadrunner, false, onEvent, 15);
+      return;
+    }
+    r.trail.push({ x: r.x, y: r.y });
+    if (r.trail.length > 20) r.trail.shift();
+    if (r.phase === "launch") {
+      r.y -= r.speed * 0.8 * dt;
+      if (r.y <= (r.launchY ?? -Infinity)) r.phase = "track";
+    } else {
+      const t = r.targetRef;
+      if (!t || !t.alive) {
+        const newT = pickRoadrunnerTargets(
+          allThreats,
+          g.roadrunners.filter((other: Roadrunner) => other !== r),
+          1,
+        )[0];
+        if (newT) r.targetRef = newT;
+        else {
+          r.alive = false;
+          return;
+        }
+      }
+      const rTarget = r.targetRef!;
+      const dx = rTarget.x - r.x;
+      const dy = rTarget.y - r.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < 15) {
+        r.alive = false;
+        boom(g, rTarget.x, rTarget.y, r.blastRadius, COL.roadrunner, false, onEvent, 15);
+        return;
+      }
+      // Lead the target slightly
+      const leadFrames = d / r.speed;
+      const lx = rTarget.x + (rTarget.vx || 0) * leadFrames * 0.3;
+      const ly = rTarget.y + (rTarget.vy || 0) * leadFrames * 0.3;
+      const desiredHeading = Math.atan2(ly - r.y, lx - r.x);
+      const headingDelta = normalizeAngle(desiredHeading - r.heading);
+      const maxTurn = (r.turnRate ?? 0.08) * dt;
+      const appliedTurn = Math.max(-maxTurn, Math.min(maxTurn, headingDelta));
+      r.heading = normalizeAngle(r.heading + appliedTurn);
+      r.x += Math.cos(r.heading) * r.speed * dt;
+      r.y += Math.sin(r.heading) * r.speed * dt;
+      if (r.y >= GAMEPLAY_WATERLINE_Y) {
+        r.alive = false;
+        boom(g, r.x, GAMEPLAY_WATERLINE_Y, r.blastRadius, COL.roadrunner, false, onEvent, 15);
+        return;
+      }
+    }
+  });
+  g.roadrunners = g.roadrunners.filter((r) => r.alive);
 }
 
 export function updateAutoSystems(g: GameState, dt: number, allThreats: Threat[], onEvent?: SimEventSink | null) {
@@ -1248,121 +1512,7 @@ export function updateAutoSystems(g: GameState, dt: number, allThreats: Threat[]
       onEvent?.("sfx", { name: "hornetBuzz" });
     }
   }
-  // Hornet in-flight update — always runs so hornets don't freeze when site is destroyed
-  let loiteringCount = g.hornets.filter((hornet) => hornet.alive && hornet.phase === "loitering").length;
-  g.hornets.forEach((h: Hornet) => {
-    if (!h.alive) return;
-    if (h.phase === "dying") {
-      h.targetRef = null;
-      updateDyingHornet(g, h, dt);
-      return;
-    }
-
-    if (h.phase === "loitering") {
-      h.life -= HORNET_LOITER_BURN * dt;
-      if (h.life <= 0) {
-        loiteringCount--;
-        enterHornetDying(g, h, "fuelOut", onEvent);
-        return;
-      }
-      const newTarget = pickHornetRetargetTarget(
-        h,
-        allThreats,
-        g.hornets.filter((other) => other !== h),
-        g.upgrades.wildHornets,
-        { allowBelow: true },
-      );
-      if (newTarget) {
-        h.targetRef = newTarget;
-        h.phase = "flying";
-        h.loiterX = undefined;
-        h.loiterY = undefined;
-        h.loiterAngle = undefined;
-        loiteringCount--;
-      } else {
-        h.loiterAngle = (h.loiterAngle ?? 0) + HORNET_LOITER_RATE * dt;
-        const orbitX = (h.loiterX ?? h.x) + Math.cos(h.loiterAngle) * HORNET_LOITER_RADIUS;
-        const orbitY = (h.loiterY ?? h.y) + Math.sin(h.loiterAngle) * HORNET_LOITER_RADIUS * 0.55;
-        const orbitDx = orbitX - h.x;
-        const orbitDy = orbitY - h.y;
-        const orbitDist = Math.hypot(orbitDx, orbitDy) || 1;
-        const orbitStep = Math.min(orbitDist, h.speed * 0.35 * dt);
-        pushHornetTrail(h);
-        h.x += (orbitDx / orbitDist) * orbitStep;
-        h.y += (orbitDy / orbitDist) * orbitStep;
-        return;
-      }
-    } else {
-      h.phase = "flying";
-      h.life -= dt;
-    }
-
-    if (h.life <= 0) {
-      enterHornetDying(g, h, "fuelOut", onEvent);
-      return;
-    }
-    if (h.x < -60 || h.x > CANVAS_W + 60 || h.y < -60 || h.y > CANVAS_H + 20) {
-      h.alive = false;
-      return;
-    }
-    // Fuel sputter — when hornet is running out of life, drop sparks like a coughing engine
-    if (h.life < 30 && rand(0, 1) < 0.18 * dt) {
-      spawnHornetFuelSparks(g, h, 1);
-    }
-    if (h.targetRef?.alive && h.targetRef.y > h.y + HORNET_DIVE_SLACK) {
-      h.targetRef = null;
-    }
-    const t = h.targetRef;
-    // Hornets are kamikaze drones. Without Sky Hunter Mesh they crash when their
-    // target dies; with it they retarget or hold station as part of the mesh.
-    if (!t || !t.alive) {
-      if ((h.retargetsRemaining ?? 0) <= 0) {
-        enterHornetDying(g, h, "standDown", onEvent);
-        return;
-      }
-      const newT = pickHornetRetargetTarget(
-        h,
-        allThreats,
-        g.hornets.filter((other) => other !== h),
-        g.upgrades.wildHornets,
-      );
-      if (newT) {
-        h.targetRef = newT;
-        h.retargetsRemaining = (h.retargetsRemaining ?? 0) - 1;
-      } else if (loiteringCount < HORNET_LOITER_MAX_CONCURRENT) {
-        h.targetRef = null;
-        h.phase = "loitering";
-        h.loiterX = h.x;
-        h.loiterY = h.y;
-        h.loiterAngle = 0;
-        loiteringCount++;
-        return;
-      } else {
-        enterHornetDying(g, h, "standDown", onEvent);
-        return;
-      }
-    }
-    h.wobble += 0.15 * dt;
-    const hTarget = h.targetRef!;
-    const dx = hTarget.x - h.x;
-    const dy = hTarget.y - h.y;
-    const d = Math.sqrt(dx * dx + dy * dy);
-    if (d < HORNET_FUZE_RADIUS) {
-      h.alive = false;
-      boom(g, h.x, h.y, h.blastRadius, COL.hornet, false, onEvent, h.blastRadius * 0.5);
-      return;
-    }
-    pushHornetTrail(h);
-    // Lead the target slightly
-    const interceptTicks = hornetInterceptTicks(h.x, h.y, hTarget, h.speed, Math.ceil(h.life));
-    const hLeadFrames = interceptTicks === null ? 0 : Math.min(d / h.speed, h.life);
-    const hlx = hTarget.x + (hTarget.vx || 0) * hLeadFrames * HORNET_LEAD_FRACTION;
-    const hly = hTarget.y + (hTarget.vy || 0) * hLeadFrames * HORNET_LEAD_FRACTION;
-    const hld = Math.sqrt((hlx - h.x) ** 2 + (hly - h.y) ** 2) || 1;
-    h.x += (((hlx - h.x) / hld) * h.speed + Math.sin(h.wobble) * 0.8) * dt;
-    h.y += (((hly - h.y) / hld) * h.speed + Math.cos(h.wobble) * 0.5) * dt;
-  });
-  g.hornets = g.hornets.filter((h) => h.alive);
+  updateHornetFlight(g, dt, allThreats, onEvent);
 
   // ── ANDURIL ROADRUNNER ──
   // Progressively-reloading magazine: capacity = count, one slot reloads every
@@ -1416,62 +1566,7 @@ export function updateAutoSystems(g: GameState, dt: number, allThreats: Threat[]
       }
     }
   }
-  // Roadrunner in-flight update — always runs so missiles don't freeze when site is destroyed
-  g.roadrunners.forEach((r: Roadrunner) => {
-    if (!r.alive) return;
-    r.life -= dt;
-    if (r.life <= 0) {
-      r.alive = false;
-      boom(g, r.x, r.y, r.blastRadius, COL.roadrunner, false, onEvent, 15);
-      return;
-    }
-    r.trail.push({ x: r.x, y: r.y });
-    if (r.trail.length > 20) r.trail.shift();
-    if (r.phase === "launch") {
-      r.y -= r.speed * 0.8 * dt;
-      if (r.y <= (r.launchY ?? -Infinity)) r.phase = "track";
-    } else {
-      const t = r.targetRef;
-      if (!t || !t.alive) {
-        const newT = pickRoadrunnerTargets(
-          allThreats,
-          g.roadrunners.filter((other: Roadrunner) => other !== r),
-          1,
-        )[0];
-        if (newT) r.targetRef = newT;
-        else {
-          r.alive = false;
-          return;
-        }
-      }
-      const rTarget = r.targetRef!;
-      const dx = rTarget.x - r.x;
-      const dy = rTarget.y - r.y;
-      const d = Math.sqrt(dx * dx + dy * dy);
-      if (d < 15) {
-        r.alive = false;
-        boom(g, rTarget.x, rTarget.y, r.blastRadius, COL.roadrunner, false, onEvent, 15);
-        return;
-      }
-      // Lead the target slightly
-      const leadFrames = d / r.speed;
-      const lx = rTarget.x + (rTarget.vx || 0) * leadFrames * 0.3;
-      const ly = rTarget.y + (rTarget.vy || 0) * leadFrames * 0.3;
-      const desiredHeading = Math.atan2(ly - r.y, lx - r.x);
-      const headingDelta = normalizeAngle(desiredHeading - r.heading);
-      const maxTurn = (r.turnRate ?? 0.08) * dt;
-      const appliedTurn = Math.max(-maxTurn, Math.min(maxTurn, headingDelta));
-      r.heading = normalizeAngle(r.heading + appliedTurn);
-      r.x += Math.cos(r.heading) * r.speed * dt;
-      r.y += Math.sin(r.heading) * r.speed * dt;
-      if (r.y >= GAMEPLAY_WATERLINE_Y) {
-        r.alive = false;
-        boom(g, r.x, GAMEPLAY_WATERLINE_Y, r.blastRadius, COL.roadrunner, false, onEvent, 15);
-        return;
-      }
-    }
-  });
-  g.roadrunners = g.roadrunners.filter((r) => r.alive);
+  updateRoadrunnerFlight(g, dt, allThreats, onEvent);
 
   // ── DECOY FLARES ──
   updateFlares(g, dt, {
@@ -2325,13 +2420,38 @@ function filterDeadVisuals(g: GameState): void {
   g.planes = g.planes.filter((p) => p.alive);
 }
 
-function updateWaveCompleteVisuals(g: GameState, dt: number, onEvent?: SimEventSink | null): void {
+/**
+ * Everything that must keep animating while the simulation proper is halted — the
+ * wave-complete window and the game-over death sequence both return before the normal
+ * update path. Anything left out of here freezes solid on screen for the duration:
+ * airframes hang mid-arc, and explosions stop expanding mid-bloom.
+ */
+function updateHaltedSimVisuals(g: GameState, dt: number, onEvent?: SimEventSink | null): void {
   updateInterceptors(g, dt, onEvent);
   updateExplosions(g, dt, onEvent);
   updatePlanes(g, dt, [], onEvent);
+  // Auto-defense airframes are physical objects on screen, not effects. Leaving them
+  // out of the wave-complete update froze them mid-arc for the cleared timer and the
+  // bonus screen, after which prepareWaveStart deleted them where they hung.
+  updateHornetFlight(g, dt, [], onEvent);
+  updateRoadrunnerFlight(g, dt, [], onEvent);
+  updatePatriotFlight(g, dt, [], (x, y, radius, initialRadius) =>
+    boom(g, x, y, radius, COL.patriot, false, onEvent, initialRadius),
+  );
   updateBurjFireParticles(g, dt);
   updateParticleVisuals(g, dt);
   filterDeadVisuals(g);
+}
+
+/**
+ * The wave is over and there is nothing left to kill, so every hornet still airborne
+ * powers down and tumbles. Without this they simply hold formation until the wave
+ * reset deletes them, which reads as the game confiscating them.
+ */
+function retireHornetsOnWaveComplete(g: GameState, onEvent?: SimEventSink | null): void {
+  for (const h of g.hornets) {
+    if (h.alive && h.phase !== "dying") enterHornetDying(g, h, "standDown", onEvent);
+  }
 }
 
 function startWaveBonus(g: GameState, onEvent?: SimEventSink | null): void {
@@ -2410,6 +2530,9 @@ export function update(g: GameState, dt: number, onEvent?: SimEventSink | null) 
     if (onEvent) onEvent("sfx", { name: "gameOver" });
   }
   if ((g.gameOverTimer ?? 0) > 0) {
+    // The death sequence is 60 ticks long and used to return straight out of update(),
+    // which froze every airframe and stopped the Burj's own explosion from expanding.
+    updateHaltedSimVisuals(g, dt, onEvent);
     g.gameOverTimer = (g.gameOverTimer ?? 0) - dt;
     if ((g.gameOverTimer ?? 0) <= 0) {
       g.state = "gameover";
@@ -2439,7 +2562,7 @@ export function update(g: GameState, dt: number, onEvent?: SimEventSink | null) 
       g._laserHandle.stop();
       g._laserHandle = null;
     }
-    updateWaveCompleteVisuals(g, dt, onEvent);
+    updateHaltedSimVisuals(g, dt, onEvent);
     if ((g.waveClearedTimer ?? 0) <= 0) {
       startWaveBonus(g, onEvent);
     }
@@ -2463,6 +2586,7 @@ export function update(g: GameState, dt: number, onEvent?: SimEventSink | null) 
     g.shopOpened = false;
     g.waveClearedTimer = 120;
     g.score += 250 * g.wave;
+    retireHornetsOnWaveComplete(g, onEvent);
     processRootExplosionCombo(g, true);
     g.stats = normalizeGameStats(g.stats);
     if (onEvent) {

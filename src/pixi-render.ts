@@ -3549,7 +3549,10 @@ export class PixiRenderer implements GameRenderer {
       // Derived from the sim's tumble length, never a magic number: the sprite has
       // to reach zero alpha on exactly the frame the sim culls it, or the hornet
       // blinks out mid-air while still plainly visible.
-      const dyingProgress = Math.min(1, (hornet.dyingTicks ?? 0) / Math.max(1, HORNET_DYING_TICKS));
+      const dyingProgress = Math.min(
+        1,
+        (hornet.dyingTicks ?? 0) / Math.max(1, hornet.dyingMaxTicks ?? HORNET_DYING_TICKS),
+      );
       const trailFade = Math.max(0, 1 - dyingProgress / HORNET_DYING_TRAIL_FRAC);
       const spriteFade = 1 - dyingProgress;
       if (!(phase === "dying" && hornet.fate === "standDown")) {
@@ -3578,13 +3581,9 @@ export class PixiRenderer implements GameRenderer {
       const tint = phase === "dying" ? (hornet.fate === "standDown" ? 0x555962 : 0xa86c3b) : 0xffffff;
       node.anim.primary.tint = tint;
       node.anim.secondary.tint = tint;
-      if (phase === "loitering") {
-        node.localOverlay.circle(0, 0, 7 * GAMEPLAY_EFFECT_SCALE).stroke({
-          color: 0x66ffee,
-          width: 0.8 * GAMEPLAY_EFFECT_SCALE,
-          alpha: 0.42,
-        });
-      }
+      // No holding indicator: a coasting hornet is meant to read as one still flying
+      // its run, not as one parked and deliberating. Marking it draws exactly the
+      // attention the coast exists to avoid.
     }
 
     for (const roadrunner of game.roadrunners) {
