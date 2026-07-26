@@ -18,6 +18,7 @@ This folder holds repo-specific notes for future maintenance, not player-facing 
 - [`wild-hornets-targeting-analysis.md`](./wild-hornets-targeting-analysis.md) — hornet launch/guidance/magazine behaviour judged against role consistency and player legibility, with the other auto-defense systems' roles mapped alongside; measured counterfactual fixes, a SkyMesh loiter proposal, and an appendix of superseded claims and negative results.
 - [`replay-system.md`](./replay-system.md) — replay data model, runner lifecycle, checkpoints, and save flow.
 - [`replay-divergence-root-cause-plan.md`](./replay-divergence-root-cause-plan.md) — proven root cause of human-replay divergence at the wave-end boundary, plus the phased fix/diagnostic/guard plan.
+- [`hornet-blast-investigation-2026-07-26.md`](./hornet-blast-investigation-2026-07-26.md) — investigation log for the hornet rework and the explosion damage-model fix: replay-instrumented findings, the hypotheses that were disproved (including two probe artifacts and a wrong balance prediction), and why explosion damage no longer uses the growth animation.
 
 ## Tooling And Workflow
 
