@@ -331,3 +331,52 @@ called from both halted paths.
 rejected loudly rather than silently replaying against changed hornet behaviour. The harness
 `loiterPeak`/`loiterP95` columns now read 0 for everything — they key off the removed
 `"loitering"` phase and need updating before they mean anything again.
+
+---
+
+# Stand-down rework (2026-07-26, replay `dmc-w10-s109838`)
+
+Coast confirmed good in play. Remaining report: hornets **blinking out of existence**
+when SkyMesh is not owned.
+
+Replay reproduced bit-exact (9,385 ticks, 109,838, wave 10, **0 divergences**). Cause was
+the stand-down presentation, which combined three things into an invisible object:
+the trail was cut dead, sprite alpha dropped to 0.55, and the tint was `0x555962` —
+near-black against the night sky. It then fell for a median of **82 ticks (1.4s)** unseen.
+
+Scale: **29 of 212 hornets (14%)**. Only 7 were pre-SkyMesh — but that was **78% of all
+pre-mesh hornets**, which is why it read as a no-mesh problem. The other 22 were
+post-SkyMesh, caused by a vestigial `HORNET_COAST_MAX_CONCURRENT = 6`: a leftover from
+when holding was unbounded. Coasting is hard-capped at 0.5s and cannot accumulate, so the
+cap only ever forced hornets to drop out of the sky. Removed.
+
+## Change (user decision: coast then self-destruct)
+
+Every hornet that loses its target now coasts and scuttles, with or without SkyMesh.
+The upgrade's value is now purely _"yours can go looking for another target first"_ —
+`retargetsRemaining` gates the reacquire in both the flying and coasting paths.
+
+`standDown` survives only for wave-end retirement, and its presentation is fixed: cold grey
+exhaust instead of no trail, sprite alpha 0.9 instead of 0.55, tint `0x9298a4` instead of
+`0x555962`, smoke at 0.85x instead of 0.4x, and a 4-particle impact puff.
+
+## Balance — a real buff, and noisier than the sample resolves
+
+| Config |    pre | scuttle A (70000) | scuttle B (91000) |
+| ------ | -----: | ----------------: | ----------------: |
+| 1 pad  |  9,536 |    10,333 (+8.4%) |   11,026 (+15.6%) |
+| 2 pads | 12,978 |   15,136 (+16.6%) |    13,478 (+3.9%) |
+| 2+mesh | 19,027 |   21,181 (+11.3%) |   22,614 (+18.8%) |
+
+Golden seed 42: 28,854 -> 34,214 (+18.6%).
+
+**The two seed bases disagree in sign versus the previous build on 2 of 3 configs**
+(2 pads: +7.6% vs -4.4%; 2+mesh: -5.7% vs +4.9%), so the _incremental_ effect of the
+scuttle is not resolved at 20 games per seed. Versus the original baseline the direction is
+clear and up; the magnitude is not. Needs a larger sample before anyone tunes against it.
+
+The harness `hit%` column also undercounts now — its classifier files a scuttle under
+`orphan`, so `hit%` fell (31.0% -> 28.7% at 1 pad) while score rose. Score is the only
+column here that means what it says.
+
+`CURRENT_REPLAY_VERSION` 9 -> **10**.

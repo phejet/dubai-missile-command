@@ -217,9 +217,10 @@ describe("golden-seed canary", () => {
   // to track balance impact.
   it("seed 42 at 5000 ticks produces expected draft-mode score and wave", () => {
     const r = runGame(null, { seed: 42, maxTicks: 5000, draftMode: true });
-    // 25808 -> 28854 (+11.8%) with the hornet guidance/loiter rework: commit-on-close
-    // lead, free-but-capped loiter, and the dead-man's fuze.
-    expect(r.score).toBe(28854);
+    // 25808 -> 28854 with the hornet guidance rework (commit-on-close lead, capped
+    // coast, dead-man's fuze), then -> 34214 when every hornet that loses its target
+    // began coasting and scuttling with a live warhead instead of silently dropping.
+    expect(r.score).toBe(34214);
     expect(r.wave).toBe(7);
     expect(r.deathCause).toBe("timeout");
   });

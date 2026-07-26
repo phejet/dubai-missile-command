@@ -1696,7 +1696,7 @@ describe("Auto-defense targeting spread", () => {
     expect(g.patriotFollowupTimer).toBeGreaterThan(0);
   });
 
-  it("hornets without skyHunterMesh stand down when their target dies", () => {
+  it("hornets without skyHunterMesh coast past a live threat they cannot acquire, then scuttle", () => {
     const { sim, g } = makeCleanGame(5);
     g.upgrades.wildHornets = 1;
     g.ownedUpgradeNodes.add("wildHornetsLeft");
@@ -1720,11 +1720,19 @@ describe("Auto-defense targeting spread", () => {
 
     sim.updateAutoSystems(g, 1, [fallbackTarget]);
 
+    // No datalink: it must not acquire the live fallback, no matter how reachable.
     expect(dumbHornet.alive).toBe(true);
-    expect(dumbHornet.phase).toBe("dying");
-    expect(dumbHornet.fate).toBe("standDown");
+    expect(dumbHornet.phase).toBe("coasting");
     expect(dumbHornet.targetRef).toBeNull();
     expect(g.explosions).toHaveLength(0);
+
+    // ...and it still cannot acquire it while coasting — it flies on and scuttles.
+    for (let tick = 1; tick <= HORNET_COAST_MAX_TICKS + 2 && dumbHornet.alive; tick++) {
+      sim.updateAutoSystems(g, 1, [fallbackTarget]);
+      expect(dumbHornet.targetRef).toBeNull();
+    }
+    expect(dumbHornet.alive).toBe(false);
+    expect(g.explosions.length).toBeGreaterThanOrEqual(1);
   });
 
   it("skyHunterMesh hornets retarget indefinitely until life expires", () => {
@@ -1787,13 +1795,15 @@ describe("Auto-defense targeting spread", () => {
       retargetsRemaining: 0,
     });
 
+    const startY = 360;
     sim.updateAutoSystems(g, 1, [lowTarget]);
 
+    // The point of the rule is that it drops the reservation rather than holding it
+    // while flying away from the target. It must not climb to do so.
     expect(g.hornets[0].alive).toBe(true);
     expect(g.hornets[0].targetRef).toBeNull();
-    expect(g.hornets[0].phase).toBe("dying");
-    expect(g.hornets[0].fate).toBe("standDown");
-    expect(g.hornets[0].y).toBe(360);
+    expect(g.hornets[0].phase).toBe("coasting");
+    expect(g.hornets[0].y).toBe(startY);
   });
 
   it("turns a fuel-out into a tumble without creating a damaging explosion", () => {

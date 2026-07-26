@@ -262,7 +262,6 @@ export const HORNET_COAST_MAX_TICKS = 30;
 // Upward bias blended into the retained heading, so the coast drifts skyward and clear
 // of the city rather than continuing into the rooftops.
 export const HORNET_COAST_CLIMB = 0.35;
-export const HORNET_COAST_MAX_CONCURRENT = 6;
 
 export function getGameplayLauncherPosition(index: number): { x: number; y: number } {
   return { x: LAUNCHERS[index].x, y: GAMEPLAY_SCENIC_LAUNCHER_Y };

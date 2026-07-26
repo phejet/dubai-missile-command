@@ -3555,19 +3555,21 @@ export class PixiRenderer implements GameRenderer {
       );
       const trailFade = Math.max(0, 1 - dyingProgress / HORNET_DYING_TRAIL_FRAC);
       const spriteFade = 1 - dyingProgress;
-      if (!(phase === "dying" && hornet.fate === "standDown")) {
-        drawBatchedTrailOrDots(state.trailBatch, node.trail, hornet.trail, pos.x, pos.y, {
-          outerColor: lerpHex(0xffcc00, 0xff3300, fade),
-          coreColor: lerpHex(0xfff8b0, 0xff8844, fade),
-          headColor: lerpHex(0xffdc5c, 0xff5522, fade),
-          width: 3 * GAMEPLAY_EFFECT_SCALE * widthMul,
-          coreWidth: 1.2 * GAMEPLAY_EFFECT_SCALE * widthMul,
-          headRadius: 1.7 * GAMEPLAY_EFFECT_SCALE * widthMul,
-          alpha: (0.4 + 0.6 * lifeFrac) * (phase === "dying" ? trailFade : 1),
-        });
-      }
+      // A stand-down cuts the engine, so the exhaust goes cold rather than absent —
+      // cutting the trail dead and dimming the sprite at the same time made the hornet
+      // read as deleted rather than downed.
+      const standDown = phase === "dying" && hornet.fate === "standDown";
+      drawBatchedTrailOrDots(state.trailBatch, node.trail, hornet.trail, pos.x, pos.y, {
+        outerColor: standDown ? 0x6b6f78 : lerpHex(0xffcc00, 0xff3300, fade),
+        coreColor: standDown ? 0x9aa0aa : lerpHex(0xfff8b0, 0xff8844, fade),
+        headColor: standDown ? 0x7d828c : lerpHex(0xffdc5c, 0xff5522, fade),
+        width: 3 * GAMEPLAY_EFFECT_SCALE * widthMul,
+        coreWidth: 1.2 * GAMEPLAY_EFFECT_SCALE * widthMul,
+        headRadius: 1.7 * GAMEPLAY_EFFECT_SCALE * widthMul,
+        alpha: (0.4 + 0.6 * lifeFrac) * (phase === "dying" ? trailFade : 1),
+      });
       node.overlay.clear();
-      const spriteAlpha = phase === "dying" ? spriteFade * (hornet.fate === "standDown" ? 0.55 : 0.9) : 1;
+      const spriteAlpha = phase === "dying" ? spriteFade * 0.9 : 1;
       syncProjectileNode(
         node,
         state.upgradeProjectileAssets.wildHornet,
@@ -3578,7 +3580,9 @@ export class PixiRenderer implements GameRenderer {
         spriteAlpha,
         phase !== "dying",
       );
-      const tint = phase === "dying" ? (hornet.fate === "standDown" ? 0x555962 : 0xa86c3b) : 0xffffff;
+      // 0x555962 was near-black against the night sky; a downed airframe still has to
+      // be findable while it falls.
+      const tint = phase === "dying" ? (standDown ? 0x9298a4 : 0xa86c3b) : 0xffffff;
       node.anim.primary.tint = tint;
       node.anim.secondary.tint = tint;
       // No holding indicator: a coasting hornet is meant to read as one still flying

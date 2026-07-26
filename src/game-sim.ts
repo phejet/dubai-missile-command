@@ -65,7 +65,6 @@ import {
   HORNET_IMPACT_PUFF,
   HORNET_INTERCEPT_MARGIN,
   HORNET_COAST_BURN,
-  HORNET_COAST_MAX_CONCURRENT,
   HORNET_COAST_MAX_TICKS,
   HORNET_COAST_CLIMB,
   hitsBurjBody,
@@ -1200,14 +1199,17 @@ function updateDyingHornet(g: GameState, h: Hornet, dt: number): void {
   const maxTicks = h.dyingMaxTicks ?? HORNET_DYING_TICKS;
   const remaining = Math.max(0, 1 - ticks / maxTicks);
   if (fuelOut && rand(0, 1) < 0.12 * remaining * dt) spawnHornetFuelSparks(g, h, 1);
-  if (rand(0, 1) < HORNET_TUMBLE_SMOKE_CHANCE * (fuelOut ? 1 : 0.4) * dt) {
+  // A stand-down used to emit at 0.4x with no trail and a near-black sprite, so it
+  // fell invisibly for over a second and read as blinking out of existence. It is
+  // still not a detonation, but it has to be followable all the way down.
+  if (rand(0, 1) < HORNET_TUMBLE_SMOKE_CHANCE * (fuelOut ? 1 : 0.85) * dt) {
     spawnHornetSmokePuff(g, h, !fuelOut, 1);
   }
 
   const grounded = h.y >= GROUND_Y;
   if (grounded || ticks >= maxTicks || h.x < -60 || h.x > CANVAS_W + 60 || h.y < -60) {
     if (grounded) h.y = GROUND_Y;
-    spawnHornetSmokePuff(g, h, !fuelOut, fuelOut ? HORNET_IMPACT_PUFF : 2);
+    spawnHornetSmokePuff(g, h, !fuelOut, fuelOut ? HORNET_IMPACT_PUFF : 4);
     if (grounded && fuelOut) spawnHornetFuelSparks(g, h, 4);
     h.alive = false;
   }
@@ -1226,7 +1228,6 @@ export function updateHornetFlight(
   onEvent?: SimEventSink | null,
 ): void {
   // Hornet in-flight update — always runs so hornets don't freeze when site is destroyed
-  let coastingCount = g.hornets.filter((hornet) => hornet.alive && hornet.phase === "coasting").length;
   g.hornets.forEach((h: Hornet) => {
     if (!h.alive) return;
     if (h.phase === "dying") {
@@ -1239,7 +1240,6 @@ export function updateHornetFlight(
       h.life -= HORNET_COAST_BURN * dt;
       h.coastTicks = (h.coastTicks ?? 0) + dt;
       if (h.life <= 0) {
-        coastingCount--;
         enterHornetDying(g, h, "fuelOut", onEvent);
         return;
       }
@@ -1248,7 +1248,6 @@ export function updateHornetFlight(
       // asks the player "what is that doing?", and looks worst when there are live
       // threats on screen it is visibly ignoring. Coasting on and going off does not.
       if (h.coastTicks > HORNET_COAST_MAX_TICKS) {
-        coastingCount--;
         h.alive = false;
         boom(g, h.x, h.y, h.blastRadius, COL.hornet, false, onEvent, h.blastRadius * 0.5);
         return;
@@ -1258,17 +1257,22 @@ export function updateHornetFlight(
       // drops that same target on the very next statement. The hornet then re-entered
       // this branch, reset its countdown, and repeated — pinned in place forever,
       // never moving and never scuttling. Both paths must agree on what is reachable.
-      const newTarget = pickHornetRetargetTarget(
-        h,
-        allThreats,
-        g.hornets.filter((other) => other !== h),
-        g.upgrades.wildHornets,
-      );
+      // Only a hornet with a datalink may go looking. Without Sky Hunter Mesh it
+      // coasts blind and scuttles — that is exactly what the upgrade buys.
+      const newTarget =
+        (h.retargetsRemaining ?? 0) > 0
+          ? pickHornetRetargetTarget(
+              h,
+              allThreats,
+              g.hornets.filter((other) => other !== h),
+              g.upgrades.wildHornets,
+            )
+          : null;
       if (newTarget) {
         h.targetRef = newTarget;
+        h.retargetsRemaining = (h.retargetsRemaining ?? 0) - 1;
         h.phase = "flying";
         h.coastTicks = undefined;
-        coastingCount--;
       } else {
         // Hold the heading it already had and bleed upward, so the coast reads as a
         // drone continuing its run rather than as one deciding something.
@@ -1312,30 +1316,27 @@ export function updateHornetFlight(
       h.targetRef = null;
     }
     const t = h.targetRef;
-    // Hornets are kamikaze drones. Without Sky Hunter Mesh they crash when their
-    // target dies; with it they retarget or hold station as part of the mesh.
+    // Hornets are kamikaze drones. Every hornet that loses its target coasts on and
+    // scuttles; Sky Hunter Mesh is what lets it go looking for another one first.
+    // There is no concurrency cap on coasting: it exists for half a second and cannot
+    // accumulate, so capping it only ever forced hornets to drop out of the sky.
     if (!t || !t.alive) {
-      if ((h.retargetsRemaining ?? 0) <= 0) {
-        enterHornetDying(g, h, "standDown", onEvent);
-        return;
-      }
-      const newT = pickHornetRetargetTarget(
-        h,
-        allThreats,
-        g.hornets.filter((other) => other !== h),
-        g.upgrades.wildHornets,
-      );
+      const newT =
+        (h.retargetsRemaining ?? 0) > 0
+          ? pickHornetRetargetTarget(
+              h,
+              allThreats,
+              g.hornets.filter((other) => other !== h),
+              g.upgrades.wildHornets,
+            )
+          : null;
       if (newT) {
         h.targetRef = newT;
         h.retargetsRemaining = (h.retargetsRemaining ?? 0) - 1;
-      } else if (coastingCount < HORNET_COAST_MAX_CONCURRENT) {
+      } else {
         h.targetRef = null;
         h.phase = "coasting";
         h.coastTicks = 0;
-        coastingCount++;
-        return;
-      } else {
-        enterHornetDying(g, h, "standDown", onEvent);
         return;
       }
     }
