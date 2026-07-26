@@ -45,6 +45,7 @@ import {
   IRON_BEAM_RANGE,
   IRON_BEAM_CHARGE_TIME,
   IRON_BEAM_FIRE_WINDOW,
+  EXPLOSION_GROWTH_TICKS,
   HORNET_LIFE,
   HORNET_SPEED_MIN,
   HORNET_SPEED_MAX,
@@ -143,10 +144,10 @@ function isThreatDoomedByActiveExplosion(g: GameState, target: Threat): boolean 
   for (const ex of g.explosions) {
     if (ex.harmless || ex.alpha <= 0.2) continue;
     if (target.type === "drone") {
-      if (dist(target.x, target.y, ex.x, ex.y) < ex.radius + target.collisionRadius) {
+      if (dist(target.x, target.y, ex.x, ex.y) < ex.maxRadius + target.collisionRadius) {
         return target.health <= 1;
       }
-    } else if (dist(target.x, target.y, ex.x, ex.y) < ex.radius) {
+    } else if (dist(target.x, target.y, ex.x, ex.y) < ex.maxRadius) {
       if (target.type === "mirv") {
         if (target._hitByExplosions?.has(ex.id)) continue;
         return (target.health ?? 1) <= 1;
@@ -2160,7 +2161,11 @@ function updateInterceptors(g: GameState, dt: number, onEvent?: SimEventSink | n
 function updateExplosions(g: GameState, dt: number, onEvent?: SimEventSink | null) {
   g.explosions.forEach((ex) => {
     if (ex.growing) {
-      ex.radius += (ex.chain ? 4 + (ex.chainLevel ?? 0) * 0.85 : 2) * dt;
+      // Growth is presentation only — damage resolves against maxRadius from the
+      // moment the blast exists (see below). It still has to open fast enough that
+      // the fireball is not visibly much smaller than the area it is killing in,
+      // and a flat 2px/tick meant a Patriot took 660ms to reach its own radius.
+      ex.radius = Math.min(ex.maxRadius, ex.radius + Math.max(2, ex.maxRadius / EXPLOSION_GROWTH_TICKS) * dt);
       if (ex.radius >= ex.maxRadius) ex.growing = false;
     } else ex.alpha -= 0.05 * dt;
     if (ex.ringAlpha > 0) {
@@ -2177,7 +2182,7 @@ function updateExplosions(g: GameState, dt: number, onEvent?: SimEventSink | nul
         if (!m.alive) return;
         if (m.type === "mirv") {
           if (m._hitByExplosions?.has(ex.id)) return;
-          if (dist(m.x, m.y, ex.x, ex.y) < ex.radius) {
+          if (dist(m.x, m.y, ex.x, ex.y) < ex.maxRadius) {
             m._hitByExplosions?.add(ex.id);
             m.health = (m.health ?? 1) - 1;
             if ((m.health ?? 0) <= 0) {
@@ -2207,7 +2212,7 @@ function updateExplosions(g: GameState, dt: number, onEvent?: SimEventSink | nul
               );
             }
           }
-        } else if (dist(m.x, m.y, ex.x, ex.y) < ex.radius) {
+        } else if (dist(m.x, m.y, ex.x, ex.y) < ex.maxRadius) {
           m.alive = false;
           g.score += getKillReward(m) * g.combo;
           recordThreatDestroyed(g, m);
@@ -2236,7 +2241,7 @@ function updateExplosions(g: GameState, dt: number, onEvent?: SimEventSink | nul
       });
       g.drones.forEach((d) => {
         if (!d.alive) return;
-        if (dist(d.x, d.y, ex.x, ex.y) < ex.radius + d.collisionRadius) {
+        if (dist(d.x, d.y, ex.x, ex.y) < ex.maxRadius + d.collisionRadius) {
           d.health--;
           if (d.health <= 0) {
             d.alive = false;

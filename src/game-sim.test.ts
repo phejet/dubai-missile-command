@@ -2134,6 +2134,34 @@ describe("Auto-defense targeting spread", () => {
     expect(g.explosions[0].x).not.toBe(target.x);
   });
 
+  it("kills a threat inside the blast's final radius even when it outruns the growth animation", () => {
+    const { sim, g } = makeCleanGame(5);
+    // 40px away, receding at 12px/tick. Comfortably inside a 60px blast, but the
+    // animation only opens at a few px/tick — under the old model where damage used
+    // the *current* radius this threat was never sampled inside the disc and escaped
+    // clean, which is how a hornet could visibly detonate on a missile that flew on.
+    const runner = makeBallisticMissile({ x: 340, y: 500, vx: -12, vy: 0, accel: 1 });
+    g.missiles.push(runner);
+    createExplosion(g, 380, 500, 60, "#ffcc00", false, 5, { visualType: "missile" });
+
+    sim.update(g, 1);
+
+    expect(runner.alive).toBe(false);
+    // ...and the animation is still visibly mid-expansion, i.e. genuinely decoupled.
+    expect(g.explosions[0]?.radius ?? 0).toBeLessThan(60);
+  });
+
+  it("leaves a threat outside the final radius alone no matter how long the blast lingers", () => {
+    const { sim, g } = makeCleanGame(5);
+    const bystander = makeBallisticMissile({ x: 500, y: 500, vx: 0, vy: 0, accel: 1 });
+    g.missiles.push(bystander);
+    createExplosion(g, 380, 500, 60, "#ffcc00", false, 5, { visualType: "missile" });
+
+    for (let tick = 0; tick < 40; tick++) sim.update(g, 1);
+
+    expect(bystander.alive).toBe(true);
+  });
+
   it("batch-picks distinct same-side targets for simultaneously eligible hornet pads", () => {
     const { sim, g } = makeCleanGame(5);
     g.upgrades.wildHornets = 1;

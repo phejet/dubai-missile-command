@@ -202,6 +202,18 @@ export const IRON_BEAM_CHARGE_TIME = [360, 240, 180] as const;
 // whatever actually gets through.
 export const IRON_BEAM_FIRE_WINDOW = 60;
 
+// ── Explosions ──
+// An explosion's damage is resolved against its FINAL radius from the moment it
+// exists; `radius` is the animation only. The two used to be the same value, which
+// meant the lethal area inflated at a flat 2px/tick — about 120px/s, while threats
+// fly at up to ~890px/s. A blast a missile can outrun is not a blast: a hornet could
+// fuze at 11px on a missile doing 12px/tick and the 17px disc would never catch it
+// again. The player's own interceptor never had this bug only because it is created
+// at full radius already.
+// This is the number of ticks the *visual* takes to open, scaled per explosion so a
+// big Patriot fireball no longer lags a third of a second behind what it is killing.
+export const EXPLOSION_GROWTH_TICKS = 6;
+
 // ── Wild Hornets tuning ──
 export const HORNET_LIFE = 168;
 export const HORNET_SPEED_MIN = 4.476;

@@ -380,3 +380,77 @@ The harness `hit%` column also undercounts now — its classifier files a scuttl
 column here that means what it says.
 
 `CURRENT_REPLAY_VERSION` 9 -> **10**.
+
+---
+
+# Explosion damage decoupled from the growth animation (2026-07-26)
+
+Replay `dmc-w6-s31958`: a hornet visibly detonated on a missile which flew on and hit
+the Burj. Reproduced and traced: **1 of 59 hornet fuzes** leaked its own trigger.
+
+## Root cause
+
+`updateExplosions` sampled `dist(threat, ex) < ex.radius` once per tick against a disc
+that was still inflating at a flat **2 px/tick (120 px/s)**, while threats fly at up to
+**14.8 px/tick (~890 px/s)**. The blast was ~7x slower than the thing it was meant to
+kill, so a threat genuinely inside the blast's _final_ radius could be outside its
+_current_ radius on every sample and escape. The growth animation was the damage model.
+
+The leak condition is exact:
+
+```
+distanceAtDetonation + relativeMotion  >  initialRadius + 2 * ticks
+```
+
+| source             | detonates at                                  | dist at t=0 |      init | verdict                    |
+| ------------------ | --------------------------------------------- | ----------: | --------: | -------------------------- |
+| Player interceptor | own position                                  |        <=60 |  60 = max | safe — already instant     |
+| Chain (combo)      | victim                                        |           0 |  60 = max | safe — already instant     |
+| Patriot            | **target's position**                         |           0 | 33.6–52.8 | safe                       |
+| Roadrunner         | **target's position**                         |           0 |        15 | safe by ~2px               |
+| **Hornet**         | **own position**                              |        <=12 |        15 | **leaked** (measured 1/59) |
+| **F-15**           | own position, <=40 from a **stale** aim point |        <=40 |     **0** | **broken**                 |
+
+The player's interceptor never had the bug only because it is created at full radius.
+The F-15 was the worst case: `init 0` gives a 2px lethal disc on the first sample.
+Scenario test, missile 5px from the detonation point:
+
+| target speed | receding     | approaching                                 |
+| -----------: | ------------ | ------------------------------------------- |
+|  0–1 px/tick | killed       | killed                                      |
+|  2–5 px/tick | **SURVIVED** | killed                                      |
+| 8–15 px/tick | **SURVIVED** | **SURVIVED** (tunnels through the 2px disc) |
+
+## Change
+
+Damage resolves against `ex.maxRadius` from creation; `ex.radius` is animation only.
+Growth is now scaled per explosion (`EXPLOSION_GROWTH_TICKS = 6`) so a big Patriot
+fireball no longer lags a third of a second behind the area it is killing in.
+After the change the F-15 scenario kills at every speed and direction.
+
+## Balance — neutral, and NOT the buff predicted
+
+40 full bot games, seeds 5000–5039 (build divergence averaged out):
+
+| metric        | before |  after |     delta |
+| ------------- | -----: | -----: | --------: |
+| mean score    | 28,805 | 28,038 | **-2.7%** |
+| mean wave     |   7.47 |   7.40 |     -0.9% |
+| mean kills    |  174.7 |  172.7 |     -1.1% |
+| mean maxCombo |   9.50 |   9.55 |     +0.5% |
+
+Hornet-only harness (forced loadout, no Patriot) showed a consistent small **nerf**:
+-4.7%/-11.1% (1 pad), -5.7%/-2.4% (2 pads), -6.5%/-3.7% (2+mesh).
+
+> **Correction to the pre-implementation analysis.** It predicted a large buff, biggest
+> for Patriot, reasoning from blast _area_ (6.25x). That was wrong. The blast always
+> reached full radius eventually; the only threats affected are those that escape
+> _during_ inflation, which is a small population — and Patriot detonates on its target,
+> so its primary kill was never at risk. The change is a correctness fix, not a balance
+> lever.
+
+> **Do not read single-seed deltas here as balance.** Golden seed 42 moved -24%, but the
+> two runs bought completely different builds (flare + skyHunterMesh vs
+> launcherRapidReload + a second pad) because any RNG change reshuffles draft offers.
+
+`CURRENT_REPLAY_VERSION` 10 -> **11**.

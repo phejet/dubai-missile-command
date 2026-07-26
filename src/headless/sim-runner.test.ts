@@ -240,10 +240,14 @@ describe("golden-seed canary", () => {
   // to track balance impact.
   it("seed 42 at 5000 ticks produces expected draft-mode score and wave", () => {
     const r = runGame(null, { seed: 42, maxTicks: 5000, draftMode: true });
-    // 25808 -> 28854 with the hornet guidance rework (commit-on-close lead, capped
-    // coast, dead-man's fuze), then -> 34214 when every hornet that loses its target
-    // began coasting and scuttling with a live warhead instead of silently dropping.
-    expect(r.score).toBe(34214);
+    // 25808 -> 28854 (hornet guidance rework) -> 34214 (coast + scuttle on target
+    // loss) -> 25904 (explosion damage decoupled from the growth animation).
+    // NOTE: this single seed swings hard because any RNG change reshuffles the draft
+    // offers, so the bot ends up with a different build entirely — this run went from
+    // buying flare + skyHunterMesh to launcherRapidReload + a second hornet pad. Read
+    // it as a determinism canary, not as a balance measurement. Aggregate effect of
+    // the decoupling over 40 games was -2.7%, inside the noise floor.
+    expect(r.score).toBe(25904);
     expect(r.wave).toBe(7);
     expect(r.deathCause).toBe("timeout");
   });
