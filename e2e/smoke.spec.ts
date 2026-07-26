@@ -299,6 +299,16 @@ test.describe("Smoke tests", () => {
     await expect(page.locator("#game-shell")).toHaveAttribute("data-screen", "playing");
     await expect(page.locator("#game-canvas")).toHaveAttribute("data-pixi-gameplay-static", "ready");
     await expect(page.locator("#game-canvas")).toHaveAttribute("data-pixi-context", "active");
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() => {
+            const checkpoint = window.__gameRef?.current?._replayCheckpoints?.find((entry) => entry.tick >= 60);
+            return typeof checkpoint?.diagnostics.rngState === "number";
+          }),
+        { timeout: 5000 },
+      )
+      .toBe(true);
     expect(pageErrors).toEqual([]);
   });
 });

@@ -1,4 +1,4 @@
-import { assertNoEditorOverridesForDeterministicRun, setRng, setRngState, fireInterceptor } from "./game-logic";
+import { assertNoEditorOverridesForDeterministicRun, getRng, setRng, setRngState, fireInterceptor } from "./game-logic";
 import {
   initGame,
   update,
@@ -63,6 +63,7 @@ function createReplayRunnerInternal(
   let shopPaused = false;
   let bonusPaused = false;
   let pendingShopAction: ShopAction | null = null;
+  let ownedRng: ReturnType<typeof mulberry32> | null = null;
   const verifiedCheckpointIndexes = new Set<number>();
 
   const emitSimEvent: SimEventSink = (type, data) => {
@@ -116,6 +117,7 @@ function createReplayRunnerInternal(
     }
     if (!replayData.initialState) throw new Error("Replay initial state is missing");
     const rng = mulberry32(seed);
+    ownedRng = rng;
     setRng(rng);
     if (startAnchor) {
       const anchor = cloneReplayStateAnchor(startAnchor);
@@ -301,7 +303,8 @@ function createReplayRunnerInternal(
   }
 
   function cleanup() {
-    setRng(Math.random);
+    if (ownedRng && getRng() === ownedRng) setRng(Math.random);
+    ownedRng = null;
   }
 
   return {

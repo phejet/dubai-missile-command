@@ -946,6 +946,7 @@ export class Game {
     this.cancelReplaySeek();
     this.clearPointerCapture();
     this.resetPlayerFireState();
+    this.stopDeathClip();
     this.initGame();
     this.replayActive = false;
     this.clearReplayPlaybackState();
@@ -955,7 +956,6 @@ export class Game {
     this.progressionOpen = false;
     this.runRecapOpen = false;
     uiHideShop();
-    this.stopDeathClip();
     uiHideRunRecap();
     uiHideUpgradeProgression();
     hideBonusScreen();

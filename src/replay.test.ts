@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createReplayRunner as createRawReplayRunner } from "./replay";
 import { createDefaultReplayInitialState, CURRENT_REPLAY_VERSION } from "./replay-version";
 import { buildReplayCheckpoint } from "./replay-debug";
-import { setRng } from "./game-logic";
+import { getRng, setRng } from "./game-logic";
 import { mulberry32 } from "./headless/rng";
 import { runGame } from "./headless/sim-runner";
 import { initGame, update } from "./game-sim";
@@ -128,14 +128,22 @@ describe("createReplayRunner lifecycle", () => {
   it("cleanup() restores Math.random", () => {
     const rr = createReplayRunner({ seed: SEED, actions: [] });
     rr.init();
-    // RNG is now seeded — same seed should give same value
-    const rng1 = mulberry32(999);
-    const rng2 = mulberry32(999);
-    expect(rng1()).toBe(rng2());
+    expect(getRng()).not.toBe(Math.random);
+
     rr.cleanup();
-    // After cleanup, global RNG should be Math.random (non-deterministic)
-    // We can't easily test non-determinism, but we can verify setRng was called
-    // by checking that the module-level RNG was restored
+
+    expect(getRng()).toBe(Math.random);
+  });
+
+  it("cleanup() does not replace an RNG installed by a newer simulation owner", () => {
+    const rr = createReplayRunner({ seed: SEED, actions: [] });
+    rr.init();
+    const liveGameRng = mulberry32(999);
+    setRng(liveGameRng);
+
+    rr.cleanup();
+
+    expect(getRng()).toBe(liveGameRng);
   });
 
   it("init() can bootstrap a later wave with curated upgrades", () => {
