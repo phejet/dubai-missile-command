@@ -139,74 +139,97 @@ describe("runGame recording", () => {
 // These tests use games that end naturally (deathCause: "destroyed") so
 // both runGame and createReplayRunner reach the same gameover state.
 
+// These simulate whole games to game-over, twice over, and one of them does it for
+// three seeds. That is seconds of work per test on a fast machine and comfortably past
+// vitest's 5s default on a shared CI runner — especially under coverage instrumentation.
+// The timeout is generous on purpose: it must not be the thing that fails when balance
+// changes lengthen games, but it should still catch a genuine hang.
+const ROUND_TRIP_TIMEOUT_MS = 60_000;
+
 describe("replay round-trip", () => {
-  it("replaying a recorded game produces identical final score, wave, and stats", () => {
-    const original = runGame(null, { seed: 77, record: true });
-    expect(original.deathCause).toBe("destroyed");
-
-    const g = replayToCompletion(77, original.actions!);
-    expect(g!.score).toBe(original.score);
-    expect(g!.wave).toBe(original.wave);
-    expect(g!.stats.missileKills).toBe(original.stats.missileKills);
-    expect(g!.stats.droneKills).toBe(original.stats.droneKills);
-    expect(g!.stats.shotsFired).toBe(original.stats.shotsFired);
-  });
-
-  it("replaying produces identical checkpoint hashes at intervals", () => {
-    const original = runGame(null, { seed: 256, record: true });
-    expect(original.deathCause).toBe("destroyed");
-    const replayData: ReplayData = { version: CURRENT_REPLAY_VERSION, seed: 256, actions: original.actions! };
-
-    // Run replay twice, compare checkpoints every 200 ticks
-    const hashSets: string[][] = [[], []];
-    for (let run = 0; run < 2; run++) {
-      const rr = createReplayRunner(replayData);
-      rr.init();
-      for (let i = 0; i < 200000; i++) {
-        if (rr.isFinished()) break;
-        if (rr.isShopPaused()) {
-          rr.resumeFromShop();
-          continue;
-        }
-        if (rr.isBonusPaused()) {
-          const g = rr.getState();
-          if (g) g._bonusScreenDone = true;
-          rr.resumeFromBonusScreen();
-          continue;
-        }
-        rr.step();
-        if (rr.getTick() % 200 === 0) {
-          hashSets[run].push(buildReplayCheckpoint(rr.getState()!, rr.getTick()).hash);
-        }
-      }
-      rr.cleanup();
-    }
-
-    expect(hashSets[0].length).toBeGreaterThan(0);
-    expect(hashSets[0]).toEqual(hashSets[1]);
-  });
-
-  it("round-trip works with multiple seeds", () => {
-    for (const seed of [42, 77, 256]) {
-      const original = runGame(null, { seed, record: true });
+  it(
+    "replaying a recorded game produces identical final score, wave, and stats",
+    () => {
+      const original = runGame(null, { seed: 77, record: true });
       expect(original.deathCause).toBe("destroyed");
 
-      const g = replayToCompletion(seed, original.actions!);
+      const g = replayToCompletion(77, original.actions!);
       expect(g!.score).toBe(original.score);
       expect(g!.wave).toBe(original.wave);
-    }
-  });
+      expect(g!.stats.missileKills).toBe(original.stats.missileKills);
+      expect(g!.stats.droneKills).toBe(original.stats.droneKills);
+      expect(g!.stats.shotsFired).toBe(original.stats.shotsFired);
+    },
+    ROUND_TRIP_TIMEOUT_MS,
+  );
 
-  it("replaying a recorded draft-mode game produces identical final score and wave", () => {
-    const original = runGame(null, { seed: 42, record: true, draftMode: true });
-    expect(original.deathCause).toBe("destroyed");
-    expect(original.draftMode).toBe(true);
+  it(
+    "replaying produces identical checkpoint hashes at intervals",
+    () => {
+      const original = runGame(null, { seed: 256, record: true });
+      expect(original.deathCause).toBe("destroyed");
+      const replayData: ReplayData = { version: CURRENT_REPLAY_VERSION, seed: 256, actions: original.actions! };
 
-    const g = replayToCompletion(42, original.actions!, { draftMode: true });
-    expect(g!.score).toBe(original.score);
-    expect(g!.wave).toBe(original.wave);
-    expect(g!.stats).toEqual(original.stats);
-  });
+      // Run replay twice, compare checkpoints every 200 ticks
+      const hashSets: string[][] = [[], []];
+      for (let run = 0; run < 2; run++) {
+        const rr = createReplayRunner(replayData);
+        rr.init();
+        for (let i = 0; i < 200000; i++) {
+          if (rr.isFinished()) break;
+          if (rr.isShopPaused()) {
+            rr.resumeFromShop();
+            continue;
+          }
+          if (rr.isBonusPaused()) {
+            const g = rr.getState();
+            if (g) g._bonusScreenDone = true;
+            rr.resumeFromBonusScreen();
+            continue;
+          }
+          rr.step();
+          if (rr.getTick() % 200 === 0) {
+            hashSets[run].push(buildReplayCheckpoint(rr.getState()!, rr.getTick()).hash);
+          }
+        }
+        rr.cleanup();
+      }
+
+      expect(hashSets[0].length).toBeGreaterThan(0);
+      expect(hashSets[0]).toEqual(hashSets[1]);
+    },
+    ROUND_TRIP_TIMEOUT_MS,
+  );
+
+  it(
+    "round-trip works with multiple seeds",
+    () => {
+      for (const seed of [42, 77, 256]) {
+        const original = runGame(null, { seed, record: true });
+        expect(original.deathCause).toBe("destroyed");
+
+        const g = replayToCompletion(seed, original.actions!);
+        expect(g!.score).toBe(original.score);
+        expect(g!.wave).toBe(original.wave);
+      }
+    },
+    ROUND_TRIP_TIMEOUT_MS,
+  );
+
+  it(
+    "replaying a recorded draft-mode game produces identical final score and wave",
+    () => {
+      const original = runGame(null, { seed: 42, record: true, draftMode: true });
+      expect(original.deathCause).toBe("destroyed");
+      expect(original.draftMode).toBe(true);
+
+      const g = replayToCompletion(42, original.actions!, { draftMode: true });
+      expect(g!.score).toBe(original.score);
+      expect(g!.wave).toBe(original.wave);
+      expect(g!.stats).toEqual(original.stats);
+    },
+    ROUND_TRIP_TIMEOUT_MS,
+  );
 });
 
 // ── Golden-seed canary ──

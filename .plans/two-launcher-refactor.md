@@ -30,6 +30,7 @@ threat quality.
 ## Phase 0 — Discovery & invariants
 
 ### 0.1 `LAUNCHERS` source of truth
+
 - `src/game-logic.ts:177-181` — the array literal we're collapsing.
   Three entries today: `{60, GROUND_Y-5}`, `{560, GROUND_Y-5}`,
   `{860, GROUND_Y-5}`.
@@ -37,12 +38,14 @@ threat quality.
   Pure function; no length assumption. Safe.
 
 ### 0.2 Hard length assumption: tuple typing in state
+
 - `src/types.ts:534-537` — `GameState` declares `ammo`, `launcherHP`,
   `launcherFireTick`, `launcherReloadUntilTick` as
   `[number, number, number]`. TypeScript hard-pin. All consumers below
   depend on it.
 
 ### 0.3 Hardcoded length-3 init arrays
+
 - `src/game-sim.ts:377-380` — `initGame()` defaults.
 - `src/game-sim-shop.ts:328-333` — `prepareWaveStart`: ammo refill cast
   and `[0, 0, 0]` reload literal.
@@ -50,6 +53,7 @@ threat quality.
 - `src/game.ts:112-114` — HUD zero-state default.
 
 ### 0.4 `LAUNCHERS.forEach` loops (length-agnostic; verify)
+
 - `src/game-sim.ts:477-480` — `missileTargetCandidates`.
 - `src/game-sim.ts:696-701` — `getSplitCandidateTargets` (MIRV).
 - `src/game-sim.ts:2101-2115` — missile-vs-launcher collision.
@@ -59,9 +63,10 @@ threat quality.
 - `src/game-logic.ts:269-271, 290-299, 577-582` — `pickTarget`,
   `fireInterceptor` autopick, `getLauncherReadiness`.
 - `src/pixi-render.ts:1703-1724, 1945-1980, 2199-2211, 2686,
-  2976-2985, 3047-3051` — render. All `LAUNCHERS.map/forEach`.
+2976-2985, 3047-3051` — render. All `LAUNCHERS.map/forEach`.
 
 ### 0.5 The "closest primed launcher" autopick to replace
+
 - `src/game-logic.ts:281-330` — `fireInterceptor`. Lines 288-299 are the
   autopick loop. **Single chokepoint for the rule change.**
 - Callers pass a target point (no launcher index): `src/game.ts:907`,
@@ -70,6 +75,7 @@ threat quality.
   All inherit the new rule automatically.
 
 ### 0.6 Player input → fire pipeline
+
 - `src/game.ts:904-913` — `launchPlayerShot`.
 - `src/game.ts:924-944` — `requestPlayerFire` (burst limiter).
 - `src/game.ts:946-958` — `releaseBufferedPlayerFire`.
@@ -80,6 +86,7 @@ Push the deterministic side-by-tap rule **down into `fireInterceptor`**
 call `fireInterceptor` directly — they get it for free.
 
 ### 0.7 Bot brain
+
 - `src/headless/bot-brain.ts:1` — imports `LAUNCHERS`.
 - `src/headless/bot-brain.ts:319-333` — `pickLauncher(tx, ty, g)`: bot's
   own closest-alive pick for lead computation. **Must mirror the new
@@ -88,6 +95,7 @@ call `fireInterceptor` directly — they get it for free.
   `g.launcherHP.length`. Length-agnostic.
 
 ### 0.8 Tests with 3-launcher assumptions
+
 - `src/game-logic.test.ts:34-47` — `makeGameState` defaults.
 - `src/game-logic.test.ts:160-202` — `pickTarget` cases; line 197
   ("closest launcher is #1 (x=550)") references the center launcher.
@@ -109,8 +117,9 @@ call `fireInterceptor` directly — they get it for free.
   drift, harmless once collapsed) and its own `leadTarget`.
 
 ### 0.9 Replay/save format
+
 - `FireAction` (`src/types.ts:671-677`) carries `x, y,
-  ignoreLauncherReload` — no launcher index. **Shape unchanged.**
+ignoreLauncherReload` — no launcher index. **Shape unchanged.**
 - Replay `version: 2` set at `src/game.ts:763`.
 - But replays recorded under the 3-launcher rule will **desync**: many
   fires aimed at center-of-screen used to fire the center launcher;
@@ -126,18 +135,21 @@ call `fireInterceptor` directly — they get it for free.
   length 2 vs 3.
 
 ### 0.10 Editor / sprites / catalog
+
 - Editor fake state: covered in 0.3.
 - `src/sprite-catalog.ts:159-171` — launcher sprite by variant
   (title/gameplay/damaged), not by slot. Safe.
 - `src/pixi-textures.ts:134-200` — texture cache by variant key. Safe.
 
 ### 0.11 HUD / per-launcher ammo
+
 - `src/game.ts:112-114, 135-137` — HUD snapshot copies arrays.
 - `src/ui.ts:40-42` — `HudSnapshot` uses `number[]`. Length-agnostic.
 - No inline `ammo[0]`/`ammo[1]`/`ammo[2]` accesses found in `ui.ts`.
   Verify visually during smoke.
 
 ### 0.12 Defense-site positions
+
 - `src/game-logic.ts:187-204` — `patriot:334`, `wildHornets:206`,
   `roadrunner:678`, `phalanx:553` (Burj rooftop), `launcherKit:772`,
   `ironBeam:BURJ_X (460)`. **None at x=560.** None move.
@@ -147,6 +159,7 @@ call `fireInterceptor` directly — they get it for free.
   surviving launchers — intentional cover, retain.
 
 ### 0.13 Overhead defensive gap (intended)
+
 - With center gone, band x≈460-720 has no ground launcher under it.
   Burj proximity / Iron Beam at x=460 cover the left side of that
   band; right side leans on Iron Beam range only. This is the design.
@@ -154,6 +167,7 @@ call `fireInterceptor` directly — they get it for free.
   are checked per-launcher (see 0.4).
 
 ### 0.14 Wave-spawner tuning surface
+
 - `src/wave-spawner.ts:163-243` — `WAVE_TABLE[1..8]` (set-piece curve).
 - `src/wave-spawner.ts:245-248` — `threatValueCapForBudget` ratios
   (0.92/0.88/0.82).
@@ -165,8 +179,9 @@ call `fireInterceptor` directly — they get it for free.
   (`concurrentCap * 1.18`).
 
 ### 0.15 Perf-baseline replays
+
 - `perf-results/baselines/{b8fff9c, 1782cd2+3dabf711, 56c4ddf+8bce7f9f}
-  /perf-wave{1,4-upgrades}-{iphone,desktop}.json` — six baselines, all
+/perf-wave{1,4-upgrades}-{iphone,desktop}.json` — six baselines, all
   recorded under 3-launcher rules. Must rerecord (CLAUDE.md notes this
   is the workflow when sim changes).
 
@@ -177,21 +192,25 @@ call `fireInterceptor` directly — they get it for free.
 Order matters: lift the tuple typing first so the rest type-checks.
 
 ### Step 1.1 — Tuple types
+
 - `src/types.ts:534-537` — each `[number, number, number]` →
   `[number, number]`.
 - Invariant: arrays stay positionally aligned (0 = left, 1 = right).
 
 ### Step 1.2 — `LAUNCHERS` constant
+
 - `src/game-logic.ts:177-181` — drop the middle entry. Keep x=60 and
   x=860.
 
 ### Step 1.3 — Initializer arrays
+
 - `src/game-sim.ts:377-380` → `[11, 11]`, `[1, 1]`, `[0, 0]`, `[0, 0]`.
 - `src/game-sim-shop.ts:328-333` → fix tuple cast and `[0, 0, 0]`.
 - `src/editor-scene.ts:27, 28, 369, 370` → length-2 values.
 - `src/game.ts:112-114` → HUD default `[0, 0]`.
 
 ### Step 1.4 — Burst-cap floor
+
 - `src/game-logic.ts:556-562`. `getLauncherBurstChargeCap` currently
   returns `Math.ceil(activeLauncherCount * multiplier)`. With 2
   launchers alive, base cap would drop to 2 (default multiplier=1) or
@@ -210,12 +229,14 @@ Order matters: lift the tuple typing first so the rest type-checks.
   launchers instead of 3). No rule swap needed.
 
 ### Step 1.5 — Bot-brain `pickLauncher`
+
 - `src/headless/bot-brain.ts:319-333`. **No change needed.** The
   existing closest-distance loop continues to mirror the sim's
   closest-primed rule. Both sides now select between 2 launchers
   instead of 3 — the logic is identical.
 
 ### Step 1.6 — Tests in `game-logic.test.ts`
+
 - 34-47: length-2 tuple defaults.
 - 160-202: rewrite `pickTarget` cases referencing `LAUNCHERS[1]`/[2]
   (the center entry no longer exists).
@@ -227,11 +248,12 @@ Order matters: lift the tuple typing first so the rest type-checks.
   - "skips destroyed launchers even if another has zero ammo" — still
     valid; verify expected fallback target with 2-launcher pool.
   - "allows a short burst across ready launchers" — burst cap stays at
-    3 due to the floor in step 1.4; assertion math should *not* need
+    3 due to the floor in step 1.4; assertion math should _not_ need
     to change. Verify.
   - "skips launchers that are still reloading" — still valid.
 
 ### Step 1.7 — Other test files
+
 - `src/game-sim.test.ts:852-870, 1505-1557` — length-2; recount EMP
   ring magic numbers (line 1514 expects 12, line 1526 expects 9 — both
   depend on alive-launcher count, recompute against
@@ -247,6 +269,7 @@ Order matters: lift the tuple typing first so the rest type-checks.
   same deterministic side pick used by sim+bot.
 
 ### Step 1.8 — Replay version bump
+
 - `src/game.ts:763` — bump `version: 2` → `version: 3`.
 - `src/replay.ts` — early-log if `replayData.version < 3`; do not throw,
   so manual debug playback still works. Checkpoint hash mismatch will
@@ -259,6 +282,7 @@ Order matters: lift the tuple typing first so the rest type-checks.
 ## Phase 2 — Difficulty rebalance (Change B)
 
 ### Step 2.1 — Quadratic flatten past w8
+
 - `src/wave-spawner.ts:412`. Change:
   ```ts
   const budget = 105 + w * 40 + w * w * 8;
@@ -272,6 +296,7 @@ Order matters: lift the tuple typing first so the rest type-checks.
   continues. Starting point; verify against bot.
 
 ### Step 2.2 — `concurrentCap` ratio
+
 - `src/wave-spawner.ts:245-248`. Lower `threatValueCapForBudget` ratios
   from 0.92 / 0.88 / 0.82 to roughly 0.78 / 0.72 / 0.65.
 - Watch `Math.max(...)` on lines 405 and 424 — the floor formulas may
@@ -281,15 +306,18 @@ Order matters: lift the tuple typing first so the rest type-checks.
   on lines 165, 175, 185, 195, 205, 215, 225, 235.
 
 ### Step 2.3 — `lullBase` floor
+
 - `src/wave-spawner.ts:643`. Change
   `Math.max(90, 150 - Math.min(45, wave * 5))` to
   `Math.max(110, 165 - Math.min(45, wave * 5))`.
 
 ### Step 2.4 — `WAVE_TABLE` w1–w8 audit
+
 - Lines 163-243. Hand-tuned; budget+cap auto-drop via 2.2. Don't touch
   in v1 unless smoke shows w1–w8 feels wrong.
 
 ### Step 2.5 — SATURATION re-cap multiplier
+
 - `src/wave-spawner.ts:974`. Leave 1.18× as-is; with the lower base cap
   it still produces a meaningful saturation event. Revisit if SAT
   waves feel weak.
@@ -299,6 +327,7 @@ Order matters: lift the tuple typing first so the rest type-checks.
 ## Phase 3 — Coupled rebalance
 
 ### Step 3.1 — Launcher Kit / Armor Kit (decided: base HP=1)
+
 - **Decision:** ship with base HP=1, Armor Kit unchanged (1→2). Sharper
   stakes, Armor stays meaningful from day one. Reasoning: HP 1→2 is an
   easy live tuning bump if playtest shows runs are too brittle; the
@@ -316,6 +345,7 @@ Order matters: lift the tuple typing first so the rest type-checks.
   post-bot-benchmark tuning.
 
 ### Step 3.2 — `pickTarget` tuning
+
 - `src/game-logic.ts:261-279`. Knobs:
   - Line 263: `_rng() < 0.3` (Burj-direct chance). Effective Burj
     pressure shifts up automatically because each launcher is now 1/2
@@ -326,10 +356,12 @@ Order matters: lift the tuple typing first so the rest type-checks.
   that the launcher count halved and 0.3 may need recalibration.
 
 ### Step 3.3 — Phalanx / Iron Beam / Patriot positions
+
 - Verified in 0.12: no site at x=560. Phalanx at x=553 is on the Burj
   roof, visually decoupled. **No change needed.**
 
 ### Step 3.4 — Bot config retuning (`bot-config.json`)
+
 - `targeting.maxInFlightBase` (6 → ~4) and `maxInFlightHigh`
   (10 → ~7): fewer launchers means fewer in flight before reload.
 - `targeting.cooldownNormal` (18 → 22-26): bot must respect side-locked
@@ -342,6 +374,7 @@ Order matters: lift the tuple typing first so the rest type-checks.
   These are seeds.
 
 ### Step 3.5 — Active-launcher count in burst-charge math
+
 - Resolved in Step 1.4. Burst cap is hardcoded to a floor of 3 (and 6
   with Double Mag) so it doesn't sag with the launcher count drop.
 
@@ -350,6 +383,7 @@ Order matters: lift the tuple typing first so the rest type-checks.
 ## Phase 4 — Verification
 
 ### 4.1 Tests that will fail before update
+
 - `src/game-logic.test.ts` — `pickTarget` and `fireInterceptor` blocks
   (158-272).
 - `src/game-sim.test.ts` — flare L2 (852-870), EMP rank 2 (1505-1557).
@@ -361,7 +395,9 @@ Order matters: lift the tuple typing first so the rest type-checks.
 - `e2e/manual-bot-replay-convergence.spec.ts` — duplicate `LAUNCHERS`.
 
 ### 4.2 New tests to add
+
 In `src/game-logic.test.ts`:
+
 - "tap on the left half fires from left launcher (closest)":
   `fireInterceptor(g, 200, 300)` → expect interceptor at
   `LAUNCHERS[0].x` (x=60).
@@ -385,6 +421,7 @@ scaling). Note: this assumes both launchers are ready, which is the
 typical state at the moment of first click.
 
 ### 4.3 Headless sim plan
+
 - Before any code: `node src/headless/sim-runner.js 12345`. Save
   wave-reached and score.
 - After Phase 1+2+3: same seed. Expect deterministic but different
@@ -395,15 +432,17 @@ typical state at the moment of first click.
   saturation despite halved firepower).
 
 ### 4.4 Manual smoke
+
 - `npm run dev`. Waves 1-3 desktop:
   - Tap left half → left fires; tap right half → right fires.
   - Tapping a reloading side feels like a missed input (no queue).
   - Muzzle flash on correct launcher only.
   - No phantom center launcher render.
 - iOS: `npm run ios:deploy`. Repeat on hardware. Touch-side determinism
-  should *increase* tactile satisfaction.
+  should _increase_ tactile satisfaction.
 
 ### 4.5 Playwright assertions to update
+
 - `e2e/smoke.spec.ts:74` — `toBe(2)`.
 - `e2e/smoke.spec.ts:80+` — click test at 0.5/0.3 of canvas (x=450)
   picks right (x=860). Tighten to `assert interceptors[0].x === 860`.
@@ -448,7 +487,7 @@ typical state at the moment of first click.
    Flag, don't fix in v1.
 
 8. **`isMissileAnglePlayable` candidate filtering.** `game-sim.ts:
-   471-514` selects approach angles using alive launchers. Smaller
+471-514` selects approach angles using alive launchers. Smaller
    candidate set → more missiles forced into synthesized-startX path
    (510-513). Low risk; verify early waves still feel right.
 
@@ -477,6 +516,7 @@ typical state at the moment of first click.
 ---
 
 ## Critical files for implementation
+
 - `src/game-logic.ts` — LAUNCHERS array, fireInterceptor rule,
   pickTarget tuning, `getLauncherMaxHp`, burst-cap.
 - `src/game-sim.ts` — initGame defaults, collision loops, EMP/flare
