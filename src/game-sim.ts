@@ -51,9 +51,12 @@ import {
   HORNET_RELOAD_TICKS,
   HORNET_LAUNCH_GAP,
   HORNET_LEAD_FRACTION,
+  HORNET_LAUNCH_SCORE_BAND,
   HORNET_DIVE_SLACK,
   HORNET_DYING_TICKS,
   HORNET_TUMBLE_GRAVITY,
+  HORNET_TUMBLE_SMOKE_CHANCE,
+  HORNET_IMPACT_PUFF,
   HORNET_INTERCEPT_MARGIN,
   HORNET_LOITER_RADIUS,
   HORNET_LOITER_RATE,
@@ -915,18 +918,22 @@ function getHornetLaunchCandidates(
   // hornet, keep this slot in the magazine rather than launching a wasted second.
   const unassigned = aliveThreats.filter((t) => !assignmentCounts.has(t));
   if (unassigned.length === 0) return [];
-  const preferredTypes = unassigned.filter((target) => !isHornetPoorLaunchTarget(target));
-  const rolePool = preferredTypes.length > 0 ? preferredTypes : unassigned;
-  const catchable = rolePool.filter((target) => {
+  // Feasibility before role. Deferring MIRVs to the heavier defenses is only a
+  // preference, so it has to be applied to what the pad can actually reach —
+  // otherwise an unreachable ordinary missile hides a catchable MIRV and the pad
+  // sits on a loaded drone with work on screen.
+  const catchable = unassigned.filter((target) => {
     const ticks = hornetInterceptTicks(siteX, siteY, target, hornetSpeed);
     return ticks !== null && ticks <= HORNET_LIFE * HORNET_INTERCEPT_MARGIN;
   });
   if (catchable.length === 0) return [];
+  const preferredTypes = catchable.filter((target) => !isHornetPoorLaunchTarget(target));
+  const rolePool = preferredTypes.length > 0 ? preferredTypes : catchable;
   const localHalf =
     siteKey === "wildHornetsLeft"
-      ? catchable.filter((target) => target.x < BURJ_X)
-      : catchable.filter((target) => target.x >= BURJ_X);
-  const spatialPool = localHalf.length > 0 ? localHalf : catchable;
+      ? rolePool.filter((target) => target.x < BURJ_X)
+      : rolePool.filter((target) => target.x >= BURJ_X);
+  const spatialPool = localHalf.length > 0 ? localHalf : rolePool;
 
   return spatialPool
     .map((target) => {
@@ -950,32 +957,52 @@ function pickHornetLaunchBatch(
     site,
     options: getHornetLaunchCandidates(allThreats, activeHornets, site.key, site.loadedSpeed!),
   }));
-  let best: { picks: Map<HornetSiteState, Threat>; count: number; score: number } = {
-    picks: new Map(),
-    count: 0,
-    score: -Infinity,
+
+  // Walk every conflict-free assignment of pads to targets. At most two pads
+  // exist, so this is |options|² leaves; the callback form lets us do it twice
+  // without duplicating the recursion.
+  const forEachAssignment = (visit: (picks: Map<HornetSiteState, Threat>, score: number) => void) => {
+    const picks = new Map<HornetSiteState, Threat>();
+    const used = new Set<Threat>();
+    const search = (index: number, score: number) => {
+      if (index >= candidates.length) {
+        visit(picks, score);
+        return;
+      }
+      const entry = candidates[index];
+      search(index + 1, score);
+      for (const option of entry.options) {
+        if (used.has(option.target)) continue;
+        used.add(option.target);
+        picks.set(entry.site, option.target);
+        search(index + 1, score + option.score);
+        picks.delete(entry.site);
+        used.delete(option.target);
+      }
+    };
+    search(0, 0);
   };
 
-  const search = (index: number, used: Set<Threat>, picks: Map<HornetSiteState, Threat>, score: number) => {
-    if (index >= candidates.length) {
-      if (picks.size > best.count || (picks.size === best.count && score > best.score)) {
-        best = { picks: new Map(picks), count: picks.size, score };
-      }
-      return;
+  let bestCount = 0;
+  let bestScore = -Infinity;
+  forEachAssignment((picks, score) => {
+    if (picks.size > bestCount || (picks.size === bestCount && score > bestScore)) {
+      bestCount = picks.size;
+      bestScore = score;
     }
-    const entry = candidates[index];
-    search(index + 1, used, picks, score);
-    for (const option of entry.options) {
-      if (used.has(option.target)) continue;
-      used.add(option.target);
-      picks.set(entry.site, option.target);
-      search(index + 1, used, picks, score + option.score);
-      picks.delete(entry.site);
-      used.delete(option.target);
-    }
-  };
-  search(0, new Set(), new Map(), 0);
-  return best.picks;
+  });
+  if (bestCount === 0) return new Map();
+
+  // Batching replaced one pick per pad with one pick per salvo, but the pads
+  // still must not lock onto a single deterministic answer every wave. Keep the
+  // pre-batch jitter: among the fullest assignments, anything within one pad's
+  // worth of score band is an equal choice.
+  const band: Map<HornetSiteState, Threat>[] = [];
+  const tolerance = bestScore - HORNET_LAUNCH_SCORE_BAND * bestCount;
+  forEachAssignment((picks, score) => {
+    if (picks.size === bestCount && score >= tolerance) band.push(new Map(picks));
+  });
+  return band[randInt(0, band.length - 1)];
 }
 
 function pickHornetRetargetTarget(
@@ -1072,8 +1099,7 @@ function pushHornetTrail(h: Hornet): void {
   if (h.trail.length > 12) h.trail.shift();
 }
 
-function spawnHornetSmokePuff(g: GameState, h: Hornet, faint: boolean): void {
-  const count = faint ? 1 : 2;
+function spawnHornetSmokePuff(g: GameState, h: Hornet, faint: boolean, count: number): void {
   for (let index = 0; index < count; index++) {
     const life = rand(18, 30);
     g.particles.push({
@@ -1126,16 +1152,27 @@ function enterHornetDying(g: GameState, h: Hornet, fate: "fuelOut" | "standDown"
 }
 
 function updateDyingHornet(g: GameState, h: Hornet, dt: number): void {
-  h.dyingTicks = (h.dyingTicks ?? 0) + dt;
+  const ticks = (h.dyingTicks = (h.dyingTicks ?? 0) + dt);
+  const fuelOut = h.fate === "fuelOut";
   h.vy = (h.vy ?? 0) + HORNET_TUMBLE_GRAVITY * dt;
   h.y += h.vy * dt;
-  h.x += Math.sin((h.dyingTicks ?? 0) * 0.18) * 0.35 * dt;
-  h.spin = (h.spin ?? 0) + (h.fate === "fuelOut" ? 0.22 : 0.12) * dt;
-  if (h.fate === "fuelOut" && h.dyingTicks < 18 && rand(0, 1) < 0.12 * dt) {
-    spawnHornetFuelSparks(g, h, 1);
+  h.x += Math.sin(ticks * 0.18) * 0.35 * dt;
+  h.spin = (h.spin ?? 0) + (fuelOut ? 0.22 : 0.12) * dt;
+
+  // Emit for the whole fall, thinning as it goes. Effects that stop a third of
+  // the way down leave the hornet silently rotating until it is culled, which is
+  // what made a fuel-out read as the game deleting it.
+  const remaining = Math.max(0, 1 - ticks / HORNET_DYING_TICKS);
+  if (fuelOut && rand(0, 1) < 0.12 * remaining * dt) spawnHornetFuelSparks(g, h, 1);
+  if (rand(0, 1) < HORNET_TUMBLE_SMOKE_CHANCE * (fuelOut ? 1 : 0.4) * dt) {
+    spawnHornetSmokePuff(g, h, !fuelOut, 1);
   }
-  if (h.dyingTicks >= HORNET_DYING_TICKS || h.x < -60 || h.x > CANVAS_W + 60 || h.y < -60 || h.y > CANVAS_H + 20) {
-    spawnHornetSmokePuff(g, h, h.fate === "standDown");
+
+  const grounded = h.y >= GROUND_Y;
+  if (grounded || ticks >= HORNET_DYING_TICKS || h.x < -60 || h.x > CANVAS_W + 60 || h.y < -60) {
+    if (grounded) h.y = GROUND_Y;
+    spawnHornetSmokePuff(g, h, !fuelOut, fuelOut ? HORNET_IMPACT_PUFF : 2);
+    if (grounded && fuelOut) spawnHornetFuelSparks(g, h, 4);
     h.alive = false;
   }
 }

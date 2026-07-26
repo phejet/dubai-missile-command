@@ -75,6 +75,106 @@ SkyMesh loiter, and the uncatchable-case lead clamp. Fuze/blast remain 12/30.
   is 99.47 and therefore rounds to 99. The implementation and test use the computed
   value rather than preserving the table's inconsistent rounding.
 
+## Review follow-up — launch-gate ordering and batch jitter
+
+Two defects found reviewing `dc6cd8f`, both in the launch picker.
+
+1. **The MIRV-family filter ran before the feasibility gate.** `preferredTypes` could be
+   non-empty but entirely unreachable, which collapsed `catchable` to empty and held the
+   pad — with a catchable MIRV on screen. That inverts the soft filter's stated intent
+   ("a pad with nothing else to shoot is not left idle"). Feasibility is now applied
+   first and the role preference is applied to what survives it.
+2. **Batching silently dropped the top-band random pick.** The pre-batch
+   `pickHornetLaunchTarget` chose uniformly among targets within 25 points of the best;
+   `pickHornetLaunchBatch` took the deterministic argmax instead, so pads replayed one
+   answer. Restored as `HORNET_LAUNCH_SCORE_BAND = 25`, applied across the fullest
+   assignments (tolerance scales with pad count).
+
+### Primary (`average`), vs the committed narrow-fuze rows
+
+| Seed base | Loadout          |  Score |      Δ | Wave | Launches/run |   Hit |  Fuel | Stand-down | Loiter peak / p95 |
+| --------- | ---------------- | -----: | -----: | ---: | -----------: | ----: | ----: | ---------: | ----------------: |
+| 70000     | 1 pad            | 10,659 | +14.1% | 5.45 |           56 | 28.1% |  0.4% |      61.3% |           0 / 0.0 |
+| 70000     | 2 pads           | 13,182 |  +4.4% | 6.10 |           94 | 36.0% |  0.5% |      55.2% |           0 / 0.0 |
+| 70000     | 2 pads + SkyMesh | 17,673 |  +1.9% | 6.75 |          112 | 52.6% | 27.1% |       0.0% |           6 / 3.6 |
+| 91000     | 1 pad            | 10,290 |  -3.7% | 5.35 |           53 | 30.0% |  0.3% |      58.3% |           0 / 0.0 |
+| 91000     | 2 pads           | 13,120 |  +1.1% | 6.15 |           98 | 37.5% |  0.7% |      53.7% |           0 / 0.0 |
+| 91000     | 2 pads + SkyMesh | 16,337 |  +2.5% | 6.40 |          108 | 52.3% | 28.4% |       0.1% |           6 / 3.6 |
+
+Five of six rows are inside the ±10% unresolved band. The one that is not (1 pad, seed
+base 70000, +14.1%) is contradicted by the same loadout on seed base 91000 at -3.7%, so
+it is unreplicated and not claimed as a win. Read this as neutral, which is what a
+correctness fix should look like.
+
+### Guardrails
+
+- Unit: 469 passing (two added — catchable-MIRV fallback, and band jitter varying the pick).
+- Golden-seed canary: 28,798 → 27,102 on seed 42 (single seed, -5.9%, inside noise).
+- Determinism seed `12345`: score 127,490, wave 12, 461 missile kills, 169 drone kills,
+  461 shots; repeated run matched.
+- Fixtures re-recorded at replay v7. Only `perf-wave4-upgrades.json` changed — the one
+  fixture whose bootstrap owns hornets. `perf-wave1` and `perf-burj-burning` are
+  byte-identical, as expected.
+- Browser: 17 smoke and replay tests passing. Typecheck, ESLint, Prettier clean.
+- **Not re-run:** device perf baselines. The hornet render path is untouched.
+
+## Review follow-up — the fuel-out death read as a despawn
+
+Reported from play: "hornet just disappearing when running out of fuel looks like a bug."
+It was. Two defects, both in the death presentation, neither caught by tests.
+
+1. **The render fade was tied to a magic `18` while the sim's window was
+   `HORNET_DYING_TICKS = 42`.** The fade finished at 43% of the death.
+2. **`Math.max(0.35, …)` floored the sprite alpha**, so even a correct denominator
+   could not reach zero.
+
+Traced frame by frame, a fuel-out was: snap to 0.8 alpha, dim to 0.35 over 10 ticks,
+then **24 ticks (0.4 s) of a constant-opacity sprite with no effects at all**, then
+deletion at 35% opacity, 175 px below where it died. It never faded out — it was culled
+mid-flight.
+
+Fixed:
+
+- The render fade is now derived from `HORNET_DYING_TICKS`, so drift is structurally
+  impossible, and the sprite reaches exactly zero alpha on the frame the sim culls it.
+- `HORNET_DYING_TRAIL_FRAC = 0.3` keeps the exhaust trail collapsing early (engine dead
+  well before the airframe stops), expressed as a fraction rather than a bare number.
+- Effects run the whole fall and thin out, instead of stopping a third of the way down.
+- `HORNET_DYING_TICKS` 42 → 66 (~1.1 s, a 430 px fall) so the tumble reads as a fall.
+- A hornet that reaches `GROUND_Y` now lands there with sparks and a dust burst rather
+  than expiring in mid-air.
+- `HORNET_IMPACT_PUFF = 5` gives the ending a beat. `standDown` deliberately stays faint
+  — the power-loss/fuel-loss distinction Phase 1 built is preserved.
+
+All knobs are in the `game-logic.ts` hornet block.
+
+### Particle budget
+
+`MAX_PARTICLES = 500` is a shared budget explosions draw down, so the extra emission was
+measured against it (5 games, 2 pads + SkyMesh):
+
+| Version | mean | p50 | p95 | p99 | max | ticks at budget |
+| ------- | ---: | --: | --: | --: | --: | --------------: |
+| before  |  165 | 122 | 476 | 493 | 499 |               0 |
+| after   |  197 | 174 | 475 | 493 | 499 |               0 |
+
+The tail is unchanged — it is pinned by explosions, which self-limit against the budget.
+The change raises the floor (+19% mean), not the ceiling, and the budget is never
+exhausted in either version. Peak concurrent dying hornets: 4.
+
+### Guardrails
+
+- Unit: 471 passing (+2: emission across the whole tumble, and ground landing).
+- Golden-seed canary: 27,102 → 25,808 on seed 42. **This is RNG-stream reshuffling, not
+  balance** — particle spawns draw from the sim RNG, and dying hornets deal no damage,
+  reserve no targets and never fuze.
+- Determinism seed `12345`: wave 12, 472 missile kills, 172 drone kills, 495 shots;
+  repeated run matched.
+- Fixtures re-recorded at v7; again only `perf-wave4-upgrades.json` changed.
+- Browser: 17 smoke and replay tests passing. Typecheck, ESLint, Prettier clean.
+- **Not re-run:** device perf baselines. Worth a look given the higher mean particle
+  count, though the tail is flat.
+
 ## Optional 45/52 fuze trial — declined
 
 The wide proximity warhead was measured against the final implementation at both seed

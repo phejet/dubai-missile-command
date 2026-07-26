@@ -24,6 +24,8 @@ import {
   fireInterceptor,
   INTERCEPTOR_SOLO_TAP_FUSE_RADIUS,
   INTERCEPTOR_TAP_FUSE_RADIUS,
+  HORNET_DYING_TICKS,
+  HORNET_IMPACT_PUFF,
 } from "./game-logic";
 import {
   buyDraftUpgrade,
@@ -1819,6 +1821,77 @@ describe("Auto-defense targeting spread", () => {
     expect(g.particles.some((particle) => particle.type === "spark")).toBe(true);
   });
 
+  it("keeps a fuel-out hornet emitting for the whole tumble and ends it with a puff", () => {
+    const { sim, g } = makeCleanGame(5);
+    setRng(() => 0.01);
+    const hornet: Hornet = {
+      x: 400,
+      y: 300,
+      targetRef: null,
+      speed: 5,
+      trail: [],
+      alive: true,
+      blastRadius: 30,
+      wobble: 0,
+      life: 0,
+      maxLife: 168,
+      retargetsRemaining: 0,
+      phase: "dying",
+      fate: "fuelOut",
+      dyingTicks: 0,
+      vy: 0.3,
+      spin: 0,
+    };
+    g.hornets.push(hornet);
+
+    // Two thirds of the way down it must still be throwing effects. Going silent
+    // early is what made a fuel-out read as the game deleting the hornet.
+    const lateStart = Math.floor(HORNET_DYING_TICKS * 0.66);
+    for (let tick = 0; tick < lateStart; tick++) sim.updateAutoSystems(g, 1, []);
+    expect(hornet.alive).toBe(true);
+    g.particles = [];
+    for (let tick = lateStart; tick < HORNET_DYING_TICKS - 1; tick++) sim.updateAutoSystems(g, 1, []);
+    expect(hornet.alive).toBe(true);
+    expect(g.particles.length).toBeGreaterThan(0);
+
+    // Final tick: culled, with a terminal burst rather than a silent despawn.
+    g.particles = [];
+    sim.updateAutoSystems(g, 1, []);
+    expect(hornet.alive).toBe(false);
+    expect(g.particles.filter((particle) => particle.type === "smokePuff").length).toBeGreaterThanOrEqual(
+      HORNET_IMPACT_PUFF,
+    );
+  });
+
+  it("lands a low fuel-out hornet on the ground instead of culling it in mid-air", () => {
+    const { sim, g } = makeCleanGame(5);
+    const hornet: Hornet = {
+      x: 400,
+      y: GROUND_Y - 5,
+      targetRef: null,
+      speed: 5,
+      trail: [],
+      alive: true,
+      blastRadius: 30,
+      wobble: 0,
+      life: 0,
+      maxLife: 168,
+      retargetsRemaining: 0,
+      phase: "dying",
+      fate: "fuelOut",
+      dyingTicks: 1,
+      vy: 10,
+      spin: 0,
+    };
+    g.hornets.push(hornet);
+
+    sim.updateAutoSystems(g, 1, []);
+
+    expect(hornet.alive).toBe(false);
+    expect(hornet.y).toBe(GROUND_Y);
+    expect(hornet.dyingTicks).toBeLessThan(HORNET_DYING_TICKS);
+  });
+
   it("does not let a dying hornet reserve the only catchable launch target", () => {
     const { sim, g } = makeCleanGame(5);
     g.upgrades.wildHornets = 1;
@@ -1977,6 +2050,39 @@ describe("Auto-defense targeting spread", () => {
 
     expect(g.hornets).toHaveLength(1);
     expect(g.hornets[0].targetRef).toBe(ordinary);
+  });
+
+  it("still takes a catchable MIRV when every ordinary threat is out of reach", () => {
+    const { sim, g } = makeCleanGame(5);
+    g.upgrades.wildHornets = 1;
+    g.ownedUpgradeNodes.add("wildHornetsLeft");
+    g.hornetSites = [{ key: "wildHornetsLeft", ammo: 1, reloadTimer: 0, launchCooldown: 0, loadedSpeed: 6.72 }];
+    const unreachableOrdinary = makeBallisticMissile({ x: 206, y: 0, vx: 0, vy: -20, accel: 1 });
+    const catchableMirv = makeBallisticMissile({ x: 220, y: 900, vx: 0, vy: 1, accel: 1, type: "mirv" });
+
+    sim.updateAutoSystems(g, 1, [unreachableOrdinary, catchableMirv]);
+
+    expect(g.hornets).toHaveLength(1);
+    expect(g.hornets[0].targetRef).toBe(catchableMirv);
+  });
+
+  it("varies the launch pick across near-tied targets instead of always taking the same one", () => {
+    const pickWith = (roll: number) => {
+      const { sim, g } = makeCleanGame(5);
+      g.upgrades.wildHornets = 1;
+      g.ownedUpgradeNodes.add("wildHornetsLeft");
+      g.hornetSites = [{ key: "wildHornetsLeft", ammo: 1, reloadTimer: 0, launchCooldown: 0, loadedSpeed: 6.72 }];
+      // Mirrored about the pad, so both score identically and both land in the band.
+      const near = makeBallisticMissile({ x: 176, y: 900, vx: 0, vy: 1, accel: 1 });
+      const far = makeBallisticMissile({ x: 236, y: 900, vx: 0, vy: 1, accel: 1 });
+      setRng(() => roll);
+      sim.updateAutoSystems(g, 1, [near, far]);
+      const target = g.hornets[0]?.targetRef;
+      return target === near ? "near" : target === far ? "far" : "none";
+    };
+
+    expect(pickWith(0)).toBe("near");
+    expect(pickWith(0.999)).toBe("far");
   });
 
   it("lets a SkyMesh hornet loiter beyond normal fuel life near its anchor", () => {

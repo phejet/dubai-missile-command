@@ -212,9 +212,23 @@ export const HORNET_RELOAD_TICKS = 60;
 export const HORNET_LAUNCH_GAP = 24;
 // Deliberate under-lead: the visible tail chase is part of the hornet's character.
 export const HORNET_LEAD_FRACTION = 0.3;
+// Launch targets scoring within this of the best are treated as equally good and
+// chosen at random, so pads vary their picks instead of replaying one answer.
+export const HORNET_LAUNCH_SCORE_BAND = 25;
 export const HORNET_DIVE_SLACK = 80;
-export const HORNET_DYING_TICKS = 42;
+// How long a hornet tumbles after it dies. The render fade is derived from this,
+// so the sprite always reaches zero alpha on exactly the frame it is culled —
+// anything shorter and the hornet blinks out mid-air while still clearly visible.
+export const HORNET_DYING_TICKS = 66;
+// Fraction of the tumble over which the exhaust trail collapses. The engine is
+// dead well before the airframe stops falling.
+export const HORNET_DYING_TRAIL_FRAC = 0.3;
 export const HORNET_TUMBLE_GRAVITY = 0.18;
+// Per-tick chance of a smoke puff while tumbling, so the fall stays legible the
+// whole way down instead of going silent a third of the way through.
+export const HORNET_TUMBLE_SMOKE_CHANCE = 0.22;
+// Terminal puff size — the beat that says "it landed" rather than "it despawned".
+export const HORNET_IMPACT_PUFF = 5;
 export const HORNET_INTERCEPT_MARGIN = 0.9;
 export const HORNET_LOITER_RADIUS = 22;
 export const HORNET_LOITER_RATE = 0.06;

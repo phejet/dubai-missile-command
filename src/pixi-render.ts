@@ -25,6 +25,8 @@ import {
   GAMEPLAY_SCENIC_LAUNCHER_Y,
   GAMEPLAY_WATERLINE_Y,
   GROUND_Y,
+  HORNET_DYING_TICKS,
+  HORNET_DYING_TRAIL_FRAC,
   IRON_BEAM_CHARGE_TIME,
   IRON_BEAM_EMITTER_Y,
   LAUNCHERS,
@@ -3544,7 +3546,12 @@ export class PixiRenderer implements GameRenderer {
       const lifeFrac = Math.max(0, Math.min(1, hornet.life / Math.max(1, hornet.maxLife)));
       const fade = 1 - lifeFrac;
       const widthMul = 0.5 + 0.5 * lifeFrac;
-      const dyingFrac = Math.max(0, 1 - (hornet.dyingTicks ?? 0) / 18);
+      // Derived from the sim's tumble length, never a magic number: the sprite has
+      // to reach zero alpha on exactly the frame the sim culls it, or the hornet
+      // blinks out mid-air while still plainly visible.
+      const dyingProgress = Math.min(1, (hornet.dyingTicks ?? 0) / Math.max(1, HORNET_DYING_TICKS));
+      const trailFade = Math.max(0, 1 - dyingProgress / HORNET_DYING_TRAIL_FRAC);
+      const spriteFade = 1 - dyingProgress;
       if (!(phase === "dying" && hornet.fate === "standDown")) {
         drawBatchedTrailOrDots(state.trailBatch, node.trail, hornet.trail, pos.x, pos.y, {
           outerColor: lerpHex(0xffcc00, 0xff3300, fade),
@@ -3553,16 +3560,11 @@ export class PixiRenderer implements GameRenderer {
           width: 3 * GAMEPLAY_EFFECT_SCALE * widthMul,
           coreWidth: 1.2 * GAMEPLAY_EFFECT_SCALE * widthMul,
           headRadius: 1.7 * GAMEPLAY_EFFECT_SCALE * widthMul,
-          alpha: (0.4 + 0.6 * lifeFrac) * (phase === "dying" ? dyingFrac : 1),
+          alpha: (0.4 + 0.6 * lifeFrac) * (phase === "dying" ? trailFade : 1),
         });
       }
       node.overlay.clear();
-      const spriteAlpha =
-        phase === "dying"
-          ? hornet.fate === "standDown"
-            ? Math.max(0.2, dyingFrac * 0.45)
-            : Math.max(0.35, dyingFrac * 0.8)
-          : 1;
+      const spriteAlpha = phase === "dying" ? spriteFade * (hornet.fate === "standDown" ? 0.55 : 0.9) : 1;
       syncProjectileNode(
         node,
         state.upgradeProjectileAssets.wildHornet,

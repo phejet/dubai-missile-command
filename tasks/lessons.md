@@ -1,5 +1,29 @@
 # Lessons
 
+## 2026-07-25 — A measured analysis is a claim about a harness, not about the game
+
+- Do not inherit a source document's characterisation of its own tooling. The hornet analysis
+  described its baseline as "the stock bot… fires far more accurately and often than a human", but
+  `probe.ts:105` already resolves the humanized `average` preset, and `probe.ts:150` implements the
+  "focus" knob by discarding the chosen action rather than re-picking an upper target. Every
+  profile-comparison conclusion inherited a premise that thirty seconds of reading disproved. Read
+  the harness before planning against its numbers.
+- Separate the correctness fix from the balance change even when one commit could carry both. Blast
+  position and fuze radius arrived as a single item; at a 12px fuze the target is already inside the
+  30px blast, so moving the detonation point is nearly free and the radius change is the entire
+  balance effect. Bundled, neither can be measured.
+- Verify a scheduling or alternation mechanism against the actual cadence constants before claiming
+  it alternates. Tick-parity round-robin across two hornet pads does nothing: both the launch gap
+  (24) and the reload (60) are even, so synchronized pads recur on same-parity ticks forever. It
+  would have shipped looking like a fix.
+- A gate that can reject every candidate must not consume RNG on the rejected path. Rolling a
+  projectile's speed before target selection, then holding when nothing qualifies, is rejection
+  sampling: it burns the seeded stream while idle and biases the distribution toward whatever value
+  passes the gate. Roll once at reload and persist it, or plan against a fixed conservative value.
+- Check whether a version gate rejects or merely diverges before deferring fixture repair.
+  `replay.ts:112` refuses to load any replay below the current version, so "re-record everything at
+  the end" was not a slower option, it was a broken intermediate commit.
+
 ## 2026-07-23 — Classify screenshot geometry by the whole layer
 
 - Do not identify a debug overlay from one familiar primitive. Check the complete layer signature: here, the missing spawn bands, cyan Burj outline, and building bounds disproved the collider hypothesis; the red line was the Iron Beam and the rings were normal dive warnings.
@@ -203,3 +227,17 @@
 - When the user asks how a runtime behavior works or performs specifically on iPhone, do not run a local browser benchmark as though it can answer the device question.
 - Use existing iPhone evidence for established facts. State device timing as unknown unless it was actually measured on-device.
 - Offer new device instrumentation as a separate next step only when the user wants it, especially after they have said the app is no longer open on the connected phone.
+
+## 2026-07-26 — Do not report an unmeasured worst case as a review finding
+
+- In review I claimed hornet loiter scans could cost "6 loiterers x 30 threats" per tick.
+  Both factors were caps read off constants, not observations. Measured, the two are
+  near mutually exclusive: a hornet only loiters when nothing is catchable, so while any
+  hornet loiters the mean live-threat count is 2.4 (p95 9). Real cost was ~10us/tick.
+- Multiplying independent worst cases together produces a number that describes no
+  reachable state. Before citing a cost, measure the joint distribution, not the caps.
+- The instinct to check was right; the arithmetic shortcut was not. Instrument first,
+  then report — a review finding carries the same evidence burden as a bug fix.
+- Bonus: the measurement that corrected me found something better than the perf claim
+  (89.2% of loiter rejections are fuel-gated, not geometric). Measuring a suspicion
+  usually beats asserting it, even when the suspicion is wrong.
