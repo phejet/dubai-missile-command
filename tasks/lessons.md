@@ -1,5 +1,19 @@
 # Lessons
 
+## 2026-07-27 — Pixi `arc()` inherits the cursor from the previous shape
+
+- `Graphics.arc()` appends to the sub-path the context is already on, so it strokes a connector from
+  the current cursor to the arc's start point. After `circle()`/`rect()`, `GraphicsPath.getLastPoint`
+  has no case for shape primitives and leaves the shared out-point untouched, so that cursor is
+  `0,0`. The Iron Beam charge ring drew a full-canvas red line from the origin to the emitter for the
+  whole recharge window. `poly()` is a standalone shape primitive and does not have this problem.
+- Reason about how long an artifact is on screen before blaming the entity that looks like it. Here
+  the line was beam-coloured and anchored on the emitter, but laser beams live 20 ticks (~0.3s) while
+  the artifact lasted seconds — that mismatch pointed at the charge indicator, which is drawn exactly
+  while `charge < 1`, i.e. from the shot until the beam is recharged.
+- Bounding a `Graphics` is enough to catch this class of bug in a unit test: assert the overlay's
+  geometry stays near the thing it decorates instead of reaching the canvas origin.
+
 ## 2026-07-25 — A measured analysis is a claim about a harness, not about the game
 
 - Do not inherit a source document's characterisation of its own tooling. The hornet analysis

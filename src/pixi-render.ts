@@ -1141,6 +1141,23 @@ function drawBatchedTrailOrDots(
   );
 }
 
+// Sweeps under this are sub-pixel at the radii we draw, and a zero-length
+// polyline has no direction for the stroker to work from.
+const MIN_VISIBLE_ARC_SWEEP = 0.02;
+
+// Tessellated stand-in for Graphics.arc(). arc() appends to whatever sub-path
+// the Graphics is currently on, so it inherits a stale cursor from any earlier
+// circle()/rect() and strokes a connector to it; a poly() is self-contained.
+function arcPolyline(cx: number, cy: number, radius: number, startAngle: number, sweep: number): number[] {
+  const steps = Math.max(2, Math.ceil(Math.abs(sweep) / (Math.PI / 16)));
+  const points: number[] = [];
+  for (let step = 0; step <= steps; step++) {
+    const angle = startAngle + (sweep * step) / steps;
+    points.push(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius);
+  }
+  return points;
+}
+
 function getPooledGraphic(pool: Graphics[], container: Container, index: number): Graphics {
   let graphic = pool[index];
   if (!graphic) {
@@ -2943,9 +2960,15 @@ export class PixiRenderer implements GameRenderer {
           state.defenseStatusOverlay
             .circle(BURJ_X, IRON_BEAM_EMITTER_Y, 2.6)
             .fill({ color: COL_HEX.laser, alpha: 0.22 });
-          state.defenseStatusOverlay
-            .arc(BURJ_X, IRON_BEAM_EMITTER_Y, 9, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * charge)
-            .stroke({ width: 1.2, color: COL_HEX.laser, alpha: 0.42 });
+          // arc() continues the path from wherever the previous shape left the
+          // cursor, and circle()/rect() leave it at the origin. Feed the sweep
+          // in as its own polyline so the ring cannot trail a line back to 0,0.
+          const sweep = Math.PI * 2 * charge;
+          if (sweep > MIN_VISIBLE_ARC_SWEEP) {
+            state.defenseStatusOverlay
+              .poly(arcPolyline(BURJ_X, IRON_BEAM_EMITTER_Y, 9, -Math.PI / 2, sweep))
+              .stroke({ width: 1.2, color: COL_HEX.laser, alpha: 0.42 });
+          }
         }
       }
     }
