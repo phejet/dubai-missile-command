@@ -13,7 +13,7 @@ import {
   getPixiWaterBandTransform,
   summarizePixiDynamicEntities,
 } from "./pixi-render";
-import { createEmptyGameStats } from "./game-logic";
+import { BURJ_X, createEmptyGameStats, IRON_BEAM_CHARGE_TIME, IRON_BEAM_EMITTER_Y } from "./game-logic";
 
 function projectileAsset() {
   return {
@@ -655,6 +655,66 @@ describe("PixiRenderer dynamic entity updates", () => {
     expect(game.missiles[0]).toMatchObject({ x: 110, y: 220 });
     expect(game.phalanxBullets[0]).toMatchObject({ cx: 700, cy: 620 });
     expect((state.phalanxPool as Array<{ width: number }>)[0].width).toBeCloseTo(Math.hypot(150, 60) + 16);
+  });
+});
+
+describe("Iron Beam charge indicator", () => {
+  function defenseSiteState() {
+    const asset = staticAsset();
+    return {
+      defenseSiteNodes: new Map(),
+      defenseSiteAssets: {
+        patriotTEL: asset,
+        wildHornetsHive: [asset, asset, asset],
+        roadrunnerContainer: [asset, asset, asset],
+        flareDispenser: [asset, asset, asset],
+        empEmitter: [asset, asset, asset],
+        phalanxBase: asset,
+      },
+      defenseStatusOverlay: new Graphics(),
+    };
+  }
+
+  // The recharging ring is an arc, and an arc inherits whatever point the
+  // Graphics path was left on by the shape before it. Without an explicit
+  // sub-path start that produced a stray beam-coloured line from the canvas
+  // origin to the emitter for the whole recharge window.
+  it("keeps the recharging ring around the emitter instead of trailing to the canvas origin", () => {
+    const game = initGame();
+    game.defenseSites = [];
+    game.upgrades.ironBeam = 1;
+    game.ironBeamTimer = IRON_BEAM_CHARGE_TIME[0] * 0.4;
+
+    const state = defenseSiteState();
+    const { methods, self } = rendererInternals();
+    methods.updateGameplayDefenseSites.call(self, state, game, 0);
+
+    const bounds = state.defenseStatusOverlay.getBounds();
+    expect(bounds.minX).toBeGreaterThan(BURJ_X - 20);
+    expect(bounds.maxX).toBeLessThan(BURJ_X + 20);
+    expect(bounds.minY).toBeGreaterThan(IRON_BEAM_EMITTER_Y - 20);
+    expect(bounds.maxY).toBeLessThan(IRON_BEAM_EMITTER_Y + 20);
+    // The sweep itself still has to be there — a ring that vanished would also
+    // satisfy the bounds above.
+    expect(bounds.maxX).toBeGreaterThan(BURJ_X + 8);
+    expect(bounds.minY).toBeLessThan(IRON_BEAM_EMITTER_Y - 8);
+  });
+
+  it("still draws the ready emitter pips at the emitter", () => {
+    const game = initGame();
+    game.defenseSites = [];
+    game.upgrades.ironBeam = 1;
+    game.ironBeamTimer = IRON_BEAM_CHARGE_TIME[0];
+
+    const state = defenseSiteState();
+    const { methods, self } = rendererInternals();
+    methods.updateGameplayDefenseSites.call(self, state, game, 0);
+
+    const bounds = state.defenseStatusOverlay.getBounds();
+    expect(bounds.minX).toBeGreaterThan(BURJ_X - 20);
+    expect(bounds.maxX).toBeLessThan(BURJ_X + 20);
+    expect(bounds.minY).toBeGreaterThan(IRON_BEAM_EMITTER_Y - 20);
+    expect(bounds.maxY).toBeLessThan(IRON_BEAM_EMITTER_Y + 20);
   });
 });
 
