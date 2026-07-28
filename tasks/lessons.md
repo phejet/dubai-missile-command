@@ -1,5 +1,14 @@
 # Lessons
 
+## 2026-07-28 — Do not leave a visible browser idle after automation stalls
+
+- If an in-app browser probe times out or loses the game state, close the visible tab immediately
+  or switch to a headless harness. A browser window that remains open with no observable progress
+  makes a diagnostic look hung even when investigation has moved elsewhere.
+- For a renderer-state injection that needs no human interaction, prefer the maintained headless
+  Playwright runtime from the outset; reserve the visible browser for an actual user-facing
+  feel-check.
+
 ## 2026-07-25 — A measured analysis is a claim about a harness, not about the game
 
 - Do not inherit a source document's characterisation of its own tooling. The hornet analysis
