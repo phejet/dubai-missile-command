@@ -34,7 +34,9 @@ export function createEditorScene(): GameState {
         y: 300,
         vx: 0.5,
         vy: 1.8,
+        accel: 0,
         alive: true,
+        type: "missile",
         trail: Array.from({ length: 10 }, (_, i) => ({ x: 300 - i * 0.3, y: 300 - i * 1.8 })),
       },
       {
@@ -42,7 +44,9 @@ export function createEditorScene(): GameState {
         y: 500,
         vx: -0.3,
         vy: 2.0,
+        accel: 0,
         alive: true,
+        type: "missile",
         trail: Array.from({ length: 10 }, (_, i) => ({ x: 650 + i * 0.2, y: 500 - i * 2.0 })),
       },
       {
@@ -50,6 +54,7 @@ export function createEditorScene(): GameState {
         y: 200,
         vx: 0.8,
         vy: 1.5,
+        accel: 0,
         alive: true,
         trail: Array.from({ length: 10 }, (_, i) => ({ x: 150 - i * 0.5, y: 200 - i * 1.5 })),
         type: "mirv",
@@ -60,6 +65,7 @@ export function createEditorScene(): GameState {
         y: 220,
         vx: 0.2,
         vy: 2.6,
+        accel: 0,
         alive: true,
         type: "missile",
         variant: "fast",
@@ -79,7 +85,6 @@ export function createEditorScene(): GameState {
         health: 2,
         collisionRadius: 30,
         wobble: 0,
-        heading: 0.2,
         trail: Array.from({ length: 8 }, (_, i) => ({ x: 100 - i * 1.5, y: 400 - i * 0.3 })),
         pathIndex: 0,
         waypoints: [],
@@ -96,7 +101,6 @@ export function createEditorScene(): GameState {
         health: 2,
         collisionRadius: 30,
         wobble: 0,
-        heading: 0.2,
         trail: Array.from({ length: 8 }, (_, i) => ({ x: 100 - i * 1.5, y: 560 - i * 0.3 })),
         pathIndex: 0,
         waypoints: [],
@@ -114,7 +118,6 @@ export function createEditorScene(): GameState {
         health: 2,
         collisionRadius: 30,
         wobble: 0,
-        heading: 0.2,
         trail: Array.from({ length: 8 }, (_, i) => ({ x: 100 - i * 1.5, y: 700 - i * 0.3 })),
         pathIndex: 0,
         waypoints: [],
@@ -131,7 +134,6 @@ export function createEditorScene(): GameState {
         health: 2,
         collisionRadius: 30,
         wobble: 0,
-        heading: 0.2,
         trail: Array.from({ length: 8 }, (_, i) => ({ x: 100 - i * 1.5, y: 840 - i * 0.3 })),
         pathIndex: 0,
         waypoints: [],
@@ -148,7 +150,6 @@ export function createEditorScene(): GameState {
         health: 3,
         collisionRadius: 10,
         wobble: 0,
-        heading: -0.3,
         trail: Array.from({ length: 8 }, (_, i) => ({ x: 750 + i * 1.2, y: 250 - i * 0.5 })),
         pathIndex: 0,
         waypoints: [],
@@ -182,6 +183,7 @@ export function createEditorScene(): GameState {
       // Threat explosion (growing) — upper area
       {
         id: 1,
+        rootExplosionId: 1,
         x: 350,
         y: 350,
         radius: 35,
@@ -198,6 +200,7 @@ export function createEditorScene(): GameState {
       // Interceptor detonation (fresh) — mid area
       {
         id: 2,
+        rootExplosionId: 2,
         x: 700,
         y: 550,
         radius: 74,
@@ -214,6 +217,7 @@ export function createEditorScene(): GameState {
       // Chain explosion (fading) — between upper and mid
       {
         id: 3,
+        rootExplosionId: 3,
         x: 200,
         y: 200,
         radius: 40,
@@ -358,6 +362,11 @@ export function createEditorScene(): GameState {
     patriotHoldTimer: 0,
     patriotFollowupTimer: 0,
     nextFlareId: 1,
+    nextExplosionId: 4,
+    nextEmpFxId: 0,
+    nextBurjDecalId: 0,
+    nextBurjDamageFxId: 0,
+    nextBuildingDestroyFxId: 0,
     flareReadyThisWave: false,
     flareSalvoQueue: [],
     empReadyThisWave: false,
@@ -370,6 +379,9 @@ export function createEditorScene(): GameState {
     empZoomTimer: 0,
     empZoomMax: 0,
     empScrubTicks: 0,
+    f15ReadyThisWave: false,
+    f15ReturnTimer: 0,
+    f15ReturnGoRight: false,
     multiKillToast: null,
     combo: 1,
     comboToast: null,
@@ -381,5 +393,5 @@ export function createEditorScene(): GameState {
     waveTick: 0,
     concurrentCap: 10,
     waveTactics: [],
-  } as unknown as GameState;
+  };
 }

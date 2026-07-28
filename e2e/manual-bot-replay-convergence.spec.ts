@@ -59,7 +59,7 @@ async function startGame(page: Page): Promise<void> {
   } else {
     await page.locator("canvas").click({ position: { x: 450, y: 320 } });
   }
-  await page.waitForFunction(() => window.__gameRef?.current?.state === "playing", { timeout: 5000 });
+  await page.waitForFunction(() => window.__gameRef?.current?.state === "playing", undefined, { timeout: 5000 });
 }
 
 async function clickWaveSummaryIfVisible(page: Page): Promise<void> {
@@ -197,8 +197,10 @@ async function playBotToGameOver(page: Page): Promise<{ result: GameResult; repl
 
 async function replayToGameOver(page: Page, replay: ReplayData): Promise<GameResult> {
   await page.evaluate((data: ReplayData) => window.__loadReplay!(data), replay);
-  await page.waitForFunction(() => window.__gameRef?.current?._replay === true, { timeout: 5000 });
-  await page.waitForFunction(() => window.__gameRef?.current?.state === "gameover", { timeout: 120_000 });
+  await page.waitForFunction(() => window.__gameRef?.current?._replay === true, undefined, { timeout: 5000 });
+  await page.waitForFunction(() => window.__gameRef?.current?.state === "gameover", undefined, {
+    timeout: 120_000,
+  });
   return page.evaluate(() => {
     const g = window.__gameRef!.current!;
     return {
@@ -242,7 +244,7 @@ test("saved replay file converges on its recorded result", async ({ page }) => {
   };
 
   await page.goto("/");
-  await page.waitForFunction(() => window.__loadReplay != null, { timeout: 5000 });
+  await page.waitForFunction(() => window.__loadReplay != null, undefined, { timeout: 5000 });
   const replayed = await replayToGameOver(page, replay);
 
   console.log("replay file", replayFile);

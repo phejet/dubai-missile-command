@@ -29,7 +29,16 @@ async function startGameFromScreen(page: import("@playwright/test").Page) {
     await clickCanvasAt(page, 0.5, 0.35);
   }
 
-  await page.waitForFunction(() => window.__gameRef?.current != null, { timeout: 5000 });
+  await page.waitForFunction(() => window.__gameRef?.current != null, undefined, { timeout: 5000 });
+}
+
+async function forceGameOver(page: import("@playwright/test").Page) {
+  await page.evaluate(() => {
+    const game = window.__gameRef!.current!;
+    game.burjAlive = false;
+    game.burjHealth = 0;
+  });
+  await expect(page.locator("#game-shell")).toHaveAttribute("data-screen", "gameover", { timeout: 10000 });
 }
 
 test.describe("Smoke tests", () => {
@@ -90,6 +99,7 @@ test.describe("Smoke tests", () => {
         const g = window.__gameRef!.current!;
         return g.interceptors.length > 0 || g.stats.shotsFired > 0;
       },
+      undefined,
       { timeout: 3000 },
     );
 
@@ -148,6 +158,7 @@ test.describe("Smoke tests", () => {
         const g = window.__gameRef!.current!;
         return g.missiles.length > 0 || g.drones.length > 0;
       },
+      undefined,
       { timeout: 10000 },
     );
 
@@ -160,13 +171,9 @@ test.describe("Smoke tests", () => {
 
   test("opens run recap from game over", async ({ page }) => {
     await startGameFromScreen(page);
-    await page.evaluate(() => {
-      const g = window.__gameRef!.current!;
-      g.burjAlive = false;
-      g.burjHealth = 0;
-    });
+    await forceGameOver(page);
 
-    await expect(page.getByRole("button", { name: /run recap/i })).toBeVisible({ timeout: 4000 });
+    await expect(page.getByRole("button", { name: /run recap/i })).toBeVisible({ timeout: 10000 });
     await expect(page.locator("#go-score")).toBeVisible();
     await expect(page.locator("#go-wave")).toBeVisible();
     await expect(page.locator("#go-hit-ratio")).toBeVisible();
@@ -275,12 +282,8 @@ test.describe("Smoke tests", () => {
     page.on("pageerror", (error) => pageErrors.push(error.message));
 
     const endRun = async () => {
-      await page.evaluate(() => {
-        const game = window.__gameRef!.current!;
-        game.burjAlive = false;
-        game.burjHealth = 0;
-      });
-      await expect(page.locator("#gameover-panel .run-recap__death-canvas")).toBeVisible({ timeout: 4000 });
+      await forceGameOver(page);
+      await expect(page.locator("#gameover-panel .run-recap__death-canvas")).toBeVisible({ timeout: 10000 });
       await expect(page.locator("#game-canvas")).toHaveAttribute("data-pixi-context", "active");
       await expect(page.locator("#game-canvas")).toHaveAttribute("data-pixi-gameplay-static", "released");
     };

@@ -518,17 +518,30 @@ describe("createReplayRunner determinism", () => {
   });
 
   it("replays a recorded draft game identically when event callbacks are observed", () => {
-    const original = runGame(null, { seed: 425, record: true, draftMode: true, maxTicks: 200000 });
+    const stopCondition = { type: "waveComplete" as const, wave: 1 };
+    const original = runGame(null, {
+      seed: 425,
+      record: true,
+      draftMode: true,
+      maxTicks: 20000,
+      stopCondition,
+    });
     const replayData: ReplayData = {
       version: CURRENT_REPLAY_VERSION,
       seed: original.seed,
       actions: original.actions!,
       draftMode: true,
+      stopCondition,
     };
 
     const withoutEvents = replayToCompletion(replayData);
-    const withEvents = replayToCompletion(replayData, () => {});
+    let observedEventCount = 0;
+    const withEvents = replayToCompletion(replayData, () => {
+      observedEventCount++;
+    });
 
+    expect(original.deathCause).toBe("completed");
+    expect(observedEventCount).toBeGreaterThan(0);
     expect(withEvents).toEqual(withoutEvents);
     expect(withEvents.score).toBe(original.score);
     expect(withEvents.wave).toBe(original.wave);

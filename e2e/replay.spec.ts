@@ -39,7 +39,7 @@ const SHORT_REPLAY: ReplayData = {
 
 /** Run a replay headlessly in-page (tight loop, no rendering) and return results */
 async function runReplayHeadless(page: Page, replayData: ReplayData) {
-  await page.waitForFunction(() => window.__createReplayRunner != null, { timeout: 5000 });
+  await page.waitForFunction(() => window.__createReplayRunner != null, undefined, { timeout: 5000 });
   return page.evaluate((data: ReplayData) => {
     const rr = window.__createReplayRunner!(data);
     const g = rr.init();
@@ -68,7 +68,7 @@ async function runReplayHeadless(page: Page, replayData: ReplayData) {
 test.describe("Replay", () => {
   test("loading a replay via __loadReplay enters replay mode", async ({ page }) => {
     await page.goto("/");
-    await page.waitForFunction(() => window.__loadReplay != null, { timeout: 5000 });
+    await page.waitForFunction(() => window.__loadReplay != null, undefined, { timeout: 5000 });
 
     await page.evaluate((data: ReplayData) => window.__loadReplay!(data), SHORT_REPLAY);
     await page.waitForFunction(() => {
@@ -87,7 +87,7 @@ test.describe("Replay", () => {
 
   test("runtime replay contract errors abort instead of leaving the shop stuck", async ({ page }) => {
     await page.goto("/");
-    await page.waitForFunction(() => window.__loadReplay != null, { timeout: 5000 });
+    await page.waitForFunction(() => window.__loadReplay != null, undefined, { timeout: 5000 });
     const brokenReplay: ReplayData = {
       ...SHORT_REPLAY,
       actions: [{ tick: 999, type: "shop", bought: [], wave: 1 }],
@@ -142,7 +142,7 @@ test.describe("Replay", () => {
 
   test("watched replay auto-advances through wave summary", async ({ page }) => {
     await page.goto("/");
-    await page.waitForFunction(() => window.__loadReplay != null, { timeout: 5000 });
+    await page.waitForFunction(() => window.__loadReplay != null, undefined, { timeout: 5000 });
 
     const replayData: ReplayData = {
       version: 11,
@@ -179,6 +179,7 @@ test.describe("Replay", () => {
         const g = window.__gameRef?.current;
         return g?.state === "playing" && g.wave >= 2 && !document.querySelector(".bonus-screen");
       },
+      undefined,
       { timeout: 7000 },
     );
 
