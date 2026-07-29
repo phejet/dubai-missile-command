@@ -1,5 +1,11 @@
 # Lessons
 
+## 2026-07-29 — Keep artifact discovery inside the requested project scope
+
+- When the repository already contains representative artifacts, do not broaden `find` into the
+  user's home directory or unrelated folders. Search the workspace first and ask before inspecting
+  anything outside it, even for read-only sizing work.
+
 ## 2026-07-28 — Do not leave a visible browser idle after automation stalls
 
 - If an in-app browser probe times out or loses the game state, close the visible tab immediately
