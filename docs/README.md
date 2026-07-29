@@ -35,6 +35,12 @@ This folder holds repo-specific notes for future maintenance, not player-facing 
 
 Repo-root files should be maintained entrypoints, project config, or committed fixtures with active consumers; one-off generated analysis output belongs under a named artifacts folder or outside the repo.
 
+## Forward-Looking Plans (`.plans/`)
+
+Design work that has not been implemented yet lives in `.plans/`, not here.
+
+- [`../.plans/replay-upload-backend-status.md`](../.plans/replay-upload-backend-status.md) — map of the Cloudflare replay/diagnostics upload design across its three plan documents: what is already built, what is still paper, the unresolved D1-vs-KV scope conflict, and the branch/PR sweep behind those conclusions.
+
 ## Historical Analysis
 
 - [`spawn-commander-analysis.md`](./spawn-commander-analysis.md) — benchmark comparison of old and new spawn systems.
