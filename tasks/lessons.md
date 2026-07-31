@@ -8,6 +8,9 @@
   identical failures at the same lines across clean browser workers mean deterministic timing budgets,
   not poisoned renderer state. Scale CI-only test, assertion, and animation budgets together while
   preserving strict local timeouts; retries merely triple the funeral procession.
+- If a few comprehensive multi-lifecycle scenarios still consume the enlarged whole-test budget while
+  ordinary cases pass, mark those scenarios `test.slow()` explicitly. That preserves tight defaults and
+  documents intentional marathon coverage instead of making every typo wait several minutes to fail.
 
 ## 2026-07-31 — Test orchestration at the consumer boundary
 

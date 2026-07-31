@@ -120,6 +120,7 @@ test.describe("Graphics editor", () => {
   });
 
   test("shows the generated startup sprite atlas beside the live editor preview", async ({ page }) => {
+    test.slow();
     await page.goto("/dubai-missile-command/editor.html");
 
     await expect(page.locator("canvas.editor-canvas").first()).toBeVisible();

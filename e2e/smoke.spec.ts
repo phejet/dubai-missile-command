@@ -174,6 +174,7 @@ test.describe("Smoke tests", () => {
   });
 
   test("opens run recap from game over", async ({ page }) => {
+    test.slow();
     await startGameFromScreen(page);
     await forceGameOver(page);
 
@@ -311,6 +312,7 @@ test.describe("Smoke tests", () => {
   });
 
   test("releases gameplay resources while preserving the primary renderer", async ({ page }) => {
+    test.slow();
     const pageErrors: string[] = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
 
