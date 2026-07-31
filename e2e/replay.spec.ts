@@ -1,6 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
 import type { ReplayData } from "../src/types";
 
+const timingBudget = (milliseconds: number) => milliseconds * (process.env.CI ? 3 : 1);
+
 declare global {
   interface Window {
     __gameRef?: import("react").MutableRefObject<import("../src/types").GameState | null>;
@@ -173,14 +175,14 @@ test.describe("Replay", () => {
       g.interceptors = [];
     });
 
-    await expect(page.locator(".bonus-screen")).toBeVisible({ timeout: 3000 });
+    await expect(page.locator(".bonus-screen")).toBeVisible({ timeout: timingBudget(3000) });
     await page.waitForFunction(
       () => {
         const g = window.__gameRef?.current;
         return g?.state === "playing" && g.wave >= 2 && !document.querySelector(".bonus-screen");
       },
       undefined,
-      { timeout: 7000 },
+      { timeout: timingBudget(7000) },
     );
 
     expect(await page.evaluate(() => window.__gameRef?.current?.wave)).toBe(2);

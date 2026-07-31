@@ -1,11 +1,13 @@
 # Lessons
 
-## 2026-07-31 — Parallel browser failures can be a harness-capacity defect
+## 2026-07-31 — Separate CI contention from exhausted timing budgets
 
 - When unrelated graphics-editor, replay-timing, and gameplay tests time out together only on a
   two-core CI runner—and the same full suite passes with higher local parallelism—inspect recent run
-  history before tuning individual timeouts. A rotating set of failures at animation/mount boundaries
-  is resource starvation; serialize the GPU-heavy CI suite while preserving local parallelism.
+  history before tuning individual timeouts. Serialize GPU-heavy CI work first, then inspect retries:
+  identical failures at the same lines across clean browser workers mean deterministic timing budgets,
+  not poisoned renderer state. Scale CI-only test, assertion, and animation budgets together while
+  preserving strict local timeouts; retries merely triple the funeral procession.
 
 ## 2026-07-31 — Test orchestration at the consumer boundary
 

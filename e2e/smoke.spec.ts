@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 
+const timingBudget = (milliseconds: number) => milliseconds * (process.env.CI ? 3 : 1);
+
 declare global {
   interface Window {
     __gameRef?: import("react").MutableRefObject<import("../src/types").GameState | null>;
@@ -29,7 +31,7 @@ async function startGameFromScreen(page: import("@playwright/test").Page) {
     await clickCanvasAt(page, 0.5, 0.35);
   }
 
-  await page.waitForFunction(() => window.__gameRef?.current != null, undefined, { timeout: 5000 });
+  await page.waitForFunction(() => window.__gameRef?.current != null, undefined, { timeout: timingBudget(5000) });
 }
 
 async function forceGameOver(page: import("@playwright/test").Page) {
@@ -38,7 +40,9 @@ async function forceGameOver(page: import("@playwright/test").Page) {
     game.burjAlive = false;
     game.burjHealth = 0;
   });
-  await expect(page.locator("#game-shell")).toHaveAttribute("data-screen", "gameover", { timeout: 10000 });
+  await expect(page.locator("#game-shell")).toHaveAttribute("data-screen", "gameover", {
+    timeout: timingBudget(10000),
+  });
 }
 
 test.describe("Smoke tests", () => {
@@ -100,7 +104,7 @@ test.describe("Smoke tests", () => {
         return g.interceptors.length > 0 || g.stats.shotsFired > 0;
       },
       undefined,
-      { timeout: 3000 },
+      { timeout: timingBudget(3000) },
     );
 
     const stats = await page.evaluate(() => {
@@ -159,7 +163,7 @@ test.describe("Smoke tests", () => {
         return g.missiles.length > 0 || g.drones.length > 0;
       },
       undefined,
-      { timeout: 10000 },
+      { timeout: timingBudget(10000) },
     );
 
     const threats = await page.evaluate(() => {
@@ -185,7 +189,7 @@ test.describe("Smoke tests", () => {
       screenH: expect.any(Number),
     });
 
-    await expect(page.getByRole("button", { name: /run recap/i })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole("button", { name: /run recap/i })).toBeVisible({ timeout: timingBudget(10000) });
     await expect(page.locator("#go-score")).toBeVisible();
     await expect(page.locator("#go-wave")).toBeVisible();
     await expect(page.locator("#go-hit-ratio")).toBeVisible();
@@ -237,7 +241,7 @@ test.describe("Smoke tests", () => {
     await expect(page.locator("#game-shell")).toHaveAttribute("data-screen", "playing");
     await expect(page.locator("#game-canvas")).toHaveAttribute("data-pixi-context", "active");
     await expect(page.locator("#game-canvas")).toHaveAttribute("data-pixi-gameplay-static", "ready");
-    await expect(page.locator("#run-recap-panel")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("#run-recap-panel")).toBeVisible({ timeout: timingBudget(10000) });
     await expect(page.locator("#game-shell")).toHaveAttribute("data-screen", "gameover");
     const firstReplayGeneration = await page.locator("#game-canvas").getAttribute("data-pixi-gameplay-generation");
     expect(firstReplayGeneration).toBeTruthy();
@@ -267,7 +271,7 @@ test.describe("Smoke tests", () => {
     await page.locator("#option-infinite-replay").click();
     await expect(page.locator("#option-infinite-replay-meta")).toHaveText("On");
     await expect(page.locator("#replay-player")).toHaveAttribute("data-playback-number", /(?:[2-9]|[1-9]\d+)/, {
-      timeout: 10000,
+      timeout: timingBudget(10000),
     });
     await expect(page.locator("#replay-player-status")).not.toContainText("Replay");
     await page.evaluate(() => {
@@ -278,7 +282,7 @@ test.describe("Smoke tests", () => {
     await expect(page.locator("#active-button")).toBeVisible();
     await expect(page.locator("#active-label")).toHaveText("Counter-Salvo");
     await page.getByRole("button", { name: /stop replay/i }).click();
-    await expect(page.locator("#run-recap-panel")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("#run-recap-panel")).toBeVisible({ timeout: timingBudget(10000) });
     await expect(page.locator("#game-shell")).toHaveAttribute("data-screen", "gameover");
     await expect(page.locator("#replay-player")).toBeHidden();
     await page.getByRole("button", { name: /^back$/i }).click();
@@ -295,7 +299,9 @@ test.describe("Smoke tests", () => {
     await startGameFromScreen(page);
     await forceGameOver(page);
 
-    await expect(page.locator("#gameover-panel .run-recap__death-canvas")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("#gameover-panel .run-recap__death-canvas")).toBeVisible({
+      timeout: timingBudget(10000),
+    });
     const archivedCompletion = await page.evaluate(() => {
       const lines = JSON.parse(localStorage.getItem("dmc.diag.ring.v1") ?? "[]") as string[];
       return lines.find((line) => line.includes('"channel":"replay-archive"') && line.includes('"event":"complete"'));
@@ -310,7 +316,9 @@ test.describe("Smoke tests", () => {
 
     const endRun = async () => {
       await forceGameOver(page);
-      await expect(page.locator("#gameover-panel .run-recap__death-canvas")).toBeVisible({ timeout: 10000 });
+      await expect(page.locator("#gameover-panel .run-recap__death-canvas")).toBeVisible({
+        timeout: timingBudget(10000),
+      });
       await expect(page.locator("#game-canvas")).toHaveAttribute("data-pixi-context", "active");
       await expect(page.locator("#game-canvas")).toHaveAttribute("data-pixi-gameplay-static", "released");
     };
@@ -336,7 +344,7 @@ test.describe("Smoke tests", () => {
             const checkpoint = window.__gameRef?.current?._replayCheckpoints?.find((entry) => entry.tick >= 60);
             return typeof checkpoint?.diagnostics.rngState === "number";
           }),
-        { timeout: 5000 },
+        { timeout: timingBudget(5000) },
       )
       .toBe(true);
     expect(pageErrors).toEqual([]);

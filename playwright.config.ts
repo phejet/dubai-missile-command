@@ -1,16 +1,15 @@
 import { defineConfig } from "@playwright/test";
 
+const isCI = Boolean(process.env.CI);
+
 export default defineConfig({
   testDir: "./e2e",
-  timeout: 30000,
+  timeout: isCI ? 90000 : 30000,
+  expect: { timeout: isCI ? 15000 : 5000 },
   // Pixi gameplay and the graphics editor are both GPU/CPU-heavy. GitHub's
   // two-core hosted runners chronically starve concurrent browser contexts,
   // producing unrelated animation and mount timeouts across different specs.
-  workers: process.env.CI ? 1 : undefined,
-  // A failed test can leave Chromium's software renderer degraded even after
-  // Playwright closes its context. CI retries replace the entire worker/browser,
-  // giving renderer-dependent checks a clean process without weakening timeouts.
-  retries: process.env.CI ? 2 : 0,
+  workers: isCI ? 1 : undefined,
   use: {
     baseURL: "http://127.0.0.1:4173",
     // Sandboxed environments provide a pinned Chromium here; without the
@@ -20,7 +19,7 @@ export default defineConfig({
   webServer: {
     command: "npm run build && npm run preview -- --host 127.0.0.1 --port 4173",
     port: 4173,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: !isCI,
   },
   projects: [
     {
