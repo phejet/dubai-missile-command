@@ -1,5 +1,12 @@
 # Lessons
 
+## 2026-07-31 — Parallel browser failures can be a harness-capacity defect
+
+- When unrelated graphics-editor, replay-timing, and gameplay tests time out together only on a
+  two-core CI runner—and the same full suite passes with higher local parallelism—inspect recent run
+  history before tuning individual timeouts. A rotating set of failures at animation/mount boundaries
+  is resource starvation; serialize the GPU-heavy CI suite while preserving local parallelism.
+
 ## 2026-07-31 — Test orchestration at the consumer boundary
 
 - A tested gate primitive does not prove its callers actually use it. For persistence-before-playback

@@ -3,6 +3,10 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   timeout: 30000,
+  // Pixi gameplay and the graphics editor are both GPU/CPU-heavy. GitHub's
+  // two-core hosted runners chronically starve concurrent browser contexts,
+  // producing unrelated animation and mount timeouts across different specs.
+  workers: process.env.CI ? 1 : undefined,
   use: {
     baseURL: "http://127.0.0.1:4173",
     // Sandboxed environments provide a pinned Chromium here; without the
