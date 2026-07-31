@@ -921,6 +921,16 @@ export interface ReplayStopCondition {
   wave?: number;
 }
 
+export interface ReplayEnvironment {
+  platform: string;
+  native: boolean;
+  ua: string;
+  dpr: number;
+  screenW: number;
+  screenH: number;
+  deviceModel?: string;
+}
+
 export interface ReplayData {
   seed: number;
   actions: ReplayAction[];
@@ -933,6 +943,7 @@ export interface ReplayData {
   score?: number;
   _buildId?: string;
   _savedAt?: string;
+  _env?: ReplayEnvironment;
   version: number;
   checkpoints?: ReplayCheckpoint[];
   finalTick?: number;

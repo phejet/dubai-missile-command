@@ -37,6 +37,15 @@ function deriveReplayId(data: Record<string, unknown>): string | null {
     .digest("hex");
 }
 
+export function backfillReplayProvenance(
+  data: Record<string, unknown>,
+  buildId: string,
+  savedAt = new Date().toISOString(),
+): void {
+  data["_buildId"] ??= buildId;
+  data["_savedAt"] ??= savedAt;
+}
+
 export default function replayPlugin(): Plugin {
   const buildId = getBuildId();
   const replayDir = join(process.cwd(), "replays");
@@ -55,8 +64,7 @@ export default function replayPlugin(): Plugin {
         req.on("end", () => {
           try {
             const data = JSON.parse(body) as Record<string, unknown>;
-            data["_buildId"] = buildId;
-            data["_savedAt"] = new Date().toISOString();
+            backfillReplayProvenance(data, buildId);
             const replayId = deriveReplayId(data);
             if (replayId) {
               data["replayId"] = replayId;

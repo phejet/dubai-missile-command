@@ -1,5 +1,18 @@
 # Lessons
 
+## 2026-07-31 — Test orchestration at the consumer boundary
+
+- A tested gate primitive does not prove its callers actually use it. For persistence-before-playback
+  work, integration tests must invoke every playback callback with a deferred persistence promise and
+  assert the replay entrypoint stays untouched until success, failure, or timeout settles the gate.
+- Pending UI copy must describe the current state from its first frame. A neutral delay should render
+  nothing neutral, not briefly claim readiness before admitting that work is still in progress.
+- Never derive an output path from an archive or diagnostic identifier until the identifier passes a
+  strict allowlist, even when the current producer is trusted; recovery tools inevitably become ingest
+  tools for artifacts from other machines.
+- Report fields need distinct observable meanings. Do not publish an “initialized” count when the tool
+  performs structural validation but never initializes the artifact.
+
 ## 2026-07-29 — Keep artifact discovery inside the requested project scope
 
 - When the repository already contains representative artifacts, do not broaden `find` into the

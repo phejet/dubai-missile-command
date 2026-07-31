@@ -27,6 +27,8 @@ export interface DiagFsAdapter {
 export interface DiagnosticsStore {
   /** Synchronous enqueue; never throws. flushNow forces an immediate write. */
   append(line: string, flushNow: boolean): void;
+  /** Appends a non-interleaved record batch and rejects if any record fails to land. */
+  appendBatch(lines: string[]): Promise<void>;
   flush(): Promise<void>;
   /** Newest chunks first within the byte budget, concatenated chronologically. */
   exportConcatenated(maxBytes?: number): Promise<string>;
@@ -150,6 +152,29 @@ export function createDiagnosticsStore(fs: DiagFsAdapter): DiagnosticsStore {
       } catch {
         // Never throw into game code.
       }
+    },
+
+    appendBatch(lines) {
+      if (lines.length === 0) return Promise.resolve();
+      clearFlushTimer();
+      const queued = pending;
+      const queuedBytes = pendingBytes;
+      pending = [];
+      pendingBytes = 0;
+      if (queued.length > 0) enqueue(() => writeBatch(queued, queuedBytes));
+      return run(async () => {
+        await ensureDir();
+        for (const line of lines) {
+          const bytes = line.length + 1;
+          if (currentChunkBytes > 0 && currentChunkBytes + bytes > CHUNK_MAX_BYTES) {
+            seq += 1;
+            currentChunkBytes = 0;
+            await pruneNow();
+          }
+          await fs.appendFile(`${DIAG_DIR}/${chunkName()}`, `${line}\n`);
+          currentChunkBytes += bytes;
+        }
+      });
     },
 
     flush,

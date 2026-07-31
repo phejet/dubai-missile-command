@@ -15,10 +15,18 @@ import { Capacitor } from "@capacitor/core";
 import { Directory, Encoding, Filesystem } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
 import { clientLog, registerClientLogSink, type ClientLogEntry } from "./client-log";
-import { createCapacitorFsAdapter, createDiagnosticsStore, type DiagnosticsStore } from "./diagnostics-store";
+import {
+  CHUNK_MAX_BYTES,
+  createCapacitorFsAdapter,
+  createDiagnosticsStore,
+  EXPORT_MAX_BYTES,
+  type DiagnosticsStore,
+} from "./diagnostics-store";
 import { ringClear, ringPush, ringReadAll } from "./diagnostics-ring";
 import { startMemorySampling, stopMemorySampling } from "./memory-probe";
+import { buildReplayArchiveRecords } from "./replay-archive";
 import { triggerWebDownload } from "./save-replay";
+import type { ReplayData } from "./types";
 
 const ENABLED_KEY = "dmc.diag.enabled.v1";
 const SESSION_KEY = "dmc.diag.session.v1";
@@ -42,6 +50,7 @@ const CRITICAL_EVENTS = new Set([
 ]);
 
 const BUILD_ID = typeof __DMC_BUILD_ID__ !== "undefined" ? __DMC_BUILD_ID__ : "dev";
+export const REPLAY_ARCHIVE_MAX_BYTES = EXPORT_MAX_BYTES - 2 * CHUNK_MAX_BYTES;
 
 interface SessionMarker {
   bootId: string;
@@ -55,6 +64,7 @@ let enabled = false;
 let sessionStarted = false;
 let sessionStartedAt = 0;
 let seq = 0;
+let archiveOrdinal = 0;
 let store: DiagnosticsStore | null = null;
 let createStore: () => DiagnosticsStore = () => createDiagnosticsStore(createCapacitorFsAdapter());
 
@@ -146,6 +156,10 @@ function beginSession(): void {
 
   startMemorySampling();
   clientLog("session", "session-start", sessionStartMeta());
+  clientLog("diag", "capabilities", {
+    compressionStream: typeof CompressionStream !== "undefined",
+    cryptoSubtle: typeof crypto !== "undefined" && !!crypto.subtle,
+  });
   if (prev && !prev.clean) {
     clientLog("session", "unclean-shutdown", {
       prevBootId: prev.bootId,
@@ -214,6 +228,88 @@ export function getBootId(): string {
 
 export function getDiagnosticsBuildId(): string {
   return BUILD_ID;
+}
+
+export type ArchiveReplayResult =
+  | { ok: true; archiveId: string }
+  | { ok: false; archiveId: string; stage: string; error: unknown };
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** Returns null synchronously when diagnostics is disabled. */
+export function archiveReplay(replay: ReplayData): Promise<ArchiveReplayResult> | null {
+  if (!enabled) return null;
+  const ordinal = archiveOrdinal++;
+  const fallbackArchiveId = `${bootId}-a${ordinal}`;
+
+  return (async (): Promise<ArchiveReplayResult> => {
+    const built = await buildReplayArchiveRecords(replay, { build: BUILD_ID, fallbackArchiveId });
+    if (!built.ok) {
+      const line = JSON.stringify({
+        seq: seq++,
+        boot: bootId,
+        t: Date.now(),
+        channel: "replay-archive",
+        event: "error",
+        archiveId: fallbackArchiveId,
+        stage: built.stage,
+        message: errorMessage(built.error),
+      });
+      getStore().append(line, true);
+      return { ok: false, archiveId: fallbackArchiveId, stage: built.stage, error: built.error };
+    }
+
+    const firstSeq = seq;
+    const lines = built.records.map((record, index) =>
+      JSON.stringify({ seq: firstSeq + index, boot: bootId, t: Date.now(), ...record }),
+    );
+    const totalBytes = lines.reduce((sum, line) => sum + new TextEncoder().encode(`${line}\n`).byteLength, 0);
+    if (totalBytes > REPLAY_ARCHIVE_MAX_BYTES) {
+      const error = new Error(`archive batch is ${totalBytes} bytes; limit is ${REPLAY_ARCHIVE_MAX_BYTES}`);
+      const line = JSON.stringify({
+        seq: seq++,
+        boot: bootId,
+        t: Date.now(),
+        channel: "replay-archive",
+        event: "error",
+        archiveId: built.archiveId,
+        stage: "size",
+        message: error.message,
+      });
+      getStore().append(line, true);
+      return { ok: false, archiveId: built.archiveId, stage: "size", error };
+    }
+
+    seq += lines.length;
+    try {
+      await getStore().appendBatch(lines);
+      const completionLine = lines[lines.length - 1];
+      ringPush(completionLine);
+      return { ok: true, archiveId: built.archiveId };
+    } catch (error) {
+      const line = JSON.stringify({
+        seq: seq++,
+        boot: bootId,
+        t: Date.now(),
+        channel: "replay-archive",
+        event: "error",
+        archiveId: built.archiveId,
+        stage: "flush",
+        message: errorMessage(error),
+      });
+      getStore().append(line, true);
+      return { ok: false, archiveId: built.archiveId, stage: "flush", error };
+    }
+  })().catch(
+    (error): ArchiveReplayResult => ({
+      ok: false,
+      archiveId: fallbackArchiveId,
+      stage: "unknown",
+      error,
+    }),
+  );
 }
 
 export type ShareDiagnosticsResult = { ok: true } | { ok: false; error: unknown };

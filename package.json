@@ -22,6 +22,7 @@
     "preview": "vite preview",
     "perf:smoke": "node scripts/perf-smoke.mjs",
     "replay:verify": "npx tsx src/headless/validate-replay.ts",
+    "diag:extract": "npx tsx scripts/extract-diagnostic-replays.ts",
     "qa:pixi-phase6": "node scripts/capture-pixi-phase6.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",

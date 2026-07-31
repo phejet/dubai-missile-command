@@ -64,14 +64,18 @@ import { mountRunRecapDeathClip } from "./run-recap-death-clip";
 import { handleRunRecapReplayEvent } from "./run-recap-replay-events";
 import { buildRunRecapData } from "./run-recap";
 import { saveReplayToFile } from "./save-replay";
+import { stampReplayProvenance } from "./replay-provenance";
+import { createReplayArchiveGate, REPLAY_ARCHIVE_PREPARING_DELAY_MS } from "./replay-archive-gate";
 import { clientLog } from "./client-log";
 import { getMemorySample } from "./memory-probe";
 import {
   clearDiagnostics,
+  archiveReplay,
   getDiagnosticsBuildId,
   isDiagnosticsEnabled,
   setDiagnosticsEnabled,
   shareDiagnostics,
+  type ArchiveReplayResult,
 } from "./diagnostics-log";
 import type {
   GameState,
@@ -120,6 +124,12 @@ declare global {
 
 const REPLAY_CHECKPOINT_INTERVAL = 60;
 const HUD_REFRESH_MS = 120;
+
+interface ReplayArchiveHandle {
+  replay: ReplayData;
+  persistence: Promise<ArchiveReplayResult>;
+  gate: Promise<void>;
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
@@ -465,6 +475,7 @@ export class Game {
   private finalWave = 1;
   private finalStats = createEmptyGameStats();
   private lastReplay: ReplayData | null = null;
+  private replayArchive: ReplayArchiveHandle | null = null;
   private replayInitialState: ReplayInitialState = {
     metaProgression: { version: 1, completedObjectives: [] },
     forcedUpgradeFamilies: [],
@@ -664,12 +675,59 @@ export class Game {
 
   private mountGameOverDeathClip(): void {
     this.stopDeathClip();
-    if (!this.lastReplay) {
+    const replay = this.lastReplay;
+    if (!replay) {
       this.gameoverDeathClipStage.innerHTML = `<span>No death replay recorded.</span>`;
       return;
     }
-    this.deathClipCleanup = mountRunRecapDeathClip(this.gameoverDeathClipStage, this.lastReplay, {
-      anchor: this.findReplayAnchorForDeathClip(this.lastReplay),
+    const handle = this.replayArchive?.replay === replay ? this.replayArchive : null;
+    if (!handle) {
+      this.mountGameOverDeathClipNow(replay);
+      return;
+    }
+
+    let current = true;
+    this.gameoverDeathClipStage.replaceChildren();
+    const preparingTimer = window.setTimeout(() => {
+      if (current && this.isCurrentGameOverReplay(handle, replay)) {
+        this.gameoverDeathClipStage.innerHTML = `<span>Preparing saved replay…</span>`;
+      }
+    }, REPLAY_ARCHIVE_PREPARING_DELAY_MS);
+    this.deathClipCleanup = () => {
+      current = false;
+      clearTimeout(preparingTimer);
+    };
+    void handle.gate.then(() => {
+      clearTimeout(preparingTimer);
+      if (!current || !this.isCurrentGameOverReplay(handle, replay)) return;
+      this.deathClipCleanup = null;
+      if (this.replayArchive === handle) this.replayArchive = null;
+      this.mountGameOverDeathClipNow(replay);
+    });
+  }
+
+  private mountGameOverDeathClipNow(replay: ReplayData): void {
+    this.deathClipCleanup = mountRunRecapDeathClip(this.gameoverDeathClipStage, replay, {
+      anchor: this.findReplayAnchorForDeathClip(replay),
+    });
+  }
+
+  private isCurrentGameOverReplay(handle: ReplayArchiveHandle, replay: ReplayData): boolean {
+    return (
+      this.replayArchive === handle &&
+      this.lastReplay === replay &&
+      this.screen === "gameover" &&
+      !this.runRecapOpen &&
+      !this.progressionOpen &&
+      !this.gameoverPanel.hidden
+    );
+  }
+
+  private awaitReplayArchive(replay: ReplayData): Promise<void> | null {
+    const handle = this.replayArchive;
+    if (!handle || handle.replay !== replay) return null;
+    return handle.gate.then(() => {
+      if (this.replayArchive === handle) this.replayArchive = null;
     });
   }
 
@@ -892,6 +950,7 @@ export class Game {
     setRng(mulberry32(seed));
     this.replayAnchors = [];
     this.lastReplay = null;
+    this.replayArchive = null;
     this.lastRunRecapData = null;
     window.__lastReplay = null;
     this.gameRef.current = simInitGame();
@@ -1433,27 +1492,32 @@ export class Game {
             reason: "gameover",
             tickOverride: (game._replayTick ?? 0) + 1,
           });
-          const replay: ReplayData = {
-            version: CURRENT_REPLAY_VERSION,
-            seed: game._gameSeed ?? 0,
-            actions: game._actionLog as ReplayData["actions"],
-            initialState: {
-              metaProgression: {
-                version: this.replayInitialState.metaProgression.version,
-                completedObjectives: [...this.replayInitialState.metaProgression.completedObjectives],
+          const replay = stampReplayProvenance(
+            {
+              version: CURRENT_REPLAY_VERSION,
+              seed: game._gameSeed ?? 0,
+              actions: game._actionLog as ReplayData["actions"],
+              initialState: {
+                metaProgression: {
+                  version: this.replayInitialState.metaProgression.version,
+                  completedObjectives: [...this.replayInitialState.metaProgression.completedObjectives],
+                },
+                forcedUpgradeFamilies: [...this.replayInitialState.forcedUpgradeFamilies],
+                burjHealth: this.replayInitialState.burjHealth,
               },
-              forcedUpgradeFamilies: [...this.replayInitialState.forcedUpgradeFamilies],
-              burjHealth: this.replayInitialState.burjHealth,
+              checkpoints: game._replayCheckpoints || [],
+              finalTick: (game._replayTick ?? 0) + 1,
+              isHuman: true,
+              draftMode: game._draftMode !== false,
+              score: data.score,
+              wave: data.wave,
             },
-            checkpoints: game._replayCheckpoints || [],
-            finalTick: (game._replayTick ?? 0) + 1,
-            isHuman: true,
-            draftMode: game._draftMode !== false,
-            score: data.score,
-            wave: data.wave,
-          };
+            getDiagnosticsBuildId(),
+          );
           this.lastReplay = replay;
           window.__lastReplay = replay;
+          const persistence = archiveReplay(replay);
+          this.replayArchive = persistence ? { replay, persistence, gate: createReplayArchiveGate(persistence) } : null;
           fetch("/api/save-replay", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1591,22 +1655,36 @@ export class Game {
     uiShowRunRecap(recapData, {
       onClose: () => this.closeRunRecap(),
       onWatchFullReplay: () => {
-        if (this.lastReplay) {
-          this.runRecapOpen = false;
-          this.stopDeathClip();
-          uiHideRunRecap();
-          this.battlefieldCard.hidden = false;
-          void this.startReplay(this.lastReplay, { returnToRecap: true });
+        const replay = this.lastReplay;
+        if (replay) {
+          const start = () => {
+            if (this.lastReplay !== replay || this.screen !== "gameover" || !this.runRecapOpen) return;
+            this.runRecapOpen = false;
+            this.stopDeathClip();
+            uiHideRunRecap();
+            this.battlefieldCard.hidden = false;
+            void this.startReplay(replay, { returnToRecap: true });
+          };
+          const gate = this.awaitReplayArchive(replay);
+          if (gate) void gate.then(start);
+          else start();
         }
       },
       onWatchFromWave: (startTick) => {
-        if (this.lastReplay) {
-          this.runRecapOpen = false;
-          this.stopDeathClip();
-          uiHideRunRecap();
-          this.runRecapPanel.hidden = true;
-          this.battlefieldCard.hidden = false;
-          void this.startReplay(this.lastReplay, { seekToTick: startTick, returnToRecap: true });
+        const replay = this.lastReplay;
+        if (replay) {
+          const start = () => {
+            if (this.lastReplay !== replay || this.screen !== "gameover" || !this.runRecapOpen) return;
+            this.runRecapOpen = false;
+            this.stopDeathClip();
+            uiHideRunRecap();
+            this.runRecapPanel.hidden = true;
+            this.battlefieldCard.hidden = false;
+            void this.startReplay(replay, { seekToTick: startTick, returnToRecap: true });
+          };
+          const gate = this.awaitReplayArchive(replay);
+          if (gate) void gate.then(start);
+          else start();
         }
       },
       onSaveReplay: async () => {

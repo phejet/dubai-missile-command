@@ -207,4 +207,55 @@ describe("diagnostics store", () => {
     expect(fs.files.get(chunkPath(T0, 0))).toBe('{"kept":2}\n');
     expect(warn).toHaveBeenCalled();
   });
+
+  it("observes a non-interleaved batch while preserving global order", async () => {
+    const fs = createFakeFs();
+    const store = createDiagnosticsStore(fs);
+    store.startSession(T0);
+    store.append("before", false);
+    const batch = store.appendBatch(["part-0", "part-1"]);
+    store.append("after", true);
+    await batch;
+    await store.flush();
+
+    const output = [...fs.files.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([, contents]) => contents)
+      .join("");
+    expect(output).toBe("before\npart-0\npart-1\nafter\n");
+  });
+
+  it("rejects a failed observed batch and keeps the shared chain usable", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fs = createFakeFs();
+    let failNext = true;
+    const baseAppend = fs.appendFile.bind(fs);
+    fs.appendFile = async (path, data) => {
+      if (failNext) {
+        failNext = false;
+        throw new Error("disk full");
+      }
+      await baseAppend(path, data);
+    };
+    const store = createDiagnosticsStore(fs);
+    store.startSession(T0);
+
+    await expect(store.appendBatch(["lost"])).rejects.toThrow("disk full");
+    store.append("kept", true);
+    await store.flush();
+    expect(fs.files.get(chunkPath(T0, 0))).toBe("kept\n");
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it("rotates an observed batch only between records", async () => {
+    const fs = createFakeFs();
+    const store = createDiagnosticsStore(fs);
+    store.startSession(T0);
+    const first = "a".repeat(Math.ceil(CHUNK_MAX_BYTES * 0.6));
+    const second = "b".repeat(Math.ceil(CHUNK_MAX_BYTES * 0.6));
+    await store.appendBatch([first, second]);
+
+    expect(fs.files.get(chunkPath(T0, 0))).toBe(`${first}\n`);
+    expect(fs.files.get(chunkPath(T0, 1))).toBe(`${second}\n`);
+  });
 });

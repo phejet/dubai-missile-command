@@ -5,8 +5,10 @@ import type { DiagnosticsStore } from "./diagnostics-store";
 
 interface FakeStore extends DiagnosticsStore {
   appends: { line: string; flushNow: boolean }[];
+  batches: string[][];
   sessions: number[];
   cleared: number;
+  batchImpl?: (lines: string[]) => Promise<void>;
 }
 
 function createFakeStore(): FakeStore {
@@ -14,10 +16,16 @@ function createFakeStore(): FakeStore {
   const sessions: number[] = [];
   return {
     appends,
+    batches: [],
     sessions,
     cleared: 0,
     append(line, flushNow) {
       appends.push({ line, flushNow });
+    },
+    async appendBatch(lines) {
+      this.batches.push(lines);
+      if (this.batchImpl) return this.batchImpl(lines);
+      for (const line of lines) appends.push({ line, flushNow: true });
     },
     flush: async () => {},
     exportConcatenated: async () => appends.map((a) => a.line).join("\n"),
@@ -48,6 +56,7 @@ describe("diagnostics log orchestrator", () => {
 
   beforeEach(() => {
     storage = new Map<string, string>();
+    vi.stubGlobal("CompressionStream", undefined);
     vi.stubGlobal("localStorage", {
       getItem: (key: string) => storage.get(key) ?? null,
       setItem: (key: string, value: string) => storage.set(key, value),
@@ -155,14 +164,15 @@ describe("diagnostics log orchestrator", () => {
 
     const events = parsed(store);
     expect(events[0]).toMatchObject({ channel: "session", event: "session-start" });
-    expect(events[1]).toMatchObject({
+    expect(events[1]).toMatchObject({ channel: "diag", event: "capabilities" });
+    expect(events[2]).toMatchObject({
       channel: "session",
       event: "unclean-shutdown",
       prevBootId: "prev-boot",
       prevStartedAt: 123,
       recoveredCount: 1,
     });
-    expect(events[2]).toMatchObject({ boot: "prev-boot", channel: "death-clip", event: "replay-click" });
+    expect(events[3]).toMatchObject({ boot: "prev-boot", channel: "death-clip", event: "replay-click" });
 
     // The recovered old-boot line is cleared from the ring; only fresh-boot
     // critical events (which may reference prevBootId in their data) remain.
@@ -207,7 +217,7 @@ describe("diagnostics log orchestrator", () => {
     clientLog("game", "start-request", {});
     clientLog("screen", "change", {});
     const events = parsed(store);
-    expect(events.map((e) => e.seq)).toEqual([0, 1, 2]);
+    expect(events.map((e) => e.seq)).toEqual([0, 1, 2, 3]);
     expect(new Set(events.map((e) => e.boot))).toEqual(new Set([getBootId()]));
   });
 
@@ -223,5 +233,118 @@ describe("diagnostics log orchestrator", () => {
     const events = parsed(store);
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({ channel: "session", event: "session-start", afterClear: true });
+  });
+
+  it("emits capabilities once when a diagnostics session begins", async () => {
+    storage.set("dmc.diag.enabled.v1", "1");
+    const store = createFakeStore();
+    const { initDiagnostics, setDiagnosticsEnabled } = await importFresh();
+    initDiagnostics({ store });
+    setDiagnosticsEnabled(false);
+    setDiagnosticsEnabled(true);
+
+    expect(parsed(store).filter((event) => event.channel === "diag" && event.event === "capabilities")).toHaveLength(1);
+  });
+
+  it("returns null synchronously and writes nothing when disabled", async () => {
+    const store = createFakeStore();
+    const { initDiagnostics, archiveReplay } = await importFresh();
+    initDiagnostics({ store });
+    const before = store.appends.length;
+    expect(archiveReplay({ version: 11, seed: 1, actions: [] })).toBeNull();
+    expect(store.appends).toHaveLength(before);
+    expect(store.batches).toHaveLength(0);
+  });
+
+  it("persists an enveloped archive batch and mirrors only its exact completion line", async () => {
+    storage.set("dmc.diag.enabled.v1", "1");
+    const store = createFakeStore();
+    const { initDiagnostics, archiveReplay, getBootId } = await importFresh();
+    const ring = await import("./diagnostics-ring");
+    initDiagnostics({ store });
+    ring.ringClear();
+
+    const result = await archiveReplay({ version: 11, seed: 1, actions: [] });
+    expect(result).toMatchObject({ ok: true });
+    expect(store.batches).toHaveLength(1);
+    const records = store.batches[0].map((line) => JSON.parse(line) as Record<string, unknown>);
+    expect(records[0]).toMatchObject({ boot: getBootId(), channel: "replay-archive", event: "manifest" });
+    expect(records[0]).not.toHaveProperty("timestamp");
+    expect(records.map((record) => record.seq)).toEqual(records.map((_, index) => 2 + index));
+    expect(records.some((record) => record.event === "part")).toBe(true);
+
+    const ringLines = ring.ringReadAll();
+    expect(ringLines).toEqual([store.batches[0][store.batches[0].length - 1]]);
+    expect(ringLines[0]).toContain('"event":"complete"');
+    expect(ringLines[0]).not.toContain('"data"');
+  });
+
+  it("does not report success or mirror completion before the observed write lands", async () => {
+    storage.set("dmc.diag.enabled.v1", "1");
+    const store = createFakeStore();
+    let release!: () => void;
+    store.batchImpl = () =>
+      new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    const { initDiagnostics, archiveReplay } = await importFresh();
+    const ring = await import("./diagnostics-ring");
+    initDiagnostics({ store });
+    ring.ringClear();
+
+    const pending = archiveReplay({ version: 11, seed: 1, actions: [] })!;
+    await vi.waitFor(() => expect(store.batches).toHaveLength(1));
+    expect(ring.ringReadAll()).toEqual([]);
+    release();
+    await expect(pending).resolves.toMatchObject({ ok: true });
+    expect(ring.ringReadAll()).toHaveLength(1);
+  });
+
+  it("resolves a flush failure without mirroring completion", async () => {
+    storage.set("dmc.diag.enabled.v1", "1");
+    const store = createFakeStore();
+    store.batchImpl = async () => {
+      throw new Error("disk full");
+    };
+    const { initDiagnostics, archiveReplay } = await importFresh();
+    const ring = await import("./diagnostics-ring");
+    initDiagnostics({ store });
+    ring.ringClear();
+
+    await expect(archiveReplay({ version: 11, seed: 1, actions: [] })).resolves.toMatchObject({
+      ok: false,
+      stage: "flush",
+    });
+    expect(ring.ringReadAll()).toEqual([]);
+    const events = parsed(store);
+    expect(events[events.length - 1]).toMatchObject({ channel: "replay-archive", event: "error", stage: "flush" });
+  });
+
+  it("mints distinct fallback ids when hashing is unavailable", async () => {
+    storage.set("dmc.diag.enabled.v1", "1");
+    vi.stubGlobal("crypto", undefined);
+    const store = createFakeStore();
+    const { initDiagnostics, archiveReplay } = await importFresh();
+    initDiagnostics({ store });
+
+    const first = await archiveReplay({ version: 11, seed: 1, actions: [] });
+    const second = await archiveReplay({ version: 11, seed: 2, actions: [] });
+    expect(first?.archiveId).not.toBe(second?.archiveId);
+    expect(first?.archiveId).toMatch(/-a0$/);
+    expect(second?.archiveId).toMatch(/-a1$/);
+  });
+
+  it("rejects an oversized enveloped archive before writing any archive batch", async () => {
+    storage.set("dmc.diag.enabled.v1", "1");
+    vi.stubGlobal("crypto", undefined);
+    const store = createFakeStore();
+    const { initDiagnostics, archiveReplay } = await importFresh();
+    initDiagnostics({ store });
+
+    const result = await archiveReplay({ version: 11, seed: 1, actions: [], replayId: "x".repeat(6_300_000) });
+    expect(result).toMatchObject({ ok: false, stage: "size" });
+    expect(store.batches).toHaveLength(0);
+    const events = parsed(store);
+    expect(events[events.length - 1]).toMatchObject({ channel: "replay-archive", event: "error", stage: "size" });
   });
 });

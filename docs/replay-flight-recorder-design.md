@@ -1,6 +1,6 @@
 # Replay Flight Recorder Design
 
-Status: proposed.
+Status: implemented locally; target-iPhone capability, latency, and recovery validation pending.
 
 ## Objective
 
@@ -55,11 +55,11 @@ The diagnostics store already provides the required durable substrate:
 
 ## Measured Replay Size
 
-Measurements were taken from the 12 saved replay files matching
-`/Users/phejet/Downloads/dmc-*.json` on 2026-07-29.
+The pre-implementation baseline below was taken from 12 saved replay files on
+2026-07-29. It is retained as historical sizing evidence; target-iPhone v11
+size and archive-latency measurements remain part of the pre-merge device gate.
 
-The sample spans replay formats v4 through v10. The current format is v11, so the
-implementation should repeat this measurement with new v11 human runs.
+The sample spans replay formats v4 through v10. The current format is v11.
 
 | Measurement     | Raw JSON |    Gzip |
 | --------------- | -------: | ------: |
@@ -126,8 +126,12 @@ The archived copy must include:
 
 - `_buildId`;
 - `_savedAt`;
-- `replayId`;
+- `_env` (platform, native flag, user agent, DPR, and screen dimensions);
 - replay format `version`.
+
+`replayId` remains an optional human/perf-harness label inside `ReplayData` and is
+never repurposed for archive grouping. The archive protocol uses `archiveId`, derived
+from the raw-payload SHA-256 when available or from a boot-local ordinal otherwise.
 
 Replay playback depends on game-code behavior, and the current runner rejects replay
 versions other than the current version. A replay without its originating build is an
@@ -145,8 +149,8 @@ requires separating these two concepts in the diagnostics implementation:
 - flush immediately to `Directory.Data`;
 - mirror a small event into the emergency ring.
 
-Only the small archive manifest or completion marker may be ring-worthy. The base64
-payload parts are filesystem-only.
+Only the exact completion envelope is mirrored after the batch write succeeds. The
+manifest and base64 payload parts are filesystem-only.
 
 ## Archive Protocol
 
@@ -162,11 +166,12 @@ Use the standard diagnostics envelope (`seq`, `boot`, `t`) with a dedicated
   "t": 1784445000000,
   "channel": "replay-archive",
   "event": "manifest",
-  "replayId": "sha256-prefix",
+  "archiveId": "sha256-prefix",
   "build": "e1a2c53+e2d2b631",
   "replayVersion": 11,
   "compression": "gzip",
   "encoding": "base64",
+  "integrity": "sha256",
   "rawBytes": 594246,
   "compressedBytes": 41054,
   "partCount": 2,
@@ -183,7 +188,7 @@ Use the standard diagnostics envelope (`seq`, `boot`, `t`) with a dedicated
   "t": 1784445000001,
   "channel": "replay-archive",
   "event": "part",
-  "replayId": "sha256-prefix",
+  "archiveId": "sha256-prefix",
   "index": 0,
   "data": "H4sIA..."
 }
@@ -202,7 +207,8 @@ export tooling than one arbitrarily large JSON line.
   "t": 1784445000003,
   "channel": "replay-archive",
   "event": "complete",
-  "replayId": "sha256-prefix"
+  "archiveId": "sha256-prefix",
+  "partCount": 2
 }
 ```
 
@@ -210,7 +216,7 @@ An extractor accepts an archive only when:
 
 - exactly one manifest exists;
 - every index from zero through `partCount - 1` exists exactly once;
-- a completion marker exists;
+- exactly one completion marker exists and its `partCount` matches;
 - compressed and raw byte counts match;
 - the decoded raw payload matches `sha256`;
 - the decoded payload is valid `ReplayData`.
@@ -223,7 +229,7 @@ not presented as a playable replay.
 At game over:
 
 1. Assemble the canonical `ReplayData`.
-2. Assign replay provenance and a stable `replayId`.
+2. Stamp replay provenance on a shallow copy without changing `replayId`.
 3. Keep the object in `lastReplay` for immediate UI use.
 4. If Diagnostics is enabled:
    1. serialize the archived copy once;
@@ -232,7 +238,8 @@ At game over:
    4. base64-encode and split the compressed bytes;
    5. enqueue manifest, parts, and completion marker as one archive batch;
    6. explicitly await the diagnostics store flush.
-5. Only after successful flush, mount the death clip and enable full-replay controls.
+5. Gate death-clip and recap replay startup until persistence settles or a shared
+   five-second UI timeout expires. The persistence promise continues independently.
 
 The game-over result UI may appear while the archive is being written. Replay-driven
 controls should show a brief preparing state until the flush settles.
@@ -244,10 +251,11 @@ If compression or persistence fails:
 - do not claim the replay was archived;
 - do not let diagnostics failure trap the player on game over.
 
-The store should expose an archive-batch operation rather than routing large records
-through `clientLog`. The batch must share the store's existing ordered promise chain and
-perform one explicit flush. This preserves ordering without abusing the critical-event
-ring.
+The store exposes `appendBatch(lines)`, an observed, non-interleaved operation on the
+existing ordered promise chain. It rotates only between records and rejects its caller
+on adapter failure while leaving the shared chain usable. An enveloped archive above
+8 MB is rejected before any archive record is written. Only the exact, successfully
+persisted completion line is mirrored into the emergency ring.
 
 ## Read And Extraction Path
 
@@ -261,23 +269,25 @@ npx tsx scripts/extract-diagnostic-replays.ts dmc-diagnostics-....jsonl --out re
 The extractor must:
 
 1. parse JSONL one line at a time and tolerate malformed legacy recovery lines;
-2. group archive records by `replayId`;
+2. group archive records by `archiveId`;
 3. de-duplicate records by `(boot, seq)`;
 4. validate manifest, part sequence, sizes, hash, and replay schema;
 5. decode and decompress complete archives;
-6. preserve `_buildId`, `_savedAt`, and `replayId`;
+6. preserve `_buildId`, `_savedAt`, `_env`, and any existing `replayId`;
 7. report incomplete or corrupt archives without writing plausible-looking output.
 
 Suggested output:
 
 ```text
 recovered-replays/
-  e1a2c53+e2d2b631-w10-s104174-<replayId>.json
+  <build>-w<wave>-s<score>-<archiveId>.json
   extraction-report.json
 ```
 
-The report should list complete, incomplete, corrupt, duplicate, and unsupported-version
-archives.
+The report assigns each archive an explicit `playable`, `unverified`,
+`unsupported-version`, `incomplete`, `corrupt`, or `invalid` status. Hashless archives
+remain recoverable but are labelled `unverified`; unsupported versions are written as
+artifacts but are never counted as playable.
 
 ## Retention Impact
 
@@ -329,7 +339,7 @@ Expected production changes:
 - `src/game.ts`
   - archive the completed replay before mounting replay-driven game-over UI;
   - expose a bounded preparing/error state.
-- `src/replay-version.ts` / replay serialization helper
+- `src/replay-provenance.ts`
   - centralize provenance decoration without mutating the live replay.
 - `scripts/extract-diagnostic-replays.ts`
   - recover and validate embedded replays.
@@ -359,8 +369,8 @@ Expected tests:
 5. Large payload records never enter the emergency ring and never create malformed
    recovery lines.
 6. Diagnostics storage remains bounded by its existing total/export byte limits.
-7. Archiving introduces no observable game-over hitch on the target iPhone; if a preparing
-   state appears, it is brief and explicit.
+7. Archiving introduces no observable game-over hitch on the target iPhone; archive-specific
+   preparing copy appears only after 150 ms and the UI gate always resolves within five seconds.
 
 ## Non-Goals
 

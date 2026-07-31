@@ -173,6 +173,18 @@ test.describe("Smoke tests", () => {
     await startGameFromScreen(page);
     await forceGameOver(page);
 
+    const provenance = await page.evaluate(() => window.__lastReplay);
+    expect(provenance?._buildId).toBeTruthy();
+    expect(provenance?._savedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(provenance?._env).toMatchObject({
+      platform: "web",
+      native: false,
+      ua: expect.any(String),
+      dpr: expect.any(Number),
+      screenW: expect.any(Number),
+      screenH: expect.any(Number),
+    });
+
     await expect(page.getByRole("button", { name: /run recap/i })).toBeVisible({ timeout: 10000 });
     await expect(page.locator("#go-score")).toBeVisible();
     await expect(page.locator("#go-wave")).toBeVisible();
@@ -275,6 +287,21 @@ test.describe("Smoke tests", () => {
     await page.getByRole("button", { name: /title menu/i }).click();
     await expect(page.locator("#game-shell")).toHaveAttribute("data-screen", "title");
     await expect(page.locator("#active-button")).toBeHidden();
+  });
+
+  test("archives before mounting replay UI when diagnostics is enabled", async ({ page }) => {
+    await page.evaluate(() => localStorage.setItem("dmc.diag.enabled.v1", "1"));
+    await page.reload();
+    await startGameFromScreen(page);
+    await forceGameOver(page);
+
+    await expect(page.locator("#gameover-panel .run-recap__death-canvas")).toBeVisible({ timeout: 10000 });
+    const archivedCompletion = await page.evaluate(() => {
+      const lines = JSON.parse(localStorage.getItem("dmc.diag.ring.v1") ?? "[]") as string[];
+      return lines.find((line) => line.includes('"channel":"replay-archive"') && line.includes('"event":"complete"'));
+    });
+    expect(archivedCompletion).toBeTruthy();
+    expect(archivedCompletion).not.toContain('"data"');
   });
 
   test("releases gameplay resources while preserving the primary renderer", async ({ page }) => {
