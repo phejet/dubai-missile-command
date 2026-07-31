@@ -7,6 +7,10 @@ export default defineConfig({
   // two-core hosted runners chronically starve concurrent browser contexts,
   // producing unrelated animation and mount timeouts across different specs.
   workers: process.env.CI ? 1 : undefined,
+  // A failed test can leave Chromium's software renderer degraded even after
+  // Playwright closes its context. CI retries replace the entire worker/browser,
+  // giving renderer-dependent checks a clean process without weakening timeouts.
+  retries: process.env.CI ? 2 : 0,
   use: {
     baseURL: "http://127.0.0.1:4173",
     // Sandboxed environments provide a pinned Chromium here; without the
