@@ -23,6 +23,7 @@ interface GameInternals {
 
 const mocks = vi.hoisted(() => ({
   archiveReplay: vi.fn(),
+  showBonusScreen: vi.fn(),
   uploadCapture: vi.fn(async (capture: CaptureEnvelope) => {
     void capture;
     return { ok: true, captureId: "capture", encoding: "none" };
@@ -49,7 +50,7 @@ vi.mock("./ui", () => ({
   hideRunRecap: vi.fn(),
   hideShop: vi.fn(),
   hideUpgradeProgression: vi.fn(),
-  showBonusScreen: vi.fn(),
+  showBonusScreen: mocks.showBonusScreen,
   showGameOver: vi.fn(),
   showRunRecap: vi.fn(),
   showShop: vi.fn(),
@@ -123,6 +124,7 @@ describe("Game capture orchestration", () => {
       vi.fn(async () => new Response()),
     );
     mocks.archiveReplay.mockReset();
+    mocks.showBonusScreen.mockReset();
     mocks.uploadCapture.mockClear();
   });
 
@@ -215,6 +217,35 @@ describe("Game capture orchestration", () => {
       summary: null,
       replay: { seed: expect.any(Number) },
     });
+  });
+
+  it("lets the replay runner open the shop after the bonus UI completes", () => {
+    const canvas = document.getElementById("game-canvas") as HTMLCanvasElement;
+    const game = new Game({ canvas, renderer });
+    const runtime = internals(game);
+    runtime.initGame();
+    runtime.setScreen("playing");
+    runtime.replayActive = true;
+    const state = runtime.gameRef.current!;
+    state.waveComplete = true;
+    state._bonusScreenStarted = true;
+
+    runtime.handleSimEvent("waveBonusStart", {
+      wave: state.wave,
+      buildings: state.buildings.length,
+      missileKills: 0,
+      droneKills: 0,
+      destroyedByType: {},
+      multiShots: 0,
+      maxCombo: 1,
+    });
+    const bonusCall = mocks.showBonusScreen.mock.calls[mocks.showBonusScreen.mock.calls.length - 1];
+    const onComplete = bonusCall[2] as () => void;
+    onComplete();
+
+    expect(state._bonusScreenDone).toBe(true);
+    expect(state.shopOpened).not.toBe(true);
+    expect(runtime.shopOpen).toBe(false);
   });
 
   it("keeps a run id stable within a run and changes it on initialization", async () => {

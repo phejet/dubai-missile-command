@@ -404,6 +404,27 @@ describe("createReplayRunner shop handling", () => {
 // ── Wave summary handling ──
 
 describe("createReplayRunner wave summary handling", () => {
+  it("keeps the post-tick checkpoint ahead of the human survival bonus", () => {
+    const rr = createReplayRunner({ seed: SEED, actions: [], isHuman: true });
+    const g = rr.init();
+    g.wave = 5;
+    g.waveComplete = true;
+    g.waveClearedTimer = 0;
+    const scoreBeforeBonus = g.score;
+
+    rr.step();
+
+    expect(rr.isBonusPaused()).toBe(true);
+    expect(g.score).toBe(scoreBeforeBonus);
+    const checkpointBeforeBonus = buildReplayCheckpoint(g, rr.getTick());
+
+    rr.resumeFromBonusScreen();
+
+    expect(g.score).toBeGreaterThan(scoreBeforeBonus);
+    expect(buildReplayCheckpoint(g, rr.getTick()).hash).not.toBe(checkpointBeforeBonus.hash);
+    rr.cleanup();
+  });
+
   it("pauses replay ticks while the wave summary is waiting to complete", () => {
     const rr = createReplayRunner({ seed: SEED, actions: [] }, () => {});
     const g = rr.init();

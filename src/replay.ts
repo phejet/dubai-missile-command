@@ -62,6 +62,7 @@ function createReplayRunnerInternal(
   let finished = false;
   let shopPaused = false;
   let bonusPaused = false;
+  let pendingHumanBonus: number | null = null;
   let pendingShopAction: ShopAction | null = null;
   let ownedRng: ReturnType<typeof mulberry32> | null = null;
   const verifiedCheckpointIndexes = new Set<number>();
@@ -69,7 +70,7 @@ function createReplayRunnerInternal(
   const emitSimEvent: SimEventSink = (type, data) => {
     if (type === "waveBonusStart" && replayData.isHuman && g) {
       const bonus = data as import("./types").SimEventMap["waveBonusStart"];
-      g.score += getBuildingSurvivalBonus(bonus);
+      pendingHumanBonus = getBuildingSurvivalBonus(bonus);
     }
     onEvent?.(type, data);
   };
@@ -147,6 +148,7 @@ function createReplayRunnerInternal(
     finished = false;
     shopPaused = false;
     bonusPaused = false;
+    pendingHumanBonus = null;
     pendingShopAction = null;
     verifiedCheckpointIndexes.clear();
     verifyCheckpoints(
@@ -282,6 +284,10 @@ function createReplayRunnerInternal(
 
   function resumeFromBonusScreen() {
     if (!bonusPaused || !g) return;
+    if (pendingHumanBonus !== null) {
+      g.score += pendingHumanBonus;
+      pendingHumanBonus = null;
+    }
     completeWaveBonusAndOpenShop(g, emitSimEvent);
     bonusPaused = false;
   }
@@ -305,6 +311,7 @@ function createReplayRunnerInternal(
   function cleanup() {
     if (ownedRng && getRng() === ownedRng) setRng(Math.random);
     ownedRng = null;
+    pendingHumanBonus = null;
   }
 
   return {

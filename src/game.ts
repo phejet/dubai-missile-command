@@ -1611,7 +1611,9 @@ export class Game {
           },
           () => {
             const game = this.gameRef.current;
-            if (game && game.waveComplete && !game.shopOpened) {
+            if (game && this.replayActive) {
+              game._bonusScreenDone = true;
+            } else if (game && game.waveComplete && !game.shopOpened) {
               completeWaveBonusAndOpenShop(game, (t, d) => this.handleSimEvent(t, d));
             }
             this.bonusActive = false;
