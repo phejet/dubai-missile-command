@@ -49,8 +49,16 @@ retrieval story that this step deliberately does not build.
 ### 2.1 R2 layout
 
 ```
-captures/<installId>/<capturedAt>-<captureId>.json.gz
+captures/<installId>/<captureId>.json.gz
 ```
+
+**The key derives only from immutable identity.** An earlier draft included
+`capturedAt`, which is client-supplied and can differ between two posts carrying the
+same `captureId` — producing a second blob while D1's conflict handling kept the first
+row, so the row's `r2_key` and `sha256` described an object that was no longer the only
+one. Ordering comes from `captures.captured_at` and `received_at`, which is what indexes
+are for. `installId` is also client-supplied, so §3.1's conflict rule pins it: a
+`captureId` that reappears under a different install is a conflict, not a new key.
 
 One object per upload, holding the **decoded** envelope bytes re-gzipped by the Worker.
 The client's wire encoding is a transport detail and does not survive into storage; a
@@ -95,7 +103,9 @@ CREATE TABLE captures (
   r2_key         TEXT NOT NULL
 );
 
-CREATE INDEX idx_captures_install ON captures(install_id, captured_at DESC);
+-- Ordering uses received_at, not captured_at: a spoofed client clock should not be
+-- able to pin a capture to the top of a listing, any more than it can evade retention.
+CREATE INDEX idx_captures_install ON captures(install_id, received_at DESC);
 CREATE INDEX idx_captures_run ON captures(run_id);
 CREATE INDEX idx_captures_received ON captures(received_at DESC);
 ```
@@ -115,7 +125,8 @@ CREATE TABLE sessions (
   build         TEXT NOT NULL,
   platform      TEXT NOT NULL,
   input_class   TEXT NOT NULL,
-  created_at    INTEGER NOT NULL,           -- meta.capturedAt
+  created_at    INTEGER NOT NULL,           -- CLIENT CLAIM. meta.capturedAt. Display only.
+  received_at   INTEGER NOT NULL,           -- SERVER FACT. Retention and ordering key.
 
   outcome       TEXT NOT NULL,              -- burj_destroyed | survived | abandoned
   death_cause   TEXT,
@@ -136,6 +147,9 @@ CREATE TABLE sessions (
   feedback_note  TEXT,                      -- meta.note
 
   replay_sha256 TEXT,
+  -- Serialized byte length of envelope.replay alone, measured at ingest.
+  -- NOT the R2 object size, which is the whole gzipped envelope (that is
+  -- captures.stored_bytes). Null when the capture carried no replay.
   replay_size   INTEGER,
   -- CLIENT CLAIM. meta.replayComplete, forgeable. Never a trust signal.
   replay_complete_claimed INTEGER NOT NULL DEFAULT 0,
@@ -146,10 +160,10 @@ CREATE TABLE sessions (
   source        TEXT NOT NULL               -- meta.trigger
 );
 
-CREATE INDEX idx_sessions_install ON sessions(install_id, created_at DESC);
+CREATE INDEX idx_sessions_install ON sessions(install_id, received_at DESC);
 CREATE INDEX idx_sessions_leaderboard ON sessions(build, score DESC)
   WHERE replay_verified = 1 AND install_ephemeral = 0;
-CREATE INDEX idx_sessions_recent ON sessions(created_at DESC);
+CREATE INDEX idx_sessions_recent ON sessions(received_at DESC);
 ```
 
 Deviations from §9, all inherited from step 3 rather than invented here:
@@ -167,6 +181,12 @@ Deviations from §9, all inherited from step 3 rather than invented here:
   exists, and setting one column from `meta.replayComplete` would launder a client
   claim into a name that reads like a server guarantee. `replay_complete_claimed` is
   what the client said; `replay_verified` is what the server proved. See §5.5.
+
+- `received_at` is added and is the **only** column retention and "recent" ordering may
+  use. §2.2 already annotates `captures.received_at` with "client clocks lie" — then an
+  earlier draft aged `sessions` rows by `created_at`, which is `meta.capturedAt`, which
+  is the lying clock. A capture stamped five years in the future would have outlived
+  every retention sweep. `created_at` survives as the client's claim, for display.
 
 The leaderboard index keys on `replay_verified`, which is **always 0 at step 5**. That
 is deliberate: the leaderboard is empty until something actually verifies a run, so
@@ -225,10 +245,32 @@ Validation order, and it must be this order — each rung protects the next:
    **counting output bytes as they stream and aborting at the cap** (see below);
 4. decoded byte cap (8 MB);
 5. SHA-256 of the decoded bytes must equal `x-dmc-sha256`;
-6. JSON parse; `captureSchema === 1`; `captureId` and `meta.buildId` present;
-7. ID allowlists (§4.2) **before** any value reaches an R2 key;
-8. header/body agreement for build and install;
-9. R2 put; then D1 insert.
+6. JSON parse; `captureSchema === 1`;
+7. **full runtime validation of every projected field** (see below);
+8. ID allowlists (§4.2) **before** any value reaches an R2 key;
+9. header/body agreement for build and install;
+10. conflict check on `captureId` (see below);
+11. R2 conditional put; then a single transactional D1 `batch()`.
+
+> **`CaptureEnvelope` is a compile-time fiction at the boundary.** TypeScript types
+> validate nothing about hostile JSON, and §2.2/§2.3 project this object straight into
+> `NOT NULL` columns. Checking only `captureSchema`, `captureId`, and `buildId` — as an
+> earlier draft did — means a capture omitting `meta.platform` or sending
+> `summary.score: "banana"` reaches an insert and produces either a 500 or a garbage row.
+>
+> Every field that lands in a column is validated at ingest: presence, type, and where
+> applicable bounds and enum membership (`trigger`, `appScreen`, `replaySource`,
+> `outcome`, `inputClass`). Numbers must be finite; `score`, `waveReached`,
+> `timePlayedMs`, and the counters are non-negative; `hitRatio` is within `[0, 1]`;
+> `destroyedByType` and `upgrades` must serialize. Strings that become columns get length
+> caps — `note` especially, since a player types it.
+>
+> **`installId` must be non-empty and valid.** The wire contract permits
+> `x-dmc-install: ""` and `src/capture.ts:32` types `installId` as `string | null`, but
+> `captures.install_id` is `NOT NULL` and the value becomes an R2 key segment. Step 4
+> made the client always send one; a hostile client is under no such obligation. A null
+> or empty install is **rejected** at `stage: "parse"` rather than silently normalized to
+> a shared bucket that would merge unrelated uploads under one identity.
 
 > **Decompression bomb — the adapters differ and the shared validator does not cover
 > this.** The Vite plugin gets a bounded decompression for free:
@@ -252,19 +294,39 @@ Responses reuse the stage vocabulary the dev middleware and `archiveReplay` alre
 speak, so there is one diagnosis language across the whole system:
 
 ```
-200 { ok: true, captureId, encoding, rawBytes, storedBytes, r2Key, sessionUpserted }
+200 { ok: true, captureId, encoding, rawBytes, storedBytes, r2Key, sessionProjected }
 400 { ok: false, stage: serialize|hash|compress|size|parse, message }
+409 { ok: false, stage: "conflict", message }
 429 { ok: false, stage: "rate", message }
 500 { ok: false, stage: "store", message }
 ```
 
-`sessionUpserted` is new and deliberate: the client learns whether its run became a
-leaderboard-eligible row without having to re-derive §2.4's predicate.
+`sessionProjected` reports only whether §2.4's predicate produced a `sessions` row. It
+deliberately does **not** claim leaderboard eligibility: every step 5 row has
+`replay_verified = 0`, so nothing is eligible yet (§5.6). The unchanged client discards
+this field anyway — `src/capture-sink.ts:58` reads only `captureId`, `encoding`, and
+`file` — so it exists for `curl` and for step 6, not for today.
 
-**Idempotency.** `captureId` is unique per capture, so a retried upload must not
-duplicate. R2 `put` is idempotent by key. D1 uses
-`INSERT ... ON CONFLICT(capture_id) DO NOTHING`, and a conflict returns `200` with the
-existing row's values — a retry that succeeds twice is a success, not an error.
+**Idempotency and conflict.** A retry must not duplicate; a _collision_ must not
+silently corrupt. Those are different cases and the earlier draft conflated them, with
+`ON CONFLICT DO NOTHING` quietly keeping a row whose `sha256` and `r2_key` no longer
+described the stored object.
+
+| Case                                 | Meaning                | Response                                     |
+| ------------------------------------ | ---------------------- | -------------------------------------------- |
+| Same `captureId`, same `sha256`      | A genuine retry        | `200`, existing row's values, no rewrite     |
+| Same `captureId`, different `sha256` | Collision or tampering | `409 { stage: "conflict" }`, nothing written |
+
+The stored `sha256` is what makes this decidable, which is the second reason it is a
+column and not just a header. The R2 write uses a conditional put so a concurrent
+double-post cannot interleave into a torn state, and the D1 insert reads back on
+conflict rather than ignoring it.
+
+**Atomicity.** The `captures` insert and the `sessions` upsert are **one transactional
+`DB.batch()`**, not two statements. §7 asserts that a failing session write leaves no
+capture row, and that only holds inside a batch. R2 is written first and is not part of
+the transaction, so the surviving failure mode is a blob with no row — recoverable by a
+reconcile pass, and the deliberate choice over a row pointing at nothing (§1).
 
 ### 3.2 `GET /api/capture/:captureId` — retrieval (bearer)
 
@@ -356,16 +418,29 @@ Cloudflare's rate-limit binding, two namespaces:
 ```jsonc
 {
   "ratelimits": [
+    // period MUST be 10 or 60. No other value is accepted by the binding.
     { "name": "INGEST_IP", "namespace_id": "1001", "simple": { "limit": 60, "period": 60 } },
-    { "name": "INGEST_INSTALL", "namespace_id": "1002", "simple": { "limit": 50, "period": 3600 } },
+    { "name": "INGEST_INSTALL", "namespace_id": "1002", "simple": { "limit": 5, "period": 60 } },
   ],
 }
 ```
 
 Per-IP guards the endpoint; per-install guards the corpus from one looping client. Both
 are checked before decompression, so a flood costs the Worker a key lookup rather than
-8 MB of gunzip. `mobile-diagnostics-capture.md` §5's "~50/day/install" is the intent;
-per-hour is the enforceable approximation with the simple binding.
+8 MB of gunzip.
+
+Two constraints of this binding that the numbers above have to live inside, rather than
+wish away:
+
+- **`period` accepts only `10` or `60` seconds.** `mobile-diagnostics-capture.md` §5's
+  "~50/day/install" is therefore not expressible here. A 60-second window is the
+  enforceable approximation, and it is a _burst_ control, not a daily quota. If a real
+  daily cap is wanted later it needs a different primitive — a D1 counter keyed by
+  `(install_id, day)` checked in the same batch as the insert, or a Durable Object.
+  Do not pretend the binding does it.
+- **Limits are counted per Cloudflare location, not globally.** A distributed client
+  gets roughly `limit × colos`. That is fine for containing an honest looping client and
+  useless against a distributed flood, which §5.5 already says out loud.
 
 ### 5.2 Size caps
 
@@ -382,12 +457,26 @@ ladder from the start so enabling it is a config change, not a code change.
 
 ### 5.4 Retention
 
-- `captures` objects and rows: **90 days**, matching the telemetry retention in §7.
-- `sessions` rows: **1 year**, matching shared-replay retention.
+- `captures` objects and rows: **90 days** by `received_at`, matching §7 telemetry
+  retention.
+- `sessions` rows: **1 year** by `received_at`, matching shared-replay retention.
 
-Implemented as an R2 lifecycle rule plus a scheduled Worker (`cron`) that deletes D1
-rows past their window. A `sessions` row outliving its blob is fine and expected — the
-summary is the leaderboard, the blob is the evidence.
+Both windows use the server clock (§2.3). Ageing rows by a client timestamp would let a
+capture stamped in the future outlive every sweep.
+
+Two separate mechanisms, and only one of them lives in `wrangler.jsonc`:
+
+- **R2 objects** expire via a bucket **lifecycle rule**, which is bucket configuration,
+  not Worker config. It is applied with `wrangler r2 bucket lifecycle` (or the
+  dashboard) as an explicit provisioning step, and it must be verified after deployment
+  — an unapplied lifecycle rule fails silently and forever. Deletion is asynchronous, so
+  the check is "the rule exists with the right prefix and age", not "the object vanished
+  on cue".
+- **D1 rows** are deleted by the scheduled (`cron`) handler declared in the Worker
+  config.
+
+A `sessions` row outliving its blob is fine and expected — the summary is the
+leaderboard, the blob is the evidence.
 
 ### 5.5 The trust boundary — what the client can lie about
 
@@ -451,22 +540,24 @@ exist, the index depends on them, and nothing in step 5 sets them.
 
 ## 6. Files
 
-| File                              | Change                                                                                               |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `src/capture-contract.ts`         | **New.** Shared limits, ID patterns, stage vocabulary, and `validateCaptureBody`. No runtime imports |
-| `vite-capture-plugin.ts`          | Refactor to consume the shared validator; behavior and tests unchanged                               |
-| `worker/wrangler.jsonc`           | **New.** Worker name, compatibility date, D1 + R2 + rate-limit bindings, cron trigger                |
-| `worker/src/index.ts`             | **New.** Router: ingest, retrieval, listing, health, scheduled retention                             |
-| `worker/src/ingest.ts`            | **New.** The §3.1 ladder, R2 put, D1 writes, `isSessionRow`                                          |
-| `worker/src/projection.ts`        | **New.** Envelope → `captures` row and `sessions` row. Pure                                          |
-| `worker/src/auth.ts`              | **New.** Constant-time bearer comparison                                                             |
-| `worker/migrations/0001_init.sql` | **New.** Both tables and indexes from §2                                                             |
-| `worker/vitest.config.ts`         | **New.** `@cloudflare/vitest-pool-workers`, migrations loaded via `readD1Migrations`                 |
-| `worker/test/*.test.ts`           | **New.** §7                                                                                          |
-| `scripts/diag-pull.mjs`           | **New.** `npm run diag:pull <installId\|captureId>` → `diag-results/<captureId>.json`, verified      |
-| `package.json`                    | `test:worker`, `worker:dev`, `worker:deploy`, `diag:pull`                                            |
-| `.github/workflows/ci.yml`        | Run `npm run test:worker` (see §7's note on invisible suites)                                        |
-| `.gitignore`                      | `/diag-results/`, `worker/.wrangler/`                                                                |
+| File                                  | Change                                                                                                                                                                     |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/capture-contract.ts`             | **New.** Shared limits, ID patterns, stage vocabulary, and `validateCaptureBody`. No runtime imports                                                                       |
+| `vite-capture-plugin.ts`              | Refactor to consume the shared validator; behavior and tests unchanged                                                                                                     |
+| `worker/wrangler.jsonc`               | **New.** Worker name, compatibility date, D1 + R2 + rate-limit bindings, cron trigger                                                                                      |
+| `worker/src/index.ts`                 | **New.** Router: ingest, retrieval, listing, health, scheduled retention                                                                                                   |
+| `worker/src/ingest.ts`                | **New.** The §3.1 ladder, R2 put, D1 writes, `isSessionRow`                                                                                                                |
+| `worker/src/projection.ts`            | **New.** Envelope → `captures` row and `sessions` row. Pure                                                                                                                |
+| `worker/src/auth.ts`                  | **New.** Constant-time bearer comparison                                                                                                                                   |
+| `worker/migrations/0001_init.sql`     | **New.** Both tables and indexes from §2                                                                                                                                   |
+| `worker/vitest.config.ts`             | **New.** `@cloudflare/vitest-pool-workers`, migrations loaded via `readD1Migrations`                                                                                       |
+| `worker/test/*.test.ts`               | **New.** §7                                                                                                                                                                |
+| `scripts/diag-pull.mjs`               | **New.** `npm run diag:pull <installId\|captureId>` → `diag-results/<captureId>.json`, verified                                                                            |
+| `package.json`                        | `test:worker`, `worker:dev`, `worker:deploy`, `diag:pull`                                                                                                                  |
+| `.github/workflows/ci-worker.yml`     | **New.** Runs `npm run test:worker`. Matches the repo's one-workflow-per-check convention (`ci-build`, `ci-e2e`, `ci-format`, `ci-lint`, `ci-test`) — there is no `ci.yml` |
+| `.github/workflows/deploy-worker.yml` | **New.** Staging on push, production behind a GitHub Environment with required reviewers (§14.1). The only job holding `CLOUDFLARE_API_TOKEN`                              |
+| `worker/lifecycle.json`               | **New.** R2 lifecycle rule applied by `wrangler r2 bucket lifecycle` as an explicit provisioning step; not part of `wrangler.jsonc` (§5.4)                                 |
+| `.gitignore`                          | `/diag-results/`, `worker/.wrangler/`                                                                                                                                      |
 
 New dev dependencies: `wrangler`, `@cloudflare/vitest-pool-workers`. Both are worker-only
 and must not reach the game bundle.
@@ -510,6 +601,21 @@ is worth exactly as much as its test.
 **Auth** — retrieval and listing reject a missing, wrong, and empty bearer; ingest
 requires none.
 
+**Hostile payloads** — one case per projected field: missing `meta.platform`;
+`summary.score` as a string, as `NaN`, as `Infinity`, as negative; `hitRatio` outside
+`[0, 1]`; an unknown `trigger` / `appScreen` / `replaySource` / `outcome`; a `note` past
+its length cap; `installId` null and `installId` empty. Each rejects at `stage: "parse"`
+and writes **nothing** to R2 or D1.
+
+**Conflict and race** — same `captureId` with the same `sha256` returns `200` and does
+not rewrite the object; same `captureId` with different bytes returns
+`409 { stage: "conflict" }` and leaves the original blob and row untouched; the same
+`captureId` posted under a different `installId` conflicts rather than creating a second
+key. Two concurrent posts of the same capture resolve to one object and one row.
+
+**Atomicity** — a forced failure in the `sessions` upsert leaves no `captures` row,
+proving the two writes share one `batch()`.
+
 **Rate limiting** — the per-install limiter returns `429 { stage: "rate" }` and does so
 _before_ decompression, proven by sending a body that would fail decompression and
 asserting the rate stage, not the compress stage.
@@ -531,10 +637,11 @@ most likely to be deleted by someone who thinks they are redundant.
 **Contract parity** — the shared validator is exercised through both adapters against
 the same fixtures, and the existing `vite-capture-plugin.test.ts` passes unchanged.
 
-> **CI note, learned the hard way.** `e2e/capture.spec.ts` is excluded from CI via
-> `testIgnore` in `playwright.config.ts`, so the capture browser tests run only when
-> someone remembers. Do not repeat that here: `test:worker` goes into the CI workflow in
-> the same commit that adds the tests, or the suite is decorative.
+> **CI wiring.** Follow what step 3 already did: `e2e/capture.spec.ts` is excluded from
+> the default Playwright project via `testIgnore` because it needs its own config, and
+> `ci-e2e.yml` then runs `npm run test:capture-e2e` as a separate step so it is not
+> invisible. Do the same here — `test:worker` gets its own workflow in the same commit
+> that adds the tests. A suite nothing runs is decorative.
 
 ---
 
@@ -742,6 +849,20 @@ curl -s -X POST http://127.0.0.1:8787/api/save-capture \
   -H "x-dmc-build: $BUILD" -H "x-dmc-install: $INSTALL" -H "x-dmc-sha256: $SHA" \
   --data-binary "@$CAP" | jq
 
+# 2b. Post it again unchanged — a retry, must be 200 with no second object
+curl -s -X POST http://127.0.0.1:8787/api/save-capture \
+  -H "Content-Type: application/json" \
+  -H "x-dmc-build: $BUILD" -H "x-dmc-install: $INSTALL" -H "x-dmc-sha256: $SHA" \
+  --data-binary "@$CAP" | jq
+
+# 2c. Same captureId, one byte different — must be 409, nothing overwritten
+jq '.meta.note = "collision probe"' "$CAP" > /tmp/collide.json
+COLLIDE_SHA=$(shasum -a 256 /tmp/collide.json | cut -d' ' -f1)
+curl -s -X POST http://127.0.0.1:8787/api/save-capture \
+  -H "Content-Type: application/json" \
+  -H "x-dmc-build: $BUILD" -H "x-dmc-install: $INSTALL" -H "x-dmc-sha256: $COLLIDE_SHA" \
+  --data-binary "@/tmp/collide.json" | jq   # stage: "conflict"
+
 # 3. Same capture, gzip path — must produce an identical stored object
 gzip -c "$CAP" > /tmp/cap.json.gz
 curl -s -X POST http://127.0.0.1:8787/api/save-capture \
@@ -787,20 +908,34 @@ only on `wrangler dev` has validated the SDK, not the deployment.
    uncompressed produce identical R2 objects, identical `sha256`, and identical rows.
 2. The stored object, gunzipped, matches the `sha256` recorded at ingest, and its
    `replay` field passes `validateReplay()` with zero divergences.
-3. Every §2.4 column has exactly one declared source and the Worker computes none of
-   them, proven column by column against a fixture. The two exceptions are server-owned
-   by design: `received_at` and `replay_verified`.
+3. Every §2.4 column has exactly one declared source, proven column by column against a
+   fixture. Four are server-owned by design and the Worker does compute those:
+   `received_at`, `replay_verified`, `stored_bytes`, and `replay_size` (§2.3's
+   definition — the replay's own serialized length, not the R2 object's).
 4. A partial capture never produces a `sessions` row; several completed captures of one
    `runId` produce exactly one.
-5. Every rejection names the correct stage, and no rejected request writes to R2 or D1.
-6. A retried upload of the same `captureId` produces one object, one row, and a success.
+5. Every rejection names the correct stage. A request rejected at **validation** — any
+   `400`, `409`, or `429` — writes nothing to R2 or D1. A failure _after_ the R2 put may
+   leave an orphan blob and no row; that is the accepted direction (§1) and never the
+   reverse.
+6. A retried upload of the same `captureId` and `sha256` produces one object, one row,
+   and a success. The same `captureId` with different bytes produces `409` and changes
+   nothing.
+   6a. A failure in the `sessions` upsert leaves no `captures` row, proving both writes
+   share one transactional `batch()`.
+   6b. Every field projected into a `NOT NULL` column is validated at ingest; a capture
+   missing one, or carrying a wrong type, out-of-range number, unknown enum value, or a
+   null/empty `installId`, is rejected rather than inserted.
 7. Retrieval and listing are unreachable without the bearer secret; ingest needs none.
 8. Rate limits trigger before decompression.
 9. `install_ephemeral` is set for `eph-` ids and excluded from the leaderboard index.
 10. The production game bundle makes zero requests to the Worker — step 5 ships no
     client change, and `__DMC_CAPTURE_ENDPOINT__` is still `null`.
 11. `npm run test:worker` runs in CI in the same commit that introduces it.
-12. The full curl gate passes against a deployed Worker, not only `wrangler dev`.
+12. The full curl gate passes against a deployed Worker, not only `wrangler dev`, and
+    the R2 lifecycle rule is confirmed applied to the real bucket.
+    12a. Retention ages rows by `received_at`; a capture claiming a far-future
+    `capturedAt` is still swept on schedule.
 13. A crafted gzip body that expands past `MAX_DECODED_BYTES` is rejected at
     `stage: "size"` **without** the Worker buffering the full expansion.
 14. `replay_verified` is 0 for every row step 5 writes, including rows whose capture
@@ -848,11 +983,15 @@ These are the user's calls, not the implementer's. Each one changes what gets bu
 
 ## 13. Risks
 
-- **The iPhone gate is still open.** Steps 2–4 assume `CompressionStream` availability,
-  secure-context behavior, and archive latency on the target device, and none of it has
-  been confirmed on the device. Building a backend on four unverified client assumptions
-  means the first field failure will be debugged in Cloudflare logs when it lives in a
-  WebView. Running that gate before or alongside step 5 is strongly advised.
+- **The iPhone gate is partly closed, and the open part still matters.** Device testing
+  has confirmed the capability picture: the WebView is an insecure context with
+  `crypto.randomUUID` and `crypto.subtle` unavailable while `CompressionStream` **is**
+  available, the pure-JS SHA-256 fallback carried the integrity header, and the step 4
+  install id persisted across boots as non-ephemeral. Two things remain unproven:
+  **archive latency and real v11 size**, and **WebContent-kill recovery**. One capability
+  gap follows from the same result — because that iPhone has `CompressionStream`, the
+  **uncompressed transport branch has never run on the device**, only in the browser
+  E2E. The Worker must accept it regardless, and §9's curl gate exercises it directly.
 - **D1 write amplification.** Two tables per completed capture, one per partial. At
   TestFlight scale this is nothing; the free tier's row limits are worth re-reading
   before any auto-stream mode (brain dump §17 Phase 4) turns every run into an upload.
