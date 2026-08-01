@@ -67,6 +67,7 @@ import { describeEnvironment } from "./replay-provenance";
 import { buildReplaySnapshot } from "./replay-snapshot";
 import { assembleCapture, EVENT_TAIL_MAX_BYTES, projectCaptureSummary, type CaptureTrigger } from "./capture";
 import { uploadCapture, type UploadCaptureResult } from "./capture-sink";
+import { getInstallId } from "./install-id";
 import { createReplayArchiveGate, REPLAY_ARCHIVE_PREPARING_DELAY_MS } from "./replay-archive-gate";
 import { clientLog } from "./client-log";
 import { getMemorySample } from "./memory-probe";
@@ -1439,7 +1440,7 @@ export class Game {
         captureId,
         meta: {
           buildId,
-          installId: null,
+          installId: getInstallId(),
           displayName: null,
           bootId,
           runId: captureRunId,

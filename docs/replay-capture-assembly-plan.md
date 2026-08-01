@@ -414,7 +414,10 @@ If the capture's replay does not play, the artifact is decorative.
 
 ## 8. Out of scope (and where it goes)
 
-- `src/install-id.ts` — step 4. Field reserved as `null`.
+- ~~`src/install-id.ts` — step 4. Field reserved as `null`.~~ **Shipped.**
+  `meta.installId` now carries a persisted anonymous id; see
+  [`../.plans/replay-upload-backend-status.md`](../.plans/replay-upload-backend-status.md)
+  §7 "What step 4 hands step 5".
 - Worker, R2, D1, real network — step 5. §2.3, §2.4, and §4 are its inputs.
 - Hidden gesture, "Report a bug" button, agent trigger, feedback emoji — step 6. This step
   ships only `window.__captureNow()` and the single `uploadCapture()` beneath it.

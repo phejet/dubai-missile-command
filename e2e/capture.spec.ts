@@ -42,6 +42,16 @@ function expectReplayHash(envelope: CaptureEnvelope): void {
   expect(envelope.events.some((event) => event.channel === "replay-archive")).toBe(false);
 }
 
+/**
+ * A real browser mints and persists this, and the middleware rejects a capture
+ * whose `x-dmc-install` header disagrees with the body — so a written file is
+ * proof that both sides carried the same id.
+ */
+function expectPersistedInstallId(envelope: CaptureEnvelope): void {
+  expect(envelope.meta.installId).toMatch(/^[a-z0-9-]{8,64}$/);
+  expect(envelope.meta.installId!.startsWith("eph-")).toBe(false);
+}
+
 test("window capture writes a plain live artifact without WebCrypto or CompressionStream", async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(window, "CompressionStream", { configurable: true, value: undefined });
@@ -63,6 +73,7 @@ test("window capture writes a plain live artifact without WebCrypto or Compressi
   const wireFile = result.file!.replace(/\.json$/, ".json.raw");
   expect(JSON.parse(readFileSync(join(process.cwd(), "captures", wireFile), "utf8"))).toEqual(envelope);
   expectReplayHash(envelope);
+  expectPersistedInstallId(envelope);
   expect(validateReplay(envelope.replay!)).toEqual([]);
   await page.evaluate((replay) => window.__loadReplay!(replay), envelope.replay!);
   await page.waitForFunction(
@@ -98,4 +109,22 @@ test("window capture writes a gzip gameover artifact from the completed run snap
   // gameover path quickly; that injection is deliberately absent from actions.
   // Replay determinism is covered with recorded actions in replay-snapshot.test.ts.
   expectReplayHash(envelope);
+  expectPersistedInstallId(envelope);
+});
+
+test("the install id survives a reload and is not a per-boot identity", async ({ page }) => {
+  await page.goto(APP_PATH);
+  await startGame(page);
+  const first = readPrettyCapture((await capture(page, "manual")).file!);
+  expectPersistedInstallId(first);
+
+  await page.reload();
+  await startGame(page);
+  const second = readPrettyCapture((await capture(page, "manual")).file!);
+  expectPersistedInstallId(second);
+
+  expect(second.meta.installId).toBe(first.meta.installId);
+  // The distinction step 5 depends on: one install, several boots, several runs.
+  expect(second.meta.bootId).not.toBe(first.meta.bootId);
+  expect(second.meta.runId).not.toBe(first.meta.runId);
 });

@@ -236,4 +236,24 @@ describe("Game capture orchestration", () => {
     const third = lastCapturedEnvelope().meta.runId;
     expect(third).not.toBe(first);
   });
+
+  it("stamps an install id that outlives the run it was captured in", async () => {
+    const canvas = document.getElementById("game-canvas") as HTMLCanvasElement;
+    const game = new Game({ canvas, renderer });
+    const runtime = internals(game);
+    runtime.initGame();
+    runtime.setScreen("playing");
+
+    await runtime.captureNow("manual");
+    const { installId, runId } = lastCapturedEnvelope().meta;
+    expect(installId).toMatch(/^[a-z0-9-]{8,64}$/);
+
+    vi.advanceTimersByTime(1);
+    runtime.initGame();
+    await runtime.captureNow("manual");
+    const next = lastCapturedEnvelope();
+    // A new run, so a new runId — but the same install behind both.
+    expect(next.meta.runId).not.toBe(runId);
+    expect(next.meta.installId).toBe(installId);
+  });
 });

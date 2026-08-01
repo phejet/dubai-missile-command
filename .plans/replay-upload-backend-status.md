@@ -1,6 +1,6 @@
 # Replay Upload Backend — Status And Document Map
 
-Status: orientation note. Client-side steps 1–3 shipped; no server exists yet.
+Status: orientation note. Client-side steps 1–4 shipped; no server exists yet.
 Date captured: 2026-07-29 · destination settled 2026-08-01 (§6) · client state
 refreshed 2026-08-01
 Purpose: a single breadcrumb for "where is the backend plan, what is already
@@ -20,9 +20,10 @@ the three plans that matter live in `.plans/`.
 - The **client side is further along than the §3 sweep below suggests** — that
   sweep predates `a5dc06b` and `6ce2fc2`. `src/replay-snapshot.ts`,
   `src/capture.ts`, `src/capture-sink.ts`, `src/sha256.ts`,
-  `vite-capture-plugin.ts`, and `scripts/extract-diagnostic-replays.ts` all
-  exist on `main` now. `capture-sink.ts` posts only to a dev-only endpoint
-  define, which is `null` in production.
+  `src/install-id.ts`, `vite-capture-plugin.ts`, and
+  `scripts/extract-diagnostic-replays.ts` all exist on `main` now.
+  `capture-sink.ts` posts only to a dev-only endpoint define, which is `null`
+  in production.
 - What is implemented for evidence today: the **manual export path** (replay →
   iOS share sheet, diagnostics JSONL → iOS share sheet), plus durable local
   replay archiving inside the diagnostics store.
@@ -216,8 +217,8 @@ backend. Steps 1–3 required no backend at all, which is why they went first.
 | 1   | Run recap — the summary a capture projects from                                             | shipped                                |
 | 2   | Replay flight recorder — completed replays survive `initGame()` and WebContent kills        | shipped `a5dc06b`                      |
 | 3   | Capture assembly + `/api/save-capture` dev parity — prove the exact artifact writes locally | shipped `6ce2fc2`; iPhone gate pending |
-| 4   | `src/install-id.ts` — ~20 lines, needed by every producer                                   | **next**                               |
-| 5   | `worker/` + R2 + D1 (both tables) — `curl`-validated before any client wiring               | not started                            |
+| 4   | `src/install-id.ts` — ~20 lines, needed by every producer                                   | shipped                                |
+| 5   | `worker/` + R2 + D1 (both tables) — `curl`-validated before any client wiring               | **next**                               |
 | 6   | Triggers: hidden gesture (dev), labeled "Report a bug" (player/QA), programmatic (agent)    | not started                            |
 | 7   | Leaderboard projection — a query over data step 3 already populates; gated on 20+ installs  | not started                            |
 
@@ -229,6 +230,26 @@ Step 3's local endpoint is the specification step 5 implements against: same
 headers, same integrity contract, same rejection stages
 (`serialize` / `hash` / `compress` / `size` / `parse`). The Worker should be
 diffable against `vite-capture-plugin.ts`, not a fresh invention.
+
+### What step 4 hands step 5
+
+`src/install-id.ts` mints a random id, persists it to `localStorage`, and
+validates on read against `/^[a-z0-9-]{8,64}$/` so a poisoned stored value
+cannot become a storage path segment. Two consequences for the Worker:
+
+- **Re-validate `installId` server-side against the same pattern before it
+  touches an R2 key.** Client-side validation protects an honest client from a
+  corrupted store; it protects the Worker from nothing. A hostile caller posts
+  whatever it likes.
+- **Ids prefixed `eph-` could not be persisted** — private-mode quota failures,
+  or no `localStorage` at all — so they last exactly one boot. They must not be
+  counted as installs, which matters directly for step 7's "20+ installs" gate.
+  Store them; do not count them.
+
+Minting without WebCrypto is _not_ one of these cases. `crypto.randomUUID`
+requires a secure context, so the insecure LAN-IP iPhone dev shell falls back to
+a `Math.random` id — still random, still anonymous, still persisted, and
+unremarkable.
 
 Still outstanding independently of this sequence: the **real-iPhone gate** for
 steps 2–3 — capability booleans (`CompressionStream`, `crypto.subtle` on an
