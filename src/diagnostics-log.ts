@@ -230,6 +230,58 @@ export function getDiagnosticsBuildId(): string {
   return BUILD_ID;
 }
 
+export interface RecentDiagnosticsEvents {
+  events: Record<string, unknown>[];
+  unparsed: number;
+  truncated: boolean;
+}
+
+const EVENT_READ_BUDGET = 2 * CHUNK_MAX_BYTES;
+
+/** Reads a bounded JSONL tail without ever returning replay archive payload parts. */
+export async function readRecentEvents(maxBytes: number): Promise<RecentDiagnosticsEvents> {
+  if (!enabled || maxBytes <= 0) return { events: [], unparsed: 0, truncated: false };
+
+  let content: string;
+  try {
+    content = await getStore().exportConcatenated(EVENT_READ_BUDGET);
+  } catch {
+    return { events: [], unparsed: 0, truncated: true };
+  }
+  const parsed: { event: Record<string, unknown>; bytes: number }[] = [];
+  let unparsed = 0;
+  let truncated = false;
+  for (const line of content.split("\n")) {
+    if (!line.trim()) continue;
+    let event: Record<string, unknown>;
+    try {
+      const value = JSON.parse(line) as unknown;
+      if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("not an event object");
+      event = value as Record<string, unknown>;
+    } catch {
+      unparsed += 1;
+      continue;
+    }
+    if (event.channel === "export" && event.event === "truncated") truncated = true;
+    if (event.channel === "replay-archive") continue;
+    parsed.push({ event, bytes: new TextEncoder().encode(`${line}\n`).byteLength });
+  }
+
+  const tail: Record<string, unknown>[] = [];
+  let used = 0;
+  for (let index = parsed.length - 1; index >= 0; index -= 1) {
+    const candidate = parsed[index];
+    if (used + candidate.bytes > maxBytes) {
+      truncated = true;
+      break;
+    }
+    tail.unshift(candidate.event);
+    used += candidate.bytes;
+  }
+  if (tail.length < parsed.length) truncated = true;
+  return { events: tail, unparsed, truncated };
+}
+
 export type ArchiveReplayResult =
   | { ok: true; archiveId: string }
   | { ok: false; archiveId: string; stage: string; error: unknown };

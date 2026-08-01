@@ -27,6 +27,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "test:capture-e2e": "playwright test e2e/capture.spec.ts --config playwright.capture.config.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

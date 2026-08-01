@@ -235,6 +235,52 @@ describe("diagnostics log orchestrator", () => {
     expect(events[0]).toMatchObject({ channel: "session", event: "session-start", afterClear: true });
   });
 
+  it("returns an empty recent-event tail while diagnostics is disabled", async () => {
+    const store = createFakeStore();
+    const exportSpy = vi.spyOn(store, "exportConcatenated");
+    const { initDiagnostics, readRecentEvents } = await importFresh();
+    initDiagnostics({ store });
+
+    await expect(readRecentEvents(1024)).resolves.toEqual({ events: [], unparsed: 0, truncated: false });
+    expect(exportSpy).not.toHaveBeenCalled();
+  });
+
+  it("reads a bounded UTF-8 event tail, strips archives, and counts malformed lines", async () => {
+    storage.set("dmc.diag.enabled.v1", "1");
+    const store = createFakeStore();
+    store.exportConcatenated = vi.fn(async () =>
+      [
+        JSON.stringify({ channel: "export", event: "truncated", droppedFiles: 1 }),
+        JSON.stringify({ channel: "game", event: "old", note: "💥".repeat(20) }),
+        "not-json",
+        JSON.stringify({ channel: "replay-archive", event: "part", data: "secret" }),
+        JSON.stringify({ channel: "game", event: "new" }),
+        "",
+      ].join("\n"),
+    );
+    const { initDiagnostics, readRecentEvents } = await importFresh();
+    initDiagnostics({ store });
+
+    const result = await readRecentEvents(80);
+    expect(result.events).toEqual([{ channel: "game", event: "new" }]);
+    expect(result.unparsed).toBe(1);
+    expect(result.truncated).toBe(true);
+    expect(JSON.stringify(result.events)).not.toContain("replay-archive");
+    expect(store.exportConcatenated).toHaveBeenCalledWith(2 * 1024 * 1024);
+  });
+
+  it("returns ordinary events for a tail budget smaller than a diagnostics chunk", async () => {
+    storage.set("dmc.diag.enabled.v1", "1");
+    const store = createFakeStore();
+    store.exportConcatenated = vi.fn(async () => `${JSON.stringify({ channel: "game", event: "one" })}\n`);
+    const { initDiagnostics, readRecentEvents } = await importFresh();
+    initDiagnostics({ store });
+
+    const result = await readRecentEvents(256);
+    expect(result.events).toEqual([{ channel: "game", event: "one" }]);
+    expect(result.truncated).toBe(false);
+  });
+
   it("emits capabilities once when a diagnostics session begins", async () => {
     storage.set("dmc.diag.enabled.v1", "1");
     const store = createFakeStore();

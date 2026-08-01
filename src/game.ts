@@ -51,7 +51,6 @@ import {
 } from "./game-sim-upgrades";
 import { createReplayRunner, createReplayRunnerFromAnchor } from "./replay";
 import { isBonusUiPauseActive } from "./replay-loop";
-import { CURRENT_REPLAY_VERSION } from "./replay-version";
 import { createReplayStateAnchor } from "./replay-anchor";
 import { seekRunnerToTick } from "./replay-seek";
 import {
@@ -64,15 +63,20 @@ import { mountRunRecapDeathClip } from "./run-recap-death-clip";
 import { handleRunRecapReplayEvent } from "./run-recap-replay-events";
 import { buildRunRecapData } from "./run-recap";
 import { saveReplayToFile } from "./save-replay";
-import { stampReplayProvenance } from "./replay-provenance";
+import { describeEnvironment } from "./replay-provenance";
+import { buildReplaySnapshot } from "./replay-snapshot";
+import { assembleCapture, EVENT_TAIL_MAX_BYTES, projectCaptureSummary, type CaptureTrigger } from "./capture";
+import { uploadCapture, type UploadCaptureResult } from "./capture-sink";
 import { createReplayArchiveGate, REPLAY_ARCHIVE_PREPARING_DELAY_MS } from "./replay-archive-gate";
 import { clientLog } from "./client-log";
 import { getMemorySample } from "./memory-probe";
 import {
   clearDiagnostics,
   archiveReplay,
+  getBootId,
   getDiagnosticsBuildId,
   isDiagnosticsEnabled,
+  readRecentEvents,
   setDiagnosticsEnabled,
   shareDiagnostics,
   type ArchiveReplayResult,
@@ -117,6 +121,7 @@ declare global {
     __onReplayFinished?: (sample: GameReplayFinishedSample) => unknown;
     __createReplayRunner?: typeof createReplayRunner;
     __openShopPreview?: () => boolean;
+    __captureNow?: (trigger?: CaptureTrigger, note?: string) => Promise<UploadCaptureResult>;
   }
 }
 
@@ -149,6 +154,15 @@ function maybeRecordReplayCheckpoint(
 
 function assertNever(value: never): never {
   throw new Error(`Unhandled sim event: ${JSON.stringify(value)}`);
+}
+
+function detectInputClass(): "touch" | "mouse" | "unknown" {
+  if (typeof navigator !== "undefined" && navigator.maxTouchPoints > 0) return "touch";
+  if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+    if (window.matchMedia("(pointer: coarse)").matches) return "touch";
+    if (window.matchMedia("(pointer: fine)").matches) return "mouse";
+  }
+  return "unknown";
 }
 
 function recordWavePlanAction(game: GameState): void {
@@ -494,6 +508,8 @@ export class Game {
   private replayPausedAt: number | null = null;
   private replaySeeking = false;
   private lastRunRecapData: RunRecapData | null = null;
+  private runId: string | null = null;
+  private captureOrdinal = 0;
   private debugOptions: DebugOptions = loadDebugOptions();
 
   constructor({ canvas, renderer, onScreenChange, onFrameSample, onReplayFinished }: GameOptions) {
@@ -605,6 +621,7 @@ export class Game {
     window.__createReplayRunner = createReplayRunner;
     window.__loadReplay = (data) => void this.startReplay(data);
     window.__lastReplay = this.lastReplay;
+    window.__captureNow = (trigger = "manual", note) => this.captureNow(trigger, note);
     window.__openShopPreview = () => {
       const game = this.gameRef.current;
       if (!game) return false;
@@ -946,7 +963,9 @@ export class Game {
   }
 
   private initGame(debugStart?: DebugStartPreset): void {
-    const seed = (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0;
+    const startedAt = Date.now();
+    const seed = (startedAt ^ (Math.random() * 0xffffffff)) >>> 0;
+    this.runId = `${startedAt.toString(36)}-${seed.toString(36)}`;
     setRng(mulberry32(seed));
     this.replayAnchors = [];
     this.lastReplay = null;
@@ -1383,6 +1402,70 @@ export class Game {
     await this.startReplay(replayData);
   }
 
+  async captureNow(trigger: CaptureTrigger, note?: string): Promise<UploadCaptureResult> {
+    try {
+      const capturedAt = Date.now();
+      const bootId = getBootId();
+      const buildId = getDiagnosticsBuildId();
+      const captureId = `${bootId}-c${this.captureOrdinal++}`;
+      const game = this.gameRef.current;
+      let replay: ReplayData | null = null;
+      let summary: ReturnType<typeof projectCaptureSummary> | null = null;
+      let replaySource: "live" | "last-completed" | "playback" | "none" = "none";
+      let partial = false;
+      let captureRunId: string | null = null;
+
+      if (this.replayActive) {
+        replay = this.activeReplayData ? structuredClone(this.activeReplayData) : null;
+        replaySource = replay ? "playback" : "none";
+      } else if ((this.screen === "playing" || this.shopOpen) && game?._actionLog) {
+        replay = buildReplaySnapshot(game, this.replayInitialState, { buildId });
+        summary = projectCaptureSummary(buildRunRecapData(game, replay), true);
+        replaySource = "live";
+        partial = true;
+        captureRunId = this.runId;
+      } else if ((this.screen === "gameover" || this.screen === "title") && this.lastReplay) {
+        replay = structuredClone(this.lastReplay);
+        const recap = this.lastRunRecapData ?? (game ? buildRunRecapData(game, this.lastReplay) : null);
+        summary = recap ? projectCaptureSummary(structuredClone(recap), false) : null;
+        replaySource = "last-completed";
+        captureRunId = this.runId;
+      }
+
+      const capturedThroughTick = partial ? (replay?.finalTick ?? game?._replayTick ?? null) : null;
+      const recent = await readRecentEvents(EVENT_TAIL_MAX_BYTES);
+      const env = describeEnvironment();
+      const envelope = await assembleCapture({
+        captureId,
+        meta: {
+          buildId,
+          installId: null,
+          displayName: null,
+          bootId,
+          runId: captureRunId,
+          capturedAt,
+          trigger,
+          note: note?.trim() || null,
+          appScreen: this.shopOpen ? "shop" : this.screen,
+          replaySource,
+          partial,
+          capturedThroughTick,
+          platform: env.platform,
+          inputClass: detectInputClass(),
+          env,
+        },
+        summary,
+        replay,
+        events: recent.events,
+        eventsUnparsed: recent.unparsed,
+        eventsTruncated: recent.truncated,
+      });
+      return await uploadCapture(envelope);
+    } catch (error) {
+      return { ok: false, reason: "assemble", error };
+    }
+  }
+
   // ─── Sim Events ─────────────────────────────────────────────────
 
   private handleSimEvent<Type extends keyof SimEventMap>(type: Type, data: SimEventMap[Type]): void {
@@ -1492,29 +1575,14 @@ export class Game {
             reason: "gameover",
             tickOverride: (game._replayTick ?? 0) + 1,
           });
-          const replay = stampReplayProvenance(
-            {
-              version: CURRENT_REPLAY_VERSION,
-              seed: game._gameSeed ?? 0,
-              actions: game._actionLog as ReplayData["actions"],
-              initialState: {
-                metaProgression: {
-                  version: this.replayInitialState.metaProgression.version,
-                  completedObjectives: [...this.replayInitialState.metaProgression.completedObjectives],
-                },
-                forcedUpgradeFamilies: [...this.replayInitialState.forcedUpgradeFamilies],
-                burjHealth: this.replayInitialState.burjHealth,
-              },
-              checkpoints: game._replayCheckpoints || [],
-              finalTick: (game._replayTick ?? 0) + 1,
-              isHuman: true,
-              draftMode: game._draftMode !== false,
-              score: data.score,
-              wave: data.wave,
-            },
-            getDiagnosticsBuildId(),
-          );
+          const replay = buildReplaySnapshot(game, this.replayInitialState, {
+            buildId: getDiagnosticsBuildId(),
+            finalTick: (game._replayTick ?? 0) + 1,
+            score: data.score,
+            wave: data.wave,
+          });
           this.lastReplay = replay;
+          this.lastRunRecapData = buildRunRecapData(game, replay);
           window.__lastReplay = replay;
           const persistence = archiveReplay(replay);
           this.replayArchive = persistence ? { replay, persistence, gate: createReplayArchiveGate(persistence) } : null;

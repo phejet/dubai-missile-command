@@ -1,5 +1,19 @@
 # Lessons
 
+## 2026-08-01 — Verify capture contracts on the weakest documented runtime
+
+- A browser API capability is not available merely because desktop localhost has it. Before making
+  upload integrity or compression mandatory, test the documented LAN-IP iPhone live-reload origin;
+  insecure contexts can remove both WebCrypto and compression primitives while the app otherwise runs.
+- Artifact size limits must compose across every transport branch. A raw-size degradation target above
+  the uncompressed wire cap creates artifacts that assembly accepts and the endpoint deterministically
+  rejects; write a boundary test that crosses the smaller limit through the actual fallback path.
+- Metadata booleans must describe externally provable facts. `replayComplete` cannot mean “a replay
+  object exists” when its documented contract promises a join to a separately archived manifest.
+- Synthetic endpoint probes prove plumbing, not controller orchestration. An “implemented and verified”
+  claim for a browser global requires at least one browser test invoking that global through the real
+  game lifecycle and inspecting the file the dev middleware wrote.
+
 ## 2026-07-31 — Separate CI contention from exhausted timing budgets
 
 - When unrelated graphics-editor, replay-timing, and gameplay tests time out together only on a

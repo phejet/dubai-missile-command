@@ -4,6 +4,7 @@ const isCI = Boolean(process.env.CI);
 
 export default defineConfig({
   testDir: "./e2e",
+  testIgnore: "capture.spec.ts",
   timeout: isCI ? 90000 : 30000,
   expect: { timeout: isCI ? 15000 : 5000 },
   // Pixi gameplay and the graphics editor are both GPU/CPU-heavy. GitHub's

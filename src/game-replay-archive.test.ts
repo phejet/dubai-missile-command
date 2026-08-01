@@ -36,8 +36,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock("./diagnostics-log", () => ({
   archiveReplay: mocks.archiveReplay,
   clearDiagnostics: vi.fn(),
+  getBootId: () => "test-boot",
   getDiagnosticsBuildId: () => "test-build",
   isDiagnosticsEnabled: () => false,
+  readRecentEvents: vi.fn(async () => ({ events: [], unparsed: 0, truncated: false })),
   setDiagnosticsEnabled: vi.fn(),
   shareDiagnostics: vi.fn(async () => ({ ok: true })),
 }));
