@@ -1,0 +1,10 @@
+{
+  "rules": [
+    {
+      "id": "expire-captures-after-90-days",
+      "enabled": true,
+      "conditions": { "prefix": "captures/" },
+      "deleteObjectsTransition": { "condition": { "maxAge": 7776000 } }
+    }
+  ]
+}

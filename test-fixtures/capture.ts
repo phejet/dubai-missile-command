@@ -1,0 +1,58 @@
+import type { CaptureEnvelope } from "../src/capture";
+
+export function captureFixture(
+  overrides: { captureId?: string; installId?: string; runId?: string | null } = {},
+): CaptureEnvelope {
+  return {
+    captureSchema: 1,
+    captureId: overrides.captureId ?? "boot-c0",
+    meta: {
+      buildId: "build+dirty",
+      installId: overrides.installId ?? "12345678-abcd",
+      displayName: "Pilot",
+      bootId: "boot",
+      runId: overrides.runId === undefined ? "run" : overrides.runId,
+      capturedAt: 1_700_000_000_000,
+      trigger: "gameover",
+      note: "something exploded beautifully",
+      appScreen: "gameover",
+      replaySource: "last-completed",
+      partial: false,
+      capturedThroughTick: 10,
+      replaySha256: "b".repeat(64),
+      replayComplete: true,
+      platform: "web",
+      inputClass: "mouse",
+      env: { platform: "web", native: false, ua: "test", dpr: 1, screenW: 900, screenH: 1600 },
+    },
+    summary: {
+      outcome: "burj_destroyed",
+      deathCause: "burj_destroyed",
+      waveReached: 4,
+      score: 900,
+      timePlayedMs: 12_345,
+      burjHealth: 0,
+      shotsFired: 10,
+      totalKills: 5,
+      hitRatio: 0.5,
+      multiShots: 4,
+      maxCombo: 8,
+      destroyedByType: {
+        ballisticMissile: 1,
+        mirv: 1,
+        mirvWarhead: 1,
+        stackedMissile: 1,
+        bomb: 1,
+        shahed136: 0,
+        shahed238: 0,
+        other: 0,
+      },
+      upgrades: [{ tick: 20, wave: 2, bought: ["patriot"] }],
+    },
+    replay: { version: 11, seed: 42, actions: [], finalTick: 10 },
+    events: [{ channel: "game", event: "start" }],
+    eventsUnparsed: 0,
+    eventsTruncated: false,
+    attachments: [],
+  };
+}

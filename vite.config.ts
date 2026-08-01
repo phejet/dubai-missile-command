@@ -73,7 +73,7 @@ export default defineConfig(
       },
     },
     test: {
-      exclude: ["e2e/**", "node_modules/**"],
+      exclude: ["e2e/**", "worker/test/**", "node_modules/**"],
       coverage: {
         provider: "v8",
         include: ["src/**/*.{ts,tsx}"],

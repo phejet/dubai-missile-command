@@ -1,5 +1,28 @@
 # Lessons
 
+## 2026-08-01 — Verify HTTP representation semantics across a socket
+
+- A `Content-Encoding` response header is an instruction about the HTTP representation,
+  not metadata about bytes already stored. Returning pre-gzipped bytes with that header
+  can make the runtime gzip them again.
+- `SELF.fetch` proves Worker handler behavior, not edge/socket representation behavior.
+  For byte-exact download contracts, add one real HTTP test that reads wire bytes and
+  performs exactly the documented consumer operation.
+- A size-limit test must prove early cancellation, not merely the final error stage.
+  Exercise the bounded reader with a source large enough to punish full buffering and
+  assert that the producer is cancelled near the cap.
+- Never bind SQL columns with `Object.values()` when the SQL column order is handwritten.
+  Spell out the bind order so refactoring an object type cannot silently permute data.
+
+## 2026-08-01 — An Explorer API is not an Explorer UI
+
+- When a local runtime advertises a path explicitly as an API, verify that a separate
+  interactive route exists before calling it web UI. A JSON inventory endpoint is useful
+  plumbing, not a human-facing capture browser.
+- Before handing over a local inspection URL, open it and verify the actual rendered
+  surface. If the available surface is raw JSON only, say so plainly and provide the
+  exact next-best workflow.
+
 ## 2026-08-01 — Verify capture contracts on the weakest documented runtime
 
 - A browser API capability is not available merely because desktop localhost has it. Before making

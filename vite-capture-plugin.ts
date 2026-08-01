@@ -4,19 +4,11 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import type { Plugin, ViteDevServer } from "vite";
+import { MAX_COMPRESSED_BYTES, MAX_DECODED_BYTES, validateCaptureBody } from "./src/capture-contract";
 
-export const MAX_COMPRESSED_BYTES = 8 * 1024 * 1024;
-export const MAX_DECODED_BYTES = 8 * 1024 * 1024;
+export { MAX_COMPRESSED_BYTES, MAX_DECODED_BYTES } from "./src/capture-contract";
 const MAX_CAPTURES = 50;
-const SAFE_ID = /^[A-Za-z0-9._+-]{1,64}$/;
 const CAPTURE_SUFFIX_RE = /\.json(?:\.gz|\.raw)?$/;
-
-type CaptureRecord = {
-  captureSchema?: unknown;
-  captureId?: unknown;
-  meta?: { buildId?: unknown; installId?: unknown };
-  summary?: { waveReached?: unknown; score?: unknown } | null;
-};
 
 function sendJson(res: ServerResponse, status: number, body: Record<string, unknown>): void {
   res.statusCode = status;
@@ -121,33 +113,20 @@ export function createCaptureHandler(captureDir = join(process.cwd(), "captures"
       return;
     }
 
-    let capture: CaptureRecord;
-    try {
-      capture = JSON.parse(raw.toString("utf8")) as CaptureRecord;
-    } catch (error) {
-      failure(res, "parse", error);
+    const validation = validateCaptureBody(
+      raw,
+      {
+        build: header(req, "x-dmc-build"),
+        install: header(req, "x-dmc-install"),
+        sha256: expectedSha,
+      },
+      actualSha,
+    );
+    if (!validation.ok) {
+      failure(res, validation.stage, new Error(validation.message));
       return;
     }
-    if (
-      capture.captureSchema !== 1 ||
-      typeof capture.captureId !== "string" ||
-      typeof capture.meta?.buildId !== "string"
-    ) {
-      failure(res, "parse", new Error("invalid capture schema, captureId, or buildId"));
-      return;
-    }
-    if (!SAFE_ID.test(capture.captureId) || !SAFE_ID.test(capture.meta.buildId)) {
-      failure(res, "parse", new Error("captureId and buildId must use safe path characters"));
-      return;
-    }
-
-    const requestBuild = header(req, "x-dmc-build");
-    const requestInstall = header(req, "x-dmc-install");
-    const captureInstall = capture.meta.installId == null ? "" : String(capture.meta.installId);
-    if (requestBuild !== capture.meta.buildId || requestInstall !== captureInstall) {
-      failure(res, "parse", new Error("capture metadata does not match request headers"));
-      return;
-    }
+    const capture = validation.capture;
 
     try {
       mkdirSync(captureDir, { recursive: true });

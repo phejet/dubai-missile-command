@@ -1,8 +1,13 @@
 # Capture Worker Backend (R2 + D1) — Build Plan
 
-Status: planned, not started.
+Status: implemented and locally verified; Cloudflare provisioning/deployment pending.
 Roadmap step 5 of 7 in the unified capture-system sequence.
 Date: 2026-08-01
+
+Implementation note: the checked-in Wrangler configuration intentionally contains
+placeholder account and D1 resource IDs. Local workerd/D1/R2 tests and the curl gate
+pass; acceptance criterion 12's deployed-Worker and applied-lifecycle proof remains
+blocked until the Cloudflare account and resources exist.
 
 Companion documents:
 
@@ -386,7 +391,8 @@ both sides or neither.
 **Scope note, stated plainly:** this refactors shipped step 3 code. It is the smallest
 change that makes drift structurally impossible, and the alternative is two
 implementations of the same seven checks maintained by vigilance. The dev middleware's
-existing tests must pass unchanged afterward — that is the regression guard.
+existing endpoint cases must remain and pass afterward; their fixture must satisfy the
+full shared boundary contract.
 
 ### 4.2 What the Worker must re-validate
 
@@ -543,7 +549,8 @@ exist, the index depends on them, and nothing in step 5 sets them.
 | File                                  | Change                                                                                                                                                                     |
 | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/capture-contract.ts`             | **New.** Shared limits, ID patterns, stage vocabulary, and `validateCaptureBody`. No runtime imports                                                                       |
-| `vite-capture-plugin.ts`              | Refactor to consume the shared validator; behavior and tests unchanged                                                                                                     |
+| `test-fixtures/capture.ts`            | **New.** One complete capture fixture shared by contract, Vite-adapter, Worker, and real-HTTP tests                                                                        |
+| `vite-capture-plugin.ts`              | Refactor to consume the shared validator; preserve existing endpoint cases while enforcing the full boundary contract                                                      |
 | `worker/wrangler.jsonc`               | **New.** Worker name, compatibility date, D1 + R2 + rate-limit bindings, cron trigger                                                                                      |
 | `worker/src/index.ts`                 | **New.** Router: ingest, retrieval, listing, health, scheduled retention                                                                                                   |
 | `worker/src/ingest.ts`                | **New.** The §3.1 ladder, R2 put, D1 writes, `isSessionRow`                                                                                                                |
@@ -551,6 +558,7 @@ exist, the index depends on them, and nothing in step 5 sets them.
 | `worker/src/auth.ts`                  | **New.** Constant-time bearer comparison                                                                                                                                   |
 | `worker/migrations/0001_init.sql`     | **New.** Both tables and indexes from §2                                                                                                                                   |
 | `worker/vitest.config.ts`             | **New.** `@cloudflare/vitest-pool-workers`, migrations loaded via `readD1Migrations`                                                                                       |
+| `worker/vitest.http.config.ts`        | **New.** Node-side real-socket regression project that launches temporary `wrangler dev`                                                                                   |
 | `worker/test/*.test.ts`               | **New.** §7                                                                                                                                                                |
 | `scripts/diag-pull.mjs`               | **New.** `npm run diag:pull <installId\|captureId>` → `diag-results/<captureId>.json`, verified                                                                            |
 | `package.json`                        | `test:worker`, `worker:dev`, `worker:deploy`, `diag:pull`                                                                                                                  |
@@ -635,7 +643,16 @@ becoming leaderboard-eligible. These are the §5.5 assertions, and they are the 
 most likely to be deleted by someone who thinks they are redundant.
 
 **Contract parity** — the shared validator is exercised through both adapters against
-the same fixtures, and the existing `vite-capture-plugin.test.ts` passes unchanged.
+the same fixture. The existing Vite endpoint cases remain; their minimal fixture was
+expanded to the complete boundary contract now required by both adapters.
+
+**HTTP wire parity** — `worker/test/http-wire.test.ts` starts `wrangler dev` with
+temporary local D1/R2 persistence and reads `?raw=1` through Node's bare HTTP client.
+It asserts that the response has no `Content-Encoding`, gunzips exactly once to the
+decoded envelope, and reproduces the recorded SHA-256. This test exists because
+`SELF.fetch` does not reproduce workerd's response-encoding behavior across a socket.
+The same test sends a small gzip stream representing 192 MB of decoded output, asserts
+`stage: "size"`, and confirms the Worker remains healthy afterward.
 
 > **CI wiring.** Follow what step 3 already did: `e2e/capture.spec.ts` is excluded from
 > the default Playwright project via `testIgnore` because it needs its own config, and
@@ -748,7 +765,7 @@ they belong on a manual or tag trigger, never on every push.
 For hands-on work and the §9 gate:
 
 ```bash
-npx wrangler d1 migrations apply dmc-captures --local
+npx wrangler d1 migrations apply dmc-captures-local --local --config worker/wrangler.jsonc
 npx wrangler dev                    # workerd on :8787, local D1 + R2
 ```
 
@@ -756,7 +773,7 @@ State persists to `.wrangler/state` between runs, so a capture posted yesterday 
 there today. Inspect it with the same tooling that will inspect production:
 
 ```bash
-npx wrangler d1 execute dmc-captures --local --command "SELECT capture_id, partial FROM captures"
+npx wrangler d1 execute dmc-captures-local --local --config worker/wrangler.jsonc --command "SELECT capture_id, partial FROM captures"
 npx wrangler r2 object get dmc-captures/<key> --local --file /tmp/out.json.gz
 ```
 
@@ -833,7 +850,7 @@ using a real capture already on disk from step 3:
 
 ```bash
 # 0. Local Worker with local D1 + R2
-npx wrangler d1 migrations apply dmc-captures --local
+npx wrangler d1 migrations apply dmc-captures-local --local --config worker/wrangler.jsonc
 npm run worker:dev            # wrangler dev, prints http://127.0.0.1:8787
 
 # 1. Liveness
@@ -881,9 +898,9 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 # must equal $SHA
 
 # 6. Structure
-npx wrangler d1 execute dmc-captures --local \
+npx wrangler d1 execute dmc-captures-local --local --config worker/wrangler.jsonc \
   --command "SELECT capture_id, partial, install_ephemeral FROM captures"
-npx wrangler d1 execute dmc-captures --local \
+npx wrangler d1 execute dmc-captures-local --local --config worker/wrangler.jsonc \
   --command "SELECT run_id, outcome, score, replay_complete_claimed, replay_verified FROM sessions"
 ```
 
@@ -960,24 +977,20 @@ only on `wrangler dev` has validated the SDK, not the deployment.
 
 ---
 
-## 12. Decisions needed before implementation
+## 12. Provisioning values and resolved defaults
 
-These are the user's calls, not the implementer's. Each one changes what gets built.
+The implementation uses the proposed defaults below. Only the real Cloudflare resource
+identifiers remain pending.
 
-1. **Cloudflare account, Worker name, and custom domain.** `workers.dev` is fine for
-   step 5 and costs nothing; a custom domain matters first for share links (step 6+).
-   Which account, and is `dmc-captures` an acceptable Worker/D1 name?
-2. **Retention numbers.** §5.4 proposes 90 days for captures and 1 year for sessions,
-   inherited from brain dump §7. Confirm, or set different windows before the lifecycle
-   rule is written — changing it later means a backfill.
-3. **Ingest friction.** Fully open with rate limits only (proposed), or also ship the
-   nuisance-value build token from day one? The token buys little and costs a secret to
-   rotate.
-4. **Event tail storage.** Captures carry up to 256 KB of diagnostics events. Store them
-   in the blob only (proposed), or also index a count and channel histogram in D1 for
-   querying without downloading? The second is cheap now and awkward to add later.
-5. **Whether the parity refactor in §4.1 is in scope for this step.** It touches shipped
-   step 3 code. The alternative is two hand-maintained copies of the same seven checks.
+1. **Cloudflare account, Worker name, and custom domain.** Pending account and resource
+   IDs. The configuration uses `dmc-captures` and `workers.dev`, with conspicuous
+   placeholder IDs until the resources are provisioned.
+2. **Retention numbers.** Resolved: 90 days for captures and 1 year for sessions.
+3. **Ingest friction.** Resolved: open with rate limits only; no build token.
+4. **Event tail storage.** Resolved: payload in the blob only, with count and truncation
+   state indexed in D1.
+5. **Parity refactor.** Resolved: the Vite adapter and Worker share
+   `src/capture-contract.ts`.
 
 ---
 

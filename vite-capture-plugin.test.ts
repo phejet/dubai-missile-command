@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { Readable } from "node:stream";
 import { gzipSync } from "node:zlib";
 import { afterEach, describe, expect, it } from "vitest";
+import { captureFixture } from "./test-fixtures/capture";
 import {
   createCaptureHandler,
   MAX_COMPRESSED_BYTES,
@@ -23,12 +24,7 @@ const tempDirs: string[] = [];
 
 function capture(overrides: Record<string, unknown> = {}) {
   return {
-    captureSchema: 1,
-    captureId: "boot-c0",
-    meta: { buildId: "build+dirty", installId: null },
-    summary: { waveReached: 4, score: 900 },
-    replay: null,
-    events: [],
+    ...captureFixture(),
     ...overrides,
   };
 }
@@ -51,7 +47,7 @@ async function request(
     ...(options.gzip ? { "content-encoding": "gzip" } : {}),
     "x-dmc-sha256": options.sha ?? createHash("sha256").update(raw).digest("hex"),
     "x-dmc-build": options.build ?? "build+dirty",
-    "x-dmc-install": options.install ?? "",
+    "x-dmc-install": options.install ?? "12345678-abcd",
   };
   const response: TestResponse = { statusCode: 200, body: "", headers: {} };
   const res = {

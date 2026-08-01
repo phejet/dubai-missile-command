@@ -14,6 +14,8 @@ export default defineConfig([
     "playwright-report/**",
     "ios/App/App/public/**",
     "ios/App/build/**",
+    ".wrangler/**",
+    "worker/.wrangler/**",
   ]),
   {
     files: ["**/*.{ts,tsx}"],

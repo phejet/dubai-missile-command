@@ -1,0 +1,65 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "dmc-captures-local",
+  "main": "src/index.ts",
+  "account_id": "00000000000000000000000000000000",
+  "compatibility_date": "2026-08-01",
+  "vars": {
+    "WORKER_BUILD": "dev",
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "dmc-captures-local",
+      "database_id": "00000000-0000-0000-0000-000000000001",
+      "preview_database_id": "00000000-0000-0000-0000-000000000001",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "r2_buckets": [{ "binding": "CAPTURES", "bucket_name": "dmc-captures-local" }],
+  "ratelimits": [
+    { "name": "INGEST_IP", "namespace_id": "1001", "simple": { "limit": 60, "period": 60 } },
+    { "name": "INGEST_INSTALL", "namespace_id": "1002", "simple": { "limit": 5, "period": 60 } },
+  ],
+  "triggers": { "crons": ["17 3 * * *"] },
+  "env": {
+    "staging": {
+      "name": "dmc-captures-staging",
+      "vars": { "WORKER_BUILD": "staging" },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "dmc-captures-staging",
+          "database_id": "00000000-0000-0000-0000-000000000002",
+          "preview_database_id": "00000000-0000-0000-0000-000000000001",
+          "migrations_dir": "migrations",
+        },
+      ],
+      "r2_buckets": [{ "binding": "CAPTURES", "bucket_name": "dmc-captures-staging" }],
+      "ratelimits": [
+        { "name": "INGEST_IP", "namespace_id": "2001", "simple": { "limit": 60, "period": 60 } },
+        { "name": "INGEST_INSTALL", "namespace_id": "2002", "simple": { "limit": 5, "period": 60 } },
+      ],
+      "triggers": { "crons": ["17 3 * * *"] },
+    },
+    "production": {
+      "name": "dmc-captures",
+      "vars": { "WORKER_BUILD": "production" },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "dmc-captures",
+          "database_id": "00000000-0000-0000-0000-000000000003",
+          "preview_database_id": "00000000-0000-0000-0000-000000000001",
+          "migrations_dir": "migrations",
+        },
+      ],
+      "r2_buckets": [{ "binding": "CAPTURES", "bucket_name": "dmc-captures" }],
+      "ratelimits": [
+        { "name": "INGEST_IP", "namespace_id": "3001", "simple": { "limit": 60, "period": 60 } },
+        { "name": "INGEST_INSTALL", "namespace_id": "3002", "simple": { "limit": 5, "period": 60 } },
+      ],
+      "triggers": { "crons": ["17 3 * * *"] },
+    },
+  },
+}
