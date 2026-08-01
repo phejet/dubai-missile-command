@@ -68,3 +68,17 @@ tasks/recap-option*.html
 tasks/recap-data.js
 leak-probe-results.json
 /captures/
+/diag-results/
+
+# Secrets and local credential material.
+# Listed before the files exist: the accident is a new secret file landing in a
+# repo whose ignore rule was going to be added "right after this commit".
+.env
+.env.*
+!.env.*.example
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.wrangler/
+worker/.wrangler/
+wrangler.*.local.jsonc

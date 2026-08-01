@@ -212,15 +212,15 @@ The D1 column wins. What it means concretely:
 One sequence now serves both audiences, because §6 collapsed them into one
 backend. Steps 1–3 required no backend at all, which is why they went first.
 
-| #   | Step                                                                                        | State                                  |
-| --- | ------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 1   | Run recap — the summary a capture projects from                                             | shipped                                |
-| 2   | Replay flight recorder — completed replays survive `initGame()` and WebContent kills        | shipped `a5dc06b`                      |
-| 3   | Capture assembly + `/api/save-capture` dev parity — prove the exact artifact writes locally | shipped `6ce2fc2`; iPhone gate pending |
-| 4   | `src/install-id.ts` — ~20 lines, needed by every producer                                   | shipped                                |
-| 5   | `worker/` + R2 + D1 (both tables) — `curl`-validated before any client wiring               | **next**                               |
-| 6   | Triggers: hidden gesture (dev), labeled "Report a bug" (player/QA), programmatic (agent)    | not started                            |
-| 7   | Leaderboard projection — a query over data step 3 already populates; gated on 20+ installs  | not started                            |
+| #   | Step                                                                                        | State                                                                                                   |
+| --- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| 1   | Run recap — the summary a capture projects from                                             | shipped                                                                                                 |
+| 2   | Replay flight recorder — completed replays survive `initGame()` and WebContent kills        | shipped `a5dc06b`                                                                                       |
+| 3   | Capture assembly + `/api/save-capture` dev parity — prove the exact artifact writes locally | shipped `6ce2fc2`; iPhone gate pending                                                                  |
+| 4   | `src/install-id.ts` — ~20 lines, needed by every producer                                   | shipped                                                                                                 |
+| 5   | `worker/` + R2 + D1 (both tables) — `curl`-validated before any client wiring               | **next**; planned in [`../docs/capture-worker-backend-plan.md`](../docs/capture-worker-backend-plan.md) |
+| 6   | Triggers: hidden gesture (dev), labeled "Report a bug" (player/QA), programmatic (agent)    | not started                                                                                             |
+| 7   | Leaderboard projection — a query over data step 3 already populates; gated on 20+ installs  | not started                                                                                             |
 
 Step 6 ships three triggers over **one** `uploadCapture()`. Three call sites,
 one transport, one envelope — the moment that becomes three transports, the
