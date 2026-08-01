@@ -1,7 +1,8 @@
 # Replay Upload Backend — Status And Document Map
 
-Status: orientation note. No implementation exists yet.
-Date captured: 2026-07-29
+Status: orientation note. Client-side steps 1–3 shipped; no server exists yet.
+Date captured: 2026-07-29 · destination settled 2026-08-01 (§6) · client state
+refreshed 2026-08-01
 Purpose: a single breadcrumb for "where is the backend plan, what is already
 built, and what is still just paper" — so the next session does not have to
 re-run the branch sweep below.
@@ -14,13 +15,21 @@ the three plans that matter live in `.plans/`.
 ## 1. Short version
 
 - The Cloudflare design exists in **three separate documents**, all on `main`.
-- **Nothing backend-related is implemented.** No `worker/`, no `wrangler.toml`,
-  no upload transport, anywhere in the repo or on any branch.
-- What _is_ implemented is the **manual export path**: replay → iOS share sheet,
-  and diagnostics JSONL → iOS share sheet.
-- The two backend plans **disagree on scope** (D1 + public share links vs.
-  R2/KV + private diagnostics). That conflict is unresolved and should be
-  settled before any Worker code is written. See §6.
+- **No server exists.** No `worker/`, no `wrangler.toml`, no production upload
+  transport, anywhere in the repo or on any branch.
+- The **client side is further along than the §3 sweep below suggests** — that
+  sweep predates `a5dc06b` and `6ce2fc2`. `src/replay-snapshot.ts`,
+  `src/capture.ts`, `src/capture-sink.ts`, `src/sha256.ts`,
+  `vite-capture-plugin.ts`, and `scripts/extract-diagnostic-replays.ts` all
+  exist on `main` now. `capture-sink.ts` posts only to a dev-only endpoint
+  define, which is `null` in production.
+- What is implemented for evidence today: the **manual export path** (replay →
+  iOS share sheet, diagnostics JSONL → iOS share sheet), plus durable local
+  replay archiving inside the diagnostics store.
+- The two backend plans described different systems (D1 + public share links
+  vs. R2/KV + private diagnostics). **Settled 2026-08-01: Worker + R2 + D1,
+  one backend.** Private diagnostics is a second D1 table, not a second
+  service. See §6.
 
 ---
 
@@ -67,6 +76,11 @@ A sweep of all 28 remote branches (2026-07-29) for `wrangler`, `worker/`,
 `replay-snapshot`, `extract-diagnostic`, `diag-pull`, `build-info` returned
 **zero hits on every branch**. No backend implementation has ever been
 committed to this repository.
+
+> Stale as of 2026-08-01 for the client-side names only: `replay-snapshot` and
+> `extract-diagnostic` now hit on `main` (`a5dc06b`, `6ce2fc2`). The
+> server-side names — `wrangler`, `worker/`, `diag-sink`, `diag-pull` — still
+> return zero everywhere. Re-run §8 rather than trusting this paragraph.
 
 ### PR #17 is superseded — safe to close
 
@@ -136,9 +150,12 @@ and `scripts/`.
 
 ---
 
-## 6. The unresolved conflict — decide this first
+## 6. The scope conflict — RESOLVED (2026-08-01)
 
-The two backend plans describe different systems that happen to share a vendor:
+**Decision: a single Cloudflare Worker + one R2 bucket + one D1 database serves
+both audiences. Private diagnostics is another D1 table, not another backend.**
+
+The two plans described different systems that happen to share a vendor:
 
 |           | `run-recap-playtest-platform.md` §7/§9      | `mobile-diagnostics-capture.md` §5        |
 | --------- | ------------------------------------------- | ----------------------------------------- |
@@ -149,37 +166,76 @@ The two backend plans describe different systems that happen to share a vendor:
 | Retention | 1 year shared / 90 days telemetry           | 90 days                                   |
 | Justifies | Share links, leaderboard                    | Debugging TestFlight builds off home wifi |
 
-`mobile-diagnostics-capture.md` §1 flags this and offers two options —
-diagnostics as a `source: "diagnostics"` row on the same Worker, or a sibling
-route — but never picks one. §9 also leaves the R2 lookup strategy open
-(KV `id -> r2Key` vs. a self-describing ID), and that one **must** be settled
-before `GET /diag/<id>` or `diag:pull <id>` can be implemented.
+The D1 column wins. What it means concretely:
 
-Pick the destination before writing Worker code. The endpoints, the auth model,
-and the storage layer all differ.
+- **One ingest endpoint**, not two. `POST /api/save-capture` — the contract
+  already specified and locally proven in
+  [`../docs/replay-capture-assembly-plan.md`](../docs/replay-capture-assembly-plan.md)
+  §4. There is no `/share` and no `/diag/ingest`; one `uploadCapture()` sits
+  beneath every trigger.
+- **Two D1 tables**, split by what the row is _for_:
+  - `sessions` — completed runs. The §9 schema, leaderboard-eligible, publicly
+    shareable. Written only for `partial: false` captures, upserted on a unique
+    index over `run_id`.
+  - a diagnostics table — everything else: partial captures, crash evidence,
+    bug reports. Auth-gated, never surfaced publicly, never in a leaderboard
+    query.
+- This mapping **already exists in the shipped code**. Capture assembly §2.3
+  routes `partial: true` captures away from `sessions` precisely because they
+  describe a run that has not happened yet. Those rows are the diagnostics
+  table. The split was designed before it had a name.
+- **The R2 lookup question is settled by the same decision.** §9 of
+  `mobile-diagnostics-capture.md` left `KV id -> r2Key` vs. a self-describing
+  ID open; with D1 present, the row _is_ the lookup — `id` is the primary key
+  and the R2 key prefix, so `GET /diag/<id>` and `diag:pull <id>` resolve
+  through a D1 `SELECT`. **No KV binding is needed for resolution.** KV or the
+  Worker rate-limiting binding may still earn its place for per-install
+  quotas; that is a separate call, made when rate limiting is written.
+
+### Superseded by this decision
+
+- `mobile-diagnostics-capture.md` §5 "**No D1 for the MVP**" — no longer true.
+  Its client-side sections (§4.4 install id, §4.5 baked build id, §4.6 hidden
+  gesture) are unaffected and still the reference.
+- `mobile-diagnostics-capture.md` §1's two unpicked options — option A
+  (diagnostics on the same Worker) is the answer, refined: the discriminator is
+  the existing `meta.trigger` / `partial` fields, not a bolted-on
+  `source: "diagnostics"` tag.
+- This document's own §7 build order, which recommended the KV path. Replaced
+  below.
 
 ---
 
-## 7. Next step
+## 7. The unified build order
 
-If the goal is **self-troubleshooting** (matches this branch's name and builds
-on what already ships), follow `mobile-diagnostics-capture.md` §8:
+One sequence now serves both audiences, because §6 collapsed them into one
+backend. Steps 1–3 required no backend at all, which is why they went first.
 
-1. Client buffer + `replay-snapshot` + bundle assembly. No network.
-2. `/api/save-diag-bundle` for local dev parity — prove the exact bundle shape
-   writes locally before Cloudflare joins the ceremony.
-3. `worker/` with R2 + KV + ingest. Validate with `curl` before any client wiring.
-4. Wire the sink and the hidden gesture. End-to-end over cellular.
-5. TestFlight readiness: privacy manifest, questionnaire, rate caps, labeled
-   "Send bug report" button.
+| #   | Step                                                                                        | State                                  |
+| --- | ------------------------------------------------------------------------------------------- | -------------------------------------- |
+| 1   | Run recap — the summary a capture projects from                                             | shipped                                |
+| 2   | Replay flight recorder — completed replays survive `initGame()` and WebContent kills        | shipped `a5dc06b`                      |
+| 3   | Capture assembly + `/api/save-capture` dev parity — prove the exact artifact writes locally | shipped `6ce2fc2`; iPhone gate pending |
+| 4   | `src/install-id.ts` — ~20 lines, needed by every producer                                   | **next**                               |
+| 5   | `worker/` + R2 + D1 (both tables) — `curl`-validated before any client wiring               | not started                            |
+| 6   | Triggers: hidden gesture (dev), labeled "Report a bug" (player/QA), programmatic (agent)    | not started                            |
+| 7   | Leaderboard projection — a query over data step 3 already populates; gated on 20+ installs  | not started                            |
 
-If the goal is the **viral share link** instead, that is
-`run-recap-playtest-platform.md` §17 Phase 2, and it is a different endpoint
-shape. Steps 1–2 above are useful either way.
+Step 6 ships three triggers over **one** `uploadCapture()`. Three call sites,
+one transport, one envelope — the moment that becomes three transports, the
+diagnosis vocabulary forks and step 5 inherits two of everything.
 
-Independently: the flight recorder can be implemented at any time without a
-backend, and makes every later upload more valuable by guaranteeing a completed
-replay actually survives to be uploaded.
+Step 3's local endpoint is the specification step 5 implements against: same
+headers, same integrity contract, same rejection stages
+(`serialize` / `hash` / `compress` / `size` / `parse`). The Worker should be
+diffable against `vite-capture-plugin.ts`, not a fresh invention.
+
+Still outstanding independently of this sequence: the **real-iPhone gate** for
+steps 2–3 — capability booleans (`CompressionStream`, `crypto.subtle` on an
+insecure LAN origin), v11 archive size and latency, Share Diagnostics
+extraction, and WebContent-kill recovery. Everything above builds on the
+assumption that those hold on device, and nothing has yet confirmed them on
+device.
 
 ---
 

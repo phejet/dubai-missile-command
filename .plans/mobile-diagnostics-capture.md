@@ -326,6 +326,16 @@ diagnostics — do not invent a second scheme.
 
 ## 5. Backend implementation (minimal)
 
+> **Superseded 2026-08-01** — see
+> [`replay-upload-backend-status.md`](./replay-upload-backend-status.md) §6.
+> The destination is **Worker + R2 + D1**, one backend for both audiences, with
+> private diagnostics as a second D1 table. The ingest endpoint is the single
+> `POST /api/save-capture` contract in
+> [`../docs/replay-capture-assembly-plan.md`](../docs/replay-capture-assembly-plan.md)
+> §4 — not `/diag/ingest`. D1 resolves `<id> -> r2Key`, so no KV lookup is
+> needed. The client-side sections of this document (§4.4 install id, §4.5
+> baked build id, §4.6 hidden gesture) are unaffected and remain the reference.
+
 A single Cloudflare Worker + one R2 bucket. **No D1 for the MVP** — the
 replay+logs blob is enough for troubleshooting; D1 indexing arrives with
 the leaderboard/telemetry work.
