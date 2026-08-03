@@ -4,6 +4,12 @@ Status: implemented and locally verified; Cloudflare provisioning/deployment pen
 Roadmap step 5 of 7 in the unified capture-system sequence.
 Date: 2026-08-01
 
+> **Superseded contract:** The session/report wire shape, storage schema, routes, and
+> retention protocol in this document were replaced by
+> [`capture-session-report-split-plan.md`](./capture-session-report-split-plan.md). The
+> validation ladder, abuse controls, deployment boundary, and verification layering
+> still carry forward as described there.
+
 Implementation note: the checked-in Wrangler configuration intentionally contains
 placeholder account and D1 resource IDs. Local workerd/D1/R2 tests and the curl gate
 pass; acceptance criterion 12's deployed-Worker and applied-lifecycle proof remains

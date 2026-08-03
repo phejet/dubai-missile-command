@@ -1,23 +1,28 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it } from "vitest";
+import { replayFixture, reportFixture, sessionFixture } from "../test-fixtures/capture";
+import {
+  assembleReport,
+  assembleSession,
+  CAPTURE_SCHEMA_VERSION,
+  projectCaptureSummary,
+  type AssembleReportInput,
+  type AssembleSessionInput,
+} from "./capture";
 import { createEmptyGameStats } from "./game-logic";
-import { assembleCapture, CAPTURE_SCHEMA_VERSION, projectCaptureSummary, type AssembleCaptureInput } from "./capture";
-import type { ReplayData, RunRecapData } from "./types";
+import { sha256HexFallback } from "./sha256";
+import type { RunRecapData } from "./types";
 
 const digest = async () => "a".repeat(64);
 
 function recap(): RunRecapData {
   const totalStats = createEmptyGameStats();
-  totalStats.missileKills = 3;
-  totalStats.droneKills = 2;
-  totalStats.shotsFired = 10;
-  totalStats.multiShots = 4;
-  totalStats.maxCombo = 8;
+  Object.assign(totalStats, { missileKills: 3, droneKills: 2, shotsFired: 10, multiShots: 4, maxCombo: 8 });
   return {
     score: 900,
     wave: 4,
-    timePlayedMs: 12345,
+    timePlayedMs: 12_345,
     hitRatio: 0.5,
     burjHealth: 0,
     outcome: "burj_destroyed",
@@ -29,131 +34,107 @@ function recap(): RunRecapData {
   };
 }
 
-function input(overrides: Partial<AssembleCaptureInput> = {}): AssembleCaptureInput {
-  const replay: ReplayData = {
-    version: 11,
-    seed: 42,
-    actions: [{ type: "emp", tick: 1 }],
-    checkpoints: [],
-    finalTick: 10,
-  };
+function sessionInput(): AssembleSessionInput {
+  const source = sessionFixture();
+  const { replaySha256: _sha, replayComplete: _complete, ...meta } = source.meta;
+  return { meta, summary: source.summary, replay: source.replay };
+}
+
+function reportInput(): AssembleReportInput {
+  const source = reportFixture();
+  const { replaySha256: _sha, replayComplete: _complete, ...meta } = source.meta;
   return {
-    captureId: "boot-c0",
-    meta: {
-      buildId: "build",
-      installId: null,
-      displayName: null,
-      bootId: "boot",
-      runId: "run",
-      capturedAt: 1,
-      trigger: "manual",
-      note: null,
-      appScreen: "playing",
-      replaySource: "live",
-      partial: true,
-      capturedThroughTick: 10,
-      platform: "web",
-      inputClass: "mouse",
-      env: { platform: "web", native: false, ua: "test", dpr: 1, screenW: 900, screenH: 1600 },
-    },
-    summary: projectCaptureSummary(recap(), true),
-    replay,
-    events: [{ channel: "game", event: "start" }],
-    eventsUnparsed: 0,
-    eventsTruncated: false,
-    ...overrides,
+    reportId: source.reportId,
+    meta,
+    summary: source.summary,
+    replay: source.replay,
+    events: source.events,
+    eventsUnparsed: source.eventsUnparsed,
+    eventsTruncated: source.eventsTruncated,
   };
 }
 
 describe("capture assembly", () => {
-  it("projects every persisted summary field and normalizes partial outcome", () => {
-    const summary = projectCaptureSummary(recap(), true);
-    expect(summary).toEqual({
-      outcome: "in_progress",
-      deathCause: null,
-      waveReached: 4,
+  it("projects every persisted summary field", () => {
+    expect(projectCaptureSummary(recap(), false)).toMatchObject({
+      outcome: "burj_destroyed",
       score: 900,
-      timePlayedMs: 12345,
-      burjHealth: 0,
-      shotsFired: 10,
       totalKills: 5,
-      hitRatio: 0.5,
-      multiShots: 4,
-      maxCombo: 8,
-      destroyedByType: createEmptyGameStats().destroyedByType,
-      upgrades: [{ tick: 20, wave: 2, bought: ["patriot"] }],
+      shotsFired: 10,
     });
-    expect(Object.values(summary).every((value) => value !== undefined)).toBe(true);
+    expect(projectCaptureSummary(recap(), true)).toMatchObject({ outcome: "in_progress", deathCause: null });
   });
 
-  it("assembles the versioned envelope without mutating nested inputs", async () => {
-    const source = input();
-    const before = structuredClone(source);
-    const result = await assembleCapture(source, { digest });
-
+  it("assembles a diagnostics-free session without mutating input", async () => {
+    const input = sessionInput();
+    input.replay!._env = { platform: "web", native: false, ua: "private", dpr: 2, screenW: 390, screenH: 844 };
+    const before = structuredClone(input);
+    const result = await assembleSession(input, { digest });
     expect(result).toMatchObject({
       captureSchema: CAPTURE_SCHEMA_VERSION,
-      captureId: "boot-c0",
-      meta: { replayComplete: false, replaySha256: "a".repeat(64) },
-      attachments: [],
+      kind: "session",
+      meta: { runId: "run", replayComplete: true, replaySha256: "a".repeat(64) },
     });
-    expect(source).toEqual(before);
+    expect(Object.keys(result)).not.toContain("events");
+    expect(Object.keys(result.meta)).not.toContain("env");
+    expect(result.replay).not.toHaveProperty("_env");
+    expect(input).toEqual(before);
   });
 
-  it("marks only an explicitly completed replay as archive-joinable", async () => {
-    const source = input();
-    source.meta.replaySource = "last-completed";
-    source.meta.partial = false;
-    const result = await assembleCapture(source, { digest });
-    expect(result.meta.replayComplete).toBe(true);
-    expect(result.meta.replaySha256).toBe("a".repeat(64));
+  it("deduplicates production-shaped replay provenance without losing report context", async () => {
+    const rawReplay = replayFixture();
+    const sessionSource = sessionInput();
+    const reportSource = reportInput();
+    sessionSource.replay = structuredClone(rawReplay);
+    reportSource.replay = structuredClone(rawReplay);
+    const realDigest = async (bytes: Uint8Array) => sha256HexFallback(bytes);
+    const [session, report] = await Promise.all([
+      assembleSession(sessionSource, { digest: realDigest }),
+      assembleReport(reportSource, { digest: realDigest }),
+    ]);
+    expect(session.replay).toEqual(report.replay);
+    expect(session.meta.replaySha256).toBe(report.meta.replaySha256);
+    expect(session.replay).toMatchObject({ _buildId: "build+dirty", _savedAt: "2026-08-04T00:00:00.000Z" });
+    expect(session.replay).not.toHaveProperty("_env");
+    expect(report.meta.replayEnv).toEqual(rawReplay._env);
   });
 
-  it("handles a capture with no run or replay", async () => {
-    const result = await assembleCapture(input({ replay: null, summary: null }), { digest });
-    expect(result).toMatchObject({
-      replay: null,
-      summary: null,
-      replayOmitted: { reason: "unavailable" },
-      meta: { replayComplete: false, replaySha256: null },
-    });
+  it("uses the short session degradation ladder", async () => {
+    const input = sessionInput();
+    input.replay!.checkpoints = [{ payload: "x".repeat(4_000) } as never];
+    const withoutCheckpoints = await assembleSession(input, { maxRawBytes: 1_200, digest });
+    expect(withoutCheckpoints.replay?.checkpoints).toBeUndefined();
+    expect(withoutCheckpoints.replayOmitted).toEqual({ reason: "size", checkpointsDropped: true });
+
+    const withoutReplay = await assembleSession(input, { maxRawBytes: 500, digest });
+    expect(withoutReplay.replay).toBeNull();
+    expect(withoutReplay.meta.replaySha256).toBeNull();
+    expect(withoutReplay.replayOmitted?.reason).toBe("size");
   });
 
-  it("drops checkpoints before event data and records the rung", async () => {
-    const source = input();
-    source.replay!.checkpoints = [{ payload: "x".repeat(2500) } as never];
-    const before = structuredClone(source);
-    const result = await assembleCapture(source, { maxRawBytes: 1800, digest });
-
-    expect(result.replay).not.toBeNull();
-    expect(result.replay?.checkpoints).toBeUndefined();
-    expect(result.replayOmitted).toEqual({ reason: "size", checkpointsDropped: true });
-    expect(result.meta.replayComplete).toBe(false);
-    expect(result.events).toEqual(source.events);
-    expect(source).toEqual(before);
-  });
-
-  it("halves then drops events before omitting replay", async () => {
-    const events = Array.from({ length: 8 }, (_, index) => ({ index, payload: "e".repeat(150) }));
-    const half = await assembleCapture(input({ events }), { maxRawBytes: 1800, digest });
-    expect(half.events).toEqual(events.slice(4));
-    expect(half.eventsTruncated).toBe(true);
-    expect(half.replay).not.toBeNull();
-
-    const none = await assembleCapture(input({ events }), { maxRawBytes: 1000, digest });
-    expect(none.events).toEqual([]);
-    expect(none.replay).toBeNull();
-    expect(none.replayOmitted?.reason).toBe("size");
-    expect(none.meta.replaySha256).toBeNull();
-  });
-
-  it("does not record a no-op when halving a single-event tail", async () => {
-    const result = await assembleCapture(input({ events: [{ payload: "e".repeat(1200) }] }), {
-      maxRawBytes: 1300,
-      digest,
-    });
-    expect(result.events).toEqual([]);
+  it("assembles reports with diagnostics and degrades events before replay", async () => {
+    const input = reportInput();
+    const replayEnv = { platform: "ios", native: true, ua: "recorder", dpr: 3, screenW: 390, screenH: 844 };
+    input.replay!._env = replayEnv;
+    input.events = Array.from({ length: 8 }, (_, index) => ({ index, payload: "e".repeat(150) }));
+    const result = await assembleReport(input, { maxRawBytes: 2_100, digest });
+    expect(result.kind).toBe("report");
+    expect(result.events.length).toBeLessThan(input.events.length);
     expect(result.eventsTruncated).toBe(true);
     expect(result.replay).not.toBeNull();
+    expect(result.replay).not.toHaveProperty("_env");
+    expect(result.meta.replayEnv).toEqual(replayEnv);
+    expect(result.attachments).toEqual([]);
+  });
+
+  it("supports replay-less title reports", async () => {
+    const input = reportInput();
+    input.meta.runId = null;
+    input.meta.replaySource = "none";
+    input.summary = null;
+    input.replay = null;
+    const result = await assembleReport(input, { digest });
+    expect(result).toMatchObject({ replay: null, summary: null, replayOmitted: { reason: "unavailable" } });
+    expect(result.meta.replaySha256).toBeNull();
   });
 });

@@ -4,7 +4,12 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import type { Plugin, ViteDevServer } from "vite";
-import { MAX_COMPRESSED_BYTES, MAX_DECODED_BYTES, validateCaptureBody } from "./src/capture-contract";
+import {
+  MAX_COMPRESSED_BYTES,
+  MAX_DECODED_BYTES,
+  validateReportBody,
+  validateSessionBody,
+} from "./src/capture-contract";
 
 export { MAX_COMPRESSED_BYTES, MAX_DECODED_BYTES } from "./src/capture-contract";
 const MAX_CAPTURES = 50;
@@ -75,7 +80,10 @@ export function pruneCaptureGroups(dir: string): void {
   }
 }
 
-export function createCaptureHandler(captureDir = join(process.cwd(), "captures")) {
+export function createCaptureHandler(
+  captureDir = join(process.cwd(), "captures"),
+  kind: "session" | "report" = "report",
+) {
   return async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     if (req.method !== "POST") {
       sendJson(res, 405, { ok: false, stage: "parse", message: "Method not allowed" });
@@ -113,7 +121,7 @@ export function createCaptureHandler(captureDir = join(process.cwd(), "captures"
       return;
     }
 
-    const validation = validateCaptureBody(
+    const validation = await (kind === "session" ? validateSessionBody : validateReportBody)(
       raw,
       {
         build: header(req, "x-dmc-build"),
@@ -126,13 +134,18 @@ export function createCaptureHandler(captureDir = join(process.cwd(), "captures"
       failure(res, validation.stage, new Error(validation.message));
       return;
     }
-    const capture = validation.capture;
+    const capture = validation.ok ? ("session" in validation ? validation.session : validation.report) : null;
+    if (!capture) {
+      failure(res, "parse", new Error("validated capture is missing"));
+      return;
+    }
 
     try {
       mkdirSync(captureDir, { recursive: true });
       const wave = boundedNumber(capture.summary?.waveReached);
       const score = boundedNumber(capture.summary?.score);
-      const base = `${capture.meta.buildId}-w${wave}-s${score}-${capture.captureId}`;
+      const id = capture.kind === "session" ? capture.meta.runId : capture.reportId;
+      const base = `${capture.meta.buildId}-w${wave}-s${score}-${id}`;
       const encoding = contentEncoding === "gzip" ? "gzip" : "none";
       const wireFile = `${base}.json.${encoding === "gzip" ? "gz" : "raw"}`;
       const prettyFile = `${base}.json`;
@@ -141,7 +154,7 @@ export function createCaptureHandler(captureDir = join(process.cwd(), "captures"
       pruneCaptureGroups(captureDir);
       sendJson(res, 200, {
         ok: true,
-        captureId: capture.captureId,
+        id,
         encoding,
         file: prettyFile,
         rawBytes: raw.byteLength,
@@ -155,11 +168,13 @@ export function createCaptureHandler(captureDir = join(process.cwd(), "captures"
 
 export default function capturePlugin(): Plugin {
   const captureDir = join(process.cwd(), "captures");
-  const handler = createCaptureHandler(captureDir);
+  const sessionHandler = createCaptureHandler(captureDir, "session");
+  const reportHandler = createCaptureHandler(captureDir, "report");
   return {
     name: "vite-capture-save",
     configureServer(server: ViteDevServer) {
-      server.middlewares.use("/api/save-capture", (req, res) => void handler(req, res));
+      server.middlewares.use("/api/session", (req, res) => void sessionHandler(req, res));
+      server.middlewares.use("/api/report", (req, res) => void reportHandler(req, res));
     },
   };
 }

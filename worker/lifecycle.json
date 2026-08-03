@@ -1,10 +1,16 @@
 {
   "rules": [
     {
-      "id": "expire-captures-after-90-days",
+      "id": "expire-diagnostics-after-90-days",
       "enabled": true,
-      "conditions": { "prefix": "captures/" },
+      "conditions": { "prefix": "diagnostics/" },
       "deleteObjectsTransition": { "condition": { "maxAge": 7776000 } }
+    },
+    {
+      "id": "expire-replays-after-400-days",
+      "enabled": true,
+      "conditions": { "prefix": "replays/" },
+      "deleteObjectsTransition": { "condition": { "maxAge": 34560000 } }
     }
   ]
 }

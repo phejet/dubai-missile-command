@@ -54,7 +54,7 @@ export default defineConfig(
     base: appBase,
     define: {
       __DMC_BUILD_ID__: JSON.stringify(getBuildId()),
-      __DMC_CAPTURE_ENDPOINT__: JSON.stringify(command === "serve" ? "/api/save-capture" : null),
+      __DMC_CAPTURE_ENDPOINT__: JSON.stringify(command === "serve" ? "/" : null),
     },
     server: {
       allowedHosts: isCapacitor ? [".local"] : undefined,

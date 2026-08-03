@@ -1,17 +1,23 @@
-import type { CaptureEnvelope, CaptureSummary } from "./capture";
+import type { CaptureSummary, ProblemReport, SessionUpload } from "./capture";
+import { serializedBytes } from "./capture";
+import { sha256Hex } from "./sha256";
 
 export const MAX_COMPRESSED_BYTES = 8 * 1024 * 1024;
 export const MAX_DECODED_BYTES = 8 * 1024 * 1024;
 export const SAFE_ID = /^[A-Za-z0-9._+-]{1,64}$/;
 export const SAFE_INSTALL_ID = /^(eph-)?[a-z0-9-]{8,64}$/;
+export const SHA256 = /^[a-f0-9]{64}$/;
 
 export type ContractStage = "serialize" | "hash" | "compress" | "size" | "parse";
-export type ContractResult =
-  | { ok: true; capture: CaptureEnvelope; installId: string; ephemeral: boolean }
+export type SessionContractResult =
+  | { ok: true; session: SessionUpload; installId: string; ephemeral: boolean }
+  | { ok: false; stage: ContractStage; message: string };
+export type ReportContractResult =
+  | { ok: true; report: ProblemReport; installId: string; ephemeral: boolean }
   | { ok: false; stage: ContractStage; message: string };
 
-const SHA256 = /^[a-f0-9]{64}$/;
-const TRIGGERS = new Set(["gameover", "manual", "agent"]);
+const SESSION_TRIGGERS = new Set(["gameover", "manual"]);
+const REPORT_TRIGGERS = new Set(["manual", "agent"]);
 const SCREENS = new Set(["title", "playing", "shop", "gameover"]);
 const REPLAY_SOURCES = new Set(["live", "last-completed", "playback", "none"]);
 const INPUT_CLASSES = new Set(["touch", "mouse", "unknown"]);
@@ -26,10 +32,7 @@ const DESTROYED_TYPES = [
   "shahed238",
   "other",
 ] as const;
-
-function fail(message: string): ContractResult {
-  return { ok: false, stage: "parse", message };
-}
+const FORBIDDEN_SESSION_KEYS = ["events", "eventsUnparsed", "eventsTruncated", "attachments"] as const;
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -74,9 +77,12 @@ function serializable(value: unknown, name: string): void {
   }
 }
 
-function validateSummary(value: unknown, partial: boolean): asserts value is CaptureSummary | null {
-  if (value === null) return;
-  if (!record(value)) throw new Error("summary must be an object or null");
+function validateSummary(value: unknown, partial: boolean, nullable: boolean): asserts value is CaptureSummary | null {
+  if (value === null) {
+    if (!nullable) throw new Error("summary must not be null");
+    return;
+  }
+  if (!record(value)) throw new Error("summary must be an object");
   const outcome = enumeration(value.outcome, "summary.outcome", OUTCOMES);
   if (partial ? outcome !== "in_progress" : outcome === "in_progress") {
     throw new Error("summary.outcome does not agree with meta.partial");
@@ -101,77 +107,175 @@ function validateSummary(value: unknown, partial: boolean): asserts value is Cap
   serializable(value.upgrades, "summary.upgrades");
 }
 
-function parseCapture(decoded: Uint8Array): unknown {
+function parseBody(decoded: Uint8Array): unknown {
   return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(decoded)) as unknown;
 }
 
-/** Validates every field projected into D1. Hashing and body decoding remain adapter concerns. */
-export function validateCaptureBody(
+function validateHeaders(
+  value: Record<string, unknown>,
+  headers: { build: string; install: string; sha256: string },
+): { meta: Record<string, unknown>; installId: string } {
+  if (value.captureSchema !== 2) throw new Error("captureSchema must be 2");
+  if (!record(value.meta)) throw new Error("meta must be an object");
+  const meta = value.meta;
+  const buildId = string(meta.buildId, "meta.buildId", 64)!;
+  if (!SAFE_ID.test(buildId)) throw new Error("buildId must use safe path characters");
+  const installId = string(meta.installId, "meta.installId", 64)!;
+  if (!SAFE_INSTALL_ID.test(installId)) throw new Error("installId has an invalid format");
+  if (headers.build !== buildId || headers.install !== installId) {
+    throw new Error("capture metadata does not match request headers");
+  }
+  return { meta, installId };
+}
+
+function validateRequestHash(headers: { sha256: string }, actualSha256: string): void {
+  if (!SHA256.test(headers.sha256) || headers.sha256 !== actualSha256) {
+    throw Object.assign(new Error("x-dmc-sha256 does not match the decoded body"), { stage: "hash" });
+  }
+}
+
+function validateCommonMeta(meta: Record<string, unknown>, triggers: Set<string>): boolean {
+  string(meta.displayName, "meta.displayName", 64, true);
+  string(meta.bootId, "meta.bootId", 128);
+  number(meta.capturedAt, "meta.capturedAt", { integer: true });
+  enumeration(meta.trigger, "meta.trigger", triggers);
+  string(meta.note, "meta.note", 2_000, true);
+  enumeration(meta.appScreen, "meta.appScreen", SCREENS);
+  enumeration(meta.replaySource, "meta.replaySource", REPLAY_SOURCES);
+  const partial = boolean(meta.partial, "meta.partial");
+  nullableNumber(meta.capturedThroughTick, "meta.capturedThroughTick");
+  boolean(meta.replayComplete, "meta.replayComplete");
+  string(meta.platform, "meta.platform", 128);
+  enumeration(meta.inputClass, "meta.inputClass", INPUT_CLASSES);
+  return partial;
+}
+
+function validateEnvironment(value: unknown, name: string): void {
+  if (!record(value)) throw new Error(`${name} must be an object`);
+  string(value.platform, `${name}.platform`, 128);
+  boolean(value.native, `${name}.native`);
+  string(value.ua, `${name}.ua`, 2_000);
+  number(value.dpr, `${name}.dpr`);
+  number(value.screenW, `${name}.screenW`);
+  number(value.screenH, `${name}.screenH`);
+  if (value.deviceModel !== undefined) string(value.deviceModel, `${name}.deviceModel`, 256);
+}
+
+async function validateReplay(value: Record<string, unknown>, meta: Record<string, unknown>): Promise<void> {
+  const replay = value.replay;
+  const claimed = meta.replaySha256;
+  const omitted = value.replayOmitted;
+  if (omitted !== undefined) {
+    if (!record(omitted) || !["size", "unavailable"].includes(String(omitted.reason))) {
+      throw new Error("replayOmitted has an invalid reason");
+    }
+    if (omitted.checkpointsDropped !== undefined) {
+      boolean(omitted.checkpointsDropped, "replayOmitted.checkpointsDropped");
+    }
+  }
+  if (replay === null) {
+    if (omitted === undefined) throw new Error("replayOmitted is required without a replay");
+    if (claimed !== null)
+      throw Object.assign(new Error("meta.replaySha256 must be null without a replay"), { stage: "hash" });
+    if (meta.replayComplete !== false) throw new Error("meta.replayComplete must be false without a replay");
+    return;
+  }
+  if (record(omitted) && omitted.reason === "unavailable") {
+    throw new Error("replayOmitted.unavailable cannot accompany a replay");
+  }
+  serializable(replay, "replay");
+  if (typeof claimed !== "string" || !SHA256.test(claimed)) {
+    throw Object.assign(new Error("meta.replaySha256 must be a lowercase SHA-256"), { stage: "hash" });
+  }
+  const actual = await sha256Hex(serializedBytes(replay));
+  if (actual !== claimed)
+    throw Object.assign(new Error("meta.replaySha256 does not match replay bytes"), { stage: "hash" });
+}
+
+function resultFailure(error: unknown): { ok: false; stage: ContractStage; message: string } {
+  const stage = (error as { stage?: ContractStage } | null)?.stage ?? "parse";
+  return { ok: false, stage, message: error instanceof Error ? error.message : String(error) };
+}
+
+export async function validateSessionBody(
   decoded: Uint8Array,
   headers: { build: string; install: string; sha256: string },
   actualSha256: string,
-): ContractResult {
-  if (!SHA256.test(headers.sha256) || headers.sha256 !== actualSha256) {
-    return { ok: false, stage: "hash", message: "x-dmc-sha256 does not match the decoded body" };
-  }
-
-  let value: unknown;
+): Promise<SessionContractResult> {
   try {
-    value = parseCapture(decoded);
-  } catch (error) {
-    return { ok: false, stage: "parse", message: error instanceof Error ? error.message : String(error) };
-  }
-
-  try {
-    if (!record(value) || value.captureSchema !== 1) return fail("captureSchema must be 1");
-    const captureId = string(value.captureId, "captureId", 64)!;
-    if (!SAFE_ID.test(captureId)) return fail("captureId must use safe path characters");
-    if (!record(value.meta)) return fail("meta must be an object");
-    const meta = value.meta;
-    const buildId = string(meta.buildId, "meta.buildId", 64)!;
-    if (!SAFE_ID.test(buildId)) return fail("buildId must use safe path characters");
-    const installId = string(meta.installId, "meta.installId", 64)!;
-    if (!SAFE_INSTALL_ID.test(installId)) return fail("installId has an invalid format");
-    string(meta.displayName, "meta.displayName", 64, true);
-    string(meta.bootId, "meta.bootId", 128);
-    string(meta.runId, "meta.runId", 128, true);
-    number(meta.capturedAt, "meta.capturedAt", { integer: true });
-    enumeration(meta.trigger, "meta.trigger", TRIGGERS);
-    string(meta.note, "meta.note", 2_000, true);
-    enumeration(meta.appScreen, "meta.appScreen", SCREENS);
-    enumeration(meta.replaySource, "meta.replaySource", REPLAY_SOURCES);
-    const partial = boolean(meta.partial, "meta.partial");
-    nullableNumber(meta.capturedThroughTick, "meta.capturedThroughTick");
-    const replaySha = meta.replaySha256;
-    if (replaySha !== null && (typeof replaySha !== "string" || !SHA256.test(replaySha))) {
-      throw new Error("meta.replaySha256 must be a lowercase SHA-256 or null");
+    validateRequestHash(headers, actualSha256);
+    const parsed = parseBody(decoded);
+    if (!record(parsed)) throw new Error("session body must be an object");
+    const { meta, installId } = validateHeaders(parsed, headers);
+    if (parsed.kind !== "session") throw new Error("kind must be session");
+    for (const key of FORBIDDEN_SESSION_KEYS) {
+      if (Object.prototype.hasOwnProperty.call(parsed, key)) throw new Error(`${key} is forbidden on a session`);
     }
-    boolean(meta.replayComplete, "meta.replayComplete");
-    string(meta.platform, "meta.platform", 128);
-    enumeration(meta.inputClass, "meta.inputClass", INPUT_CLASSES);
-
-    validateSummary(value.summary, partial);
-    if (value.replay !== null) serializable(value.replay, "replay");
-    if (!Array.isArray(value.events)) throw new Error("events must be an array");
-    number(value.eventsUnparsed, "eventsUnparsed", { integer: true });
-    boolean(value.eventsTruncated, "eventsTruncated");
-    if (!Array.isArray(value.attachments)) throw new Error("attachments must be an array");
-    if (value.replayOmitted !== undefined) {
-      if (!record(value.replayOmitted) || !["size", "unavailable"].includes(String(value.replayOmitted.reason))) {
-        throw new Error("replayOmitted has an invalid reason");
+    if (Object.prototype.hasOwnProperty.call(meta, "env")) throw new Error("meta.env is forbidden on a session");
+    const partial = validateCommonMeta(meta, SESSION_TRIGGERS);
+    if (partial) throw new Error("session meta.partial must be false");
+    const runId = string(meta.runId, "meta.runId", 64)!;
+    if (!SAFE_ID.test(runId)) throw new Error("runId must use safe path characters");
+    validateSummary(parsed.summary, false, false);
+    if (record(parsed.replay)) {
+      if (Object.prototype.hasOwnProperty.call(parsed.replay, "_env")) {
+        throw new Error("replay._env is forbidden on a session");
+      }
+      for (const key of FORBIDDEN_SESSION_KEYS) {
+        if (Object.prototype.hasOwnProperty.call(parsed.replay, key)) {
+          throw new Error(`replay.${key} is forbidden on a session`);
+        }
       }
     }
-    if (headers.build !== buildId || headers.install !== installId) {
-      throw new Error("capture metadata does not match request headers");
-    }
-
+    await validateReplay(parsed, meta);
     return {
       ok: true,
-      capture: value as unknown as CaptureEnvelope,
+      session: parsed as unknown as SessionUpload,
       installId,
       ephemeral: installId.startsWith("eph-"),
     };
   } catch (error) {
-    return fail(error instanceof Error ? error.message : String(error));
+    return resultFailure(error);
+  }
+}
+
+export async function validateReportBody(
+  decoded: Uint8Array,
+  headers: { build: string; install: string; sha256: string },
+  actualSha256: string,
+): Promise<ReportContractResult> {
+  try {
+    validateRequestHash(headers, actualSha256);
+    const parsed = parseBody(decoded);
+    if (!record(parsed)) throw new Error("report body must be an object");
+    const { meta, installId } = validateHeaders(parsed, headers);
+    if (parsed.kind !== "report") throw new Error("kind must be report");
+    const reportId = string(parsed.reportId, "reportId", 64)!;
+    if (!SAFE_ID.test(reportId)) throw new Error("reportId must use safe path characters");
+    const partial = validateCommonMeta(meta, REPORT_TRIGGERS);
+    const runId = string(meta.runId, "meta.runId", 64, true);
+    if (runId !== null && !SAFE_ID.test(runId)) throw new Error("runId must use safe path characters");
+    validateEnvironment(meta.env, "meta.env");
+    if (meta.replayEnv !== undefined) validateEnvironment(meta.replayEnv, "meta.replayEnv");
+    validateSummary(parsed.summary, partial, true);
+    if (record(parsed.replay) && Object.prototype.hasOwnProperty.call(parsed.replay, "_env")) {
+      throw new Error("replay._env must be hoisted to meta.replayEnv on a report");
+    }
+    await validateReplay(parsed, meta);
+    if (!Array.isArray(parsed.events)) throw new Error("events must be an array");
+    serializable(parsed.events, "events");
+    number(parsed.eventsUnparsed, "eventsUnparsed", { integer: true });
+    boolean(parsed.eventsTruncated, "eventsTruncated");
+    if (!Array.isArray(parsed.attachments) || parsed.attachments.length !== 0) {
+      throw new Error("attachments must be an empty array until attachment capture ships");
+    }
+    return {
+      ok: true,
+      report: parsed as unknown as ProblemReport,
+      installId,
+      ephemeral: installId.startsWith("eph-"),
+    };
+  } catch (error) {
+    return resultFailure(error);
   }
 }

@@ -1,6 +1,7 @@
 export interface D1Result<T = Record<string, unknown>> {
   results?: T[];
   success: boolean;
+  meta?: { changes?: number };
 }
 
 export interface D1PreparedStatement {
@@ -25,6 +26,7 @@ export interface R2Bucket {
   delete(key: string): Promise<void>;
   get(key: string): Promise<R2ObjectBody | null>;
   head(key: string): Promise<R2ObjectBody | null>;
+  list(options?: { prefix?: string }): Promise<{ objects: Array<{ key: string }> }>;
   put(
     key: string,
     value: ReadableStream | ArrayBuffer | ArrayBufferView | string,
@@ -45,6 +47,7 @@ export interface Env {
   CAPTURES: R2Bucket;
   INGEST_IP: RateLimitBinding;
   INGEST_INSTALL: RateLimitBinding;
+  REPORT_INSTALL: RateLimitBinding;
   CAPTURE_BEARER_TOKEN?: string;
   ALLOWED_BUILDS?: string;
   ALLOWED_ORIGINS?: string;

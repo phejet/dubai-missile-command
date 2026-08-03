@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { Readable } from "node:stream";
 import { gzipSync } from "node:zlib";
 import { afterEach, describe, expect, it } from "vitest";
-import { captureFixture } from "./test-fixtures/capture";
+import { reportFixture, sessionFixture } from "./test-fixtures/capture";
 import {
   createCaptureHandler,
   MAX_COMPRESSED_BYTES,
@@ -24,7 +24,7 @@ const tempDirs: string[] = [];
 
 function capture(overrides: Record<string, unknown> = {}) {
   return {
-    ...captureFixture(),
+    ...reportFixture(),
     ...overrides,
   };
 }
@@ -111,8 +111,8 @@ describe("Vite capture endpoint", () => {
     ["bad hash", capture(), { sha: "0".repeat(64) }, "hash"],
     ["build mismatch", capture(), { build: "other" }, "parse"],
     ["install mismatch", capture(), { install: "other" }, "parse"],
-    ["traversal id", capture({ captureId: "../../etc/x" }), {}, "parse"],
-    ["wrong schema", capture({ captureSchema: 2 }), {}, "parse"],
+    ["traversal id", capture({ reportId: "../../etc/x" }), {}, "parse"],
+    ["wrong schema", capture({ captureSchema: 1 }), {}, "parse"],
   ] as const)("rejects %s", async (_name, body, options, stage) => {
     const response = await request(makeDir(), Buffer.from(JSON.stringify(body)), options);
     expect(response.statusCode).toBe(400);
@@ -151,5 +151,34 @@ describe("Vite capture endpoint", () => {
     const files = readdirSync(dir);
     expect(files).toHaveLength(50 * 3);
     expect(files.some((file) => file.startsWith("build-w1-s1-c0."))).toBe(false);
+  });
+
+  it("accepts a session only on the session adapter", async () => {
+    const dir = makeDir();
+    const body = sessionFixture();
+    const raw = Buffer.from(JSON.stringify(body));
+    const wire = raw;
+    const req = Readable.from([wire]) as unknown as IncomingMessage;
+    req.method = "POST";
+    req.headers = {
+      "x-dmc-sha256": createHash("sha256").update(raw).digest("hex"),
+      "x-dmc-build": body.meta.buildId,
+      "x-dmc-install": body.meta.installId!,
+    };
+    const response: TestResponse = { statusCode: 200, body: "", headers: {} };
+    const res = {
+      set statusCode(value: number) {
+        response.statusCode = value;
+      },
+      setHeader(name: string, value: string) {
+        response.headers[name.toLowerCase()] = value;
+      },
+      end(value?: string | Buffer) {
+        response.body = value?.toString() ?? "";
+      },
+    } as unknown as ServerResponse;
+    await createCaptureHandler(dir, "session")(req, res);
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toMatchObject({ ok: true, id: "run" });
   });
 });

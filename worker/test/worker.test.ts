@@ -1,21 +1,23 @@
 import { createExecutionContext, createScheduledController, env, SELF, waitOnExecutionContext } from "cloudflare:test";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MAX_COMPRESSED_BYTES, MAX_DECODED_BYTES } from "../../src/capture-contract";
-import { captureFixture } from "../../test-fixtures/capture";
-import worker from "../src/index";
+import { replayFixture, reportFixture, sessionFixture } from "../../test-fixtures/capture";
+import worker, { runRetention } from "../src/index";
 import { readBounded } from "../src/ingest";
-import { projectCaptureRow, projectSessionRow, type CaptureRow, type SessionRow } from "../src/projection";
 
-let installSequence = 0;
-let testInstallId = "12345678-test0";
+let sequence = 0;
+let installId = "12345678-test0";
 
 beforeEach(async () => {
-  installSequence += 1;
-  testInstallId = `12345678-test${installSequence}`;
+  sequence += 1;
+  installId = `12345678-test${sequence}`;
   await env.DB.batch([
     env.DB.prepare("DROP TRIGGER IF EXISTS fail_session"),
+    env.DB.prepare("DROP TRIGGER IF EXISTS fail_report"),
+    env.DB.prepare("DROP TRIGGER IF EXISTS ignore_replay"),
     env.DB.prepare("DELETE FROM sessions"),
-    env.DB.prepare("DELETE FROM captures"),
+    env.DB.prepare("DELETE FROM diagnostic_reports"),
+    env.DB.prepare("DELETE FROM replays"),
   ]);
 });
 
@@ -39,225 +41,458 @@ async function gunzip(bytes: Uint8Array): Promise<Uint8Array> {
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
-async function postCapture(
-  capture: ReturnType<typeof captureFixture>,
-  options: { gzip?: boolean; sha?: string; build?: string; install?: string; origin?: string; wire?: Uint8Array } = {},
-): Promise<Response> {
-  if (capture.meta.installId === "12345678-abcd") capture.meta.installId = testInstallId;
-  const raw = new TextEncoder().encode(JSON.stringify(capture));
-  const wire = options.wire ?? (options.gzip ? await gzip(raw) : raw);
-  const headers = new Headers({
-    "Content-Type": "application/json",
-    "x-dmc-build": options.build ?? capture.meta.buildId,
-    "x-dmc-install": options.install ?? capture.meta.installId ?? "",
-    "x-dmc-sha256": options.sha ?? (await digest(raw)),
-  });
-  if (options.gzip) headers.set("Content-Encoding", "gzip");
-  if (options.origin) headers.set("Origin", options.origin);
-  return SELF.fetch("https://worker.test/api/save-capture", { method: "POST", headers, body: wire });
+async function objectBytes(key: string): Promise<Uint8Array> {
+  const object = await env.CAPTURES.get(key);
+  return new Uint8Array(await new Response(object!.body).arrayBuffer());
 }
 
-describe("capture Worker", () => {
-  it("reports health", async () => {
+async function post(
+  kind: "session" | "report",
+  body: ReturnType<typeof sessionFixture> | ReturnType<typeof reportFixture>,
+  options: {
+    gzip?: boolean;
+    encoding?: string;
+    origin?: string;
+    preserveInstall?: boolean;
+    sha?: string;
+    wire?: Uint8Array;
+  } = {},
+): Promise<Response> {
+  if (!options.preserveInstall) body.meta.installId = installId;
+  const raw = new TextEncoder().encode(JSON.stringify(body));
+  const headers = new Headers({
+    "Content-Type": "application/json",
+    "x-dmc-build": body.meta.buildId,
+    "x-dmc-install": body.meta.installId ?? "",
+    "x-dmc-sha256": options.sha ?? (await digest(raw)),
+  });
+  if (options.encoding) headers.set("Content-Encoding", options.encoding);
+  else if (options.gzip) headers.set("Content-Encoding", "gzip");
+  if (options.origin) headers.set("Origin", options.origin);
+  return SELF.fetch(`https://worker.test/api/${kind}`, {
+    method: "POST",
+    headers,
+    body: options.wire ?? (options.gzip ? await gzip(raw) : raw),
+  });
+}
+
+const DELETE_FIELD = Symbol("delete field");
+
+function mutateAtPath(value: unknown, path: string, replacement: unknown): void {
+  const parts = path.split(".");
+  let cursor = value as Record<string, unknown>;
+  for (const part of parts.slice(0, -1)) cursor = cursor[part] as Record<string, unknown>;
+  const key = parts[parts.length - 1];
+  if (replacement === DELETE_FIELD) delete cursor[key];
+  else cursor[key] = replacement;
+}
+
+describe("capture Worker split", () => {
+  it("reports schema 2 health", async () => {
     const response = await SELF.fetch("https://worker.test/api/health");
+    expect(await response.json()).toEqual({ ok: true, schema: 2, build: "dev" });
+  });
+
+  it("stores a session row and only its content-addressed replay object", async () => {
+    const session = sessionFixture();
+    const response = await post("session", session, { gzip: true });
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ ok: true, schema: 1, build: "dev" });
+    expect(await response.json()).toMatchObject({ ok: true, id: "run", replaySha256: session.meta.replaySha256 });
+    expect(await env.DB.prepare("SELECT run_id, replay_verified FROM sessions").first()).toEqual({
+      run_id: "run",
+      replay_verified: 0,
+    });
+    expect(
+      (await env.DB.prepare("SELECT COUNT(*) AS count FROM diagnostic_reports").first<{ count: number }>())!.count,
+    ).toBe(0);
+    const replay = await env.CAPTURES.get(`replays/${session.meta.replaySha256}.json.gz`);
+    expect(replay).not.toBeNull();
+    const decoded = await gunzip(new Uint8Array(await new Response(replay!.body).arrayBuffer()));
+    expect(JSON.parse(new TextDecoder().decode(decoded))).toEqual(session.replay);
+    expect(new TextDecoder().decode(decoded)).not.toContain('"events"');
   });
 
-  it("stores decoded JSON as gzip and projects every completed session", async () => {
-    const capture = captureFixture();
-    capture.meta.installId = testInstallId;
-    const raw = new TextEncoder().encode(JSON.stringify(capture));
-    const response = await postCapture(capture, { gzip: true });
+  it("stores a replay-less session and retrieves an explicit null replay", async () => {
+    const session = sessionFixture({ replay: null });
+    expect((await post("session", session)).status).toBe(200);
+    const response = await SELF.fetch("https://worker.test/api/session/run", {
+      headers: { Authorization: "Bearer test-secret" },
+    });
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({
-      ok: true,
-      captureId: capture.captureId,
-      encoding: "gzip",
-      r2Key: `captures/${testInstallId}/boot-c0.json.gz`,
-      sessionProjected: true,
-    });
-
-    const row = (await env.DB.prepare("SELECT * FROM captures WHERE capture_id = ?")
-      .bind(capture.captureId)
-      .first()) as unknown as CaptureRow;
-    const expectedCaptureRow = projectCaptureRow(capture, {
-      sha256: await digest(raw),
-      rawBytes: raw.byteLength,
-      storedBytes: row.stored_bytes,
-      receivedAt: row.received_at,
-    });
-    expect(row).toEqual(expectedCaptureRow);
-    const object = await env.CAPTURES.get(`captures/${testInstallId}/boot-c0.json.gz`);
-    expect(object).not.toBeNull();
-    const stored = new Uint8Array(await new Response(object!.body).arrayBuffer());
-    expect(await gunzip(stored)).toEqual(raw);
-    expect(await digest(await gunzip(stored))).toBe(row!.sha256);
-
-    const session = (await env.DB.prepare(
-      "SELECT * FROM sessions WHERE run_id = 'run'",
-    ).first()) as unknown as SessionRow;
-    expect(session).toEqual(projectSessionRow(capture, row.received_at));
+    expect(await response.json()).toMatchObject({ ok: true, session: { replay_sha256: null }, replay: null });
   });
 
-  it("normalizes both wire encodings to the same immutable object", async () => {
-    const capture = captureFixture();
-    const first = await postCapture(capture);
-    const object = await env.CAPTURES.get(`captures/${testInstallId}/boot-c0.json.gz`);
-    const stored = new Uint8Array(await new Response(object!.body).arrayBuffer());
-    const second = await postCapture(capture, { gzip: true });
-    const retried = await env.CAPTURES.get(`captures/${testInstallId}/boot-c0.json.gz`);
-    const retriedBytes = new Uint8Array(await new Response(retried!.body).arrayBuffer());
+  it("stores report diagnostics separately and semantically reassembles the replay", async () => {
+    const report = reportFixture();
+    const response = await post("report", report);
+    expect(response.status).toBe(200);
+    const row = await env.DB.prepare("SELECT * FROM diagnostic_reports WHERE report_id = ?")
+      .bind(report.reportId)
+      .first<{ r2_key: string; sha256: string }>();
+    expect(row).not.toBeNull();
+    const object = await env.CAPTURES.get(row!.r2_key);
+    const decoded = await gunzip(new Uint8Array(await new Response(object!.body).arrayBuffer()));
+    const stored = JSON.parse(new TextDecoder().decode(decoded)) as Record<string, unknown>;
+    expect(stored.events).toEqual(report.events);
+    expect(stored).not.toHaveProperty("replay");
+    expect(await digest(decoded)).toBe(row!.sha256);
 
-    expect(first.status).toBe(200);
-    expect(second.status).toBe(200);
-    expect(retriedBytes).toEqual(stored);
-    expect((await env.DB.prepare("SELECT COUNT(*) AS count FROM captures").first<{ count: number }>())!.count).toBe(1);
+    const retrieved = await SELF.fetch(`https://worker.test/api/report/${report.reportId}`, {
+      headers: { Authorization: "Bearer test-secret" },
+    });
+    expect(retrieved.status).toBe(200);
+    expect(await retrieved.json()).toEqual(report);
   });
 
-  it("resolves concurrent retries to one object and one row", async () => {
-    const capture = captureFixture();
+  it("deduplicates a report and session replay while preserving the longer window", async () => {
+    const report = reportFixture();
+    expect((await post("report", report)).status).toBe(200);
+    await env.DB.prepare("UPDATE replays SET last_referenced_at = 1").run();
+    const session = sessionFixture();
+    session.meta.installId = installId;
+    expect((await post("session", session)).status).toBe(200);
+    const after = await env.DB.prepare("SELECT last_referenced_at FROM replays").first<{
+      last_referenced_at: number;
+    }>();
+    expect(after!.last_referenced_at).toBeGreaterThan(1);
+    expect((await env.DB.prepare("SELECT COUNT(*) AS count FROM replays").first<{ count: number }>())!.count).toBe(1);
+    const stored = await env.CAPTURES.get(`replays/${session.meta.replaySha256}.json.gz`);
+    const decoded = await gunzip(new Uint8Array(await new Response(stored!.body).arrayBuffer()));
+    expect(JSON.parse(new TextDecoder().decode(decoded))).toMatchObject({
+      _buildId: "build+dirty",
+      _savedAt: "2026-08-04T00:00:00.000Z",
+    });
+    expect(JSON.parse(new TextDecoder().decode(decoded))).not.toHaveProperty("_env");
+  });
+
+  it("stores identical rows and object bytes for plain and gzipped retries", async () => {
+    const clock = vi.spyOn(Date, "now").mockReturnValue(1_800_000_000_000);
+    try {
+      const session = sessionFixture({ runId: "encoding-run" });
+      expect((await post("session", session)).status).toBe(200);
+      const sessionRow = await env.DB.prepare("SELECT * FROM sessions WHERE run_id = ?")
+        .bind(session.meta.runId)
+        .first();
+      const replayRow = await env.DB.prepare("SELECT * FROM replays WHERE replay_sha256 = ?")
+        .bind(session.meta.replaySha256)
+        .first();
+      const replayKey = `replays/${session.meta.replaySha256}.json.gz`;
+      const replayBefore = await objectBytes(replayKey);
+      const sessionRetry = await post("session", structuredClone(session), { gzip: true });
+      expect(await sessionRetry.json()).toMatchObject({ ok: true, encoding: "gzip" });
+      expect(await env.DB.prepare("SELECT * FROM sessions WHERE run_id = ?").bind(session.meta.runId).first()).toEqual(
+        sessionRow,
+      );
+      expect(
+        await env.DB.prepare("SELECT * FROM replays WHERE replay_sha256 = ?").bind(session.meta.replaySha256).first(),
+      ).toEqual(replayRow);
+      expect(await objectBytes(replayKey)).toEqual(replayBefore);
+
+      const report = reportFixture({ reportId: "encoding-report" });
+      expect((await post("report", report)).status).toBe(200);
+      const reportRow = await env.DB.prepare("SELECT * FROM diagnostic_reports WHERE report_id = ?")
+        .bind(report.reportId)
+        .first<{ r2_key: string }>();
+      const reportBefore = await objectBytes(reportRow!.r2_key);
+      const reportRetry = await post("report", structuredClone(report), { gzip: true });
+      expect(await reportRetry.json()).toMatchObject({ ok: true, encoding: "gzip" });
+      expect(
+        await env.DB.prepare("SELECT * FROM diagnostic_reports WHERE report_id = ?").bind(report.reportId).first(),
+      ).toEqual(reportRow);
+      expect(await objectBytes(reportRow!.r2_key)).toEqual(reportBefore);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it("rejects diagnostics keys on sessions without writing anything", async () => {
+    const session = sessionFixture() as unknown as ReturnType<typeof sessionFixture> & { events: unknown[] };
+    session.events = [];
+    const response = await post("session", session);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ ok: false, stage: "parse" });
+    expect((await env.DB.prepare("SELECT COUNT(*) AS count FROM sessions").first<{ count: number }>())!.count).toBe(0);
+    expect((await env.DB.prepare("SELECT COUNT(*) AS count FROM replays").first<{ count: number }>())!.count).toBe(0);
+  });
+
+  it.each([
+    ["missing platform", "meta.platform", DELETE_FIELD, false],
+    ["score string", "summary.score", "900", false],
+    ["score NaN", "summary.score", Number.NaN, false],
+    ["score Infinity", "summary.score", Infinity, false],
+    ["negative score", "summary.score", -1, false],
+    ["low hit ratio", "summary.hitRatio", -0.01, false],
+    ["high hit ratio", "summary.hitRatio", 1.01, false],
+    ["unknown trigger", "meta.trigger", "timer", false],
+    ["unknown screen", "meta.appScreen", "paused", false],
+    ["unknown replay source", "meta.replaySource", "archive", false],
+    ["unknown outcome", "summary.outcome", "escaped", false],
+    ["over-cap note", "meta.note", "n".repeat(2_001), false],
+    ["unsafe run ID", "meta.runId", "../../run", false],
+    ["null install ID", "meta.installId", null, true],
+    ["empty install ID", "meta.installId", "", true],
+  ] as const)("rejects hostile payload: %s", async (_name, path, replacement, preserveInstall) => {
+    const replay = replayFixture();
+    replay.seed = 10_000 + sequence;
+    const session = sessionFixture({ replay });
+    mutateAtPath(session, path, replacement);
+    const replayObjectsBefore = (await env.CAPTURES.list({ prefix: "replays/" })).objects.map(({ key }) => key);
+    const reportObjectsBefore = (await env.CAPTURES.list({ prefix: "diagnostics/" })).objects.map(({ key }) => key);
+    const response = await post("session", session, { preserveInstall });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ ok: false, stage: "parse" });
+    expect((await env.DB.prepare("SELECT COUNT(*) AS count FROM sessions").first<{ count: number }>())!.count).toBe(0);
+    expect((await env.DB.prepare("SELECT COUNT(*) AS count FROM replays").first<{ count: number }>())!.count).toBe(0);
+    expect((await env.CAPTURES.list({ prefix: "replays/" })).objects.map(({ key }) => key)).toEqual(
+      replayObjectsBefore,
+    );
+    expect((await env.CAPTURES.list({ prefix: "diagnostics/" })).objects.map(({ key }) => key)).toEqual(
+      reportObjectsBefore,
+    );
+  });
+
+  it("keeps report IDs immutable across retries and collisions", async () => {
+    const report = reportFixture();
+    expect((await post("report", report)).status).toBe(200);
+    expect((await post("report", structuredClone(report), { gzip: true })).status).toBe(200);
+    const original = await env.DB.prepare("SELECT sha256, r2_key FROM diagnostic_reports").first<{
+      sha256: string;
+      r2_key: string;
+    }>();
+    const before = await env.CAPTURES.get(original!.r2_key);
+    const beforeBytes = new Uint8Array(await new Response(before!.body).arrayBuffer());
+    report.meta.note = "different bytes";
+    const collision = await post("report", report);
+    expect(collision.status).toBe(409);
+    expect(await collision.json()).toMatchObject({ stage: "conflict" });
+    expect(await env.DB.prepare("SELECT sha256, r2_key FROM diagnostic_reports").first()).toEqual(original);
+    const object = await env.CAPTURES.get(original!.r2_key);
+    expect(object!.customMetadata?.sha256).toBe(original!.sha256);
+    expect(new Uint8Array(await new Response(object!.body).arrayBuffer())).toEqual(beforeBytes);
+  });
+
+  it("resolves concurrent exact report retries to one immutable row", async () => {
+    const report = reportFixture({ reportId: "concurrent-report" });
     const [first, second] = await Promise.all([
-      postCapture(structuredClone(capture)),
-      postCapture(structuredClone(capture)),
+      post("report", structuredClone(report)),
+      post("report", structuredClone(report), { gzip: true }),
     ]);
     expect([first.status, second.status]).toEqual([200, 200]);
-    expect((await env.DB.prepare("SELECT COUNT(*) AS count FROM captures").first<{ count: number }>())!.count).toBe(1);
-    expect(await env.CAPTURES.head(`captures/${testInstallId}/boot-c0.json.gz`)).not.toBeNull();
+    expect(
+      (await env.DB.prepare("SELECT COUNT(*) AS count FROM diagnostic_reports").first<{ count: number }>())!.count,
+    ).toBe(1);
   });
 
-  it("cleans up the loser when concurrent installs collide on one captureId", async () => {
-    const first = captureFixture();
-    const second = captureFixture({ installId: "eph-87654321" });
-    second.meta.note = "different bytes";
-    second.summary!.score = 999;
-    const [firstResponse, secondResponse] = await Promise.all([postCapture(first), postCapture(second)]);
-    expect([firstResponse.status, secondResponse.status].sort()).toEqual([200, 409]);
+  it("accepts concurrent last-writer-wins session supersession", async () => {
+    const first = sessionFixture({ runId: "concurrent-run" });
+    const alternateReplay = structuredClone(first.replay!);
+    alternateReplay.seed += 1;
+    const second = sessionFixture({ runId: "concurrent-run", replay: alternateReplay });
+    const responses = await Promise.all([post("session", first), post("session", second, { gzip: true })]);
+    expect(responses.map((response) => response.status)).toEqual([200, 200]);
+    const committed = await env.DB.prepare("SELECT replay_sha256 FROM sessions WHERE run_id = ?")
+      .bind("concurrent-run")
+      .first<{ replay_sha256: string }>();
+    expect([first.meta.replaySha256, second.meta.replaySha256]).toContain(committed!.replay_sha256);
+  });
 
-    const winnerIsFirst = firstResponse.status === 200;
-    const winnerKey = winnerIsFirst
-      ? `captures/${testInstallId}/boot-c0.json.gz`
-      : "captures/eph-87654321/boot-c0.json.gz";
-    const loserKey = winnerIsFirst
-      ? "captures/eph-87654321/boot-c0.json.gz"
-      : `captures/${testInstallId}/boot-c0.json.gz`;
-    expect(await env.CAPTURES.head(winnerKey)).not.toBeNull();
-    expect(await env.CAPTURES.head(loserKey)).toBeNull();
-    expect(await env.DB.prepare("SELECT score FROM sessions WHERE run_id = 'run'").first()).toEqual({
-      score: winnerIsFirst ? 900 : 999,
+  it("distinguishes a guarded session no-op from valid supersession", async () => {
+    const original = sessionFixture({ runId: "guarded-run" });
+    expect((await post("session", original)).status).toBe(200);
+    const alternateReplay = structuredClone(original.replay!);
+    alternateReplay.seed += 99;
+    const replacement = sessionFixture({ runId: "guarded-run", replay: alternateReplay });
+    await env.DB.prepare(
+      `CREATE TRIGGER ignore_replay BEFORE INSERT ON replays
+       WHEN NEW.replay_sha256 = '${replacement.meta.replaySha256}'
+       BEGIN SELECT RAISE(IGNORE); END`,
+    ).run();
+    const response = await post("session", replacement);
+    expect(response.status).toBe(500);
+    expect(await response.json()).toMatchObject({ ok: false, stage: "store" });
+    expect(
+      await env.DB.prepare("SELECT replay_sha256 FROM sessions WHERE run_id = ?").bind("guarded-run").first(),
+    ).toEqual({
+      replay_sha256: original.meta.replaySha256,
     });
   });
 
-  it("rejects capture collisions without changing the original row or object", async () => {
-    const capture = captureFixture();
-    expect((await postCapture(capture)).status).toBe(200);
-    const before = await env.CAPTURES.get(`captures/${testInstallId}/boot-c0.json.gz`);
-    const beforeBytes = new Uint8Array(await new Response(before!.body).arrayBuffer());
-    capture.meta.note = "different bytes";
-    const collision = await postCapture(capture);
-
-    expect(collision.status).toBe(409);
-    expect(await collision.json()).toMatchObject({ ok: false, stage: "conflict" });
-    const after = await env.CAPTURES.get(`captures/${testInstallId}/boot-c0.json.gz`);
-    expect(new Uint8Array(await new Response(after!.body).arrayBuffer())).toEqual(beforeBytes);
+  it("repairs a missing report object on an exact retry", async () => {
+    const report = reportFixture({ reportId: "repair-report" });
+    expect((await post("report", report)).status).toBe(200);
+    const row = await env.DB.prepare("SELECT r2_key FROM diagnostic_reports WHERE report_id = ?")
+      .bind(report.reportId)
+      .first<{ r2_key: string }>();
+    await env.CAPTURES.delete(row!.r2_key);
+    expect(await env.CAPTURES.head(row!.r2_key)).toBeNull();
+    expect((await post("report", structuredClone(report), { gzip: true })).status).toBe(200);
+    expect((await env.CAPTURES.head(row!.r2_key))?.customMetadata?.reportId).toBe(report.reportId);
   });
 
-  it("upserts one session per run while excluding partial and runless captures", async () => {
-    const first = captureFixture({ captureId: "capture-1" });
-    const second = captureFixture({ captureId: "capture-2" });
-    second.summary!.score = 1_200;
-    const partial = captureFixture({ captureId: "capture-3", runId: "partial-run" });
-    partial.meta.partial = true;
-    partial.meta.appScreen = "playing";
-    partial.meta.replaySource = "live";
-    partial.summary!.outcome = "in_progress";
-    const runless = captureFixture({ captureId: "capture-4", runId: null });
-    runless.summary = null;
-    runless.meta.appScreen = "title";
-    runless.meta.replaySource = "none";
-
-    for (const capture of [first, second, partial, runless]) expect((await postCapture(capture)).status).toBe(200);
-    const sessions = await env.DB.prepare("SELECT run_id, score, replay_verified FROM sessions").all();
-    expect(sessions.results).toEqual([{ run_id: "run", score: 1_200, replay_verified: 0 }]);
+  it("unconditionally restores a content-addressed object on a later reference", async () => {
+    const session = sessionFixture();
+    expect((await post("session", session)).status).toBe(200);
+    const key = `replays/${session.meta.replaySha256}.json.gz`;
+    await env.CAPTURES.delete(key);
+    expect(await env.CAPTURES.head(key)).toBeNull();
+    expect((await post("report", reportFixture({ reportId: "second-ref" }))).status).toBe(200);
+    expect(await env.CAPTURES.head(key)).not.toBeNull();
   });
 
-  it("marks ephemeral installs in both tables", async () => {
-    const capture = captureFixture({ installId: "eph-12345678" });
-    expect((await postCapture(capture)).status).toBe(200);
-    expect(await env.DB.prepare("SELECT install_ephemeral FROM captures").first()).toEqual({ install_ephemeral: 1 });
-    expect(await env.DB.prepare("SELECT install_ephemeral FROM sessions").first()).toEqual({ install_ephemeral: 1 });
+  it("collects expired rows without deleting replay or diagnostics objects", async () => {
+    const session = sessionFixture();
+    expect((await post("session", session)).status).toBe(200);
+    const report = reportFixture({ reportId: "retained-object" });
+    expect((await post("report", report)).status).toBe(200);
+    const replayKey = `replays/${session.meta.replaySha256}.json.gz`;
+    const reportKey = `${installId}/retained-object`;
+    await env.DB.prepare("UPDATE sessions SET received_at = 1").run();
+    await env.DB.prepare("UPDATE diagnostic_reports SET received_at = 1").run();
+    await runRetention(env, 9_000_000_000_000);
+    expect(await env.DB.prepare("SELECT run_id FROM sessions").first()).toBeNull();
+    expect(await env.DB.prepare("SELECT replay_sha256 FROM replays").first()).toBeNull();
+    expect(await env.CAPTURES.head(replayKey)).not.toBeNull();
+    expect(await env.CAPTURES.head(`diagnostics/${reportKey}.json.gz`)).not.toBeNull();
   });
 
-  it.each([
-    ["hash", (capture: ReturnType<typeof captureFixture>) => postCapture(capture, { sha: "0".repeat(64) })],
-    ["parse", (capture: ReturnType<typeof captureFixture>) => postCapture(capture, { build: "other" })],
-    ["parse", (capture: ReturnType<typeof captureFixture>) => postCapture(capture, { install: "other-install" })],
-  ])("rejects invalid input at the %s stage without writes", async (stage, send) => {
-    const response = await send(captureFixture());
-    expect(response.status).toBe(400);
-    expect(await response.json()).toMatchObject({ ok: false, stage });
-    expect((await env.DB.prepare("SELECT COUNT(*) AS count FROM captures").first<{ count: number }>())!.count).toBe(0);
-  });
-
-  it.each([
-    ["wrong schema", (capture: ReturnType<typeof captureFixture>) => ((capture.captureSchema as number) = 2)],
-    [
-      "missing captureId",
-      (capture: ReturnType<typeof captureFixture>) => delete (capture as { captureId?: string }).captureId,
-    ],
-    ["oversized note", (capture: ReturnType<typeof captureFixture>) => (capture.meta.note = "x".repeat(2_001))],
-    ["negative score", (capture: ReturnType<typeof captureFixture>) => (capture.summary!.score = -1)],
-    ["NaN score", (capture: ReturnType<typeof captureFixture>) => (capture.summary!.score = Number.NaN)],
-    [
-      "infinite score",
-      (capture: ReturnType<typeof captureFixture>) => (capture.summary!.score = Number.POSITIVE_INFINITY),
-    ],
-    [
-      "unknown app screen",
-      (capture: ReturnType<typeof captureFixture>) => ((capture.meta.appScreen as string) = "credits"),
-    ],
-    [
-      "unknown replay source",
-      (capture: ReturnType<typeof captureFixture>) => ((capture.meta.replaySource as string) = "cloud"),
-    ],
-    [
-      "unknown outcome",
-      (capture: ReturnType<typeof captureFixture>) => ((capture.summary!.outcome as string) = "victory"),
-    ],
-    ["null install", (capture: ReturnType<typeof captureFixture>) => (capture.meta.installId = null)],
-    ["empty install", (capture: ReturnType<typeof captureFixture>) => (capture.meta.installId = "")],
-  ])("rejects %s at parse without storing anything", async (_name, mutate) => {
-    const capture = captureFixture();
-    mutate(capture);
-    const response = await postCapture(capture);
-    expect(response.status).toBe(400);
-    expect(await response.json()).toMatchObject({ ok: false, stage: "parse" });
-    expect((await env.DB.prepare("SELECT COUNT(*) AS count FROM captures").first<{ count: number }>())!.count).toBe(0);
-  });
-
-  it("rejects GET on ingest before touching storage", async () => {
-    const response = await SELF.fetch("https://worker.test/api/save-capture");
-    expect(response.status).toBe(405);
-    expect(await response.json()).toMatchObject({ ok: false, stage: "parse" });
-    expect((await env.DB.prepare("SELECT COUNT(*) AS count FROM captures").first<{ count: number }>())!.count).toBe(0);
-  });
-
-  it("rejects invalid gzip at the compress stage", async () => {
-    const response = await postCapture(captureFixture(), {
-      gzip: true,
-      wire: new TextEncoder().encode("not gzip"),
+  it("distinguishes expired and missing replay evidence without hiding the session", async () => {
+    const expired = sessionFixture({ runId: "expired-run" });
+    expect((await post("session", expired)).status).toBe(200);
+    await env.DB.prepare("DELETE FROM replays WHERE replay_sha256 = ?").bind(expired.meta.replaySha256).run();
+    const expiredResponse = await SELF.fetch("https://worker.test/api/session/expired-run", {
+      headers: { Authorization: "Bearer test-secret" },
     });
-    expect(response.status).toBe(400);
-    expect(await response.json()).toMatchObject({ ok: false, stage: "compress" });
+    expect(expiredResponse.status).toBe(200);
+    expect(await expiredResponse.json()).toMatchObject({ replay: null, replayStatus: "expired" });
+
+    const missing = sessionFixture({ runId: "missing-run" });
+    expect((await post("session", missing)).status).toBe(200);
+    await env.CAPTURES.delete(`replays/${missing.meta.replaySha256}.json.gz`);
+    const missingResponse = await SELF.fetch("https://worker.test/api/session/missing-run", {
+      headers: { Authorization: "Bearer test-secret" },
+    });
+    expect(missingResponse.status).toBe(200);
+    expect(await missingResponse.json()).toMatchObject({ replay: null, replayStatus: "missing" });
   });
 
-  it("rejects a compressed request body beyond the wire cap", async () => {
-    const response = await postCapture(captureFixture(), { wire: new Uint8Array(MAX_COMPRESSED_BYTES + 1) });
-    expect(response.status).toBe(400);
-    expect(await response.json()).toMatchObject({ ok: false, stage: "size" });
+  it("keeps the replay bump and referring row atomic on D1 failure", async () => {
+    await env.DB.prepare(
+      "CREATE TRIGGER fail_session BEFORE INSERT ON sessions BEGIN SELECT RAISE(FAIL, 'forced'); END",
+    ).run();
+    const response = await post("session", sessionFixture());
+    expect(response.status).toBe(500);
+    expect(await response.json()).toMatchObject({ stage: "store" });
+    expect(await env.DB.prepare("SELECT replay_sha256 FROM replays").first()).toBeNull();
   });
 
-  it("cancels a producer immediately after the bounded reader crosses its cap", async () => {
+  it("requires bearer auth for every retrieval/list route", async () => {
+    await post("session", sessionFixture());
+    await post("report", reportFixture({ reportId: "report-auth" }));
+    const sha = sessionFixture().meta.replaySha256;
+    for (const path of [
+      "/api/sessions",
+      "/api/reports",
+      "/api/session/run",
+      "/api/report/report-auth",
+      `/api/replay/${sha}`,
+    ]) {
+      expect((await SELF.fetch(`https://worker.test${path}`)).status).toBe(401);
+      expect(
+        (
+          await SELF.fetch(`https://worker.test${path}`, {
+            headers: { Authorization: "Bearer test-secret", Origin: "https://phejet.github.io" },
+          })
+        ).status,
+      ).toBe(200);
+    }
+  });
+
+  it("allows only configured origins on both ingest routes", async () => {
+    for (const route of ["session", "report"]) {
+      const allowed = await SELF.fetch(`https://worker.test/api/${route}`, {
+        method: "OPTIONS",
+        headers: { Origin: "capacitor://localhost" },
+      });
+      expect(allowed.status).toBe(204);
+      const denied = await SELF.fetch(`https://worker.test/api/${route}`, {
+        method: "OPTIONS",
+        headers: { Origin: "https://evil.example" },
+      });
+      expect(denied.status).toBe(403);
+    }
+  });
+
+  it("rejects methods and each ingest rung without writing state", async () => {
+    const replayObjectsBefore = (await env.CAPTURES.list({ prefix: "replays/" })).objects.map(({ key }) => key);
+    const reportObjectsBefore = (await env.CAPTURES.list({ prefix: "diagnostics/" })).objects.map(({ key }) => key);
+    for (const route of ["session", "report"] as const) {
+      const response = await SELF.fetch(`https://worker.test/api/${route}`, { method: "GET" });
+      expect(response.status).toBe(405);
+      expect(await response.json()).toMatchObject({ ok: false, stage: "parse" });
+    }
+
+    const unsupported = await post("session", sessionFixture(), { encoding: "br" });
+    expect(await unsupported.json()).toMatchObject({ ok: false, stage: "compress" });
+
+    const garbage = new TextEncoder().encode("not gzip");
+    const invalidGzip = await post("session", sessionFixture(), { gzip: true, wire: garbage });
+    expect(await invalidGzip.json()).toMatchObject({ ok: false, stage: "compress" });
+
+    const wrongHash = await post("session", sessionFixture(), { sha: "0".repeat(64) });
+    expect(await wrongHash.json()).toMatchObject({ ok: false, stage: "hash" });
+
+    const invalidJson = new TextEncoder().encode("not json");
+    const invalidParse = await post("session", sessionFixture(), {
+      wire: invalidJson,
+      sha: await digest(invalidJson),
+    });
+    expect(await invalidParse.json()).toMatchObject({ ok: false, stage: "parse" });
+
+    const oversized = await SELF.fetch("https://worker.test/api/session", {
+      method: "POST",
+      headers: { "content-length": String(MAX_COMPRESSED_BYTES + 1) },
+      body: new Uint8Array(),
+    });
+    expect(await oversized.json()).toMatchObject({ ok: false, stage: "size" });
+
+    expect((await env.DB.prepare("SELECT COUNT(*) AS count FROM sessions").first<{ count: number }>())!.count).toBe(0);
+    expect(
+      (await env.DB.prepare("SELECT COUNT(*) AS count FROM diagnostic_reports").first<{ count: number }>())!.count,
+    ).toBe(0);
+    expect((await env.DB.prepare("SELECT COUNT(*) AS count FROM replays").first<{ count: number }>())!.count).toBe(0);
+    expect((await env.CAPTURES.list({ prefix: "replays/" })).objects.map(({ key }) => key)).toEqual(
+      replayObjectsBefore,
+    );
+    expect((await env.CAPTURES.list({ prefix: "diagnostics/" })).objects.map(({ key }) => key)).toEqual(
+      reportObjectsBefore,
+    );
+  });
+
+  it("rate limits both products before attempting decompression", async () => {
+    const garbage = new TextEncoder().encode("not gzip");
+    const sessionResponses: Response[] = [];
+    for (let index = 0; index < 6; index += 1) {
+      sessionResponses.push(await post("session", sessionFixture(), { gzip: true, wire: garbage }));
+    }
+    for (const response of sessionResponses.slice(0, -1)) {
+      expect(await response.json()).toMatchObject({ stage: "compress" });
+    }
+    expect(sessionResponses[sessionResponses.length - 1].status).toBe(429);
+    expect(await sessionResponses[sessionResponses.length - 1].json()).toMatchObject({ stage: "rate" });
+
+    installId = `12345678-rate${sequence}`;
+    const reportResponses: Response[] = [];
+    for (let index = 0; index < 4; index += 1) {
+      reportResponses.push(await post("report", reportFixture(), { gzip: true, wire: garbage }));
+    }
+    for (const response of reportResponses.slice(0, -1)) {
+      expect(await response.json()).toMatchObject({ stage: "compress" });
+    }
+    expect(reportResponses[reportResponses.length - 1].status).toBe(429);
+    expect(await reportResponses[reportResponses.length - 1].json()).toMatchObject({ stage: "rate" });
+  });
+
+  it("cancels decoded input immediately after crossing its cap", async () => {
     const chunk = new Uint8Array(1024 * 1024);
     let pulls = 0;
     let cancelled = false;
@@ -275,77 +510,15 @@ describe("capture Worker", () => {
     expect(pulls).toBeLessThanOrEqual(10);
   });
 
-  it("rate limits before attempting decompression", async () => {
-    const capture = captureFixture();
-    const garbage = new TextEncoder().encode("not gzip");
-    let response!: Response;
-    for (let index = 0; index < 6; index += 1) response = await postCapture(capture, { gzip: true, wire: garbage });
-    expect(response.status).toBe(429);
-    expect(await response.json()).toMatchObject({ ok: false, stage: "rate" });
-  });
-
-  it("keeps the D1 batch atomic when the session write fails", async () => {
-    await env.DB.prepare(
-      "CREATE TRIGGER fail_session BEFORE INSERT ON sessions BEGIN SELECT RAISE(FAIL, 'forced session failure'); END",
-    ).run();
-    const response = await postCapture(captureFixture());
-    expect(response.status).toBe(500);
-    expect(await response.json()).toMatchObject({ ok: false, stage: "store" });
-    expect((await env.DB.prepare("SELECT COUNT(*) AS count FROM captures").first<{ count: number }>())!.count).toBe(0);
-    expect(await env.CAPTURES.head(`captures/${testInstallId}/boot-c0.json.gz`)).not.toBeNull();
-  });
-
-  it("requires bearer auth for retrieval/listing and exposes no CORS there", async () => {
-    await postCapture(captureFixture());
-    for (const path of ["/api/captures", "/api/capture/boot-c0"]) {
-      const denied = await SELF.fetch(`https://worker.test${path}`);
-      expect(denied.status).toBe(401);
-      const allowed = await SELF.fetch(`https://worker.test${path}`, {
-        headers: { Authorization: "Bearer test-secret", Origin: "https://phejet.github.io" },
-      });
-      expect(allowed.status).toBe(200);
-      expect(allowed.headers.get("access-control-allow-origin")).toBeNull();
-    }
-    const raw = await SELF.fetch("https://worker.test/api/capture/boot-c0?raw=1", {
-      headers: { Authorization: "Bearer test-secret" },
-    });
-    expect(raw.headers.get("content-encoding")).toBeNull();
-    const rawObject = new Uint8Array(await raw.arrayBuffer());
-    expect(await gunzip(rawObject)).toEqual(
-      new TextEncoder().encode(JSON.stringify(captureFixture({ installId: testInstallId }))),
-    );
-  });
-
-  it("allows only game origins on ingest preflight", async () => {
-    for (const origin of ["capacitor://localhost", "https://phejet.github.io"]) {
-      const response = await SELF.fetch("https://worker.test/api/save-capture", {
-        method: "OPTIONS",
-        headers: { Origin: origin },
-      });
-      expect(response.status).toBe(204);
-      expect(response.headers.get("access-control-allow-origin")).toBe(origin);
-    }
-    const denied = await SELF.fetch("https://worker.test/api/save-capture", {
-      method: "OPTIONS",
-      headers: { Origin: "https://evil.example" },
-    });
-    expect(denied.status).toBe(403);
-    expect(denied.headers.get("access-control-allow-origin")).toBeNull();
-  });
-
-  it("runs received_at retention through the scheduled handler", async () => {
-    const capture = captureFixture();
-    capture.meta.capturedAt = 9_000_000_000_000;
-    await postCapture(capture);
-    await env.DB.batch([
-      env.DB.prepare("UPDATE captures SET received_at = 1"),
-      env.DB.prepare("UPDATE sessions SET received_at = 1"),
-    ]);
+  it("runs retention through the scheduled handler", async () => {
+    const session = sessionFixture();
+    await post("session", session);
+    await env.DB.prepare("UPDATE sessions SET received_at = 1").run();
     const controller = createScheduledController({ scheduledTime: 9_000_000_000_000 });
     const context = createExecutionContext();
     worker.scheduled(controller as never, env, context);
     await waitOnExecutionContext(context);
-    expect((await env.DB.prepare("SELECT COUNT(*) AS count FROM captures").first<{ count: number }>())!.count).toBe(0);
-    expect((await env.DB.prepare("SELECT COUNT(*) AS count FROM sessions").first<{ count: number }>())!.count).toBe(0);
+    expect(await env.DB.prepare("SELECT replay_sha256 FROM replays").first()).toBeNull();
+    expect(await env.CAPTURES.head(`replays/${session.meta.replaySha256}.json.gz`)).not.toBeNull();
   });
 });

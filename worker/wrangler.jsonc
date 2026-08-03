@@ -20,6 +20,7 @@
   "ratelimits": [
     { "name": "INGEST_IP", "namespace_id": "1001", "simple": { "limit": 60, "period": 60 } },
     { "name": "INGEST_INSTALL", "namespace_id": "1002", "simple": { "limit": 5, "period": 60 } },
+    { "name": "REPORT_INSTALL", "namespace_id": "1003", "simple": { "limit": 3, "period": 60 } },
   ],
   "triggers": { "crons": ["17 3 * * *"] },
   "env": {
@@ -39,6 +40,7 @@
       "ratelimits": [
         { "name": "INGEST_IP", "namespace_id": "2001", "simple": { "limit": 60, "period": 60 } },
         { "name": "INGEST_INSTALL", "namespace_id": "2002", "simple": { "limit": 5, "period": 60 } },
+        { "name": "REPORT_INSTALL", "namespace_id": "2003", "simple": { "limit": 3, "period": 60 } },
       ],
       "triggers": { "crons": ["17 3 * * *"] },
     },
@@ -58,6 +60,7 @@
       "ratelimits": [
         { "name": "INGEST_IP", "namespace_id": "3001", "simple": { "limit": 60, "period": 60 } },
         { "name": "INGEST_INSTALL", "namespace_id": "3002", "simple": { "limit": 5, "period": 60 } },
+        { "name": "REPORT_INSTALL", "namespace_id": "3003", "simple": { "limit": 3, "period": 60 } },
       ],
       "triggers": { "crons": ["17 3 * * *"] },
     },

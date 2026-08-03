@@ -65,8 +65,14 @@ import { buildRunRecapData } from "./run-recap";
 import { saveReplayToFile } from "./save-replay";
 import { describeEnvironment } from "./replay-provenance";
 import { buildReplaySnapshot } from "./replay-snapshot";
-import { assembleCapture, EVENT_TAIL_MAX_BYTES, projectCaptureSummary, type CaptureTrigger } from "./capture";
-import { uploadCapture, type UploadCaptureResult } from "./capture-sink";
+import {
+  assembleReport,
+  assembleSession,
+  EVENT_TAIL_MAX_BYTES,
+  projectCaptureSummary,
+  type CaptureTrigger,
+} from "./capture";
+import { reportProblem, uploadSession, type UploadCaptureResult } from "./capture-sink";
 import { getInstallId } from "./install-id";
 import { createReplayArchiveGate, REPLAY_ARCHIVE_PREPARING_DELAY_MS } from "./replay-archive-gate";
 import { clientLog } from "./client-log";
@@ -1408,7 +1414,6 @@ export class Game {
       const capturedAt = Date.now();
       const bootId = getBootId();
       const buildId = getDiagnosticsBuildId();
-      const captureId = `${bootId}-c${this.captureOrdinal++}`;
       const game = this.gameRef.current;
       let replay: ReplayData | null = null;
       let summary: ReturnType<typeof projectCaptureSummary> | null = null;
@@ -1434,34 +1439,44 @@ export class Game {
       }
 
       const capturedThroughTick = partial ? (replay?.finalTick ?? game?._replayTick ?? null) : null;
-      const recent = await readRecentEvents(EVENT_TAIL_MAX_BYTES);
       const env = describeEnvironment();
-      const envelope = await assembleCapture({
-        captureId,
-        meta: {
-          buildId,
-          installId: getInstallId(),
-          displayName: null,
-          bootId,
-          runId: captureRunId,
-          capturedAt,
-          trigger,
-          note: note?.trim() || null,
-          appScreen: this.shopOpen ? "shop" : this.screen,
-          replaySource,
-          partial,
-          capturedThroughTick,
-          platform: env.platform,
-          inputClass: detectInputClass(),
-          env,
-        },
+      const common = {
+        buildId,
+        installId: getInstallId(),
+        displayName: null,
+        bootId,
+        capturedAt,
+        note: note?.trim() || null,
+        appScreen: this.shopOpen ? ("shop" as const) : this.screen,
+        replaySource,
+        capturedThroughTick,
+        platform: env.platform,
+        inputClass: detectInputClass(),
+      };
+
+      if (!partial && captureRunId !== null && summary !== null && trigger !== "agent") {
+        const session = await assembleSession({
+          meta: { ...common, runId: captureRunId, trigger, partial: false },
+          summary,
+          replay,
+        });
+        return await uploadSession(session);
+      }
+      if (trigger === "gameover") {
+        return { ok: false, reason: "assemble", error: new Error("gameover session is incomplete") };
+      }
+
+      const recent = await readRecentEvents(EVENT_TAIL_MAX_BYTES);
+      const report = await assembleReport({
+        reportId: `${bootId}-c${this.captureOrdinal++}`,
+        meta: { ...common, runId: captureRunId, trigger, partial, env },
         summary,
         replay,
         events: recent.events,
         eventsUnparsed: recent.unparsed,
         eventsTruncated: recent.truncated,
       });
-      return await uploadCapture(envelope);
+      return await reportProblem(report);
     } catch (error) {
       return { ok: false, reason: "assemble", error };
     }

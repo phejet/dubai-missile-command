@@ -8,7 +8,7 @@ import { join, resolve } from "node:path";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { createGzip, gunzipSync } from "node:zlib";
 import { afterEach, describe, expect, it } from "vitest";
-import { captureFixture } from "../../test-fixtures/capture";
+import { sessionFixture } from "../../test-fixtures/capture";
 
 const processes: ChildProcess[] = [];
 const tempDirs: string[] = [];
@@ -138,10 +138,10 @@ describe("capture Worker over real HTTP", () => {
     const base = `http://127.0.0.1:${port}`;
     await waitForWorker(base, worker, () => logs);
 
-    const capture = captureFixture();
+    const capture = sessionFixture();
     const decoded = Buffer.from(JSON.stringify(capture));
     const sha256 = createHash("sha256").update(decoded).digest("hex");
-    const uploaded = await fetch(`${base}/api/save-capture`, {
+    const uploaded = await fetch(`${base}/api/session`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -153,15 +153,19 @@ describe("capture Worker over real HTTP", () => {
     });
     expect(uploaded.status).toBe(200);
 
-    const retrieved = await rawHttp(new URL(`/api/capture/${capture.captureId}?raw=1`, base), "http-test-secret");
+    const retrieved = await rawHttp(
+      new URL(`/api/replay/${capture.meta.replaySha256}?raw=1`, base),
+      "http-test-secret",
+    );
     expect(retrieved.headers["content-encoding"]).toBeUndefined();
     expect(retrieved.headers["content-type"]).toBe("application/gzip");
-    expect(gunzipSync(retrieved.body)).toEqual(decoded);
-    expect(createHash("sha256").update(gunzipSync(retrieved.body)).digest("hex")).toBe(sha256);
+    const replayBytes = Buffer.from(JSON.stringify(capture.replay));
+    expect(gunzipSync(retrieved.body)).toEqual(replayBytes);
+    expect(createHash("sha256").update(gunzipSync(retrieved.body)).digest("hex")).toBe(capture.meta.replaySha256);
 
     const bomb = await gzipRepeated(192);
     expect(bomb.byteLength).toBeLessThan(512 * 1024);
-    const rejected = await fetch(`${base}/api/save-capture`, {
+    const rejected = await fetch(`${base}/api/session`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

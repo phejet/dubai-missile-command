@@ -3,7 +3,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { CaptureEnvelope } from "./capture";
+import type { ProblemReport, SessionUpload } from "./capture";
 import type { GameRenderer } from "./game-renderer";
 import { createEmptyGameStats } from "./game-logic";
 import type { GameState, ReplayData } from "./types";
@@ -24,9 +24,15 @@ interface GameInternals {
 const mocks = vi.hoisted(() => ({
   archiveReplay: vi.fn(),
   showBonusScreen: vi.fn(),
-  uploadCapture: vi.fn(async (capture: CaptureEnvelope) => {
-    void capture;
-    return { ok: true, captureId: "capture", encoding: "none" };
+  readRecentEvents: vi.fn(async () => ({ events: [], unparsed: 0, truncated: false })),
+  captured: [] as Array<SessionUpload | ProblemReport>,
+  uploadSession: vi.fn(async (capture: SessionUpload) => {
+    mocks.captured.push(capture);
+    return { ok: true, id: capture.meta.runId, encoding: "none" as const };
+  }),
+  reportProblem: vi.fn(async (capture: ProblemReport) => {
+    mocks.captured.push(capture);
+    return { ok: true, id: capture.reportId, encoding: "none" as const };
   }),
 }));
 
@@ -36,11 +42,11 @@ vi.mock("./diagnostics-log", () => ({
   getBootId: () => "test-boot",
   getDiagnosticsBuildId: () => "test-build",
   isDiagnosticsEnabled: () => false,
-  readRecentEvents: vi.fn(async () => ({ events: [], unparsed: 0, truncated: false })),
+  readRecentEvents: mocks.readRecentEvents,
   setDiagnosticsEnabled: vi.fn(),
   shareDiagnostics: vi.fn(async () => ({ ok: true })),
 }));
-vi.mock("./capture-sink", () => ({ uploadCapture: mocks.uploadCapture }));
+vi.mock("./capture-sink", () => ({ uploadSession: mocks.uploadSession, reportProblem: mocks.reportProblem }));
 vi.mock("./run-recap-death-clip", () => ({ mountRunRecapDeathClip: vi.fn(() => vi.fn()) }));
 vi.mock("./save-replay", () => ({ saveReplayToFile: vi.fn(async () => ({ ok: true })) }));
 vi.mock("./ui", () => ({
@@ -104,9 +110,8 @@ function internals(game: Game): GameInternals {
   return game as unknown as GameInternals;
 }
 
-function lastCapturedEnvelope(): CaptureEnvelope {
-  const calls = mocks.uploadCapture.mock.calls;
-  return calls[calls.length - 1][0];
+function lastCapturedEnvelope(): SessionUpload | ProblemReport {
+  return mocks.captured[mocks.captured.length - 1];
 }
 
 describe("Game capture orchestration", () => {
@@ -125,7 +130,10 @@ describe("Game capture orchestration", () => {
     );
     mocks.archiveReplay.mockReset();
     mocks.showBonusScreen.mockReset();
-    mocks.uploadCapture.mockClear();
+    mocks.captured.length = 0;
+    mocks.uploadSession.mockClear();
+    mocks.reportProblem.mockClear();
+    mocks.readRecentEvents.mockClear();
   });
 
   afterEach(() => {
@@ -141,6 +149,7 @@ describe("Game capture orchestration", () => {
     await runtime.captureNow("manual");
     let captured = lastCapturedEnvelope();
     expect(captured).toMatchObject({
+      kind: "report",
       meta: { appScreen: "title", replaySource: "none", partial: false, runId: null, replayComplete: false },
       replay: null,
       summary: null,
@@ -181,6 +190,7 @@ describe("Game capture orchestration", () => {
     await runtime.captureNow("gameover");
     captured = lastCapturedEnvelope();
     expect(captured).toMatchObject({
+      kind: "session",
       meta: {
         appScreen: "gameover",
         replaySource: "last-completed",
@@ -190,16 +200,22 @@ describe("Game capture orchestration", () => {
       },
       summary: { outcome: expect.stringMatching(/burj_destroyed|survived/) },
     });
+    expect(mocks.readRecentEvents).toHaveBeenCalledTimes(3);
 
     runtime.setScreen("title");
     await runtime.captureNow("manual");
     captured = lastCapturedEnvelope();
-    expect(captured.meta).toMatchObject({
-      appScreen: "title",
-      replaySource: "last-completed",
-      runId,
-      replayComplete: true,
+    expect(captured).toMatchObject({
+      kind: "session",
+      meta: {
+        appScreen: "title",
+        trigger: "manual",
+        replaySource: "last-completed",
+        runId,
+        replayComplete: true,
+      },
     });
+    expect(mocks.readRecentEvents).toHaveBeenCalledTimes(3);
 
     runtime.replayActive = true;
     runtime.activeReplayData = runtime.lastReplay;
@@ -207,6 +223,7 @@ describe("Game capture orchestration", () => {
     await runtime.captureNow("manual");
     captured = lastCapturedEnvelope();
     expect(captured).toMatchObject({
+      kind: "report",
       meta: {
         appScreen: "playing",
         replaySource: "playback",
@@ -217,6 +234,7 @@ describe("Game capture orchestration", () => {
       summary: null,
       replay: { seed: expect.any(Number) },
     });
+    expect(mocks.readRecentEvents).toHaveBeenCalledTimes(4);
   });
 
   it("lets the replay runner open the shop after the bonus UI completes", () => {

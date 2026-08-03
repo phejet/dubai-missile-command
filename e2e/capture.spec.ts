@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { expect, test, type Page } from "@playwright/test";
-import type { CaptureEnvelope } from "../src/capture";
+import type { ProblemReport, SessionUpload } from "../src/capture";
 import type { UploadCaptureResult } from "../src/capture-sink";
 import { validateReplay } from "../src/headless/validate-replay";
 
@@ -28,18 +28,22 @@ async function capture(
   trigger: "gameover" | "manual",
 ): Promise<Extract<UploadCaptureResult, { ok: true }>> {
   const result = await page.evaluate(async (captureTrigger) => window.__captureNow!(captureTrigger), trigger);
-  expect(result).toMatchObject({ ok: true, captureId: expect.any(String), file: expect.any(String) });
+  expect(result).toMatchObject({ ok: true, id: expect.any(String), file: expect.any(String) });
   return result as Extract<UploadCaptureResult, { ok: true }>;
 }
 
-function readPrettyCapture(file: string): CaptureEnvelope {
-  return JSON.parse(readFileSync(join(process.cwd(), "captures", file), "utf8")) as CaptureEnvelope;
+type CaptureArtifact = SessionUpload | ProblemReport;
+
+function readPrettyCapture(file: string): CaptureArtifact {
+  return JSON.parse(readFileSync(join(process.cwd(), "captures", file), "utf8")) as CaptureArtifact;
 }
 
-function expectReplayHash(envelope: CaptureEnvelope): void {
+function expectReplayHash(envelope: CaptureArtifact): void {
   expect(envelope.replay).not.toBeNull();
   expect(createHash("sha256").update(JSON.stringify(envelope.replay)).digest("hex")).toBe(envelope.meta.replaySha256);
-  expect(envelope.events.some((event) => event.channel === "replay-archive")).toBe(false);
+  if (envelope.kind === "report") {
+    expect(envelope.events.some((event) => event.channel === "replay-archive")).toBe(false);
+  }
 }
 
 /**
@@ -47,7 +51,7 @@ function expectReplayHash(envelope: CaptureEnvelope): void {
  * whose `x-dmc-install` header disagrees with the body — so a written file is
  * proof that both sides carried the same id.
  */
-function expectPersistedInstallId(envelope: CaptureEnvelope): void {
+function expectPersistedInstallId(envelope: CaptureArtifact): void {
   expect(envelope.meta.installId).toMatch(/^[a-z0-9-]{8,64}$/);
   expect(envelope.meta.installId!.startsWith("eph-")).toBe(false);
 }

@@ -1,5 +1,16 @@
 # Lessons
 
+## 2026-08-04 — Test content identity with production-shaped artifacts
+
+- A content-addressing test is meaningless when its fixture omits fields the production serializer always stamps. Representative replay fixtures must carry build, save-time, and environment provenance before assembly normalization.
+- Privacy-sensitive product dispatch must follow the artifact state and intended product contract, not an overloaded trigger label that a later UI will reuse.
+- A contract split expands the hostile-input surface. Preserve the full validation-ladder and no-write matrix while adding route-specific cases; a smaller green suite can conceal lost guarantees.
+
+## 2026-08-02 — Do not turn explicit bug reports into telemetry streams
+
+- A durable local diagnostics ring does not imply automatic diagnostics upload. Preserve the product boundary: diagnostics leave the device only when a human explicitly reports a problem.
+- Separate automatic replay/session collection from user-triggered diagnostic reports before designing storage deduplication. Sliding-window delta chains solve a problem that does not exist when reports are rare and intentional.
+
 ## 2026-08-01 — Verify HTTP representation semantics across a socket
 
 - A `Content-Encoding` response header is an instruction about the HTTP representation,

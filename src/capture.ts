@@ -1,11 +1,13 @@
 import type { ReplayData, ReplayEnvironment, RunRecapData, UpgradeTimelineEntry } from "./types";
 import { sha256Hex } from "./sha256";
 
-export const CAPTURE_SCHEMA_VERSION = 1 as const;
+export const CAPTURE_SCHEMA_VERSION = 2 as const;
 export const CAPTURE_MAX_RAW_BYTES = 4 * 1024 * 1024;
 export const EVENT_TAIL_MAX_BYTES = 256 * 1024;
 
 export type CaptureTrigger = "gameover" | "manual" | "agent";
+export type SessionTrigger = "gameover" | "manual";
+export type ReportTrigger = "manual" | "agent";
 export type CaptureReplaySource = "live" | "last-completed" | "playback" | "none";
 export type CaptureAppScreen = "title" | "playing" | "shop" | "gameover";
 export type CaptureInputClass = "touch" | "mouse" | "unknown";
@@ -27,47 +29,76 @@ export interface CaptureSummary {
   upgrades: UpgradeTimelineEntry[];
 }
 
-export interface CaptureMeta {
+interface CaptureMetaBase {
   buildId: string;
   installId: string | null;
   displayName: string | null;
   bootId: string;
-  runId: string | null;
   capturedAt: number;
-  trigger: CaptureTrigger;
   note: string | null;
   appScreen: CaptureAppScreen;
   replaySource: CaptureReplaySource;
-  partial: boolean;
   capturedThroughTick: number | null;
   replaySha256: string | null;
   replayComplete: boolean;
   platform: string;
   inputClass: CaptureInputClass;
+}
+
+export interface SessionMeta extends CaptureMetaBase {
+  runId: string;
+  trigger: SessionTrigger;
+  partial: false;
+}
+
+export interface ReportMeta extends CaptureMetaBase {
+  runId: string | null;
+  trigger: ReportTrigger;
+  partial: boolean;
   env: ReplayEnvironment;
+  replayEnv?: ReplayEnvironment;
 }
 
-export interface CaptureAttachment {
-  kind: string;
-  [key: string]: unknown;
+export interface ReplayOmitted {
+  reason: "size" | "unavailable";
+  checkpointsDropped?: boolean;
 }
 
-export interface CaptureEnvelope {
+export interface SessionUpload {
   captureSchema: typeof CAPTURE_SCHEMA_VERSION;
-  captureId: string;
-  meta: CaptureMeta;
+  kind: "session";
+  meta: SessionMeta;
+  summary: CaptureSummary;
+  replay: ReplayData | null;
+  replayOmitted?: ReplayOmitted;
+}
+
+export interface ProblemReport {
+  captureSchema: typeof CAPTURE_SCHEMA_VERSION;
+  kind: "report";
+  reportId: string;
+  meta: ReportMeta;
   summary: CaptureSummary | null;
   replay: ReplayData | null;
-  replayOmitted?: { reason: "size" | "unavailable"; checkpointsDropped?: boolean };
+  replayOmitted?: ReplayOmitted;
   events: Record<string, unknown>[];
   eventsUnparsed: number;
   eventsTruncated: boolean;
-  attachments: CaptureAttachment[];
+  attachments: [];
 }
 
-export interface AssembleCaptureInput {
-  captureId: string;
-  meta: Omit<CaptureMeta, "replaySha256" | "replayComplete">;
+type UnstampedSessionMeta = Omit<SessionMeta, "replaySha256" | "replayComplete">;
+type UnstampedReportMeta = Omit<ReportMeta, "replaySha256" | "replayComplete">;
+
+export interface AssembleSessionInput {
+  meta: UnstampedSessionMeta;
+  summary: CaptureSummary;
+  replay: ReplayData | null;
+}
+
+export interface AssembleReportInput {
+  reportId: string;
+  meta: UnstampedReportMeta;
   summary: CaptureSummary | null;
   replay: ReplayData | null;
   events: Record<string, unknown>[];
@@ -82,7 +113,7 @@ export interface AssembleCaptureOptions {
 
 const encoder = new TextEncoder();
 
-function serializedBytes(value: unknown): Uint8Array {
+export function serializedBytes(value: unknown): Uint8Array {
   return encoder.encode(JSON.stringify(value));
 }
 
@@ -100,40 +131,38 @@ function halveEventTail(events: Record<string, unknown>[]): Record<string, unkno
   return events.slice(start);
 }
 
-function cloneEnvelopeInput(input: AssembleCaptureInput): CaptureEnvelope {
-  const owned = structuredClone(input);
-  return {
-    captureSchema: CAPTURE_SCHEMA_VERSION,
-    captureId: owned.captureId,
-    meta: {
-      ...owned.meta,
-      replaySha256: null,
-      replayComplete: owned.meta.replaySource === "last-completed" && owned.replay !== null,
-    },
-    summary: owned.summary,
-    replay: owned.replay,
-    ...(owned.replay === null ? { replayOmitted: { reason: "unavailable" as const } } : {}),
-    events: owned.events,
-    eventsUnparsed: owned.eventsUnparsed,
-    eventsTruncated: owned.eventsTruncated,
-    attachments: [],
-  };
-}
-
-async function stampReplayHash(
-  envelope: CaptureEnvelope,
+async function stampReplay(
+  envelope: SessionUpload | ProblemReport,
   digest: (bytes: Uint8Array) => Promise<string | null>,
 ): Promise<void> {
   envelope.meta.replaySha256 = envelope.replay ? await digest(serializedBytes(envelope.replay)) : null;
 }
 
 async function fits(
-  envelope: CaptureEnvelope,
+  envelope: SessionUpload | ProblemReport,
   maxRawBytes: number,
   digest: (bytes: Uint8Array) => Promise<string | null>,
 ): Promise<boolean> {
-  await stampReplayHash(envelope, digest);
+  await stampReplay(envelope, digest);
   return serializedBytes(envelope).byteLength <= maxRawBytes;
+}
+
+function dropCheckpoints(envelope: SessionUpload | ProblemReport): boolean {
+  if (!envelope.replay?.checkpoints?.length) return false;
+  delete envelope.replay.checkpoints;
+  envelope.replayOmitted = { reason: "size", checkpointsDropped: true };
+  envelope.meta.replayComplete = false;
+  return true;
+}
+
+function dropReplay(envelope: SessionUpload | ProblemReport): void {
+  if (!envelope.replay) return;
+  envelope.replay = null;
+  envelope.replayOmitted = {
+    reason: "size",
+    ...(envelope.replayOmitted?.checkpointsDropped ? { checkpointsDropped: true } : {}),
+  };
+  envelope.meta.replayComplete = false;
 }
 
 export function projectCaptureSummary(recap: RunRecapData, partial: boolean): CaptureSummary {
@@ -156,22 +185,67 @@ export function projectCaptureSummary(recap: RunRecapData, partial: boolean): Ca
   };
 }
 
-/** Pure artifact assembly apart from CPU-only hashing; input objects are never mutated. */
-export async function assembleCapture(
-  input: AssembleCaptureInput,
+/** Pure session assembly apart from CPU-only hashing; diagnostics are unrepresentable here. */
+export async function assembleSession(
+  input: AssembleSessionInput,
   options: AssembleCaptureOptions = {},
-): Promise<CaptureEnvelope> {
+): Promise<SessionUpload> {
   const maxRawBytes = options.maxRawBytes ?? CAPTURE_MAX_RAW_BYTES;
   const digest = options.digest ?? sha256Hex;
-  const envelope = cloneEnvelopeInput(input);
+  const owned = structuredClone(input);
+  const envelope: SessionUpload = {
+    captureSchema: CAPTURE_SCHEMA_VERSION,
+    kind: "session",
+    meta: {
+      ...owned.meta,
+      replaySha256: null,
+      replayComplete: owned.meta.replaySource === "last-completed" && owned.replay !== null,
+    },
+    summary: owned.summary,
+    replay: owned.replay,
+    ...(owned.replay === null ? { replayOmitted: { reason: "unavailable" as const } } : {}),
+  };
+  if (envelope.replay) delete envelope.replay._env;
 
   if (await fits(envelope, maxRawBytes, digest)) return envelope;
+  dropCheckpoints(envelope);
+  if (await fits(envelope, maxRawBytes, digest)) return envelope;
+  dropReplay(envelope);
+  await stampReplay(envelope, digest);
+  return envelope;
+}
 
-  if (envelope.replay?.checkpoints?.length) {
-    delete envelope.replay.checkpoints;
-    envelope.replayOmitted = { reason: "size", checkpointsDropped: true };
-    envelope.meta.replayComplete = false;
-  }
+/** Pure report assembly apart from CPU-only hashing; this is the sole diagnostics-bearing artifact. */
+export async function assembleReport(
+  input: AssembleReportInput,
+  options: AssembleCaptureOptions = {},
+): Promise<ProblemReport> {
+  const maxRawBytes = options.maxRawBytes ?? CAPTURE_MAX_RAW_BYTES;
+  const digest = options.digest ?? sha256Hex;
+  const owned = structuredClone(input);
+  const replayEnv = owned.replay?._env ?? owned.meta.replayEnv;
+  if (owned.replay) delete owned.replay._env;
+  const envelope: ProblemReport = {
+    captureSchema: CAPTURE_SCHEMA_VERSION,
+    kind: "report",
+    reportId: owned.reportId,
+    meta: {
+      ...owned.meta,
+      ...(replayEnv ? { replayEnv } : {}),
+      replaySha256: null,
+      replayComplete: owned.meta.replaySource === "last-completed" && owned.replay !== null,
+    },
+    summary: owned.summary,
+    replay: owned.replay,
+    ...(owned.replay === null ? { replayOmitted: { reason: "unavailable" as const } } : {}),
+    events: owned.events,
+    eventsUnparsed: owned.eventsUnparsed,
+    eventsTruncated: owned.eventsTruncated,
+    attachments: [],
+  };
+
+  if (await fits(envelope, maxRawBytes, digest)) return envelope;
+  dropCheckpoints(envelope);
   if (await fits(envelope, maxRawBytes, digest)) return envelope;
 
   if (envelope.events.length > 0) {
@@ -189,14 +263,7 @@ export async function assembleCapture(
   }
   if (await fits(envelope, maxRawBytes, digest)) return envelope;
 
-  if (envelope.replay) {
-    envelope.replay = null;
-    envelope.replayOmitted = {
-      reason: "size",
-      ...(envelope.replayOmitted?.checkpointsDropped ? { checkpointsDropped: true } : {}),
-    };
-    envelope.meta.replayComplete = false;
-  }
-  await stampReplayHash(envelope, digest);
+  dropReplay(envelope);
+  await stampReplay(envelope, digest);
   return envelope;
 }
