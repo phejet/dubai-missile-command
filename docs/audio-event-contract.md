@@ -99,6 +99,34 @@ Important behaviors:
 - explosions and some warnings are throttled
 - mute affects both procedural audio and title-theme gain
 
+## Backgrounding And Audio-Session Recovery
+
+Locking the iPhone (or backgrounding the app / switching tabs) interrupts the audio
+session. WebKit leaves the `AudioContext` in `suspended`/`interrupted`, so gameplay
+keeps rendering while every effect plays into a silent graph. `src/sound.ts` recovers
+through three independent paths, because none of them is reliable on its own:
+
+- **Lifecycle events** — `visibilitychange`, `pageshow`, and `focus` trigger recovery.
+- **Self-heal on use** — `ensureCtx()` kicks a throttled recovery whenever a sound is
+  requested on a context that is not `running`, so audio comes back even if no
+  lifecycle event fires.
+- **Gesture retry** — when `resume()` is rejected (iOS requires a gesture), one-shot
+  `pointerdown`/`touchend`/`keydown` listeners retry on the next interaction.
+
+Recovery does three things:
+
+1. Resets the voice budget (`activeCount`) and transient nodes. A suspended WebView can
+   drop the pending `scheduleRelease` timers, which would otherwise pin `activeCount` at
+   `MAX_POLY` and mute every later effect even after the context is healthy.
+2. Resumes the context, then probes that `currentTime` actually advances.
+3. Rebuilds the context (new graph, master gain, noise buffer, title-theme element) when
+   the probe fails — WebKit can hand back a context that reports `running` but never
+   renders again. The title-theme `<audio>` element is recreated too, since an element
+   can only ever back one `MediaElementAudioSourceNode`.
+
+`getResourceStats()` reports `contextState`, `contextGeneration` (rebuild count), and
+`gestureResumeArmed` so diagnostics snapshots show why audio is silent.
+
 ## Practical Rules
 
 - If the sim needs a new sound, add a semantic `sfx` name instead of importing `sound.ts` into sim code.

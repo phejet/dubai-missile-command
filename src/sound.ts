@@ -1,6 +1,7 @@
 // Procedural sound effects via Web Audio API — no audio files needed
 
 import { createAudioNodeLifecycle } from "./audio-node-lifecycle";
+import { clientLog } from "./client-log";
 
 declare global {
   interface Window {
@@ -42,21 +43,167 @@ let titleThemeLoopStartedAt = 0;
 let titleThemeStopStartedAt = 0;
 let titleThemeRaf: number | null = null;
 const AUDIO_RESUME_TIMEOUT_MS = 250;
+// Backgrounding (iPhone lock screen, app switcher) interrupts the audio session.
+// The state below drives recovery once the app is in the foreground again.
+const AUDIO_SELF_HEAL_THROTTLE_MS = 500;
+const AUDIO_CLOCK_PROBE_MS = 120;
+const GESTURE_RESUME_EVENTS = ["pointerdown", "touchend", "keydown"] as const;
+let lifecycleInstalled = false;
+let recovering = false;
+let gestureResumeArmed = false;
+let lastSelfHealAt = Number.NEGATIVE_INFINITY;
+let contextGeneration = 0;
 
 function ensureCtx() {
-  if (ctx) return true;
+  if (ctx) {
+    // Interrupted/suspended contexts render silence forever unless something resumes
+    // them, so every sound call doubles as a (throttled) recovery attempt.
+    if (ctx.state !== "running") kickSelfHeal();
+    return true;
+  }
   try {
     ctx = new (window.AudioContext || window.webkitAudioContext)();
+    contextGeneration++;
     master = ctx.createGain();
+    master.gain.value = _muted ? 0 : 1;
     master.connect(ctx.destination);
     // Pre-generate 1s white noise buffer
     const sr = ctx.sampleRate;
     noiseBuffer = ctx.createBuffer(1, sr, sr);
     const data = noiseBuffer.getChannelData(0);
     for (let i = 0; i < sr; i++) data[i] = Math.random() * 2 - 1;
+    watchContextState(ctx);
+    installAudioLifecycle();
     return true;
   } catch {
     return false;
+  }
+}
+
+function watchContextState(audioCtx: AudioContext) {
+  audioCtx.addEventListener?.("statechange", () => {
+    if (audioCtx !== ctx) return;
+    clientLog("audio", "statechange", { state: audioCtx.state, generation: contextGeneration });
+    if (audioCtx.state !== "running") kickSelfHeal();
+  });
+}
+
+function installAudioLifecycle() {
+  if (lifecycleInstalled || typeof window === "undefined" || typeof document === "undefined") return;
+  lifecycleInstalled = true;
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) void recoverAudio("visibilitychange");
+  });
+  window.addEventListener("pageshow", () => void recoverAudio("pageshow"));
+  window.addEventListener("focus", () => void recoverAudio("focus"));
+}
+
+function kickSelfHeal() {
+  const ms = performance.now();
+  if (ms - lastSelfHealAt < AUDIO_SELF_HEAL_THROTTLE_MS) return;
+  lastSelfHealAt = ms;
+  void recoverAudio("selfHeal");
+}
+
+function armGestureResume() {
+  if (gestureResumeArmed || typeof window === "undefined") return;
+  gestureResumeArmed = true;
+  const disarm = () => {
+    gestureResumeArmed = false;
+    for (const type of GESTURE_RESUME_EVENTS) window.removeEventListener(type, handler, true);
+  };
+  const handler = () => {
+    disarm();
+    void recoverAudio("gesture");
+  };
+  for (const type of GESTURE_RESUME_EVENTS) window.addEventListener(type, handler, true);
+}
+
+function resetVoiceBudget() {
+  // A backgrounded WebView can drop the pending scheduleRelease timers. Without this
+  // reset activeCount stays pinned at MAX_POLY and trackVoice() mutes every later
+  // effect even after the context itself is healthy again.
+  activeCount = 0;
+  transientNodes.clear();
+}
+
+/** Resolves false when the context clock is frozen — a "running" context that never renders. */
+function audioClockAdvances() {
+  const audioCtx = ctx;
+  if (!audioCtx) return Promise.resolve(false);
+  const startedAt = audioCtx.currentTime;
+  return new Promise<boolean>((resolve) => {
+    setTimeout(() => resolve(ctx === audioCtx && audioCtx.currentTime > startedAt), AUDIO_CLOCK_PROBE_MS);
+  });
+}
+
+function resumeTitleThemeIfDesired() {
+  if (!titleThemeDesired) return;
+  if (!titleTheme || !titleThemeSource) {
+    void tryPlayTitleTheme();
+    return;
+  }
+  if (titleThemeRaf === null) titleThemeRaf = requestAnimationFrame(stepTitleTheme);
+}
+
+/** Drops the media element too — it can only ever back one MediaElementAudioSourceNode. */
+function teardownTitleThemeForRebuild() {
+  cancelTitleThemeRaf();
+  try {
+    titleTheme?.pause();
+  } catch {
+    // A detached element may already be torn down.
+  }
+  titleThemeSource = null;
+  titleThemeGain = null;
+  titleTheme = null;
+  titleThemeStopStartedAt = 0;
+}
+
+function rebuildCtx() {
+  const stale = ctx;
+  teardownTitleThemeForRebuild();
+  transientNodes.clear();
+  transientCtx = null;
+  ctx = null;
+  master = null;
+  noiseBuffer = null;
+  prewarmed = false;
+  activeCount = 0;
+  try {
+    void stale?.close().catch(() => {});
+  } catch {
+    // Closing an already-closed context throws; the replacement is what matters.
+  }
+  return ensureCtx();
+}
+
+/**
+ * Brings audio back after the app was backgrounded (lock screen, app switcher, tab
+ * switch). Resumes the context, and when WebKit hands back a context that reports
+ * "running" but never renders again, replaces it outright.
+ */
+async function recoverAudio(reason: string): Promise<boolean> {
+  const audioCtx = ctx;
+  if (!audioCtx || recovering) return false;
+  recovering = true;
+  try {
+    if (audioCtx.state === "running" && (await audioClockAdvances())) {
+      resumeTitleThemeIfDesired();
+      return true;
+    }
+    resetVoiceBudget();
+    let resumed = await resumeCtx();
+    if (resumed && !(await audioClockAdvances())) {
+      clientLog("audio", "rebuild", { reason, state: ctx?.state ?? "none", generation: contextGeneration });
+      resumed = rebuildCtx() && (await resumeCtx());
+    }
+    if (resumed) resumeTitleThemeIfDesired();
+    else armGestureResume();
+    clientLog("audio", "recover", { reason, resumed, state: ctx?.state ?? "none", generation: contextGeneration });
+    return resumed;
+  } finally {
+    recovering = false;
   }
 }
 
@@ -273,7 +420,9 @@ function osc(type: OscillatorType, freq: number, duration: number, volume: numbe
 const SFX = {
   async init() {
     if (!ensureCtx()) return false;
-    return resumeCtx();
+    const resumed = await resumeCtx();
+    if (!resumed) armGestureResume();
+    return resumed;
   },
 
   prewarm() {
@@ -328,6 +477,8 @@ const SFX = {
     return {
       activeVoices: activeCount,
       contextState: ctx?.state ?? "none",
+      contextGeneration,
+      gestureResumeArmed,
       transientNodes: transientNodes.getTrackedCount(),
     };
   },
