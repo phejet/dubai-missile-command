@@ -15,6 +15,7 @@ let master: GainNode | null = null;
 let noiseBuffer: AudioBuffer | null = null;
 let _muted = false;
 let activeCount = 0;
+let voiceEpoch: object = {};
 const MAX_POLY = 16;
 const transientNodes = createAudioNodeLifecycle();
 const TRANSIENT_NODE_FACTORIES = new Set<PropertyKey>([
@@ -51,8 +52,12 @@ const GESTURE_RESUME_EVENTS = ["pointerdown", "touchend", "keydown"] as const;
 let lifecycleInstalled = false;
 let recovering = false;
 let gestureResumeArmed = false;
+let gestureResumeHandler: (() => void) | null = null;
 let lastSelfHealAt = Number.NEGATIVE_INFINITY;
 let contextGeneration = 0;
+let voiceResetPending = false;
+
+type ResumeOutcome = "running" | "rejected" | "timedOut";
 
 function ensureCtx() {
   if (ctx) {
@@ -84,7 +89,10 @@ function watchContextState(audioCtx: AudioContext) {
   audioCtx.addEventListener?.("statechange", () => {
     if (audioCtx !== ctx) return;
     clientLog("audio", "statechange", { state: audioCtx.state, generation: contextGeneration });
-    if (audioCtx.state !== "running") kickSelfHeal();
+    if (audioCtx.state !== "running") {
+      voiceResetPending = true;
+      kickSelfHeal();
+    }
   });
 }
 
@@ -92,31 +100,42 @@ function installAudioLifecycle() {
   if (lifecycleInstalled || typeof window === "undefined" || typeof document === "undefined") return;
   lifecycleInstalled = true;
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) void recoverAudio("visibilitychange");
+    if (document.hidden) {
+      voiceResetPending = true;
+      return;
+    }
+    void recoverAudio("visibilitychange");
+  });
+  window.addEventListener("pagehide", () => {
+    voiceResetPending = true;
   });
   window.addEventListener("pageshow", () => void recoverAudio("pageshow"));
   window.addEventListener("focus", () => void recoverAudio("focus"));
 }
 
 function kickSelfHeal() {
+  if (typeof document !== "undefined" && document.hidden) return;
   const ms = performance.now();
   if (ms - lastSelfHealAt < AUDIO_SELF_HEAL_THROTTLE_MS) return;
   lastSelfHealAt = ms;
   void recoverAudio("selfHeal");
 }
 
+function disarmGestureResume() {
+  if (!gestureResumeHandler || typeof window === "undefined") return;
+  for (const type of GESTURE_RESUME_EVENTS) window.removeEventListener(type, gestureResumeHandler, true);
+  gestureResumeHandler = null;
+  gestureResumeArmed = false;
+}
+
 function armGestureResume() {
   if (gestureResumeArmed || typeof window === "undefined") return;
   gestureResumeArmed = true;
-  const disarm = () => {
-    gestureResumeArmed = false;
-    for (const type of GESTURE_RESUME_EVENTS) window.removeEventListener(type, handler, true);
-  };
-  const handler = () => {
-    disarm();
+  gestureResumeHandler = () => {
+    disarmGestureResume();
     void recoverAudio("gesture");
   };
-  for (const type of GESTURE_RESUME_EVENTS) window.addEventListener(type, handler, true);
+  for (const type of GESTURE_RESUME_EVENTS) window.addEventListener(type, gestureResumeHandler, true);
 }
 
 function resetVoiceBudget() {
@@ -124,6 +143,7 @@ function resetVoiceBudget() {
   // reset activeCount stays pinned at MAX_POLY and trackVoice() mutes every later
   // effect even after the context itself is healthy again.
   activeCount = 0;
+  voiceEpoch = {};
   transientNodes.clear();
 }
 
@@ -163,13 +183,12 @@ function teardownTitleThemeForRebuild() {
 function rebuildCtx() {
   const stale = ctx;
   teardownTitleThemeForRebuild();
-  transientNodes.clear();
+  resetVoiceBudget();
   transientCtx = null;
   ctx = null;
   master = null;
   noiseBuffer = null;
   prewarmed = false;
-  activeCount = 0;
   try {
     void stale?.close().catch(() => {});
   } catch {
@@ -185,34 +204,68 @@ function rebuildCtx() {
  */
 async function recoverAudio(reason: string): Promise<boolean> {
   const audioCtx = ctx;
-  if (!audioCtx || recovering) return false;
+  if (!audioCtx || recovering || (typeof document !== "undefined" && document.hidden)) return false;
   recovering = true;
   try {
-    if (audioCtx.state === "running" && (await audioClockAdvances())) {
+    if (audioCtx.state !== "running") voiceResetPending = true;
+    if (voiceResetPending) resetVoiceBudget();
+
+    let outcome: ResumeOutcome = audioCtx.state === "running" ? "running" : await resumeCtx();
+    let clockHealthy = outcome === "running" && (await audioClockAdvances());
+    const rebuildReason =
+      outcome === "timedOut"
+        ? "resumeTimeout"
+        : ctx?.state === "closed"
+          ? "closedContext"
+          : outcome === "running" && !clockHealthy
+            ? "frozenClock"
+            : null;
+
+    if (rebuildReason) {
+      clientLog("audio", "rebuild", {
+        reason,
+        rebuildReason,
+        state: ctx?.state ?? "none",
+        generation: contextGeneration,
+      });
+      if (rebuildCtx()) {
+        outcome = await resumeCtx();
+        clockHealthy = outcome === "running" && (await audioClockAdvances());
+      } else {
+        outcome = "rejected";
+        clockHealthy = false;
+      }
+    }
+
+    const resumed = outcome === "running" && clockHealthy;
+    if (resumed) {
+      voiceResetPending = false;
+      disarmGestureResume();
       resumeTitleThemeIfDesired();
-      return true;
+    } else {
+      voiceResetPending = true;
+      armGestureResume();
     }
-    resetVoiceBudget();
-    let resumed = await resumeCtx();
-    if (resumed && !(await audioClockAdvances())) {
-      clientLog("audio", "rebuild", { reason, state: ctx?.state ?? "none", generation: contextGeneration });
-      resumed = rebuildCtx() && (await resumeCtx());
-    }
-    if (resumed) resumeTitleThemeIfDesired();
-    else armGestureResume();
-    clientLog("audio", "recover", { reason, resumed, state: ctx?.state ?? "none", generation: contextGeneration });
+    clientLog("audio", "recover", {
+      reason,
+      outcome,
+      resumed,
+      state: ctx?.state ?? "none",
+      generation: contextGeneration,
+    });
     return resumed;
   } finally {
     recovering = false;
   }
 }
 
-async function resumeCtx() {
+async function resumeCtx(): Promise<ResumeOutcome> {
   const audioCtx = ctx;
-  if (!audioCtx || audioCtx.state === "running") return true;
-  return await new Promise<boolean>((resolve) => {
+  if (!audioCtx) return "rejected";
+  if (audioCtx.state === "running") return "running";
+  return await new Promise<ResumeOutcome>((resolve) => {
     let settled = false;
-    const finish = (value: boolean) => {
+    const finish = (value: ResumeOutcome) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
@@ -220,15 +273,15 @@ async function resumeCtx() {
     };
     const timer = setTimeout(() => {
       // Chromium autoplay policy can leave resume() pending forever without a gesture.
-      finish(false);
+      finish("timedOut");
     }, AUDIO_RESUME_TIMEOUT_MS);
 
     void audioCtx
       .resume()
-      .then(() => finish(true))
+      .then(() => finish(audioCtx.state === "running" ? "running" : "rejected"))
       .catch(() => {
         // iPhone/Safari may reject until the next user gesture; we retry on later interactions.
-        finish(false);
+        finish("rejected");
       });
   });
 }
@@ -248,7 +301,13 @@ function releaseVoice() {
 }
 
 function scheduleRelease(dur: number) {
-  setTimeout(releaseVoice, dur * 1000 + 50);
+  const scheduledEpoch = voiceEpoch;
+  setTimeout(
+    () => {
+      if (scheduledEpoch === voiceEpoch) releaseVoice();
+    },
+    dur * 1000 + 50,
+  );
 }
 
 function cancelTitleThemeRaf() {
@@ -420,7 +479,7 @@ function osc(type: OscillatorType, freq: number, duration: number, volume: numbe
 const SFX = {
   async init() {
     if (!ensureCtx()) return false;
-    const resumed = await resumeCtx();
+    const resumed = (await resumeCtx()) === "running";
     if (!resumed) armGestureResume();
     return resumed;
   },
@@ -431,12 +490,14 @@ const SFX = {
 
     const prevMasterGain = master.gain.value;
     const prevActiveCount = activeCount;
+    const prevVoiceEpoch = voiceEpoch;
     const prevLastExplosionTime = lastExplosionTime;
     const prevExplosionCount = explosionCount;
     const prevLastWarningTime = lastWarningTime;
     const prevLastHornetTime = lastHornetTime;
 
     master.gain.value = 0;
+    voiceEpoch = {};
 
     this.explosion("small");
     this.chainExplosion("medium", 2);
@@ -457,6 +518,7 @@ const SFX = {
 
     master.gain.value = prevMasterGain;
     activeCount = prevActiveCount;
+    voiceEpoch = prevVoiceEpoch;
     lastExplosionTime = prevLastExplosionTime;
     explosionCount = prevExplosionCount;
     lastWarningTime = prevLastWarningTime;

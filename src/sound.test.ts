@@ -120,6 +120,7 @@ describe("sound lifecycle after backgrounding", () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
     vi.useRealTimers();
   });
@@ -220,5 +221,57 @@ describe("sound lifecycle after backgrounding", () => {
 
     expect(ctx.resume).toHaveBeenCalled();
     expect(sfx.getResourceStats().contextState).toBe("running");
+  });
+
+  it("rebuilds when resume remains pending across a foreground retry", async () => {
+    const sfx = await loadSfx();
+    const ctx = liveContext();
+    interrupt(ctx);
+    ctx.resume.mockImplementation(() => new Promise<void>(() => {}));
+
+    await foreground();
+
+    expect(ctx.close).toHaveBeenCalled();
+    expect(FakeAudioContext.instances).toHaveLength(2);
+    expect(sfx.getResourceStats().contextGeneration).toBe(2);
+    expect(sfx.getResourceStats().contextState).toBe("running");
+  });
+
+  it("clears stale voices when WebKit returns to running before visibilitychange", async () => {
+    const sfx = await loadSfx();
+    const ctx = liveContext();
+    let hidden = true;
+    vi.spyOn(document, "hidden", "get").mockImplementation(() => hidden);
+
+    for (let i = 0; i < 20; i++) sfx.fire();
+    expect(sfx.getResourceStats().activeVoices).toBe(16);
+
+    document.dispatchEvent(new Event("visibilitychange"));
+    vi.clearAllTimers();
+    ctx.state = "running";
+    hidden = false;
+    await foreground();
+
+    expect(sfx.getResourceStats().activeVoices).toBe(0);
+    ctx.oscillators = 0;
+    sfx.fire();
+    expect(ctx.oscillators).toBeGreaterThan(0);
+  });
+
+  it("does not let old release timers decrement voices from a new recovery epoch", async () => {
+    const sfx = await loadSfx();
+    const ctx = liveContext();
+    for (let i = 0; i < 16; i++) sfx.fire();
+
+    interrupt(ctx);
+    document.dispatchEvent(new Event("visibilitychange"));
+    await vi.advanceTimersByTimeAsync(150);
+    expect(sfx.getResourceStats().activeVoices).toBe(0);
+
+    for (let i = 0; i < 16; i++) sfx.fire();
+    expect(sfx.getResourceStats().activeVoices).toBe(16);
+    await vi.advanceTimersByTimeAsync(160);
+
+    expect(sfx.getResourceStats().activeVoices).toBe(16);
   });
 });

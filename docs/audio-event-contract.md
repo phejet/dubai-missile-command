@@ -106,7 +106,8 @@ session. WebKit leaves the `AudioContext` in `suspended`/`interrupted`, so gamep
 keeps rendering while every effect plays into a silent graph. `src/sound.ts` recovers
 through three independent paths, because none of them is reliable on its own:
 
-- **Lifecycle events** — `visibilitychange`, `pageshow`, and `focus` trigger recovery.
+- **Lifecycle events** — `visibilitychange`, `pagehide`, `pageshow`, and `focus` track
+  background transitions and trigger recovery only once the document is visible.
 - **Self-heal on use** — `ensureCtx()` kicks a throttled recovery whenever a sound is
   requested on a context that is not `running`, so audio comes back even if no
   lifecycle event fires.
@@ -115,16 +116,18 @@ through three independent paths, because none of them is reliable on its own:
 
 Recovery does three things:
 
-1. Resets the voice budget (`activeCount`) and transient nodes. A suspended WebView can
-   drop the pending `scheduleRelease` timers, which would otherwise pin `activeCount` at
-   `MAX_POLY` and mute every later effect even after the context is healthy.
+1. Resets the voice budget (`activeCount`) and transient nodes once per background
+   transition, even when WebKit has already returned the context to `running`. Release
+   timers carry their originating voice epoch, so callbacks left over from before the
+   reset cannot decrement newly-created voices.
 2. Resumes the context, then probes that `currentTime` actually advances.
 3. Rebuilds the context (new graph, master gain, noise buffer, title-theme element) when
-   the probe fails — WebKit can hand back a context that reports `running` but never
-   renders again. The title-theme `<audio>` element is recreated too, since an element
-   can only ever back one `MediaElementAudioSourceNode`.
+   `resume()` times out or the clock probe fails — WebKit can leave `resume()` pending,
+   or hand back a context that reports `running` but never renders again. The title-theme
+   `<audio>` element is recreated too, since an element can only ever back one
+   `MediaElementAudioSourceNode`.
 
-`getResourceStats()` reports `contextState`, `contextGeneration` (rebuild count), and
+`getResourceStats()` reports `contextState`, `contextGeneration` (context creation), and
 `gestureResumeArmed` so diagnostics snapshots show why audio is silent.
 
 ## Practical Rules
