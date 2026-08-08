@@ -3,7 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MAX_COMPRESSED_BYTES, MAX_DECODED_BYTES } from "../../src/capture-contract";
 import { replayFixture, reportFixture, sessionFixture } from "../../test-fixtures/capture";
 import worker, { runRetention } from "../src/index";
-import { readBounded } from "../src/ingest";
+import type { Env } from "../src/bindings";
+import { ingestSession, readBounded } from "../src/ingest";
+import {
+  addTestCredential,
+  captureAuthHeaders,
+  currentTestCredential,
+  resetTestCredential,
+} from "./capture-auth-fixture";
 
 let sequence = 0;
 let installId = "12345678-test0";
@@ -19,6 +26,7 @@ beforeEach(async () => {
     env.DB.prepare("DELETE FROM diagnostic_reports"),
     env.DB.prepare("DELETE FROM replays"),
   ]);
+  await resetTestCredential();
 });
 
 async function digest(bytes: Uint8Array): Promise<string> {
@@ -56,6 +64,10 @@ async function post(
     preserveInstall?: boolean;
     sha?: string;
     wire?: Uint8Array;
+    authenticated?: boolean;
+    authHeaders?: Record<string, string>;
+    ip?: string;
+    proofSha?: string;
   } = {},
 ): Promise<Response> {
   if (!options.preserveInstall) body.meta.installId = installId;
@@ -66,6 +78,12 @@ async function post(
     "x-dmc-install": body.meta.installId ?? "",
     "x-dmc-sha256": options.sha ?? (await digest(raw)),
   });
+  if (options.authenticated !== false) {
+    const authHeaders =
+      options.authHeaders ?? (await captureAuthHeaders(kind, options.proofSha ?? (await digest(raw))));
+    for (const [name, value] of Object.entries(authHeaders)) headers.set(name, value);
+  }
+  headers.set("cf-connecting-ip", options.ip ?? `203.0.${sequence}.1`);
   if (options.encoding) headers.set("Content-Encoding", options.encoding);
   else if (options.gzip) headers.set("Content-Encoding", "gzip");
   if (options.origin) headers.set("Origin", options.origin);
@@ -110,6 +128,135 @@ describe("capture Worker split", () => {
     const decoded = await gunzip(new Uint8Array(await new Response(replay!.body).arrayBuffer()));
     expect(JSON.parse(new TextDecoder().decode(decoded))).toEqual(session.replay);
     expect(new TextDecoder().decode(decoded)).not.toContain('"events"');
+  });
+
+  it("rejects a valid capture without App Attest proof before any D1 or R2 write", async () => {
+    const objectsBefore = (await env.CAPTURES.list()).objects.map(({ key }) => key);
+    const response = await post("session", sessionFixture(), { authenticated: false });
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ ok: false, stage: "auth", message: "Unauthorized" });
+    expect((await env.DB.prepare("SELECT COUNT(*) AS count FROM sessions").first<{ count: number }>())!.count).toBe(0);
+    expect((await env.DB.prepare("SELECT COUNT(*) AS count FROM replays").first<{ count: number }>())!.count).toBe(0);
+    expect((await env.CAPTURES.list()).objects.map(({ key }) => key)).toEqual(objectsBefore);
+  });
+
+  it("rejects proof replay, body substitution, route transfer, and revoked credentials", async () => {
+    const session = sessionFixture({ runId: "proof-run" });
+    session.meta.installId = installId;
+    const sessionRaw = new TextEncoder().encode(JSON.stringify(session));
+    const proof = await captureAuthHeaders("session", await digest(sessionRaw));
+    expect(
+      (await post("session", structuredClone(session), { authHeaders: proof, preserveInstall: true })).status,
+    ).toBe(200);
+    expect(
+      (await post("session", structuredClone(session), { authHeaders: proof, preserveInstall: true })).status,
+    ).toBe(401);
+
+    const tampered = sessionFixture({ runId: "tampered-run" });
+    tampered.meta.installId = installId;
+    const untamperedSha = await digest(new TextEncoder().encode(JSON.stringify(tampered)));
+    tampered.summary.score += 1;
+    expect((await post("session", tampered, { proofSha: untamperedSha, preserveInstall: true })).status).toBe(401);
+
+    const report = reportFixture({ reportId: "route-transfer" });
+    report.meta.installId = installId;
+    const reportSha = await digest(new TextEncoder().encode(JSON.stringify(report)));
+    const wrongRouteProof = await captureAuthHeaders("session", reportSha);
+    expect((await post("report", report, { authHeaders: wrongRouteProof, preserveInstall: true })).status).toBe(401);
+
+    const revokedReport = reportFixture({ reportId: "revoked" });
+    revokedReport.meta.installId = installId;
+    const revokedProof = await captureAuthHeaders(
+      "report",
+      await digest(new TextEncoder().encode(JSON.stringify(revokedReport))),
+    );
+    const { keyIdHash } = await currentTestCredential();
+    await env.DB.prepare("UPDATE app_attest_credentials SET status = 'revoked', revoked_at = 1 WHERE key_id_hash = ?")
+      .bind(keyIdHash)
+      .run();
+    expect((await post("report", revokedReport, { authHeaders: revokedProof, preserveInstall: true })).status).toBe(
+      401,
+    );
+    expect(
+      (await env.DB.prepare("SELECT COUNT(*) AS count FROM diagnostic_reports").first<{ count: number }>())!.count,
+    ).toBe(0);
+  });
+
+  it("rejects an expired proof or a token moved between Worker environments", async () => {
+    const session = sessionFixture({ runId: "environment-run" });
+    session.meta.installId = installId;
+    const raw = new TextEncoder().encode(JSON.stringify(session));
+    const bodySha = await digest(raw);
+    const now = vi.spyOn(Date, "now").mockReturnValue(1_000);
+    const proof = await captureAuthHeaders("session", bodySha);
+
+    now.mockReturnValue(121_001);
+    expect(
+      (await post("session", structuredClone(session), { authHeaders: proof, preserveInstall: true })).status,
+    ).toBe(401);
+
+    now.mockReturnValue(1_000);
+    const environmentProof = await captureAuthHeaders("session", bodySha);
+    const response = await ingestSession(
+      new Request("https://worker.test/api/session", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-dmc-build": session.meta.buildId,
+          "x-dmc-install": session.meta.installId,
+          "x-dmc-sha256": bodySha,
+          ...environmentProof,
+        },
+        body: raw,
+      }),
+      {
+        ...env,
+        WORKER_BUILD: "production",
+        APPLE_ATTEST_ENVIRONMENTS: "production",
+      } as unknown as Env,
+    );
+    expect(response.status).toBe(401);
+    expect((await env.DB.prepare("SELECT COUNT(*) AS count FROM sessions").first<{ count: number }>())!.count).toBe(0);
+    now.mockRestore();
+  });
+
+  it("keeps enrollment closed by policy and requires operator auth for revocation", async () => {
+    const disabledEnrollment = await worker.fetch(
+      new Request("https://worker.test/api/auth/ios/enroll", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{}",
+      }),
+      { ...env, ENROLLMENT_ENABLED: "false" } as unknown as Env,
+    );
+    expect(disabledEnrollment.status).toBe(403);
+
+    const { keyId, keyIdHash } = await currentTestCredential();
+    const revokeBody = JSON.stringify({ keyIdHash });
+    expect(
+      (
+        await SELF.fetch("https://worker.test/api/auth/ios/revoke", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: revokeBody,
+        })
+      ).status,
+    ).toBe(401);
+    expect(
+      (
+        await SELF.fetch("https://worker.test/api/auth/ios/revoke", {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: "Bearer test-secret" },
+          body: revokeBody,
+        })
+      ).status,
+    ).toBe(200);
+    const challengeAfterRevocation = await SELF.fetch("https://worker.test/api/auth/challenge", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ purpose: "session", keyId, buildId: "build+dirty" }),
+    });
+    expect(challengeAfterRevocation.status).toBe(401);
   });
 
   it("stores a replay-less session and retrieves an explicit null replay", async () => {
@@ -271,32 +418,58 @@ describe("capture Worker split", () => {
     expect(new Uint8Array(await new Response(object!.body).arrayBuffer())).toEqual(beforeBytes);
   });
 
-  it("resolves concurrent exact report retries to one immutable row", async () => {
+  it("prevents another verified credential from replacing a report or its object", async () => {
+    const report = reportFixture({ reportId: "owned-report" });
+    expect((await post("report", report)).status).toBe(200);
+    const original = await env.DB.prepare(
+      "SELECT submitter_key_id_hash, sha256, r2_key FROM diagnostic_reports WHERE report_id = ?",
+    )
+      .bind(report.reportId)
+      .first<{ submitter_key_id_hash: string; sha256: string; r2_key: string }>();
+    const originalBytes = await objectBytes(original!.r2_key);
+    const objectsBefore = (await env.CAPTURES.list({ prefix: "diagnostics/auth/" })).objects.map(({ key }) => key);
+
+    await addTestCredential();
+    report.meta.note = "different owner and bytes";
+    const collision = await post("report", report);
+    expect(collision.status).toBe(409);
+    expect(
+      await env.DB.prepare("SELECT submitter_key_id_hash, sha256, r2_key FROM diagnostic_reports WHERE report_id = ?")
+        .bind(report.reportId)
+        .first(),
+    ).toEqual(original);
+    expect(await objectBytes(original!.r2_key)).toEqual(originalBytes);
+    expect((await env.CAPTURES.list({ prefix: "diagnostics/auth/" })).objects.map(({ key }) => key)).toEqual(
+      objectsBefore,
+    );
+  });
+
+  it("serializes same-counter report retries at the Worker boundary", async () => {
     const report = reportFixture({ reportId: "concurrent-report" });
     const [first, second] = await Promise.all([
       post("report", structuredClone(report)),
       post("report", structuredClone(report), { gzip: true }),
     ]);
-    expect([first.status, second.status]).toEqual([200, 200]);
+    expect([first.status, second.status].sort()).toEqual([200, 401]);
     expect(
       (await env.DB.prepare("SELECT COUNT(*) AS count FROM diagnostic_reports").first<{ count: number }>())!.count,
     ).toBe(1);
   });
 
-  it("accepts concurrent last-writer-wins session supersession", async () => {
+  it("accepts one same-counter session and rejects the racing proof", async () => {
     const first = sessionFixture({ runId: "concurrent-run" });
     const alternateReplay = structuredClone(first.replay!);
     alternateReplay.seed += 1;
     const second = sessionFixture({ runId: "concurrent-run", replay: alternateReplay });
     const responses = await Promise.all([post("session", first), post("session", second, { gzip: true })]);
-    expect(responses.map((response) => response.status)).toEqual([200, 200]);
+    expect(responses.map((response) => response.status).sort()).toEqual([200, 401]);
     const committed = await env.DB.prepare("SELECT replay_sha256 FROM sessions WHERE run_id = ?")
       .bind("concurrent-run")
       .first<{ replay_sha256: string }>();
     expect([first.meta.replaySha256, second.meta.replaySha256]).toContain(committed!.replay_sha256);
   });
 
-  it("distinguishes a guarded session no-op from valid supersession", async () => {
+  it("keeps authenticated sessions immutable even when replacement replay insertion is ignored", async () => {
     const original = sessionFixture({ runId: "guarded-run" });
     expect((await post("session", original)).status).toBe(200);
     const alternateReplay = structuredClone(original.replay!);
@@ -308,8 +481,8 @@ describe("capture Worker split", () => {
        BEGIN SELECT RAISE(IGNORE); END`,
     ).run();
     const response = await post("session", replacement);
-    expect(response.status).toBe(500);
-    expect(await response.json()).toMatchObject({ ok: false, stage: "store" });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ ok: false, stage: "conflict" });
     expect(
       await env.DB.prepare("SELECT replay_sha256 FROM sessions WHERE run_id = ?").bind("guarded-run").first(),
     ).toEqual({
@@ -345,14 +518,18 @@ describe("capture Worker split", () => {
     const report = reportFixture({ reportId: "retained-object" });
     expect((await post("report", report)).status).toBe(200);
     const replayKey = `replays/${session.meta.replaySha256}.json.gz`;
-    const reportKey = `${installId}/retained-object`;
+    const reportKey = (await env.DB.prepare(
+      "SELECT r2_key FROM diagnostic_reports WHERE report_id = 'retained-object'",
+    ).first<{
+      r2_key: string;
+    }>())!.r2_key;
     await env.DB.prepare("UPDATE sessions SET received_at = 1").run();
     await env.DB.prepare("UPDATE diagnostic_reports SET received_at = 1").run();
     await runRetention(env, 9_000_000_000_000);
     expect(await env.DB.prepare("SELECT run_id FROM sessions").first()).toBeNull();
     expect(await env.DB.prepare("SELECT replay_sha256 FROM replays").first()).toBeNull();
     expect(await env.CAPTURES.head(replayKey)).not.toBeNull();
-    expect(await env.CAPTURES.head(`diagnostics/${reportKey}.json.gz`)).not.toBeNull();
+    expect(await env.CAPTURES.head(reportKey)).not.toBeNull();
   });
 
   it("distinguishes expired and missing replay evidence without hiding the session", async () => {
@@ -468,28 +645,31 @@ describe("capture Worker split", () => {
     );
   });
 
-  it("rate limits both products before attempting decompression", async () => {
+  it("applies the shared unauthenticated IP limit before decompression", async () => {
     const garbage = new TextEncoder().encode("not gzip");
+    const ip = `198.51.${sequence}.10`;
     const sessionResponses: Response[] = [];
-    for (let index = 0; index < 6; index += 1) {
-      sessionResponses.push(await post("session", sessionFixture(), { gzip: true, wire: garbage }));
+    for (let index = 0; index < 60; index += 1) {
+      sessionResponses.push(
+        await post("session", sessionFixture(), {
+          gzip: true,
+          wire: garbage,
+          authenticated: false,
+          ip,
+        }),
+      );
     }
-    for (const response of sessionResponses.slice(0, -1)) {
+    for (const response of sessionResponses) {
       expect(await response.json()).toMatchObject({ stage: "compress" });
     }
-    expect(sessionResponses[sessionResponses.length - 1].status).toBe(429);
-    expect(await sessionResponses[sessionResponses.length - 1].json()).toMatchObject({ stage: "rate" });
-
-    installId = `12345678-rate${sequence}`;
-    const reportResponses: Response[] = [];
-    for (let index = 0; index < 4; index += 1) {
-      reportResponses.push(await post("report", reportFixture(), { gzip: true, wire: garbage }));
-    }
-    for (const response of reportResponses.slice(0, -1)) {
-      expect(await response.json()).toMatchObject({ stage: "compress" });
-    }
-    expect(reportResponses[reportResponses.length - 1].status).toBe(429);
-    expect(await reportResponses[reportResponses.length - 1].json()).toMatchObject({ stage: "rate" });
+    const blocked = await post("report", reportFixture(), {
+      gzip: true,
+      wire: garbage,
+      authenticated: false,
+      ip,
+    });
+    expect(blocked.status).toBe(429);
+    expect(await blocked.json()).toMatchObject({ stage: "rate" });
   });
 
   it("cancels decoded input immediately after crossing its cap", async () => {

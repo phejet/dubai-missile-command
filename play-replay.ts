@@ -14,6 +14,9 @@ const replayData = JSON.parse(readFileSync(file, "utf-8"));
 
 const browser = await chromium.launch({ headless: false });
 const page = await browser.newPage();
+await page.addInitScript(() => {
+  window.__DMC_AUTOMATION__ = true;
+});
 
 let finishReplay!: (sample: ReplayFinishedSample) => void;
 let failReplay!: (error: Error) => void;

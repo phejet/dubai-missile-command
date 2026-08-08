@@ -6,8 +6,14 @@
   "compatibility_date": "2026-08-01",
   "vars": {
     "WORKER_BUILD": "dev",
+    "ALLOWED_BUILDS": "build+dirty",
+    "APPLE_TEAM_ID": "5A2PL567F2",
+    "APPLE_BUNDLE_ID": "com.phejet.dubaicmd",
+    "APPLE_BUNDLE_VERSION": "1",
+    "APPLE_ATTEST_ENVIRONMENTS": "development",
+    "ENROLLMENT_ENABLED": "false",
   },
-  "secrets": { "required": ["CAPTURE_BEARER_TOKEN"] },
+  "secrets": { "required": ["CAPTURE_BEARER_TOKEN", "CAPTURE_AUTH_SECRET"] },
   "d1_databases": [
     {
       "binding": "DB",
@@ -27,14 +33,21 @@
   "env": {
     "staging": {
       "name": "dmc-captures-staging",
-      "vars": { "WORKER_BUILD": "staging" },
-      "secrets": { "required": ["CAPTURE_BEARER_TOKEN"] },
+      "vars": {
+        "WORKER_BUILD": "staging",
+        "ALLOWED_BUILDS": "",
+        "APPLE_TEAM_ID": "5A2PL567F2",
+        "APPLE_BUNDLE_ID": "com.phejet.dubaicmd",
+        "APPLE_BUNDLE_VERSION": "1",
+        "APPLE_ATTEST_ENVIRONMENTS": "development,production",
+        "ENROLLMENT_ENABLED": "false",
+      },
+      "secrets": { "required": ["CAPTURE_BEARER_TOKEN", "CAPTURE_AUTH_SECRET"] },
       "d1_databases": [
         {
           "binding": "DB",
           "database_name": "dmc-captures-staging",
           "database_id": "00000000-0000-0000-0000-000000000002",
-          "preview_database_id": "00000000-0000-0000-0000-000000000001",
           "migrations_dir": "migrations",
         },
       ],
@@ -48,14 +61,21 @@
     },
     "production": {
       "name": "dmc-captures",
-      "vars": { "WORKER_BUILD": "production" },
-      "secrets": { "required": ["CAPTURE_BEARER_TOKEN"] },
+      "vars": {
+        "WORKER_BUILD": "production",
+        "ALLOWED_BUILDS": "",
+        "APPLE_TEAM_ID": "5A2PL567F2",
+        "APPLE_BUNDLE_ID": "com.phejet.dubaicmd",
+        "APPLE_BUNDLE_VERSION": "1",
+        "APPLE_ATTEST_ENVIRONMENTS": "production",
+        "ENROLLMENT_ENABLED": "false",
+      },
+      "secrets": { "required": ["CAPTURE_BEARER_TOKEN", "CAPTURE_AUTH_SECRET"] },
       "d1_databases": [
         {
           "binding": "DB",
           "database_name": "dmc-captures",
           "database_id": "00000000-0000-0000-0000-000000000003",
-          "preview_database_id": "00000000-0000-0000-0000-000000000001",
           "migrations_dir": "migrations",
         },
       ],

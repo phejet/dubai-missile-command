@@ -7,11 +7,103 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { createGzip, gunzipSync } from "node:zlib";
+import { encodeCBOR, type CBORType } from "@levischuck/tiny-cbor";
 import { afterEach, describe, expect, it } from "vitest";
+import { captureClientData } from "../../src/capture-auth-protocol";
 import { sessionFixture } from "../../test-fixtures/capture";
 
 const processes: ChildProcess[] = [];
 const tempDirs: string[] = [];
+const APP_ID = "5A2PL567F2.com.phejet.dubaicmd";
+
+function concatBytes(...parts: Uint8Array[]): Uint8Array {
+  const result = new Uint8Array(parts.reduce((total, part) => total + part.byteLength, 0));
+  let offset = 0;
+  for (const part of parts) {
+    result.set(part, offset);
+    offset += part.byteLength;
+  }
+  return result;
+}
+
+function ownedArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
+async function sha256Bytes(bytes: Uint8Array): Promise<Uint8Array> {
+  return new Uint8Array(await crypto.subtle.digest("SHA-256", ownedArrayBuffer(bytes)));
+}
+
+function rawSignatureToDer(raw: Uint8Array): Uint8Array {
+  const component = (bytes: Uint8Array): Uint8Array => {
+    let first = 0;
+    while (first < bytes.byteLength - 1 && bytes[first] === 0) first += 1;
+    const trimmed = bytes.slice(first);
+    return (trimmed[0] & 0x80) === 0 ? trimmed : concatBytes(new Uint8Array([0]), trimmed);
+  };
+  const r = component(raw.slice(0, 32));
+  const s = component(raw.slice(32));
+  return concatBytes(new Uint8Array([0x30, 4 + r.length + s.length, 2, r.length]), r, new Uint8Array([2, s.length]), s);
+}
+
+async function testCredential(): Promise<{
+  keyId: string;
+  keyIdHash: string;
+  privateKey: CryptoKey;
+  publicKeySpkiHex: string;
+}> {
+  const pair = (await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, [
+    "sign",
+    "verify",
+  ])) as CryptoKeyPair;
+  const raw = new Uint8Array(await crypto.subtle.exportKey("raw", pair.publicKey));
+  const keyIdBytes = await sha256Bytes(raw);
+  const keyHash = await sha256Bytes(concatBytes(new TextEncoder().encode("DMC-APP-ATTEST-KEY-v1\0"), keyIdBytes));
+  const spki = new Uint8Array(await crypto.subtle.exportKey("spki", pair.publicKey));
+  return {
+    keyId: Buffer.from(keyIdBytes).toString("base64"),
+    keyIdHash: Buffer.from(keyHash).toString("hex"),
+    privateKey: pair.privateKey,
+    publicKeySpkiHex: Buffer.from(spki).toString("hex"),
+  };
+}
+
+async function authorizationHeaders(
+  base: string,
+  credential: Awaited<ReturnType<typeof testCredential>>,
+  bodySha256: string,
+): Promise<Record<string, string>> {
+  const challengeResponse = await fetch(`${base}/api/auth/challenge`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ purpose: "session", keyId: credential.keyId, buildId: "build+dirty" }),
+  });
+  const challengeToken = ((await challengeResponse.json()) as { challengeToken: string }).challengeToken;
+  const rpIdHash = await sha256Bytes(new TextEncoder().encode(APP_ID));
+  const counter = new Uint8Array([0, 0, 0, 1]);
+  const extensions = encodeCBOR(
+    new Map<string | number, CBORType>([
+      ["apple_bundle_version_01", "1"],
+      ["apple_validation_category_01", new Uint8Array([1, 0, 0, 0])],
+    ]),
+  );
+  const authenticatorData = concatBytes(rpIdHash, new Uint8Array([0]), counter, extensions);
+  const clientHash = await sha256Bytes(captureClientData(challengeToken, bodySha256));
+  const nonce = await sha256Bytes(concatBytes(authenticatorData, clientHash));
+  const signature = new Uint8Array(
+    await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, credential.privateKey, ownedArrayBuffer(nonce)),
+  );
+  const assertion = encodeCBOR(
+    new Map<string | number, CBORType>([
+      ["signature", rawSignatureToDer(signature)],
+      ["authenticatorData", authenticatorData],
+    ]),
+  );
+  return {
+    "x-dmc-challenge-token": challengeToken,
+    "x-dmc-assertion": Buffer.from(assertion).toString("base64url"),
+  };
+}
 
 async function availablePort(): Promise<number> {
   return new Promise((resolvePort, reject) => {
@@ -109,6 +201,27 @@ describe("capture Worker over real HTTP", () => {
     );
     if (migration.status !== 0) throw new Error(`migration failed: ${migration.stdout}\n${migration.stderr}`);
 
+    const credential = await testCredential();
+    const seedCredential = spawnSync(
+      wrangler,
+      [
+        "d1",
+        "execute",
+        "dmc-captures-local",
+        "--local",
+        "--config",
+        "worker/wrangler.jsonc",
+        "--persist-to",
+        persistence,
+        "--command",
+        `INSERT INTO app_attest_credentials (key_id_hash, public_key, apple_environment, assertion_counter, status, created_at, last_seen_at) VALUES ('${credential.keyIdHash}', x'${credential.publicKeySpkiHex}', 'development', 0, 'active', 1, 1)`,
+      ],
+      { cwd: process.cwd(), encoding: "utf8", timeout: 15_000 },
+    );
+    if (seedCredential.status !== 0) {
+      throw new Error(`credential seed failed: ${seedCredential.stdout}\n${seedCredential.stderr}`);
+    }
+
     const port = await availablePort();
     let logs = "";
     const worker = spawn(
@@ -125,6 +238,8 @@ describe("capture Worker over real HTTP", () => {
         persistence,
         "--var",
         "CAPTURE_BEARER_TOKEN:http-test-secret",
+        "--var",
+        "CAPTURE_AUTH_SECRET:http-capture-auth-secret-32-bytes-minimum",
         "--log-level",
         "error",
         "--show-interactive-dev-session",
@@ -141,6 +256,7 @@ describe("capture Worker over real HTTP", () => {
     const capture = sessionFixture();
     const decoded = Buffer.from(JSON.stringify(capture));
     const sha256 = createHash("sha256").update(decoded).digest("hex");
+    const authHeaders = await authorizationHeaders(base, credential, sha256);
     const uploaded = await fetch(`${base}/api/session`, {
       method: "POST",
       headers: {
@@ -148,6 +264,7 @@ describe("capture Worker over real HTTP", () => {
         "x-dmc-build": capture.meta.buildId,
         "x-dmc-install": capture.meta.installId!,
         "x-dmc-sha256": sha256,
+        ...authHeaders,
       },
       body: decoded,
     });

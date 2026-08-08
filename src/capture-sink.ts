@@ -1,4 +1,13 @@
 import type { ProblemReport, SessionUpload } from "./capture";
+import { withAuthenticatedCaptureUpload, type CaptureAuthDeps, type AuthenticatedUploadInput } from "./capture-auth";
+import { detectCaptureRuntime, getCaptureExecution } from "./capture-execution";
+import {
+  decideCapturePolicy,
+  type CaptureChannel,
+  type CaptureExecutionKind,
+  type CaptureRuntimeKind,
+  type RemoteCaptureConsent,
+} from "./capture-policy";
 import { sha256Hex } from "./sha256";
 
 export type UploadCaptureResult =
@@ -7,9 +16,16 @@ export type UploadCaptureResult =
 
 export interface UploadCaptureDeps {
   endpoint?: string | null;
+  remoteEndpoint?: string | null;
+  channel?: CaptureChannel;
+  runtime?: CaptureRuntimeKind;
+  execution?: CaptureExecutionKind;
+  remoteConsent?: RemoteCaptureConsent;
   compress?: (bytes: Uint8Array) => Promise<Uint8Array | null>;
   digest?: (bytes: Uint8Array) => Promise<string | null>;
   fetch?: typeof fetch;
+  auth?: CaptureAuthDeps;
+  authenticatedUpload?: typeof withAuthenticatedCaptureUpload;
 }
 
 async function compressGzip(bytes: Uint8Array): Promise<Uint8Array | null> {
@@ -28,12 +44,25 @@ async function upload(
   id: string,
   deps: UploadCaptureDeps,
 ): Promise<UploadCaptureResult> {
+  const channel =
+    deps.channel ?? (typeof __DMC_CAPTURE_CHANNEL__ === "undefined" ? ("off" as const) : __DMC_CAPTURE_CHANNEL__);
+  const policy = decideCapturePolicy({
+    channel,
+    runtime: deps.runtime ?? detectCaptureRuntime(),
+    execution: deps.execution ?? getCaptureExecution(),
+    remoteConsent: deps.remoteConsent ?? "unknown",
+  });
+  if (!policy.allowed) return { ok: false, reason: `policy:${policy.reason}` };
   const configured =
-    deps.endpoint === undefined
-      ? typeof __DMC_CAPTURE_ENDPOINT__ !== "undefined"
-        ? __DMC_CAPTURE_ENDPOINT__
-        : null
-      : deps.endpoint;
+    policy.destination === "remote"
+      ? deps.remoteEndpoint === undefined
+        ? typeof __DMC_CAPTURE_BASE_URL__ === "undefined"
+          ? ""
+          : __DMC_CAPTURE_BASE_URL__
+        : deps.remoteEndpoint
+      : deps.endpoint === undefined
+        ? "/"
+        : deps.endpoint;
   if (!configured) return { ok: false, reason: "no-endpoint" };
 
   try {
@@ -53,11 +82,26 @@ async function upload(
     const endpoint = new URL(configured, globalThis.location?.href ?? "http://localhost");
     const basePath = endpoint.pathname.replace(/\/api\/(?:session|report)\/?$/, "").replace(/\/$/, "");
     endpoint.pathname = `${basePath}${route}`;
-    const response = await (deps.fetch ?? fetch)(endpoint, {
-      method: "POST",
-      headers,
-      body: requestBody(payload),
-    });
+    const send = (authorizationHeaders: Record<string, string> = {}) =>
+      (deps.fetch ?? fetch)(endpoint, {
+        method: "POST",
+        headers: { ...headers, ...authorizationHeaders },
+        body: requestBody(payload),
+      });
+    const response =
+      policy.destination === "remote"
+        ? await (deps.authenticatedUpload ?? withAuthenticatedCaptureUpload)(
+            {
+              endpoint: configured,
+              channel: policy.environment,
+              purpose: route === "/api/session" ? "session" : "report",
+              buildId: body.meta.buildId,
+              decodedBodySha256: sha256,
+            } satisfies AuthenticatedUploadInput,
+            send,
+            deps.auth,
+          )
+        : await send();
     if (!response.ok) return { ok: false, reason: "http", status: response.status };
     const result = (await response.json()) as { id?: string; encoding?: "gzip" | "none"; file?: string };
     return {

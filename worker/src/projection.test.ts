@@ -55,6 +55,8 @@ describe("capture projection", () => {
       verified_at: null,
       shared: 0,
       source: "gameover",
+      sha256: null,
+      submitter_key_id_hash: null,
     });
   });
 

@@ -87,4 +87,72 @@ describe("capture transports", () => {
       }),
     ).resolves.toMatchObject({ ok: false, reason: "network" });
   });
+
+  it("evaluates eligibility before an injected endpoint or any transport work", async () => {
+    const fetch = vi.fn();
+    const compress = vi.fn(async () => new Uint8Array([1]));
+    const digest = vi.fn(async () => "a".repeat(64));
+
+    await expect(
+      uploadSession(sessionFixture(), {
+        endpoint: "https://dmc-captures.example/api/session",
+        channel: "off",
+        runtime: "native-ios",
+        execution: "human",
+        remoteConsent: "granted",
+        compress,
+        digest,
+        fetch,
+      }),
+    ).resolves.toEqual({ ok: false, reason: "policy:channel-off" });
+    expect(fetch).not.toHaveBeenCalled();
+    expect(compress).not.toHaveBeenCalled();
+    expect(digest).not.toHaveBeenCalled();
+  });
+
+  it.each(["replay", "automation"] as const)("blocks native %s execution before remote auth", async (execution) => {
+    const fetch = vi.fn();
+    await expect(
+      reportProblem(reportFixture(), {
+        endpoint: "https://dmc-captures-staging.example",
+        channel: "staging",
+        runtime: "native-ios",
+        execution,
+        remoteConsent: "granted",
+        fetch,
+      }),
+    ).resolves.toEqual({ ok: false, reason: "policy:remote-requires-human-execution" });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("wraps an eligible remote upload in fresh native authorization headers", async () => {
+    const authenticatedUpload = vi.fn(async (_input, send) =>
+      send({ "x-dmc-challenge-token": "token", "x-dmc-assertion": "assertion" }),
+    );
+    const fetch = vi.fn(async (_url: URL | RequestInfo, init?: RequestInit) => {
+      expect(init?.headers).toMatchObject({
+        "x-dmc-challenge-token": "token",
+        "x-dmc-assertion": "assertion",
+      });
+      return Response.json({ ok: true, id: "run", encoding: "none" });
+    });
+    await expect(
+      uploadSession(sessionFixture(), {
+        channel: "staging",
+        runtime: "native-ios",
+        execution: "human",
+        remoteConsent: "granted",
+        remoteEndpoint: "https://capture.example",
+        authenticatedUpload,
+        compress: async () => null,
+        digest: async () => "a".repeat(64),
+        fetch: fetch as typeof globalThis.fetch,
+      }),
+    ).resolves.toMatchObject({ ok: true });
+    expect(authenticatedUpload).toHaveBeenCalledWith(
+      expect.objectContaining({ channel: "staging", purpose: "session", decodedBodySha256: "a".repeat(64) }),
+      expect.any(Function),
+      undefined,
+    );
+  });
 });

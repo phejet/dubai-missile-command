@@ -2,4 +2,9 @@
 
 // Injected by the define block in vite.config.ts (git sha + dirty hash).
 declare const __DMC_BUILD_ID__: string;
-declare const __DMC_CAPTURE_ENDPOINT__: string | null;
+declare const __DMC_CAPTURE_CHANNEL__: import("./capture-policy").CaptureChannel;
+declare const __DMC_CAPTURE_BASE_URL__: string;
+
+interface Window {
+  __DMC_AUTOMATION__?: boolean;
+}

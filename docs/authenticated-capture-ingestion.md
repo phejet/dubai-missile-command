@@ -1,6 +1,7 @@
 # Authenticated Capture Ingestion
 
-Status: proposed security architecture and implementation plan; not implemented.
+Status: repository implementation complete through the native staging-ready slice;
+Cloudflare provisioning, consent/queue UI, and physical-device enrollment remain disabled.
 Last updated: 2026-08-08.
 Review audience: an engineer or AI reviewing the capture stack before Cloudflare
 provisioning is enabled.
@@ -50,50 +51,51 @@ implementation trivia.
 
 ## Current repository state
 
-The storage and validation foundation exists locally, but remote ingestion is not safe
-to expose yet.
+The fail-closed authorization path is implemented and locally verified. Remote capture
+remains operationally disabled until staging resources, GitHub environment policy, user
+consent, and physical-device enrollment are completed.
 
 ### What already exists
 
 - `worker/src/index.ts` exposes `POST /api/session` and `POST /api/report`, plus
   bearer-protected private retrieval routes.
-- `worker/src/ingest.ts` bounds compressed and decoded payload sizes, decompresses gzip,
-  verifies the decoded-body SHA-256, validates the capture contract, rate-limits by IP
-  and claimed install ID, writes objects to R2, and projects searchable fields into D1.
-- `worker/migrations/0001_init.sql` defines replay, session, report, and
-  leaderboard-ready data structures. `replay_verified` defaults to false and no current
-  code sets it true.
-- `src/capture-sink.ts` serializes the envelope, hashes the uncompressed JSON bytes,
-  optionally compresses them, and sends build/install/hash headers.
-- `vite.config.ts` points the development server at its local capture middleware and
-  compiles production builds with no capture endpoint.
+- `worker/src/ingest.ts` bounds and validates capture bytes, then requires a fresh App
+  Attest assertion and atomically reserves its counter before any D1 or R2 capture write.
+- `worker/src/app-attest.ts` verifies Apple's certificate chain against the pinned App
+  Attest root, attestation nonce, App ID, key ID, AAGUID/environment, assertion signature,
+  bundle signal, validation category, and counter.
+- migrations `0001` and `0002` define replay/session/report storage, revocable App Attest
+  credentials, and server-owned capture ownership. `replay_verified` remains false.
+- `src/capture-policy.ts` selects local or remote transport before hashing, compression,
+  challenge acquisition, or signing. Remote capture requires native human play and
+  granted consent.
+- `src/capture-auth.ts` enrolls native keys and serializes each challenge/assertion/upload
+  transaction so legitimate uploads cannot race App Attest counters.
+- `vite.config.ts` keeps ordinary browser and generic iOS builds capture-off; explicit
+  staging/production builds require their reviewed HTTPS origin in
+  `capture-worker-urls.json`.
 - `src/install-id.ts` creates an anonymous local identifier. It is useful correlation
   metadata, not a credential.
-- `ios/App/App/MainViewController.swift` already registers an app-local Capacitor plugin,
-  providing the pattern for a native App Attest bridge.
+- `ios/App/App/AppAttestPlugin.swift` exposes only support, key generation, attestation,
+  and assertion operations; the private key remains inside Apple's App Attest service.
 - `worker/wrangler.jsonc` defines separate local, staging, and production Worker names,
   D1 databases, R2 buckets, rate-limit namespaces, and Worker labels.
 - `.github/workflows/deploy-worker.yml` uses distinct `staging` and `production` GitHub
   Environments. Staging is eligible after qualifying pushes to `main`; production is a
   manual dispatch.
 
-### What is unsafe today
+### What remains disabled
 
-The two ingest routes are public. CORS blocks an unapproved browser origin, but `curl`
-does not care about CORS. A caller can copy the open protocol, invent an install ID and
-build ID, calculate the correct SHA, and submit valid-looking data until the current
-rate limits stop that particular IP or claimed install label. Both labels are spoofable.
+`CAPTURE_WORKER_PROVISIONED` remains unset. The checked-in staging and production Worker
+configurations deliberately contain an empty build allowlist, so a deployment that
+bypasses the protected workflow still rejects enrollment and submission. The workflow
+must receive a distinct HMAC secret, exact distributed build allowlist, App Attest
+environment policy, and enrollment switch from each GitHub Environment.
 
-The retrieval bearer protects reads, not writes. `CAPTURE_BEARER_TOKEN` must remain a
-server/operator credential and must never be repurposed as a mobile submission secret.
-
-Therefore `CAPTURE_WORKER_PROVISIONED` must remain unset until the fail-closed remote
-authorization gate and staging attack tests in this plan exist.
-
-`ALLOWED_BUILDS` is also fail-open today: `checkBuild()` enforces nothing when the value
-is absent or empty, and no environment configures it. Remote environments must instead
-require a non-empty exact allowlist. Local emulation may use a separate explicit
-development policy. This is planned work, not an existing control.
+No consent/queue surface calls the exported enrollment function yet, and no physical
+iPhone attestation has been captured against staging. Production collection must remain
+off until the parent consent/deletion work and the physical staging attack matrix pass.
+`CAPTURE_BEARER_TOKEN` remains a server/operator read credential and never enters the app.
 
 ## Scope
 
@@ -583,8 +585,7 @@ resources. Separate Cloudflare accounts remain the hard-isolation option.
 Because migrations currently precede Worker deployment, approval includes both schema
 mutation and code deployment. Migrations must be additive and backward-compatible. A
 pre-migration test and dry-run gate is mandatory before this workflow may be enabled.
-The current workflow does not yet contain that gate; the production flow above describes
-the required hardened workflow, not today's YAML.
+The workflow now contains this preflight and both mutation jobs depend on it.
 
 Self-review prevention is currently disabled because `phejet` is the only collaborator.
 The approval remains a deliberate pause and audit event, but it is not two-person
@@ -592,7 +593,7 @@ control. Enable `prevent_self_review` when a second trusted reviewer exists.
 
 ## Implementation plan
 
-### Phase 1: safety catch and verifier proof
+### Phase 1: safety catch and verifier proof — implemented
 
 - Keep legacy `CAPTURE_WORKER_PROVISIONED` unset until it is replaced by separate staging
   and production gates.
@@ -607,7 +608,7 @@ control. Enable `prevent_self_review` when a second trusted reviewer exists.
 Exit gate: an accidental push cannot deploy, and real App Attest fixtures verify in the
 actual Worker runtime.
 
-### Phase 2: local policy and fail-closed server auth
+### Phase 2: local policy and fail-closed server auth — implemented
 
 - Add the closed build channel and pure remote-eligibility policy before endpoint lookup.
 - Mark replay, bot, AI/Playwright, and headless execution at their entry points; add
@@ -622,7 +623,7 @@ actual Worker runtime.
 Exit gate: local Worker tests prove every unauthenticated/tampered/replayed request leaves
 capture D1/R2 unchanged, while local browser and automation behavior never selects cloud.
 
-### Phase 3: native staging vertical slice
+### Phase 3: native staging vertical slice — code complete, operations pending
 
 - Provision only staging D1/R2/Worker resources, safe staging preview bindings, lifecycle,
   HMAC secret, required variables, and the staging deployment gate.

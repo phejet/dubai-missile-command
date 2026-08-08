@@ -11,6 +11,13 @@ export default defineConfig({
       miniflare: {
         bindings: {
           CAPTURE_BEARER_TOKEN: "test-secret",
+          CAPTURE_AUTH_SECRET: "test-capture-auth-secret-32-bytes-minimum",
+          ALLOWED_BUILDS: "build+dirty",
+          APPLE_TEAM_ID: "TESTTEAM1",
+          APPLE_BUNDLE_ID: "com.phejet.dubaicmd.test",
+          APPLE_BUNDLE_VERSION: "1",
+          APPLE_ATTEST_ENVIRONMENTS: "development",
+          ENROLLMENT_ENABLED: "true",
           TEST_MIGRATIONS: await readD1Migrations(`${workerRoot}migrations`),
         },
       },

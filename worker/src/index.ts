@@ -1,12 +1,13 @@
 import { SAFE_ID, SHA256 } from "../../src/capture-contract";
 import { authorized } from "./auth";
 import type { Env, R2ObjectBody } from "./bindings";
+import { challenge, enroll, revokeCredential } from "./capture-auth";
 import { ingestReport, ingestSession, jsonResponse } from "./ingest";
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
 const REPORT_RETENTION_MS = 90 * DAY_MS;
 const SESSION_RETENTION_MS = 365 * DAY_MS;
-const DEFAULT_ORIGINS = new Set(["capacitor://localhost", "https://phejet.github.io"]);
+const DEFAULT_ORIGINS = new Set(["capacitor://localhost"]);
 
 interface ExecutionContextLike {
   waitUntil(promise: Promise<unknown>): void;
@@ -28,7 +29,8 @@ function corsHeaders(origin: string): HeadersInit {
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Content-Encoding, x-dmc-build, x-dmc-install, x-dmc-sha256",
+    "Access-Control-Allow-Headers":
+      "Content-Type, Content-Encoding, x-dmc-build, x-dmc-install, x-dmc-sha256, x-dmc-challenge-token, x-dmc-assertion",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
   };
@@ -215,6 +217,25 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === "/api/health" && request.method === "GET") {
       return jsonResponse(200, { ok: true, schema: 2, build: env.WORKER_BUILD ?? "dev" });
+    }
+    if (url.pathname === "/api/auth/challenge") return ingestWithCors(request, env, challenge);
+    if (url.pathname === "/api/auth/ios/enroll") return ingestWithCors(request, env, enroll);
+    if (url.pathname === "/api/auth/ios/revoke" && request.method === "POST") {
+      const denied = requireAuth(request, env);
+      if (denied) return denied;
+      let body: unknown;
+      try {
+        body = await request.json();
+      } catch {
+        return jsonResponse(400, { ok: false, stage: "parse", message: "Invalid JSON" });
+      }
+      const keyIdHash = (body as { keyIdHash?: unknown })?.keyIdHash;
+      if (typeof keyIdHash !== "string") {
+        return jsonResponse(400, { ok: false, stage: "parse", message: "Invalid keyIdHash" });
+      }
+      return (await revokeCredential(keyIdHash, env))
+        ? jsonResponse(200, { ok: true })
+        : jsonResponse(404, { ok: false, stage: "auth", message: "Credential not found" });
     }
     if (url.pathname === "/api/session") return ingestWithCors(request, env, ingestSession);
     if (url.pathname === "/api/report") return ingestWithCors(request, env, ingestReport);

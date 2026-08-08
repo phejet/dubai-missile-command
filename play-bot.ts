@@ -14,6 +14,9 @@ const LAUNCHERS = [
 async function main() {
   const browser = await chromium.launch({ headless: false });
   const page = await browser.newPage();
+  await page.addInitScript(() => {
+    window.__DMC_AUTOMATION__ = true;
+  });
   await page.setViewportSize({ width: 1000, height: 750 });
   await page.goto(GAME_URL);
   await page.waitForSelector("canvas");

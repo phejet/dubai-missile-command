@@ -73,6 +73,7 @@ import {
   type CaptureTrigger,
 } from "./capture";
 import { reportProblem, uploadSession, type UploadCaptureResult } from "./capture-sink";
+import { markCaptureExecution } from "./capture-execution";
 import { getInstallId } from "./install-id";
 import { createReplayArchiveGate, REPLAY_ARCHIVE_PREPARING_DELAY_MS } from "./replay-archive-gate";
 import { clientLog } from "./client-log";
@@ -1025,6 +1026,7 @@ export class Game {
   }
 
   private async startGame(): Promise<void> {
+    markCaptureExecution("human");
     clientLog("game", "start-request", { from: this.screen });
     await SFX.init();
     SFX.prewarm();
@@ -1053,6 +1055,7 @@ export class Game {
 
   private async startDebugStart(presetId: string): Promise<void> {
     if (this.screen !== "title") return;
+    markCaptureExecution("human");
     const preset = getDebugStartPreset(presetId);
     if (!preset) return;
     await SFX.init();
@@ -1277,6 +1280,7 @@ export class Game {
     replayData: ReplayData,
     opts: { seekToTick?: number; returnToRecap?: boolean; playbackNumber?: number; startPaused?: boolean } = {},
   ): Promise<void> {
+    markCaptureExecution("replay");
     await SFX.init();
     SFX.prewarm();
     const seekToTick = Math.max(0, Math.floor(opts.seekToTick ?? 0));

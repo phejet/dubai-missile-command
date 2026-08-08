@@ -12,6 +12,42 @@ import { getBuildId } from "./vite-build-id";
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const isCapacitor = process.env.CAPACITOR === "1";
 const appBase = isCapacitor ? "./" : "/dubai-missile-command/";
+const captureWorkerUrls = JSON.parse(readFileSync(resolve(__dirname, "capture-worker-urls.json"), "utf8")) as Record<
+  "staging" | "production",
+  string
+>;
+
+function captureChannel(command: "build" | "serve"): "off" | "local" | "staging" | "production" {
+  if (command === "serve") return "local";
+  const requested = process.env.DMC_CAPTURE_CHANNEL?.trim() || "off";
+  if (requested !== "off" && requested !== "staging" && requested !== "production") {
+    throw new Error(`Invalid DMC_CAPTURE_CHANNEL: ${requested}`);
+  }
+  if (requested !== "off" && !isCapacitor) {
+    throw new Error(`DMC_CAPTURE_CHANNEL=${requested} requires CAPACITOR=1`);
+  }
+  return requested;
+}
+
+function captureBaseUrl(channel: "off" | "local" | "staging" | "production"): string {
+  if (channel === "off" || channel === "local") return "";
+  const configured = captureWorkerUrls[channel]?.trim();
+  if (!configured) {
+    throw new Error(`capture-worker-urls.json must contain the reviewed ${channel} Worker URL`);
+  }
+  const parsed = new URL(configured);
+  if (
+    parsed.protocol !== "https:" ||
+    parsed.username ||
+    parsed.password ||
+    parsed.pathname !== "/" ||
+    parsed.search ||
+    parsed.hash
+  ) {
+    throw new Error(`${channel} capture Worker URL must be a public HTTPS origin without a path`);
+  }
+  return parsed.toString().replace(/\/$/, "");
+}
 
 function devHtmlEntryAliases(base: string): Plugin {
   const entries = new Map([[`${base}editor.html`, resolve(__dirname, "editor.html")]]);
@@ -48,13 +84,15 @@ function devHtmlEntryAliases(base: string): Plugin {
 
 // https://vite.dev/config/
 // React plugin kept for editor.html (dev tool) — the game itself is vanilla TS
-export default defineConfig(
-  ({ command }): UserConfig => ({
+export default defineConfig(({ command }): UserConfig => {
+  const channel = captureChannel(command);
+  return {
     plugins: [react(), devHtmlEntryAliases(appBase), replayPlugin(), capturePlugin(), perfPlugin()],
     base: appBase,
     define: {
       __DMC_BUILD_ID__: JSON.stringify(getBuildId()),
-      __DMC_CAPTURE_ENDPOINT__: JSON.stringify(command === "serve" ? "/" : null),
+      __DMC_CAPTURE_CHANNEL__: JSON.stringify(channel),
+      __DMC_CAPTURE_BASE_URL__: JSON.stringify(captureBaseUrl(channel)),
     },
     server: {
       allowedHosts: isCapacitor ? [".local"] : undefined,
@@ -90,5 +128,5 @@ export default defineConfig(
         reporter: ["text", "html", "json-summary"],
       },
     },
-  }),
-);
+  };
+});

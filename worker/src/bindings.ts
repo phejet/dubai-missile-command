@@ -49,7 +49,13 @@ export interface Env {
   INGEST_INSTALL: RateLimitBinding;
   REPORT_INSTALL: RateLimitBinding;
   CAPTURE_BEARER_TOKEN?: string;
+  CAPTURE_AUTH_SECRET?: string;
   ALLOWED_BUILDS?: string;
   ALLOWED_ORIGINS?: string;
+  APPLE_TEAM_ID?: string;
+  APPLE_BUNDLE_ID?: string;
+  APPLE_BUNDLE_VERSION?: string;
+  APPLE_ATTEST_ENVIRONMENTS?: string;
+  ENROLLMENT_ENABLED?: string;
   WORKER_BUILD?: string;
 }

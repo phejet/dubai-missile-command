@@ -41,6 +41,8 @@ export interface SessionRow {
   verified_at: null;
   shared: 0;
   source: string;
+  sha256: string | null;
+  submitter_key_id_hash: string | null;
 }
 
 export interface DiagnosticReportRow {
@@ -68,6 +70,7 @@ export interface DiagnosticReportRow {
   raw_bytes: number;
   stored_bytes: number;
   r2_key: string;
+  submitter_key_id_hash: string | null;
 }
 
 export function projectReplayRow(input: {
@@ -86,7 +89,11 @@ export function projectReplayRow(input: {
   };
 }
 
-export function projectSessionRow(session: SessionUpload, receivedAt: number): SessionRow {
+export function projectSessionRow(
+  session: SessionUpload,
+  receivedAt: number,
+  authorization?: { sha256: string; keyIdHash: string },
+): SessionRow {
   const summary = session.summary;
   const installId = session.meta.installId!;
   return {
@@ -121,12 +128,20 @@ export function projectSessionRow(session: SessionUpload, receivedAt: number): S
     verified_at: null,
     shared: 0,
     source: session.meta.trigger,
+    sha256: authorization?.sha256 ?? null,
+    submitter_key_id_hash: authorization?.keyIdHash ?? null,
   };
 }
 
 export function projectDiagnosticReportRow(
   report: ProblemReport,
-  input: { sha256: string; rawBytes: number; storedBytes: number; receivedAt: number },
+  input: {
+    sha256: string;
+    rawBytes: number;
+    storedBytes: number;
+    receivedAt: number;
+    submitterKeyIdHash?: string;
+  },
 ): DiagnosticReportRow {
   const installId = report.meta.installId!;
   return {
@@ -153,6 +168,9 @@ export function projectDiagnosticReportRow(
     sha256: input.sha256,
     raw_bytes: input.rawBytes,
     stored_bytes: input.storedBytes,
-    r2_key: `diagnostics/${installId}/${report.reportId}.json.gz`,
+    r2_key: input.submitterKeyIdHash
+      ? `diagnostics/auth/${input.submitterKeyIdHash}/${report.reportId}/${input.sha256}.json.gz`
+      : `diagnostics/${installId}/${report.reportId}.json.gz`,
+    submitter_key_id_hash: input.submitterKeyIdHash ?? null,
   };
 }
