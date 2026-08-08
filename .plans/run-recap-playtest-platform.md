@@ -1,9 +1,142 @@
 # Run Recap & Playtest Platform — Design Brain Dump
 
-Status: design discussion, not yet committed to implementation
+Status: Phase 1 shipped; Phase 2 implemented but not provisioned; Phase 3–7 product surfaces unbuilt
 Date captured: 2026-05-24
+Implementation state last verified: 2026-08-06 (§0.5)
 Source: extended brainstorm conversation; this is the canonical record so we
 don't lose context between sessions.
+
+The design sections below are preserved as written on 2026-05-24. Where the
+build diverged from the design, the divergence is called out inline in a
+`> **Built differently:**` note rather than by rewriting the original text —
+the reasoning trail is worth more than a tidy document.
+
+---
+
+## 0.5 Where this actually stands (verified 2026-08-06)
+
+Read this section first; everything after it is design intent, not status.
+
+### Phase 1 — Run Recap: **shipped**
+
+| Spec item                                      | State                                                                                                                        |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Game Over → Score / Wave / Hit Ratio + actions | ✅ `index.html:216`. Buttons: Retry, Run Recap, Title Menu                                                                   |
+| "Upgrade Graph" button becomes "Run Recap"     | ✅ `#progression-button` → `openRunRecap()` (`src/game.ts:587`)                                                              |
+| Upgrade Graph still reachable from Title Menu  | ✅ `#title-progression-button` → `openProgression()` (`src/game.ts:588`)                                                     |
+| Run Recap surface                              | ✅ `showRunRecap()` (`src/ui.ts:915`), `#run-recap-panel`                                                                    |
+| Hero summary band                              | ✅ score, outcome, kills, accuracy, max combo, time (`renderRunRecapHero`)                                                   |
+| "Watch how you died"                           | ✅ `src/run-recap-death-clip.ts` — but mounted on the **Game Over** panel, not inline in the recap (see below)               |
+| Save Replay via share sheet                    | ✅ `saveReplayToFile()` (`src/save-replay.ts:27`); `@capacitor/share` + `@capacitor/filesystem` on iOS, blob download on web |
+| PWA manifest + icon                            | ✅ `public/manifest.json`, `icon-192.png`, `icon-512.png`                                                                    |
+| Stacked-bar kill distribution                  | ❌ **superseded** — see below                                                                                                |
+| Wave-by-wave timeline                          | ⚠️ **became a pill grid**, last 12 waves — see below                                                                         |
+| Detailed stats accordion                       | ❌ **never built** — the only outstanding Phase 1 item                                                                       |
+
+> **Built differently — the recap layout.** §1's stacked bar + timeline pair
+> was replaced during implementation by
+> [`per-wave-recap-cards.md`](./per-wave-recap-cards.md): a featured wave card
+> (score, kills, best combo, Burj health, purchases) driven by a selectable
+> grid of wave pills with heat-coloured dots, marking best and terminal waves.
+> It answers "which wave went wrong" directly instead of making the player
+> integrate a timeline. The destroyed-by-type breakdown did not vanish — it
+> moved to the per-wave bonus screen (`showBonusScreen`, `src/ui.ts:319`),
+> where it describes one wave instead of summarising eight rows of a whole run.
+
+> **Built differently — the death clip.** §1 put "watch how you died" inside
+> the Run Recap. It ships one screen earlier, on the Game Over panel itself
+> (`data-gameover-death-clip-stage`, `index.html:221`). The player sees the
+> clip without pressing anything, which is what the section was actually after.
+
+**The one real Phase 1 gap** is the detailed-stats accordion (§1.6). Shots
+Fired and the per-threat-type counts are currently reachable nowhere on the
+recap; they exist in `RunRecapData.totalStats` and are simply not rendered.
+
+### Phase 2 — Backend: **implemented and locally verified, not provisioned**
+
+`worker/` exists (`8947d8f`, revised by `8ddbf4c`): `index.ts`, `ingest.ts`,
+`auth.ts`, `projection.ts`, `bindings.ts`, `migrations/0001_init.sql`,
+`wrangler.jsonc` (local / staging / production), `lifecycle.json`.
+
+- **Routes** (`worker/src/index.ts:213`) — `POST /api/session`,
+  `POST /api/report`, `GET /api/sessions`, `GET /api/reports`,
+  `GET /api/session/:runId`, `GET /api/report/:reportId`,
+  `GET /api/replay/:sha256`, `GET /api/health`. There is deliberately **no
+  `POST /share` and no `GET /r/<id>`** — those are Phase 3 and were explicitly
+  not built while the storage layer was open.
+- **Three tables, not two** — see the §9 note below.
+- **Ingest is public, rate-limited** (`INGEST_IP` 60/min, `INGEST_INSTALL`
+  5/min, `REPORT_INSTALL` 3/min). **Retrieval is bearer-gated** with a
+  constant-time compare (`worker/src/auth.ts`). No HMAC — §7's embedded-key
+  idea was correctly discarded as not-authentication.
+- **Retention is wired at both layers**: a `17 3 * * *` cron reaps D1 rows
+  including unreferenced replays; `worker/lifecycle.json` expires
+  `diagnostics/` objects at 90 days and `replays/` at 400 days.
+- **CI**: `.github/workflows/ci-worker.yml` runs `npm run test:worker`
+  (workerd + real-HTTP suites). `deploy-worker.yml` applies migrations and
+  deploys — staging on push to `main`, production on manual dispatch.
+
+**What blocks it**: `worker/wrangler.jsonc` carries a placeholder
+`account_id` of `0000…0` and placeholder D1 `database_id`s. No real resource
+ids are configured in this repository, and there is no recorded remote run of
+`0001_init.sql` or a Worker deployment. Both deploy jobs are gated on
+`vars.CAPTURE_WORKER_PROVISIONED == 'true'`; that repository variable was
+absent when checked on 2026-08-06, and both Worker workflow runs had been
+skipped. This establishes the repository's deployment state, not whether a
+Cloudflare account or unrelated resources exist outside it. Everything here
+has been validated against `wrangler dev` and local workerd/R2/D1 only.
+
+### Client wiring (Phase 3's prerequisite) — barely started
+
+- `__DMC_CAPTURE_ENDPOINT__` is `"/"` under `vite serve` and **`null` in every
+  production build** (`vite.config.ts:57`). A shipped build uploads nothing.
+- The only trigger is `window.__captureNow(trigger, note)`
+  (`src/game.ts:631` → `captureNow()` at `:1412`), which assembles via
+  `assembleSession` / `assembleReport` (`src/capture.ts`) and posts via
+  `uploadSession` / `reportProblem` (`src/capture-sink.ts`). That is the
+  console/agent path.
+- **No automatic game-over upload. No "Report a problem" button. No hidden
+  gesture. No feedback-emoji UI** — the `feedback_emoji` column exists and
+  will be NULL until §5's prompt is built.
+- Shipped and load-bearing: `src/install-id.ts` (persisted random id, `eph-`
+  prefix when `localStorage` refuses), `src/capture-contract.ts` (one
+  validator shared by the Vite middleware and the Worker),
+  `npm run diag:pull` (`scripts/diag-pull.mjs`, bearer via
+  `DMC_CAPTURE_TOKEN`).
+
+### Phases 3–7 — **no product surfaces built**
+
+No share link, no `?r=` handling at boot, no OG cards, no auto-stream toggle,
+no capture-consent or auto-share settings controls, no "recent uploads" list,
+no delete-from-server, no offline queue, no leaderboard, no Daily Challenge,
+no ghosts, no anomaly detection. Several storage and identity prerequisites
+exist from Phase 2; the player-facing features do not.
+
+### Two obligations this document created that are still unmet
+
+1. **The app target has no app-owned `PrivacyInfo.xcprivacy`.** Capacitor and
+   Cordova contribute manifests inside their framework bundles, but there is
+   no source manifest under `ios/App/App` and none at the root of the built
+   app bundle. Before enabling external capture, audit the app executable's
+   required-reason API use and collected data, add the app-target manifest
+   entries that audit requires, and make the App Store Connect privacy answers
+   match the behavior. The obligation is about the app's own code and data,
+   not the absence of manifests from every path under `ios/`.
+2. **The real-iPhone gate is partly complete.** Hardware testing confirmed
+   that the LAN WebView is an insecure context, `crypto.randomUUID` and
+   `crypto.subtle` are unavailable, `CompressionStream` is available, the
+   pure-JS SHA-256 fallback carries the integrity header, and the install id
+   persists across boots as non-ephemeral. Still unverified on hardware:
+   archive latency and real-v11 replay size, WebContent-kill recovery, and the
+   uncompressed transport branch (the tested iPhone supports compression).
+   See `docs/capture-worker-backend-plan.md` §13 for the device record.
+
+### The current gates
+
+Two independent gates remain: finish the open iPhone checks before adding
+production triggers, and provision Cloudflare before running the deployed-
+Worker curl gate. Provisioning can proceed in parallel; neither gate is fully
+closed.
 
 ---
 
@@ -372,12 +505,49 @@ Three options:
 Go with **option 1** initially; switch to option 2 if/when the game
 gets real traction.
 
+> **State 2026-08-06 — half of option 1 exists.** `CURRENT_REPLAY_VERSION`
+> is **11** (`src/replay-version.ts`) and every replay is stamped with its
+> build via `stampReplayProvenance()` (`src/replay-provenance.ts:16`), so
+> `sessions.build` records what a run was played under and Phase 5 knows
+> which build to re-simulate in. What does **not** exist is the routing half:
+> no archived per-build web deployments on Pages, and no `?v=` handling. The
+> stamp is enough to _detect_ an incompatible replay; nothing yet _serves_
+> the build that would play it. That gap becomes real the first time a share
+> link outlives a schema bump — i.e. on day one of Phase 3.
+
 ---
 
 ## 9. Storage of derived stats vs replays — the schema
 
-The session summary table is the single source of structured truth.
-Approximate D1 schema:
+> **Built differently — three tables, and replays are content-addressed.**
+> The shipped schema is `worker/migrations/0001_init.sql`, specified in
+> [`../docs/capture-session-report-split-plan.md`](../docs/capture-session-report-split-plan.md).
+> It splits into `replays`, `sessions`, and `diagnostic_reports`:
+>
+> - **`replays`** — content facts only: `replay_sha256` PRIMARY KEY,
+>   `r2_key` UNIQUE, `first_seen_at`, `last_referenced_at`, `raw_bytes`,
+>   `stored_bytes`. One R2 key format, `replays/<sha256>.json.gz`, and there
+>   must never be a second. Re-uploading identical bytes dedupes via
+>   `ON CONFLICT(replay_sha256) DO UPDATE SET last_referenced_at`, so a
+>   session and the problem report that mentions it share one object.
+> - **`sessions`** — completed runs, keyed on `run_id`, referencing
+>   `replays.replay_sha256`. This is still the leaderboard table.
+> - **`diagnostic_reports`** — deliberate problem reports and partial
+>   captures, keyed on `report_id`, blobs under `diagnostics/`, also
+>   referencing `replays`.
+>
+> Consequences worth carrying forward: the short link slug is **not** the
+> primary key any more — a session is `run_id` and a replay is its hash, so
+> Phase 3 has to mint slugs rather than reuse an id. `replay_valid` became
+> `replay_verified` + `verified_at` + `replay_complete_claimed`, keeping
+> "the client claims this is complete" separate from "we re-simulated it",
+> which is exactly the distinction Phase 5 needs. `install_ephemeral` was
+> added so `eph-` installs are stored but excluded from the leaderboard
+> index and from Phase 5's 20-install gate. Retention split by prefix:
+> diagnostics 90 days, replays 400 days since last reference.
+
+The original sketch, kept for the reasoning. The session summary table is the
+single source of structured truth. Approximate D1 schema:
 
 ```sql
 CREATE TABLE sessions (
@@ -546,15 +716,31 @@ time.
 
 ## 13. Things that need decisions when each phase lands
 
-- **Build channel approach** (leaning toward single build + settings
-  toggle, default OFF; ask again at Phase 2)
-- **Backend platform**: Cloudflare stack (current recommendation)
-- **Custom short domain**: probably yes at Phase 3 (`dmc.gg` or
-  similar, ~$15/yr); start on `dmc-share.workers.dev` for testing
-- **PWA support**: yes, stamp manifest at Phase 1 even before Phase 4
-- **Platform leaderboard segmentation**: defer to when leaderboard ships
-- **Replay versioning strategy**: versioned web builds initially
-- **Apple Game Center**: optional polish, very late
+- **Build channel approach** — still open. Leaning toward single build +
+  settings toggle, default OFF. The existing Options menu has no capture-
+  consent or auto-share controls, so nothing has forced the call.
+- **Backend platform** — **decided and built.** Cloudflare Worker + R2 + D1,
+  one stack, one Worker. Settled in
+  [`replay-upload-backend-status.md`](./replay-upload-backend-status.md) §6
+  on 2026-08-01; implemented 2026-08-01…08-03.
+- **Custom short domain** — still open, still Phase 3. Nothing registered.
+  The Worker names are `dmc-captures` / `dmc-captures-staging`, which are
+  ingest names, not share names.
+- **PWA support** — **done.** `public/manifest.json` + 192/512 icons landed
+  with Phase 1 as the free hedge.
+- **Platform leaderboard segmentation** — still deferred. The schema now
+  records `platform` _and_ `input_class` per session, so the decision can be
+  made later without a migration.
+- **Replay versioning strategy** — half-decided, half-built. See the §8 note.
+- **Apple Game Center** — untouched, still very late.
+- **Ingest authentication** — **decided, and it contradicts §7.** No HMAC.
+  The embedded-key idea was discarded as not-authentication; the real
+  controls are rate limits, size caps, and schema validation. An optional
+  `ALLOWED_BUILDS` hook exists but is not configured in `wrangler.jsonc`;
+  retrieval is bearer-gated.
+- **Privacy manifest** — **audit and app-owned declaration not done.** The
+  dependency frameworks contribute their own manifests; the app target does
+  not. See §0.5.
 
 ---
 
@@ -622,6 +808,16 @@ build. Deferred until Phase 4+.
 
 ## 16. Risks and downsides — the unvarnished honest read
 
+> **Scored 2026-08-06.** Of the seven risks below, the first one landed.
+> Phase 1 shipped and the repository records no intervening player-engagement
+> check before backend work began, so a full capture pipeline now exists with
+> zero collected sessions and no recorded evidence yet that players open
+> their own replays. That does not prove no informal playtest happened outside
+> the repository. The other risks require real tester behavior and cannot be
+> scored from the available evidence. Replay-schema commitment is the one to
+> watch next: the format is at v11 and stamped, but nothing serves an old
+> build.
+
 - **Scope drift** — this conversation started with "the game over
   screen is overloaded" and is now sketching a viral playtest
   platform. The game itself is still being tuned (recent commits are
@@ -658,9 +854,19 @@ not a drift.
 
 Each step ships and is useful on its own. Don't skip ahead.
 
-### Phase 1 — Run Recap (local only, no backend)
+> **Roadmap note.** The phase order below is the product-facing view and is
+> still correct. The engineering sequence that actually got executed is the
+> 7-step capture-system order in
+> [`replay-upload-backend-status.md`](./replay-upload-backend-status.md) §7,
+> which decomposed Phase 2 into flight recorder → capture assembly →
+> install id → Worker → triggers → leaderboard. Phase numbers here map to
+> step numbers there as: Phase 1 = step 1, Phase 2 = steps 2–5,
+> Phase 3/4 = step 6, Phase 5 = step 7.
 
-**This is the MVP.** Status: agreed, ready to spec out.
+### Phase 1 — Run Recap (local only, no backend) — **SHIPPED**
+
+**This is the MVP.** Status: shipped, one item outstanding (the stats
+accordion). Two blocks were built differently — see §0.5.
 
 What ships:
 
@@ -682,7 +888,7 @@ runs, we don't need any of the rest.
 **Suggested concurrent low-cost adds**: PWA manifest + icon (lays the
 groundwork for the web "install" path later).
 
-### Phase 2 — Backend skeleton
+### Phase 2 — Backend skeleton — **BUILT, NOT PROVISIONED**
 
 Cloudflare Worker + R2 + D1. No game features yet. Just:
 
@@ -694,7 +900,25 @@ Cloudflare Worker + R2 + D1. No game features yet. Just:
 
 Validate with `curl` before any game UI talks to it.
 
-### Phase 3 — Share-link flow (the first viral feature)
+> **Built differently.** The ingest surface is `POST /api/session` and
+> `POST /api/report`, not `POST /share` — the split is by _what the row is
+> for_ (a completed run vs. a deliberate problem report), specified in
+> [`../docs/capture-session-report-split-plan.md`](../docs/capture-session-report-split-plan.md).
+> `GET /api/replay/:sha256` exists but keys on the content hash, not a short
+> id. `GET /r/<id>` was deliberately **not** built: it is share-link
+> infrastructure and belongs to Phase 3, and building it early would have
+> baked a slug format into the schema before the share UI existed. Rate
+> limits, size caps, and schema validation shipped; the HMAC did not, on
+> purpose (see §13).
+>
+> The `curl` gate ran green against `wrangler dev` with local workerd/R2/D1.
+> It has **not** run against a deployed Worker, because none exists:
+> placeholder `account_id` and `database_id`s in `worker/wrangler.jsonc`,
+> and both `deploy-worker.yml` jobs no-op behind
+> `vars.CAPTURE_WORKER_PROVISIONED`. Finishing this phase is provisioning
+> work, not code.
+
+### Phase 3 — Share-link flow (the first viral feature) — **NOT STARTED**
 
 - "Share my run" button on Run Recap → uploads → native share sheet
 - Web build reads `?r=...` on boot → fetches → calls
@@ -703,7 +927,18 @@ Validate with `curl` before any game UI talks to it.
 - Install CTA logic (platform-aware, see §4)
 - OG preview cards (defer until first share happens if needed)
 
-### Phase 4 — Auto-stream toggle (friends mode)
+> **Prerequisite the design did not anticipate.** Nothing uploads from a
+> production build today: `__DMC_CAPTURE_ENDPOINT__` is `null` outside
+> `vite serve`. Phase 3 therefore starts with step 6 of the engineering
+> roadmap — wiring triggers over the shared private `upload()` implementation,
+> exposed as the typed `uploadSession()` and `reportProblem()` functions —
+> before any share UI is worth drawing. The transport, envelopes, contract
+> validators, and install id already exist and are tested. Production call
+> sites and the endpoint define are the first missing wiring; public slug
+> minting, retrieval, boot handling, and the post-replay CTA remain the rest of
+> Phase 3.
+
+### Phase 4 — Auto-stream toggle (friends mode) — **NOT STARTED**
 
 - Settings toggle, default OFF
 - Per-install anonymous UUID in keychain
@@ -714,7 +949,18 @@ Validate with `curl` before any game UI talks to it.
 - Per-session emoji feedback prompt on recap
 - De-dupe: share-button reuses already-streamed session ID
 
-### Phase 5 — Leaderboard (only when 20+ installs exist)
+> **Already in place from Phase 2**: the per-install anonymous id
+> (`src/install-id.ts`), the `display_name` and `feedback_emoji` /
+> `feedback_note` columns, retention, and the rate caps this section asked
+> for (`INGEST_INSTALL` 5/min, `REPORT_INSTALL` 3/min — per-minute, not the
+> ~50/day this section imagined; revisit when auto-stream is real). The id is
+> currently persisted in `localStorage`, not native Keychain-backed storage,
+> so Phase 4 must explicitly accept that design change or migrate it. Still
+> entirely unbuilt: the toggle and capture controls within the existing
+> Options surface, the recent-uploads list, delete-from-server, the offline
+> queue, the on-indicator, and the emoji prompt.
+
+### Phase 5 — Leaderboard (only when 20+ installs exist) — **NOT STARTED**
 
 - Top runs by Score (all-time / this week / today)
 - Tap entry → watch replay
@@ -724,14 +970,21 @@ Validate with `curl` before any game UI talks to it.
   belong here, not in normal play)
 - Game Center push for iOS (optional polish)
 
-### Phase 6 — AI inspection
+> **The schema is already shaped for this.** `idx_sessions_leaderboard`
+> exists on `(build, score DESC)` filtered to
+> `replay_verified = 1 AND install_ephemeral = 0`, so verified-only,
+> non-ephemeral queries are a single index scan. `replay_verified` starts at
+> `0` and nothing sets it — the re-simulation step is the unbuilt half. The
+> 20-install gate counts non-`eph-` installs.
+
+### Phase 6 — AI inspection — **NOT STARTED**
 
 - Ad-hoc: dump D1 to JSON, ask Claude/an LLM about trends
 - Anomaly detection queries (auto-flag unusual sessions)
 - Replay annotation feature for testers
 - This stays manual/lightweight unless a real volume problem appears
 
-### Phase 7 — Polish, late additions
+### Phase 7 — Polish, late additions — **NOT STARTED**
 
 - OG preview cards with generated thumbnails
 - Custom short domain (`dmc.gg` or similar)
@@ -742,6 +995,19 @@ Validate with `curl` before any game UI talks to it.
 ---
 
 ## 18. What to ship in the next two weeks
+
+> **Retrospective, 2026-08-06.** This list was written on 2026-05-24 and is
+> **done**, except item 1's stats accordion — items 1–5 all landed, with the
+> two layout substitutions noted in §0.5. It also under-scoped by a lot: the
+> two weeks that followed produced the replay flight recorder, capture
+> assembly, install ids, and the whole Worker backend, none of which appear
+> here. The hypothesis this list existed to test — _do players actually care
+> about replays?_ — was never answered, because Phase 1 shipped and the
+> project moved straight to backend work without a playtest in between.
+> That question is still open and is still the cheapest thing on this page.
+>
+> **The honest read**: §16's "scope drift" risk was real and it happened.
+> Infrastructure got built ahead of the evidence that anyone wants it.
 
 Pure Phase 1, no infrastructure:
 
@@ -782,24 +1048,69 @@ just saved ourselves a month of backend work.
 
 ## 20. Pointers into the existing codebase
 
-For whoever picks this up (likely future-me / future-Claude):
+For whoever picks this up (likely future-me / future-Claude).
+**Refreshed 2026-08-06** — the original list predated the build and its
+line numbers and `.js` extensions were both wrong.
 
-- Game Over screen: `src/ui.ts` `showGameOver()` ~line 712,
-  `#gameover-panel` in `index.html` ~line 179
-- Upgrade Graph: `src/ui.ts` `showUpgradeProgression()` ~line 752
-- Stats produced by sim: `gameRef.current.stats` (see CLAUDE.md
-  "Game state" section)
-- Destroyed-by-type breakdown: `DESTROYED_TYPE_KEYS` /
-  `DESTROYED_TYPE_LABELS` in `src/ui.ts`
-- Replay system: `src/replay.js`, deterministic via seeded RNG in
-  `src/game-logic.js`
-- Headless sim runner: `src/headless/sim-runner.js`
-- Existing share / replay loader: `window.__loadReplay()` (see
-  CLAUDE.md "Replay system")
+Run Recap and Game Over:
+
+- Game Over screen: `showGameOver()` `src/ui.ts:761`; `#gameover-panel`
+  `index.html:216`
+- Run Recap surface: `showRunRecap()` `src/ui.ts:915`; `#run-recap-panel`
+  `index.html:268`; opened by `openRunRecap()` `src/game.ts:1726`
+- Recap data model: `buildRunRecapData()` `src/run-recap.ts:149`;
+  wave cards via `buildRunRecapWaveCards()`; upgrade order via
+  `extractUpgradeTimeline()` `src/run-recap.ts:37`
+- Death clip: `mountRunRecapDeathClip()` `src/run-recap-death-clip.ts:78`
+- Upgrade Graph (title menu only now): `showUpgradeProgression()`
+  `src/ui.ts:1010`
+- Destroyed-by-type breakdown: `DESTROYED_TYPE_LABELS` `src/ui.ts:255`,
+  rendered by `renderDestroyedTypeRows()` `:304` into the per-wave bonus
+  screen, not the recap
+- Save replay: `saveReplayToFile()` `src/save-replay.ts:27`;
+  `@capacitor/share` and `@capacitor/filesystem` are both installed
+
+Capture and upload:
+
+- Envelope assembly: `assembleSession()` / `assembleReport()` `src/capture.ts`
+- Wire contract, shared by client, Vite middleware, and Worker:
+  `src/capture-contract.ts`
+- Transport: `uploadSession()` / `reportProblem()` `src/capture-sink.ts`;
+  endpoint define `__DMC_CAPTURE_ENDPOINT__` at `vite.config.ts:57`
+- Only trigger today: `window.__captureNow()` `src/game.ts:631` →
+  `captureNow()` `:1412`
+- Install id: `src/install-id.ts`
+- Worker: `worker/src/index.ts` (routes), `ingest.ts` (validation, R2/D1
+  writes, retention), `auth.ts` (bearer), `projection.ts` (summary → row);
+  schema `worker/migrations/0001_init.sql`; config `worker/wrangler.jsonc`;
+  R2 rules `worker/lifecycle.json`
+- Dev loop: `npm run worker:dev`, `npm run test:worker`,
+  `npm run test:capture-e2e`, `npm run diag:pull -- <id>`
+
+Replay and sim:
+
+- Replay system: `src/replay.ts`, deterministic via seeded RNG in
+  `src/game-logic.ts`; version `src/replay-version.ts`
+  (`CURRENT_REPLAY_VERSION = 11`); build stamp
+  `src/replay-provenance.ts:16`
+- Headless sim runner: `src/headless/sim-runner.ts`
+- Replay loader: `window.__loadReplay()` (see CLAUDE.md "Replay system")
 - iOS Capacitor build: `npm run ios` (also `npm run ios:deploy`,
   `npm run ios:install`)
-- Capacitor Share plugin will need to be added; Filesystem plugin
-  already configured per existing Capacitor scripts
+
+Companion documents that now own parts of this design:
+
+- [`replay-upload-backend-status.md`](./replay-upload-backend-status.md) —
+  the engineering roadmap and its step numbering (note: its §1/§3/§5/§7 are
+  stale as of 2026-08-06 and still claim no Worker exists)
+- [`per-wave-recap-cards.md`](./per-wave-recap-cards.md) — the recap layout
+  that replaced §1's stacked bar and timeline
+- [`../docs/capture-session-report-split-plan.md`](../docs/capture-session-report-split-plan.md)
+  — the live storage contract; supersedes §9
+- [`../docs/capture-worker-backend-plan.md`](../docs/capture-worker-backend-plan.md)
+  — validation ladder, abuse controls, credential handling, deployment gate
+- [`../docs/replay-flight-recorder-design.md`](../docs/replay-flight-recorder-design.md)
+  — the local durability substrate the upload path draws from
 
 ---
 

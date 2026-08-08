@@ -1,5 +1,31 @@
 # Lessons
 
+## 2026-08-08 — Commit an approved design baseline before implementation
+
+- When a worktree already contains a coherent, reviewable design/configuration change
+  and the next task will implement that design broadly, commit the baseline first. This
+  keeps the architecture decision auditable and prevents implementation churn from
+  obscuring which changes belonged to the approved plan.
+
+## 2026-08-08 — Triage review notes for truth and complexity
+
+- Do not accept a review annotation merely because it is detailed. Verify factual claims
+  against current primary documentation; here, App Attest validation category and bundle
+  version come from authenticator/attestation extensions, not the optional receipt-risk
+  exchange.
+- When a correctness review exposes avoidable state, simplify the trust model before
+  adding coordination infrastructure. Prefer an expiring HMAC token plus one atomic
+  credential-counter update over a challenge table, cleanup cadence, and Durable Object.
+- Do not build future identity abstractions into an anonymous single-device phase. Use
+  the App Attest credential as the submitter identity and add account linking only when
+  accounts exist.
+
+## 2026-08-08 — Treat learning value as a first-class project requirement
+
+- Do not dismiss robust infrastructure as premature merely because a pet project's current audience is small. When the project is explicitly a learning vehicle, implementing and understanding production-grade trust boundaries can be part of the product value.
+- Keep protocol knowledge public and put security in verifiable credentials, attestation, quotas, and server-side validation. An open repository makes obscurity fail quickly, which is useful pressure on the architecture rather than a reason to weaken it.
+- Capture eligibility must be positive and explicit. Headless simulation, replay playback, bots, AI-driven browser runs, and ordinary local production builds default to no cloud writes even when upload code exists; only a declared channel, consent, and a human-play execution context may enable remote submission.
+
 ## 2026-08-04 — Test content identity with production-shaped artifacts
 
 - A content-addressing test is meaningless when its fixture omits fields the production serializer always stamps. Representative replay fixtures must carry build, save-time, and environment provenance before assembly normalization.

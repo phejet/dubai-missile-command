@@ -7,6 +7,7 @@
   "vars": {
     "WORKER_BUILD": "dev",
   },
+  "secrets": { "required": ["CAPTURE_BEARER_TOKEN"] },
   "d1_databases": [
     {
       "binding": "DB",
@@ -27,6 +28,7 @@
     "staging": {
       "name": "dmc-captures-staging",
       "vars": { "WORKER_BUILD": "staging" },
+      "secrets": { "required": ["CAPTURE_BEARER_TOKEN"] },
       "d1_databases": [
         {
           "binding": "DB",
@@ -47,6 +49,7 @@
     "production": {
       "name": "dmc-captures",
       "vars": { "WORKER_BUILD": "production" },
+      "secrets": { "required": ["CAPTURE_BEARER_TOKEN"] },
       "d1_databases": [
         {
           "binding": "DB",

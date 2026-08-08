@@ -21,6 +21,7 @@ This folder holds repo-specific notes for future maintenance, not player-facing 
 - [`replay-capture-assembly-plan.md`](./replay-capture-assembly-plan.md) — the original capture envelope and local assembly work. Its unified wire contract is superseded by the session/report split below.
 - [`capture-worker-backend-plan.md`](./capture-worker-backend-plan.md) — the original Worker backend plan. Its validation, abuse-control, and deployment layers carry forward; its unified storage contract is superseded below.
 - [`capture-session-report-split-plan.md`](./capture-session-report-split-plan.md) — schema-2 session uploads and deliberate problem reports, content-addressed replay storage, retention, and Worker/Vite route parity. Roadmap step 5, implemented locally; provisioning pending.
+- [`authenticated-capture-ingestion.md`](./authenticated-capture-ingestion.md) — proposed fail-closed App Attest authorization, automation/replay exclusion, build-channel routing, environment operations, approval flow, and adversarial verification required before remote ingestion.
 - [`replay-divergence-root-cause-plan.md`](./replay-divergence-root-cause-plan.md) — proven root cause of human-replay divergence at the wave-end boundary, plus the phased fix/diagnostic/guard plan.
 - [`hornet-blast-investigation-2026-07-26.md`](./hornet-blast-investigation-2026-07-26.md) — investigation log for the hornet rework and the explosion damage-model fix: replay-instrumented findings, the hypotheses that were disproved (including two probe artifacts and a wrong balance prediction), and why explosion damage no longer uses the growth animation.
 
@@ -40,7 +41,9 @@ Repo-root files should be maintained entrypoints, project config, or committed f
 
 ## Forward-Looking Plans (`.plans/`)
 
-Design work that has not been implemented yet lives in `.plans/`, not here.
+Exploratory design work that has not been implemented normally lives in `.plans/`.
+Cross-system plans promoted for durable security/architecture review may live here with
+an explicit status, as `authenticated-capture-ingestion.md` does.
 
 - [`../.plans/replay-upload-backend-status.md`](../.plans/replay-upload-backend-status.md) — map of the Cloudflare replay/diagnostics upload design across its three plan documents: what is already built, what is still paper, the unresolved D1-vs-KV scope conflict, and the branch/PR sweep behind those conclusions.
 
