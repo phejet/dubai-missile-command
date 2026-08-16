@@ -1,5 +1,12 @@
 # Lessons
 
+## 2026-08-17 — Separate Git transport authentication from GitHub API authentication
+
+- An SSH key proves `git fetch`/`push` access; it does not authenticate `gh` API calls.
+  Before asking the user to log in, run the actual command outside the network sandbox
+  and distinguish a sandbox DNS failure from missing credentials. Explain the two auth
+  paths only if the API credential itself is genuinely absent or invalid.
+
 ## 2026-08-10 — Keep review corrections proportional
 
 - When a review spans several boundaries, fix each violated invariant at its existing

@@ -86,11 +86,13 @@ consent, and physical-device enrollment are completed.
 
 ### What remains disabled
 
-`CAPTURE_WORKER_PROVISIONED` remains unset. The checked-in staging and production Worker
-configurations deliberately contain an empty build allowlist, so a deployment that
-bypasses the protected workflow still rejects enrollment and submission. The workflow
-must receive a distinct HMAC secret, exact distributed build allowlist, App Attest
-environment policy, and enrollment switch from each GitHub Environment.
+Repository-level `CAPTURE_STAGING_PROVISIONED` and `CAPTURE_PRODUCTION_PROVISIONED`
+remain unset. They are separate because job-level conditions are evaluated before a
+GitHub Environment's variables become available. The checked-in staging and production
+Worker configurations deliberately contain an empty build allowlist, so a deployment
+that bypasses the protected workflow still rejects enrollment and submission. The
+workflow must receive a distinct HMAC secret, exact distributed build allowlist, App
+Attest environment policy, and enrollment switch from each GitHub Environment.
 
 No consent/queue surface calls the exported enrollment function yet, and no physical
 iPhone attestation has been captured against staging. Production collection must remain
@@ -522,6 +524,12 @@ already configured are:
 - environment variable `CLOUDFLARE_ACCOUNT_ID` in each environment;
 - production required-reviewer protection.
 
+The job-level deployment switches are repository variables because environment-level
+variables are not available while GitHub evaluates whether to start a job:
+
+- `CAPTURE_STAGING_PROVISIONED` enables only the staging mutation job;
+- `CAPTURE_PRODUCTION_PROVISIONED` enables only the manually dispatched production job.
+
 Before provisioning, add a different environment secret `CAPTURE_AUTH_SECRET` to each
 GitHub Environment and require a non-empty `ALLOWED_BUILDS` Worker variable in each
 remote environment. `ALLOWED_BUILDS` is a rolling exact list of distributed
@@ -613,8 +621,8 @@ control. Enable `prevent_self_review` when a second trusted reviewer exists.
 
 ### Phase 1: safety catch and verifier proof — implemented
 
-- Keep legacy `CAPTURE_WORKER_PROVISIONED` unset until it is replaced by separate staging
-  and production gates.
+- Keep `CAPTURE_STAGING_PROVISIONED` and `CAPTURE_PRODUCTION_PROVISIONED` unset until the
+  corresponding resources and protected environment values are ready.
 - Remove the direct production deploy script, prohibit production remote dev, remove the
   web CORS origin, and add an unprivileged test/typecheck/Wrangler-dry-run preflight job
   required by both mutation jobs.

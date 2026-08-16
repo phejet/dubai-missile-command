@@ -39,7 +39,7 @@ jobs:
       - run: npx wrangler deploy --config worker/wrangler.jsonc --env production --dry-run --outdir /tmp/dmc-worker-production
 
   staging:
-    if: vars.CAPTURE_WORKER_PROVISIONED == 'true' && (github.event_name == 'push' || inputs.target == 'staging')
+    if: vars.CAPTURE_STAGING_PROVISIONED == 'true' && (github.event_name == 'push' || inputs.target == 'staging')
     needs: preflight
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -98,7 +98,7 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
 
   production:
-    if: vars.CAPTURE_WORKER_PROVISIONED == 'true' && github.event_name == 'workflow_dispatch' && inputs.target == 'production'
+    if: vars.CAPTURE_PRODUCTION_PROVISIONED == 'true' && github.event_name == 'workflow_dispatch' && inputs.target == 'production'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency: capture-worker-production
