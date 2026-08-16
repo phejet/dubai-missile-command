@@ -177,16 +177,19 @@ test.describe("Replay", () => {
     });
 
     await expect(page.locator(".bonus-screen")).toBeVisible({ timeout: timingBudget(3000) });
-    await page.clock.runFor(3000);
-    await page.waitForFunction(
-      () => {
+    let advancedToNextWave = false;
+    for (let step = 0; step < 40 && !advancedToNextWave; step++) {
+      // Jumping fires each due timer/animation callback at most once. Repeating
+      // small jumps advances nested summary + replay-shop timers without asking
+      // a software renderer to draw hundreds of synthetic 60 Hz frames.
+      await page.clock.fastForward(500);
+      advancedToNextWave = await page.evaluate(() => {
         const g = window.__gameRef?.current;
         return g?.state === "playing" && g.wave >= 2 && !document.querySelector(".bonus-screen");
-      },
-      undefined,
-      { timeout: timingBudget(7000) },
-    );
+      });
+    }
 
+    expect(advancedToNextWave).toBe(true);
     expect(await page.evaluate(() => window.__gameRef?.current?.wave)).toBe(2);
   });
 });
