@@ -1,6 +1,11 @@
 import { encodeCBOR, type CBORType } from "@levischuck/tiny-cbor";
 import { describe, expect, it } from "vitest";
-import { AppAttestVerificationError, verifyAppAttestAssertion, verifyAppAttestAttestation } from "../src/app-attest";
+import {
+  AppAttestVerificationError,
+  verifyApplePublishedAttestationFixture,
+  verifyAppAttestAssertion,
+  verifyAppAttestAttestation,
+} from "../src/app-attest";
 import {
   APPLE_FIXTURE_APP_ID,
   APPLE_FIXTURE_ATTESTATION,
@@ -96,12 +101,12 @@ describe("Apple App Attest verification in workerd", () => {
     // Apple's current fixture was generated with the raw example challenge even
     // though its surrounding prose recommends hashing it first.
     const clientDataHash = new TextEncoder().encode(APPLE_FIXTURE_CHALLENGE);
-    const result = await verifyAppAttestAttestation({
+    const result = await verifyApplePublishedAttestationFixture({
       attestationObject: fromBase64(APPLE_FIXTURE_ATTESTATION),
       keyId: APPLE_FIXTURE_KEY_ID,
       clientDataHash,
       expectedAppId: APPLE_FIXTURE_APP_ID,
-      expectedBundleVersion: APPLE_FIXTURE_BUNDLE_VERSION,
+      allowedBundleVersions: new Set([APPLE_FIXTURE_BUNDLE_VERSION]),
       allowedEnvironments: ["production"],
       now: APPLE_FIXTURE_NOW,
     });
@@ -124,23 +129,35 @@ describe("Apple App Attest verification in workerd", () => {
       keyId: APPLE_FIXTURE_KEY_ID,
       clientDataHash,
       expectedAppId: APPLE_FIXTURE_APP_ID,
-      expectedBundleVersion: APPLE_FIXTURE_BUNDLE_VERSION,
+      allowedBundleVersions: new Set([APPLE_FIXTURE_BUNDLE_VERSION, "2"]),
       allowedEnvironments: ["production"] as const,
       now: APPLE_FIXTURE_NOW,
     };
 
     await expect(
-      verifyAppAttestAttestation({ ...common, clientDataHash: await sha256(new Uint8Array([1])) }),
+      verifyApplePublishedAttestationFixture({ ...common, clientDataHash: await sha256(new Uint8Array([1])) }),
     ).rejects.toSatisfy((error) => expectReason(error, "attestation:nonce"));
     await expect(
-      verifyAppAttestAttestation({ ...common, expectedAppId: "1234567890.com.attacker.app" }),
+      verifyApplePublishedAttestationFixture({ ...common, expectedAppId: "1234567890.com.attacker.app" }),
     ).rejects.toSatisfy((error) => expectReason(error, "attestation:app-id"));
-    await expect(verifyAppAttestAttestation({ ...common, allowedEnvironments: ["development"] })).rejects.toSatisfy(
-      (error) => expectReason(error, "attestation:environment"),
-    );
-    await expect(verifyAppAttestAttestation({ ...common, expectedBundleVersion: "2" })).rejects.toSatisfy((error) =>
-      expectReason(error, "authenticator:bundle-version-mismatch"),
-    );
+    await expect(
+      verifyApplePublishedAttestationFixture({ ...common, allowedEnvironments: ["development"] }),
+    ).rejects.toSatisfy((error) => expectReason(error, "attestation:environment"));
+    await expect(
+      verifyApplePublishedAttestationFixture({ ...common, allowedBundleVersions: new Set(["2", "3"]) }),
+    ).rejects.toSatisfy((error) => expectReason(error, "authenticator:bundle-version-mismatch"));
+  });
+
+  it("requires an exact 32-byte client-data hash at the production verifier boundary", async () => {
+    await expect(
+      verifyAppAttestAttestation({
+        attestationObject: fromBase64(APPLE_FIXTURE_ATTESTATION),
+        keyId: APPLE_FIXTURE_KEY_ID,
+        clientDataHash: new TextEncoder().encode(APPLE_FIXTURE_CHALLENGE),
+        expectedAppId: APPLE_FIXTURE_APP_ID,
+        allowedEnvironments: ["production"],
+      }),
+    ).rejects.toSatisfy((error) => expectReason(error, "attestation:client-data-hash-length"));
   });
 
   it("verifies a DER assertion and rejects tampering, replay, and the wrong App ID", async () => {
@@ -149,7 +166,7 @@ describe("Apple App Attest verification in workerd", () => {
       verifyAppAttestAssertion({
         ...fixture,
         expectedAppId: APPLE_FIXTURE_APP_ID,
-        expectedBundleVersion: APPLE_FIXTURE_BUNDLE_VERSION,
+        allowedBundleVersions: new Set([APPLE_FIXTURE_BUNDLE_VERSION, "2"]),
         previousCounter: 17,
       }),
     ).resolves.toMatchObject({ counter: 18, validationCategory: 1, bundleVersion: APPLE_FIXTURE_BUNDLE_VERSION });

@@ -34,7 +34,11 @@ public class AppAttestPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func attestKey(_ call: CAPPluginCall) {
-        guard let keyId = call.getString("keyId"), let hash = clientDataHash(call) else { return }
+        guard let keyId = call.getString("keyId") else {
+            call.reject("keyId is required", "APP_ATTEST_INVALID_KEY_ID")
+            return
+        }
+        guard let hash = clientDataHash(call) else { return }
         service.attestKey(keyId, clientDataHash: hash) { attestation, error in
             if let attestation {
                 call.resolve(["attestation": attestation.base64EncodedString()])
@@ -45,7 +49,11 @@ public class AppAttestPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func generateAssertion(_ call: CAPPluginCall) {
-        guard let keyId = call.getString("keyId"), let hash = clientDataHash(call) else { return }
+        guard let keyId = call.getString("keyId") else {
+            call.reject("keyId is required", "APP_ATTEST_INVALID_KEY_ID")
+            return
+        }
+        guard let hash = clientDataHash(call) else { return }
         service.generateAssertion(keyId, clientDataHash: hash) { assertion, error in
             if let assertion {
                 call.resolve(["assertion": assertion.base64EncodedString()])
@@ -69,6 +77,9 @@ public class AppAttestPlugin: CAPPlugin, CAPBridgedPlugin {
 
     private func reject(_ call: CAPPluginCall, error: Error?, fallbackCode: String) {
         let nsError = error as NSError?
-        call.reject("App Attest operation failed", nsError.map { "APP_ATTEST_\($0.code)" } ?? fallbackCode, error)
+        let code = nsError?.code == DCError.Code.serverUnavailable.rawValue
+            ? "APP_ATTEST_SERVER_UNAVAILABLE"
+            : nsError.map { "APP_ATTEST_\($0.code)" } ?? fallbackCode
+        call.reject("App Attest operation failed", code, error)
     }
 }

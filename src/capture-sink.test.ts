@@ -3,6 +3,7 @@
 import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { reportFixture, sessionFixture } from "../test-fixtures/capture";
+import { CaptureAuthError, CaptureAuthTimeoutError } from "./capture-auth";
 import { reportProblem, uploadSession } from "./capture-sink";
 
 describe("capture transports", () => {
@@ -123,6 +124,101 @@ describe("capture transports", () => {
       }),
     ).resolves.toEqual({ ok: false, reason: "policy:remote-requires-human-execution" });
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("derives execution from the artifact instead of prior replay playback state", async () => {
+    const authenticatedUpload = vi.fn(async (_input, send) =>
+      send({ "x-dmc-challenge-token": "token", "x-dmc-assertion": "assertion" }),
+    );
+    const fetch = vi.fn(async () => Response.json({ ok: true, id: "run", encoding: "none" }));
+    const humanSession = sessionFixture();
+    humanSession.meta.replaySource = "last-completed";
+
+    await expect(
+      uploadSession(humanSession, {
+        channel: "staging",
+        runtime: "native-ios",
+        remoteConsent: "granted",
+        remoteEndpoint: "https://capture.example",
+        authenticatedUpload,
+        compress: async () => null,
+        digest: async () => "a".repeat(64),
+        fetch: fetch as typeof globalThis.fetch,
+      }),
+    ).resolves.toMatchObject({ ok: true });
+
+    const playbackReport = reportFixture();
+    playbackReport.meta.replaySource = "playback";
+    await expect(
+      reportProblem(playbackReport, {
+        channel: "staging",
+        runtime: "native-ios",
+        remoteConsent: "granted",
+        remoteEndpoint: "https://capture.example",
+        authenticatedUpload,
+        fetch: fetch as typeof globalThis.fetch,
+      }),
+    ).resolves.toEqual({ ok: false, reason: "policy:remote-requires-human-execution" });
+    expect(authenticatedUpload).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps automation as an overriding deny for human artifacts", async () => {
+    window.__DMC_AUTOMATION__ = true;
+    const authenticatedUpload = vi.fn();
+    await expect(
+      uploadSession(sessionFixture(), {
+        channel: "staging",
+        runtime: "native-ios",
+        remoteConsent: "granted",
+        remoteEndpoint: "https://capture.example",
+        authenticatedUpload,
+      }),
+    ).resolves.toEqual({ ok: false, reason: "policy:remote-requires-human-execution" });
+    expect(authenticatedUpload).not.toHaveBeenCalled();
+    delete window.__DMC_AUTOMATION__;
+  });
+
+  it("distinguishes terminal auth failures, timeouts, and offline transport", async () => {
+    const deps = {
+      channel: "staging" as const,
+      runtime: "native-ios" as const,
+      execution: "human" as const,
+      remoteConsent: "granted" as const,
+      remoteEndpoint: "https://capture.example",
+      compress: async () => null,
+      digest: async () => "a".repeat(64),
+    };
+    await expect(
+      uploadSession(sessionFixture(), {
+        ...deps,
+        authenticatedUpload: vi.fn(async () => {
+          throw new CaptureAuthError("revoked", 401);
+        }),
+      }),
+    ).resolves.toMatchObject({ ok: false, reason: "auth", status: 401 });
+    await expect(
+      uploadSession(sessionFixture(), {
+        ...deps,
+        authenticatedUpload: vi.fn(async () => {
+          throw new CaptureAuthTimeoutError();
+        }),
+      }),
+    ).resolves.toMatchObject({ ok: false, reason: "timeout" });
+    await expect(
+      uploadSession(sessionFixture(), {
+        ...deps,
+        authenticatedUpload: vi.fn(async () => {
+          throw new TypeError("offline");
+        }),
+      }),
+    ).resolves.toMatchObject({ ok: false, reason: "network" });
+    await expect(
+      uploadSession(sessionFixture(), {
+        ...deps,
+        authenticatedUpload: vi.fn(async (_input, send) => send({})),
+        fetch: vi.fn(async () => new Response(null, { status: 401 })) as typeof globalThis.fetch,
+      }),
+    ).resolves.toMatchObject({ ok: false, reason: "auth", status: 401 });
   });
 
   it("wraps an eligible remote upload in fresh native authorization headers", async () => {

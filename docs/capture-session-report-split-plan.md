@@ -6,7 +6,8 @@ Date: 2026-08-03
 
 **This is a schema edit, not a migration.** `worker/wrangler.jsonc` still carries
 placeholder account and database IDs, `0001_init.sql` has never run against a real D1,
-and `vite.config.ts:57` pins `__DMC_CAPTURE_ENDPOINT__` to `null` in production builds.
+and ordinary production builds select capture channel `off`; the reviewed remote URL
+map remains empty until provisioning.
 The only callers of the shipped ingest path are the dev middleware and the test suite.
 Every change below is free today and expensive the day after provisioning.
 

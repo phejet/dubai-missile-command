@@ -54,7 +54,7 @@ export interface Env {
   ALLOWED_ORIGINS?: string;
   APPLE_TEAM_ID?: string;
   APPLE_BUNDLE_ID?: string;
-  APPLE_BUNDLE_VERSION?: string;
+  APPLE_BUNDLE_VERSIONS?: string;
   APPLE_ATTEST_ENVIRONMENTS?: string;
   ENROLLMENT_ENABLED?: string;
   WORKER_BUILD?: string;

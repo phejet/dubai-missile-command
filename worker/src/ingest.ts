@@ -16,7 +16,7 @@ import {
   type SessionRow,
 } from "./projection";
 import type { D1PreparedStatement, D1Result, Env } from "./bindings";
-import { authorizeCapture, CaptureAuthorizationError, captureAuthConfig, requireAllowedBuild } from "./capture-auth";
+import { authorizeCapture, CaptureAuthorizationError } from "./capture-auth";
 
 class IngestError extends Error {
   constructor(
@@ -295,7 +295,6 @@ export async function ingestSession(request: Request, env: Env): Promise<Respons
     const validation = await validateSessionBody(prepared.bytes, prepared.headers, prepared.actualSha);
     if (!validation.ok) throw new IngestError(validation.stage, validation.message);
     const session = validation.session;
-    requireAllowedBuild(session.meta.buildId, captureAuthConfig(env));
     const authorization = await authorizeCapture(request, env, {
       purpose: "session",
       build: session.meta.buildId,
@@ -381,7 +380,6 @@ export async function ingestReport(request: Request, env: Env): Promise<Response
     const validation = await validateReportBody(prepared.bytes, prepared.headers, prepared.actualSha);
     if (!validation.ok) throw new IngestError(validation.stage, validation.message);
     const report = validation.report;
-    requireAllowedBuild(report.meta.buildId, captureAuthConfig(env));
     const authorization = await authorizeCapture(request, env, {
       purpose: "report",
       build: report.meta.buildId,

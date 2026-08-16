@@ -1,9 +1,12 @@
 import { createExecutionContext, createScheduledController, env, SELF, waitOnExecutionContext } from "cloudflare:test";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MAX_COMPRESSED_BYTES, MAX_DECODED_BYTES } from "../../src/capture-contract";
+import { enrollmentClientData } from "../../src/capture-auth-protocol";
 import { replayFixture, reportFixture, sessionFixture } from "../../test-fixtures/capture";
+import type { VerifiedAttestation, VerifyAttestationOptions } from "../src/app-attest";
 import worker, { runRetention } from "../src/index";
 import type { Env } from "../src/bindings";
+import { challenge, enroll } from "../src/capture-auth";
 import { ingestSession, readBounded } from "../src/ingest";
 import {
   addTestCredential,
@@ -52,6 +55,59 @@ async function gunzip(bytes: Uint8Array): Promise<Uint8Array> {
 async function objectBytes(key: string): Promise<Uint8Array> {
   const object = await env.CAPTURES.get(key);
   return new Uint8Array(await new Response(object!.body).arrayBuffer());
+}
+
+function base64(bytes: Uint8Array): string {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+function base64Url(bytes: Uint8Array): string {
+  return base64(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+async function enrollmentChallenge(options: { purpose?: "ios-enroll" | "session"; keyId?: string } = {}) {
+  const response = await challenge(
+    new Request("https://worker.test/api/auth/challenge", {
+      method: "POST",
+      headers: { "content-type": "application/json", "cf-connecting-ip": `198.51.100.${++sequence}` },
+      body: JSON.stringify({
+        purpose: options.purpose ?? "ios-enroll",
+        buildId: "build+dirty",
+        ...(options.keyId ? { keyId: options.keyId } : {}),
+      }),
+    }),
+    env,
+  );
+  expect(response.status).toBe(200);
+  return ((await response.json()) as { challengeToken: string }).challengeToken;
+}
+
+function enrollmentRequest(keyId: string, challengeToken: string): Request {
+  return new Request("https://worker.test/api/auth/ios/enroll", {
+    method: "POST",
+    headers: { "content-type": "application/json", "cf-connecting-ip": `198.51.100.${++sequence}` },
+    body: JSON.stringify({
+      keyId,
+      attestation: base64Url(new Uint8Array([1, 2, 3])),
+      challengeToken,
+      buildId: "build+dirty",
+    }),
+  });
+}
+
+function syntheticAttestation(
+  options: { publicKeyByte?: number; environment?: "development" | "production"; bundleVersion?: string } = {},
+) {
+  return vi.fn<(input: VerifyAttestationOptions) => Promise<VerifiedAttestation>>(async () => ({
+    publicKeySpki: new Uint8Array([options.publicKeyByte ?? 1, 2, 3]),
+    publicKeyRaw: new Uint8Array(65),
+    appleEnvironment: options.environment ?? ("development" as const),
+    assertionCounter: 0 as const,
+    validationCategory: 1,
+    bundleVersion: options.bundleVersion ?? "1",
+  }));
 }
 
 async function post(
@@ -257,6 +313,98 @@ describe("capture Worker split", () => {
       body: JSON.stringify({ purpose: "session", keyId, buildId: "build+dirty" }),
     });
     expect(challengeAfterRevocation.status).toBe(401);
+  });
+
+  it("enrolls through the HTTP handler with the exact canonical client-data hash and accepts overlapping builds", async () => {
+    const keyId = base64(new Uint8Array(32).fill(7));
+    const challengeToken = await enrollmentChallenge();
+    const verifyAttestation = syntheticAttestation({ bundleVersion: "2" });
+    const response = await enroll(enrollmentRequest(keyId, challengeToken), env, { verifyAttestation });
+
+    expect(response.status).toBe(200);
+    const input = verifyAttestation.mock.calls[0][0];
+    const canonicalClientData = enrollmentClientData(challengeToken);
+    const canonicalBuffer = canonicalClientData.buffer.slice(
+      canonicalClientData.byteOffset,
+      canonicalClientData.byteOffset + canonicalClientData.byteLength,
+    ) as ArrayBuffer;
+    const expectedHash = new Uint8Array(await crypto.subtle.digest("SHA-256", canonicalBuffer));
+    expect(input.clientDataHash).toEqual(expectedHash);
+    expect(input.allowedBundleVersions).toEqual(new Set(["1", "2"]));
+    expect(
+      await env.DB.prepare("SELECT apple_environment, status FROM app_attest_credentials WHERE key_id_hash = ?")
+        .bind(((await response.json()) as { keyIdHash: string }).keyIdHash)
+        .first(),
+    ).toEqual({ apple_environment: "development", status: "active" });
+  });
+
+  it("makes enrollment idempotent but refuses conflicting or revoked credential reuse", async () => {
+    const keyId = base64(new Uint8Array(32).fill(8));
+    const original = syntheticAttestation();
+    const firstResponse = await enroll(enrollmentRequest(keyId, await enrollmentChallenge()), env, {
+      verifyAttestation: original,
+    });
+    expect(firstResponse.status).toBe(200);
+    const { keyIdHash } = (await firstResponse.json()) as { keyIdHash: string };
+    expect(
+      (await enroll(enrollmentRequest(keyId, await enrollmentChallenge()), env, { verifyAttestation: original }))
+        .status,
+    ).toBe(200);
+    expect(
+      (
+        await enroll(enrollmentRequest(keyId, await enrollmentChallenge()), env, {
+          verifyAttestation: syntheticAttestation({ publicKeyByte: 9 }),
+        })
+      ).status,
+    ).toBe(409);
+
+    await env.DB.prepare("UPDATE app_attest_credentials SET status = 'revoked' WHERE key_id_hash = ?")
+      .bind(keyIdHash)
+      .run();
+    expect(
+      (await enroll(enrollmentRequest(keyId, await enrollmentChallenge()), env, { verifyAttestation: original }))
+        .status,
+    ).toBe(409);
+  });
+
+  it("rejects wrong-purpose, expired, cross-environment, and disallowed-version enrollment", async () => {
+    const rowsBefore = (await env.DB.prepare("SELECT COUNT(*) AS count FROM app_attest_credentials").first<{
+      count: number;
+    }>())!.count;
+    const objectsBefore = (await env.CAPTURES.list()).objects.map(({ key }) => key);
+    const keyId = base64(new Uint8Array(32).fill(9));
+    const existing = await currentTestCredential();
+    const wrongPurpose = await enrollmentChallenge({ purpose: "session", keyId: existing.keyId });
+    expect(
+      (await enroll(enrollmentRequest(keyId, wrongPurpose), env, { verifyAttestation: syntheticAttestation() })).status,
+    ).toBe(401);
+
+    const clock = vi.spyOn(Date, "now").mockReturnValue(1_000);
+    const expired = await enrollmentChallenge();
+    clock.mockReturnValue(121_001);
+    expect(
+      (await enroll(enrollmentRequest(keyId, expired), env, { verifyAttestation: syntheticAttestation() })).status,
+    ).toBe(401);
+    clock.mockRestore();
+
+    expect(
+      (
+        await enroll(enrollmentRequest(keyId, await enrollmentChallenge()), env, {
+          verifyAttestation: syntheticAttestation({ environment: "production" }),
+        })
+      ).status,
+    ).toBe(401);
+    expect(
+      (
+        await enroll(enrollmentRequest(keyId, await enrollmentChallenge()), env, {
+          verifyAttestation: syntheticAttestation({ bundleVersion: "3" }),
+        })
+      ).status,
+    ).toBe(401);
+    expect(
+      (await env.DB.prepare("SELECT COUNT(*) AS count FROM app_attest_credentials").first<{ count: number }>())!.count,
+    ).toBe(rowsBefore);
+    expect((await env.CAPTURES.list()).objects.map(({ key }) => key)).toEqual(objectsBefore);
   });
 
   it("stores a replay-less session and retrieves an explicit null replay", async () => {

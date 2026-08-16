@@ -34,7 +34,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
-      - run: npx vitest run --config worker/vitest.config.ts
+      - run: npm run test:worker
       - run: npx wrangler deploy --config worker/wrangler.jsonc --env staging --dry-run --outdir /tmp/dmc-worker-staging
       - run: npx wrangler deploy --config worker/wrangler.jsonc --env production --dry-run --outdir /tmp/dmc-worker-production
 
@@ -57,6 +57,7 @@ jobs:
           CAPTURE_BEARER_TOKEN: ${{ secrets.CAPTURE_BEARER_TOKEN }}
           CAPTURE_AUTH_SECRET: ${{ secrets.CAPTURE_AUTH_SECRET }}
           ALLOWED_BUILDS: ${{ vars.ALLOWED_BUILDS }}
+          APPLE_BUNDLE_VERSIONS: ${{ vars.APPLE_BUNDLE_VERSIONS }}
           ENROLLMENT_ENABLED: ${{ vars.ENROLLMENT_ENABLED }}
           APPLE_ATTEST_ENVIRONMENTS: ${{ vars.APPLE_ATTEST_ENVIRONMENTS }}
         run: |
@@ -65,6 +66,7 @@ jobs:
           test "${#CAPTURE_BEARER_TOKEN}" -ge 32
           test "${#CAPTURE_AUTH_SECRET}" -ge 32
           test -n "$ALLOWED_BUILDS"
+          test -n "$APPLE_BUNDLE_VERSIONS"
           test "$ENROLLMENT_ENABLED" = true -o "$ENROLLMENT_ENABLED" = false
           test -n "$APPLE_ATTEST_ENVIRONMENTS"
       - run: npx wrangler d1 migrations apply dmc-captures-staging --config worker/wrangler.jsonc --env staging --remote
@@ -73,6 +75,7 @@ jobs:
           CAPTURE_BEARER_TOKEN: ${{ secrets.CAPTURE_BEARER_TOKEN }}
           CAPTURE_AUTH_SECRET: ${{ secrets.CAPTURE_AUTH_SECRET }}
           ALLOWED_BUILDS: ${{ vars.ALLOWED_BUILDS }}
+          APPLE_BUNDLE_VERSIONS: ${{ vars.APPLE_BUNDLE_VERSIONS }}
           ENROLLMENT_ENABLED: ${{ vars.ENROLLMENT_ENABLED }}
           APPLE_ATTEST_ENVIRONMENTS: ${{ vars.APPLE_ATTEST_ENVIRONMENTS }}
         run: |
@@ -85,7 +88,7 @@ jobs:
             --var "ALLOWED_BUILDS:$ALLOWED_BUILDS" \
             --var "APPLE_TEAM_ID:5A2PL567F2" \
             --var "APPLE_BUNDLE_ID:com.phejet.dubaicmd" \
-            --var "APPLE_BUNDLE_VERSION:1" \
+            --var "APPLE_BUNDLE_VERSIONS:$APPLE_BUNDLE_VERSIONS" \
             --var "APPLE_ATTEST_ENVIRONMENTS:$APPLE_ATTEST_ENVIRONMENTS" \
             --var "ENROLLMENT_ENABLED:$ENROLLMENT_ENABLED" \
             --secrets-file "$secrets_file"
@@ -112,6 +115,7 @@ jobs:
           CAPTURE_BEARER_TOKEN: ${{ secrets.CAPTURE_BEARER_TOKEN }}
           CAPTURE_AUTH_SECRET: ${{ secrets.CAPTURE_AUTH_SECRET }}
           ALLOWED_BUILDS: ${{ vars.ALLOWED_BUILDS }}
+          APPLE_BUNDLE_VERSIONS: ${{ vars.APPLE_BUNDLE_VERSIONS }}
           ENROLLMENT_ENABLED: ${{ vars.ENROLLMENT_ENABLED }}
           APPLE_ATTEST_ENVIRONMENTS: ${{ vars.APPLE_ATTEST_ENVIRONMENTS }}
         run: |
@@ -120,6 +124,7 @@ jobs:
           test "${#CAPTURE_BEARER_TOKEN}" -ge 32
           test "${#CAPTURE_AUTH_SECRET}" -ge 32
           test -n "$ALLOWED_BUILDS"
+          test -n "$APPLE_BUNDLE_VERSIONS"
           test "$ENROLLMENT_ENABLED" = true -o "$ENROLLMENT_ENABLED" = false
           test "$APPLE_ATTEST_ENVIRONMENTS" = production
       - run: npx wrangler d1 migrations apply dmc-captures --config worker/wrangler.jsonc --env production --remote
@@ -128,6 +133,7 @@ jobs:
           CAPTURE_BEARER_TOKEN: ${{ secrets.CAPTURE_BEARER_TOKEN }}
           CAPTURE_AUTH_SECRET: ${{ secrets.CAPTURE_AUTH_SECRET }}
           ALLOWED_BUILDS: ${{ vars.ALLOWED_BUILDS }}
+          APPLE_BUNDLE_VERSIONS: ${{ vars.APPLE_BUNDLE_VERSIONS }}
           ENROLLMENT_ENABLED: ${{ vars.ENROLLMENT_ENABLED }}
         run: |
           secrets_file="$RUNNER_TEMP/dmc-worker-secrets.json"
@@ -139,7 +145,7 @@ jobs:
             --var "ALLOWED_BUILDS:$ALLOWED_BUILDS" \
             --var "APPLE_TEAM_ID:5A2PL567F2" \
             --var "APPLE_BUNDLE_ID:com.phejet.dubaicmd" \
-            --var "APPLE_BUNDLE_VERSION:1" \
+            --var "APPLE_BUNDLE_VERSIONS:$APPLE_BUNDLE_VERSIONS" \
             --var "APPLE_ATTEST_ENVIRONMENTS:production" \
             --var "ENROLLMENT_ENABLED:$ENROLLMENT_ENABLED" \
             --secrets-file "$secrets_file"

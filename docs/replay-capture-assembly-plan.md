@@ -219,8 +219,8 @@ not this step.
 | `src/diagnostics-log.ts` | Add `readRecentEvents(maxBytes)` only — no capture orchestration                                                                                                                                           |
 | `src/game.ts`            | Mint `runId`; snapshot replay and recap eagerly at gameover; add state-aware `Game.captureNow(trigger, note?)`; expose it as `window.__captureNow()` (no UI — triggers are step 6)                         |
 | `vite-capture-plugin.ts` | **New.** `/api/save-capture` dev middleware                                                                                                                                                                |
-| `vite.config.ts`         | Register the plugin; add `__DMC_CAPTURE_ENDPOINT__` define (dev `"/api/save-capture"`, prod `null`)                                                                                                        |
-| `src/vite-env.d.ts`      | Declare `__DMC_CAPTURE_ENDPOINT__`                                                                                                                                                                         |
+| `vite.config.ts`         | Register the plugin; add closed capture-channel and reviewed base-URL defines                                                                                                                              |
+| `src/vite-env.d.ts`      | Declare the capture channel and base-URL defines                                                                                                                                                           |
 | `.gitignore`             | `/captures/`                                                                                                                                                                                               |
 
 No new dependencies.

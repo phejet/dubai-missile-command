@@ -21,7 +21,7 @@ export interface CaptureAuthConfig {
   authSecret: string;
   allowedBuilds: ReadonlySet<string>;
   appId: string;
-  bundleVersion: string;
+  allowedBundleVersions: ReadonlySet<string>;
   allowedAppleEnvironments: readonly AppleAttestEnvironment[];
   enrollmentEnabled: boolean;
 }
@@ -48,6 +48,10 @@ interface CredentialRow {
 export interface AuthorizedCapture {
   keyIdHash: string;
   assertionCounter: number;
+}
+
+interface EnrollmentDeps {
+  verifyAttestation?: typeof verifyAppAttestAttestation;
 }
 
 export class CaptureAuthorizationError extends Error {
@@ -146,7 +150,8 @@ export function captureAuthConfig(env: Env): CaptureAuthConfig {
   }
   const allowedBuilds = new Set(parseList(env.ALLOWED_BUILDS));
   if (allowedBuilds.size === 0) reject("config:allowed-builds", 503);
-  if (!env.APPLE_TEAM_ID?.trim() || !env.APPLE_BUNDLE_ID?.trim() || !env.APPLE_BUNDLE_VERSION?.trim()) {
+  const allowedBundleVersions = new Set(parseList(env.APPLE_BUNDLE_VERSIONS));
+  if (!env.APPLE_TEAM_ID?.trim() || !env.APPLE_BUNDLE_ID?.trim() || allowedBundleVersions.size === 0) {
     reject("config:apple-app", 503);
   }
   const allowedAppleEnvironments = parseList(env.APPLE_ATTEST_ENVIRONMENTS);
@@ -167,7 +172,7 @@ export function captureAuthConfig(env: Env): CaptureAuthConfig {
     authSecret: env.CAPTURE_AUTH_SECRET,
     allowedBuilds,
     appId: `${env.APPLE_TEAM_ID.trim()}.${env.APPLE_BUNDLE_ID.trim()}`,
-    bundleVersion: env.APPLE_BUNDLE_VERSION.trim(),
+    allowedBundleVersions,
     allowedAppleEnvironments: allowedAppleEnvironments as AppleAttestEnvironment[],
     enrollmentEnabled: env.ENROLLMENT_ENABLED === "true",
   };
@@ -371,7 +376,7 @@ function boundedBytes(value: ArrayBuffer | Uint8Array): Uint8Array {
   return value instanceof Uint8Array ? value.slice() : new Uint8Array(value);
 }
 
-export async function enroll(request: Request, env: Env): Promise<Response> {
+export async function enroll(request: Request, env: Env, deps: EnrollmentDeps = {}): Promise<Response> {
   try {
     if (request.method !== "POST") reject("enroll:method", 405);
     const config = captureAuthConfig(env);
@@ -396,15 +401,21 @@ export async function enroll(request: Request, env: Env): Promise<Response> {
     const clientDataHash = await sha256(enrollmentClientData(body.challengeToken));
     if (clientDataHash.byteLength !== 32) reject("enroll:client-data-hash", 500);
     const verified = await asAuthorizationFailure("enroll", () =>
-      verifyAppAttestAttestation({
+      (deps.verifyAttestation ?? verifyAppAttestAttestation)({
         attestationObject: fromBase64Url(body.attestation as string, "attestation"),
         keyId: body.keyId as string,
         clientDataHash,
         expectedAppId: config.appId,
-        expectedBundleVersion: config.bundleVersion,
+        allowedBundleVersions: config.allowedBundleVersions,
         allowedEnvironments: config.allowedAppleEnvironments,
       }),
     );
+    if (
+      !config.allowedAppleEnvironments.includes(verified.appleEnvironment) ||
+      (verified.bundleVersion !== null && !config.allowedBundleVersions.has(verified.bundleVersion))
+    ) {
+      reject("enroll:attestation-policy");
+    }
     const keyIdHash = await appAttestKeyIdHash(body.keyId);
     const now = Date.now();
     await env.DB.prepare(
@@ -472,7 +483,7 @@ export async function authorizeCapture(
       publicKeySpki: boundedBytes(credential.public_key),
       expectedAppId: config.appId,
       previousCounter: credential.assertion_counter,
-      expectedBundleVersion: config.bundleVersion,
+      allowedBundleVersions: config.allowedBundleVersions,
     }),
   );
   const quota = input.purpose === "report" ? env.REPORT_INSTALL : env.INGEST_INSTALL;

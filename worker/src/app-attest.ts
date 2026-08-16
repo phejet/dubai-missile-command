@@ -26,7 +26,7 @@ export interface VerifyAttestationOptions {
   clientDataHash: Uint8Array;
   expectedAppId: string;
   allowedEnvironments: readonly AppleAttestEnvironment[];
-  expectedBundleVersion?: string;
+  allowedBundleVersions?: ReadonlySet<string>;
   now?: Date;
 }
 
@@ -45,7 +45,7 @@ export interface VerifyAssertionOptions {
   publicKeySpki: Uint8Array;
   expectedAppId: string;
   previousCounter: number;
-  expectedBundleVersion?: string;
+  allowedBundleVersions?: ReadonlySet<string>;
 }
 
 export interface VerifiedAssertion {
@@ -200,7 +200,7 @@ function parseAuthenticatorData(bytes: Uint8Array, requireAttestedCredential: bo
 
 function validationFacts(
   extensions: Map<string | number, CBORType> | null,
-  expectedBundleVersion: string | undefined,
+  allowedBundleVersions: ReadonlySet<string> | undefined,
 ): { validationCategory: number | null; bundleVersion: string | null } {
   const categoryValue = extensions?.get("apple_validation_category_01");
   let validationCategory: number | null = null;
@@ -218,7 +218,7 @@ function validationFacts(
 
   const bundleValue = extensions?.get("apple_bundle_version_01");
   const bundleVersion = bundleValue === undefined ? null : asString(bundleValue, "authenticator:bundle-version");
-  if (bundleVersion !== null && expectedBundleVersion !== undefined && bundleVersion !== expectedBundleVersion) {
+  if (bundleVersion !== null && allowedBundleVersions !== undefined && !allowedBundleVersions.has(bundleVersion)) {
     reject("authenticator:bundle-version-mismatch");
   }
   return { validationCategory, bundleVersion };
@@ -283,10 +283,16 @@ function rawCosePublicKey(cose: Map<string | number, CBORType>): Uint8Array {
   return concatBytes(new Uint8Array([4]), x, y);
 }
 
-export async function verifyAppAttestAttestation(options: VerifyAttestationOptions): Promise<VerifiedAttestation> {
-  // The protocol layer supplies exactly 32 bytes. The low-level verifier accepts
-  // Apple's published fixture too, whose example passes its raw challenge here.
-  if (options.clientDataHash.byteLength === 0) reject("attestation:client-data-hash-length");
+async function verifyAppAttestAttestationCore(
+  options: VerifyAttestationOptions,
+  requireHashedClientData: boolean,
+): Promise<VerifiedAttestation> {
+  if (
+    (requireHashedClientData && options.clientDataHash.byteLength !== 32) ||
+    (!requireHashedClientData && options.clientDataHash.byteLength === 0)
+  ) {
+    reject("attestation:client-data-hash-length");
+  }
   let decoded: CBORType;
   try {
     decoded = decodeCBOR(options.attestationObject);
@@ -324,8 +330,19 @@ export async function verifyAppAttestAttestation(options: VerifyAttestationOptio
 
   const nonce = await sha256(concatBytes(authData, options.clientDataHash));
   if (!equalBytes(extractAppleNonce(leaf), nonce)) reject("attestation:nonce");
-  const facts = validationFacts(parsed.extensions, options.expectedBundleVersion);
+  const facts = validationFacts(parsed.extensions, options.allowedBundleVersions);
   return { publicKeySpki, publicKeyRaw, appleEnvironment, assertionCounter: 0, ...facts };
+}
+
+export function verifyAppAttestAttestation(options: VerifyAttestationOptions): Promise<VerifiedAttestation> {
+  return verifyAppAttestAttestationCore(options, true);
+}
+
+/** @internal Apple's published fixture signs its raw example challenge instead of a 32-byte hash. */
+export function verifyApplePublishedAttestationFixture(
+  options: VerifyAttestationOptions,
+): Promise<VerifiedAttestation> {
+  return verifyAppAttestAttestationCore(options, false);
 }
 
 function derEcdsaSignatureToRaw(signature: Uint8Array): Uint8Array {
@@ -380,5 +397,5 @@ export async function verifyAppAttestAssertion(options: VerifyAssertionOptions):
     ownedArrayBuffer(nonce),
   );
   if (!valid) reject("assertion:signature");
-  return { counter: parsed.counter, ...validationFacts(parsed.extensions, options.expectedBundleVersion) };
+  return { counter: parsed.counter, ...validationFacts(parsed.extensions, options.allowedBundleVersions) };
 }

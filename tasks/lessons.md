@@ -1,5 +1,13 @@
 # Lessons
 
+## 2026-08-10 — Keep review corrections proportional
+
+- When a review spans several boundaries, fix each violated invariant at its existing
+  owner instead of introducing a new framework: artifact metadata owns provenance,
+  configuration owns allowlists, and the auth coordinator owns its timeout.
+- Do not build elaborate test infrastructure before checking whether a narrow injected
+  verifier seam can exercise the real route and persistence behavior.
+
 ## 2026-08-08 — Commit an approved design baseline before implementation
 
 - When a worktree already contains a coherent, reviewable design/configuration change

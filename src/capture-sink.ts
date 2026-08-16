@@ -1,6 +1,12 @@
 import type { ProblemReport, SessionUpload } from "./capture";
-import { withAuthenticatedCaptureUpload, type CaptureAuthDeps, type AuthenticatedUploadInput } from "./capture-auth";
-import { detectCaptureRuntime, getCaptureExecution } from "./capture-execution";
+import {
+  CaptureAuthError,
+  CaptureAuthTimeoutError,
+  withAuthenticatedCaptureUpload,
+  type CaptureAuthDeps,
+  type AuthenticatedUploadInput,
+} from "./capture-auth";
+import { detectCaptureExecution, detectCaptureRuntime } from "./capture-execution";
 import {
   decideCapturePolicy,
   type CaptureChannel,
@@ -49,7 +55,7 @@ async function upload(
   const policy = decideCapturePolicy({
     channel,
     runtime: deps.runtime ?? detectCaptureRuntime(),
-    execution: deps.execution ?? getCaptureExecution(),
+    execution: deps.execution ?? detectCaptureExecution(body.meta.replaySource),
     remoteConsent: deps.remoteConsent ?? "unknown",
   });
   if (!policy.allowed) return { ok: false, reason: `policy:${policy.reason}` };
@@ -82,11 +88,12 @@ async function upload(
     const endpoint = new URL(configured, globalThis.location?.href ?? "http://localhost");
     const basePath = endpoint.pathname.replace(/\/api\/(?:session|report)\/?$/, "").replace(/\/$/, "");
     endpoint.pathname = `${basePath}${route}`;
-    const send = (authorizationHeaders: Record<string, string> = {}) =>
+    const send = (authorizationHeaders: Record<string, string> = {}, signal?: AbortSignal) =>
       (deps.fetch ?? fetch)(endpoint, {
         method: "POST",
         headers: { ...headers, ...authorizationHeaders },
         body: requestBody(payload),
+        signal,
       });
     const response =
       policy.destination === "remote"
@@ -102,7 +109,10 @@ async function upload(
             deps.auth,
           )
         : await send();
-    if (!response.ok) return { ok: false, reason: "http", status: response.status };
+    if (!response.ok) {
+      const reason = policy.destination === "remote" && [401, 403].includes(response.status) ? "auth" : "http";
+      return { ok: false, reason, status: response.status };
+    }
     const result = (await response.json()) as { id?: string; encoding?: "gzip" | "none"; file?: string };
     return {
       ok: true,
@@ -111,6 +121,13 @@ async function upload(
       ...(result.file ? { file: result.file } : {}),
     };
   } catch (error) {
+    if (error instanceof CaptureAuthTimeoutError) return { ok: false, reason: "timeout", error };
+    if (error instanceof CaptureAuthError) {
+      if (error.status !== undefined && ![401, 403, 409].includes(error.status)) {
+        return { ok: false, reason: "http", status: error.status, error };
+      }
+      return { ok: false, reason: "auth", status: error.status, error };
+    }
     return { ok: false, reason: "network", error };
   }
 }

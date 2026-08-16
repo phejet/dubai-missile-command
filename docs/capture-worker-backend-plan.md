@@ -32,8 +32,8 @@ middleware (`vite-capture-plugin.ts`), already has a client that speaks it
 (`src/capture-sink.ts`), and already has browser tests that exercise both wire encodings.
 
 Step 5 puts that same endpoint on the internet, backed by R2 for blobs and D1 for
-structure. **It ships no client change.** `__DMC_CAPTURE_ENDPOINT__` stays `null` in
-production builds until step 6 wires the triggers. The entire step is validated with
+structure. **It ships no client change.** Ordinary production builds keep capture
+channel `off` until step 6 wires reviewed remote channels. The entire step is validated with
 `curl` against `wrangler dev` and then against a deployed Worker.
 
 The temptation to "just also add the share link while we're in there" should be
@@ -953,7 +953,7 @@ only on `wrangler dev` has validated the SDK, not the deployment.
 8. Rate limits trigger before decompression.
 9. `install_ephemeral` is set for `eph-` ids and excluded from the leaderboard index.
 10. The production game bundle makes zero requests to the Worker — step 5 ships no
-    client change, and `__DMC_CAPTURE_ENDPOINT__` is still `null`.
+    client change, and its capture channel remains `off`.
 11. `npm run test:worker` runs in CI in the same commit that introduces it.
 12. The full curl gate passes against a deployed Worker, not only `wrangler dev`, and
     the R2 lifecycle rule is confirmed applied to the real bucket.

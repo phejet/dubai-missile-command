@@ -2,7 +2,7 @@
 
 Status: repository implementation complete through the native staging-ready slice;
 Cloudflare provisioning, consent/queue UI, and physical-device enrollment remain disabled.
-Last updated: 2026-08-08.
+Last updated: 2026-08-10.
 Review audience: an engineer or AI reviewing the capture stack before Cloudflare
 provisioning is enabled.
 
@@ -195,9 +195,10 @@ Required truth table:
 | Staging/production | Native iOS          | Replay or automation | Any               | Deny                                  |
 | Staging/production | Native iOS          | Human                | Unknown or denied | Deny                                  |
 
-Maintained tools set execution identity explicitly:
+Capture execution is derived from the artifact being submitted:
 
-- Replay loading and `window.__loadReplay(...)` set `execution = "replay"` before a run.
+- An artifact with `replaySource = "playback"` is replay execution. Live and
+  last-completed human-run artifacts remain human even after the user watches a replay.
 - Playwright bot/AI fixtures install `execution = "automation"` before game boot.
 - Headless entry points have no remote transport dependency at all.
 - `window.__captureNow()` is a deliberate capture request, not an authorization bypass.
@@ -248,8 +249,14 @@ short enrollment window and is disabled after the intended devices register.
    then ask Apple to attest the key.
 5. Send key ID, attestation object, challenge token, and build ID to
    `POST /api/auth/ios/enroll`.
-6. On success, persist the App Attest key ID. It is a public lookup handle, not a secret;
-   authentication still requires the hardware-backed private key.
+6. Persist a newly generated App Attest key ID immediately and keep a temporary pending
+   enrollment record containing the exact challenge and, once minted, its attestation
+   object until the Worker acknowledges enrollment. A `serverUnavailable` retry reuses
+   the same key and client-data hash; an ambiguous Worker POST retries the same proof
+   instead of attesting an already-attested key. Expired pending state and terminal App
+   Attest or enrollment failures discard the key before a later attempt. These values
+   are public proof material, not reusable authentication secrets; submissions still
+   require the hardware-backed private key.
 
 ### Worker validation
 
@@ -279,6 +286,8 @@ an idempotent success; a collision with different verified key material is a con
 - Reinstall/key loss creates a new credential and requires another controlled enrollment
   window.
 - A credential can be revoked without redeploying the Worker.
+- A revoked key cannot re-enroll. The client must explicitly forget it, generate a new
+  key during a controlled enrollment window, and leave the revoked row as audit history.
 - Development credentials remain separate from production credentials.
 - Staging and production have independent `ENROLLMENT_ENABLED` values. Production accepts
   only production App Attest credentials.
@@ -438,15 +447,21 @@ operations to JavaScript. Candidate split:
 - `src/capture-policy.ts`: pure eligibility decision.
 - `src/capture-sink.ts`: authenticated remote transport after policy approval.
 
-Persist only the Apple key ID locally. JavaScript builds and hashes canonical assertion
-data as specified above; Swift only invokes App Attest with the resulting 32-byte hash.
-Treat unsupported devices, key invalidation, network failure, and revocation as ordinary
-upload states with local fallback. Never downgrade silently to unauthenticated remote
-upload.
+Persist the Apple key ID locally and, only while enrollment is unresolved, its exact
+challenge/expiry and attestation object. Clear that pending record after Worker
+acknowledgment. JavaScript builds and hashes canonical assertion data as specified above;
+Swift only invokes App Attest with the resulting 32-byte hash. Treat unsupported devices,
+key invalidation, network failure, and revocation as ordinary upload states with local
+fallback. Never downgrade silently to unauthenticated remote upload.
 
 `attestKey` needs Apple's service during enrollment. `generateAssertion` is on-device,
 so an Apple-service outage blocks new enrollment but does not block ongoing authenticated
 submissions from already-enrolled devices.
+
+Each serialized assertion/upload turn has a 20-second caller deadline. The coordinator
+aborts challenge/upload fetches and fences the native continuation before `send`, because
+an App Attest callback itself cannot be cancelled. The next queued turn may proceed after
+the deadline without allowing the expired turn to upload later.
 
 The compatibility spike must prove attestation-object validation, certificate-path
 validation, CBOR decoding, COSE/P-256 conversion, and assertion verification in the
@@ -514,6 +529,9 @@ remote environment. `ALLOWED_BUILDS` is a rolling exact list of distributed
 test, and remove retired values during normal deployment. It is rollout hygiene for
 first-party clients, not authentication or dependable revocation; revoke the App Attest
 key to block a submitter. `ENROLLMENT_ENABLED` is also required and defaults to `false`.
+Require `APPLE_BUNDLE_VERSIONS` alongside it as a comma-separated rolling allowlist of
+the `CFBundleVersion` values still distributed. TestFlight build numbers overlap during
+rollout, so this must not be a scalar baked into the workflow.
 
 Remove the `worker:deploy` package shortcut before production is armed. The supported
 production path is the protected GitHub job; an operator with account credentials can
@@ -611,12 +629,13 @@ actual Worker runtime.
 ### Phase 2: local policy and fail-closed server auth — implemented
 
 - Add the closed build channel and pure remote-eligibility policy before endpoint lookup.
-- Mark replay, bot, AI/Playwright, and headless execution at their entry points; add
-  zero-remote-network tests, including malicious endpoint injection.
+- Derive replay execution from artifact provenance, let automation markers override it,
+  and add zero-remote-network tests including malicious endpoint injection.
 - Add `CAPTURE_AUTH_SECRET`, stateless challenge tokens, the compact token-plus-body-hash
   assertion format, key enrollment/revocation, and the one-table D1 credential model.
-- Make `ENROLLMENT_ENABLED` and `ALLOWED_BUILDS` required/fail-closed remotely; use only
-  IP limits before proof and key-hash quotas after proof.
+- Make `ENROLLMENT_ENABLED`, `ALLOWED_BUILDS`, and `APPLE_BUNDLE_VERSIONS`
+  required/fail-closed remotely; use only IP limits before proof and key-hash quotas
+  after proof.
 - Reserve assertion counters atomically, move all R2 writes behind reservation, make
   authenticated sessions immutable, and enforce key ownership for both capture types.
 
@@ -723,6 +742,8 @@ Every failure above asserts **zero new capture rows and zero new R2 capture obje
   secret independently.
 - Empty `ALLOWED_BUILDS` is the fail-closed Worker ingest switch; channel `off` is the
   client-side counterpart. `ENROLLMENT_ENABLED` stays false except during registration.
+- Empty `APPLE_BUNDLE_VERSIONS` also fails closed. Keep every still-distributed
+  TestFlight/App Store build number during rollout, then remove retired versions.
 - Roll Worker code back only to a version compatible with already-applied additive
   schema. Never reverse a production migration destructively during an incident.
 - Count accepted/rejected enrollments and submissions by safe reason, environment, build,
@@ -785,6 +806,17 @@ enrollment abuse controls only before public App Store distribution.
    over an additive reviewed job the desired unit?
 9. At what traffic/team threshold should production move to a separate Cloudflare
    account and two-person approval?
+
+### Physical validation-category gate
+
+Apple's current server-validation article requires checking
+`apple_validation_category_01`, and its current published fixture encodes little-endian
+value `1`, but the primary material does not enumerate the field's complete value space.
+The Worker therefore retains the fail-closed `1` check and enrollment remains disabled.
+Before opening staging enrollment, record real attestations from direct development and
+TestFlight; before production enrollment, repeat with the promoted App Store path. A new
+iOS/distribution value requires an evidence-backed allowlist change, not a permissive
+fallback.
 
 ## Authoritative references
 
