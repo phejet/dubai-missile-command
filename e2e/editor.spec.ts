@@ -58,6 +58,11 @@ function hasVisiblePngPixel(png: Buffer): boolean {
 }
 
 test.describe("Graphics editor", () => {
+  // Each editor test owns a renderer-heavy browser process on CI. With one CI
+  // worker this stays serial while preventing Pixi/software-renderer state from
+  // leaking into the atlas test.
+  test.describe.configure({ mode: process.env.CI ? "parallel" : "default" });
+
   test("boots the effects preview with a visible game renderer", async ({ page }) => {
     await page.goto("/dubai-missile-command/editor.html");
 
@@ -121,6 +126,7 @@ test.describe("Graphics editor", () => {
 
   test("shows the generated startup sprite atlas beside the live editor preview", async ({ page }) => {
     test.slow();
+    page.on("pageerror", (error) => console.error(`[editor pageerror] ${error.stack ?? error.message}`));
     await page.goto("/dubai-missile-command/editor.html");
 
     await expect(page.locator("canvas.editor-canvas").first()).toBeVisible();

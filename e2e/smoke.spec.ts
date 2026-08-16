@@ -260,6 +260,14 @@ test.describe("Smoke tests", () => {
     await expect.poll(() => page.evaluate(() => window.__gameRef!.current!._replayTick ?? 0)).toBe(60);
     await page.getByRole("button", { name: /previous wave start/i }).click();
     await expect.poll(() => page.evaluate(() => window.__gameRef!.current!._replayTick ?? 0)).toBe(0);
+
+    await page.locator("#options-button").click();
+    await expect(page.locator("#options-menu")).toBeVisible();
+    await page.locator("#option-infinite-replay").click();
+    await expect(page.locator("#option-infinite-replay-meta")).toHaveText("On");
+    await page.locator("#options-button").click();
+    await expect(page.locator("#options-menu")).toBeHidden();
+
     await page.getByRole("button", { name: /play replay/i }).click();
     const realtimeStartTick = await page.evaluate(() => window.__gameRef!.current!._replayTick ?? 0);
     await expect
@@ -268,9 +276,6 @@ test.describe("Smoke tests", () => {
       })
       .toBeGreaterThanOrEqual(realtimeStartTick + 20);
 
-    await page.locator("#options-button").click();
-    await page.locator("#option-infinite-replay").click();
-    await expect(page.locator("#option-infinite-replay-meta")).toHaveText("On");
     await expect(page.locator("#replay-player")).toHaveAttribute("data-playback-number", /(?:[2-9]|[1-9]\d+)/, {
       timeout: timingBudget(10000),
     });
