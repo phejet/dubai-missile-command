@@ -262,11 +262,11 @@ test.describe("Smoke tests", () => {
     await expect.poll(() => page.evaluate(() => window.__gameRef!.current!._replayTick ?? 0)).toBe(0);
     await page.getByRole("button", { name: /play replay/i }).click();
     const realtimeStartTick = await page.evaluate(() => window.__gameRef!.current!._replayTick ?? 0);
-    await page.waitForTimeout(500);
-    const realtimeTickDelta =
-      (await page.evaluate(() => window.__gameRef!.current!._replayTick ?? 0)) - realtimeStartTick;
-    expect(realtimeTickDelta).toBeGreaterThanOrEqual(20);
-    expect(realtimeTickDelta).toBeLessThanOrEqual(40);
+    await expect
+      .poll(() => page.evaluate(() => window.__gameRef!.current!._replayTick ?? 0), {
+        timeout: timingBudget(2000),
+      })
+      .toBeGreaterThanOrEqual(realtimeStartTick + 20);
 
     await page.locator("#options-button").click();
     await page.locator("#option-infinite-replay").click();

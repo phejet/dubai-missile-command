@@ -162,6 +162,10 @@ test.describe("Graphics editor", () => {
       });
     expect(firstBurjCanvasHasPaint).toBe(true);
 
+    await atlas.getByRole("tab", { name: /Threats/ }).click();
+    await expect(atlas).toHaveAttribute("data-sprite-group", "threats");
+    await expect(atlas.locator("[data-sprite-id*='missile']").first()).toBeVisible();
+
     await atlas.getByRole("tab", { name: /Effects/ }).click();
     await expect(atlas).toHaveAttribute("data-sprite-group", "effects");
     await expect(atlas.locator("[data-sprite-id='effect:burj-fire:flame-00']")).toBeVisible();
@@ -200,10 +204,6 @@ test.describe("Graphics editor", () => {
         }),
       )
       .toBe(true);
-
-    await atlas.getByRole("tab", { name: /Threats/ }).click();
-    await expect(atlas).toHaveAttribute("data-sprite-group", "threats");
-    await expect(atlas.locator("[data-sprite-id*='missile']").first()).toBeVisible();
 
     await page.getByRole("button", { name: "Upgrade Graph" }).click();
     await expect(page.getByRole("button", { name: "Sprites" })).toHaveCount(0);
