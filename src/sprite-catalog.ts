@@ -60,6 +60,29 @@ export interface SpriteCatalogGroup {
   items: SpriteCatalogItem[];
 }
 
+const SOURCE_UPDATED_EVENT = "sprite-catalog-source-updated";
+
+function snapshotCanvas(source: HTMLCanvasElement, followSourceUpdate = false): HTMLCanvasElement {
+  const snapshot = document.createElement("canvas");
+  snapshot.width = source.width;
+  snapshot.height = source.height;
+
+  const copySource = () => {
+    if (source.width <= 0 || source.height <= 0) return;
+    if (snapshot.width !== source.width) snapshot.width = source.width;
+    if (snapshot.height !== source.height) snapshot.height = source.height;
+    const context = snapshot.getContext("2d");
+    if (!context) return;
+    context.clearRect(0, 0, snapshot.width, snapshot.height);
+    context.drawImage(source, 0, 0);
+    snapshot.dispatchEvent(new Event(SOURCE_UPDATED_EVENT));
+  };
+
+  copySource();
+  if (followSourceUpdate) source.addEventListener(SOURCE_UPDATED_EVENT, copySource, { once: true });
+  return snapshot;
+}
+
 function addCanvas(
   items: SpriteCatalogItem[],
   group: SpriteCatalogGroupId,
@@ -68,17 +91,21 @@ function addCanvas(
   source: HTMLCanvasElement,
   note?: string,
   frame?: { index: number; count: number },
+  followSourceUpdate = false,
 ): void {
+  // Pixi releases CPU canvas backing once a texture reaches the GPU. The editor
+  // atlas must own its pixels instead of retaining those renderer-cache canvases.
+  const snapshot = snapshotCanvas(source, followSourceUpdate);
   items.push({
     id,
     group,
     label,
-    source,
+    source: snapshot,
     kind: frame ? "frame" : "static",
     frameIndex: frame?.index,
     frameCount: frame?.count,
-    width: source.width,
-    height: source.height,
+    width: snapshot.width,
+    height: snapshot.height,
     note,
   });
 }
@@ -97,6 +124,17 @@ function addFrames(
       count: frames.length,
     });
   });
+}
+
+function addAsyncCanvas(
+  items: SpriteCatalogItem[],
+  group: SpriteCatalogGroupId,
+  id: string,
+  label: string,
+  source: HTMLCanvasElement,
+  note?: string,
+): void {
+  addCanvas(items, group, id, label, source, note, undefined, true);
 }
 
 function addLauncherAssets(
@@ -238,17 +276,31 @@ export function collectStartupSpriteCatalog(
   for (const asset of BURJ_SMOKE_PARTICLE_ASSETS) {
     const canvas = createSmokeParticleAssetCanvas(asset);
     if (!canvas) continue;
-    addCanvas(items, "effects", `effect:burj-smoke:${asset.id}`, asset.label, canvas, "Kenney CC0 source PNG");
+    addAsyncCanvas(items, "effects", `effect:burj-smoke:${asset.id}`, asset.label, canvas, "Kenney CC0 source PNG");
   }
   for (const asset of WHITE_SMOKE_PARTICLE_ASSETS) {
     const canvas = createSmokeParticleAssetCanvas(asset);
     if (!canvas) continue;
-    addCanvas(items, "effects", `effect:interceptor-smoke:${asset.id}`, asset.label, canvas, "Kenney CC0 source PNG");
+    addAsyncCanvas(
+      items,
+      "effects",
+      `effect:interceptor-smoke:${asset.id}`,
+      asset.label,
+      canvas,
+      "Kenney CC0 source PNG",
+    );
   }
   for (const asset of EXPLOSION_PARTICLE_ASSETS) {
     const canvas = createSmokeParticleAssetCanvas(asset);
     if (!canvas) continue;
-    addCanvas(items, "effects", `effect:threat-explosion:${asset.id}`, asset.label, canvas, "Kenney CC0 source PNG");
+    addAsyncCanvas(
+      items,
+      "effects",
+      `effect:threat-explosion:${asset.id}`,
+      asset.label,
+      canvas,
+      "Kenney CC0 source PNG",
+    );
   }
 
   const groups = new Map<SpriteCatalogGroupId, SpriteCatalogItem[]>();

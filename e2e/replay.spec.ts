@@ -143,6 +143,7 @@ test.describe("Replay", () => {
   });
 
   test("watched replay auto-advances through wave summary", async ({ page }) => {
+    await page.clock.install();
     await page.goto("/");
     await page.waitForFunction(() => window.__loadReplay != null, undefined, { timeout: 5000 });
 
@@ -176,6 +177,7 @@ test.describe("Replay", () => {
     });
 
     await expect(page.locator(".bonus-screen")).toBeVisible({ timeout: timingBudget(3000) });
+    await page.clock.runFor(3000);
     await page.waitForFunction(
       () => {
         const g = window.__gameRef?.current;

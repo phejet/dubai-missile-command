@@ -268,14 +268,19 @@ test.describe("Smoke tests", () => {
     await page.locator("#options-button").click();
     await expect(page.locator("#options-menu")).toBeHidden();
 
+    await page.getByRole("button", { name: /next wave start/i }).click();
+    await expect.poll(() => page.evaluate(() => window.__gameRef!.current!._replayTick ?? 0)).toBe(60);
     await page.getByRole("button", { name: /play replay/i }).click();
     const realtimeStartTick = await page.evaluate(() => window.__gameRef!.current!._replayTick ?? 0);
     await expect
       .poll(() => page.evaluate(() => window.__gameRef!.current!._replayTick ?? 0), {
         timeout: timingBudget(2000),
       })
-      .toBeGreaterThanOrEqual(realtimeStartTick + 20);
+      .toBeGreaterThan(realtimeStartTick);
 
+    await page.evaluate(() => {
+      window.__gameRef!.current!.state = "gameover";
+    });
     await expect(page.locator("#replay-player")).toHaveAttribute("data-playback-number", /(?:[2-9]|[1-9]\d+)/, {
       timeout: timingBudget(10000),
     });

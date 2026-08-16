@@ -96,6 +96,7 @@ function SpritePreviewCanvas({ item, displayScale }: { item: SpriteCatalogItem; 
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
     const redraw = () => {
+      if (width <= 0 || height <= 0 || item.source.width <= 0 || item.source.height <= 0) return;
       ctx.clearRect(0, 0, width, height);
       ctx.drawImage(item.source, 0, 0);
     };

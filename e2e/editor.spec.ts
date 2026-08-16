@@ -58,11 +58,6 @@ function hasVisiblePngPixel(png: Buffer): boolean {
 }
 
 test.describe("Graphics editor", () => {
-  // Each editor test owns a renderer-heavy browser process on CI. With one CI
-  // worker this stays serial while preventing Pixi/software-renderer state from
-  // leaking into the atlas test.
-  test.describe.configure({ mode: process.env.CI ? "parallel" : "default" });
-
   test("boots the effects preview with a visible game renderer", async ({ page }) => {
     await page.goto("/dubai-missile-command/editor.html");
 
@@ -126,7 +121,8 @@ test.describe("Graphics editor", () => {
 
   test("shows the generated startup sprite atlas beside the live editor preview", async ({ page }) => {
     test.slow();
-    page.on("pageerror", (error) => console.error(`[editor pageerror] ${error.stack ?? error.message}`));
+    const pageErrors: Error[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error));
     await page.goto("/dubai-missile-command/editor.html");
 
     await expect(page.locator("canvas.editor-canvas").first()).toBeVisible();
@@ -170,7 +166,9 @@ test.describe("Graphics editor", () => {
 
     await atlas.getByRole("tab", { name: /Threats/ }).click();
     await expect(atlas).toHaveAttribute("data-sprite-group", "threats");
-    await expect(atlas.locator("[data-sprite-id*='missile']").first()).toBeVisible();
+    const firstMissile = atlas.locator("[data-sprite-id*='missile']").first();
+    await expect(firstMissile).toBeVisible();
+    expect(hasVisiblePngPixel(await firstMissile.locator("canvas").screenshot())).toBe(true);
 
     await atlas.getByRole("tab", { name: /Effects/ }).click();
     await expect(atlas).toHaveAttribute("data-sprite-group", "effects");
@@ -214,5 +212,6 @@ test.describe("Graphics editor", () => {
     await page.getByRole("button", { name: "Upgrade Graph" }).click();
     await expect(page.getByRole("button", { name: "Sprites" })).toHaveCount(0);
     await expect(page.getByTestId("sprite-atlas")).toHaveCount(0);
+    expect(pageErrors).toEqual([]);
   });
 });
