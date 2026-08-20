@@ -92,6 +92,10 @@ test("window capture writes a gzip gameover artifact from the completed run snap
     const game = window.__gameRef!.current!;
     game.burjAlive = false;
     game.burjHealth = 0;
+    // Capture assembly owns the terminal snapshot, not the 60-tick death
+    // animation. Leave one real sim tick so the normal gameOver event and
+    // controller finalization still run without depending on renderer FPS.
+    game.gameOverTimer = 1;
   });
   await expect(page.locator("#game-shell")).toHaveAttribute("data-screen", "gameover");
 
