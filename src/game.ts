@@ -74,7 +74,14 @@ import {
 } from "./capture";
 import { reportProblem, uploadSession, type UploadCaptureResult } from "./capture-sink";
 import { enrollCaptureCredential } from "./capture-auth";
-import { getRemoteCaptureConsent, isRemoteCaptureChannel, setRemoteCaptureConsent } from "./capture-consent";
+import {
+  getAutomaticSessionUploadEnabled,
+  getRemoteCaptureConsent,
+  isRemoteCaptureChannel,
+  setAutomaticSessionUploadEnabled,
+  setRemoteCaptureConsent,
+} from "./capture-consent";
+import { createSessionUploadQueue, isRetryableUploadResult, type SessionUploadQueue } from "./capture-upload-queue";
 import { getInstallId } from "./install-id";
 import { createReplayArchiveGate, REPLAY_ARCHIVE_PREPARING_DELAY_MS } from "./replay-archive-gate";
 import { clientLog } from "./client-log";
@@ -404,6 +411,7 @@ interface GameOptions {
   onFrameSample?: (sample: GameFrameSample) => void;
   onReplayFinished?: (sample: GameReplayFinishedSample) => void;
   captureConfig?: { channel: "staging" | "production"; endpoint: string } | null;
+  captureQueue?: SessionUploadQueue | null;
 }
 
 export interface GameFrameSample {
@@ -524,10 +532,24 @@ export class Game {
   private captureSendBusy = false;
   private captureConsentMessage: string | null = null;
   private captureSendMessage: string | null = null;
+  private captureAutoMessage: string | null = null;
+  private captureQueueCount = 0;
+  private captureQueueBusy = false;
+  private automaticCaptureBusy = false;
+  private lastUploadedRunId: string | null = null;
   private remoteCaptureBuild: { channel: "staging" | "production"; endpoint: string } | null;
+  private captureQueue: SessionUploadQueue | null;
   private debugOptions: DebugOptions = loadDebugOptions();
 
-  constructor({ canvas, renderer, onScreenChange, onFrameSample, onReplayFinished, captureConfig }: GameOptions) {
+  constructor({
+    canvas,
+    renderer,
+    onScreenChange,
+    onFrameSample,
+    onReplayFinished,
+    captureConfig,
+    captureQueue,
+  }: GameOptions) {
     this.canvas = canvas;
     this.renderer = renderer;
     this.onScreenChange = onScreenChange;
@@ -539,6 +561,10 @@ export class Game {
           ? { channel: __DMC_CAPTURE_CHANNEL__, endpoint: __DMC_CAPTURE_BASE_URL__ }
           : null
         : captureConfig;
+    this.captureQueue =
+      captureQueue === undefined && this.remoteCaptureBuild
+        ? createSessionUploadQueue(this.remoteCaptureBuild.channel)
+        : (captureQueue ?? null);
     this.shell = document.getElementById("game-shell")!;
     this.battlefieldCard = document.getElementById("battlefield-card")!;
     this.hudEl = document.getElementById("battlefield-hud")!;
@@ -571,6 +597,7 @@ export class Game {
     this.renderUpgradesTable();
     this.syncDiagnosticsUi();
     this.syncCaptureUi();
+    void this.initializeCaptureQueue();
     this.bindEvents();
     this.setupWindowGlobals();
     this.setScreen("title");
@@ -613,6 +640,9 @@ export class Game {
     document
       .getElementById("option-capture-consent")!
       .addEventListener("click", () => void this.toggleRemoteCaptureConsent());
+    document
+      .getElementById("option-capture-auto")!
+      .addEventListener("click", () => void this.toggleAutomaticSessionUpload());
     document.getElementById("option-capture-send")!.addEventListener("click", () => void this.sendLastCompletedRun());
     this.replayPlayPauseButton.addEventListener("click", () => this.toggleReplayPause());
     document.getElementById("replay-stop")!.addEventListener("click", () => this.stopReplayPlayback());
@@ -656,10 +686,15 @@ export class Game {
       return true;
     };
     window.addEventListener("pagehide", () => clientLog("app", "pagehide", { screen: this.screen }));
-    window.addEventListener("pageshow", () => clientLog("app", "pageshow", { screen: this.screen }));
-    document.addEventListener("visibilitychange", () =>
-      clientLog("app", "visibilitychange", { hidden: document.hidden, screen: this.screen }),
-    );
+    window.addEventListener("pageshow", () => {
+      clientLog("app", "pageshow", { screen: this.screen });
+      void this.drainCaptureQueue("pageshow");
+    });
+    window.addEventListener("online", () => void this.drainCaptureQueue("online"));
+    document.addEventListener("visibilitychange", () => {
+      clientLog("app", "visibilitychange", { hidden: document.hidden, screen: this.screen });
+      if (!document.hidden) void this.drainCaptureQueue("foreground");
+    });
   }
 
   private updateCompactClass(): void {
@@ -1429,7 +1464,11 @@ export class Game {
     await this.startReplay(replayData);
   }
 
-  async captureNow(trigger: CaptureTrigger, note?: string): Promise<UploadCaptureResult> {
+  async captureNow(
+    trigger: CaptureTrigger,
+    note?: string,
+    options: { queueOnRetryable?: boolean } = {},
+  ): Promise<UploadCaptureResult> {
     try {
       const capturedAt = Date.now();
       const bootId = getBootId();
@@ -1480,7 +1519,34 @@ export class Game {
           summary,
           replay,
         });
-        return await uploadSession(session);
+        const result = await uploadSession(session);
+        if (result.ok) {
+          if (this.captureQueue) {
+            try {
+              const queue = await this.captureQueue.remove(session.meta.runId);
+              this.captureQueueCount = queue.count;
+            } catch (error) {
+              clientLog("capture", "queue-remove-failed", {
+                runId: session.meta.runId,
+                reason: error instanceof Error ? error.message : String(error),
+              });
+            }
+          }
+          return result;
+        }
+        if (options.queueOnRetryable && this.captureQueue && isRetryableUploadResult(result)) {
+          try {
+            const queued = await this.captureQueue.enqueue(session);
+            this.captureQueueCount = queued.count;
+            if (queued.accepted) return { ok: false, reason: "queued", error: result };
+          } catch (error) {
+            clientLog("capture", "queue-write-failed", {
+              runId: session.meta.runId,
+              reason: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
+        return result;
       }
       if (trigger === "gameover") {
         return { ok: false, reason: "assemble", error: new Error("gameover session is incomplete") };
@@ -1630,6 +1696,7 @@ export class Game {
         }
         setRng(Math.random);
         this.setScreen("gameover");
+        void this.autoUploadCompletedRun();
         break;
       }
       case "waveBonusStart":
@@ -2021,10 +2088,12 @@ export class Game {
 
   private syncCaptureUi(): void {
     const consentButton = document.getElementById("option-capture-consent") as HTMLButtonElement;
+    const autoButton = document.getElementById("option-capture-auto") as HTMLButtonElement;
     const sendButton = document.getElementById("option-capture-send") as HTMLButtonElement;
     const config = this.remoteCaptureConfig();
     consentButton.hidden = config === null;
     if (!config) {
+      autoButton.hidden = true;
       sendButton.hidden = true;
       return;
     }
@@ -2036,9 +2105,24 @@ export class Game {
       this.captureConsentMessage ??
       (this.captureConsentBusy ? "Enrolling…" : `${config.channel} • ${consent === "granted" ? "On" : "Off"}`);
 
+    const automatic = getAutomaticSessionUploadEnabled(config.channel);
+    autoButton.hidden = consent !== "granted";
+    autoButton.disabled = this.captureQueueBusy || this.automaticCaptureBusy;
+    autoButton.classList.toggle("battlefield-option--active", automatic);
+    document.getElementById("option-capture-auto-meta")!.textContent =
+      this.captureAutoMessage ??
+      (this.captureQueueBusy
+        ? "Checking queue…"
+        : automatic
+          ? this.captureQueueCount > 0
+            ? `On • ${this.captureQueueCount} queued`
+            : "On"
+          : "Off");
+
     const completedRunAvailable = this.lastReplay !== null && (this.screen === "title" || this.screen === "gameover");
     sendButton.hidden = consent !== "granted";
-    sendButton.disabled = this.captureSendBusy || !completedRunAvailable;
+    sendButton.disabled =
+      this.captureSendBusy || !completedRunAvailable || (this.runId !== null && this.lastUploadedRunId === this.runId);
     document.getElementById("option-capture-send-meta")!.textContent =
       this.captureSendMessage ??
       (this.captureSendBusy ? "Sending…" : completedRunAvailable ? "Ready" : "Finish a run first");
@@ -2049,7 +2133,17 @@ export class Game {
     if (!config || this.captureConsentBusy) return;
     if (getRemoteCaptureConsent(config.channel) === "granted") {
       setRemoteCaptureConsent(config.channel, "denied");
+      setAutomaticSessionUploadEnabled(config.channel, false);
+      try {
+        await this.captureQueue?.clear();
+      } catch (error) {
+        clientLog("capture", "queue-clear-failed", {
+          reason: error instanceof Error ? error.message : String(error),
+        });
+      }
+      this.captureQueueCount = 0;
       this.captureConsentMessage = "Disabled";
+      this.captureAutoMessage = null;
       this.captureSendMessage = null;
       this.syncCaptureUi();
       clientLog("capture", "consent", { channel: config.channel, granted: false });
@@ -2078,6 +2172,118 @@ export class Game {
     }
   }
 
+  private async initializeCaptureQueue(): Promise<void> {
+    const config = this.remoteCaptureConfig();
+    if (!config || !this.captureQueue) return;
+    this.captureQueueBusy = true;
+    this.syncCaptureUi();
+    try {
+      this.captureQueueCount = (await this.captureQueue.inspect()).count;
+    } catch (error) {
+      clientLog("capture", "queue-read-failed", {
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      this.captureQueueBusy = false;
+      this.syncCaptureUi();
+    }
+    await this.drainCaptureQueue("boot");
+  }
+
+  private async toggleAutomaticSessionUpload(): Promise<void> {
+    const config = this.remoteCaptureConfig();
+    if (!config || !this.captureQueue || this.captureQueueBusy || this.automaticCaptureBusy) return;
+    const enabled = !getAutomaticSessionUploadEnabled(config.channel);
+    setAutomaticSessionUploadEnabled(config.channel, enabled);
+    this.captureAutoMessage = enabled ? "On" : "Off";
+    if (!enabled) {
+      try {
+        await this.captureQueue.clear();
+      } catch (error) {
+        clientLog("capture", "queue-clear-failed", {
+          reason: error instanceof Error ? error.message : String(error),
+        });
+      }
+      this.captureQueueCount = 0;
+    }
+    clientLog("capture", "auto-toggle", { channel: config.channel, enabled });
+    this.syncCaptureUi();
+    if (enabled) await this.drainCaptureQueue("enabled");
+  }
+
+  private async autoUploadCompletedRun(): Promise<void> {
+    const config = this.remoteCaptureConfig();
+    if (
+      !config ||
+      !this.captureQueue ||
+      this.automaticCaptureBusy ||
+      !getAutomaticSessionUploadEnabled(config.channel) ||
+      getRemoteCaptureConsent(config.channel) !== "granted" ||
+      !this.lastReplay ||
+      !this.runId
+    ) {
+      return;
+    }
+    this.automaticCaptureBusy = true;
+    this.captureAutoMessage = "Sending…";
+    this.syncCaptureUi();
+    const runId = this.runId;
+    const result = await this.captureNow("gameover", undefined, { queueOnRetryable: true });
+    this.automaticCaptureBusy = false;
+    if (result.ok) {
+      this.lastUploadedRunId = runId;
+      this.captureAutoMessage = `Sent • ${result.id.slice(0, 8)}`;
+    } else if (result.reason === "queued") {
+      this.captureAutoMessage = `Queued • ${this.captureQueueCount}`;
+    } else {
+      this.captureAutoMessage = `Failed • ${result.reason}`;
+    }
+    clientLog("capture", "automatic-result", {
+      channel: config.channel,
+      ok: result.ok,
+      ...(result.ok ? { id: result.id } : { reason: result.reason }),
+    });
+    this.syncCaptureUi();
+  }
+
+  private async drainCaptureQueue(reason: "boot" | "enabled" | "foreground" | "online" | "pageshow") {
+    const config = this.remoteCaptureConfig();
+    if (
+      !config ||
+      !this.captureQueue ||
+      this.captureQueueBusy ||
+      !getAutomaticSessionUploadEnabled(config.channel) ||
+      getRemoteCaptureConsent(config.channel) !== "granted"
+    ) {
+      return;
+    }
+    this.captureQueueBusy = true;
+    this.captureAutoMessage = this.captureQueueCount > 0 ? "Retrying…" : null;
+    this.syncCaptureUi();
+    try {
+      const result = await this.captureQueue.drain((session) => uploadSession(session));
+      this.captureQueueCount = result.count;
+      if (result.sentRunIds.length > 0) {
+        this.lastUploadedRunId = result.sentRunIds[result.sentRunIds.length - 1];
+        this.captureAutoMessage = `Sent queued • ${result.sentRunIds.length}`;
+      } else if (result.droppedRunIds.length > 0) {
+        this.captureAutoMessage = `Dropped • ${result.droppedRunIds.length}`;
+      } else {
+        this.captureAutoMessage = null;
+      }
+      clientLog("capture", "queue-drain", { reason, ...result });
+    } catch (error) {
+      this.captureAutoMessage = "Queue unavailable";
+      clientLog("capture", "queue-drain-failed", {
+        reason,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      this.captureQueueBusy = false;
+      this.syncCaptureUi();
+    }
+  }
+
   private async sendLastCompletedRun(): Promise<void> {
     const config = this.remoteCaptureConfig();
     const completedRunAvailable = this.lastReplay !== null && (this.screen === "title" || this.screen === "gameover");
@@ -2092,9 +2298,16 @@ export class Game {
     this.captureSendBusy = true;
     this.captureSendMessage = null;
     this.syncCaptureUi();
-    const result = await this.captureNow("manual");
+    const runId = this.runId;
+    const queueOnRetryable = getAutomaticSessionUploadEnabled(config.channel);
+    const result = await this.captureNow("manual", undefined, { queueOnRetryable });
     this.captureSendBusy = false;
-    this.captureSendMessage = result.ok ? `Sent • ${result.id.slice(0, 8)}` : `Failed • ${result.reason}`;
+    if (result.ok) this.lastUploadedRunId = runId;
+    this.captureSendMessage = result.ok
+      ? `Sent • ${result.id.slice(0, 8)}`
+      : result.reason === "queued"
+        ? `Queued • ${this.captureQueueCount}`
+        : `Failed • ${result.reason}`;
     clientLog("capture", "manual-result", {
       channel: config.channel,
       ok: result.ok,

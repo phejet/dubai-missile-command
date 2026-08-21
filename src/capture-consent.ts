@@ -8,6 +8,7 @@ interface ConsentStorage {
 }
 
 const STORAGE_PREFIX = "dmc.capture.remote-consent.v1";
+const AUTO_UPLOAD_STORAGE_PREFIX = "dmc.capture.auto-upload-sessions.v1";
 
 export function isRemoteCaptureChannel(channel: CaptureChannel): channel is RemoteCaptureChannel {
   return channel === "staging" || channel === "production";
@@ -41,4 +42,23 @@ export function setRemoteCaptureConsent(
   const resolved = consentStorage(storage);
   if (!resolved) throw new Error("capture consent storage unavailable");
   resolved.setItem(storageKey(channel), consent);
+}
+
+export function getAutomaticSessionUploadEnabled(channel: CaptureChannel, storage?: ConsentStorage): boolean {
+  if (!isRemoteCaptureChannel(channel)) return false;
+  try {
+    return consentStorage(storage)?.getItem(`${AUTO_UPLOAD_STORAGE_PREFIX}.${channel}`) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function setAutomaticSessionUploadEnabled(
+  channel: RemoteCaptureChannel,
+  enabled: boolean,
+  storage?: ConsentStorage,
+): void {
+  const resolved = consentStorage(storage);
+  if (!resolved) throw new Error("capture upload setting storage unavailable");
+  resolved.setItem(`${AUTO_UPLOAD_STORAGE_PREFIX}.${channel}`, String(enabled));
 }

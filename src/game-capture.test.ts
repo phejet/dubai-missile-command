@@ -4,8 +4,10 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProblemReport, SessionUpload } from "./capture";
+import type { UploadCaptureResult } from "./capture-sink";
 import type { GameRenderer } from "./game-renderer";
 import { createEmptyGameStats } from "./game-logic";
+import type { SessionUploadQueue } from "./capture-upload-queue";
 import type { GameState, ReplayData } from "./types";
 
 interface GameInternals {
@@ -26,7 +28,7 @@ const mocks = vi.hoisted(() => ({
   showBonusScreen: vi.fn(),
   readRecentEvents: vi.fn(async () => ({ events: [], unparsed: 0, truncated: false })),
   captured: [] as Array<SessionUpload | ProblemReport>,
-  uploadSession: vi.fn(async (capture: SessionUpload) => {
+  uploadSession: vi.fn(async (capture: SessionUpload): Promise<UploadCaptureResult> => {
     mocks.captured.push(capture);
     return { ok: true, id: capture.meta.runId, encoding: "none" as const };
   }),
@@ -114,6 +116,25 @@ function internals(game: Game): GameInternals {
 
 function lastCapturedEnvelope(): SessionUpload | ProblemReport {
   return mocks.captured[mocks.captured.length - 1];
+}
+
+function captureQueue(): SessionUploadQueue & {
+  enqueue: ReturnType<typeof vi.fn<SessionUploadQueue["enqueue"]>>;
+  drain: ReturnType<typeof vi.fn<SessionUploadQueue["drain"]>>;
+} {
+  return {
+    enqueue: vi.fn(async () => ({ accepted: true, count: 1, rawBytes: 100 })),
+    inspect: vi.fn(async () => ({ count: 0, rawBytes: 0 })),
+    drain: vi.fn(async () => ({
+      count: 0,
+      rawBytes: 0,
+      sentRunIds: [],
+      droppedRunIds: [],
+      deferred: 0,
+    })),
+    remove: vi.fn(async () => ({ count: 0, rawBytes: 0 })),
+    clear: vi.fn(async () => undefined),
+  };
 }
 
 describe("Game capture orchestration", () => {
@@ -252,6 +273,7 @@ describe("Game capture orchestration", () => {
       canvas,
       renderer,
       captureConfig: { channel: "staging", endpoint: "https://capture.example" },
+      captureQueue: captureQueue(),
     });
     const runtime = internals(game);
     const consentButton = document.getElementById("option-capture-consent") as HTMLButtonElement;
@@ -278,6 +300,67 @@ describe("Game capture orchestration", () => {
     sendButton.click();
     await vi.waitFor(() => expect(mocks.uploadSession).toHaveBeenCalledTimes(1));
     expect(document.getElementById("option-capture-send-meta")!.textContent).toMatch(/^Sent/);
+  });
+
+  it("automatically uploads a completed human run after the explicit toggle", async () => {
+    const queue = captureQueue();
+    localStorage.setItem("dmc.capture.remote-consent.v1.staging", "granted");
+    const canvas = document.getElementById("game-canvas") as HTMLCanvasElement;
+    const game = new Game({
+      canvas,
+      renderer,
+      captureConfig: { channel: "staging", endpoint: "https://capture.example" },
+      captureQueue: queue,
+    });
+    const runtime = internals(game);
+    const autoButton = document.getElementById("option-capture-auto") as HTMLButtonElement;
+    await vi.waitFor(() => expect(autoButton.disabled).toBe(false));
+    autoButton.click();
+    await vi.waitFor(() => expect(queue.drain).toHaveBeenCalledTimes(1));
+
+    runtime.initGame();
+    runtime.gameRef.current!.state = "gameover";
+    runtime.handleSimEvent("gameOver", { score: 1200, wave: 3, stats: createEmptyGameStats() });
+    await vi.waitFor(() => expect(mocks.uploadSession).toHaveBeenCalledTimes(1));
+
+    expect(mocks.uploadSession.mock.calls[0][0].meta).toMatchObject({
+      trigger: "gameover",
+      replaySource: "last-completed",
+      partial: false,
+    });
+    expect(mocks.reportProblem).not.toHaveBeenCalled();
+    expect(document.getElementById("option-capture-auto-meta")!.textContent).toMatch(/^Sent/);
+  });
+
+  it("queues only retryable automatic failures and surfaces terminal auth", async () => {
+    const queue = captureQueue();
+    localStorage.setItem("dmc.capture.remote-consent.v1.staging", "granted");
+    localStorage.setItem("dmc.capture.auto-upload-sessions.v1.staging", "true");
+    const canvas = document.getElementById("game-canvas") as HTMLCanvasElement;
+    const game = new Game({
+      canvas,
+      renderer,
+      captureConfig: { channel: "staging", endpoint: "https://capture.example" },
+      captureQueue: queue,
+    });
+    const runtime = internals(game);
+    await vi.waitFor(() => expect(queue.drain).toHaveBeenCalledTimes(1));
+
+    mocks.uploadSession.mockResolvedValueOnce({ ok: false, reason: "network" });
+    runtime.initGame();
+    runtime.gameRef.current!.state = "gameover";
+    runtime.handleSimEvent("gameOver", { score: 100, wave: 1, stats: createEmptyGameStats() });
+    await vi.waitFor(() => expect(queue.enqueue).toHaveBeenCalledTimes(1));
+    expect(document.getElementById("option-capture-auto-meta")!.textContent).toBe("Queued • 1");
+
+    vi.advanceTimersByTime(1);
+    mocks.uploadSession.mockResolvedValueOnce({ ok: false, reason: "auth", status: 401 });
+    runtime.initGame();
+    runtime.gameRef.current!.state = "gameover";
+    runtime.handleSimEvent("gameOver", { score: 200, wave: 1, stats: createEmptyGameStats() });
+    await vi.waitFor(() => expect(mocks.uploadSession).toHaveBeenCalledTimes(2));
+    expect(queue.enqueue).toHaveBeenCalledTimes(1);
+    expect(document.getElementById("option-capture-auto-meta")!.textContent).toBe("Failed • auth");
   });
 
   it("lets the replay runner open the shop after the bonus UI completes", () => {

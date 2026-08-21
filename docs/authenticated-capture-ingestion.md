@@ -481,10 +481,18 @@ problem report may upload.
 - Default remote consent is unknown/denied; no background remote upload occurs. Local
   developer artifacts do not cross this cloud-consent boundary.
 - A deliberate problem report may present its own clear send confirmation.
-- Failed/offline artifacts remain local under bounded byte, count, and age limits.
+- Failed/offline completed sessions remain in Capacitor `LibraryNoCloud`, bounded to five
+  sessions, 20 MiB of raw envelopes, and seven days. Oldest items are removed first.
 - The queue stores no assertion or challenge token; fresh proof is obtained at retry.
-- The player can see that queued captures exist and delete them.
-- Withdrawing consent prevents future attempts and offers deletion of queued items.
+- Network, timeout, HTTP 408/425/429, and 5xx failures retry after exponential backoff
+  starting at 30 seconds and capped at six hours. One transient failure stops the current
+  drain; later items do not stampede the same unavailable transport.
+- Authentication, policy, and terminal 4xx failures are removed instead of retried, so a
+  revoked credential cannot wedge or churn the queue.
+- The Options surface shows the queued count. Disabling automatic upload or withdrawing
+  consent stops future attempts and clears queued sessions.
+- Automatic upload handles completed human sessions only. Problem reports always require
+  a deliberate send, and replay/automation artifacts remain transport-ineligible.
 - App Attest errors affect upload state only, never the run, score, or game state machine.
 
 Server deletion belongs to `.plans/run-recap-playtest-platform.md`, which owns the
@@ -653,7 +661,7 @@ actual Worker runtime.
 Exit gate: local Worker tests prove every unauthenticated/tampered/replayed request leaves
 capture D1/R2 unchanged, while local browser and automation behavior never selects cloud.
 
-### Phase 3: native staging vertical slice — code complete, operations pending
+### Phase 3: native staging vertical slice — direct-development path live
 
 - Provision only staging D1/R2/Worker resources, safe staging preview bindings, lifecycle,
   HMAC secret, required variables, and the staging deployment gate.
@@ -664,6 +672,11 @@ capture D1/R2 unchanged, while local browser and automation behavior never selec
   bounded offline queue. Gameplay remains independent of upload success.
 - Validate direct development and TestFlight builds separately on physical hardware,
   close enrollment afterward, and run the complete hostile staging matrix.
+
+The direct-development path is live: explicit consent, enrollment, manual submission,
+automatic completed-session submission, bounded retry storage, and authenticated replay
+retrieval are proven on a physical iPhone with enrollment closed afterward. TestFlight
+category `2` remains the uncompleted distribution-path gate.
 
 Exit gate: both distribution paths submit consented human runs to staging; replay/bot/AI
 gameplay makes no remote request; altered, replayed, or revoked requests fail.

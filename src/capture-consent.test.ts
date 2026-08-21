@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { getRemoteCaptureConsent, isRemoteCaptureChannel, setRemoteCaptureConsent } from "./capture-consent";
+import {
+  getAutomaticSessionUploadEnabled,
+  getRemoteCaptureConsent,
+  isRemoteCaptureChannel,
+  setAutomaticSessionUploadEnabled,
+  setRemoteCaptureConsent,
+} from "./capture-consent";
 
 function memoryStorage() {
   const values = new Map<string, string>();
@@ -38,5 +44,16 @@ describe("remote capture consent", () => {
         setItem: () => {},
       }),
     ).toBe("unknown");
+  });
+
+  it("persists automatic session upload separately per remote channel", () => {
+    const storage = memoryStorage();
+    expect(getAutomaticSessionUploadEnabled("staging", storage)).toBe(false);
+    setAutomaticSessionUploadEnabled("staging", true, storage);
+    expect(getAutomaticSessionUploadEnabled("staging", storage)).toBe(true);
+    expect(getAutomaticSessionUploadEnabled("production", storage)).toBe(false);
+    setAutomaticSessionUploadEnabled("staging", false, storage);
+    expect(getAutomaticSessionUploadEnabled("staging", storage)).toBe(false);
+    expect(getAutomaticSessionUploadEnabled("local", storage)).toBe(false);
   });
 });
