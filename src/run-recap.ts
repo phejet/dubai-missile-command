@@ -157,7 +157,7 @@ export function buildRunRecapData(game: GameState, replay: ReplayData | null): R
     score: game.score,
     wave: game.wave,
     timePlayedMs: Math.max(0, Math.round(tick * TICK_MS)),
-    hitRatio: totalStats.shotsFired > 0 ? totalKills / totalStats.shotsFired : 0,
+    hitRatio: totalStats.shotsFired > 0 ? Math.min(1, totalKills / totalStats.shotsFired) : 0,
     burjHealth: Math.max(0, game.burjHealth),
     outcome: deriveOutcomeCause(game),
     totalStats,

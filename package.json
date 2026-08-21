@@ -17,6 +17,8 @@
     "ios:prod": "npm run ios",
     "ios:staging": "npm run build:ios:staging && npm run cap:sync && npm run cap:open",
     "ios:production": "npm run build:ios:production && npm run cap:sync && npm run cap:open",
+    "ios:install:staging": "set -a && . ./.env.local && set +a && cd ios/App && xcodebuild -project App.xcodeproj -scheme App -configuration Debug -destination \"generic/platform=iOS\" -derivedDataPath build -allowProvisioningUpdates build && xcrun devicectl device install app --device \"$IPHONE_UDID\" build/Build/Products/Debug-iphoneos/App.app",
+    "ios:deploy:staging": "npm run build:ios:staging && npm run cap:sync && npm run ios:install:staging",
     "ios:install": "set -a && . ./.env.local && set +a && cd ios/App && xcodebuild -project App.xcodeproj -scheme App -configuration Release -destination \"generic/platform=iOS\" -derivedDataPath build -allowProvisioningUpdates build && xcrun devicectl device install app --device \"$IPHONE_UDID\" build/Build/Products/Release-iphoneos/App.app",
     "ios:deploy": "npm run build:ios && npm run cap:sync && npm run ios:install",
     "lint": "eslint .",

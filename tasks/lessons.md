@@ -1,5 +1,15 @@
 # Lessons
 
+## 2026-08-21 — A successful Worker invocation is not a successful HTTP response
+
+- Wrangler tail's `Ok` label means the Worker invocation completed without an uncaught
+  exception; it does not mean the handler returned HTTP 2xx. Before claiming an upload
+  succeeded, verify the client result plus the expected assertion-counter and D1/R2
+  writes.
+- Every safe failure ladder needed for device rollout must emit its stage and status to
+  structured server logs. Logging only authentication failures leaves validation and
+  storage responses indistinguishable during a real phone test.
+
 ## 2026-08-17 — Separate Git transport authentication from GitHub API authentication
 
 - An SSH key proves `git fetch`/`push` access; it does not authenticate `gh` API calls.

@@ -6,6 +6,7 @@ import {
   type CaptureAuthDeps,
   type AuthenticatedUploadInput,
 } from "./capture-auth";
+import { getRemoteCaptureConsent } from "./capture-consent";
 import { detectCaptureExecution, detectCaptureRuntime } from "./capture-execution";
 import {
   decideCapturePolicy,
@@ -56,7 +57,7 @@ async function upload(
     channel,
     runtime: deps.runtime ?? detectCaptureRuntime(),
     execution: deps.execution ?? detectCaptureExecution(body.meta.replaySource),
-    remoteConsent: deps.remoteConsent ?? "unknown",
+    remoteConsent: deps.remoteConsent ?? getRemoteCaptureConsent(channel),
   });
   if (!policy.allowed) return { ok: false, reason: `policy:${policy.reason}` };
   const configured =

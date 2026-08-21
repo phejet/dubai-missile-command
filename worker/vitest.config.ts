@@ -16,6 +16,7 @@ export default defineConfig({
           APPLE_TEAM_ID: "TESTTEAM1",
           APPLE_BUNDLE_ID: "com.phejet.dubaicmd.test",
           APPLE_BUNDLE_VERSIONS: "1,2",
+          APPLE_VALIDATION_CATEGORIES: "1,3",
           APPLE_ATTEST_ENVIRONMENTS: "development",
           ENROLLMENT_ENABLED: "true",
           TEST_MIGRATIONS: await readD1Migrations(`${workerRoot}migrations`),

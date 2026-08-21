@@ -42,6 +42,14 @@ function failure(error: unknown): Response {
     });
   }
   const known = error instanceof IngestError ? error : new IngestError("store", String(error), 500);
+  console.warn(
+    JSON.stringify({
+      message: "capture ingest rejected",
+      stage: known.stage,
+      status: known.status,
+      error: known.message,
+    }),
+  );
   return jsonResponse(known.status, { ok: false, stage: known.stage, message: known.message });
 }
 

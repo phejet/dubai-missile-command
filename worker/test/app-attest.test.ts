@@ -78,7 +78,9 @@ async function assertionFixture(counter = 1): Promise<{
       ["apple_validation_category_01", new Uint8Array([1, 0, 0, 0])],
     ]),
   );
-  const authenticatorData = concatBytes(rpIdHash, new Uint8Array([0]), counterBytes, extensions);
+  // Apple's assertion authenticator data is simplified: the AT bit may remain set,
+  // but no attested-credential block follows it.
+  const authenticatorData = concatBytes(rpIdHash, new Uint8Array([0x40]), counterBytes, extensions);
   const clientDataHash = await sha256(new TextEncoder().encode("exact-request-client-data"));
   const nonce = await sha256(concatBytes(authenticatorData, clientDataHash));
   const rawSignature = new Uint8Array(
@@ -167,9 +169,19 @@ describe("Apple App Attest verification in workerd", () => {
         ...fixture,
         expectedAppId: APPLE_FIXTURE_APP_ID,
         allowedBundleVersions: new Set([APPLE_FIXTURE_BUNDLE_VERSION, "2"]),
+        allowedValidationCategories: new Set([1, 3]),
         previousCounter: 17,
       }),
     ).resolves.toMatchObject({ counter: 18, validationCategory: 1, bundleVersion: APPLE_FIXTURE_BUNDLE_VERSION });
+
+    await expect(
+      verifyAppAttestAssertion({
+        ...fixture,
+        expectedAppId: APPLE_FIXTURE_APP_ID,
+        previousCounter: 17,
+        allowedValidationCategories: new Set([3]),
+      }),
+    ).rejects.toSatisfy((error) => expectReason(error, "authenticator:validation-category-mismatch"));
 
     await expect(
       verifyAppAttestAssertion({

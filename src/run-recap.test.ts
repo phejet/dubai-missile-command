@@ -67,6 +67,15 @@ describe("run recap data", () => {
     expect(buildRunRecapData(g, null).hitRatio).toBe(0);
   });
 
+  it("caps splash and multi-kill accuracy at 100%", () => {
+    const g = initGame();
+    g.stats.shotsFired = 2;
+    g.stats.missileKills = 3;
+    g.stats.droneKills = 1;
+
+    expect(buildRunRecapData(g, null).hitRatio).toBe(1);
+  });
+
   it("extracts upgrade purchases and assigns waves", () => {
     const waves = [
       makeWaveSummary({ wave: 1, startTick: 0, endTick: 100 }),

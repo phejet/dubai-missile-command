@@ -178,6 +178,30 @@ describe("capture transports", () => {
     delete window.__DMC_AUTOMATION__;
   });
 
+  it("uses the persisted channel-scoped consent for an eligible native upload", async () => {
+    const values = new Map([["dmc.capture.remote-consent.v1.staging", "granted"]]);
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => void values.set(key, value),
+    });
+    const authenticatedUpload = vi.fn(async (_input, send) => send({}));
+    const fetch = vi.fn(async () => Response.json({ ok: true, id: "run", encoding: "none" }));
+
+    await expect(
+      uploadSession(sessionFixture(), {
+        channel: "staging",
+        runtime: "native-ios",
+        execution: "human",
+        remoteEndpoint: "https://capture.example",
+        authenticatedUpload,
+        compress: async () => null,
+        digest: async () => "a".repeat(64),
+        fetch: fetch as typeof globalThis.fetch,
+      }),
+    ).resolves.toMatchObject({ ok: true });
+    expect(authenticatedUpload).toHaveBeenCalledTimes(1);
+  });
+
   it("distinguishes terminal auth failures, timeouts, and offline transport", async () => {
     const deps = {
       channel: "staging" as const,

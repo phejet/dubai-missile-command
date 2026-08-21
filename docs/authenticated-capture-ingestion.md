@@ -539,7 +539,10 @@ first-party clients, not authentication or dependable revocation; revoke the App
 key to block a submitter. `ENROLLMENT_ENABLED` is also required and defaults to `false`.
 Require `APPLE_BUNDLE_VERSIONS` alongside it as a comma-separated rolling allowlist of
 the `CFBundleVersion` values still distributed. TestFlight build numbers overlap during
-rollout, so this must not be a scalar baked into the workflow.
+rollout, so this must not be a scalar baked into the workflow. Require
+`APPLE_VALIDATION_CATEGORIES` as a separate comma-separated allowlist matched to the
+distribution path: direct development `3`, TestFlight `2`, App Store `4`. Values `0` and
+`7` through `9` are invalid or system-reserved and cannot be configured.
 
 Remove the `worker:deploy` package shortcut before production is armed. The supported
 production path is the protected GitHub job; an operator with account credentials can
@@ -641,9 +644,9 @@ actual Worker runtime.
   and add zero-remote-network tests including malicious endpoint injection.
 - Add `CAPTURE_AUTH_SECRET`, stateless challenge tokens, the compact token-plus-body-hash
   assertion format, key enrollment/revocation, and the one-table D1 credential model.
-- Make `ENROLLMENT_ENABLED`, `ALLOWED_BUILDS`, and `APPLE_BUNDLE_VERSIONS`
-  required/fail-closed remotely; use only IP limits before proof and key-hash quotas
-  after proof.
+- Make `ENROLLMENT_ENABLED`, `ALLOWED_BUILDS`, `APPLE_BUNDLE_VERSIONS`, and
+  `APPLE_VALIDATION_CATEGORIES` required/fail-closed remotely; use only IP limits before
+  proof and key-hash quotas after proof.
 - Reserve assertion counters atomically, move all R2 writes behind reservation, make
   authenticated sessions immutable, and enforce key ownership for both capture types.
 
@@ -752,6 +755,9 @@ Every failure above asserts **zero new capture rows and zero new R2 capture obje
   client-side counterpart. `ENROLLMENT_ENABLED` stays false except during registration.
 - Empty `APPLE_BUNDLE_VERSIONS` also fails closed. Keep every still-distributed
   TestFlight/App Store build number during rollout, then remove retired versions.
+- Empty `APPLE_VALIDATION_CATEGORIES` fails closed. Permit only the categories belonging
+  to the environment's current distribution paths and remove direct-development category
+  `3` before production.
 - Roll Worker code back only to a version compatible with already-applied additive
   schema. Never reverse a production migration destructively during an incident.
 - Count accepted/rejected enrollments and submissions by safe reason, environment, build,
@@ -817,14 +823,13 @@ enrollment abuse controls only before public App Store distribution.
 
 ### Physical validation-category gate
 
-Apple's current server-validation article requires checking
-`apple_validation_category_01`, and its current published fixture encodes little-endian
-value `1`, but the primary material does not enumerate the field's complete value space.
-The Worker therefore retains the fail-closed `1` check and enrollment remains disabled.
-Before opening staging enrollment, record real attestations from direct development and
-TestFlight; before production enrollment, repeat with the promoted App Store path. A new
-iOS/distribution value requires an evidence-backed allowlist change, not a permissive
-fallback.
+Apple's current server-validation article enumerates `apple_validation_category_01`:
+`1` operating-system executable, `2` TestFlight, `3` development-signed, `4` App Store,
+`5` enterprise/ad-hoc, `6` Developer ID, and `10` other code-signing identities. The
+Worker uses an explicit environment-scoped allowlist rather than a universal value.
+Direct-development staging uses category `3`; TestFlight and App Store promotion must
+separately prove and allow categories `2` and `4`. Unknown, invalid, and system-reserved
+values remain fail-closed.
 
 ## Authoritative references
 

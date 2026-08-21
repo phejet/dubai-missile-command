@@ -27,6 +27,7 @@ export interface VerifyAttestationOptions {
   expectedAppId: string;
   allowedEnvironments: readonly AppleAttestEnvironment[];
   allowedBundleVersions?: ReadonlySet<string>;
+  allowedValidationCategories?: ReadonlySet<number>;
   now?: Date;
 }
 
@@ -46,6 +47,7 @@ export interface VerifyAssertionOptions {
   expectedAppId: string;
   previousCounter: number;
   allowedBundleVersions?: ReadonlySet<string>;
+  allowedValidationCategories?: ReadonlySet<number>;
 }
 
 export interface VerifiedAssertion {
@@ -162,7 +164,7 @@ function parseAuthenticatorData(bytes: Uint8Array, requireAttestedCredential: bo
   let credentialId: Uint8Array | null = null;
   let credentialPublicKey: Map<string | number, CBORType> | null = null;
 
-  if ((flags & 0x40) !== 0) {
+  if (requireAttestedCredential && (flags & 0x40) !== 0) {
     if (bytes.byteLength < offset + 18) reject("authenticator:credential-short");
     aaguid = bytes.slice(offset, offset + 16);
     offset += 16;
@@ -201,6 +203,7 @@ function parseAuthenticatorData(bytes: Uint8Array, requireAttestedCredential: bo
 function validationFacts(
   extensions: Map<string | number, CBORType> | null,
   allowedBundleVersions: ReadonlySet<string> | undefined,
+  allowedValidationCategories: ReadonlySet<number> | undefined,
 ): { validationCategory: number | null; bundleVersion: string | null } {
   const categoryValue = extensions?.get("apple_validation_category_01");
   let validationCategory: number | null = null;
@@ -213,7 +216,9 @@ function validationFacts(
       categoryValue.byteOffset,
       categoryValue.byteLength,
     ).getUint32(0, true);
-    if (validationCategory !== 1) reject("authenticator:validation-category");
+    if (allowedValidationCategories !== undefined && !allowedValidationCategories.has(validationCategory)) {
+      reject("authenticator:validation-category-mismatch");
+    }
   }
 
   const bundleValue = extensions?.get("apple_bundle_version_01");
@@ -330,7 +335,7 @@ async function verifyAppAttestAttestationCore(
 
   const nonce = await sha256(concatBytes(authData, options.clientDataHash));
   if (!equalBytes(extractAppleNonce(leaf), nonce)) reject("attestation:nonce");
-  const facts = validationFacts(parsed.extensions, options.allowedBundleVersions);
+  const facts = validationFacts(parsed.extensions, options.allowedBundleVersions, options.allowedValidationCategories);
   return { publicKeySpki, publicKeyRaw, appleEnvironment, assertionCounter: 0, ...facts };
 }
 
@@ -397,5 +402,8 @@ export async function verifyAppAttestAssertion(options: VerifyAssertionOptions):
     ownedArrayBuffer(nonce),
   );
   if (!valid) reject("assertion:signature");
-  return { counter: parsed.counter, ...validationFacts(parsed.extensions, options.allowedBundleVersions) };
+  return {
+    counter: parsed.counter,
+    ...validationFacts(parsed.extensions, options.allowedBundleVersions, options.allowedValidationCategories),
+  };
 }

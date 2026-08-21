@@ -73,6 +73,8 @@ import {
   type CaptureTrigger,
 } from "./capture";
 import { reportProblem, uploadSession, type UploadCaptureResult } from "./capture-sink";
+import { enrollCaptureCredential } from "./capture-auth";
+import { getRemoteCaptureConsent, isRemoteCaptureChannel, setRemoteCaptureConsent } from "./capture-consent";
 import { getInstallId } from "./install-id";
 import { createReplayArchiveGate, REPLAY_ARCHIVE_PREPARING_DELAY_MS } from "./replay-archive-gate";
 import { clientLog } from "./client-log";
@@ -401,6 +403,7 @@ interface GameOptions {
   onScreenChange?: (screen: GameScreen) => void;
   onFrameSample?: (sample: GameFrameSample) => void;
   onReplayFinished?: (sample: GameReplayFinishedSample) => void;
+  captureConfig?: { channel: "staging" | "production"; endpoint: string } | null;
 }
 
 export interface GameFrameSample {
@@ -517,14 +520,25 @@ export class Game {
   private lastRunRecapData: RunRecapData | null = null;
   private runId: string | null = null;
   private captureOrdinal = 0;
+  private captureConsentBusy = false;
+  private captureSendBusy = false;
+  private captureConsentMessage: string | null = null;
+  private captureSendMessage: string | null = null;
+  private remoteCaptureBuild: { channel: "staging" | "production"; endpoint: string } | null;
   private debugOptions: DebugOptions = loadDebugOptions();
 
-  constructor({ canvas, renderer, onScreenChange, onFrameSample, onReplayFinished }: GameOptions) {
+  constructor({ canvas, renderer, onScreenChange, onFrameSample, onReplayFinished, captureConfig }: GameOptions) {
     this.canvas = canvas;
     this.renderer = renderer;
     this.onScreenChange = onScreenChange;
     this.onFrameSample = onFrameSample;
     this.onReplayFinished = onReplayFinished;
+    this.remoteCaptureBuild =
+      captureConfig === undefined
+        ? isRemoteCaptureChannel(__DMC_CAPTURE_CHANNEL__) && __DMC_CAPTURE_BASE_URL__
+          ? { channel: __DMC_CAPTURE_CHANNEL__, endpoint: __DMC_CAPTURE_BASE_URL__ }
+          : null
+        : captureConfig;
     this.shell = document.getElementById("game-shell")!;
     this.battlefieldCard = document.getElementById("battlefield-card")!;
     this.hudEl = document.getElementById("battlefield-hud")!;
@@ -556,6 +570,7 @@ export class Game {
     this.renderDebugStartOptions();
     this.renderUpgradesTable();
     this.syncDiagnosticsUi();
+    this.syncCaptureUi();
     this.bindEvents();
     this.setupWindowGlobals();
     this.setScreen("title");
@@ -595,6 +610,10 @@ export class Game {
     document.getElementById("option-infinite-replay")!.addEventListener("click", () => this.toggleInfiniteReplay());
     document.getElementById("option-upgrades-table")!.addEventListener("click", () => this.toggleUpgradesTable());
     document.getElementById("option-diagnostics")!.addEventListener("click", () => this.toggleDiagnostics());
+    document
+      .getElementById("option-capture-consent")!
+      .addEventListener("click", () => void this.toggleRemoteCaptureConsent());
+    document.getElementById("option-capture-send")!.addEventListener("click", () => void this.sendLastCompletedRun());
     this.replayPlayPauseButton.addEventListener("click", () => this.toggleReplayPause());
     document.getElementById("replay-stop")!.addEventListener("click", () => this.stopReplayPlayback());
     this.replayPreviousWaveButton.addEventListener("click", () => this.navigateReplayWave("previous"));
@@ -819,6 +838,7 @@ export class Game {
     }
     this.syncHud(true);
     this.syncTransientOverlays();
+    this.syncCaptureUi();
     this.onScreenChange?.(s);
   }
 
@@ -1991,7 +2011,96 @@ export class Game {
     this.showOptionsMenu = !this.showOptionsMenu;
     this.optionsMenu.hidden = !this.showOptionsMenu;
     if (!this.showOptionsMenu) this.closeUpgradesTable();
+    this.syncCaptureUi();
     this.syncOptionsButtons();
+  }
+
+  private remoteCaptureConfig(): { channel: "staging" | "production"; endpoint: string } | null {
+    return this.remoteCaptureBuild;
+  }
+
+  private syncCaptureUi(): void {
+    const consentButton = document.getElementById("option-capture-consent") as HTMLButtonElement;
+    const sendButton = document.getElementById("option-capture-send") as HTMLButtonElement;
+    const config = this.remoteCaptureConfig();
+    consentButton.hidden = config === null;
+    if (!config) {
+      sendButton.hidden = true;
+      return;
+    }
+
+    const consent = getRemoteCaptureConsent(config.channel);
+    consentButton.disabled = this.captureConsentBusy;
+    consentButton.classList.toggle("battlefield-option--active", consent === "granted");
+    document.getElementById("option-capture-consent-meta")!.textContent =
+      this.captureConsentMessage ??
+      (this.captureConsentBusy ? "Enrolling…" : `${config.channel} • ${consent === "granted" ? "On" : "Off"}`);
+
+    const completedRunAvailable = this.lastReplay !== null && (this.screen === "title" || this.screen === "gameover");
+    sendButton.hidden = consent !== "granted";
+    sendButton.disabled = this.captureSendBusy || !completedRunAvailable;
+    document.getElementById("option-capture-send-meta")!.textContent =
+      this.captureSendMessage ??
+      (this.captureSendBusy ? "Sending…" : completedRunAvailable ? "Ready" : "Finish a run first");
+  }
+
+  private async toggleRemoteCaptureConsent(): Promise<void> {
+    const config = this.remoteCaptureConfig();
+    if (!config || this.captureConsentBusy) return;
+    if (getRemoteCaptureConsent(config.channel) === "granted") {
+      setRemoteCaptureConsent(config.channel, "denied");
+      this.captureConsentMessage = "Disabled";
+      this.captureSendMessage = null;
+      this.syncCaptureUi();
+      clientLog("capture", "consent", { channel: config.channel, granted: false });
+      return;
+    }
+
+    this.captureConsentBusy = true;
+    this.captureConsentMessage = null;
+    this.syncCaptureUi();
+    try {
+      await enrollCaptureCredential({
+        endpoint: config.endpoint,
+        channel: config.channel,
+        buildId: getDiagnosticsBuildId(),
+      });
+      setRemoteCaptureConsent(config.channel, "granted");
+      this.captureConsentMessage = "Ready";
+      clientLog("capture", "consent", { channel: config.channel, granted: true });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "Enrollment failed";
+      this.captureConsentMessage = "Failed • tap to retry";
+      clientLog("capture", "enrollment-failed", { channel: config.channel, reason });
+    } finally {
+      this.captureConsentBusy = false;
+      this.syncCaptureUi();
+    }
+  }
+
+  private async sendLastCompletedRun(): Promise<void> {
+    const config = this.remoteCaptureConfig();
+    const completedRunAvailable = this.lastReplay !== null && (this.screen === "title" || this.screen === "gameover");
+    if (
+      !config ||
+      this.captureSendBusy ||
+      !completedRunAvailable ||
+      getRemoteCaptureConsent(config.channel) !== "granted"
+    ) {
+      return;
+    }
+    this.captureSendBusy = true;
+    this.captureSendMessage = null;
+    this.syncCaptureUi();
+    const result = await this.captureNow("manual");
+    this.captureSendBusy = false;
+    this.captureSendMessage = result.ok ? `Sent • ${result.id.slice(0, 8)}` : `Failed • ${result.reason}`;
+    clientLog("capture", "manual-result", {
+      channel: config.channel,
+      ok: result.ok,
+      ...(result.ok ? { id: result.id } : { reason: result.reason }),
+    });
+    this.syncCaptureUi();
   }
 
   private syncOptionsButtons(): void {

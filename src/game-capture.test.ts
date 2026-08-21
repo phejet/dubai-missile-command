@@ -34,6 +34,7 @@ const mocks = vi.hoisted(() => ({
     mocks.captured.push(capture);
     return { ok: true, id: capture.reportId, encoding: "none" as const };
   }),
+  enrollCaptureCredential: vi.fn(async () => ({ keyId: "test-key" })),
 }));
 
 vi.mock("./diagnostics-log", () => ({
@@ -47,6 +48,7 @@ vi.mock("./diagnostics-log", () => ({
   shareDiagnostics: vi.fn(async () => ({ ok: true })),
 }));
 vi.mock("./capture-sink", () => ({ uploadSession: mocks.uploadSession, reportProblem: mocks.reportProblem }));
+vi.mock("./capture-auth", () => ({ enrollCaptureCredential: mocks.enrollCaptureCredential }));
 vi.mock("./run-recap-death-clip", () => ({ mountRunRecapDeathClip: vi.fn(() => vi.fn()) }));
 vi.mock("./save-replay", () => ({ saveReplayToFile: vi.fn(async () => ({ ok: true })) }));
 vi.mock("./ui", () => ({
@@ -133,7 +135,14 @@ describe("Game capture orchestration", () => {
     mocks.captured.length = 0;
     mocks.uploadSession.mockClear();
     mocks.reportProblem.mockClear();
+    mocks.enrollCaptureCredential.mockClear();
     mocks.readRecentEvents.mockClear();
+    const values = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => void values.set(key, value),
+      removeItem: (key: string) => void values.delete(key),
+    });
   });
 
   afterEach(() => {
@@ -235,6 +244,40 @@ describe("Game capture orchestration", () => {
       replay: { seed: expect.any(Number) },
     });
     expect(mocks.readRecentEvents).toHaveBeenCalledTimes(4);
+  });
+
+  it("enrolls from an explicit staging control and sends only a completed run", async () => {
+    const canvas = document.getElementById("game-canvas") as HTMLCanvasElement;
+    const game = new Game({
+      canvas,
+      renderer,
+      captureConfig: { channel: "staging", endpoint: "https://capture.example" },
+    });
+    const runtime = internals(game);
+    const consentButton = document.getElementById("option-capture-consent") as HTMLButtonElement;
+    const sendButton = document.getElementById("option-capture-send") as HTMLButtonElement;
+
+    expect(consentButton.hidden).toBe(false);
+    expect(sendButton.hidden).toBe(true);
+    consentButton.click();
+    await vi.waitFor(() => expect(mocks.enrollCaptureCredential).toHaveBeenCalledTimes(1));
+    expect(mocks.enrollCaptureCredential).toHaveBeenCalledWith({
+      endpoint: "https://capture.example",
+      channel: "staging",
+      buildId: "test-build",
+    });
+    expect(document.getElementById("option-capture-consent-meta")!.textContent).toBe("Ready");
+    expect(sendButton.hidden).toBe(false);
+    expect(sendButton.disabled).toBe(true);
+
+    runtime.initGame();
+    runtime.gameRef.current!.state = "gameover";
+    runtime.handleSimEvent("gameOver", { score: 1200, wave: 3, stats: createEmptyGameStats() });
+    runtime.setScreen("title");
+    expect(sendButton.disabled).toBe(false);
+    sendButton.click();
+    await vi.waitFor(() => expect(mocks.uploadSession).toHaveBeenCalledTimes(1));
+    expect(document.getElementById("option-capture-send-meta")!.textContent).toMatch(/^Sent/);
   });
 
   it("lets the replay runner open the shop after the bonus UI completes", () => {

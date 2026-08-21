@@ -761,7 +761,8 @@ export function updateTransientOverlays(snapshot: TransientOverlaySnapshot): voi
 export function showGameOver(score: number, wave: number, stats: GameStats): void {
   const normalizedStats = normalizeGameStats(stats);
   const totalKills = normalizedStats.missileKills + normalizedStats.droneKills;
-  const hitRatio = normalizedStats.shotsFired > 0 ? Math.round((totalKills / normalizedStats.shotsFired) * 100) : 0;
+  const hitRatio =
+    normalizedStats.shotsFired > 0 ? Math.round(Math.min(1, totalKills / normalizedStats.shotsFired) * 100) : 0;
   const el = (id: string) => document.getElementById(id);
   el("go-score")!.textContent = score.toLocaleString();
   el("go-wave")!.textContent = String(wave);

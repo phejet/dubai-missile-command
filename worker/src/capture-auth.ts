@@ -22,6 +22,7 @@ export interface CaptureAuthConfig {
   allowedBuilds: ReadonlySet<string>;
   appId: string;
   allowedBundleVersions: ReadonlySet<string>;
+  allowedValidationCategories: ReadonlySet<number>;
   allowedAppleEnvironments: readonly AppleAttestEnvironment[];
   enrollmentEnabled: boolean;
 }
@@ -140,6 +141,21 @@ function parseList(value: string | undefined): string[] {
   );
 }
 
+function parseValidationCategories(value: string | undefined): Set<number> {
+  const documented = new Set([1, 2, 3, 4, 5, 6, 10]);
+  const values = parseList(value);
+  const parsed = new Set(values.map(Number));
+  if (
+    values.length === 0 ||
+    parsed.size !== values.length ||
+    values.some((value) => !/^(?:[1-6]|10)$/.test(value)) ||
+    [...parsed].some((value) => !documented.has(value))
+  ) {
+    reject("config:apple-validation-categories", 503);
+  }
+  return parsed;
+}
+
 export function captureAuthConfig(env: Env): CaptureAuthConfig {
   const workerEnvironment = env.WORKER_BUILD;
   if (workerEnvironment !== "dev" && workerEnvironment !== "staging" && workerEnvironment !== "production") {
@@ -151,6 +167,7 @@ export function captureAuthConfig(env: Env): CaptureAuthConfig {
   const allowedBuilds = new Set(parseList(env.ALLOWED_BUILDS));
   if (allowedBuilds.size === 0) reject("config:allowed-builds", 503);
   const allowedBundleVersions = new Set(parseList(env.APPLE_BUNDLE_VERSIONS));
+  const allowedValidationCategories = parseValidationCategories(env.APPLE_VALIDATION_CATEGORIES);
   if (!env.APPLE_TEAM_ID?.trim() || !env.APPLE_BUNDLE_ID?.trim() || allowedBundleVersions.size === 0) {
     reject("config:apple-app", 503);
   }
@@ -173,6 +190,7 @@ export function captureAuthConfig(env: Env): CaptureAuthConfig {
     allowedBuilds,
     appId: `${env.APPLE_TEAM_ID.trim()}.${env.APPLE_BUNDLE_ID.trim()}`,
     allowedBundleVersions,
+    allowedValidationCategories,
     allowedAppleEnvironments: allowedAppleEnvironments as AppleAttestEnvironment[],
     enrollmentEnabled: env.ENROLLMENT_ENABLED === "true",
   };
@@ -407,12 +425,14 @@ export async function enroll(request: Request, env: Env, deps: EnrollmentDeps = 
         clientDataHash,
         expectedAppId: config.appId,
         allowedBundleVersions: config.allowedBundleVersions,
+        allowedValidationCategories: config.allowedValidationCategories,
         allowedEnvironments: config.allowedAppleEnvironments,
       }),
     );
     if (
       !config.allowedAppleEnvironments.includes(verified.appleEnvironment) ||
-      (verified.bundleVersion !== null && !config.allowedBundleVersions.has(verified.bundleVersion))
+      (verified.bundleVersion !== null && !config.allowedBundleVersions.has(verified.bundleVersion)) ||
+      (verified.validationCategory !== null && !config.allowedValidationCategories.has(verified.validationCategory))
     ) {
       reject("enroll:attestation-policy");
     }
@@ -484,6 +504,7 @@ export async function authorizeCapture(
       expectedAppId: config.appId,
       previousCounter: credential.assertion_counter,
       allowedBundleVersions: config.allowedBundleVersions,
+      allowedValidationCategories: config.allowedValidationCategories,
     }),
   );
   const quota = input.purpose === "report" ? env.REPORT_INSTALL : env.INGEST_INSTALL;

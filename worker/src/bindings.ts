@@ -55,6 +55,7 @@ export interface Env {
   APPLE_TEAM_ID?: string;
   APPLE_BUNDLE_ID?: string;
   APPLE_BUNDLE_VERSIONS?: string;
+  APPLE_VALIDATION_CATEGORIES?: string;
   APPLE_ATTEST_ENVIRONMENTS?: string;
   ENROLLMENT_ENABLED?: string;
   WORKER_BUILD?: string;
