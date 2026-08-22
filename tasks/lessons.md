@@ -1,5 +1,18 @@
 # Lessons
 
+## 2026-08-22 — Show configuration deltas, not duplicated context
+
+- When the user asks what must change in an existing configuration, lead with the exact
+  missing or modified lines. Do not reproduce settings that are already present unless
+  they are needed to explain ordering or interaction.
+
+## 2026-08-22 — Keep branch-status checks local unless live remote state is requested
+
+- For a simple branch-state question, report the checked-out branch, worktree cleanliness,
+  tracking status, and local divergence first. Do not turn it into multiple approval prompts
+  by probing live remotes unless the user asks for current GitHub state or the local refs are
+  insufficient for the answer.
+
 ## 2026-08-21 — A successful Worker invocation is not a successful HTTP response
 
 - Wrangler tail's `Ok` label means the Worker invocation completed without an uncaught
