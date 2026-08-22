@@ -20,7 +20,7 @@ export interface CaptureAuthConfig {
   workerEnvironment: "dev" | "staging" | "production";
   authSecret: string;
   allowedBuilds: ReadonlySet<string>;
-  appId: string;
+  appIds: ReadonlySet<string>;
   allowedBundleVersions: ReadonlySet<string>;
   allowedValidationCategories: ReadonlySet<number>;
   allowedAppleEnvironments: readonly AppleAttestEnvironment[];
@@ -168,8 +168,21 @@ export function captureAuthConfig(env: Env): CaptureAuthConfig {
   if (allowedBuilds.size === 0) reject("config:allowed-builds", 503);
   const allowedBundleVersions = new Set(parseList(env.APPLE_BUNDLE_VERSIONS));
   const allowedValidationCategories = parseValidationCategories(env.APPLE_VALIDATION_CATEGORIES);
-  if (!env.APPLE_TEAM_ID?.trim() || !env.APPLE_BUNDLE_ID?.trim() || allowedBundleVersions.size === 0) {
+  const appleTeamId = env.APPLE_TEAM_ID?.trim() ?? "";
+  const appleBundleIds = parseList(env.APPLE_BUNDLE_IDS);
+  if (
+    !appleTeamId ||
+    appleBundleIds.length === 0 ||
+    appleBundleIds.some((bundleId) => !/^[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/.test(bundleId)) ||
+    allowedBundleVersions.size === 0
+  ) {
     reject("config:apple-app", 503);
+  }
+  if (
+    workerEnvironment === "production" &&
+    (appleBundleIds.length !== 1 || appleBundleIds[0] !== "com.phejet.dubaicmd")
+  ) {
+    reject("config:production-apple-bundle-id", 503);
   }
   const allowedAppleEnvironments = parseList(env.APPLE_ATTEST_ENVIRONMENTS);
   if (
@@ -188,7 +201,7 @@ export function captureAuthConfig(env: Env): CaptureAuthConfig {
     workerEnvironment,
     authSecret: env.CAPTURE_AUTH_SECRET,
     allowedBuilds,
-    appId: `${env.APPLE_TEAM_ID.trim()}.${env.APPLE_BUNDLE_ID.trim()}`,
+    appIds: new Set(appleBundleIds.map((bundleId) => `${appleTeamId}.${bundleId}`)),
     allowedBundleVersions,
     allowedValidationCategories,
     allowedAppleEnvironments: allowedAppleEnvironments as AppleAttestEnvironment[],
@@ -423,13 +436,14 @@ export async function enroll(request: Request, env: Env, deps: EnrollmentDeps = 
         attestationObject: fromBase64Url(body.attestation as string, "attestation"),
         keyId: body.keyId as string,
         clientDataHash,
-        expectedAppId: config.appId,
+        expectedAppIds: config.appIds,
         allowedBundleVersions: config.allowedBundleVersions,
         allowedValidationCategories: config.allowedValidationCategories,
         allowedEnvironments: config.allowedAppleEnvironments,
       }),
     );
     if (
+      !config.appIds.has(verified.appId) ||
       !config.allowedAppleEnvironments.includes(verified.appleEnvironment) ||
       (verified.bundleVersion !== null && !config.allowedBundleVersions.has(verified.bundleVersion)) ||
       (verified.validationCategory !== null && !config.allowedValidationCategories.has(verified.validationCategory))
@@ -501,7 +515,7 @@ export async function authorizeCapture(
       assertionObject: fromBase64Url(assertion, "assertion"),
       clientDataHash,
       publicKeySpki: boundedBytes(credential.public_key),
-      expectedAppId: config.appId,
+      expectedAppIds: config.appIds,
       previousCounter: credential.assertion_counter,
       allowedBundleVersions: config.allowedBundleVersions,
       allowedValidationCategories: config.allowedValidationCategories,

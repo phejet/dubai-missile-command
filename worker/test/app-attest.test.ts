@@ -107,13 +107,14 @@ describe("Apple App Attest verification in workerd", () => {
       attestationObject: fromBase64(APPLE_FIXTURE_ATTESTATION),
       keyId: APPLE_FIXTURE_KEY_ID,
       clientDataHash,
-      expectedAppId: APPLE_FIXTURE_APP_ID,
+      expectedAppIds: new Set([APPLE_FIXTURE_APP_ID, "TEAM.com.example.staging"]),
       allowedBundleVersions: new Set([APPLE_FIXTURE_BUNDLE_VERSION]),
       allowedEnvironments: ["production"],
       now: APPLE_FIXTURE_NOW,
     });
 
     expect(result).toMatchObject({
+      appId: APPLE_FIXTURE_APP_ID,
       appleEnvironment: "production",
       assertionCounter: 0,
       validationCategory: 1,
@@ -130,7 +131,7 @@ describe("Apple App Attest verification in workerd", () => {
       attestationObject,
       keyId: APPLE_FIXTURE_KEY_ID,
       clientDataHash,
-      expectedAppId: APPLE_FIXTURE_APP_ID,
+      expectedAppIds: new Set([APPLE_FIXTURE_APP_ID]),
       allowedBundleVersions: new Set([APPLE_FIXTURE_BUNDLE_VERSION, "2"]),
       allowedEnvironments: ["production"] as const,
       now: APPLE_FIXTURE_NOW,
@@ -140,7 +141,10 @@ describe("Apple App Attest verification in workerd", () => {
       verifyApplePublishedAttestationFixture({ ...common, clientDataHash: await sha256(new Uint8Array([1])) }),
     ).rejects.toSatisfy((error) => expectReason(error, "attestation:nonce"));
     await expect(
-      verifyApplePublishedAttestationFixture({ ...common, expectedAppId: "1234567890.com.attacker.app" }),
+      verifyApplePublishedAttestationFixture({
+        ...common,
+        expectedAppIds: new Set(["1234567890.com.attacker.app"]),
+      }),
     ).rejects.toSatisfy((error) => expectReason(error, "attestation:app-id"));
     await expect(
       verifyApplePublishedAttestationFixture({ ...common, allowedEnvironments: ["development"] }),
@@ -156,7 +160,7 @@ describe("Apple App Attest verification in workerd", () => {
         attestationObject: fromBase64(APPLE_FIXTURE_ATTESTATION),
         keyId: APPLE_FIXTURE_KEY_ID,
         clientDataHash: new TextEncoder().encode(APPLE_FIXTURE_CHALLENGE),
-        expectedAppId: APPLE_FIXTURE_APP_ID,
+        expectedAppIds: new Set([APPLE_FIXTURE_APP_ID]),
         allowedEnvironments: ["production"],
       }),
     ).rejects.toSatisfy((error) => expectReason(error, "attestation:client-data-hash-length"));
@@ -167,17 +171,22 @@ describe("Apple App Attest verification in workerd", () => {
     await expect(
       verifyAppAttestAssertion({
         ...fixture,
-        expectedAppId: APPLE_FIXTURE_APP_ID,
+        expectedAppIds: new Set([APPLE_FIXTURE_APP_ID, "TEAM.com.example.staging"]),
         allowedBundleVersions: new Set([APPLE_FIXTURE_BUNDLE_VERSION, "2"]),
         allowedValidationCategories: new Set([1, 3]),
         previousCounter: 17,
       }),
-    ).resolves.toMatchObject({ counter: 18, validationCategory: 1, bundleVersion: APPLE_FIXTURE_BUNDLE_VERSION });
+    ).resolves.toMatchObject({
+      appId: APPLE_FIXTURE_APP_ID,
+      counter: 18,
+      validationCategory: 1,
+      bundleVersion: APPLE_FIXTURE_BUNDLE_VERSION,
+    });
 
     await expect(
       verifyAppAttestAssertion({
         ...fixture,
-        expectedAppId: APPLE_FIXTURE_APP_ID,
+        expectedAppIds: new Set([APPLE_FIXTURE_APP_ID]),
         previousCounter: 17,
         allowedValidationCategories: new Set([3]),
       }),
@@ -187,21 +196,21 @@ describe("Apple App Attest verification in workerd", () => {
       verifyAppAttestAssertion({
         ...fixture,
         clientDataHash: await sha256(new Uint8Array([9])),
-        expectedAppId: APPLE_FIXTURE_APP_ID,
+        expectedAppIds: new Set([APPLE_FIXTURE_APP_ID]),
         previousCounter: 17,
       }),
     ).rejects.toSatisfy((error) => expectReason(error, "assertion:signature"));
     await expect(
       verifyAppAttestAssertion({
         ...fixture,
-        expectedAppId: APPLE_FIXTURE_APP_ID,
+        expectedAppIds: new Set([APPLE_FIXTURE_APP_ID]),
         previousCounter: 18,
       }),
     ).rejects.toSatisfy((error) => expectReason(error, "assertion:counter"));
     await expect(
       verifyAppAttestAssertion({
         ...fixture,
-        expectedAppId: "1234567890.com.attacker.app",
+        expectedAppIds: new Set(["1234567890.com.attacker.app"]),
         previousCounter: 17,
       }),
     ).rejects.toSatisfy((error) => expectReason(error, "assertion:app-id"));

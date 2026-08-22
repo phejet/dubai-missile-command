@@ -37,6 +37,19 @@ When `CAPACITOR=1`:
 
 This keeps the native wrapper using relative asset paths and avoids shipping the extra editor pages into the iOS app bundle.
 
+Native builds must also select one explicit `DMC_APP_FLAVOR`. The supported identity
+matrix is:
+
+| Flavor     | Bundle ID                     | Xcode scheme     | Capture channel       |
+| ---------- | ----------------------------- | ---------------- | --------------------- |
+| Dev        | `com.phejet.dubaicmd.dev`     | `App-Dev`        | `off`                 |
+| Staging    | `com.phejet.dubaicmd.staging` | `App-Staging`    | `staging`             |
+| Production | `com.phejet.dubaicmd`         | `App-Production` | `off` or `production` |
+
+Vite rejects omitted flavors and invalid flavor/channel pairs. Each native build emits
+`dmc-native-build.json`; an always-on Xcode build phase compares that manifest and the
+synced Capacitor app ID with the selected scheme before compilation/signing proceeds.
+
 ## Runtime Entrypoints
 
 - `src/main.ts` boots the game
@@ -66,12 +79,18 @@ Core scripts from `package.json`:
 - `npm run dev`
 - `npm run build`
 - `npm run build:ios`
+- `npm run build:ios:dev`
+- `npm run build:ios:staging`
+- `npm run build:ios:production`
 - `npm run preview`
 - `npm run test`
 - `npm run test:coverage`
 - `npm run test:e2e`
 - `npm run typecheck`
 - `npm run ios` -> build, sync, open
+- `npm run ios:deploy:dev` -> direct Dev install
+- `npm run ios:deploy:staging` -> direct Staging install for signing checks
+- `npm run ios:deploy:production` -> explicit Production-channel install
 
 ## CI And Deploy
 

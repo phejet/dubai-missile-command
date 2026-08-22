@@ -14,7 +14,7 @@ import { sessionFixture } from "../../test-fixtures/capture";
 
 const processes: ChildProcess[] = [];
 const tempDirs: string[] = [];
-const APP_ID = "5A2PL567F2.com.phejet.dubaicmd";
+const APP_ID = "5A2PL567F2.com.phejet.dubaicmd.dev";
 
 function concatBytes(...parts: Uint8Array[]): Uint8Array {
   const result = new Uint8Array(parts.reduce((total, part) => total + part.byteLength, 0));

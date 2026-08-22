@@ -1,4 +1,8 @@
+import { IOS_APP_FLAVORS, requireIosAppFlavor } from "./src/ios-flavors";
+
 const capDevServer = process.env.CAP_DEV_SERVER?.trim();
+const appFlavor = requireIosAppFlavor(process.env.DMC_APP_FLAVOR);
+const appIdentity = IOS_APP_FLAVORS[appFlavor];
 
 function buildServerConfig() {
   if (!capDevServer) return undefined;
@@ -21,8 +25,8 @@ function buildServerConfig() {
 const server = buildServerConfig();
 
 const config = {
-  appId: "com.phejet.dubaicmd",
-  appName: "Dubai Missile Command",
+  appId: appIdentity.appId,
+  appName: appIdentity.appName,
   webDir: "dist",
   ...(server ? { server } : {}),
   ios: {

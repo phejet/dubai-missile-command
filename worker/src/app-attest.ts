@@ -24,7 +24,7 @@ export interface VerifyAttestationOptions {
   attestationObject: Uint8Array;
   keyId: string;
   clientDataHash: Uint8Array;
-  expectedAppId: string;
+  expectedAppIds: ReadonlySet<string>;
   allowedEnvironments: readonly AppleAttestEnvironment[];
   allowedBundleVersions?: ReadonlySet<string>;
   allowedValidationCategories?: ReadonlySet<number>;
@@ -32,6 +32,7 @@ export interface VerifyAttestationOptions {
 }
 
 export interface VerifiedAttestation {
+  appId: string;
   publicKeySpki: Uint8Array;
   publicKeyRaw: Uint8Array;
   appleEnvironment: AppleAttestEnvironment;
@@ -44,13 +45,14 @@ export interface VerifyAssertionOptions {
   assertionObject: Uint8Array;
   clientDataHash: Uint8Array;
   publicKeySpki: Uint8Array;
-  expectedAppId: string;
+  expectedAppIds: ReadonlySet<string>;
   previousCounter: number;
   allowedBundleVersions?: ReadonlySet<string>;
   allowedValidationCategories?: ReadonlySet<number>;
 }
 
 export interface VerifiedAssertion {
+  appId: string;
   counter: number;
   validationCategory: number | null;
   bundleVersion: string | null;
@@ -113,6 +115,14 @@ function ownedArrayBuffer(bytes: Uint8Array): ArrayBuffer {
 
 async function sha256(bytes: Uint8Array): Promise<Uint8Array> {
   return new Uint8Array(await crypto.subtle.digest("SHA-256", ownedArrayBuffer(bytes)));
+}
+
+async function matchAppId(rpIdHash: Uint8Array, expectedAppIds: ReadonlySet<string>, reason: string): Promise<string> {
+  for (const appId of expectedAppIds) {
+    const expectedHash = await sha256(new TextEncoder().encode(appId));
+    if (equalBytes(rpIdHash, expectedHash)) return appId;
+  }
+  reject(reason);
 }
 
 function decodeStandardBase64(value: string, label: string): Uint8Array {
@@ -317,8 +327,7 @@ async function verifyAppAttestAttestationCore(
   await validateCertificateChain(leaf, intermediate, options.now ?? new Date());
 
   const parsed = parseAuthenticatorData(authData, true);
-  const expectedAppIdHash = await sha256(new TextEncoder().encode(options.expectedAppId));
-  if (!equalBytes(parsed.rpIdHash, expectedAppIdHash)) reject("attestation:app-id");
+  const appId = await matchAppId(parsed.rpIdHash, options.expectedAppIds, "attestation:app-id");
   if (parsed.counter !== 0) reject("attestation:counter");
   const appleEnvironment = environmentForAaguid(parsed.aaguid!);
   if (!options.allowedEnvironments.includes(appleEnvironment)) reject("attestation:environment");
@@ -336,7 +345,7 @@ async function verifyAppAttestAttestationCore(
   const nonce = await sha256(concatBytes(authData, options.clientDataHash));
   if (!equalBytes(extractAppleNonce(leaf), nonce)) reject("attestation:nonce");
   const facts = validationFacts(parsed.extensions, options.allowedBundleVersions, options.allowedValidationCategories);
-  return { publicKeySpki, publicKeyRaw, appleEnvironment, assertionCounter: 0, ...facts };
+  return { appId, publicKeySpki, publicKeyRaw, appleEnvironment, assertionCounter: 0, ...facts };
 }
 
 export function verifyAppAttestAttestation(options: VerifyAttestationOptions): Promise<VerifiedAttestation> {
@@ -383,8 +392,7 @@ export async function verifyAppAttestAssertion(options: VerifyAssertionOptions):
   const authenticatorData = asBytes(object.get("authenticatorData"), "assertion:authenticator-data");
   const parsed = parseAuthenticatorData(authenticatorData, false);
   if (parsed.credentialId !== null) reject("assertion:unexpected-credential");
-  const expectedAppIdHash = await sha256(new TextEncoder().encode(options.expectedAppId));
-  if (!equalBytes(parsed.rpIdHash, expectedAppIdHash)) reject("assertion:app-id");
+  const appId = await matchAppId(parsed.rpIdHash, options.expectedAppIds, "assertion:app-id");
   if (parsed.counter <= options.previousCounter || parsed.counter === 0) reject("assertion:counter");
 
   const nonce = await sha256(concatBytes(authenticatorData, options.clientDataHash));
@@ -403,6 +411,7 @@ export async function verifyAppAttestAssertion(options: VerifyAssertionOptions):
   );
   if (!valid) reject("assertion:signature");
   return {
+    appId,
     counter: parsed.counter,
     ...validationFacts(parsed.extensions, options.allowedBundleVersions, options.allowedValidationCategories),
   };

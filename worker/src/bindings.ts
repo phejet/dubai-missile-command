@@ -53,7 +53,7 @@ export interface Env {
   ALLOWED_BUILDS?: string;
   ALLOWED_ORIGINS?: string;
   APPLE_TEAM_ID?: string;
-  APPLE_BUNDLE_ID?: string;
+  APPLE_BUNDLE_IDS?: string;
   APPLE_BUNDLE_VERSIONS?: string;
   APPLE_VALIDATION_CATEGORIES?: string;
   APPLE_ATTEST_ENVIRONMENTS?: string;

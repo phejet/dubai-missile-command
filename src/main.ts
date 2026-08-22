@@ -7,6 +7,9 @@ import { bootGame } from "./boot-game";
 import { clientLog } from "./client-log";
 import { initDiagnostics } from "./diagnostics-log";
 
+const gameShell = document.getElementById("game-shell");
+if (gameShell) gameShell.dataset.appFlavor = __DMC_APP_FLAVOR__;
+
 initDiagnostics();
 
 const runtime = bootGame();

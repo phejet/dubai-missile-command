@@ -28,7 +28,7 @@ Examples:
 Environment (.env.local):
   MAC_HOSTNAME=YourMacHostName
   IPHONE_UDID=00000000-0000000000000000
-  BUNDLE_ID=com.phejet.dubaicmd
+  BUNDLE_ID=com.phejet.dubaicmd.dev
   PERF_BASELINE_DIR=perf-results/baselines/<buildId>   # optional pinned baseline root
 EOF
 }

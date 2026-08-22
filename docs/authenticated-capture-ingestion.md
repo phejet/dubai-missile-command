@@ -216,13 +216,19 @@ no challenge or ingest request occurs.
 Replace the nullable free-form endpoint define with a closed build channel. Endpoint
 mapping belongs in reviewed build configuration:
 
-| Build command                   | Channel                                            | Destination                 |
-| ------------------------------- | -------------------------------------------------- | --------------------------- |
-| `npm run dev`                   | `local`                                            | Same-origin Vite middleware |
-| Ordinary `npm run build`        | `off`                                              | None                        |
-| Current local static iOS build  | `off` until an explicit channel script is selected | None                        |
-| Proposed `build:ios:staging`    | `staging`                                          | Fixed staging Worker URL    |
-| Proposed `build:ios:production` | `production`                                       | Fixed production Worker URL |
+| Build command                  | Identity   | Channel      | Destination                 |
+| ------------------------------ | ---------- | ------------ | --------------------------- |
+| `npm run dev`                  | Web        | `local`      | Same-origin Vite middleware |
+| Ordinary `npm run build`       | Web        | `off`        | None                        |
+| `npm run build:ios:dev`        | Dev        | `off`        | None                        |
+| `npm run build:ios:staging`    | Staging    | `staging`    | Fixed staging Worker URL    |
+| `npm run build:ios`            | Production | `off`        | None                        |
+| `npm run build:ios:production` | Production | `production` | Fixed production Worker URL |
+
+Dev, Staging, and Production use `com.phejet.dubaicmd.dev`,
+`com.phejet.dubaicmd.staging`, and `com.phejet.dubaicmd` respectively. Flavor selection
+is mandatory for Capacitor builds. Vite and Xcode independently reject omitted,
+mismatched, or stale flavor/channel/app-ID combinations.
 
 The iPhone receives no Cloudflare API token or retrieval bearer. It receives only the
 public Worker URL and non-secret channel/build identifiers. The native App Attest
@@ -545,6 +551,9 @@ remote environment. `ALLOWED_BUILDS` is a rolling exact list of distributed
 test, and remove retired values during normal deployment. It is rollout hygiene for
 first-party clients, not authentication or dependable revocation; revoke the App Attest
 key to block a submitter. `ENROLLMENT_ENABLED` is also required and defaults to `false`.
+Require `APPLE_BUNDLE_IDS` as an exact comma-separated allowlist. Staging may temporarily
+carry reviewed Dev/Staging/legacy identities during migration; production must contain
+only `com.phejet.dubaicmd`.
 Require `APPLE_BUNDLE_VERSIONS` alongside it as a comma-separated rolling allowlist of
 the `CFBundleVersion` values still distributed. TestFlight build numbers overlap during
 rollout, so this must not be a scalar baked into the workflow. Require
@@ -652,7 +661,7 @@ actual Worker runtime.
   and add zero-remote-network tests including malicious endpoint injection.
 - Add `CAPTURE_AUTH_SECRET`, stateless challenge tokens, the compact token-plus-body-hash
   assertion format, key enrollment/revocation, and the one-table D1 credential model.
-- Make `ENROLLMENT_ENABLED`, `ALLOWED_BUILDS`, `APPLE_BUNDLE_VERSIONS`, and
+- Make `ENROLLMENT_ENABLED`, `ALLOWED_BUILDS`, `APPLE_BUNDLE_IDS`, `APPLE_BUNDLE_VERSIONS`, and
   `APPLE_VALIDATION_CATEGORIES` required/fail-closed remotely; use only IP limits before
   proof and key-hash quotas after proof.
 - Reserve assertion counters atomically, move all R2 writes behind reservation, make

@@ -83,7 +83,7 @@ npm run dev:lan
 ```bash
 MAC_HOSTNAME=YourMacHostName
 IPHONE_UDID=00000000-0000000000000000
-BUNDLE_ID=com.phejet.dubaicmd
+BUNDLE_ID=com.phejet.dubaicmd.dev
 # optional pinned baseline root for compare output
 PERF_BASELINE_DIR=perf-results/baselines/<buildId>
 ```
@@ -93,17 +93,20 @@ PERF_BASELINE_DIR=perf-results/baselines/<buildId>
 3. Install the iPhone build you want to measure:
 
 ```bash
-npm run ios:dev      # Live Reload build for fast iteration (opens Xcode; Run manually)
-npm run ios:deploy   # static production build, builds + installs on device via devicectl
-npm run ios:install  # re-install only (skips vite build + cap sync); needs an existing dist/
+npm run ios:dev         # Dev identity with Live Reload (opens Xcode; select App-Dev)
+npm run ios:deploy:dev  # static Dev identity, builds + installs via devicectl
+npm run ios:deploy      # production identity with cloud capture off; perf/release smoke only
 ```
 
-`ios:deploy` is the preferred path for committed baselines: it builds for `generic/platform=iOS`, signs with `-allowProvisioningUpdates`, and pushes the `.app` to `IPHONE_UDID` from `.env.local`. No Xcode click required.
+`ios:deploy:dev` is the preferred path for committed baselines: it builds the explicit
+Dev identity for `generic/platform=iOS`, signs with `-allowProvisioningUpdates`, and
+pushes the `.app` to `IPHONE_UDID` from `.env.local`. No Xcode click required and no
+Production identity is displaced.
 
 If mDNS is blocked, the Live Reload variant accepts an explicit URL:
 
 ```bash
-CAP_DEV_SERVER=http://192.168.1.23:5173 npm run cap:sync && npm run cap:open
+DMC_APP_FLAVOR=dev CAP_DEV_SERVER=http://192.168.1.23:5173 npx cap sync ios && npm run cap:open
 ```
 
 4. Run the Mac-side harness:

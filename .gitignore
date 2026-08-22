@@ -56,6 +56,8 @@ src/headless/learning-log.jsonl
 ios/App/Pods/
 ios/App/App/public/
 ios/App/output/
+ios/App/build/
+ios/App/build-*/
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
 DerivedData/

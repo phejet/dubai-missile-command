@@ -14,7 +14,7 @@ export default defineConfig({
           CAPTURE_AUTH_SECRET: "test-capture-auth-secret-32-bytes-minimum",
           ALLOWED_BUILDS: "build+dirty",
           APPLE_TEAM_ID: "TESTTEAM1",
-          APPLE_BUNDLE_ID: "com.phejet.dubaicmd.test",
+          APPLE_BUNDLE_IDS: "com.phejet.dubaicmd.test,com.phejet.dubaicmd.staging",
           APPLE_BUNDLE_VERSIONS: "1,2",
           APPLE_VALIDATION_CATEGORIES: "1,3",
           APPLE_ATTEST_ENVIRONMENTS: "development",

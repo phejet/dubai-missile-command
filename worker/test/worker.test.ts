@@ -101,6 +101,7 @@ function syntheticAttestation(
   options: { publicKeyByte?: number; environment?: "development" | "production"; bundleVersion?: string } = {},
 ) {
   return vi.fn<(input: VerifyAttestationOptions) => Promise<VerifiedAttestation>>(async () => ({
+    appId: "TESTTEAM1.com.phejet.dubaicmd.test",
     publicKeySpki: new Uint8Array([options.publicKeyByte ?? 1, 2, 3]),
     publicKeyRaw: new Uint8Array(65),
     appleEnvironment: options.environment ?? ("development" as const),
@@ -268,6 +269,7 @@ describe("capture Worker split", () => {
       {
         ...env,
         WORKER_BUILD: "production",
+        APPLE_BUNDLE_IDS: "com.phejet.dubaicmd",
         APPLE_ATTEST_ENVIRONMENTS: "production",
       } as unknown as Env,
     );

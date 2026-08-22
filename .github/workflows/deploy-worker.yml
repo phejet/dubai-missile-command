@@ -57,6 +57,7 @@ jobs:
           CAPTURE_BEARER_TOKEN: ${{ secrets.CAPTURE_BEARER_TOKEN }}
           CAPTURE_AUTH_SECRET: ${{ secrets.CAPTURE_AUTH_SECRET }}
           ALLOWED_BUILDS: ${{ vars.ALLOWED_BUILDS }}
+          APPLE_BUNDLE_IDS: ${{ vars.APPLE_BUNDLE_IDS }}
           APPLE_BUNDLE_VERSIONS: ${{ vars.APPLE_BUNDLE_VERSIONS }}
           APPLE_VALIDATION_CATEGORIES: ${{ vars.APPLE_VALIDATION_CATEGORIES }}
           ENROLLMENT_ENABLED: ${{ vars.ENROLLMENT_ENABLED }}
@@ -67,6 +68,7 @@ jobs:
           test "${#CAPTURE_BEARER_TOKEN}" -ge 32
           test "${#CAPTURE_AUTH_SECRET}" -ge 32
           test -n "$ALLOWED_BUILDS"
+          test -n "$APPLE_BUNDLE_IDS"
           test -n "$APPLE_BUNDLE_VERSIONS"
           test -n "$APPLE_VALIDATION_CATEGORIES"
           test "$ENROLLMENT_ENABLED" = true -o "$ENROLLMENT_ENABLED" = false
@@ -77,6 +79,7 @@ jobs:
           CAPTURE_BEARER_TOKEN: ${{ secrets.CAPTURE_BEARER_TOKEN }}
           CAPTURE_AUTH_SECRET: ${{ secrets.CAPTURE_AUTH_SECRET }}
           ALLOWED_BUILDS: ${{ vars.ALLOWED_BUILDS }}
+          APPLE_BUNDLE_IDS: ${{ vars.APPLE_BUNDLE_IDS }}
           APPLE_BUNDLE_VERSIONS: ${{ vars.APPLE_BUNDLE_VERSIONS }}
           APPLE_VALIDATION_CATEGORIES: ${{ vars.APPLE_VALIDATION_CATEGORIES }}
           ENROLLMENT_ENABLED: ${{ vars.ENROLLMENT_ENABLED }}
@@ -90,7 +93,7 @@ jobs:
             --var "WORKER_BUILD:staging" \
             --var "ALLOWED_BUILDS:$ALLOWED_BUILDS" \
             --var "APPLE_TEAM_ID:5A2PL567F2" \
-            --var "APPLE_BUNDLE_ID:com.phejet.dubaicmd" \
+            --var "APPLE_BUNDLE_IDS:$APPLE_BUNDLE_IDS" \
             --var "APPLE_BUNDLE_VERSIONS:$APPLE_BUNDLE_VERSIONS" \
             --var "APPLE_VALIDATION_CATEGORIES:$APPLE_VALIDATION_CATEGORIES" \
             --var "APPLE_ATTEST_ENVIRONMENTS:$APPLE_ATTEST_ENVIRONMENTS" \
@@ -119,6 +122,7 @@ jobs:
           CAPTURE_BEARER_TOKEN: ${{ secrets.CAPTURE_BEARER_TOKEN }}
           CAPTURE_AUTH_SECRET: ${{ secrets.CAPTURE_AUTH_SECRET }}
           ALLOWED_BUILDS: ${{ vars.ALLOWED_BUILDS }}
+          APPLE_BUNDLE_IDS: ${{ vars.APPLE_BUNDLE_IDS }}
           APPLE_BUNDLE_VERSIONS: ${{ vars.APPLE_BUNDLE_VERSIONS }}
           APPLE_VALIDATION_CATEGORIES: ${{ vars.APPLE_VALIDATION_CATEGORIES }}
           ENROLLMENT_ENABLED: ${{ vars.ENROLLMENT_ENABLED }}
@@ -129,6 +133,7 @@ jobs:
           test "${#CAPTURE_BEARER_TOKEN}" -ge 32
           test "${#CAPTURE_AUTH_SECRET}" -ge 32
           test -n "$ALLOWED_BUILDS"
+          test -n "$APPLE_BUNDLE_IDS"
           test -n "$APPLE_BUNDLE_VERSIONS"
           test -n "$APPLE_VALIDATION_CATEGORIES"
           test "$ENROLLMENT_ENABLED" = true -o "$ENROLLMENT_ENABLED" = false
@@ -139,6 +144,7 @@ jobs:
           CAPTURE_BEARER_TOKEN: ${{ secrets.CAPTURE_BEARER_TOKEN }}
           CAPTURE_AUTH_SECRET: ${{ secrets.CAPTURE_AUTH_SECRET }}
           ALLOWED_BUILDS: ${{ vars.ALLOWED_BUILDS }}
+          APPLE_BUNDLE_IDS: ${{ vars.APPLE_BUNDLE_IDS }}
           APPLE_BUNDLE_VERSIONS: ${{ vars.APPLE_BUNDLE_VERSIONS }}
           APPLE_VALIDATION_CATEGORIES: ${{ vars.APPLE_VALIDATION_CATEGORIES }}
           ENROLLMENT_ENABLED: ${{ vars.ENROLLMENT_ENABLED }}
@@ -151,7 +157,7 @@ jobs:
             --var "WORKER_BUILD:production" \
             --var "ALLOWED_BUILDS:$ALLOWED_BUILDS" \
             --var "APPLE_TEAM_ID:5A2PL567F2" \
-            --var "APPLE_BUNDLE_ID:com.phejet.dubaicmd" \
+            --var "APPLE_BUNDLE_IDS:$APPLE_BUNDLE_IDS" \
             --var "APPLE_BUNDLE_VERSIONS:$APPLE_BUNDLE_VERSIONS" \
             --var "APPLE_VALIDATION_CATEGORIES:$APPLE_VALIDATION_CATEGORIES" \
             --var "APPLE_ATTEST_ENVIRONMENTS:production" \

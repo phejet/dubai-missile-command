@@ -1,5 +1,46 @@
 # Lessons
 
+## 2026-08-22 — Follow the delivered TestFlight invitation flow
+
+- Do not assume an App Store Connect internal tester assignment will appear automatically
+  in TestFlight. Apple may send an internal tester a redeem code even when the build and
+  tester are already attached to the internal group. Read the actual invitation email and
+  follow its `Redeem` or `Redeem Invite` instructions before diagnosing account mismatch
+  or propagation delay.
+
+## 2026-08-22 — Separate development and TestFlight app identities
+
+- A development-signed app and a TestFlight app with the same bundle identifier cannot
+  coexist on iOS; TestFlight replaces the development install and may discard its data.
+  Keep the TestFlight/production bundle ID stable and give development or staging builds a
+  distinct App ID before calling side-by-side device testing ready. Account for App Attest
+  bundle binding, provisioning, URL schemes, server allowlists, and fresh local data as one
+  coordinated change rather than treating the warning as harmless installation ceremony.
+
+## 2026-08-22 — Use standard iOS flavors for environment promotion
+
+- Do not invent an ad hoc device-distribution sequence when the requirement is conventional
+  dev/staging/production coexistence. Model environments with Xcode schemes/build
+  configurations, `.xcconfig` values, distinct bundle IDs, display names, App IDs, and
+  backend endpoints. Treat TestFlight as a distribution channel, not an environment.
+- Promote a reviewed source commit or tag across flavors. A staging binary with a different
+  bundle ID cannot become the production binary; build the production flavor from the same
+  commit, test that production build in TestFlight, then select that exact build for App
+  Store release.
+
+## 2026-08-22 — A rollout kill switch is not enrollment UX
+
+- Briefly opening a global enrollment switch was suitable for proving one paired-device
+  vertical slice, not for onboarding beta testers. If product policy allows every genuine,
+  allowlisted TestFlight or App Store install to upload after explicit consent, validate
+  App Attest and activate the credential immediately. Add a pending/operator-approval state
+  only when a genuinely closed cohort is required. Keep a global switch solely as an
+  emergency pause on new enrollments.
+- Keep the layers explicit: TestFlight controls distribution, consent records the tester's
+  choice, App Attest proves a genuine build/install, build allowlists govern versions, and
+  revocation removes access later. Do not insert human approval merely because an enrollment
+  object exists; that creates operational theatre rather than a usable trust model.
+
 ## 2026-08-22 — Show configuration deltas, not duplicated context
 
 - When the user asks what must change in an existing configuration, lead with the exact
