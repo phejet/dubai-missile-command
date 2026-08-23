@@ -1,5 +1,26 @@
 # Lessons
 
+## 2026-08-23 — Compose app icons at installed size first
+
+- A 1024px icon master can look excellent while collapsing into a toothpick on the Home
+  Screen. Start from the 120px compiled iPhone icon and ensure two or three dominant forms
+  survive there; only then refine the source master. Here the correct composition is a
+  tower filling roughly 85% of the height plus one inbound missile, with skyline, water,
+  launchers, windows, multiple threats, and texture removed.
+- "16-bit inspired" does not require coarse fake pixelation. Preserve the limited palette
+  and stepped architectural rhythm while using smooth outer contours and large readable
+  masses when the physical icon demands it.
+- At installed size, near-contact reads as contact. Leave an unmistakable gap between an
+  inbound threat and its target—about one-third of the threat body here—rather than
+  trusting a few high-resolution pixels to survive reduction.
+- Position environment tabs against the final iOS rounded mask, not the square master.
+  Inset `DEV` and `STAGING` by at least one letter width from the apparent left edge so
+  the labels look intentional instead of pinned beneath the corner crop.
+- Evaluate object placement as a balance of the entire installed icon, not merely as
+  clearance between two objects. The first missile correction stopped the collision but
+  stranded the threat in the upper-right corner and left a dead right-middle quadrant;
+  translate it down-right until the negative space feels deliberate at Home Screen size.
+
 ## 2026-08-23 — Visual concept diversity must change the visual system
 
 - When asked for multiple icon directions, do not reuse one glossy/neon rendering recipe
