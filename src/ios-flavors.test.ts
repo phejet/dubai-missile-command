@@ -8,16 +8,19 @@ describe("iOS app flavors", () => {
     expect(IOS_APP_FLAVORS).toEqual({
       dev: {
         appId: "com.phejet.dubaicmd.dev",
+        appIcon: "AppIconDev",
         appName: "DMC Dev",
         allowedCaptureChannels: ["off"],
       },
       staging: {
         appId: "com.phejet.dubaicmd.staging",
+        appIcon: "AppIconStaging",
         appName: "Dubai Missile Command Staging",
         allowedCaptureChannels: ["staging"],
       },
       production: {
         appId: "com.phejet.dubaicmd",
+        appIcon: "AppIcon",
         appName: "Dubai Missile Command",
         allowedCaptureChannels: ["off", "production"],
       },
@@ -49,6 +52,7 @@ describe("iOS app flavors", () => {
     for (const [flavor, identity] of Object.entries(IOS_APP_FLAVORS)) {
       expect(project).toContain(`DMC_APP_FLAVOR = ${flavor};`);
       expect(project).toContain(`PRODUCT_BUNDLE_IDENTIFIER = ${identity.appId};`);
+      expect(project).toContain(`ASSETCATALOG_COMPILER_APPICON_NAME = ${identity.appIcon};`);
       expect(packageJson.scripts[`build:ios:${flavor === "production" ? "production" : flavor}`]).toContain(
         `DMC_APP_FLAVOR=${flavor}`,
       );

@@ -1,5 +1,16 @@
 # Lessons
 
+## 2026-08-23 — Visual concept diversity must change the visual system
+
+- When asked for multiple icon directions, do not reuse one glossy/neon rendering recipe
+  across different compositions. Vary the actual medium and design logic: pixel art,
+  screen print, geometric modernism, inked editorial illustration, cut paper, or another
+  genuinely distinct system. Repeated cyan glow, centered monuments, bloom, and polished
+  3D shading produce generic AI slop regardless of prompt nouns.
+- Use the game's reference artwork for subject, composition, and palette relationships,
+  but deliberately suppress the image model's default cinematic polish. Judge every
+  direction at 48–60 px before calling it an app icon rather than a square poster.
+
 ## 2026-08-23 — Derive environment identifiers from production names
 
 - Before naming a staging/dev App Store record, SKU, bundle ID, scheme, or deployment

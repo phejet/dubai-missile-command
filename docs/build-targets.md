@@ -40,11 +40,11 @@ This keeps the native wrapper using relative asset paths and avoids shipping the
 Native builds must also select one explicit `DMC_APP_FLAVOR`. The supported identity
 matrix is:
 
-| Flavor     | Bundle ID                     | Xcode scheme     | Capture channel       |
-| ---------- | ----------------------------- | ---------------- | --------------------- |
-| Dev        | `com.phejet.dubaicmd.dev`     | `App-Dev`        | `off`                 |
-| Staging    | `com.phejet.dubaicmd.staging` | `App-Staging`    | `staging`             |
-| Production | `com.phejet.dubaicmd`         | `App-Production` | `off` or `production` |
+| Flavor     | Bundle ID                     | Xcode scheme     | App icon         | Capture channel       |
+| ---------- | ----------------------------- | ---------------- | ---------------- | --------------------- |
+| Dev        | `com.phejet.dubaicmd.dev`     | `App-Dev`        | `AppIconDev`     | `off`                 |
+| Staging    | `com.phejet.dubaicmd.staging` | `App-Staging`    | `AppIconStaging` | `staging`             |
+| Production | `com.phejet.dubaicmd`         | `App-Production` | `AppIcon`        | `off` or `production` |
 
 Vite rejects omitted flavors and invalid flavor/channel pairs. Each native build emits
 `dmc-native-build.json`; an always-on Xcode build phase compares that manifest and the

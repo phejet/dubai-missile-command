@@ -68,6 +68,13 @@ tasks/todo.md
 # Local run-recap design mockups
 tasks/recap-option*.html
 tasks/recap-data.js
+tasks/app-icon-concepts/
+tasks/app-icon-concepts.html
+tasks/app-icon-title-concepts/
+tasks/app-icon-title-concepts.html
+tasks/app-icon-style-concepts/
+tasks/app-icon-style-concepts.html
+tasks/app-icon-finalists/
 leak-probe-results.json
 /captures/
 /diag-results/
