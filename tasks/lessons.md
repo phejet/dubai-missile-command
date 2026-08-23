@@ -7,6 +7,9 @@
   mechanically. Preserve `dubai-missile-command` → `dubai-missile-command-staging`
   rather than inventing a shorter parallel convention such as `dmc-staging`; consistent
   boring names are easier to audit and much harder to swap accidentally.
+- Treat the App Store Connect product name as the canonical app display name unless there
+  is an explicit UX reason to shorten it. Here both the record and installed flavor are
+  `Dubai Missile Command Staging`; the environment banner supplies the compact cue.
 
 ## 2026-08-22 — Follow the delivered TestFlight invitation flow
 

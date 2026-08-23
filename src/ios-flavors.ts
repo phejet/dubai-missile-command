@@ -6,7 +6,7 @@ export const IOS_APP_FLAVORS = {
   },
   staging: {
     appId: "com.phejet.dubaicmd.staging",
-    appName: "DMC Staging",
+    appName: "Dubai Missile Command Staging",
     allowedCaptureChannels: ["staging"],
   },
   production: {

@@ -440,7 +440,7 @@
 		7A1DC0DE202608220000C002 /* Staging */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				APP_DISPLAY_NAME = "DMC Staging";
+				APP_DISPLAY_NAME = "Dubai Missile Command Staging";
 				APP_ATTEST_ENVIRONMENT = production;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "Apple Development";
