@@ -24,7 +24,9 @@ enrollment switch, not an onboarding ritual.
 
 ## Repository State
 
-Remote `main` is `cc57f78`. Local `main` has two unpublished commits:
+Remote `main` was `cc57f78` when this handoff was started. Local `main` contains these
+unpublished implementation commits plus the commit(s) carrying this handoff; inspect
+`git log` for the current documentation tip:
 
 - `2aab924` — canonical Staging product name;
 - `ac90bdd` — selected production icon plus Dev/Staging icon variants.
