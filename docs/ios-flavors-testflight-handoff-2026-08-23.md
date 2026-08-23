@@ -94,8 +94,10 @@ Verified properties:
 - valid deep code signature;
 - provisioning profile for the Dev App ID.
 
-The phone is expected to be unavailable. Do not diagnose `devicectl` until the user is
-back, the phone is unlocked, and wireless pairing or a cable is available.
+Installed successfully on the paired iPhone on 2026-08-23. The first install attempt hit
+Apple's transient remote install-coordination service; one retry succeeded. An automated
+launch was denied because the phone locked immediately afterward, so the new Home Screen
+icon still needs a human feel-check.
 
 ## Prepared Staging Build
 
@@ -116,7 +118,8 @@ Verified properties:
 - compiled 120px icon uses the amber pixel `STAGING` tab and passed visual inspection.
 
 This is a direct development-signed build for Home Screen/icon verification. It is not
-the replacement TestFlight archive. No phone install was attempted.
+the replacement TestFlight archive. It installed successfully on the paired iPhone on
+2026-08-23; launch/visual confirmation remains pending because the phone locked.
 
 ## App Store Connect State
 
@@ -179,7 +182,9 @@ Production remains untouched and disabled.
 3. Monitor all exact-SHA GitHub workflows. The docs-only handoff commit may become the
    new `HEAD`; use the clean commit actually embedded by the next native build.
 
-4. When the phone returns, install both prepared direct builds without rebuilding:
+4. Both prepared direct builds are installed. Unlock the phone and open `DMC Dev` and
+   `Dubai Missile Command Staging` manually. Feel-check the icons and in-app banners. If
+   either must be reinstalled, use the already prepared artifacts without rebuilding:
 
    ```bash
    set -a
