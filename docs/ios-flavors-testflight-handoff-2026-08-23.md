@@ -97,6 +97,27 @@ Verified properties:
 The phone is expected to be unavailable. Do not diagnose `devicectl` until the user is
 back, the phone is unlocked, and wireless pairing or a cable is available.
 
+## Prepared Staging Build
+
+Signed artifact:
+
+`ios/App/build-staging/Build/Products/Staging-iphoneos/App.app`
+
+Verified properties:
+
+- build ID `5542373`;
+- flavor `staging`;
+- capture channel `staging`;
+- bundle ID `com.phejet.dubaicmd.staging`;
+- display name `Dubai Missile Command Staging`;
+- App Attest environment `production`;
+- valid deep code signature;
+- provisioning profile for the Staging App ID;
+- compiled 120px icon uses the amber pixel `STAGING` tab and passed visual inspection.
+
+This is a direct development-signed build for Home Screen/icon verification. It is not
+the replacement TestFlight archive. No phone install was attempted.
+
 ## App Store Connect State
 
 ### Production record
@@ -158,7 +179,7 @@ Production remains untouched and disabled.
 3. Monitor all exact-SHA GitHub workflows. The docs-only handoff commit may become the
    new `HEAD`; use the clean commit actually embedded by the next native build.
 
-4. When the phone returns, install the already prepared Dev build without rebuilding:
+4. When the phone returns, install both prepared direct builds without rebuilding:
 
    ```bash
    set -a
@@ -171,10 +192,18 @@ Production remains untouched and disabled.
      --device "$IPHONE_UDID" \
      com.phejet.dubaicmd.dev \
      --terminate-existing
+   xcrun devicectl device install app \
+     --device "$IPHONE_UDID" \
+     ios/App/build-staging/Build/Products/Staging-iphoneos/App.app
+   xcrun devicectl device process launch \
+     --device "$IPHONE_UDID" \
+     com.phejet.dubaicmd.staging \
+     --terminate-existing
    ```
 
-5. Feel-check the Home Screen icon at real size. Confirm the magenta `DEV` tab is legible
-   and the red arrow reads as an inbound threat. Do not tune against the 1024px source.
+5. Feel-check both Home Screen icons at real size. Confirm the magenta `DEV` and amber
+   `STAGING` tabs are legible and the red arrow reads as an inbound threat. Do not tune
+   against the 1024px source.
 
 6. Add the clean commit used for the new Staging build to Staging `ALLOWED_BUILDS`, retain
    old builds until the replacement is proven, then dispatch the protected Staging Worker
