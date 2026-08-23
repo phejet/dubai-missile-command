@@ -1,5 +1,13 @@
 # Lessons
 
+## 2026-08-23 — Derive environment identifiers from production names
+
+- Before naming a staging/dev App Store record, SKU, bundle ID, scheme, or deployment
+  resource, inspect the existing production identifier and append the environment
+  mechanically. Preserve `dubai-missile-command` → `dubai-missile-command-staging`
+  rather than inventing a shorter parallel convention such as `dmc-staging`; consistent
+  boring names are easier to audit and much harder to swap accidentally.
+
 ## 2026-08-22 — Follow the delivered TestFlight invitation flow
 
 - Do not assume an App Store Connect internal tester assignment will appear automatically
