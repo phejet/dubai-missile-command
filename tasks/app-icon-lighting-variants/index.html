@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DMC Tower Lighting Studies</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+        background: #080b20;
+        color: #f5f7ff;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        padding: 48px 32px 64px;
+        background: radial-gradient(circle at 50% 0%, #202a58 0, transparent 42%), #080b20;
+      }
+
+      main {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: clamp(30px, 5vw, 54px);
+      }
+
+      .intro {
+        max-width: 780px;
+        margin: 0 0 36px;
+        color: #b8c0df;
+        font-size: 18px;
+        line-height: 1.5;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 20px;
+      }
+
+      .card {
+        margin: 0;
+        padding: 18px;
+        border: 1px solid #30385d;
+        border-radius: 24px;
+        background: rgb(15 19 47 / 88%);
+      }
+
+      .card.selected {
+        border-color: #dce9ff;
+        box-shadow: 0 0 0 2px rgb(220 233 255 / 16%);
+      }
+
+      .icon {
+        display: block;
+        width: 120px;
+        height: 120px;
+        margin: 4px auto 18px;
+        border-radius: 27px;
+        box-shadow: 0 12px 28px rgb(0 0 0 / 38%);
+      }
+
+      h2 {
+        margin: 0 0 8px;
+        font-size: 20px;
+      }
+
+      p {
+        margin: 0;
+        color: #aeb7d8;
+        line-height: 1.42;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      a:hover .card,
+      a:focus-visible .card {
+        border-color: #eb2d70;
+        transform: translateY(-2px);
+      }
+
+      .card {
+        transition:
+          transform 120ms ease,
+          border-color 120ms ease;
+      }
+
+      .note {
+        margin-top: 28px;
+        color: #7882aa;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Tower lighting studies</h1>
+      <p class="intro">
+        Shown at the compiled 120px iPhone size. Click any card for its 1024px master. Composition, missile, background,
+        stars, and Dev marker are locked.
+      </p>
+      <section class="grid" aria-label="App icon variants">
+        <a href="00-baseline.png">
+          <figure class="card">
+            <img class="icon" src="00-baseline-120.png" alt="Baseline icon" />
+            <figcaption>
+              <h2>0. Baseline</h2>
+              <p>Approved steel-blue tower. The safe fallback.</p>
+            </figcaption>
+          </figure>
+        </a>
+        <a href="01-pearl-white.png">
+          <figure class="card">
+            <img class="icon" src="01-pearl-white-120.png" alt="Pearl White icon" />
+            <figcaption>
+              <h2>1. Pearl White</h2>
+              <p>Brightest reference-led facade with luminous terrace bands.</p>
+            </figcaption>
+          </figure>
+        </a>
+        <a href="02-moonlit-silver.png">
+          <figure class="card selected">
+            <img class="icon" src="02-moonlit-silver-120.png" alt="Moonlit Silver icon" />
+            <figcaption>
+              <h2>2. Moonlit Silver — selected</h2>
+              <p>Cooler silver ribs, blue-white windows, restrained brightness.</p>
+            </figcaption>
+          </figure>
+        </a>
+        <a href="03-champagne-night.png">
+          <figure class="card">
+            <img class="icon" src="03-champagne-night-120.png" alt="Champagne Night icon" />
+            <figcaption>
+              <h2>3. Champagne Night</h2>
+              <p>Warm architectural light against cool slate shadow planes.</p>
+            </figcaption>
+          </figure>
+        </a>
+        <a href="04-defense-cyan.png">
+          <figure class="card">
+            <img class="icon" src="04-defense-cyan-120.png" alt="Defense Cyan icon" />
+            <figcaption>
+              <h2>4. Defense Cyan</h2>
+              <p>Bright silver structure with sparse turquoise defense accents.</p>
+            </figcaption>
+          </figure>
+        </a>
+      </section>
+      <p class="note">
+        Moonlit Silver is the selected Dev flavor icon. Staging and Production retain their separate approved
+        identities.
+      </p>
+    </main>
+  </body>
+</html>
