@@ -57,6 +57,9 @@ describe("iOS app flavors", () => {
       expect(packageJson.scripts[`build:ios:${flavor === "production" ? "production" : flavor}`]).toContain(
         `DMC_APP_FLAVOR=${flavor}`,
       );
+      for (const channel of identity.allowedCaptureChannels) {
+        expect(project).toContain(`${flavor}:${channel}`);
+      }
     }
     expect(packageJson.scripts["build:ios:dev"]).toContain("DMC_CAPTURE_CHANNEL=staging");
     expect(packageJson.scripts["build:ios:dev:offline"]).toContain("DMC_CAPTURE_CHANNEL=off");
