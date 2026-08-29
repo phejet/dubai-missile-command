@@ -7,6 +7,7 @@ import {
   type AppleAttestEnvironment,
 } from "./app-attest";
 import type { D1Result, Env } from "./bindings";
+import { deriveCaptureProvenance, type CaptureSubmissionProvenance } from "./capture-provenance";
 
 const TOKEN_VERSION = 1;
 const TOKEN_TTL_MS = 2 * 60 * 1_000;
@@ -20,6 +21,7 @@ export interface CaptureAuthConfig {
   workerEnvironment: "dev" | "staging" | "production";
   authSecret: string;
   allowedBuilds: ReadonlySet<string>;
+  appleTeamId: string;
   appIds: ReadonlySet<string>;
   allowedBundleVersions: ReadonlySet<string>;
   allowedValidationCategories: ReadonlySet<number>;
@@ -42,6 +44,7 @@ interface CredentialRow {
   key_id_hash: string;
   public_key: ArrayBuffer | Uint8Array;
   apple_environment: AppleAttestEnvironment;
+  apple_app_id: string | null;
   assertion_counter: number;
   status: "active" | "revoked";
 }
@@ -49,6 +52,7 @@ interface CredentialRow {
 export interface AuthorizedCapture {
   keyIdHash: string;
   assertionCounter: number;
+  provenance: CaptureSubmissionProvenance;
 }
 
 interface EnrollmentDeps {
@@ -201,6 +205,7 @@ export function captureAuthConfig(env: Env): CaptureAuthConfig {
     workerEnvironment,
     authSecret: env.CAPTURE_AUTH_SECRET,
     allowedBuilds,
+    appleTeamId,
     appIds: new Set(appleBundleIds.map((bundleId) => `${appleTeamId}.${bundleId}`)),
     allowedBundleVersions,
     allowedValidationCategories,
@@ -454,15 +459,15 @@ export async function enroll(request: Request, env: Env, deps: EnrollmentDeps = 
     const now = Date.now();
     await env.DB.prepare(
       `INSERT INTO app_attest_credentials (
-        key_id_hash, public_key, apple_environment, assertion_counter, status,
+        key_id_hash, public_key, apple_environment, apple_app_id, assertion_counter, status,
         created_at, last_seen_at, revoked_at
-      ) VALUES (?, ?, ?, 0, 'active', ?, ?, NULL)
+      ) VALUES (?, ?, ?, ?, 0, 'active', ?, ?, NULL)
       ON CONFLICT(key_id_hash) DO NOTHING`,
     )
-      .bind(keyIdHash, ownedArrayBuffer(verified.publicKeySpki), verified.appleEnvironment, now, now)
+      .bind(keyIdHash, ownedArrayBuffer(verified.publicKeySpki), verified.appleEnvironment, verified.appId, now, now)
       .run();
     const stored = await env.DB.prepare(
-      `SELECT key_id_hash, public_key, apple_environment, assertion_counter, status
+      `SELECT key_id_hash, public_key, apple_environment, apple_app_id, assertion_counter, status
        FROM app_attest_credentials WHERE key_id_hash = ?`,
     )
       .bind(keyIdHash)
@@ -471,11 +476,20 @@ export async function enroll(request: Request, env: Env, deps: EnrollmentDeps = 
       !stored ||
       stored.status !== "active" ||
       stored.apple_environment !== verified.appleEnvironment ||
+      (stored.apple_app_id !== null && stored.apple_app_id !== verified.appId) ||
       toHex(boundedBytes(stored.public_key)) !== toHex(verified.publicKeySpki)
     ) {
       reject("enroll:credential-conflict", 409);
     }
-    return Response.json({ ok: true, keyIdHash });
+    if (stored.apple_app_id === null) {
+      await env.DB.prepare(
+        "UPDATE app_attest_credentials SET apple_app_id = ? WHERE key_id_hash = ? AND apple_app_id IS NULL",
+      )
+        .bind(verified.appId, keyIdHash)
+        .run();
+    }
+    const provenance = deriveCaptureProvenance(verified.appId, config.appleTeamId, verified.appleEnvironment);
+    return Response.json({ ok: true, keyIdHash, appFlavor: provenance.appFlavor });
   } catch (error) {
     return authResponse(error, env.WORKER_BUILD ?? "missing", "enroll");
   }
@@ -498,7 +512,7 @@ export async function authorizeCapture(
   );
   if (!claims.keyIdHash) reject("submission:key-hash");
   const credential = await env.DB.prepare(
-    `SELECT key_id_hash, public_key, apple_environment, assertion_counter, status
+    `SELECT key_id_hash, public_key, apple_environment, apple_app_id, assertion_counter, status
      FROM app_attest_credentials WHERE key_id_hash = ?`,
   )
     .bind(claims.keyIdHash)
@@ -521,18 +535,34 @@ export async function authorizeCapture(
       allowedValidationCategories: config.allowedValidationCategories,
     }),
   );
+  if (credential.apple_app_id !== null && credential.apple_app_id !== verified.appId) {
+    reject("submission:app-id-conflict");
+  }
   const quota = input.purpose === "report" ? env.REPORT_INSTALL : env.INGEST_INSTALL;
   if (!(await quota.limit({ key: claims.keyIdHash })).success) reject("rate:credential", 429);
 
   const reserved = await env.DB.prepare(
     `UPDATE app_attest_credentials
-     SET assertion_counter = ?, last_seen_at = ?
-     WHERE key_id_hash = ? AND status = 'active' AND assertion_counter = ? AND ? > assertion_counter`,
+     SET assertion_counter = ?, last_seen_at = ?, apple_app_id = COALESCE(apple_app_id, ?)
+     WHERE key_id_hash = ? AND status = 'active' AND assertion_counter = ? AND ? > assertion_counter
+       AND (apple_app_id IS NULL OR apple_app_id = ?)`,
   )
-    .bind(verified.counter, Date.now(), claims.keyIdHash, claims.expectedCounter, verified.counter)
+    .bind(
+      verified.counter,
+      Date.now(),
+      verified.appId,
+      claims.keyIdHash,
+      claims.expectedCounter,
+      verified.counter,
+      verified.appId,
+    )
     .run();
   if (!reserved.success || reserved.meta?.changes !== 1) reject("submission:counter-conflict");
-  return { keyIdHash: claims.keyIdHash, assertionCounter: verified.counter };
+  return {
+    keyIdHash: claims.keyIdHash,
+    assertionCounter: verified.counter,
+    provenance: deriveCaptureProvenance(verified.appId, config.appleTeamId, credential.apple_environment),
+  };
 }
 
 export async function revokeCredential(keyIdHash: string, env: Env): Promise<boolean> {

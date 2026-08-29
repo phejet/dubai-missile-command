@@ -10,7 +10,7 @@ describe("iOS app flavors", () => {
         appId: "com.phejet.dubaicmd.dev",
         appIcon: "AppIconDev",
         appName: "DMC Dev",
-        allowedCaptureChannels: ["off"],
+        allowedCaptureChannels: ["off", "staging"],
       },
       staging: {
         appId: "com.phejet.dubaicmd.staging",
@@ -38,8 +38,9 @@ describe("iOS app flavors", () => {
     expect(() => assertIosFlavorCaptureChannel("staging", "staging")).not.toThrow();
     expect(() => assertIosFlavorCaptureChannel("production", "off")).not.toThrow();
     expect(() => assertIosFlavorCaptureChannel("production", "production")).not.toThrow();
-    expect(() => assertIosFlavorCaptureChannel("dev", "staging")).toThrow("cannot use");
+    expect(() => assertIosFlavorCaptureChannel("dev", "staging")).not.toThrow();
     expect(() => assertIosFlavorCaptureChannel("staging", "off")).toThrow("cannot use");
+    expect(() => assertIosFlavorCaptureChannel("dev", "production")).toThrow("cannot use");
     expect(() => assertIosFlavorCaptureChannel("production", "staging")).toThrow("cannot use");
   });
 
@@ -57,6 +58,10 @@ describe("iOS app flavors", () => {
         `DMC_APP_FLAVOR=${flavor}`,
       );
     }
+    expect(packageJson.scripts["build:ios:dev"]).toContain("DMC_CAPTURE_CHANNEL=staging");
+    expect(packageJson.scripts["build:ios:dev:offline"]).toContain("DMC_CAPTURE_CHANNEL=off");
+    expect(packageJson.scripts["dev:lan"]).toContain("DMC_CAPTURE_CHANNEL=staging");
+    expect(packageJson.scripts["dev:lan:offline"]).toContain("DMC_CAPTURE_CHANNEL=off");
 
     const schemes = {
       dev: ["App-Dev.xcscheme", "Debug"],

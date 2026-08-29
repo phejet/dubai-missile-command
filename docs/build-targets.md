@@ -42,7 +42,7 @@ matrix is:
 
 | Flavor     | Bundle ID                     | Xcode scheme     | App icon         | Capture channel       |
 | ---------- | ----------------------------- | ---------------- | ---------------- | --------------------- |
-| Dev        | `com.phejet.dubaicmd.dev`     | `App-Dev`        | `AppIconDev`     | `off`                 |
+| Dev        | `com.phejet.dubaicmd.dev`     | `App-Dev`        | `AppIconDev`     | `off` or `staging`    |
 | Staging    | `com.phejet.dubaicmd.staging` | `App-Staging`    | `AppIconStaging` | `staging`             |
 | Production | `com.phejet.dubaicmd`         | `App-Production` | `AppIcon`        | `off` or `production` |
 
@@ -77,9 +77,12 @@ Important limitation:
 Core scripts from `package.json`:
 
 - `npm run dev`
+- `npm run dev:lan` -> Dev live reload with consent-gated Staging capture
+- `npm run dev:lan:offline` -> Dev live reload with cloud capture disabled
 - `npm run build`
 - `npm run build:ios`
 - `npm run build:ios:dev`
+- `npm run build:ios:dev:offline`
 - `npm run build:ios:staging`
 - `npm run build:ios:production`
 - `npm run preview`
@@ -88,7 +91,8 @@ Core scripts from `package.json`:
 - `npm run test:e2e`
 - `npm run typecheck`
 - `npm run ios` -> build, sync, open
-- `npm run ios:deploy:dev` -> direct Dev install
+- `npm run ios:deploy:dev` -> direct Dev install with consent-gated Staging capture
+- `npm run ios:deploy:dev:offline` -> direct Dev install with capture disabled
 - `npm run ios:deploy:staging` -> direct Staging install for signing checks
 - `npm run ios:deploy:production` -> explicit Production-channel install
 

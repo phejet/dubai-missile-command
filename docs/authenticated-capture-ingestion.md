@@ -216,19 +216,28 @@ no challenge or ingest request occurs.
 Replace the nullable free-form endpoint define with a closed build channel. Endpoint
 mapping belongs in reviewed build configuration:
 
-| Build command                  | Identity   | Channel      | Destination                 |
-| ------------------------------ | ---------- | ------------ | --------------------------- |
-| `npm run dev`                  | Web        | `local`      | Same-origin Vite middleware |
-| Ordinary `npm run build`       | Web        | `off`        | None                        |
-| `npm run build:ios:dev`        | Dev        | `off`        | None                        |
-| `npm run build:ios:staging`    | Staging    | `staging`    | Fixed staging Worker URL    |
-| `npm run build:ios`            | Production | `off`        | None                        |
-| `npm run build:ios:production` | Production | `production` | Fixed production Worker URL |
+| Build command                   | Identity   | Channel      | Destination                 |
+| ------------------------------- | ---------- | ------------ | --------------------------- |
+| `npm run dev`                   | Web        | `local`      | Same-origin Vite middleware |
+| `npm run dev:lan`               | Dev        | `staging`    | Fixed staging Worker URL    |
+| `npm run dev:lan:offline`       | Dev        | `off`        | None                        |
+| Ordinary `npm run build`        | Web        | `off`        | None                        |
+| `npm run build:ios:dev`         | Dev        | `staging`    | Fixed staging Worker URL    |
+| `npm run build:ios:dev:offline` | Dev        | `off`        | None                        |
+| `npm run build:ios:staging`     | Staging    | `staging`    | Fixed staging Worker URL    |
+| `npm run build:ios`             | Production | `off`        | None                        |
+| `npm run build:ios:production`  | Production | `production` | Fixed production Worker URL |
 
 Dev, Staging, and Production use `com.phejet.dubaicmd.dev`,
 `com.phejet.dubaicmd.staging`, and `com.phejet.dubaicmd` respectively. Flavor selection
 is mandatory for Capacitor builds. Vite and Xcode independently reject omitted,
 mismatched, or stale flavor/channel/app-ID combinations.
+
+Dev and Staging may both submit native human-play artifacts to the Staging Worker after
+explicit consent. The Worker derives submission flavor from the Apple app ID verified by
+App Attest, persists it on the session or diagnostic-report reference, and never stamps
+flavor onto the shared content-addressed replay object. Dev is never accepted by the
+Production Worker.
 
 The iPhone receives no Cloudflare API token or retrieval bearer. It receives only the
 public Worker URL and non-secret channel/build identifiers. The native App Attest

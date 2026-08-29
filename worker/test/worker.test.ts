@@ -98,10 +98,15 @@ function enrollmentRequest(keyId: string, challengeToken: string): Request {
 }
 
 function syntheticAttestation(
-  options: { publicKeyByte?: number; environment?: "development" | "production"; bundleVersion?: string } = {},
+  options: {
+    appId?: string;
+    publicKeyByte?: number;
+    environment?: "development" | "production";
+    bundleVersion?: string;
+  } = {},
 ) {
   return vi.fn<(input: VerifyAttestationOptions) => Promise<VerifiedAttestation>>(async () => ({
-    appId: "TESTTEAM1.com.phejet.dubaicmd.test",
+    appId: options.appId ?? "TESTTEAM1.com.phejet.dubaicmd.dev",
     publicKeySpki: new Uint8Array([options.publicKeyByte ?? 1, 2, 3]),
     publicKeyRaw: new Uint8Array(65),
     appleEnvironment: options.environment ?? ("development" as const),
@@ -173,9 +178,10 @@ describe("capture Worker split", () => {
     const response = await post("session", session, { gzip: true });
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ ok: true, id: "run", replaySha256: session.meta.replaySha256 });
-    expect(await env.DB.prepare("SELECT run_id, replay_verified FROM sessions").first()).toEqual({
+    expect(await env.DB.prepare("SELECT run_id, replay_verified, app_flavor FROM sessions").first()).toEqual({
       run_id: "run",
       replay_verified: 0,
+      app_flavor: "dev",
     });
     expect(
       (await env.DB.prepare("SELECT COUNT(*) AS count FROM diagnostic_reports").first<{ count: number }>())!.count,
@@ -185,6 +191,39 @@ describe("capture Worker split", () => {
     const decoded = await gunzip(new Uint8Array(await new Response(replay!.body).arrayBuffer()));
     expect(JSON.parse(new TextDecoder().decode(decoded))).toEqual(session.replay);
     expect(new TextDecoder().decode(decoded)).not.toContain('"events"');
+  });
+
+  it("self-heals legacy credential identity and records attested Dev provenance", async () => {
+    const current = await currentTestCredential();
+    await env.DB.prepare("UPDATE app_attest_credentials SET apple_app_id = NULL WHERE key_id_hash = ?")
+      .bind(current.keyIdHash)
+      .run();
+
+    expect((await post("session", sessionFixture({ runId: "legacy-provenance" }))).status).toBe(200);
+    expect(
+      await env.DB.prepare("SELECT apple_app_id FROM app_attest_credentials WHERE key_id_hash = ?")
+        .bind(current.keyIdHash)
+        .first(),
+    ).toEqual({ apple_app_id: "TESTTEAM1.com.phejet.dubaicmd.dev" });
+    expect(
+      await env.DB.prepare(
+        "SELECT app_flavor, apple_bundle_id, apple_environment FROM sessions WHERE run_id = 'legacy-provenance'",
+      ).first(),
+    ).toEqual({
+      app_flavor: "dev",
+      apple_bundle_id: "com.phejet.dubaicmd.dev",
+      apple_environment: "development",
+    });
+  });
+
+  it("rejects an assertion whose attested app ID conflicts with the stored credential identity", async () => {
+    const current = await currentTestCredential();
+    await env.DB.prepare("UPDATE app_attest_credentials SET apple_app_id = ? WHERE key_id_hash = ?")
+      .bind("TESTTEAM1.com.phejet.dubaicmd.staging", current.keyIdHash)
+      .run();
+    const response = await post("session", sessionFixture({ runId: "cross-flavor" }));
+    expect(response.status).toBe(401);
+    expect(await env.DB.prepare("SELECT run_id FROM sessions WHERE run_id = 'cross-flavor'").first()).toBeNull();
   });
 
   it("rejects a valid capture without App Attest proof before any D1 or R2 write", async () => {
@@ -334,10 +373,16 @@ describe("capture Worker split", () => {
     expect(input.clientDataHash).toEqual(expectedHash);
     expect(input.allowedBundleVersions).toEqual(new Set(["1", "2"]));
     expect(
-      await env.DB.prepare("SELECT apple_environment, status FROM app_attest_credentials WHERE key_id_hash = ?")
+      await env.DB.prepare(
+        "SELECT apple_environment, apple_app_id, status FROM app_attest_credentials WHERE key_id_hash = ?",
+      )
         .bind(((await response.json()) as { keyIdHash: string }).keyIdHash)
         .first(),
-    ).toEqual({ apple_environment: "development", status: "active" });
+    ).toEqual({
+      apple_environment: "development",
+      apple_app_id: "TESTTEAM1.com.phejet.dubaicmd.dev",
+      status: "active",
+    });
   });
 
   it("makes enrollment idempotent but refuses conflicting or revoked credential reuse", async () => {
@@ -356,6 +401,13 @@ describe("capture Worker split", () => {
       (
         await enroll(enrollmentRequest(keyId, await enrollmentChallenge()), env, {
           verifyAttestation: syntheticAttestation({ publicKeyByte: 9 }),
+        })
+      ).status,
+    ).toBe(409);
+    expect(
+      (
+        await enroll(enrollmentRequest(keyId, await enrollmentChallenge()), env, {
+          verifyAttestation: syntheticAttestation({ appId: "TESTTEAM1.com.phejet.dubaicmd.staging" }),
         })
       ).status,
     ).toBe(409);
@@ -416,7 +468,16 @@ describe("capture Worker split", () => {
       headers: { Authorization: "Bearer test-secret" },
     });
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ ok: true, session: { replay_sha256: null }, replay: null });
+    expect(await response.json()).toMatchObject({
+      ok: true,
+      session: { replay_sha256: null, app_flavor: "dev" },
+      provenance: {
+        appFlavor: "dev",
+        bundleId: "com.phejet.dubaicmd.dev",
+        appleEnvironment: "development",
+      },
+      replay: null,
+    });
   });
 
   it("stores report diagnostics separately and semantically reassembles the replay", async () => {
@@ -438,7 +499,14 @@ describe("capture Worker split", () => {
       headers: { Authorization: "Bearer test-secret" },
     });
     expect(retrieved.status).toBe(200);
-    expect(await retrieved.json()).toEqual(report);
+    expect(await retrieved.json()).toEqual({
+      ...report,
+      provenance: {
+        appFlavor: "dev",
+        bundleId: "com.phejet.dubaicmd.dev",
+        appleEnvironment: "development",
+      },
+    });
   });
 
   it("deduplicates a report and session replay while preserving the longer window", async () => {
@@ -732,6 +800,25 @@ describe("capture Worker split", () => {
         ).status,
       ).toBe(200);
     }
+  });
+
+  it("lists and filters capture rows by server-derived app flavor", async () => {
+    await post("session", sessionFixture({ runId: "dev-filter" }));
+    const headers = { Authorization: "Bearer test-secret" };
+    const devResponse = await SELF.fetch("https://worker.test/api/sessions?flavor=dev", { headers });
+    expect(devResponse.status).toBe(200);
+    expect(await devResponse.json()).toMatchObject({
+      sessions: [
+        {
+          run_id: "dev-filter",
+          app_flavor: "dev",
+          apple_bundle_id: "com.phejet.dubaicmd.dev",
+          apple_environment: "development",
+        },
+      ],
+    });
+    const stagingResponse = await SELF.fetch("https://worker.test/api/sessions?flavor=staging", { headers });
+    expect(await stagingResponse.json()).toMatchObject({ sessions: [] });
   });
 
   it("allows only configured origins on both ingest routes", async () => {

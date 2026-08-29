@@ -73,6 +73,14 @@ type ReplayLookup =
   | { replay: null; replayStatus: "omitted" | "expired" | "missing" }
   | { replay: unknown; replayStatus: "available" };
 
+function submissionProvenance(row: Record<string, unknown>): Record<string, unknown> {
+  return {
+    appFlavor: row.app_flavor ?? "unknown",
+    bundleId: row.apple_bundle_id ?? null,
+    appleEnvironment: row.apple_environment ?? null,
+  };
+}
+
 async function replayValue(env: Env, sha: string | null): Promise<ReplayLookup> {
   if (sha === null) return { replay: null, replayStatus: "omitted" };
   const row = await env.DB.prepare("SELECT r2_key FROM replays WHERE replay_sha256 = ?")
@@ -99,6 +107,7 @@ async function retrieveSession(request: Request, env: Env, runId: string): Promi
   return jsonResponse(200, {
     ok: true,
     session: row,
+    provenance: submissionProvenance(row),
     replay: replay.replay,
     ...(replay.replayStatus === "expired" || replay.replayStatus === "missing"
       ? { replayStatus: replay.replayStatus }
@@ -110,9 +119,18 @@ async function retrieveReport(request: Request, env: Env, reportId: string): Pro
   const denied = requireAuth(request, env);
   if (denied) return denied;
   if (!SAFE_ID.test(reportId)) return jsonResponse(400, { ok: false, stage: "parse", message: "Invalid reportId" });
-  const row = await env.DB.prepare("SELECT r2_key, replay_sha256 FROM diagnostic_reports WHERE report_id = ?")
+  const row = await env.DB.prepare(
+    `SELECT r2_key, replay_sha256, app_flavor, apple_bundle_id, apple_environment
+     FROM diagnostic_reports WHERE report_id = ?`,
+  )
     .bind(reportId)
-    .first<{ r2_key: string; replay_sha256: string | null }>();
+    .first<{
+      r2_key: string;
+      replay_sha256: string | null;
+      app_flavor: string;
+      apple_bundle_id: string | null;
+      apple_environment: string | null;
+    }>();
   if (!row) return jsonResponse(404, { ok: false, stage: "store", message: "Report not found" });
   const reportObject = await env.CAPTURES.get(row.r2_key);
   if (!reportObject) return jsonResponse(404, { ok: false, stage: "store", message: "Report object not found" });
@@ -120,6 +138,7 @@ async function retrieveReport(request: Request, env: Env, reportId: string): Pro
   const stored = await objectJson(reportObject);
   return jsonResponse(200, {
     ...stored,
+    provenance: submissionProvenance(row),
     replay: replay.replay,
     ...(replay.replayStatus === "expired" || replay.replayStatus === "missing"
       ? { replayStatus: replay.replayStatus }
@@ -164,6 +183,7 @@ async function listRows(request: Request, env: Env, table: "sessions" | "diagnos
     ["install", "install_id"],
     ["build", "build"],
     ["run", "run_id"],
+    ["flavor", "app_flavor"],
   ] as const) {
     const value = url.searchParams.get(parameter);
     if (value) {

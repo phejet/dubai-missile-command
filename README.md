@@ -94,7 +94,9 @@ PERF_BASELINE_DIR=perf-results/baselines/<buildId>
 
 ```bash
 npm run ios:dev         # Dev identity with Live Reload (opens Xcode; select App-Dev)
-npm run ios:deploy:dev  # static Dev identity, builds + installs via devicectl
+npm run dev:lan         # LAN server for Dev live reload; cloud capture targets Staging
+npm run ios:deploy:dev  # static Dev identity; consent-gated uploads target Staging
+npm run ios:deploy:dev:offline # static Dev identity with cloud capture disabled
 npm run ios:deploy      # production identity with cloud capture off; perf/release smoke only
 ```
 

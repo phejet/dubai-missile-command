@@ -214,7 +214,7 @@ describe("capture Worker over real HTTP", () => {
         "--persist-to",
         persistence,
         "--command",
-        `INSERT INTO app_attest_credentials (key_id_hash, public_key, apple_environment, assertion_counter, status, created_at, last_seen_at) VALUES ('${credential.keyIdHash}', x'${credential.publicKeySpkiHex}', 'development', 0, 'active', 1, 1)`,
+        `INSERT INTO app_attest_credentials (key_id_hash, public_key, apple_environment, apple_app_id, assertion_counter, status, created_at, last_seen_at) VALUES ('${credential.keyIdHash}', x'${credential.publicKeySpkiHex}', 'development', '${APP_ID}', 0, 'active', 1, 1)`,
       ],
       { cwd: process.cwd(), encoding: "utf8", timeout: 15_000 },
     );

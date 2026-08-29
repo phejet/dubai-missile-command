@@ -3,7 +3,7 @@ export const IOS_APP_FLAVORS = {
     appId: "com.phejet.dubaicmd.dev",
     appIcon: "AppIconDev",
     appName: "DMC Dev",
-    allowedCaptureChannels: ["off"],
+    allowedCaptureChannels: ["off", "staging"],
   },
   staging: {
     appId: "com.phejet.dubaicmd.staging",

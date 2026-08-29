@@ -3,7 +3,7 @@ import { env, SELF } from "cloudflare:test";
 import { captureClientData } from "../../src/capture-auth-protocol";
 import { appAttestKeyIdHash } from "../src/capture-auth";
 
-const APP_ID = "TESTTEAM1.com.phejet.dubaicmd.test";
+const APP_ID = "TESTTEAM1.com.phejet.dubaicmd.dev";
 const BUILD_ID = "build+dirty";
 const BUNDLE_VERSION = "1";
 let challengeSequence = 0;
@@ -86,11 +86,11 @@ export async function addTestCredential(): Promise<{ keyId: string; keyIdHash: s
   activeCredential = value;
   await env.DB.prepare(
     `INSERT INTO app_attest_credentials (
-      key_id_hash, public_key, apple_environment, assertion_counter, status,
+      key_id_hash, public_key, apple_environment, apple_app_id, assertion_counter, status,
       created_at, last_seen_at, revoked_at
-    ) VALUES (?, ?, 'development', 0, 'active', 1, 1, NULL)`,
+    ) VALUES (?, ?, 'development', ?, 0, 'active', 1, 1, NULL)`,
   )
-    .bind(value.keyIdHash, ownedArrayBuffer(value.publicKeySpki))
+    .bind(value.keyIdHash, ownedArrayBuffer(value.publicKeySpki), APP_ID)
     .run();
   return { keyId: value.keyId, keyIdHash: value.keyIdHash };
 }

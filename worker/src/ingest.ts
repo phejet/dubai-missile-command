@@ -209,8 +209,8 @@ function sessionInsert(env: Env, row: SessionRow): D1PreparedStatement {
       burj_health, shots_fired, total_kills, hit_ratio, multi_shots, max_combo,
       destroyed_by_type_json, upgrades_json, feedback_emoji, feedback_note, replay_sha256,
       replay_omitted_reason, replay_complete_claimed, replay_verified, verified_at, shared, source,
-      sha256, submitter_key_id_hash
-    ) SELECT ${Array.from({ length: 33 }, () => "?").join(", ")}
+      sha256, submitter_key_id_hash, app_flavor, apple_bundle_id, apple_environment
+    ) SELECT ${Array.from({ length: 36 }, () => "?").join(", ")}
       WHERE ? IS NULL OR EXISTS (
         SELECT 1 FROM replays WHERE replay_sha256 = ?
       )
@@ -249,6 +249,9 @@ function sessionInsert(env: Env, row: SessionRow): D1PreparedStatement {
     row.source,
     row.sha256,
     row.submitter_key_id_hash,
+    row.app_flavor,
+    row.apple_bundle_id,
+    row.apple_environment,
     row.replay_sha256,
     row.replay_sha256,
   );
@@ -260,8 +263,9 @@ function reportInsert(env: Env, row: DiagnosticReportRow): D1PreparedStatement {
       report_id, install_id, install_ephemeral, run_id, boot_id, build, platform, input_class,
       created_at, received_at, app_screen, trigger, note, partial, captured_through_tick,
       replay_sha256, replay_source, replay_omitted_reason, events_count, events_truncated,
-      sha256, raw_bytes, stored_bytes, r2_key, submitter_key_id_hash
-    ) SELECT ${Array.from({ length: 25 }, () => "?").join(", ")}
+      sha256, raw_bytes, stored_bytes, r2_key, submitter_key_id_hash,
+      app_flavor, apple_bundle_id, apple_environment
+    ) SELECT ${Array.from({ length: 28 }, () => "?").join(", ")}
       WHERE ? IS NULL OR EXISTS (
         SELECT 1 FROM replays WHERE replay_sha256 = ?
       )
@@ -292,6 +296,9 @@ function reportInsert(env: Env, row: DiagnosticReportRow): D1PreparedStatement {
     row.stored_bytes,
     row.r2_key,
     row.submitter_key_id_hash,
+    row.app_flavor,
+    row.apple_bundle_id,
+    row.apple_environment,
     row.replay_sha256,
     row.replay_sha256,
   );
@@ -313,6 +320,7 @@ export async function ingestSession(request: Request, env: Env): Promise<Respons
     const row = projectSessionRow(session, receivedAt, {
       sha256: prepared.actualSha,
       keyIdHash: authorization.keyIdHash,
+      provenance: authorization.provenance,
     });
     const existing = await env.DB.prepare(
       "SELECT run_id, replay_sha256, sha256, submitter_key_id_hash FROM sessions WHERE run_id = ?",
@@ -404,6 +412,7 @@ export async function ingestReport(request: Request, env: Env): Promise<Response
       storedBytes: reportStored.byteLength,
       receivedAt,
       submitterKeyIdHash: authorization.keyIdHash,
+      provenance: authorization.provenance,
     });
 
     const existing = await env.DB.prepare(

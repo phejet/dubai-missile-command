@@ -29,10 +29,9 @@ function expectConfigReason(run: () => unknown, reason: string): void {
 
 describe("capture auth bundle identity configuration", () => {
   it("accepts an explicit staging bundle-ID allowlist", () => {
-    expect([...captureAuthConfig(configEnv()).appIds]).toEqual([
-      "TESTTEAM1.com.phejet.dubaicmd.staging",
-      "TESTTEAM1.com.phejet.dubaicmd.dev",
-    ]);
+    const config = captureAuthConfig(configEnv());
+    expect(config.appleTeamId).toBe("TESTTEAM1");
+    expect([...config.appIds]).toEqual(["TESTTEAM1.com.phejet.dubaicmd.staging", "TESTTEAM1.com.phejet.dubaicmd.dev"]);
   });
 
   it("fails closed for missing or malformed bundle IDs", () => {

@@ -57,12 +57,48 @@ describe("capture projection", () => {
       source: "gameover",
       sha256: null,
       submitter_key_id_hash: null,
+      app_flavor: "unknown",
+      apple_bundle_id: null,
+      apple_environment: null,
     });
   });
 
   it("projects ephemeral install ownership on sessions", () => {
     const row = projectSessionRow(sessionFixture({ installId: "eph-12345678" }), 1_800_000_000_000);
     expect(row).toMatchObject({ install_id: "eph-12345678", install_ephemeral: 1 });
+  });
+
+  it("projects server-authorized submission provenance onto sessions and reports", () => {
+    const provenance = {
+      appFlavor: "dev" as const,
+      bundleId: "com.phejet.dubaicmd.dev",
+      appleEnvironment: "development" as const,
+    };
+    expect(
+      projectSessionRow(sessionFixture(), 1_800_000_000_000, {
+        sha256: "a".repeat(64),
+        keyIdHash: "b".repeat(64),
+        provenance,
+      }),
+    ).toMatchObject({
+      app_flavor: "dev",
+      apple_bundle_id: "com.phejet.dubaicmd.dev",
+      apple_environment: "development",
+    });
+    expect(
+      projectDiagnosticReportRow(reportFixture(), {
+        sha256: "a".repeat(64),
+        rawBytes: 1_000,
+        storedBytes: 500,
+        receivedAt: 1_800_000_000_000,
+        submitterKeyIdHash: "b".repeat(64),
+        provenance,
+      }),
+    ).toMatchObject({
+      app_flavor: "dev",
+      apple_bundle_id: "com.phejet.dubaicmd.dev",
+      apple_environment: "development",
+    });
   });
 
   it("projects report ownership and stored-body facts", () => {

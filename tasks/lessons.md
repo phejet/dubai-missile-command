@@ -1,5 +1,20 @@
 # Lessons
 
+## 2026-08-29 — State flavor capability differences before device deployment
+
+- Before installing a Dev, Staging, or Production identity, report its capture channel and
+  any user-visible capabilities that will be absent. Here `DMC Dev` is hard-wired to
+  capture channel `off`, so replay upload controls are hidden and cloud transport is
+  denied even though the upload implementation exists in the codebase.
+- A user may choose a flavor for its icon or side-by-side identity rather than its security
+  profile. If cloud capture appears relevant, make the coupled flavor/capability choice
+  explicit before deployment instead of waiting for the missing UI to reveal it.
+- Do not collapse app identity into capture destination. A Dev-signed human-play build may
+  legitimately upload to the Staging Worker while Production remains isolated. Preserve
+  the native/human/consent gates and derive uploaded flavor provenance from the bundle ID
+  verified during App Attest enrollment; a build SHA alone cannot distinguish multiple
+  flavors produced from the same commit.
+
 ## 2026-08-23 — Compose app icons at installed size first
 
 - A 1024px icon master can look excellent while collapsing into a toothpick on the Home

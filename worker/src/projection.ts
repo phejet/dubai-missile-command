@@ -1,4 +1,5 @@
 import type { ProblemReport, SessionUpload } from "../../src/capture";
+import type { CaptureSubmissionProvenance } from "./capture-provenance";
 
 export interface ReplayRow {
   replay_sha256: string;
@@ -43,6 +44,9 @@ export interface SessionRow {
   source: string;
   sha256: string | null;
   submitter_key_id_hash: string | null;
+  app_flavor: CaptureSubmissionProvenance["appFlavor"];
+  apple_bundle_id: string | null;
+  apple_environment: CaptureSubmissionProvenance["appleEnvironment"];
 }
 
 export interface DiagnosticReportRow {
@@ -71,6 +75,9 @@ export interface DiagnosticReportRow {
   stored_bytes: number;
   r2_key: string;
   submitter_key_id_hash: string | null;
+  app_flavor: CaptureSubmissionProvenance["appFlavor"];
+  apple_bundle_id: string | null;
+  apple_environment: CaptureSubmissionProvenance["appleEnvironment"];
 }
 
 export function projectReplayRow(input: {
@@ -92,7 +99,7 @@ export function projectReplayRow(input: {
 export function projectSessionRow(
   session: SessionUpload,
   receivedAt: number,
-  authorization?: { sha256: string; keyIdHash: string },
+  authorization?: { sha256: string; keyIdHash: string; provenance: CaptureSubmissionProvenance },
 ): SessionRow {
   const summary = session.summary;
   const installId = session.meta.installId!;
@@ -130,6 +137,9 @@ export function projectSessionRow(
     source: session.meta.trigger,
     sha256: authorization?.sha256 ?? null,
     submitter_key_id_hash: authorization?.keyIdHash ?? null,
+    app_flavor: authorization?.provenance.appFlavor ?? "unknown",
+    apple_bundle_id: authorization?.provenance.bundleId ?? null,
+    apple_environment: authorization?.provenance.appleEnvironment ?? null,
   };
 }
 
@@ -141,6 +151,7 @@ export function projectDiagnosticReportRow(
     storedBytes: number;
     receivedAt: number;
     submitterKeyIdHash?: string;
+    provenance?: CaptureSubmissionProvenance;
   },
 ): DiagnosticReportRow {
   const installId = report.meta.installId!;
@@ -172,5 +183,8 @@ export function projectDiagnosticReportRow(
       ? `diagnostics/auth/${input.submitterKeyIdHash}/${report.reportId}/${input.sha256}.json.gz`
       : `diagnostics/${installId}/${report.reportId}.json.gz`,
     submitter_key_id_hash: input.submitterKeyIdHash ?? null,
+    app_flavor: input.provenance?.appFlavor ?? "unknown",
+    apple_bundle_id: input.provenance?.bundleId ?? null,
+    apple_environment: input.provenance?.appleEnvironment ?? null,
   };
 }

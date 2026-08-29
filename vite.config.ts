@@ -26,10 +26,14 @@ const captureWorkerUrls = JSON.parse(readFileSync(resolve(__dirname, "capture-wo
 
 function captureChannel(command: "build" | "serve"): "off" | "local" | "staging" | "production" {
   if (command === "serve") {
-    if (isCapacitor && iosAppFlavor !== "dev") {
-      throw new Error("Capacitor live reload requires DMC_APP_FLAVOR=dev");
+    if (!isCapacitor) return "local";
+    if (iosAppFlavor !== "dev") throw new Error("Capacitor live reload requires DMC_APP_FLAVOR=dev");
+    const requested = process.env.DMC_CAPTURE_CHANNEL?.trim() || "off";
+    if (requested !== "off" && requested !== "staging") {
+      throw new Error(`Capacitor Dev live reload cannot use DMC_CAPTURE_CHANNEL=${requested}`);
     }
-    return "local";
+    assertIosFlavorCaptureChannel(iosAppFlavor, requested);
+    return requested;
   }
   const requested = process.env.DMC_CAPTURE_CHANNEL?.trim() || "off";
   if (requested !== "off" && requested !== "staging" && requested !== "production") {
