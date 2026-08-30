@@ -66,6 +66,13 @@ function captureBaseUrl(channel: "off" | "local" | "staging" | "production"): st
   return parsed.toString().replace(/\/$/, "");
 }
 
+function shareBaseUrls(): Record<"staging" | "production", string> {
+  return {
+    staging: captureBaseUrl("staging"),
+    production: captureWorkerUrls.production?.trim() ? captureBaseUrl("production") : "",
+  };
+}
+
 function devHtmlEntryAliases(base: string): Plugin {
   const entries = new Map([[`${base}editor.html`, resolve(__dirname, "editor.html")]]);
 
@@ -138,6 +145,7 @@ export default defineConfig(({ command }): UserConfig => {
       __DMC_APP_FLAVOR__: JSON.stringify(iosAppFlavor ?? "web"),
       __DMC_CAPTURE_CHANNEL__: JSON.stringify(channel),
       __DMC_CAPTURE_BASE_URL__: JSON.stringify(captureBaseUrl(channel)),
+      __DMC_SHARE_BASE_URLS__: JSON.stringify(shareBaseUrls()),
     },
     server: {
       allowedHosts: isCapacitor ? [".local"] : undefined,

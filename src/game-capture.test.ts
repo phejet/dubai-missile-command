@@ -9,6 +9,7 @@ import type { GameRenderer } from "./game-renderer";
 import { createEmptyGameStats } from "./game-logic";
 import type { SessionUploadQueue } from "./capture-upload-queue";
 import type { GameState, ReplayData } from "./types";
+import type { CreateRunShareResult } from "./share-run";
 
 interface GameInternals {
   initGame(): void;
@@ -26,6 +27,7 @@ interface GameInternals {
 const mocks = vi.hoisted(() => ({
   archiveReplay: vi.fn(),
   showBonusScreen: vi.fn(),
+  showRunRecap: vi.fn(),
   readRecentEvents: vi.fn(async () => ({ events: [], unparsed: 0, truncated: false })),
   captured: [] as Array<SessionUpload | ProblemReport>,
   uploadSession: vi.fn(async (capture: SessionUpload): Promise<UploadCaptureResult> => {
@@ -37,6 +39,14 @@ const mocks = vi.hoisted(() => ({
     return { ok: true, id: capture.reportId, encoding: "none" as const };
   }),
   enrollCaptureCredential: vi.fn(async () => ({ keyId: "test-key" })),
+  createRunShareLink: vi.fn(
+    async (): Promise<CreateRunShareResult> => ({
+      ok: true as const,
+      shareId: "0123456789abcdef",
+      shareUrl: "https://capture.example/r/0123456789abcdef",
+    }),
+  ),
+  presentRunShareSheet: vi.fn(async () => undefined),
 }));
 
 vi.mock("./diagnostics-log", () => ({
@@ -53,6 +63,10 @@ vi.mock("./capture-sink", () => ({ uploadSession: mocks.uploadSession, reportPro
 vi.mock("./capture-auth", () => ({ enrollCaptureCredential: mocks.enrollCaptureCredential }));
 vi.mock("./run-recap-death-clip", () => ({ mountRunRecapDeathClip: vi.fn(() => vi.fn()) }));
 vi.mock("./save-replay", () => ({ saveReplayToFile: vi.fn(async () => ({ ok: true })) }));
+vi.mock("./share-run", () => ({
+  createRunShareLink: mocks.createRunShareLink,
+  presentRunShareSheet: mocks.presentRunShareSheet,
+}));
 vi.mock("./ui", () => ({
   cacheHudElements: vi.fn(),
   cacheTransientOverlayElements: vi.fn(),
@@ -62,7 +76,7 @@ vi.mock("./ui", () => ({
   hideUpgradeProgression: vi.fn(),
   showBonusScreen: mocks.showBonusScreen,
   showGameOver: vi.fn(),
-  showRunRecap: vi.fn(),
+  showRunRecap: mocks.showRunRecap,
   showShop: vi.fn(),
   showUpgradeProgression: vi.fn(),
   updateHud: vi.fn(),
@@ -153,10 +167,18 @@ describe("Game capture orchestration", () => {
     );
     mocks.archiveReplay.mockReset();
     mocks.showBonusScreen.mockReset();
+    mocks.showRunRecap.mockReset();
     mocks.captured.length = 0;
     mocks.uploadSession.mockClear();
     mocks.reportProblem.mockClear();
     mocks.enrollCaptureCredential.mockClear();
+    mocks.createRunShareLink.mockReset();
+    mocks.createRunShareLink.mockResolvedValue({
+      ok: true,
+      shareId: "0123456789abcdef",
+      shareUrl: "https://capture.example/r/0123456789abcdef",
+    });
+    mocks.presentRunShareSheet.mockClear();
     mocks.readRecentEvents.mockClear();
     const values = new Map<string, string>();
     vi.stubGlobal("localStorage", {
@@ -330,6 +352,71 @@ describe("Game capture orchestration", () => {
     });
     expect(mocks.reportProblem).not.toHaveBeenCalled();
     expect(document.getElementById("option-capture-auto-meta")!.textContent).toMatch(/^Sent/);
+  });
+
+  it("shares an automatically uploaded recap without uploading the session twice", async () => {
+    localStorage.setItem("dmc.capture.remote-consent.v1.staging", "granted");
+    localStorage.setItem("dmc.capture.auto-upload-sessions.v1.staging", "true");
+    const canvas = document.getElementById("game-canvas") as HTMLCanvasElement;
+    const game = new Game({
+      canvas,
+      renderer,
+      captureConfig: { channel: "staging", endpoint: "https://capture.example" },
+      captureQueue: captureQueue(),
+    });
+    const runtime = internals(game);
+    runtime.initGame();
+    runtime.gameRef.current!.state = "gameover";
+    runtime.handleSimEvent("gameOver", { score: 1200, wave: 3, stats: createEmptyGameStats() });
+    await vi.waitFor(() => expect(mocks.uploadSession).toHaveBeenCalledTimes(1));
+
+    document.getElementById("progression-button")!.click();
+    document.getElementById("run-recap-panel")!.innerHTML = "<button data-run-recap-share>Share Run</button>";
+    const recapCall = mocks.showRunRecap.mock.calls[mocks.showRunRecap.mock.calls.length - 1];
+    const callbacks = recapCall?.[1] as { onShareRun?: () => Promise<void> };
+    expect(callbacks.onShareRun).toBeTypeOf("function");
+    await callbacks.onShareRun?.();
+
+    expect(mocks.uploadSession).toHaveBeenCalledTimes(1);
+    expect(mocks.createRunShareLink).toHaveBeenCalledWith({
+      endpoint: "https://capture.example",
+      channel: "staging",
+      buildId: "test-build",
+      runId: expect.any(String),
+    });
+    expect(mocks.presentRunShareSheet).toHaveBeenCalledWith(
+      "https://capture.example/r/0123456789abcdef",
+      expect.objectContaining({ score: expect.any(Number), wave: expect.any(Number) }),
+    );
+  });
+
+  it("uploads once when a share action finds no existing automatic session", async () => {
+    localStorage.setItem("dmc.capture.remote-consent.v1.staging", "granted");
+    mocks.createRunShareLink.mockResolvedValueOnce({ ok: false, reason: "http", status: 404 }).mockResolvedValueOnce({
+      ok: true,
+      shareId: "0123456789abcdef",
+      shareUrl: "https://capture.example/r/0123456789abcdef",
+    });
+    const canvas = document.getElementById("game-canvas") as HTMLCanvasElement;
+    const game = new Game({
+      canvas,
+      renderer,
+      captureConfig: { channel: "staging", endpoint: "https://capture.example" },
+      captureQueue: captureQueue(),
+    });
+    const runtime = internals(game);
+    runtime.initGame();
+    runtime.gameRef.current!.state = "gameover";
+    runtime.handleSimEvent("gameOver", { score: 1200, wave: 3, stats: createEmptyGameStats() });
+    document.getElementById("progression-button")!.click();
+    document.getElementById("run-recap-panel")!.innerHTML = "<button data-run-recap-share>Share Run</button>";
+    const recapCall = mocks.showRunRecap.mock.calls[mocks.showRunRecap.mock.calls.length - 1];
+    const callbacks = recapCall?.[1] as { onShareRun?: () => Promise<void> };
+    await callbacks.onShareRun?.();
+
+    expect(mocks.createRunShareLink).toHaveBeenCalledTimes(2);
+    expect(mocks.uploadSession).toHaveBeenCalledTimes(1);
+    expect(mocks.presentRunShareSheet).toHaveBeenCalledTimes(1);
   });
 
   it("queues only retryable automatic failures and surfaces terminal auth", async () => {

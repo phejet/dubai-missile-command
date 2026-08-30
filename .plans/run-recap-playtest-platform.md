@@ -1,8 +1,8 @@
 # Run Recap & Playtest Platform — Design Brain Dump
 
-Status: Phase 1 shipped; Phase 2 implemented but not provisioned; Phase 3–7 product surfaces unbuilt
+Status: Phase 1 shipped; Phase 2 deployed to Staging; Phase 3 implemented locally, Staging proof pending; Phase 4 partial; Phase 5–7 unbuilt
 Date captured: 2026-05-24
-Implementation state last verified: 2026-08-06 (§0.5)
+Implementation state last verified: 2026-08-30 (§0.5)
 Source: extended brainstorm conversation; this is the canonical record so we
 don't lose context between sessions.
 
@@ -13,7 +13,7 @@ the reasoning trail is worth more than a tidy document.
 
 ---
 
-## 0.5 Where this actually stands (verified 2026-08-06)
+## 0.5 Where this actually stands (verified 2026-08-30)
 
 Read this section first; everything after it is design intent, not status.
 
@@ -52,7 +52,7 @@ Read this section first; everything after it is design intent, not status.
 Fired and the per-threat-type counts are currently reachable nowhere on the
 recap; they exist in `RunRecapData.totalStats` and are simply not rendered.
 
-### Phase 2 — Backend: **implemented and locally verified, not provisioned**
+### Phase 2 — Backend: **deployed to Staging; Production closed**
 
 `worker/` exists (`8947d8f`, revised by `8ddbf4c`): `index.ts`, `ingest.ts`,
 `auth.ts`, `projection.ts`, `bindings.ts`, `migrations/0001_init.sql`,
@@ -76,41 +76,39 @@ recap; they exist in `RunRecapData.totalStats` and are simply not rendered.
   (workerd + real-HTTP suites). `deploy-worker.yml` applies migrations and
   deploys — staging on push to `main`, production on manual dispatch.
 
-**What blocks it**: `worker/wrangler.jsonc` carries a placeholder
-`account_id` of `0000…0` and placeholder D1 `database_id`s. No real resource
-ids are configured in this repository, and there is no recorded remote run of
-`0001_init.sql` or a Worker deployment. Both deploy jobs are gated on
-`vars.CAPTURE_WORKER_PROVISIONED == 'true'`; that repository variable was
-absent when checked on 2026-08-06, and both Worker workflow runs had been
-skipped. This establishes the repository's deployment state, not whether a
-Cloudflare account or unrelated resources exist outside it. Everything here
-has been validated against `wrangler dev` and local workerd/R2/D1 only.
+Staging D1/R2 and the Worker are provisioned. The authenticated direct-development
+path has submitted a consented human run from a physical iPhone, with server-derived
+bundle provenance and D1/R2 replay evidence verified before enrollment was closed.
+Production resources and client capture remain disabled. The remaining distribution
+gate is a category `2` App Attest submission from the proper Staging TestFlight build.
 
-### Client wiring (Phase 3's prerequisite) — barely started
+### Client wiring — automatic capture shipped; sharing implemented locally
 
-- `__DMC_CAPTURE_ENDPOINT__` is `"/"` under `vite serve` and **`null` in every
-  production build** (`vite.config.ts:57`). A shipped build uploads nothing.
-- The only trigger is `window.__captureNow(trigger, note)`
-  (`src/game.ts:631` → `captureNow()` at `:1412`), which assembles via
-  `assembleSession` / `assembleReport` (`src/capture.ts`) and posts via
-  `uploadSession` / `reportProblem` (`src/capture-sink.ts`). That is the
-  console/agent path.
-- **No automatic game-over upload. No "Report a problem" button. No hidden
-  gesture. No feedback-emoji UI** — the `feedback_emoji` column exists and
-  will be NULL until §5's prompt is built.
+- Explicit native Dev and Staging builds target only the reviewed Staging Worker;
+  browser, headless, automation, replay playback, and ordinary local Production
+  builds remain remote-ineligible.
+- Explicit consent, manual completed-run submission, automatic game-over upload,
+  and the bounded offline retry queue are shipped and physically proven on Dev.
+- Phase 3 sharing now exists locally: Run Recap reuses an already uploaded session,
+  an App-Attest-authorized owner action mints one stable public slug, `?r=` loads the
+  replay from a reviewed environment map, and replay completion presents a
+  score/wave “Your Turn” CTA. Staging deployment and a real shared-link proof remain.
+- Still absent: feedback emoji/note UI, recent uploads, server deletion controls,
+  and a persistent sharing-status indicator.
 - Shipped and load-bearing: `src/install-id.ts` (persisted random id, `eph-`
   prefix when `localStorage` refuses), `src/capture-contract.ts` (one
   validator shared by the Vite middleware and the Worker),
   `npm run diag:pull` (`scripts/diag-pull.mjs`, bearer via
   `DMC_CAPTURE_TOKEN`).
 
-### Phases 3–7 — **no product surfaces built**
+### Phases 3–7 — **Phase 3 local; Phase 4 partial; Phase 5–7 unbuilt**
 
-No share link, no `?r=` handling at boot, no OG cards, no auto-stream toggle,
-no capture-consent or auto-share settings controls, no "recent uploads" list,
-no delete-from-server, no offline queue, no leaderboard, no Daily Challenge,
-no ghosts, no anomaly detection. Several storage and identity prerequisites
-exist from Phase 2; the player-facing features do not.
+Phase 3's share action, slug, public lookup/redirect, reviewed `?r=` boot path,
+automatic replay, and post-replay CTA are implemented and locally verified. OG
+cards are deliberately deferred until a real share occurs. Phase 4 already has
+consent, the auto-upload toggle, install identity, and offline queue; it still lacks
+recent uploads, deletion, persistent status, friendly naming, and feedback UI.
+Leaderboard, Daily Challenge, ghosts, and anomaly detection remain unbuilt.
 
 ### Two obligations this document created that are still unmet
 
@@ -133,10 +131,10 @@ exist from Phase 2; the player-facing features do not.
 
 ### The current gates
 
-Two independent gates remain: finish the open iPhone checks before adding
-production triggers, and provision Cloudflare before running the deployed-
-Worker curl gate. Provisioning can proceed in parallel; neither gate is fully
-closed.
+Two gates remain: prove App Attest category `2` through the proper Staging
+TestFlight install, and deploy Phase 3 only to Staging for one real shared-link
+round trip. Production capture remains closed until those pass and the deletion
+contract/product UI required by Phase 4 exists.
 
 ---
 
@@ -888,7 +886,7 @@ runs, we don't need any of the rest.
 **Suggested concurrent low-cost adds**: PWA manifest + icon (lays the
 groundwork for the web "install" path later).
 
-### Phase 2 — Backend skeleton — **BUILT, NOT PROVISIONED**
+### Phase 2 — Backend skeleton — **DEPLOYED TO STAGING; PRODUCTION CLOSED**
 
 Cloudflare Worker + R2 + D1. No game features yet. Just:
 
@@ -918,7 +916,7 @@ Validate with `curl` before any game UI talks to it.
 > `vars.CAPTURE_WORKER_PROVISIONED`. Finishing this phase is provisioning
 > work, not code.
 
-### Phase 3 — Share-link flow (the first viral feature) — **NOT STARTED**
+### Phase 3 — Share-link flow (the first viral feature) — **IMPLEMENTED LOCALLY; STAGING PROOF PENDING**
 
 - "Share my run" button on Run Recap → uploads → native share sheet
 - Web build reads `?r=...` on boot → fetches → calls
@@ -938,7 +936,7 @@ Validate with `curl` before any game UI talks to it.
 > minting, retrieval, boot handling, and the post-replay CTA remain the rest of
 > Phase 3.
 
-### Phase 4 — Auto-stream toggle (friends mode) — **NOT STARTED**
+### Phase 4 — Auto-stream and upload management (friends mode) — **PARTIAL**
 
 - Settings toggle, default OFF
 - Per-install anonymous UUID in keychain

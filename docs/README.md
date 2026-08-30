@@ -17,6 +17,7 @@ This folder holds repo-specific notes for future maintenance, not player-facing 
 - [`upgrades-shop-progression.md`](./upgrades-shop-progression.md) — upgrade node graph, shop flow, draft flow, and progression state.
 - [`wild-hornets-targeting-analysis.md`](./wild-hornets-targeting-analysis.md) — hornet launch/guidance/magazine behaviour judged against role consistency and player legibility, with the other auto-defense systems' roles mapped alongside; measured counterfactual fixes, a SkyMesh loiter proposal, and an appendix of superseded claims and negative results.
 - [`replay-system.md`](./replay-system.md) — replay data model, runner lifecycle, checkpoints, and save flow.
+- [`shared-run-links.md`](./shared-run-links.md) — explicit per-run publication, App Attest ownership, public slug/lookup routes, reviewed `?r=` replay boot, and rollout gates.
 - [`replay-flight-recorder-design.md`](./replay-flight-recorder-design.md) — measured design for gzip-embedding completed human replays in crash-resilient diagnostics exports, including archive protocol, durability boundaries, extraction, retention, and a later partial-run journal.
 - [`replay-capture-assembly-plan.md`](./replay-capture-assembly-plan.md) — the original capture envelope and local assembly work. Its unified wire contract is superseded by the session/report split below.
 - [`capture-worker-backend-plan.md`](./capture-worker-backend-plan.md) — the original Worker backend plan. Its validation, abuse-control, and deployment layers carry forward; its unified storage contract is superseded below.

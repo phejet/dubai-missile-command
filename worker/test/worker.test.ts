@@ -25,6 +25,7 @@ beforeEach(async () => {
     env.DB.prepare("DROP TRIGGER IF EXISTS fail_session"),
     env.DB.prepare("DROP TRIGGER IF EXISTS fail_report"),
     env.DB.prepare("DROP TRIGGER IF EXISTS ignore_replay"),
+    env.DB.prepare("DELETE FROM shared_runs"),
     env.DB.prepare("DELETE FROM sessions"),
     env.DB.prepare("DELETE FROM diagnostic_reports"),
     env.DB.prepare("DELETE FROM replays"),
@@ -156,6 +157,27 @@ async function post(
   });
 }
 
+async function postShare(
+  runId: string,
+  options: { authenticated?: boolean; buildId?: string; origin?: string; proofSha?: string } = {},
+): Promise<Response> {
+  const body = JSON.stringify({ runId, buildId: options.buildId ?? "build+dirty" });
+  const bytes = new TextEncoder().encode(body);
+  const bodySha = await digest(bytes);
+  const headers = new Headers({
+    "content-type": "application/json",
+    "x-dmc-build": options.buildId ?? "build+dirty",
+    "x-dmc-sha256": bodySha,
+    "cf-connecting-ip": `203.0.${sequence}.2`,
+  });
+  if (options.origin) headers.set("origin", options.origin);
+  if (options.authenticated !== false) {
+    const proof = await captureAuthHeaders("share", options.proofSha ?? bodySha);
+    for (const [name, value] of Object.entries(proof)) headers.set(name, value);
+  }
+  return SELF.fetch("https://worker.test/api/share", { method: "POST", headers, body: bytes });
+}
+
 const DELETE_FIELD = Symbol("delete field");
 
 function mutateAtPath(value: unknown, path: string, replacement: unknown): void {
@@ -191,6 +213,70 @@ describe("capture Worker split", () => {
     const decoded = await gunzip(new Uint8Array(await new Response(replay!.body).arrayBuffer()));
     expect(JSON.parse(new TextDecoder().decode(decoded))).toEqual(session.replay);
     expect(new TextDecoder().decode(decoded)).not.toContain('"events"');
+  });
+
+  it("publishes only an owner-authorized session and resolves its replay through a stable link", async () => {
+    const session = sessionFixture({ runId: "shareable-run" });
+    expect((await post("session", session)).status).toBe(200);
+
+    const first = await postShare(session.meta.runId, { origin: "capacitor://localhost" });
+    expect(first.status).toBe(200);
+    expect(first.headers.get("access-control-allow-origin")).toBe("capacitor://localhost");
+    const shared = (await first.json()) as { shareId: string; shareUrl: string };
+    expect(shared.shareId).toMatch(/^[a-f0-9]{16}$/);
+    expect(shared.shareUrl).toBe(`https://worker.test/r/${shared.shareId}`);
+    expect(
+      await env.DB.prepare("SELECT shared FROM sessions WHERE run_id = ?").bind(session.meta.runId).first(),
+    ).toEqual({
+      shared: 1,
+    });
+
+    const publicReplay = await SELF.fetch(`https://worker.test/api/shared/${shared.shareId}`);
+    expect(publicReplay.status).toBe(200);
+    expect(publicReplay.headers.get("access-control-allow-origin")).toBe("*");
+    expect(await publicReplay.json()).toMatchObject({
+      ok: true,
+      shareId: shared.shareId,
+      summary: { score: session.summary.score, wave: session.summary.waveReached, build: session.meta.buildId },
+      replay: session.replay,
+    });
+
+    const repeated = (await (await postShare(session.meta.runId)).json()) as { shareId: string };
+    expect(repeated.shareId).toBe(shared.shareId);
+    expect((await env.DB.prepare("SELECT COUNT(*) AS count FROM shared_runs").first<{ count: number }>())!.count).toBe(
+      1,
+    );
+
+    const redirect = await worker.fetch(
+      new Request(`https://worker.test/r/${shared.shareId}`, { redirect: "manual" }),
+      { ...env, WORKER_BUILD: "staging" } as unknown as Env,
+    );
+    expect(redirect.status).toBe(302);
+    expect(redirect.headers.get("location")).toBe(
+      `https://phejet.github.io/dubai-missile-command/?r=${shared.shareId}&share=staging`,
+    );
+  });
+
+  it("keeps unshared, replay-less, foreign-owned, and tampered sessions private", async () => {
+    const privateSession = sessionFixture({ runId: "private-run" });
+    expect((await post("session", privateSession)).status).toBe(200);
+    expect((await SELF.fetch("https://worker.test/api/shared/0000000000000000")).status).toBe(404);
+
+    const replayless = sessionFixture({ runId: "replayless-share", replay: null });
+    expect((await post("session", replayless)).status).toBe(200);
+    expect((await postShare(replayless.meta.runId)).status).toBe(409);
+
+    const ownerRun = sessionFixture({ runId: "owner-run" });
+    expect((await post("session", ownerRun)).status).toBe(200);
+    await addTestCredential();
+    expect((await postShare(ownerRun.meta.runId)).status).toBe(403);
+
+    const tampered = await postShare(privateSession.meta.runId, { proofSha: "0".repeat(64) });
+    expect(tampered.status).toBe(401);
+    expect((await postShare(privateSession.meta.runId, { authenticated: false })).status).toBe(401);
+    expect((await env.DB.prepare("SELECT COUNT(*) AS count FROM shared_runs").first<{ count: number }>())!.count).toBe(
+      0,
+    );
   });
 
   it("self-heals legacy credential identity and records attested Dev provenance", async () => {
@@ -733,6 +819,7 @@ describe("capture Worker split", () => {
   it("collects expired rows without deleting replay or diagnostics objects", async () => {
     const session = sessionFixture();
     expect((await post("session", session)).status).toBe(200);
+    expect((await postShare(session.meta.runId)).status).toBe(200);
     const report = reportFixture({ reportId: "retained-object" });
     expect((await post("report", report)).status).toBe(200);
     const replayKey = `replays/${session.meta.replaySha256}.json.gz`;
@@ -745,6 +832,7 @@ describe("capture Worker split", () => {
     await env.DB.prepare("UPDATE diagnostic_reports SET received_at = 1").run();
     await runRetention(env, 9_000_000_000_000);
     expect(await env.DB.prepare("SELECT run_id FROM sessions").first()).toBeNull();
+    expect(await env.DB.prepare("SELECT share_id FROM shared_runs").first()).toBeNull();
     expect(await env.DB.prepare("SELECT replay_sha256 FROM replays").first()).toBeNull();
     expect(await env.CAPTURES.head(replayKey)).not.toBeNull();
     expect(await env.CAPTURES.head(reportKey)).not.toBeNull();
@@ -822,7 +910,7 @@ describe("capture Worker split", () => {
   });
 
   it("allows only configured origins on both ingest routes", async () => {
-    for (const route of ["session", "report"]) {
+    for (const route of ["session", "report", "share"]) {
       const allowed = await SELF.fetch(`https://worker.test/api/${route}`, {
         method: "OPTIONS",
         headers: { Origin: "capacitor://localhost" },

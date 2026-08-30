@@ -13,9 +13,9 @@ const TOKEN_VERSION = 1;
 const TOKEN_TTL_MS = 2 * 60 * 1_000;
 const KEY_HASH_PREFIX = new TextEncoder().encode("DMC-APP-ATTEST-KEY-v1\0");
 const MAX_AUTH_BODY_BYTES = 24 * 1_024;
-const PURPOSES = new Set<ChallengePurpose>(["ios-enroll", "session", "report"]);
+const PURPOSES = new Set<ChallengePurpose>(["ios-enroll", "session", "report", "share"]);
 
-export type ChallengePurpose = "ios-enroll" | "session" | "report";
+export type ChallengePurpose = "ios-enroll" | "session" | "report" | "share";
 
 export interface CaptureAuthConfig {
   workerEnvironment: "dev" | "staging" | "production";
@@ -498,7 +498,7 @@ export async function enroll(request: Request, env: Env, deps: EnrollmentDeps = 
 export async function authorizeCapture(
   request: Request,
   env: Env,
-  input: { purpose: "session" | "report"; build: string; decodedBodySha256: string },
+  input: { purpose: Exclude<ChallengePurpose, "ios-enroll">; build: string; decodedBodySha256: string },
 ): Promise<AuthorizedCapture> {
   const config = captureAuthConfig(env);
   requireAllowedBuild(input.build, config);

@@ -63,6 +63,7 @@ import { mountRunRecapDeathClip } from "./run-recap-death-clip";
 import { handleRunRecapReplayEvent } from "./run-recap-replay-events";
 import { buildRunRecapData } from "./run-recap";
 import { saveReplayToFile } from "./save-replay";
+import { createRunShareLink, presentRunShareSheet } from "./share-run";
 import { describeEnvironment } from "./replay-provenance";
 import { buildReplaySnapshot } from "./replay-snapshot";
 import {
@@ -536,6 +537,7 @@ export class Game {
   private captureQueueCount = 0;
   private captureQueueBusy = false;
   private automaticCaptureBusy = false;
+  private automaticCapturePromise: Promise<void> | null = null;
   private lastUploadedRunId: string | null = null;
   private remoteCaptureBuild: { channel: "staging" | "production"; endpoint: string } | null;
   private captureQueue: SessionUploadQueue | null;
@@ -1464,6 +1466,10 @@ export class Game {
     await this.startReplay(replayData);
   }
 
+  async playNewRun(): Promise<void> {
+    await this.startGame();
+  }
+
   async captureNow(
     trigger: CaptureTrigger,
     note?: string,
@@ -1696,7 +1702,11 @@ export class Game {
         }
         setRng(Math.random);
         this.setScreen("gameover");
-        void this.autoUploadCompletedRun();
+        const automaticCapture = this.autoUploadCompletedRun();
+        this.automaticCapturePromise = automaticCapture;
+        void automaticCapture.finally(() => {
+          if (this.automaticCapturePromise === automaticCapture) this.automaticCapturePromise = null;
+        });
         break;
       }
       case "waveBonusStart":
@@ -1815,6 +1825,12 @@ export class Game {
     const game = this.gameRef.current;
     if (!game) return;
     const recapData = this.lastRunRecapData ?? buildRunRecapData(game, this.lastReplay);
+    const captureConfig = this.remoteCaptureConfig();
+    const canShare =
+      captureConfig !== null &&
+      getRemoteCaptureConsent(captureConfig.channel) === "granted" &&
+      this.lastReplay !== null &&
+      this.runId !== null;
     this.lastRunRecapData = recapData;
     this.runRecapOpen = true;
     this.progressionOpen = false;
@@ -1863,7 +1879,58 @@ export class Game {
       onSaveReplay: async () => {
         if (this.lastReplay) await saveReplayToFile(this.lastReplay);
       },
+      ...(canShare ? { onShareRun: () => this.shareCurrentRun(recapData) } : {}),
     });
+  }
+
+  private async shareCurrentRun(recapData: RunRecapData): Promise<void> {
+    const config = this.remoteCaptureConfig();
+    const runId = this.runId;
+    const button = this.runRecapPanel.querySelector<HTMLButtonElement>("[data-run-recap-share]");
+    if (!config || !runId || !this.lastReplay || !button || button.disabled) return;
+    button.disabled = true;
+    button.textContent = "Preparing…";
+    try {
+      await this.automaticCapturePromise;
+      const createLink = () =>
+        createRunShareLink({
+          endpoint: config.endpoint,
+          channel: config.channel,
+          buildId: getDiagnosticsBuildId(),
+          runId,
+        });
+      let shared = this.lastUploadedRunId === runId ? await createLink() : null;
+      if (this.lastUploadedRunId !== runId) {
+        button.textContent = "Checking…";
+        shared = await createLink();
+        if (!shared.ok && shared.status === 404) {
+          button.textContent = "Uploading…";
+          const uploaded = await this.captureNow("manual");
+          if (!uploaded.ok) throw new Error(`session upload failed: ${uploaded.reason}`);
+          this.lastUploadedRunId = runId;
+          button.textContent = "Linking…";
+          shared = await createLink();
+        }
+      }
+      if (!shared?.ok) throw new Error(`share link failed: ${shared?.reason ?? "unavailable"}`);
+      button.textContent = "Share…";
+      await presentRunShareSheet(shared.shareUrl, { score: recapData.score, wave: recapData.wave });
+      button.textContent = "Shared";
+      clientLog("capture", "share-result", { channel: config.channel, ok: true, shareId: shared.shareId });
+    } catch (error) {
+      button.textContent = "Share Failed";
+      clientLog("capture", "share-result", {
+        channel: config.channel,
+        ok: false,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      window.setTimeout(() => {
+        if (!button.isConnected) return;
+        button.disabled = false;
+        button.textContent = "Share Run";
+      }, 1800);
+    }
   }
 
   private closeRunRecap(): void {

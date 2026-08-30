@@ -58,5 +58,6 @@ export interface Env {
   APPLE_VALIDATION_CATEGORIES?: string;
   APPLE_ATTEST_ENVIRONMENTS?: string;
   ENROLLMENT_ENABLED?: string;
+  PUBLIC_GAME_URL?: string;
   WORKER_BUILD?: string;
 }

@@ -8,6 +8,12 @@ import { PerfRecorder } from "./perf-recorder";
 import type { PerfReport } from "./perf-recorder";
 import { ConsoleSink, HttpSink, type PerfSink } from "./perf-sinks";
 import type { ReplayData } from "./types";
+import {
+  fetchSharedReplay,
+  parseSharedReplayRequest,
+  type SharedReplayPayload,
+  type SharedReplayRequest,
+} from "./shared-replay";
 
 interface BootGameOptions {
   launchUrl?: string;
@@ -44,6 +50,11 @@ export interface BootGameRuntime {
 interface PerfHarness {
   banner: PerfStatusBanner;
   recorder: PerfRecorder;
+}
+
+interface SharedReplayStatus {
+  remove(): void;
+  set(message: string, error?: boolean): void;
 }
 
 const DEFAULT_PERF_SINK_URL = "/api/save-perf";
@@ -220,6 +231,60 @@ function createPerfStatusBanner(): PerfStatusBanner {
   };
 }
 
+function createSharedReplayStatus(): SharedReplayStatus {
+  const banner = document.createElement("div");
+  banner.className = "shared-replay-status";
+  banner.setAttribute("role", "status");
+  document.body.append(banner);
+  return {
+    remove: () => banner.remove(),
+    set(message, error = false) {
+      banner.textContent = message;
+      banner.classList.toggle("shared-replay-status--error", error);
+    },
+  };
+}
+
+function sharedReplayPlatformHint(): string {
+  if (Capacitor.isNativePlatform()) return "";
+  if (/iPhone|iPad|iPod/i.test(navigator.userAgent))
+    return "Tip: Share → Add to Home Screen for the full-screen version.";
+  return "Best played on a phone.";
+}
+
+function showSharedReplayCta(payload: SharedReplayPayload, onPlay: () => void): void {
+  document.querySelector(".shared-replay-cta")?.remove();
+  const overlay = document.createElement("section");
+  overlay.className = "shared-replay-cta";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-label", "Shared run complete");
+  const kicker = document.createElement("span");
+  kicker.className = "shared-replay-cta__kicker";
+  kicker.textContent = "REPLAY COMPLETE";
+  const headline = document.createElement("h2");
+  headline.textContent = `Wave ${payload.summary.wave} · ${payload.summary.score.toLocaleString()}`;
+  const copy = document.createElement("p");
+  copy.textContent = "Think you can beat it?";
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "action-button action-button--primary action-button--wide";
+  button.textContent = "YOUR TURN";
+  button.addEventListener("click", () => {
+    overlay.remove();
+    onPlay();
+  });
+  overlay.append(kicker, headline, copy);
+  const hintText = sharedReplayPlatformHint();
+  if (hintText) {
+    const hint = document.createElement("small");
+    hint.textContent = hintText;
+    overlay.append(hint);
+  }
+  overlay.append(button);
+  document.body.append(overlay);
+  button.focus();
+}
+
 function getReplayIdFromData(replayData: ReplayData): string | undefined {
   const maybeReplayId = (replayData as ReplayData & { replayId?: unknown }).replayId;
   if (typeof maybeReplayId !== "string") return undefined;
@@ -280,6 +345,7 @@ export function bootGame({ launchUrl }: BootGameOptions = {}): BootGameRuntime {
   let activePerfRequest: QueuedPerfRequest | null = null;
   let queuedPerfRequest: QueuedPerfRequest | null = null;
   let lastHandledPerfRequestKey = readLastHandledPerfRequestKey();
+  let activeSharedReplay: SharedReplayPayload | null = null;
 
   const renderer: GameRenderer = new PixiRenderer(canvas);
 
@@ -290,6 +356,11 @@ export function bootGame({ launchUrl }: BootGameOptions = {}): BootGameRuntime {
       perfHarness?.recorder.onFrame(sample);
     },
     onReplayFinished(sample) {
+      if (activeSharedReplay) {
+        const completed = activeSharedReplay;
+        activeSharedReplay = null;
+        showSharedReplayCta(completed, () => void game.playNewRun());
+      }
       if (!perfHarness) return;
       const { banner, recorder } = perfHarness;
       void recorder
@@ -418,6 +489,25 @@ export function bootGame({ launchUrl }: BootGameOptions = {}): BootGameRuntime {
     window.setTimeout(poll, 250);
   }
 
+  async function loadSharedReplay(request: SharedReplayRequest): Promise<void> {
+    const status = createSharedReplayStatus();
+    status.set("Loading shared defense run…");
+    try {
+      const payload = await fetchSharedReplay(request);
+      activeSharedReplay = payload;
+      await game.loadReplay(payload.replay);
+      status.remove();
+    } catch (error) {
+      activeSharedReplay = null;
+      status.set(error instanceof Error ? error.message : "Unable to load shared replay", true);
+      clientLog("replay", "shared-load-failed", {
+        shareId: request.shareId,
+        environment: request.environment,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
   const initialPerfRequest = parsePerfBootRequest(launchUrl ?? window.location.href);
   if (initialPerfRequest) {
     enqueuePerfRequest(
@@ -425,6 +515,8 @@ export function bootGame({ launchUrl }: BootGameOptions = {}): BootGameRuntime {
       buildPerfRequestKey(initialPerfRequest, `launch:${launchUrl ?? window.location.href}`),
     );
   }
+  const initialSharedReplay = parseSharedReplayRequest(launchUrl ?? window.location.href, __DMC_SHARE_BASE_URLS__);
+  if (initialSharedReplay && !initialPerfRequest) void loadSharedReplay(initialSharedReplay);
   startPerfCommandPolling();
   return {
     game,

@@ -19,6 +19,7 @@ export default defineConfig({
           APPLE_VALIDATION_CATEGORIES: "1,3",
           APPLE_ATTEST_ENVIRONMENTS: "development",
           ENROLLMENT_ENABLED: "true",
+          PUBLIC_GAME_URL: "https://phejet.github.io/dubai-missile-command/",
           TEST_MIGRATIONS: await readD1Migrations(`${workerRoot}migrations`),
         },
       },

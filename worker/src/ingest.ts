@@ -18,7 +18,7 @@ import {
 import type { D1PreparedStatement, D1Result, Env } from "./bindings";
 import { authorizeCapture, CaptureAuthorizationError } from "./capture-auth";
 
-class IngestError extends Error {
+export class IngestError extends Error {
   constructor(
     readonly stage: ContractStage | "auth" | "rate" | "conflict" | "store",
     message: string,

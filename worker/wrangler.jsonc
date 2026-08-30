@@ -13,6 +13,7 @@
     "APPLE_VALIDATION_CATEGORIES": "1,3",
     "APPLE_ATTEST_ENVIRONMENTS": "development",
     "ENROLLMENT_ENABLED": "false",
+    "PUBLIC_GAME_URL": "https://phejet.github.io/dubai-missile-command/",
   },
   "secrets": { "required": ["CAPTURE_BEARER_TOKEN", "CAPTURE_AUTH_SECRET"] },
   "d1_databases": [
@@ -43,6 +44,7 @@
         "APPLE_VALIDATION_CATEGORIES": "",
         "APPLE_ATTEST_ENVIRONMENTS": "development,production",
         "ENROLLMENT_ENABLED": "false",
+        "PUBLIC_GAME_URL": "https://phejet.github.io/dubai-missile-command/",
       },
       "secrets": { "required": ["CAPTURE_BEARER_TOKEN", "CAPTURE_AUTH_SECRET"] },
       "d1_databases": [
@@ -72,6 +74,7 @@
         "APPLE_VALIDATION_CATEGORIES": "",
         "APPLE_ATTEST_ENVIRONMENTS": "production",
         "ENROLLMENT_ENABLED": "false",
+        "PUBLIC_GAME_URL": "https://phejet.github.io/dubai-missile-command/",
       },
       "secrets": { "required": ["CAPTURE_BEARER_TOKEN", "CAPTURE_AUTH_SECRET"] },
       "d1_databases": [

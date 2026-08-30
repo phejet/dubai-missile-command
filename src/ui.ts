@@ -59,6 +59,7 @@ export type ActiveButtonPhase = "ready" | "active" | "complete" | "spent";
 export interface RunRecapCallbacks {
   onClose: () => void;
   onSaveReplay: () => void | Promise<void>;
+  onShareRun?: () => void | Promise<void>;
   onWatchFullReplay: () => void;
   onWatchFromWave?: (startTick: number) => void;
 }
@@ -898,7 +899,7 @@ function renderWavePills(
     </div>`;
 }
 
-function renderRunRecapActions(data: RunRecapData): string {
+function renderRunRecapActions(data: RunRecapData, canShare: boolean): string {
   return `
     <div class="portrait-panel__actions run-recap__actions">
       <button type="button" class="action-button action-button--primary run-recap__watch" data-run-recap-watch ${data.hasReplay ? "" : "disabled"}>
@@ -907,6 +908,13 @@ function renderRunRecapActions(data: RunRecapData): string {
       <button type="button" class="action-button action-button--info" data-run-recap-save ${data.hasReplay ? "" : "disabled"}>
         Save
       </button>
+      ${
+        canShare
+          ? `<button type="button" class="action-button action-button--info" data-run-recap-share ${data.hasReplay ? "" : "disabled"}>
+        Share Run
+      </button>`
+          : ""
+      }
       <button type="button" class="action-button action-button--info" data-run-recap-close>
         Back
       </button>
@@ -924,7 +932,7 @@ export function showRunRecap(data: RunRecapData, callbacks: RunRecapCallbacks): 
       ${renderRunRecapHero(data)}
       <div class="run-recap__feature" id="run-recap-feature">${renderFeaturedWave(getSelectedCard(), bestWave)}</div>
       ${renderWavePills(data.waveCards, bestWave, selectedWave)}
-      ${renderRunRecapActions(data)}
+      ${renderRunRecapActions(data, callbacks.onShareRun !== undefined)}
     </div>`;
 
   const selectWave = (wave: number) => {
@@ -949,6 +957,7 @@ export function showRunRecap(data: RunRecapData, callbacks: RunRecapCallbacks): 
     if (target.closest("[data-run-recap-close]")) callbacks.onClose();
     else if (target.closest("[data-run-recap-watch]")) callbacks.onWatchFullReplay();
     else if (target.closest("[data-run-recap-save]")) void callbacks.onSaveReplay();
+    else if (target.closest("[data-run-recap-share]")) void callbacks.onShareRun?.();
     else {
       const button = target.closest<HTMLButtonElement>("[data-wave-pill]");
       const wave = Number(button?.dataset.wave);

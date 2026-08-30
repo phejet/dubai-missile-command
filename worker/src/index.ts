@@ -3,6 +3,7 @@ import { authorized } from "./auth";
 import type { Env, R2ObjectBody } from "./bindings";
 import { challenge, enroll, revokeCredential } from "./capture-auth";
 import { ingestReport, ingestSession, jsonResponse } from "./ingest";
+import { redirectSharedRun, retrieveSharedRun, shareSession } from "./share";
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
 const REPORT_RETENTION_MS = 90 * DAY_MS;
@@ -215,6 +216,9 @@ export async function runRetention(env: Env, now = Date.now()): Promise<void> {
     env.DB.prepare("DELETE FROM sessions WHERE received_at < ?").bind(now - SESSION_RETENTION_MS),
     env.DB.prepare("DELETE FROM diagnostic_reports WHERE received_at < ?").bind(now - REPORT_RETENTION_MS),
     env.DB.prepare(
+      "DELETE FROM shared_runs WHERE NOT EXISTS (SELECT 1 FROM sessions WHERE sessions.run_id = shared_runs.run_id)",
+    ),
+    env.DB.prepare(
       `DELETE FROM replays
        WHERE NOT EXISTS (SELECT 1 FROM sessions WHERE replay_sha256 = replays.replay_sha256)
          AND NOT EXISTS (SELECT 1 FROM diagnostic_reports WHERE replay_sha256 = replays.replay_sha256)`,
@@ -259,6 +263,7 @@ export default {
     }
     if (url.pathname === "/api/session") return ingestWithCors(request, env, ingestSession);
     if (url.pathname === "/api/report") return ingestWithCors(request, env, ingestReport);
+    if (url.pathname === "/api/share") return ingestWithCors(request, env, shareSession);
     if (url.pathname === "/api/sessions" && request.method === "GET") return listRows(request, env, "sessions");
     if (url.pathname === "/api/reports" && request.method === "GET") {
       return listRows(request, env, "diagnostic_reports");
@@ -270,6 +275,10 @@ export default {
       if (reportId !== null) return retrieveReport(request, env, reportId);
       const sha = decodedPathId(url.pathname, /^\/api\/replay\/([^/]+)$/);
       if (sha !== null) return retrieveReplay(request, env, sha);
+      const sharedId = decodedPathId(url.pathname, /^\/api\/shared\/([^/]+)$/);
+      if (sharedId !== null) return retrieveSharedRun(env, sharedId);
+      const redirectId = decodedPathId(url.pathname, /^\/r\/([^/]+)$/);
+      if (redirectId !== null) return redirectSharedRun(env, redirectId);
     }
     return jsonResponse(404, { ok: false, stage: "parse", message: "Not found" });
   },

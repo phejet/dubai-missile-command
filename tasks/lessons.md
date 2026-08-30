@@ -1,5 +1,16 @@
 # Lessons
 
+## 2026-08-30 — Reconcile roadmap labels with shipped capability before sequencing work
+
+- Before describing a roadmap phase by its historical title, inspect the current runtime
+  and active rollout notes. Automatic completed-session uploads and the bounded retry queue
+  already shipped for consented native Dev/Staging play, so calling Phase 4 "automatic
+  uploads" falsely turns delivered transport into future work. State the remaining product
+  surface precisely: upload history, deletion, persistent status, and feedback UI.
+- When the user confirms external rollout gates are complete, update the active roadmap
+  immediately and distinguish user-confirmed device/remote evidence from locally reproduced
+  evidence. Do not keep sending completed deployment work back around the loop.
+
 ## 2026-08-29 — State flavor capability differences before device deployment
 
 - Before installing a Dev, Staging, or Production identity, report its capture channel and

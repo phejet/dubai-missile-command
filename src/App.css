@@ -1868,6 +1868,71 @@
   background: #040614;
 }
 
+.shared-replay-status,
+.shared-replay-cta {
+  position: fixed;
+  left: 50%;
+  z-index: 1200;
+  width: min(82vw, 390px);
+  border: 1px solid rgba(109, 217, 255, 0.34);
+  border-radius: 18px;
+  background: rgba(5, 13, 25, 0.96);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.58);
+  color: #effcff;
+  text-align: center;
+}
+
+.shared-replay-status {
+  top: 24px;
+  transform: translateX(-50%);
+  padding: 13px 18px;
+  font:
+    800 12px/1.35 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.shared-replay-status--error {
+  border-color: rgba(255, 96, 96, 0.58);
+  color: #ffb3b3;
+}
+
+.shared-replay-cta {
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 24px;
+}
+
+.shared-replay-cta__kicker {
+  color: #6dd9ff;
+  font:
+    850 11px/1 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  letter-spacing: 0.16em;
+}
+
+.shared-replay-cta h2 {
+  margin: 12px 0 4px;
+  font-size: clamp(28px, 8vw, 42px);
+}
+
+.shared-replay-cta p {
+  margin: 0 0 16px;
+  color: #b8ccd8;
+}
+
+.shared-replay-cta small {
+  display: block;
+  margin: -6px 0 16px;
+  color: #87a1b2;
+  line-height: 1.4;
+}
+
 .run-recap__death-clip--live::after {
   content: "";
   pointer-events: none;

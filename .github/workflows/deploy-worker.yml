@@ -98,6 +98,7 @@ jobs:
             --var "APPLE_VALIDATION_CATEGORIES:$APPLE_VALIDATION_CATEGORIES" \
             --var "APPLE_ATTEST_ENVIRONMENTS:$APPLE_ATTEST_ENVIRONMENTS" \
             --var "ENROLLMENT_ENABLED:$ENROLLMENT_ENABLED" \
+            --var "PUBLIC_GAME_URL:https://phejet.github.io/dubai-missile-command/" \
             --secrets-file "$secrets_file"
       - run: npm run worker:lifecycle:staging
     env:
@@ -162,6 +163,7 @@ jobs:
             --var "APPLE_VALIDATION_CATEGORIES:$APPLE_VALIDATION_CATEGORIES" \
             --var "APPLE_ATTEST_ENVIRONMENTS:production" \
             --var "ENROLLMENT_ENABLED:$ENROLLMENT_ENABLED" \
+            --var "PUBLIC_GAME_URL:https://phejet.github.io/dubai-missile-command/" \
             --secrets-file "$secrets_file"
       - run: npm run worker:lifecycle:production
     env:

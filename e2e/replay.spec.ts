@@ -68,6 +68,32 @@ async function runReplayHeadless(page: Page, replayData: ReplayData) {
 }
 
 test.describe("Replay", () => {
+  test("loads a reviewed shared-run URL and hands control back with a your-turn CTA", async ({ page }) => {
+    const shareId = "0123456789abcdef";
+    await page.route(`https://dmc-captures-staging.phejet.workers.dev/api/shared/${shareId}`, async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          shareId,
+          summary: { build: "shared-build", outcome: "burj_destroyed", score: 4321, wave: 4 },
+          replay: SHORT_REPLAY,
+        }),
+      });
+    });
+    await page.goto(`/?r=${shareId}&share=staging`);
+    await page.waitForFunction(() => window.__gameRef?.current?._replay === true);
+    await page.evaluate(() => {
+      window.__gameRef!.current!.state = "gameover";
+    });
+
+    await expect(page.locator(".shared-replay-cta")).toContainText("Wave 4 · 4,321");
+    await expect(page.locator(".shared-replay-cta")).toContainText("Think you can beat it?");
+    await page.getByRole("button", { name: "YOUR TURN" }).click();
+    await expect(page.locator(".shared-replay-cta")).toHaveCount(0);
+    await expect(page.locator("#game-shell")).toHaveAttribute("data-screen", "playing");
+  });
+
   test("loading a replay via __loadReplay enters replay mode", async ({ page }) => {
     await page.goto("/");
     await page.waitForFunction(() => window.__loadReplay != null, undefined, { timeout: 5000 });
