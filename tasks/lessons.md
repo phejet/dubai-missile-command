@@ -14,6 +14,10 @@
   the native/human/consent gates and derive uploaded flavor provenance from the bundle ID
   verified during App Attest enrollment; a build SHA alone cannot distinguish multiple
   flavors produced from the same commit.
+- Do not hand a physical enrollment step to the user after merely changing the GitHub
+  variable. The Worker keeps the old switch until the protected deployment completes.
+  Confirm the Staging deploy and live endpoint first, then ask the user to tap; otherwise
+  the UI reports a predictable failure and the user becomes an unpaid CI runner.
 
 ## 2026-08-23 — Compose app icons at installed size first
 
