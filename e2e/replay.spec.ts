@@ -70,6 +70,19 @@ async function runReplayHeadless(page: Page, replayData: ReplayData) {
 test.describe("Replay", () => {
   test("loads a reviewed shared-run URL and hands control back with a your-turn CTA", async ({ page }) => {
     const shareId = "0123456789abcdef";
+    let releaseGameplayAsset!: () => void;
+    let markGameplayAssetRequested!: () => void;
+    const gameplayAssetGate = new Promise<void>((resolve) => {
+      releaseGameplayAsset = resolve;
+    });
+    const gameplayAssetRequested = new Promise<void>((resolve) => {
+      markGameplayAssetRequested = resolve;
+    });
+    await page.route(/\/assets\/building-destroy-burst-[^/]+\.png$/, async (route) => {
+      markGameplayAssetRequested();
+      await gameplayAssetGate;
+      await route.continue();
+    });
     await page.route(`https://dmc-captures-staging.phejet.workers.dev/api/shared/${shareId}`, async (route) => {
       await route.fulfill({
         contentType: "application/json",
@@ -81,8 +94,18 @@ test.describe("Replay", () => {
         }),
       });
     });
-    await page.goto(`/?r=${shareId}&share=staging`);
+    await page.goto(`/?r=${shareId}&share=staging`, { waitUntil: "domcontentloaded" });
+    await gameplayAssetRequested;
+    try {
+      await expect(page.locator("#game-canvas")).toHaveAttribute("data-pixi-gameplay-static", "booting");
+      await expect(page.locator(".shared-replay-status")).toContainText("Loading shared defense run");
+      await page.waitForTimeout(100);
+      expect(await page.evaluate(() => window.__gameRef?.current?._replay ?? false)).toBe(false);
+    } finally {
+      releaseGameplayAsset();
+    }
     await page.waitForFunction(() => window.__gameRef?.current?._replay === true);
+    await expect(page.locator("#game-canvas")).toHaveAttribute("data-pixi-gameplay-static", "ready");
     await page.evaluate(() => {
       window.__gameRef!.current!.state = "gameover";
     });

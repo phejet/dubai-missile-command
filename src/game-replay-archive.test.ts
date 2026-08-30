@@ -97,6 +97,7 @@ import { Game } from "./game";
 import { REPLAY_ARCHIVE_GATE_TIMEOUT_MS, REPLAY_ARCHIVE_PREPARING_DELAY_MS } from "./replay-archive-gate";
 
 const renderer: GameRenderer = {
+  readyPromise: Promise.resolve(),
   destroy: vi.fn(),
   renderGameOver: vi.fn(),
   renderGameplay: vi.fn(),

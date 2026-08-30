@@ -1334,7 +1334,7 @@ export class Game {
     replayData: ReplayData,
     opts: { seekToTick?: number; returnToRecap?: boolean; playbackNumber?: number; startPaused?: boolean } = {},
   ): Promise<void> {
-    await SFX.init();
+    await Promise.all([this.renderer.readyPromise, SFX.init()]);
     SFX.prewarm();
     const seekToTick = Math.max(0, Math.floor(opts.seekToTick ?? 0));
     const playbackNumber = Math.max(1, Math.floor(opts.playbackNumber ?? 1));

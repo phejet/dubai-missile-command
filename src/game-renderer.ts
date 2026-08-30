@@ -14,6 +14,7 @@ export interface GameplayRenderRequest {
 }
 
 export interface GameRenderer {
+  readonly readyPromise: Promise<void>;
   renderTitle(): void;
   renderGameplay(game: GameState, request?: GameplayRenderRequest): void;
   renderGameOver(snapshot: GameOverSnapshot): void;

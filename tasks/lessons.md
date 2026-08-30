@@ -1,5 +1,16 @@
 # Lessons
 
+## 2026-08-30 — Gate shared replay playback on renderer resource readiness
+
+- A successful shared-replay fetch and an available `window.__loadReplay` hook do not prove
+  the visual runtime is ready to advance. Public-link playback can begin while renderer
+  textures, prebaked sprites, or first-scene objects are still being created, producing a
+  transient glitch that ordinary title-screen startup hides.
+- Treat shared replay boot as a readiness protocol: fetch and validate early, but do not
+  advance replay ticks until the renderer's real resource-preparation promise has resolved
+  and the initial gameplay scene can be composed. Cover ordering directly; a final-state
+  assertion cannot detect malformed opening frames.
+
 ## 2026-08-30 — Reconcile roadmap labels with shipped capability before sequencing work
 
 - Before describing a roadmap phase by its historical title, inspect the current runtime

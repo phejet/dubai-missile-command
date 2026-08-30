@@ -10,6 +10,7 @@ import { createEmptyGameStats } from "./game-logic";
 import type { SessionUploadQueue } from "./capture-upload-queue";
 import type { GameState, ReplayData } from "./types";
 import type { CreateRunShareResult } from "./share-run";
+import { replayFixture } from "../test-fixtures/capture";
 
 interface GameInternals {
   initGame(): void;
@@ -117,6 +118,7 @@ vi.mock("./sound", () => ({
 import { Game } from "./game";
 
 const renderer: GameRenderer = {
+  readyPromise: Promise.resolve(),
   destroy: vi.fn(),
   renderGameOver: vi.fn(),
   renderGameplay: vi.fn(),
@@ -191,6 +193,32 @@ describe("Game capture orchestration", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it("waits for renderer resources before starting replay playback", async () => {
+    let resolveReady!: () => void;
+    const readyPromise = new Promise<void>((resolve) => {
+      resolveReady = resolve;
+    });
+    const delayedRenderer = { ...renderer, readyPromise };
+    const canvas = document.getElementById("game-canvas") as HTMLCanvasElement;
+    const game = new Game({ canvas, renderer: delayedRenderer });
+    const load = game.loadReplay({
+      ...replayFixture(),
+      initialState: {
+        metaProgression: { version: 1, completedObjectives: [] },
+        forcedUpgradeFamilies: [],
+        burjHealth: 7,
+      },
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(internals(game).replayActive).toBe(false);
+
+    resolveReady();
+    await load;
+    expect(internals(game).replayActive).toBe(true);
   });
 
   it("captures each controller state from the correct replay source", async () => {
