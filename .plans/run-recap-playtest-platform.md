@@ -1,6 +1,6 @@
 # Run Recap & Playtest Platform — Design Brain Dump
 
-Status: Phase 1 shipped; Phase 2 deployed to Staging; Phase 3 implemented locally, Staging proof pending; Phase 4 partial; Phase 5–7 unbuilt
+Status: Phase 1 shipped; Phase 2 deployed to Staging; Phase 3 deployed to Staging, physical proof pending; Phase 4 partial; Phase 5–7 unbuilt
 Date captured: 2026-05-24
 Implementation state last verified: 2026-08-30 (§0.5)
 Source: extended brainstorm conversation; this is the canonical record so we
@@ -89,10 +89,10 @@ gate is a category `2` App Attest submission from the proper Staging TestFlight 
   builds remain remote-ineligible.
 - Explicit consent, manual completed-run submission, automatic game-over upload,
   and the bounded offline retry queue are shipped and physically proven on Dev.
-- Phase 3 sharing now exists locally: Run Recap reuses an already uploaded session,
+- Phase 3 sharing is deployed to Staging: Run Recap reuses an already uploaded session,
   an App-Attest-authorized owner action mints one stable public slug, `?r=` loads the
   replay from a reviewed environment map, and replay completion presents a
-  score/wave “Your Turn” CTA. Staging deployment and a real shared-link proof remain.
+  score/wave “Your Turn” CTA. A real physical shared-link proof remains.
 - Still absent: feedback emoji/note UI, recent uploads, server deletion controls,
   and a persistent sharing-status indicator.
 - Shipped and load-bearing: `src/install-id.ts` (persisted random id, `eph-`
@@ -916,7 +916,7 @@ Validate with `curl` before any game UI talks to it.
 > `vars.CAPTURE_WORKER_PROVISIONED`. Finishing this phase is provisioning
 > work, not code.
 
-### Phase 3 — Share-link flow (the first viral feature) — **IMPLEMENTED LOCALLY; STAGING PROOF PENDING**
+### Phase 3 — Share-link flow (the first viral feature) — **DEPLOYED TO STAGING; PHYSICAL PROOF PENDING**
 
 - "Share my run" button on Run Recap → uploads → native share sheet
 - Web build reads `?r=...` on boot → fetches → calls

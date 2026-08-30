@@ -7,9 +7,12 @@
   already shipped for consented native Dev/Staging play, so calling Phase 4 "automatic
   uploads" falsely turns delivered transport into future work. State the remaining product
   surface precisely: upload history, deletion, persistent status, and feedback UI.
-- When the user confirms external rollout gates are complete, update the active roadmap
-  immediately and distinguish user-confirmed device/remote evidence from locally reproduced
-  evidence. Do not keep sending completed deployment work back around the loop.
+- When the user confirms external rollout gates are complete, update the active roadmap,
+  but verify mutable switches and expected persistence evidence when read-only access
+  exists. Distinguish user-confirmed device actions from reproduced remote state. Here
+  enrollment existed, but D1 still contained only legacy `unknown` sessions and the
+  protected enrollment variable remained `true`; shorthand completion was not proof of
+  the full gate.
 
 ## 2026-08-29 — State flavor capability differences before device deployment
 
