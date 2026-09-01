@@ -1,8 +1,8 @@
 # Run Recap & Playtest Platform — Design Brain Dump
 
-Status: Phase 1 shipped; Phase 2 deployed to Staging; Phase 3 deployed to Staging, physical proof pending; Phase 4 partial; Phase 5–7 unbuilt
+Status: Phase 1 shipped; Phase 2 deployed to Staging; Phase 3 complete on Staging; Phase 4 partial; Phase 5–7 unbuilt
 Date captured: 2026-05-24
-Implementation state last verified: 2026-08-30 (§0.5)
+Implementation state last verified: 2026-08-31 (§0.5)
 Source: extended brainstorm conversation; this is the canonical record so we
 don't lose context between sessions.
 
@@ -13,7 +13,7 @@ the reasoning trail is worth more than a tidy document.
 
 ---
 
-## 0.5 Where this actually stands (verified 2026-08-30)
+## 0.5 Where this actually stands (verified 2026-08-31)
 
 Read this section first; everything after it is design intent, not status.
 
@@ -82,17 +82,20 @@ bundle provenance and D1/R2 replay evidence verified before enrollment was close
 Production resources and client capture remain disabled. The remaining distribution
 gate is a category `2` App Attest submission from the proper Staging TestFlight build.
 
-### Client wiring — automatic capture shipped; sharing implemented locally
+### Client wiring — automatic capture and sharing shipped to Staging
 
 - Explicit native Dev and Staging builds target only the reviewed Staging Worker;
   browser, headless, automation, replay playback, and ordinary local Production
   builds remain remote-ineligible.
 - Explicit consent, manual completed-run submission, automatic game-over upload,
   and the bounded offline retry queue are shipped and physically proven on Dev.
-- Phase 3 sharing is deployed to Staging: Run Recap reuses an already uploaded session,
+- Phase 3 sharing is deployed and physically proven on Staging: Run Recap reuses an already uploaded session,
   an App-Attest-authorized owner action mints one stable public slug, `?r=` loads the
   replay from a reviewed environment map, and replay completion presents a
-  score/wave “Your Turn” CTA. A real physical shared-link proof remains.
+  score/wave “Your Turn” CTA. One Dev-authenticated human run was automatically uploaded,
+  explicitly shared, replayed successfully in an iPhone browser and on a laptop, and its
+  “Try to Beat It” CTA started a fresh run. The user also confirmed the renderer-readiness
+  fix removed the malformed opening frames after `ad774a0` deployed.
 - Still absent: feedback emoji/note UI, recent uploads, server deletion controls,
   and a persistent sharing-status indicator.
 - Shipped and load-bearing: `src/install-id.ts` (persisted random id, `eph-`
@@ -101,11 +104,11 @@ gate is a category `2` App Attest submission from the proper Staging TestFlight 
   `npm run diag:pull` (`scripts/diag-pull.mjs`, bearer via
   `DMC_CAPTURE_TOKEN`).
 
-### Phases 3–7 — **Phase 3 local; Phase 4 partial; Phase 5–7 unbuilt**
+### Phases 3–7 — **Phase 3 complete on Staging; Phase 4 partial; Phase 5–7 unbuilt**
 
 Phase 3's share action, slug, public lookup/redirect, reviewed `?r=` boot path,
-automatic replay, and post-replay CTA are implemented and locally verified. OG
-cards are deliberately deferred until a real share occurs. Phase 4 already has
+automatic replay, and post-replay CTA are deployed and physically proven. OG
+cards remain deferred as later polish. Phase 4 already has
 consent, the auto-upload toggle, install identity, and offline queue; it still lacks
 recent uploads, deletion, persistent status, friendly naming, and feedback UI.
 Leaderboard, Daily Challenge, ghosts, and anomaly detection remain unbuilt.
@@ -131,10 +134,10 @@ Leaderboard, Daily Challenge, ghosts, and anomaly detection remain unbuilt.
 
 ### The current gates
 
-Two gates remain: prove App Attest category `2` through the proper Staging
-TestFlight install, and deploy Phase 3 only to Staging for one real shared-link
-round trip. Production capture remains closed until those pass and the deletion
-contract/product UI required by Phase 4 exists.
+One distribution gate remains: prove App Attest category `2` through the proper
+Staging TestFlight install. The Staging-only Phase 3 shared-link round trip is complete.
+Production capture remains closed until the category `2` gate passes, the app-owned
+privacy manifest is complete, and the deletion contract/product UI required by Phase 4 exists.
 
 ---
 
@@ -916,7 +919,7 @@ Validate with `curl` before any game UI talks to it.
 > `vars.CAPTURE_WORKER_PROVISIONED`. Finishing this phase is provisioning
 > work, not code.
 
-### Phase 3 — Share-link flow (the first viral feature) — **DEPLOYED TO STAGING; PHYSICAL PROOF PENDING**
+### Phase 3 — Share-link flow (the first viral feature) — **COMPLETE ON STAGING**
 
 - "Share my run" button on Run Recap → uploads → native share sheet
 - Web build reads `?r=...` on boot → fetches → calls

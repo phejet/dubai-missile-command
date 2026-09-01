@@ -1,5 +1,29 @@
 # Lessons
 
+## 2026-08-31 — Do not resurrect enrollment windows after adopting self-service attestation
+
+- Before proposing a temporary `ENROLLMENT_ENABLED=true` rollout, reconcile the latest
+  product decision with older implementation plans. This project already decided that
+  genuine allowlisted TestFlight/App Store installs enroll automatically after explicit
+  consent; the global switch is an emergency pause, not recurring onboarding ceremony.
+- Under that policy, Staging keeps enrollment enabled as steady state while App Attest,
+  build/bundle/version/category allowlists, consent, rate limits, and revocation enforce
+  eligibility. Turning it off after each proof silently breaks the next legitimate tester.
+
+## 2026-08-31 — Separate TestFlight upload from tester visibility
+
+- A successful IPA upload, processing record, and even an App Store Connect app record do
+  not prove that the intended tester can see the app in TestFlight. Verify build-to-group
+  assignment and the tester's invitation/redeem state before instructing them to install.
+- Name the app exactly as it should appear in TestFlight and compare that with what the
+  tester actually sees. Here the user saw only `Dubai Missile Command`, while the required
+  artifact is `Dubai Missile Command Staging`; installing the visible production identity
+  would test the wrong bundle and backend boundary.
+- Read the tester status before resending invitations. A tester row already showing the
+  intended internal group plus `No Builds Available` proves membership succeeded; the
+  missing edge is build processing/compliance/group assignment, not email delivery. Here
+  the exact cause was that build `1.0 (3)` had not been added to the group.
+
 ## 2026-08-30 — Gate shared replay playback on renderer resource readiness
 
 - A successful shared-replay fetch and an available `window.__loadReplay` hook do not prove

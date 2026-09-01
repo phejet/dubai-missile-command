@@ -253,8 +253,9 @@ Worker must not accept development attestations.
 
 Enrollment stores one revocable App Attest key. Direct development signing and private
 TestFlight distribution already control who receives a valid build, so this phase adds
-no second invitation system. A fail-closed `ENROLLMENT_ENABLED` Worker variable opens a
-short enrollment window and is disabled after the intended devices register.
+no second invitation system. A required, fail-closed `ENROLLMENT_ENABLED` Worker variable
+is normally `true` for an environment where capture is available. Setting it to `false`
+is an emergency pause on new credentials, not a per-device approval or onboarding step.
 
 ### Client flow
 
@@ -300,16 +301,17 @@ an idempotent success; a collision with different verified key material is a con
 
 ### Enrollment lifecycle
 
-- Reinstall/key loss creates a new credential and requires another controlled enrollment
-  window.
+- Reinstall/key loss creates a new credential and re-enrolls through the same allowlisted,
+  consented path while the environment is not emergency-paused.
 - A credential can be revoked without redeploying the Worker.
 - A revoked key cannot re-enroll. The client must explicitly forget it, generate a new
-  key during a controlled enrollment window, and leave the revoked row as audit history.
+  key, and leave the revoked row as audit history.
 - Development credentials remain separate from production credentials.
 - Staging and production have independent `ENROLLMENT_ENABLED` values. Production accepts
   only production App Attest credentials.
-- A future public App Store release needs an explicit enrollment-abuse decision before
-  leaving enrollment open continuously.
+- Enrollment abuse is bounded by genuine App Attest proof plus build, bundle, version,
+  category, and environment allowlists, pre-proof IP limits, post-proof credential quotas,
+  and revocation. Use the global switch only when those controls need an emergency pause.
 
 ## Authenticated submission protocol
 
@@ -523,20 +525,20 @@ unless the product policy changes.
 
 One Cloudflare account is accepted for now, with these boundaries:
 
-| Concern                   | Staging                                           | Production                                  |
-| ------------------------- | ------------------------------------------------- | ------------------------------------------- |
-| Worker                    | `dmc-captures-staging`                            | `dmc-captures`                              |
-| D1                        | `dmc-captures-staging`                            | `dmc-captures`                              |
-| R2                        | `dmc-captures-staging`                            | `dmc-captures`                              |
-| Rate-limit namespaces     | 2001-2003                                         | 3001-3003                                   |
-| GitHub Environment        | `staging`                                         | `production`                                |
-| Cloudflare API token      | Staging environment secret                        | Different production environment secret     |
-| Retrieval bearer          | Staging environment secret                        | Different production environment secret     |
-| App Attest credentials    | Staging D1 only                                   | Production D1 only                          |
-| Challenge HMAC key        | Staging environment secret                        | Different production environment secret     |
-| Enrollment switch         | Closed except controlled enrollment windows       | Closed except controlled enrollment windows |
-| Remote development        | May use explicit staging preview bindings         | Prohibited; dry-run/deployed smoke only     |
-| Supported deployment path | Qualifying `main` push or manual staging dispatch | Manual production dispatch only             |
+| Concern                   | Staging                                                        | Production                                                                     |
+| ------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Worker                    | `dmc-captures-staging`                                         | `dmc-captures`                                                                 |
+| D1                        | `dmc-captures-staging`                                         | `dmc-captures`                                                                 |
+| R2                        | `dmc-captures-staging`                                         | `dmc-captures`                                                                 |
+| Rate-limit namespaces     | 2001-2003                                                      | 3001-3003                                                                      |
+| GitHub Environment        | `staging`                                                      | `production`                                                                   |
+| Cloudflare API token      | Staging environment secret                                     | Different production environment secret                                        |
+| Retrieval bearer          | Staging environment secret                                     | Different production environment secret                                        |
+| App Attest credentials    | Staging D1 only                                                | Production D1 only                                                             |
+| Challenge HMAC key        | Staging environment secret                                     | Different production environment secret                                        |
+| Enrollment switch         | Enabled while Staging capture is offered; emergency pause only | Disabled until Production capture launches, then enabled; emergency pause only |
+| Remote development        | May use explicit staging preview bindings                      | Prohibited; dry-run/deployed smoke only                                        |
+| Supported deployment path | Qualifying `main` push or manual staging dispatch              | Manual production dispatch only                                                |
 
 Identical GitHub secret names are intentional because GitHub Environments namespace
 their values. There must be no repository-level fallback with the same name. Values
@@ -604,8 +606,8 @@ resources. Separate Cloudflare accounts remain the hard-isolation option.
 
 1. Build with the explicit staging iOS command.
 2. The public staging Worker URL and channel are baked into the bundle.
-3. During a controlled staging enrollment window, the device creates a development App
-   Attest credential and enrolls it with staging.
+3. With Staging enrollment enabled, the device creates a development App Attest credential
+   and enrolls automatically after explicit consent and policy validation.
 4. After consent, each upload obtains a fresh staging challenge token and assertion.
 5. Failure leaves the artifact local. The app never falls back to production or to an
    unauthenticated request.
@@ -615,7 +617,8 @@ resources. Separate Cloudflare accounts remain the hard-isolation option.
 1. Archive the reviewed commit with channel `staging`.
 2. TestFlight uses Apple's production App Attest environment even though its endpoint is
    the staging Worker.
-3. Staging accepts that combination only for allowed QA builds while enrollment is open.
+3. Staging accepts that combination only for allowed QA builds while the emergency pause
+   is not active.
 4. Exercise enrollment, consent, offline retry, revocation, and hostile API tests before
    considering production; verify the parent plan's deletion flow separately.
 
@@ -688,13 +691,17 @@ capture D1/R2 unchanged, while local browser and automation behavior never selec
   artifact fallback.
 - Add explicit staging iOS build routing and integrate the parent plan's consent and
   bounded offline queue. Gameplay remains independent of upload success.
-- Validate direct development and TestFlight builds separately on physical hardware,
-  close enrollment afterward, and run the complete hostile staging matrix.
+- Validate direct development and TestFlight builds separately on physical hardware, keep
+  enrollment enabled as Staging's steady state, and run the complete hostile staging matrix.
 
 The direct-development path is live: explicit consent, enrollment, manual submission,
 automatic completed-session submission, bounded retry storage, and authenticated replay
 retrieval are proven on a physical iPhone with enrollment closed afterward. TestFlight
 category `2` remains the uncompleted distribution-path gate.
+
+That closed state was historical rollout choreography. Staging now keeps enrollment enabled
+so every genuine allowlisted build can enroll after consent; `false` is reserved for an
+emergency pause.
 
 Exit gate: both distribution paths submit consented human runs to staging; replay/bot/AI
 gameplay makes no remote request; altered, replayed, or revoked requests fail.
@@ -783,7 +790,8 @@ Every failure above asserts **zero new capture rows and zero new R2 capture obje
 - Rotate the affected environment's Cloudflare token, retrieval bearer, or challenge-HMAC
   secret independently.
 - Empty `ALLOWED_BUILDS` is the fail-closed Worker ingest switch; channel `off` is the
-  client-side counterpart. `ENROLLMENT_ENABLED` stays false except during registration.
+  client-side counterpart. `ENROLLMENT_ENABLED` stays true while an environment offers
+  capture and changes to false only to pause new credential enrollment during an incident.
 - Empty `APPLE_BUNDLE_VERSIONS` also fails closed. Keep every still-distributed
   TestFlight/App Store build number during rollout, then remove retired versions.
 - Empty `APPLE_VALIDATION_CATEGORIES` fails closed. Permit only the categories belonging

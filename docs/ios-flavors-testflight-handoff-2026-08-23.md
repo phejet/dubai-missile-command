@@ -144,6 +144,34 @@ the replacement TestFlight archive. It installed successfully on the paired iPho
 - Build 1 predates the canonical full display name and selected icon. Do not add it to a
   tester group; upload build `1.0 (2)` from the final clean commit instead.
 
+### Staging recovery upload — 2026-08-31
+
+The planned build-2 evidence could not prove that a replacement reached the Staging record,
+and the paired tester saw only the Production app in TestFlight. A fresh archive was built
+from clean commit `ad774a0` as `Dubai Missile Command Staging 1.0 (3)` and uploaded directly
+to the Staging record:
+
+- Apple app ID: `6804336333`
+- bundle ID: `com.phejet.dubaicmd.staging`
+- delivery UUID: `43da0821-7dee-44b3-a228-44da9fc28217`
+- IPA SHA-256: `d2b2aa65e5abf5fe1cb600597a363ec5fda9d1493e709f6941c2eba9c773ff4d`
+- IPA size: `14,552,846` bytes
+- embedded native manifest: build `ad774a0`, flavor/channel `staging` / `staging`
+- App Store distribution profile: `beta-reports-active=true`, `get-task-allow=false`
+- signed App Attest environment: `production`
+
+Xcode's App Store Connect lookup resolved the signed bundle to app `6804336333`, the upload
+completed successfully, and Apple reported the package processing with no processing errors
+at handoff. Protected Staging deployment run `33393391346` added build `ad774a0` and bundle
+version `3`, passed preflight/Worker tests/dry-runs/migrations/deploy/lifecycle, and kept
+enrollment closed. Once processing completes, assign build 3 to the Staging internal group
+and invite the tester; do not substitute the visible Production app.
+
+The tester later installed build `1.0 (3)`. Protected run `33398913514` then set
+`ENROLLMENT_ENABLED=true`, passed preflight/Worker tests/dry-runs/migrations/deploy/lifecycle,
+and left Staging enrollment enabled as steady state. The switch is now an emergency pause,
+not a registration window. Production was not deployed.
+
 ## Staging Worker State
 
 Health returns `{"ok":true,"schema":2,"build":"staging"}`.
@@ -155,7 +183,7 @@ GitHub Staging environment variables when captured:
 - `APPLE_BUNDLE_VERSIONS=1,2`
 - `APPLE_VALIDATION_CATEGORIES=2,3`
 - `APPLE_ATTEST_ENVIRONMENTS=development,production`
-- `ENROLLMENT_ENABLED=false`
+- `ENROLLMENT_ENABLED=false` (historical snapshot; Staging is now steady-state `true`)
 
 Repository switches:
 
@@ -221,18 +249,20 @@ Production remains untouched and disabled.
    npm run cap:sync:staging
    ```
 
-8. Archive `App-Staging` as version `1.0`, build number `2`, export with
+8. Archive `App-Staging` as version `1.0`, build number `3`, export with
    `method=app-store-connect`, and upload to Apple app `6804336333`.
 
 9. Complete compliance if Apple asks again, create/select the Staging internal testing
-   group with automatic distribution off, add build `1.0 (2)`, and invite the developer.
+   group with automatic distribution off, add build `1.0 (3)`, and invite the developer.
 
-10. Installing TestFlight build 2 may replace the direct `Dubai Missile Command Staging`
+10. Installing TestFlight build 3 may replace the direct `Dubai Missile Command Staging`
     install. That is correct. It must not replace `DMC Dev` or Production.
 
 11. Once TestFlight Staging is installed, set `ENROLLMENT_ENABLED=true` for Staging and
     redeploy through the protected workflow. Consent + valid App Attest should activate
-    the credential automatically. Run one completed session and verify D1/R2 evidence.
+    the credential automatically. Leave enrollment enabled as Staging's steady state; set
+    it to `false` only as an emergency pause. Run one completed session and verify D1/R2
+    evidence.
 
 12. After the replacement is proven, remove the legacy Production bundle ID and retired
     build IDs from the Staging allowlists. Keep Production provisioning false.
