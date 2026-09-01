@@ -1,5 +1,18 @@
 # Lessons
 
+## 2026-09-01 — Separate longitudinal telemetry value from raw-payload retention
+
+- Do not recommend aggressively shortening all capture retention merely because self-service
+  deletion is deferred. Historical score, wave, build, upgrade, and outcome data is valuable
+  for comparing gameplay changes across releases; removing it after one short playtest window
+  destroys the baseline the capture system exists to provide.
+- Set retention by data class and purpose. Keep compact gameplay summaries long enough for
+  cross-build analysis, while giving full replays, diagnostics, free-text notes, and public
+  share mappings their own shorter or more tightly controlled lifetimes.
+- Privacy minimisation means retaining only what remains useful, not reflexively discarding
+  useful evidence. State the comparison purpose and retention period honestly, keep consent
+  explicit, and preserve a real manual deletion path while the cohort is small.
+
 ## 2026-08-31 — Do not resurrect enrollment windows after adopting self-service attestation
 
 - Before proposing a temporary `ENROLLMENT_ENABLED=true` rollout, reconcile the latest

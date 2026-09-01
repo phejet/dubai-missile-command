@@ -1,7 +1,7 @@
 # Shared Run Links
 
-Status: deployed to Staging and locally verified; physical share proof pending. Production
-remains disabled.
+Status: deployed and physically proven on Staging, including cold-load renderer readiness
+and the post-replay fresh-run CTA. Production remains disabled.
 
 ## Contract
 
@@ -50,7 +50,6 @@ operator retrieval routes retain their existing stricter CORS and bearer policie
 
 1. Complete the proper Staging TestFlight App Attest category `2` submission and retire
    category `3` only after its evidence is verified.
-2. Create one link from a physical consented run, open it in a clean browser, watch the
-   replay through completion, and start a new run from the CTA.
-3. Keep Production capture closed until the deletion contract and product management UI
-   required by the authenticated-ingestion plan exist.
+2. Keep Production capture closed until the agreed tiered retention, tested manual
+   deletion-request procedure, and app-owned privacy declaration/policy exist. Self-service
+   deletion and upload-management UI are deferred pending cohort evidence.

@@ -96,8 +96,10 @@ gate is a category `2` App Attest submission from the proper Staging TestFlight 
   explicitly shared, replayed successfully in an iPhone browser and on a laptop, and its
   “Try to Beat It” CTA started a fresh run. The user also confirmed the renderer-readiness
   fix removed the malformed opening frames after `ad774a0` deployed.
-- Still absent: feedback emoji/note UI, recent uploads, server deletion controls,
-  and a persistent sharing-status indicator.
+- Still absent: emoji feedback UI, a persistent upload-status indicator, the app-owned
+  privacy declaration/policy surface, and a tested manual deletion runbook. Recent-upload
+  lists, self-service deletion, friendly names, and free-text feedback are deliberately
+  deferred until cohort or support evidence justifies them.
 - Shipped and load-bearing: `src/install-id.ts` (persisted random id, `eph-`
   prefix when `localStorage` refuses), `src/capture-contract.ts` (one
   validator shared by the Vite middleware and the Worker),
@@ -108,9 +110,10 @@ gate is a category `2` App Attest submission from the proper Staging TestFlight 
 
 Phase 3's share action, slug, public lookup/redirect, reviewed `?r=` boot path,
 automatic replay, and post-replay CTA are deployed and physically proven. OG
-cards remain deferred as later polish. Phase 4 already has
-consent, the auto-upload toggle, install identity, and offline queue; it still lacks
-recent uploads, deletion, persistent status, friendly naming, and feedback UI.
+cards remain deferred as later polish. Phase 4 already has consent, the auto-upload toggle,
+install identity, and offline queue. Its remaining committed scope is tiered retention,
+the manual deletion procedure, persistent status, emoji feedback, and the app-owned privacy
+declaration; self-service upload management and friendly naming are deferred.
 Leaderboard, Daily Challenge, ghosts, and anomaly detection remain unbuilt.
 
 ### Two obligations this document created that are still unmet
@@ -137,7 +140,8 @@ Leaderboard, Daily Challenge, ghosts, and anomaly detection remain unbuilt.
 One distribution gate remains: prove App Attest category `2` through the proper
 Staging TestFlight install. The Staging-only Phase 3 shared-link round trip is complete.
 Production capture remains closed until the category `2` gate passes, the app-owned
-privacy manifest is complete, and the deletion contract/product UI required by Phase 4 exists.
+privacy declaration/policy is complete, and Phase 4's retention plus manual deletion
+procedure are verified.
 
 ---
 
@@ -479,9 +483,10 @@ flood it. Mitigations:
 
 ### Retention policy from day one
 
-- Auto-delete shared replays after **1 year**
-- Auto-delete auto-streamed telemetry replays after **90 days**
-- Discipline is cheaper than storage; both are cheap
+- Keep completed-session gameplay summaries in D1 for **365 days** for cross-build analysis
+- Keep full replay objects and public share mappings for **270 days**
+- Keep diagnostic reports, diagnostic objects, and free-text notes for **90 days**
+- Discipline is cheaper than storage; compact historical evidence remains useful
 
 ---
 
@@ -942,24 +947,25 @@ Validate with `curl` before any game UI talks to it.
 ### Phase 4 — Auto-stream and upload management (friends mode) — **PARTIAL**
 
 - Settings toggle, default OFF
-- Per-install anonymous UUID in keychain
-- Optional friendly display name
-- "Recent uploads" list with delete-from-server button
+- Per-install anonymous UUID in app-scoped local storage
 - Offline upload queue
 - Persistent "auto-share on" indicator
 - Per-session emoji feedback prompt on recap
 - De-dupe: share-button reuses already-streamed session ID
+- Tiered 365/270/90-day retention plus an operator deletion-request runbook
 
-> **Already in place from Phase 2**: the per-install anonymous id
+> **Already in place**: the per-install anonymous id
 > (`src/install-id.ts`), the `display_name` and `feedback_emoji` /
 > `feedback_note` columns, retention, and the rate caps this section asked
 > for (`INGEST_INSTALL` 5/min, `REPORT_INSTALL` 3/min — per-minute, not the
-> ~50/day this section imagined; revisit when auto-stream is real). The id is
-> currently persisted in `localStorage`, not native Keychain-backed storage,
-> so Phase 4 must explicitly accept that design change or migrate it. Still
-> entirely unbuilt: the toggle and capture controls within the existing
-> Options surface, the recent-uploads list, delete-from-server, the offline
-> queue, the on-indicator, and the emoji prompt.
+> ~50/day this section imagined; revisit after real traffic). The id remains in
+> `localStorage` deliberately because it is not an authorization boundary and
+> should not survive reinstall through Keychain. Consent, capture controls,
+> automatic upload, the bounded queue, and share de-duplication are shipped.
+> Still unbuilt: the agreed tiered retention, manual deletion runbook,
+> persistent indicator, emoji prompt, and app-owned privacy declaration.
+> Recent uploads, self-service deletion, friendly names, and free-text feedback
+> were explicitly deferred on 2026-09-01 pending evidence that the cohort needs them.
 
 ### Phase 5 — Leaderboard (only when 20+ installs exist) — **NOT STARTED**
 

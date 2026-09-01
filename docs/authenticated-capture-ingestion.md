@@ -94,9 +94,10 @@ that bypasses the protected workflow still rejects enrollment and submission. Th
 workflow must receive a distinct HMAC secret, exact distributed build allowlist, App
 Attest environment policy, and enrollment switch from each GitHub Environment.
 
-No consent/queue surface calls the exported enrollment function yet, and no physical
-iPhone attestation has been captured against staging. Production collection must remain
-off until the parent consent/deletion work and the physical staging attack matrix pass.
+The consent/queue surface and direct-development Staging attestation path are shipped and
+physically proven; the proper TestFlight category `2` submission remains pending. Production
+collection must remain off until the parent consent/retention/privacy work and the physical
+Staging attack matrix pass.
 `CAPTURE_BEARER_TOKEN` remains a server/operator read credential and never enters the app.
 
 ## Scope
@@ -110,7 +111,7 @@ off until the parent consent/deletion work and the physical staging attack matri
 - Separate Cloudflare deployment tokens and retrieval bearer tokens per environment.
 - Explicit exclusion of headless, replay, bot, AI, and ordinary local-build traffic.
 - Enrollment, revocation, challenge/assertion verification, credential-based quotas,
-  and integration with the parent consent/offline-queue/deletion design.
+  and integration with the parent consent/offline-queue/retention design.
 
 ### Deliberately deferred
 
@@ -512,14 +513,15 @@ problem report may upload.
   a deliberate send, and replay/automation artifacts remain transport-ineligible.
 - App Attest errors affect upload state only, never the run, score, or game state machine.
 
-Server deletion belongs to `.plans/run-recap-playtest-platform.md`, which owns the
-product's collection/deletion contract and shared-replay reference semantics. This auth
-plan supplies `submitter_key_id_hash` for authorization but deliberately does not invent
-a partial delete route.
+The deletion-request procedure belongs to `.plans/run-recap-playtest-platform.md`, which
+owns the product's retention policy and shared-replay reference semantics. This auth plan
+supplies `submitter_key_id_hash` for trustworthy ownership lookup but deliberately does not
+invent a player-facing delete route. Self-service management is deferred; the small cohort
+uses a documented, tested operator procedure when a tester requests deletion.
 
-Choose exact local retention limits with that consent/queue UI, then test under iOS
-storage pressure. R2 lifecycle remains 365 days for sessions and 90 days for reports
-unless the product policy changes.
+Choose exact local retention limits with that consent/queue UI, then test under iOS storage
+pressure. Product policy keeps D1 session summaries for 365 days, full R2 replays and public
+share mappings for 270 days, and diagnostic reports/objects/free-text notes for 90 days.
 
 ## Staging and production separation
 
@@ -620,7 +622,7 @@ resources. Separate Cloudflare accounts remain the hard-isolation option.
 3. Staging accepts that combination only for allowed QA builds while the emergency pause
    is not active.
 4. Exercise enrollment, consent, offline retry, revocation, and hostile API tests before
-   considering production; verify the parent plan's deletion flow separately.
+   considering production; verify the parent plan's retention and manual deletion procedure.
 
 ### Production promotion and manual approval
 
@@ -710,16 +712,19 @@ gameplay makes no remote request; altered, replayed, or revoked requests fail.
 
 - Provision production resources with no remote-preview bindings; allow only production
   App Attest credentials and reviewed production build IDs.
-- Require the parent plan's server-deletion contract and product UI before collecting
-  production data.
+- Require the parent plan's tiered retention, tested manual deletion-request procedure,
+  accessible privacy policy, and app-owned privacy declaration before collecting production
+  data. Self-service management UI is not a launch requirement for the current cohort.
 - Promote the exact staging-tested commit through preflight and protected manual approval;
   apply additive migration, deploy both Worker secrets, apply lifecycle, then run
   controlled authentication/revocation smoke tests.
-- Enable the production client only after server verification; keep enrollment closed
-  outside controlled registration windows.
+- Enable the production client only after server verification. Once Production capture is
+  offered, keep enrollment enabled as steady state and use the switch only as an emergency
+  pause.
 
 Exit gate: production accepts only consented human iPhone submissions from active App
-Attest keys, supports the parent deletion contract, and remains independently disableable.
+Attest keys, enforces the parent retention contract, has a proven manual deletion path,
+and remains independently disableable.
 
 ## Verification matrix
 
@@ -768,8 +773,8 @@ Every failure above asserts **zero new capture rows and zero new R2 capture obje
 - An already-enrolled key continues generating assertions during an Apple service outage.
 - Offline retry obtains a new challenge/assertion rather than persisting old proof.
 - Consent denied/withdrawn: zero remote requests.
-- Local queued-artifact deletion completes without affecting gameplay state; server
-  deletion is verified by its owning product plan.
+- Local queued-artifact deletion completes without affecting gameplay state; the manual
+  server deletion procedure is verified by its owning product plan.
 - Revocation takes effect without Worker redeployment.
 - Retention cleanup preserves shared replay blobs still referenced by live rows.
 
@@ -854,7 +859,8 @@ enrollment abuse controls only before public App Store distribution.
 5. Should a later phase enable Apple's receipt-based fraud-risk service, and what secret,
    privacy, and retention work would that require?
 6. What local queue byte/count/age limits fit iPhone storage behavior?
-7. What user-visible identity and server-deletion contract must precede collection?
+7. At what cohort or support threshold should manual deletion be replaced by self-service
+   upload management?
 8. Should migration and deploy have separate production approvals, or is one approval
    over an additive reviewed job the desired unit?
 9. At what traffic/team threshold should production move to a separate Cloudflare
