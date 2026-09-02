@@ -13,7 +13,7 @@ npx vite build       # production build to dist/
 ## Roadmap
 
 [`ROADMAP.html`](./ROADMAP.html) is the only source for current product direction, phase
-status, gates, decisions, and next work. Use the `/roadmap` skill when reviewing, refining,
+status, gates, decisions, and next work. Use the `roadmap` skill when reviewing, refining,
 reconciling, or executing roadmap work. Design documents and `tasks/todo.md` provide rationale
 and execution evidence; they do not override roadmap state.
 
@@ -67,7 +67,7 @@ npx tsx play-replay.ts replay.json
 
 ### Bot training
 
-Use the `/train-bot` skill to benchmark and tune the bot. It runs batch games via `src/headless/train.ts` and analyzes results to tune `src/headless/bot-config.json`.
+Use the `train-bot` skill to benchmark and tune the bot. It runs batch games via `src/headless/train.ts` and analyzes results to tune `src/headless/bot-config.json`.
 
 ### Key files
 

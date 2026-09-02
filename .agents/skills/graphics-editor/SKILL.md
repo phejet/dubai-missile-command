@@ -1,70 +1,66 @@
 ---
 name: graphics-editor
-description: Launch and use the graphics editor to tweak game visual effects
-user_invocable: true
+description: Launch and use the Dubai Missile Command graphics editor to tune Pixi effects, inspect startup sprites, and refine upgrade-graph layout.
 ---
 
 # Graphics Editor
 
-Opens the graphics editor page for visually tweaking game rendering parameters.
+Use the repo's separate React editor for visual tuning. It previews the current Pixi renderer
+with a curated fake game state; it does not run the full gameplay controller.
 
-## Usage
+## Launch
 
-1. Make sure the dev server is running (`npm run dev`)
-2. Open `http://localhost:5173/dubai-missile-command/editor.html` in a browser
-3. Use sliders and checkboxes to adjust visual effects in real-time
-4. Click **Export** to copy changed values to clipboard and console
+Start the dev server:
 
-## Reading exported values
+```bash
+npm run dev
+```
 
-When the user exports values from the editor, read the JSON output. Each key maps to a specific location in the game source code:
+Open:
 
-### Parameter → Code mapping
+```text
+http://localhost:5173/dubai-missile-command/editor.html
+```
 
-**Explosions** (`src/game-render.js`):
+## Choose the surface
 
-- `explosion.lightIntensity` → `ex.alpha * 0.12` in light casting section
-- `explosion.lightRadiusMul` → `r * 4` in light casting section
-- `explosion.flashThreshold` → `ex.alpha > 0.85` in interceptor flash
-- `explosion.ringFadeRate` → `ringAlpha -= 0.25 * dt` in `src/game-sim.js`
-- `explosion.ringExpandRate` → `ringRadius += 14 * dt` in `src/game-sim.js`
+- **Effects** — tune parameters from src/editor-params.ts against the Pixi gameplay preview.
+  Use Play/Pause, Show Upgrades, Colliders, Burj damage, and Pulse Hit to stage the effect.
+- **Sprites** — inspect the prebaked startup sprite catalog by asset family and display scale.
+- **Upgrade Graph** — pan, zoom, select nodes, simulate ownership/objective gates, and drag node
+  positions without changing gameplay progression.
 
-**Particles** (`src/game-logic.js` `createExplosion`):
+## Apply exported values
 
-- `particle.dotCountLight` → light dot count (currently 6)
-- `particle.dotCountHeavy` → heavy dot count (currently 10)
-- `particle.debrisCount` → debris shard count (currently 16)
-- `particle.sparkCountLight` → light spark count (currently 8)
-- `particle.sparkCountHeavy` → heavy spark count (currently 14)
-- `particle.debrisGravity` → debris gravity (currently 0.15)
-- `particle.debrisDrag` → debris drag (currently 0.96)
-- `particle.sparkDrag` → spark drag (currently 0.93)
+Export copies JSON to the clipboard and console. When values differ from defaults, only the
+changed keys are exported.
 
-**Burj** (`src/game-render.js` Burj rendering):
+For an effect key:
 
-- `burj.coronaAlpha` → aura gradient first stop alpha
-- `burj.uplightAlpha` → uplight gradient first stop alpha
-- `burj.outlineGlowRadius` → outline glow base radius
-- `burj.basePoolRadius` → ground light pool outer radius
-- `burj.basePoolAlpha` → ground light pool first stop alpha
+1. Find its definition in src/editor-params.ts.
+2. Locate the owning runtime fallback with a focused search such as:
 
-**Sky** (`src/game-render.js`):
+   ```bash
+   rg 'ov\("explosion.lightIntensity"' src
+   ```
 
-- `sky.nebulaOpacity` → nebula image overlay globalAlpha
-- `sky.starTwinkleSpeed` → star twinkle sine frequency
-- `sky.vignetteAlpha` → vignette outer edge alpha
+3. Update the runtime fallback at its real owner and the matching editor default together.
+   Current owners include src/pixi-render.ts, src/game-logic.ts, and focused simulation
+   modules such as src/game-sim-burj-fire.ts.
+4. Re-open the editor and confirm Reset returns to the new permanent value.
 
-**Glow** (`src/game-render.js`):
+For layout exports, update the matching position owner in src/EditorApp.tsx or
+src/upgrade-graph.ts. Do not paste editor overrides into an unrelated renderer merely because
+the value is visual.
 
-- `glow.scale` → GLOW_SCALE multiplier for all shadow blur
-- `glow.enabled` → master glow on/off
+## Verification
 
-## Applying values
+Run:
 
-After reading exported JSON, update the hardcoded values in the corresponding source files. The `ov()` helper in `game-render.js` provides runtime overrides — update the fallback values to make changes permanent.
+```bash
+npx vitest run src/editor-render.test.ts src/upgrade-graph.test.ts
+npx playwright test e2e/editor.spec.ts
+```
 
-## Adding new parameters
-
-1. Add parameter definition to `src/editor-params.js` in the appropriate group
-2. Wire the override in the rendering code using `ov("key", defaultValue)`
-3. The editor UI auto-generates controls from the parameter definitions
+Then hand the visual result back for a human feel-check. Tests prove the editor and renderer
+still communicate; they do not prove the effect looks right.

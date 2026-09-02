@@ -30,7 +30,8 @@ The four presets in `bot-config.json` are: `perfect`, `good`, `average`, `novice
 npx tsx src/headless/record.ts [--seed=N] [--tries=1000] [--out=replay.json] [--preset=good]
 ```
 
-Replays can be played back in the browser by dropping the JSON onto the canvas, or via `node play-replay.mjs <file>` while the dev server is running.
+Replays can be played back in the browser by dropping the JSON onto the canvas, or via
+`npx tsx play-replay.ts <file>` while the dev server is running.
 
 ## Inspect leading accuracy
 
@@ -44,7 +45,8 @@ When tuning targeting, watch out for a known failure mode where a bad leading mo
 
 `src/headless/bot-config.json` `upgradePriority` keys must be valid upgrade family ids from `src/types.ts` `UpgradeKey`. The shop resolves a family id to the next eligible node via `resolveRequestedUpgradeNodeId`, so listing the family is enough to chain through tier 1/2/3 over a run.
 
-Current valid keys: `wildHornets`, `roadrunner`, `flare`, `ironBeam`, `phalanx`, `patriot`, `burjRepair`, `launcherKit`, `emp`.
+Current valid keys: `wildHornets`, `roadrunner`, `flare`, `ironBeam`, `phalanx`, `patriot`,
+`burjRepair`, `launcherKit`, `f15`, `emp`.
 
 ## Bot-brain anatomy
 

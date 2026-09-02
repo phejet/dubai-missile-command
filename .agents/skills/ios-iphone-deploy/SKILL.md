@@ -1,7 +1,6 @@
 ---
 name: ios-iphone-deploy
 description: Build the Dubai Missile Command Capacitor iOS app and deploy it to a connected iPhone using the repo's npm scripts, Xcode, and devicectl.
-user_invocable: true
 ---
 
 # iOS iPhone Deploy

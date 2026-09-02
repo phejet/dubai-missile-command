@@ -42,7 +42,7 @@ When invoked on this repo, before drafting:
 
 - The system the user named (e.g. `src/player-fire-limiter.ts`, `src/game-logic.ts:fireInterceptor`, relevant sections of `src/game-sim.ts`).
 - `docs/game-state-contract.md` if state ownership matters.
-- `src/headless/bot-brain.js` when assessing skill ceiling.
+- `src/headless/bot-brain.ts` when assessing skill ceiling.
 
 When invoked elsewhere, ask which system to look at and read it before writing. The persona's authority depends on the diagnosis being right.
 
