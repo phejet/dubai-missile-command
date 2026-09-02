@@ -1,5 +1,16 @@
 # Lessons
 
+## 2026-09-02 — Scale roadmap verification to the kind of edit
+
+- For a content-only edit inside an existing roadmap initiative, run the roadmap validator
+  and review the focused diff. Do not automatically launch the dev server, take desktop and
+  mobile screenshots, or run Prettier when the surrounding formatting remains intact.
+- Run Prettier when the patch changes formatting or its normal check is already part of the
+  requested verification. Browser-review the roadmap when CSS, layout, responsive behavior,
+  disclosure structure, or another visual/interactive concern changes.
+- Treat the roadmap skill's full validation workflow as risk-based guidance, not ceremony to
+  repeat for every prose line.
+
 ## 2026-09-02 — Do not create a generated roadmap twin before testing canonical HTML
 
 - When the user wants a visual, collaborative roadmap, do not assume Markdown must remain

@@ -171,7 +171,7 @@
         <div class="notice">
           <strong>Active: RM-04 — Retention, visibility, and feedback.</strong><br />
           Next action: implement the 365/270/90-day retention contract and prove public share expiry before adding
-          feedback UI.
+          operator or feedback UI.
         </div>
       </section>
 
@@ -257,12 +257,17 @@
                 <li>Keep full R2 replays and public share mappings for 270 days.</li>
                 <li>Keep diagnostics and free-text material for 90 days.</li>
                 <li>Add and test the manual operator deletion procedure.</li>
+                <li>
+                  Add a read-only, bearer-authenticated operator replay browser that lists uploaded runs with received
+                  time, build, score, wave, outcome, and replay availability, and can launch an available replay. Exit:
+                  prove the complete browse-to-play flow against Staging uploads.
+                </li>
                 <li>Add a persistent auto-upload indicator.</li>
                 <li>Add emoji-only recap feedback without friendly names or free text.</li>
                 <li>Add the app-owned privacy declaration and accessible privacy policy.</li>
                 <li>Deploy to Staging and complete physical TestFlight proof.</li>
               </ol>
-              <p><strong>Deferred:</strong> recent-upload UI and self-service deletion.</p>
+              <p><strong>Deferred:</strong> player-facing upload history and self-service deletion.</p>
             </div>
           </details>
 
@@ -336,6 +341,9 @@
           <li>Self-service deletion is deferred; manual requests are sufficient for the current cohort.</li>
           <li>The anonymous install label remains app-local and is not an authorization boundary.</li>
           <li>Initial feedback is emoji-only; friendly names and free-text notes are deferred.</li>
+          <li>
+            The operator replay browser is developer-only and read-only; player history and replay mutation are out.
+          </li>
           <li>Phase 5 keeps its population and product gates after Phase 4 finishes.</li>
         </ul>
       </section>
@@ -353,6 +361,9 @@
       <section id="changes">
         <h2>Recent roadmap changes</h2>
         <ul>
+          <li>
+            <strong>2026-09-02:</strong> added a developer-only operator browser for uploaded runs and replay playback.
+          </li>
           <li><strong>2026-09-02:</strong> adopted one canonical HTML roadmap with expand-in-place phases.</li>
           <li><strong>2026-09-01:</strong> adopted 365/270/90-day tiered retention.</li>
           <li><strong>2026-09-01:</strong> deferred self-service deletion, friendly names, and free-text feedback.</li>
