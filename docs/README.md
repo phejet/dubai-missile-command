@@ -2,6 +2,12 @@
 
 This folder holds repo-specific notes for future maintenance, not player-facing docs.
 
+## Product Direction
+
+- [`../ROADMAP.html`](../ROADMAP.html) — the only current source for roadmap phases, status,
+  gates, decisions, and next work. Documents under `.plans/`, `docs/`, and `tasks/` are
+  supporting design history or execution evidence, not competing roadmap state.
+
 ## Core Architecture
 
 - [`render-split-analysis.md`](./render-split-analysis.md) — how `pixi-render`, `art-render`, canvas texture resources, and `game-sim` divide responsibilities.

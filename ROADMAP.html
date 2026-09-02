@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="roadmap-source" content="v1" />
+    <title>Dubai Missile Command Roadmap</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        background: #0b1118;
+        color: #dce7f2;
+      }
+
+      body {
+        margin: 0;
+        line-height: 1.55;
+      }
+
+      main {
+        width: min(960px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 48px 0 80px;
+      }
+
+      header,
+      section {
+        margin-bottom: 40px;
+      }
+
+      h1,
+      h2 {
+        color: #fff;
+        line-height: 1.2;
+      }
+
+      h1 {
+        margin-bottom: 8px;
+        font-size: clamp(2rem, 6vw, 3.6rem);
+      }
+
+      h2 {
+        margin-top: 0;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #283748;
+      }
+
+      a {
+        color: #79c8ff;
+      }
+
+      .muted,
+      .phase__id,
+      .phase__outcome {
+        color: #91a2b4;
+      }
+
+      .notice {
+        padding: 16px 18px;
+        border-left: 3px solid #e7b45d;
+        background: #131d28;
+      }
+
+      .phase-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .phase {
+        padding: 14px 16px;
+        border: 1px solid #283748;
+        border-radius: 8px;
+        background: #101923;
+      }
+
+      .phase summary {
+        display: grid;
+        grid-template-columns: 56px minmax(170px, 0.8fr) 100px minmax(220px, 1.2fr);
+        gap: 12px;
+        align-items: center;
+        cursor: pointer;
+        color: #fff;
+        font-weight: 700;
+      }
+
+      .phase__outcome {
+        font-weight: 400;
+      }
+
+      .phase__body {
+        padding: 8px 0 0 68px;
+      }
+
+      .status {
+        display: inline-block;
+        width: fit-content;
+        padding: 2px 8px;
+        border: 1px solid #40536a;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .status--shipped {
+        border-color: #3e8d68;
+        color: #7de2ae;
+      }
+
+      .status--active {
+        border-color: #c28a35;
+        color: #ffd086;
+      }
+
+      .status--gated {
+        border-color: #a56565;
+        color: #ffabab;
+      }
+
+      li + li {
+        margin-top: 5px;
+      }
+
+      code {
+        color: #c6dcf2;
+      }
+
+      @media (max-width: 680px) {
+        main {
+          width: min(100% - 20px, 960px);
+          padding-top: 24px;
+        }
+
+        .phase summary {
+          grid-template-columns: 48px 1fr auto;
+          gap: 8px;
+        }
+
+        .phase__outcome {
+          grid-column: 2 / -1;
+        }
+
+        .phase__body {
+          padding-left: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- roadmap-source:v1 -->
+    <main>
+      <header>
+        <p class="muted">Dubai Missile Command · Updated 2026-09-02</p>
+        <h1>Roadmap</h1>
+        <p>
+          One current view of product direction, delivery status, gates, and next work. Detailed designs and execution
+          logs support this file; they do not override it.
+        </p>
+      </header>
+
+      <section id="now">
+        <h2>Now</h2>
+        <div class="notice">
+          <strong>Active: RM-04 — Retention, visibility, and feedback.</strong><br />
+          Next action: implement the 365/270/90-day retention contract and prove public share expiry before adding
+          feedback UI.
+        </div>
+      </section>
+
+      <section id="roadmap">
+        <h2>Roadmap</h2>
+        <div class="phase-list">
+          <details class="phase" id="rm-01" data-roadmap-id="RM-01" data-status="shipped">
+            <summary>
+              <span class="phase__id">RM-01</span>
+              <span>Run Recap</span>
+              <span class="status status--shipped">Shipped</span>
+              <span class="phase__outcome">Understand and replay completed runs locally.</span>
+            </summary>
+            <div class="phase__body">
+              <p><strong>Delivered:</strong></p>
+              <ul>
+                <li>Simplified Game Over screen and per-wave Run Recap.</li>
+                <li>Automatic death clip, replay playback, and Save Replay.</li>
+                <li>Upgrade history, PWA manifest, and app icons.</li>
+              </ul>
+              <p><strong>Remaining improvement:</strong> detailed statistics accordion.</p>
+            </div>
+          </details>
+
+          <details class="phase" id="rm-02" data-roadmap-id="RM-02" data-status="shipped" data-depends-on="RM-01">
+            <summary>
+              <span class="phase__id">RM-02</span>
+              <span>Capture backend</span>
+              <span class="status status--shipped">Staging</span>
+              <span class="phase__outcome">Collect consented human sessions safely.</span>
+            </summary>
+            <div class="phase__body">
+              <p><strong>Delivered:</strong></p>
+              <ul>
+                <li>Cloudflare Worker, D1 summaries, and content-addressed R2 replays.</li>
+                <li>App Attest assertions and build, bundle, environment, and execution policy.</li>
+                <li>Manual upload, automatic upload, offline queue, rate limits, and hostile-input coverage.</li>
+              </ul>
+              <p>
+                <strong>Remaining distribution proof:</strong> one TestFlight Staging category <code>2</code> submission
+                before retiring legacy category <code>3</code>.
+              </p>
+              <p><a href="docs/authenticated-capture-ingestion.md">Authenticated ingestion design</a></p>
+            </div>
+          </details>
+
+          <details class="phase" id="rm-03" data-roadmap-id="RM-03" data-status="shipped" data-depends-on="RM-02">
+            <summary>
+              <span class="phase__id">RM-03</span>
+              <span>Share links</span>
+              <span class="status status--shipped">Shipped</span>
+              <span class="phase__outcome">Publish one run and challenge another player.</span>
+            </summary>
+            <div class="phase__body">
+              <ul>
+                <li>Stable owner-authorized share slug and public replay lookup.</li>
+                <li>Reviewed shared-replay boot path with renderer-readiness gating.</li>
+                <li>Score/wave handoff and “Try to Beat It” fresh-run action.</li>
+                <li>Physically proven on iPhone and laptop.</li>
+              </ul>
+              <p><a href="docs/shared-run-links.md">Shared-run contract</a></p>
+            </div>
+          </details>
+
+          <details
+            class="phase"
+            id="rm-04"
+            data-roadmap-id="RM-04"
+            data-status="in_progress"
+            data-depends-on="RM-02 RM-03"
+            open
+          >
+            <summary>
+              <span class="phase__id">RM-04</span>
+              <span>Retention, visibility, feedback</span>
+              <span class="status status--active">In progress</span>
+              <span class="phase__outcome">Make automatic playtest capture trustworthy over time.</span>
+            </summary>
+            <div class="phase__body">
+              <p><strong>Next:</strong></p>
+              <ol>
+                <li>Keep D1 gameplay summaries for 365 days.</li>
+                <li>Keep full R2 replays and public share mappings for 270 days.</li>
+                <li>Keep diagnostics and free-text material for 90 days.</li>
+                <li>Add and test the manual operator deletion procedure.</li>
+                <li>Add a persistent auto-upload indicator.</li>
+                <li>Add emoji-only recap feedback without friendly names or free text.</li>
+                <li>Add the app-owned privacy declaration and accessible privacy policy.</li>
+                <li>Deploy to Staging and complete physical TestFlight proof.</li>
+              </ol>
+              <p><strong>Deferred:</strong> recent-upload UI and self-service deletion.</p>
+            </div>
+          </details>
+
+          <details class="phase" id="rm-05" data-roadmap-id="RM-05" data-status="gated" data-depends-on="RM-04">
+            <summary>
+              <span class="phase__id">RM-05</span>
+              <span>Leaderboard and Daily Challenge</span>
+              <span class="status status--gated">Gated</span>
+              <span class="phase__outcome">Add verified competition once the population earns it.</span>
+            </summary>
+            <div class="phase__body">
+              <p>
+                <strong>Gate:</strong> at least 20 non-ephemeral installs and evidence that competition fits the game.
+              </p>
+              <ul>
+                <li>Server-verified scores and replayable leaderboard entries.</li>
+                <li>Daily fixed-seed challenge and same-seed ghost runs.</li>
+                <li>Platform/build segmentation; optional Game Center later.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="phase" id="rm-06" data-roadmap-id="RM-06" data-status="planned" data-depends-on="RM-04">
+            <summary>
+              <span class="phase__id">RM-06</span>
+              <span>Telemetry inspection</span>
+              <span class="status">Planned</span>
+              <span class="phase__outcome">Find cross-build trends and unusual runs.</span>
+            </summary>
+            <div class="phase__body">
+              <ul>
+                <li>Ad-hoc D1 exports and human-led cross-build trend analysis.</li>
+                <li>Unusual-run and balance-anomaly queries.</li>
+                <li>Replay annotations only after volume makes them worthwhile.</li>
+              </ul>
+            </div>
+          </details>
+
+          <details class="phase" id="rm-07" data-roadmap-id="RM-07" data-status="planned" data-depends-on="RM-03">
+            <summary>
+              <span class="phase__id">RM-07</span>
+              <span>Late polish</span>
+              <span class="status">Planned</span>
+              <span class="phase__outcome">Add social and platform work justified by usage.</span>
+            </summary>
+            <div class="phase__body">
+              <ul>
+                <li>Open Graph preview cards and, if useful, a short domain.</li>
+                <li>Achievements, Game Center, and improved install handoff.</li>
+                <li>Other work justified by observed player behaviour.</li>
+              </ul>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <section id="gates">
+        <h2>Current gates</h2>
+        <ol>
+          <li>Prove App Attest category <code>2</code> from the proper Staging TestFlight build.</li>
+          <li>Implement and verify the Phase 4 retention and manual deletion contract.</li>
+          <li>Add the app-owned privacy declaration and accessible policy.</li>
+          <li>Keep Production capture disabled until the exact Staging-tested commit passes these gates.</li>
+        </ol>
+      </section>
+
+      <section id="decisions">
+        <h2>Current decisions</h2>
+        <ul>
+          <li>Historical telemetry is retained for cross-build gameplay comparison.</li>
+          <li>Self-service deletion is deferred; manual requests are sufficient for the current cohort.</li>
+          <li>The anonymous install label remains app-local and is not an authorization boundary.</li>
+          <li>Initial feedback is emoji-only; friendly names and free-text notes are deferred.</li>
+          <li>Phase 5 keeps its population and product gates after Phase 4 finishes.</li>
+        </ul>
+      </section>
+
+      <section id="references">
+        <h2>Supporting documents</h2>
+        <ul>
+          <li><a href=".plans/run-recap-playtest-platform.md">Historical playtest-platform design record</a></li>
+          <li><a href="docs/shared-run-links.md">Shared-run links</a></li>
+          <li><a href="docs/authenticated-capture-ingestion.md">Authenticated capture ingestion</a></li>
+          <li><a href="tasks/todo.md">Execution checklist and evidence log</a></li>
+        </ul>
+      </section>
+
+      <section id="changes">
+        <h2>Recent roadmap changes</h2>
+        <ul>
+          <li><strong>2026-09-02:</strong> adopted one canonical HTML roadmap with expand-in-place phases.</li>
+          <li><strong>2026-09-01:</strong> adopted 365/270/90-day tiered retention.</li>
+          <li><strong>2026-09-01:</strong> deferred self-service deletion, friendly names, and free-text feedback.</li>
+          <li><strong>2026-08-31:</strong> physically proved shared-run playback on Staging.</li>
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>

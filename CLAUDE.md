@@ -10,6 +10,13 @@ npm run dev          # starts dev server (usually http://localhost:5173)
 npx vite build       # production build to dist/
 ```
 
+## Roadmap
+
+[`ROADMAP.html`](./ROADMAP.html) is the only source for current product direction, phase
+status, gates, decisions, and next work. Use the `/roadmap` skill when reviewing, refining,
+reconciling, or executing roadmap work. Design documents and `tasks/todo.md` provide rationale
+and execution evidence; they do not override roadmap state.
+
 When doing local verification, if you stop the dev server for testing or debugging, start it again before finishing and confirm the local URL.
 After implementing a feature or bug fix, proactively check whether the dev server is already running. If it is not running and browser verification could matter, start `npm run dev` yourself and report the active local URL before finishing.
 

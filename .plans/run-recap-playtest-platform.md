@@ -1,10 +1,11 @@
-# Run Recap & Playtest Platform — Design Brain Dump
+# Run Recap & Playtest Platform — Historical Design Record
 
-Status: Phase 1 shipped; Phase 2 deployed to Staging; Phase 3 complete on Staging; Phase 4 partial; Phase 5–7 unbuilt
+Status: historical design and dated implementation snapshots; not current roadmap state
+Current roadmap: [`../ROADMAP.html`](../ROADMAP.html)
 Date captured: 2026-05-24
-Implementation state last verified: 2026-08-31 (§0.5)
-Source: extended brainstorm conversation; this is the canonical record so we
-don't lose context between sessions.
+Last implementation snapshot: 2026-08-31 (§0.5)
+Source: extended brainstorm conversation; this preserves the design history so
+we do not lose context between sessions.
 
 The design sections below are preserved as written on 2026-05-24. Where the
 build diverged from the design, the divergence is called out inline in a
@@ -13,9 +14,11 @@ the reasoning trail is worth more than a tidy document.
 
 ---
 
-## 0.5 Where this actually stands (verified 2026-08-31)
+## 0.5 Historical implementation snapshot (verified 2026-08-31)
 
-Read this section first; everything after it is design intent, not status.
+This section records what was believed on 2026-08-31. Do not update it as current status;
+read [`ROADMAP.html`](../ROADMAP.html) instead. Everything after it is design intent or
+historical reasoning.
 
 ### Phase 1 — Run Recap: **shipped**
 

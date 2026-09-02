@@ -1,5 +1,37 @@
 # Lessons
 
+## 2026-09-02 — Do not create a generated roadmap twin before testing canonical HTML
+
+- When the user wants a visual, collaborative roadmap, do not assume Markdown must remain
+  canonical and introduce generated HTML plus freshness enforcement. That adds a second
+  artifact and a build ritual before proving either improves review.
+- First test one semantic HTML roadmap as the source itself. Store initiative identity,
+  status, dependencies, gates, and prose in the DOM; derive filters and graphs at runtime
+  from those same elements so the visual layer does not duplicate roadmap data.
+- Design the cross-agent skill around the format the human actually prefers after review,
+  not around the format that is easiest to validate in the abstract.
+- Do not confuse human-friendly HTML with a dashboard application. Start with static semantic
+  HTML, restrained CSS, native disclosure elements, links, and optional figures. Add script or
+  dynamic graphs only when a concrete review task needs them.
+- Treat HTML as an extensible container, not a feature checklist. The ability to embed images
+  or dynamic elements later is not a reason to ship placeholders, controls, graph code, or a
+  miniature design system now.
+- Keep each roadmap initiative in one visual location. A separate summary table that links to
+  detail cards forces the reviewer to jump and duplicates phase content; use one native
+  disclosure row that expands in place instead.
+
+## 2026-09-01 — Verify shared skill topology instead of assuming it
+
+- Before saying Codex and Claude share a project skill, inspect both discovery paths with
+  `readlink`, file type, and content comparison. Matching copies are not a single source;
+  they are merely drift that has not happened yet.
+- Use `.agents/skills/<name>` as the canonical project skill and expose it under
+  `.claude/skills/<name>` through a tracked relative symlink. Preserve Claude-only skills,
+  and reconcile newer content before replacing an already-diverged copy with a symlink.
+- A human-friendly view must not become a competing source. Prefer one canonical artifact;
+  if HTML itself is the source, derive visual state from its semantic DOM rather than from a
+  duplicated embedded dataset.
+
 ## 2026-09-01 — Separate longitudinal telemetry value from raw-payload retention
 
 - Do not recommend aggressively shortening all capture retention merely because self-service
