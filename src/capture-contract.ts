@@ -1,4 +1,4 @@
-import type { CaptureSummary, ProblemReport, SessionUpload } from "./capture";
+import { RUN_FEEDBACK_EMOJIS, type CaptureSummary, type ProblemReport, type SessionUpload } from "./capture";
 import { serializedBytes } from "./capture";
 import { sha256Hex } from "./sha256";
 
@@ -216,6 +216,9 @@ export async function validateSessionBody(
     if (partial) throw new Error("session meta.partial must be false");
     const runId = string(meta.runId, "meta.runId", 64)!;
     if (!SAFE_ID.test(runId)) throw new Error("runId must use safe path characters");
+    if (meta.feedbackEmoji !== undefined && meta.feedbackEmoji !== null) {
+      enumeration(meta.feedbackEmoji, "meta.feedbackEmoji", new Set(RUN_FEEDBACK_EMOJIS));
+    }
     validateSummary(parsed.summary, false, false);
     if (record(parsed.replay)) {
       if (Object.prototype.hasOwnProperty.call(parsed.replay, "_env")) {

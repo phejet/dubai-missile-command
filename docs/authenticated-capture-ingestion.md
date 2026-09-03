@@ -436,6 +436,13 @@ Worker validates optional validation-category/bundle-version facts but does not 
 them. It also does not retain or exchange the App Attest fraud-risk receipt in v1; add
 that storage and its App Store Connect secret only if fraud metrics become a requirement.
 
+Credential retention is security policy, not gameplay retention. An active credential remains
+while active. After revocation, retain the minimum key hash, revoked status, and audit timestamps
+for the life of the capture service so the same revoked App Attest key cannot re-enroll. The
+manual gameplay-data deletion procedure does not silently remove that deny-list record. If a
+tester also asks to stop future submissions, revoke the credential as a separate explicit
+operator action and disclose the retained pseudonymous security record in the privacy policy.
+
 ### Capture-row changes
 
 Add nullable `submitter_key_id_hash` and decoded capture `sha256` to `sessions`; add

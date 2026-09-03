@@ -50,6 +50,10 @@
     "worker:dev": "wrangler dev --config worker/wrangler.jsonc",
     "worker:lifecycle:staging": "wrangler r2 bucket lifecycle set dmc-captures-staging --file worker/lifecycle.json --config worker/wrangler.jsonc --env staging",
     "worker:lifecycle:production": "wrangler r2 bucket lifecycle set dmc-captures --file worker/lifecycle.json --config worker/wrangler.jsonc --env production",
+    "worker:lifecycle:verify:staging": "node scripts/verify-r2-lifecycle.mjs --env=staging --bucket=dmc-captures-staging",
+    "worker:lifecycle:verify:production": "node scripts/verify-r2-lifecycle.mjs --env=production --bucket=dmc-captures",
+    "operator:delete": "node scripts/operator-delete-capture.mjs",
+    "operator:retention-fixtures": "node scripts/seed-retention-fixtures.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

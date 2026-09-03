@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("capture R2 lifecycle configuration", () => {
-  it("keeps diagnostics for 90 days and replays for 400 days", () => {
+  it("keeps diagnostics for 90 days and replays for 270 days", () => {
     const config = JSON.parse(readFileSync(new URL("./lifecycle.json", import.meta.url), "utf8")) as {
       rules: Array<{
         id: string;
@@ -19,7 +19,7 @@ describe("capture R2 lifecycle configuration", () => {
       })),
     ).toEqual([
       { prefix: "diagnostics/", type: "Age", maxAge: 90 * 24 * 60 * 60 },
-      { prefix: "replays/", type: "Age", maxAge: 400 * 24 * 60 * 60 },
+      { prefix: "replays/", type: "Age", maxAge: 270 * 24 * 60 * 60 },
     ]);
     expect(config.rules.every((rule) => rule.enabled && rule.id.length > 0)).toBe(true);
     expect(config.rules.some((rule) => rule.conditions.prefix === "captures/")).toBe(false);

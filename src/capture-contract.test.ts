@@ -39,6 +39,15 @@ describe("capture contracts", () => {
     await expect(validate("report", reportFixture())).resolves.toMatchObject({ ok: true, ephemeral: false });
   });
 
+  it("accepts only the reserved emoji feedback set", async () => {
+    const accepted = sessionFixture();
+    accepted.meta.feedbackEmoji = "🔥";
+    await expect(validate("session", accepted)).resolves.toMatchObject({ ok: true });
+    const rejected = sessionFixture() as unknown as { meta: Record<string, unknown> };
+    rejected.meta.feedbackEmoji = "❤️";
+    await expect(validate("session", rejected)).resolves.toMatchObject({ ok: false, stage: "parse" });
+  });
+
   it.each(["events", "eventsUnparsed", "eventsTruncated", "attachments"])(
     "rejects forbidden session key %s",
     async (key) => {

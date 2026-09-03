@@ -13,9 +13,9 @@ const TOKEN_VERSION = 1;
 const TOKEN_TTL_MS = 2 * 60 * 1_000;
 const KEY_HASH_PREFIX = new TextEncoder().encode("DMC-APP-ATTEST-KEY-v1\0");
 const MAX_AUTH_BODY_BYTES = 24 * 1_024;
-const PURPOSES = new Set<ChallengePurpose>(["ios-enroll", "session", "report", "share"]);
+const PURPOSES = new Set<ChallengePurpose>(["ios-enroll", "session", "report", "share", "feedback"]);
 
-export type ChallengePurpose = "ios-enroll" | "session" | "report" | "share";
+export type ChallengePurpose = "ios-enroll" | "session" | "report" | "share" | "feedback";
 
 export interface CaptureAuthConfig {
   workerEnvironment: "dev" | "staging" | "production";

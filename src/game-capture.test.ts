@@ -48,6 +48,7 @@ const mocks = vi.hoisted(() => ({
     }),
   ),
   presentRunShareSheet: vi.fn(async () => undefined),
+  submitRunFeedback: vi.fn(async (input: { emoji: string }) => ({ ok: true as const, emoji: input.emoji })),
 }));
 
 vi.mock("./diagnostics-log", () => ({
@@ -68,6 +69,7 @@ vi.mock("./share-run", () => ({
   createRunShareLink: mocks.createRunShareLink,
   presentRunShareSheet: mocks.presentRunShareSheet,
 }));
+vi.mock("./run-feedback", () => ({ submitRunFeedback: mocks.submitRunFeedback }));
 vi.mock("./ui", () => ({
   cacheHudElements: vi.fn(),
   cacheTransientOverlayElements: vi.fn(),
@@ -149,6 +151,7 @@ function captureQueue(): SessionUploadQueue & {
       deferred: 0,
     })),
     remove: vi.fn(async () => ({ count: 0, rawBytes: 0 })),
+    setFeedbackEmoji: vi.fn(async () => ({ found: false, count: 0, rawBytes: 0 })),
     clear: vi.fn(async () => undefined),
   };
 }
@@ -181,6 +184,7 @@ describe("Game capture orchestration", () => {
       shareUrl: "https://capture.example/r/0123456789abcdef",
     });
     mocks.presentRunShareSheet.mockClear();
+    mocks.submitRunFeedback.mockClear();
     mocks.readRecentEvents.mockClear();
     const values = new Map<string, string>();
     vi.stubGlobal("localStorage", {
@@ -328,9 +332,12 @@ describe("Game capture orchestration", () => {
     const runtime = internals(game);
     const consentButton = document.getElementById("option-capture-consent") as HTMLButtonElement;
     const sendButton = document.getElementById("option-capture-send") as HTMLButtonElement;
+    const indicator = document.getElementById("capture-upload-indicator")!;
 
     expect(consentButton.hidden).toBe(false);
     expect(sendButton.hidden).toBe(true);
+    expect(indicator.hidden).toBe(false);
+    expect(indicator.textContent).toBe("Playtest uploads off");
     consentButton.click();
     await vi.waitFor(() => expect(mocks.enrollCaptureCredential).toHaveBeenCalledTimes(1));
     expect(mocks.enrollCaptureCredential).toHaveBeenCalledWith({
@@ -339,6 +346,7 @@ describe("Game capture orchestration", () => {
       buildId: "test-build",
     });
     expect(document.getElementById("option-capture-consent-meta")!.textContent).toBe("Ready");
+    expect(indicator.textContent).toBe("Auto-upload off");
     expect(sendButton.hidden).toBe(false);
     expect(sendButton.disabled).toBe(true);
 
@@ -380,6 +388,10 @@ describe("Game capture orchestration", () => {
     });
     expect(mocks.reportProblem).not.toHaveBeenCalled();
     expect(document.getElementById("option-capture-auto-meta")!.textContent).toMatch(/^Sent/);
+    expect(document.getElementById("capture-upload-indicator")!).toMatchObject({
+      textContent: "Last run uploaded",
+      dataset: expect.objectContaining({ state: "ready" }),
+    });
   });
 
   it("shares an automatically uploaded recap without uploading the session twice", async () => {
@@ -447,6 +459,80 @@ describe("Game capture orchestration", () => {
     expect(mocks.presentRunShareSheet).toHaveBeenCalledTimes(1);
   });
 
+  it("embeds recap feedback in the first manual upload instead of submitting twice", async () => {
+    localStorage.setItem("dmc.capture.remote-consent.v1.staging", "granted");
+    const canvas = document.getElementById("game-canvas") as HTMLCanvasElement;
+    const game = new Game({
+      canvas,
+      renderer,
+      captureConfig: { channel: "staging", endpoint: "https://capture.example" },
+      captureQueue: captureQueue(),
+    });
+    const runtime = internals(game);
+    runtime.initGame();
+    runtime.gameRef.current!.state = "gameover";
+    runtime.handleSimEvent("gameOver", { score: 1200, wave: 3, stats: createEmptyGameStats() });
+    document.getElementById("progression-button")!.click();
+    const callbacks = mocks.showRunRecap.mock.calls[mocks.showRunRecap.mock.calls.length - 1]?.[1] as {
+      onFeedback?: (emoji: string) => Promise<{ ok: boolean; message: string }>;
+    };
+    await expect(callbacks.onFeedback?.("🔥")).resolves.toEqual({ ok: true, message: "Feedback saved" });
+    expect(mocks.uploadSession).toHaveBeenCalledOnce();
+    expect(mocks.uploadSession.mock.calls[0][0].meta.feedbackEmoji).toBe("🔥");
+    expect(mocks.submitRunFeedback).not.toHaveBeenCalled();
+  });
+
+  it("mutates an already uploaded recap without uploading the session twice", async () => {
+    localStorage.setItem("dmc.capture.remote-consent.v1.staging", "granted");
+    localStorage.setItem("dmc.capture.auto-upload-sessions.v1.staging", "true");
+    const uploadedQueue = captureQueue();
+    const canvas = document.getElementById("game-canvas") as HTMLCanvasElement;
+    const game = new Game({
+      canvas,
+      renderer,
+      captureConfig: { channel: "staging", endpoint: "https://capture.example" },
+      captureQueue: uploadedQueue,
+    });
+    const runtime = internals(game);
+    runtime.initGame();
+    runtime.gameRef.current!.state = "gameover";
+    runtime.handleSimEvent("gameOver", { score: 1200, wave: 3, stats: createEmptyGameStats() });
+    await vi.waitFor(() => expect(mocks.uploadSession).toHaveBeenCalledOnce());
+    document.getElementById("progression-button")!.click();
+    const callbacks = mocks.showRunRecap.mock.calls[mocks.showRunRecap.mock.calls.length - 1]?.[1] as {
+      onFeedback?: (emoji: string) => Promise<{ ok: boolean; message: string }>;
+    };
+    await expect(callbacks.onFeedback?.("👍")).resolves.toEqual({ ok: true, message: "Feedback saved" });
+    expect(mocks.submitRunFeedback).toHaveBeenCalledOnce();
+    expect(mocks.uploadSession).toHaveBeenCalledOnce();
+  });
+
+  it("edits emoji feedback into an offline queue in place", async () => {
+    localStorage.setItem("dmc.capture.remote-consent.v1.staging", "granted");
+    localStorage.setItem("dmc.capture.auto-upload-sessions.v1.staging", "true");
+    const queued = captureQueue();
+    queued.setFeedbackEmoji = vi.fn(async () => ({ found: true, count: 1, rawBytes: 100 }));
+    const canvas = document.getElementById("game-canvas") as HTMLCanvasElement;
+    const queuedGame = new Game({
+      canvas,
+      renderer,
+      captureConfig: { channel: "staging", endpoint: "https://capture.example" },
+      captureQueue: queued,
+    });
+    const queuedRuntime = internals(queuedGame);
+    queuedRuntime.initGame();
+    queuedRuntime.gameRef.current!.state = "gameover";
+    mocks.uploadSession.mockResolvedValueOnce({ ok: false, reason: "network" });
+    queuedRuntime.handleSimEvent("gameOver", { score: 900, wave: 2, stats: createEmptyGameStats() });
+    await vi.waitFor(() => expect(queued.enqueue).toHaveBeenCalledOnce());
+    document.getElementById("progression-button")!.click();
+    const callbacks = mocks.showRunRecap.mock.calls[mocks.showRunRecap.mock.calls.length - 1]?.[1] as {
+      onFeedback?: (emoji: string) => Promise<{ ok: boolean; message: string }>;
+    };
+    await expect(callbacks.onFeedback?.("😕")).resolves.toEqual({ ok: true, message: "Saved for upload" });
+    expect(queued.setFeedbackEmoji).toHaveBeenCalledWith(expect.any(String), "😕");
+  });
+
   it("queues only retryable automatic failures and surfaces terminal auth", async () => {
     const queue = captureQueue();
     localStorage.setItem("dmc.capture.remote-consent.v1.staging", "granted");
@@ -467,6 +553,10 @@ describe("Game capture orchestration", () => {
     runtime.handleSimEvent("gameOver", { score: 100, wave: 1, stats: createEmptyGameStats() });
     await vi.waitFor(() => expect(queue.enqueue).toHaveBeenCalledTimes(1));
     expect(document.getElementById("option-capture-auto-meta")!.textContent).toBe("Queued • 1");
+    expect(document.getElementById("capture-upload-indicator")!).toMatchObject({
+      textContent: "1 upload queued",
+      dataset: expect.objectContaining({ state: "queued" }),
+    });
 
     vi.advanceTimersByTime(1);
     mocks.uploadSession.mockResolvedValueOnce({ ok: false, reason: "auth", status: 401 });
@@ -476,6 +566,10 @@ describe("Game capture orchestration", () => {
     await vi.waitFor(() => expect(mocks.uploadSession).toHaveBeenCalledTimes(2));
     expect(queue.enqueue).toHaveBeenCalledTimes(1);
     expect(document.getElementById("option-capture-auto-meta")!.textContent).toBe("Failed • auth");
+    expect(document.getElementById("capture-upload-indicator")!).toMatchObject({
+      textContent: "Auto-upload needs attention",
+      dataset: expect.objectContaining({ state: "error" }),
+    });
   });
 
   it("lets the replay runner open the shop after the bonus UI completes", () => {

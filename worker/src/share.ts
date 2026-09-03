@@ -2,6 +2,7 @@ import { SAFE_ID, SHA256 } from "../../src/capture-contract";
 import type { Env, R2ObjectBody } from "./bindings";
 import { authorizeCapture, CaptureAuthorizationError } from "./capture-auth";
 import { IngestError, jsonResponse, readBounded } from "./ingest";
+import { REPLAY_RETENTION_MS, retentionCutoff } from "./retention";
 
 const MAX_SHARE_BODY_BYTES = 4 * 1024;
 export const SHARE_ID = /^[a-f0-9]{16}$/;
@@ -106,9 +107,9 @@ export async function shareSession(request: Request, env: Env): Promise<Response
     });
     const session = await env.DB.prepare(
       `SELECT run_id, build, replay_sha256, submitter_key_id_hash, score, wave_reached, outcome
-       FROM sessions WHERE run_id = ?`,
+       FROM sessions WHERE run_id = ? AND received_at >= ?`,
     )
-      .bind(body.runId)
+      .bind(body.runId, retentionCutoff(Date.now(), REPLAY_RETENTION_MS))
       .first<ShareableSessionRow>();
     if (!session) return jsonResponse(404, { ok: false, stage: "store", message: "Session not found" });
     if (session.submitter_key_id_hash !== authorization.keyIdHash || session.build !== body.buildId) {
@@ -157,16 +158,16 @@ function publicGameUrl(env: Env): URL | null {
   }
 }
 
-async function sharedRow(env: Env, shareId: string): Promise<SharedRunRow | null> {
+async function sharedRow(env: Env, shareId: string, now = Date.now()): Promise<SharedRunRow | null> {
   if (!SHARE_ID.test(shareId)) return null;
   return env.DB.prepare(
     `SELECT sh.share_id, s.run_id, s.build, s.replay_sha256, s.submitter_key_id_hash,
             s.score, s.wave_reached, s.outcome
      FROM shared_runs sh
      JOIN sessions s ON s.run_id = sh.run_id
-     WHERE sh.share_id = ? AND s.shared = 1`,
+     WHERE sh.share_id = ? AND s.shared = 1 AND s.received_at >= ?`,
   )
-    .bind(shareId)
+    .bind(shareId, retentionCutoff(now, REPLAY_RETENTION_MS))
     .first<SharedRunRow>();
 }
 
@@ -215,8 +216,15 @@ export async function retrieveSharedRun(env: Env, shareId: string): Promise<Resp
 }
 
 export async function redirectSharedRun(env: Env, shareId: string): Promise<Response> {
-  if (!(await sharedRow(env, shareId))) {
+  const row = await sharedRow(env, shareId);
+  if (!row?.replay_sha256) {
     return jsonResponse(404, { ok: false, stage: "store", message: "Shared run not found" });
+  }
+  const replay = await env.DB.prepare("SELECT r2_key FROM replays WHERE replay_sha256 = ?")
+    .bind(row.replay_sha256)
+    .first<{ r2_key: string }>();
+  if (!replay || !(await env.CAPTURES.head(replay.r2_key))) {
+    return jsonResponse(410, { ok: false, stage: "store", message: "Shared replay unavailable" }, publicHeaders());
   }
   const destination = publicGameUrl(env);
   if (!destination || (env.WORKER_BUILD !== "staging" && env.WORKER_BUILD !== "production")) {

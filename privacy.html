@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#071013" />
+    <title>Privacy — Dubai Missile Command</title>
+    <link rel="stylesheet" href="/src/policy.css" />
+  </head>
+  <body>
+    <main>
+      <a class="back-link" href="./">← Back to game</a>
+      <p class="kicker">Dubai Missile Command</p>
+      <h1>Privacy policy</h1>
+      <p class="updated">Effective 2 September 2026</p>
+
+      <section>
+        <h2>The short version</h2>
+        <p>
+          Playtest uploads are optional and off until you consent in the app. We use uploaded runs to improve game
+          balance, diagnose problems, and power replay links you explicitly share. We do not sell data, show ads, or
+          track you across apps or websites.
+        </p>
+      </section>
+
+      <section>
+        <h2>What is collected</h2>
+        <p>When playtest uploads are enabled, a completed-run upload can include:</p>
+        <ul>
+          <li>a random app-install label and an Apple App Attest credential identifier used for security;</li>
+          <li>app build, app flavor, platform, input type, and server receipt time;</li>
+          <li>score, wave, outcome, play time, accuracy, kills, upgrades, health, and other run statistics;</li>
+          <li>the replay action log needed to reproduce the run; and</li>
+          <li>one optional emoji selected on the Run Recap screen.</li>
+        </ul>
+        <p>
+          A diagnostic report is separate and deliberate. It can include recent in-app diagnostic events, screen and
+          device-display characteristics, a replay or partial replay, and any note included with that report. Ordinary
+          automatic run uploads never include diagnostic events or free-text notes.
+        </p>
+        <p>
+          The service processes an IP address transiently for abuse rate-limiting, but does not store it in the run or
+          diagnostic records. It does not collect your name, email address, contacts, precise location, advertising ID,
+          or payment information.
+        </p>
+      </section>
+
+      <section>
+        <h2>Why it is used</h2>
+        <ul>
+          <li>Compare gameplay balance and outcomes across app builds.</li>
+          <li>Investigate bugs, crashes, replay divergence, and performance problems.</li>
+          <li>Authenticate genuine app installs and prevent abusive or forged submissions.</li>
+          <li>Create a public replay only when you choose <strong>Share Run</strong>.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Retention</h2>
+        <ul>
+          <li>Compact gameplay summaries and emoji feedback: 365 days from server receipt.</li>
+          <li>Full replay objects and public share mappings: 270 days from server receipt.</li>
+          <li>Diagnostic reports, diagnostic objects, display names, and free-text notes: 90 days.</li>
+          <li>
+            Manual-deletion manifests are removed on completion. A job blocked before deletion is purged after 30 days;
+            a partially completed job retains its recovery manifest only until verified completion, when only hashed
+            audit references and counts remain.
+          </li>
+          <li>
+            Active App Attest security credentials remain while active. After revocation, the minimum pseudonymous key
+            hash, revoked status, and audit timestamps remain for the life of the capture service so the revoked key
+            cannot re-enroll.
+          </li>
+        </ul>
+        <p>
+          Expired replays and public links stop working at the stated boundary even if scheduled physical cleanup runs
+          late. A summary may remain after its replay has expired.
+        </p>
+      </section>
+
+      <section>
+        <h2>Your choices</h2>
+        <p>
+          You can disable Playtest Uploads or Auto-upload Runs from Options. Disabling stops future uploads and clears
+          the local retry queue; it does not erase material already received. Reinstalling the app replaces its random
+          install label rather than restoring it from Keychain.
+        </p>
+        <p>
+          To request deletion of an uploaded run or all uploads associated with a known test install, email
+          <a href="mailto:phejet@gmail.com?subject=Dubai%20Missile%20Command%20data%20deletion">phejet@gmail.com</a>.
+          Include a shared-run link, approximate play date and build, or another detail agreed with the tester operator.
+          Do not post private identifiers in a public issue. Requests are verified manually while the tester cohort is
+          small, then removed from both the database and object storage.
+        </p>
+        <p>
+          Deleting gameplay data does not silently delete the App Attest revocation record. If you also want future
+          submissions from that app credential stopped, request credential revocation as part of the same message.
+        </p>
+      </section>
+
+      <section>
+        <h2>Sharing and service providers</h2>
+        <p>
+          Uploaded data is stored using Cloudflare Workers, D1, and R2. A Share Run link makes only that replay and its
+          score, wave, outcome, and build publicly accessible until expiry. Private install labels, credentials,
+          diagnostic notes, and other operator fields are never included in the public replay response.
+        </p>
+      </section>
+
+      <section>
+        <h2>Contact</h2>
+        <p>
+          Questions or privacy requests:
+          <a href="mailto:phejet@gmail.com?subject=Dubai%20Missile%20Command%20privacy">phejet@gmail.com</a>.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

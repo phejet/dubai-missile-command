@@ -8,6 +8,7 @@ import { PerfRecorder } from "./perf-recorder";
 import type { PerfReport } from "./perf-recorder";
 import { ConsoleSink, HttpSink, type PerfSink } from "./perf-sinks";
 import type { ReplayData } from "./types";
+import { installOperatorReplayReceiver } from "./operator-replay-bridge";
 import {
   fetchSharedReplay,
   parseSharedReplayRequest,
@@ -516,7 +517,8 @@ export function bootGame({ launchUrl }: BootGameOptions = {}): BootGameRuntime {
     );
   }
   const initialSharedReplay = parseSharedReplayRequest(launchUrl ?? window.location.href, __DMC_SHARE_BASE_URLS__);
-  if (initialSharedReplay && !initialPerfRequest) void loadSharedReplay(initialSharedReplay);
+  const operatorReplay = installOperatorReplayReceiver((replay) => game.loadReplay(replay));
+  if (initialSharedReplay && !initialPerfRequest && !operatorReplay) void loadSharedReplay(initialSharedReplay);
   startPerfCommandPolling();
   return {
     game,

@@ -72,6 +72,7 @@ import {
   EVENT_TAIL_MAX_BYTES,
   projectCaptureSummary,
   type CaptureTrigger,
+  type RunFeedbackEmoji,
 } from "./capture";
 import { reportProblem, uploadSession, type UploadCaptureResult } from "./capture-sink";
 import { enrollCaptureCredential } from "./capture-auth";
@@ -86,6 +87,7 @@ import { createSessionUploadQueue, isRetryableUploadResult, type SessionUploadQu
 import { getInstallId } from "./install-id";
 import { createReplayArchiveGate, REPLAY_ARCHIVE_PREPARING_DELAY_MS } from "./replay-archive-gate";
 import { clientLog } from "./client-log";
+import { submitRunFeedback } from "./run-feedback";
 import { getMemorySample } from "./memory-probe";
 import {
   clearDiagnostics,
@@ -539,6 +541,7 @@ export class Game {
   private automaticCaptureBusy = false;
   private automaticCapturePromise: Promise<void> | null = null;
   private lastUploadedRunId: string | null = null;
+  private runFeedbackEmoji: RunFeedbackEmoji | null = null;
   private remoteCaptureBuild: { channel: "staging" | "production"; endpoint: string } | null;
   private captureQueue: SessionUploadQueue | null;
   private debugOptions: DebugOptions = loadDebugOptions();
@@ -1035,6 +1038,7 @@ export class Game {
     this.lastReplay = null;
     this.replayArchive = null;
     this.lastRunRecapData = null;
+    this.runFeedbackEmoji = null;
     window.__lastReplay = null;
     this.gameRef.current = simInitGame();
     const game = this.gameRef.current;
@@ -1473,7 +1477,7 @@ export class Game {
   async captureNow(
     trigger: CaptureTrigger,
     note?: string,
-    options: { queueOnRetryable?: boolean } = {},
+    options: { queueOnRetryable?: boolean; feedbackEmoji?: RunFeedbackEmoji | null } = {},
   ): Promise<UploadCaptureResult> {
     try {
       const capturedAt = Date.now();
@@ -1521,7 +1525,13 @@ export class Game {
 
       if (!partial && captureRunId !== null && summary !== null && trigger !== "agent") {
         const session = await assembleSession({
-          meta: { ...common, runId: captureRunId, trigger, partial: false },
+          meta: {
+            ...common,
+            runId: captureRunId,
+            trigger,
+            partial: false,
+            feedbackEmoji: options.feedbackEmoji ?? this.runFeedbackEmoji,
+          },
           summary,
           replay,
         });
@@ -1880,7 +1890,52 @@ export class Game {
         if (this.lastReplay) await saveReplayToFile(this.lastReplay);
       },
       ...(canShare ? { onShareRun: () => this.shareCurrentRun(recapData) } : {}),
+      ...(canShare ? { onFeedback: (emoji: RunFeedbackEmoji) => this.submitCurrentRunFeedback(emoji) } : {}),
     });
+  }
+
+  private async submitCurrentRunFeedback(emoji: RunFeedbackEmoji): Promise<{ ok: boolean; message: string }> {
+    const config = this.remoteCaptureConfig();
+    const runId = this.runId;
+    if (!config || !runId || !this.lastReplay || getRemoteCaptureConsent(config.channel) !== "granted") {
+      return { ok: false, message: "Uploads are off" };
+    }
+    try {
+      await this.automaticCapturePromise;
+      const queued = await this.captureQueue?.setFeedbackEmoji(runId, emoji);
+      if (queued?.found) {
+        this.captureQueueCount = queued.count;
+        this.runFeedbackEmoji = emoji;
+        this.syncCaptureUi();
+        return { ok: true, message: "Saved for upload" };
+      }
+      if (this.lastUploadedRunId === runId) {
+        const result = await submitRunFeedback({
+          endpoint: config.endpoint,
+          channel: config.channel,
+          buildId: getDiagnosticsBuildId(),
+          runId,
+          emoji,
+        });
+        if (!result.ok) return { ok: false, message: "Could not save" };
+      } else {
+        const result = await this.captureNow("manual", undefined, {
+          queueOnRetryable: getAutomaticSessionUploadEnabled(config.channel),
+          feedbackEmoji: emoji,
+        });
+        if (!result.ok && result.reason !== "queued") return { ok: false, message: "Could not upload" };
+        if (result.ok) this.lastUploadedRunId = runId;
+      }
+      this.runFeedbackEmoji = emoji;
+      this.syncCaptureUi();
+      return { ok: true, message: "Feedback saved" };
+    } catch (error) {
+      clientLog("capture", "feedback-failed", {
+        runId,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+      return { ok: false, message: "Could not save" };
+    }
   }
 
   private async shareCurrentRun(recapData: RunRecapData): Promise<void> {
@@ -2162,6 +2217,7 @@ export class Game {
     if (!config) {
       autoButton.hidden = true;
       sendButton.hidden = true;
+      this.syncCaptureIndicator();
       return;
     }
 
@@ -2193,6 +2249,42 @@ export class Game {
     document.getElementById("option-capture-send-meta")!.textContent =
       this.captureSendMessage ??
       (this.captureSendBusy ? "Sending…" : completedRunAvailable ? "Ready" : "Finish a run first");
+    this.syncCaptureIndicator();
+  }
+
+  private syncCaptureIndicator(): void {
+    const indicator = document.getElementById("capture-upload-indicator")!;
+    const config = this.remoteCaptureConfig();
+    indicator.hidden = config === null;
+    if (!config) return;
+    const consent = getRemoteCaptureConsent(config.channel);
+    const automatic = getAutomaticSessionUploadEnabled(config.channel);
+    let state = "off";
+    let label = consent === "granted" ? "Auto-upload off" : "Playtest uploads off";
+    if (consent === "granted" && automatic) {
+      if (this.automaticCaptureBusy) {
+        state = "sending";
+        label = "Uploading run";
+      } else if (
+        this.captureAutoMessage?.startsWith("Failed") ||
+        this.captureAutoMessage === "Queue unavailable" ||
+        this.captureAutoMessage?.startsWith("Dropped")
+      ) {
+        state = "error";
+        label = "Auto-upload needs attention";
+      } else if (this.captureQueueBusy && this.captureQueueCount > 0) {
+        state = "sending";
+        label = "Retrying uploads";
+      } else if (this.captureQueueCount > 0) {
+        state = "queued";
+        label = `${this.captureQueueCount} upload${this.captureQueueCount === 1 ? "" : "s"} queued`;
+      } else {
+        state = "ready";
+        label = this.lastUploadedRunId ? "Last run uploaded" : "Auto-upload on";
+      }
+    }
+    indicator.dataset.state = state;
+    indicator.textContent = label;
   }
 
   private async toggleRemoteCaptureConsent(): Promise<void> {
@@ -2328,7 +2420,17 @@ export class Game {
     this.captureAutoMessage = this.captureQueueCount > 0 ? "Retrying…" : null;
     this.syncCaptureUi();
     try {
-      const result = await this.captureQueue.drain((session) => uploadSession(session));
+      const result = await this.captureQueue.drain(
+        (session) => uploadSession(session),
+        (runId, emoji) =>
+          submitRunFeedback({
+            endpoint: config.endpoint,
+            channel: config.channel,
+            buildId: getDiagnosticsBuildId(),
+            runId,
+            emoji,
+          }),
+      );
       this.captureQueueCount = result.count;
       if (result.sentRunIds.length > 0) {
         this.lastUploadedRunId = result.sentRunIds[result.sentRunIds.length - 1];

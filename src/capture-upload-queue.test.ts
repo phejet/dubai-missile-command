@@ -53,6 +53,40 @@ describe("completed-session upload queue", () => {
     expect(await queue.drain(send)).toMatchObject({ count: 0, sentRunIds: ["offline-run"] });
   });
 
+  it("adds emoji feedback to a queued session without duplicating it", async () => {
+    let time = 10_000;
+    const queue = createSessionUploadQueue("staging", { store: memoryStore(), now: () => time });
+    await queue.enqueue(sessionFixture({ runId: "feedback-run" }));
+    expect(await queue.setFeedbackEmoji("feedback-run", "🔥")).toMatchObject({ found: true, count: 1 });
+    time += SESSION_UPLOAD_RETRY_BASE_MS;
+    const send = vi.fn<(session: SessionUpload) => Promise<UploadCaptureResult>>(async () => ({
+      ok: true,
+      id: "feedback-run",
+      encoding: "none",
+    }));
+    const sendFeedback = vi.fn(async () => ({ ok: true as const }));
+    await queue.drain(send, sendFeedback);
+    expect(send).toHaveBeenCalledOnce();
+    expect(send.mock.calls[0][0].meta.feedbackEmoji).toBeUndefined();
+    expect(sendFeedback).toHaveBeenCalledWith("feedback-run", "🔥");
+  });
+
+  it("keeps an ambiguous committed upload byte-identical before sending pending feedback", async () => {
+    let time = 10_000;
+    const queue = createSessionUploadQueue("staging", { store: memoryStore(), now: () => time });
+    const original = sessionFixture({ runId: "ambiguous-feedback-run" });
+    await queue.enqueue(original);
+    await queue.setFeedbackEmoji(original.meta.runId, "😕");
+    time += SESSION_UPLOAD_RETRY_BASE_MS;
+    const send = vi.fn(async (session: SessionUpload) => {
+      expect(session).toEqual(original);
+      return { ok: true as const, id: session.meta.runId, encoding: "none" as const };
+    });
+    const sendFeedback = vi.fn(async () => ({ ok: true as const }));
+    expect(await queue.drain(send, sendFeedback)).toMatchObject({ count: 0, sentRunIds: [original.meta.runId] });
+    expect(sendFeedback).toHaveBeenCalledWith(original.meta.runId, "😕");
+  });
+
   it("drops terminal authentication failures instead of retrying revoked credentials", async () => {
     let time = 20_000;
     const queue = createSessionUploadQueue("staging", { store: memoryStore(), now: () => time });

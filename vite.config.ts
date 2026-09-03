@@ -74,7 +74,11 @@ function shareBaseUrls(): Record<"staging" | "production", string> {
 }
 
 function devHtmlEntryAliases(base: string): Plugin {
-  const entries = new Map([[`${base}editor.html`, resolve(__dirname, "editor.html")]]);
+  const entries = new Map([
+    [`${base}editor.html`, resolve(__dirname, "editor.html")],
+    [`${base}operator.html`, resolve(__dirname, "operator.html")],
+    [`${base}privacy.html`, resolve(__dirname, "privacy.html")],
+  ]);
 
   return {
     name: "dev-html-entry-aliases",
@@ -156,10 +160,13 @@ export default defineConfig(({ command }): UserConfig => {
         input: isCapacitor
           ? {
               main: resolve(__dirname, "index.html"),
+              privacy: resolve(__dirname, "privacy.html"),
             }
           : {
               main: resolve(__dirname, "index.html"),
               editor: resolve(__dirname, "editor.html"),
+              operator: resolve(__dirname, "operator.html"),
+              privacy: resolve(__dirname, "privacy.html"),
             },
       },
     },

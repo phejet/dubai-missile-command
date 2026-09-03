@@ -1,4 +1,4 @@
-import type { ProblemReport, SessionUpload } from "../../src/capture";
+import type { ProblemReport, RunFeedbackEmoji, SessionUpload } from "../../src/capture";
 import type { CaptureSubmissionProvenance } from "./capture-provenance";
 
 export interface ReplayRow {
@@ -33,7 +33,7 @@ export interface SessionRow {
   max_combo: number;
   destroyed_by_type_json: string;
   upgrades_json: string;
-  feedback_emoji: null;
+  feedback_emoji: RunFeedbackEmoji | null;
   feedback_note: string | null;
   replay_sha256: string | null;
   replay_omitted_reason: string | null;
@@ -126,7 +126,7 @@ export function projectSessionRow(
     max_combo: summary.maxCombo,
     destroyed_by_type_json: JSON.stringify(summary.destroyedByType),
     upgrades_json: JSON.stringify(summary.upgrades),
-    feedback_emoji: null,
+    feedback_emoji: session.meta.feedbackEmoji ?? null,
     feedback_note: session.meta.note,
     replay_sha256: session.meta.replaySha256,
     replay_omitted_reason: session.replayOmitted?.reason ?? null,

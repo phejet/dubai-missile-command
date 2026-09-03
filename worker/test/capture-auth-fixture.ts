@@ -95,7 +95,7 @@ export async function addTestCredential(): Promise<{ keyId: string; keyIdHash: s
   return { keyId: value.keyId, keyIdHash: value.keyIdHash };
 }
 
-async function challenge(purpose: "session" | "report" | "share", keyId: string): Promise<string> {
+async function challenge(purpose: "session" | "report" | "share" | "feedback", keyId: string): Promise<string> {
   const response = await SELF.fetch("https://worker.test/api/auth/challenge", {
     method: "POST",
     headers: {
@@ -136,7 +136,7 @@ async function assertion(token: string, bodySha256: string, counter: number): Pr
 }
 
 export async function captureAuthHeaders(
-  purpose: "session" | "report" | "share",
+  purpose: "session" | "report" | "share" | "feedback",
   bodySha256: string,
 ): Promise<Record<string, string>> {
   const value = credential();

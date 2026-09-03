@@ -41,10 +41,13 @@ session; a `404` proves the Worker has no session before the one-time manual upl
 
 ## Retention and failure behavior
 
-Session retention removes orphaned `shared_runs` rows before replay cleanup. A shared row
-whose R2 evidence is missing returns `410`; an unknown or unshared slug returns `404`.
-Public responses allow cross-origin reads and use a short 60-second cache. Ingest and
-operator retrieval routes retain their existing stricter CORS and bearer policies.
+Share entitlement ends 270 days after the owning session's server `received_at`; creating or
+re-requesting a link does not restart that clock. Query-time gates enforce expiry even if the
+nightly cleanup has not run. An expired, unknown, or unshared slug returns `404`. If the mapping
+and owning session are still in-policy but the replay index/object is unexpectedly missing, both
+the public replay lookup and redirect return `410`; that is storage loss, not ordinary expiry.
+Public responses allow cross-origin reads and use a short 60-second cache. Ingest and operator
+retrieval routes retain their existing stricter CORS and bearer policies.
 
 ## Remaining rollout gates
 

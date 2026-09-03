@@ -2,13 +2,22 @@ import { SAFE_ID, SHA256 } from "../../src/capture-contract";
 import { authorized } from "./auth";
 import type { Env, R2ObjectBody } from "./bindings";
 import { challenge, enroll, revokeCredential } from "./capture-auth";
+import { handleDeletion, handleDeletionJobs, handleReservationRecovery } from "./deletion";
+import { submitFeedback } from "./feedback";
 import { ingestReport, ingestSession, jsonResponse } from "./ingest";
+import {
+  isRetained,
+  REPORT_RETENTION_MS,
+  REPLAY_RETENTION_MS,
+  retentionCutoff,
+  runRetention,
+  SESSION_RETENTION_MS,
+} from "./retention";
 import { redirectSharedRun, retrieveSharedRun, shareSession } from "./share";
 
-const DAY_MS = 24 * 60 * 60 * 1_000;
-const REPORT_RETENTION_MS = 90 * DAY_MS;
-const SESSION_RETENTION_MS = 365 * DAY_MS;
 const DEFAULT_ORIGINS = new Set(["capacitor://localhost"]);
+
+export { runRetention } from "./retention";
 
 interface ExecutionContextLike {
   waitUntil(promise: Promise<unknown>): void;
@@ -35,6 +44,45 @@ function corsHeaders(origin: string): HeadersInit {
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
   };
+}
+
+function operatorOrigins(env: Env): Set<string> {
+  const origins = allowedOrigins(env);
+  if (env.PUBLIC_GAME_URL) {
+    try {
+      origins.add(new URL(env.PUBLIC_GAME_URL).origin);
+    } catch {
+      // Deployment validation owns PUBLIC_GAME_URL; a malformed value grants no CORS access.
+    }
+  }
+  return origins;
+}
+
+function operatorCorsHeaders(origin: string): HeadersInit {
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Authorization",
+    "Access-Control-Max-Age": "86400",
+    Vary: "Origin",
+  };
+}
+
+async function withOperatorCors(request: Request, env: Env, handler: () => Promise<Response>): Promise<Response> {
+  const origin = request.headers.get("origin");
+  if (origin && !operatorOrigins(env).has(origin)) {
+    return jsonResponse(403, { ok: false, stage: "auth", message: "Origin not allowed" });
+  }
+  if (request.method === "OPTIONS") {
+    if (!origin) return jsonResponse(400, { ok: false, stage: "parse", message: "Origin required" });
+    return new Response(null, { status: 204, headers: operatorCorsHeaders(origin) });
+  }
+  const response = await handler();
+  if (!origin) return response;
+  const headers = new Headers(response.headers);
+  for (const [name, value] of Object.entries(operatorCorsHeaders(origin))) headers.set(name, String(value));
+  headers.set("Cache-Control", "private, no-store");
+  return new Response(response.body, { status: response.status, headers });
 }
 
 async function ingestWithCors(
@@ -87,7 +135,10 @@ async function replayValue(env: Env, sha: string | null): Promise<ReplayLookup> 
   const row = await env.DB.prepare("SELECT r2_key FROM replays WHERE replay_sha256 = ?")
     .bind(sha)
     .first<{ r2_key: string }>();
-  if (!row) return { replay: null, replayStatus: "expired" };
+  if (!row) {
+    console.error(`[capture-worker] replay index missing sha=${sha}`);
+    return { replay: null, replayStatus: "missing" };
+  }
   const object = await env.CAPTURES.get(row.r2_key);
   if (!object) {
     console.error(`[capture-worker] replay object missing sha=${sha} key=${row.r2_key}`);
@@ -104,7 +155,17 @@ async function retrieveSession(request: Request, env: Env, runId: string): Promi
     .bind(runId)
     .first<Record<string, unknown>>();
   if (!row) return jsonResponse(404, { ok: false, stage: "store", message: "Session not found" });
-  const replay = await replayValue(env, (row.replay_sha256 as string | null) ?? null);
+  const now = Date.now();
+  if (!isRetained(Number(row.received_at), now, SESSION_RETENTION_MS)) {
+    return jsonResponse(404, { ok: false, stage: "store", message: "Session not found" });
+  }
+  if (!isRetained(Number(row.received_at), now, REPORT_RETENTION_MS)) {
+    row.display_name = null;
+    row.feedback_note = null;
+  }
+  const replay = isRetained(Number(row.received_at), now, REPLAY_RETENTION_MS)
+    ? await replayValue(env, (row.replay_sha256 as string | null) ?? null)
+    : { replay: null, replayStatus: "expired" as const };
   return jsonResponse(200, {
     ok: true,
     session: row,
@@ -122,9 +183,9 @@ async function retrieveReport(request: Request, env: Env, reportId: string): Pro
   if (!SAFE_ID.test(reportId)) return jsonResponse(400, { ok: false, stage: "parse", message: "Invalid reportId" });
   const row = await env.DB.prepare(
     `SELECT r2_key, replay_sha256, app_flavor, apple_bundle_id, apple_environment
-     FROM diagnostic_reports WHERE report_id = ?`,
+     FROM diagnostic_reports WHERE report_id = ? AND received_at >= ?`,
   )
-    .bind(reportId)
+    .bind(reportId, retentionCutoff(Date.now(), REPORT_RETENTION_MS))
     .first<{
       r2_key: string;
       replay_sha256: string | null;
@@ -151,8 +212,20 @@ async function retrieveReplay(request: Request, env: Env, sha: string): Promise<
   const denied = requireAuth(request, env);
   if (denied) return denied;
   if (!SHA256.test(sha)) return jsonResponse(400, { ok: false, stage: "parse", message: "Invalid replay SHA" });
-  const row = await env.DB.prepare("SELECT r2_key, raw_bytes, stored_bytes FROM replays WHERE replay_sha256 = ?")
-    .bind(sha)
+  const now = Date.now();
+  const row = await env.DB.prepare(
+    `SELECT r.r2_key, r.raw_bytes, r.stored_bytes
+     FROM replays r
+     WHERE r.replay_sha256 = ?
+       AND (
+         EXISTS (SELECT 1 FROM sessions s WHERE s.replay_sha256 = r.replay_sha256 AND s.received_at >= ?)
+         OR EXISTS (
+           SELECT 1 FROM diagnostic_reports d
+           WHERE d.replay_sha256 = r.replay_sha256 AND d.received_at >= ?
+         )
+       )`,
+  )
+    .bind(sha, retentionCutoff(now, REPLAY_RETENTION_MS), retentionCutoff(now, REPORT_RETENTION_MS))
     .first<{ r2_key: string; raw_bytes: number; stored_bytes: number }>();
   if (!row) return jsonResponse(404, { ok: false, stage: "store", message: "Replay not found" });
   const object = await env.CAPTURES.get(row.r2_key);
@@ -180,6 +253,8 @@ async function listRows(request: Request, env: Env, table: "sessions" | "diagnos
   const url = new URL(request.url);
   const clauses: string[] = [];
   const values: unknown[] = [];
+  clauses.push("received_at >= ?");
+  values.push(retentionCutoff(Date.now(), table === "sessions" ? SESSION_RETENTION_MS : REPORT_RETENTION_MS));
   for (const [parameter, column] of [
     ["install", "install_id"],
     ["build", "build"],
@@ -208,22 +283,67 @@ async function listRows(request: Request, env: Env, table: "sessions" | "diagnos
   const result = await env.DB.prepare(`SELECT * FROM ${table}${where} ORDER BY received_at DESC LIMIT ?`)
     .bind(...values)
     .all();
-  return jsonResponse(200, { ok: true, [table === "sessions" ? "sessions" : "reports"]: result.results ?? [] });
+  const rows = (result.results ?? []).map((row) => {
+    if (
+      table === "sessions" &&
+      !isRetained(Number((row as Record<string, unknown>).received_at), Date.now(), REPORT_RETENTION_MS)
+    ) {
+      return { ...(row as Record<string, unknown>), display_name: null, feedback_note: null };
+    }
+    return row;
+  });
+  return jsonResponse(200, { ok: true, [table === "sessions" ? "sessions" : "reports"]: rows });
 }
 
-export async function runRetention(env: Env, now = Date.now()): Promise<void> {
-  await env.DB.batch([
-    env.DB.prepare("DELETE FROM sessions WHERE received_at < ?").bind(now - SESSION_RETENTION_MS),
-    env.DB.prepare("DELETE FROM diagnostic_reports WHERE received_at < ?").bind(now - REPORT_RETENTION_MS),
-    env.DB.prepare(
-      "DELETE FROM shared_runs WHERE NOT EXISTS (SELECT 1 FROM sessions WHERE sessions.run_id = shared_runs.run_id)",
-    ),
-    env.DB.prepare(
-      `DELETE FROM replays
-       WHERE NOT EXISTS (SELECT 1 FROM sessions WHERE replay_sha256 = replays.replay_sha256)
-         AND NOT EXISTS (SELECT 1 FROM diagnostic_reports WHERE replay_sha256 = replays.replay_sha256)`,
-    ),
-  ]);
+async function listOperatorSessions(request: Request, env: Env): Promise<Response> {
+  const denied = requireAuth(request, env);
+  if (denied) return denied;
+  const url = new URL(request.url);
+  const requestedLimit = Number(url.searchParams.get("limit") ?? 50);
+  const limit = Number.isFinite(requestedLimit) ? Math.min(200, Math.max(1, Math.trunc(requestedLimit))) : 50;
+  const result = await env.DB.prepare(
+    `SELECT s.run_id, s.received_at, s.build, s.score, s.wave_reached, s.outcome,
+            s.replay_sha256, r.r2_key
+     FROM sessions s
+     LEFT JOIN replays r ON r.replay_sha256 = s.replay_sha256
+     WHERE s.received_at >= ?
+     ORDER BY s.received_at DESC
+     LIMIT ?`,
+  )
+    .bind(retentionCutoff(Date.now(), SESSION_RETENTION_MS), limit)
+    .all<{
+      run_id: string;
+      received_at: number;
+      build: string;
+      score: number;
+      wave_reached: number;
+      outcome: string;
+      replay_sha256: string | null;
+      r2_key: string | null;
+    }>();
+  const sessions = await Promise.all(
+    (result.results ?? []).map(async (row) => {
+      const replayStatus = !row.replay_sha256
+        ? "omitted"
+        : !isRetained(row.received_at, Date.now(), REPLAY_RETENTION_MS)
+          ? "expired"
+          : !row.r2_key
+            ? "missing"
+            : (await env.CAPTURES.head(row.r2_key))
+              ? "available"
+              : "missing";
+      return {
+        runId: row.run_id,
+        receivedAt: row.received_at,
+        build: row.build,
+        score: row.score,
+        wave: row.wave_reached,
+        outcome: row.outcome,
+        replayStatus,
+      };
+    }),
+  );
+  return jsonResponse(200, { ok: true, sessions });
 }
 
 function decodedPathId(pathname: string, pattern: RegExp): string | null {
@@ -264,13 +384,51 @@ export default {
     if (url.pathname === "/api/session") return ingestWithCors(request, env, ingestSession);
     if (url.pathname === "/api/report") return ingestWithCors(request, env, ingestReport);
     if (url.pathname === "/api/share") return ingestWithCors(request, env, shareSession);
+    if (url.pathname === "/api/feedback") return ingestWithCors(request, env, submitFeedback);
+    if (
+      url.pathname === "/api/operator/deletion/preview" ||
+      url.pathname === "/api/operator/deletion/execute" ||
+      url.pathname === "/api/operator/deletion/resume"
+    ) {
+      const denied = requireAuth(request, env);
+      if (denied) return denied;
+      return handleDeletion(
+        request,
+        env,
+        url.pathname.endsWith("/preview") ? "preview" : url.pathname.endsWith("/execute") ? "execute" : "resume",
+      );
+    }
+    if (
+      url.pathname === "/api/operator/deletion/reservation/inspect" ||
+      url.pathname === "/api/operator/deletion/reservation/recover"
+    ) {
+      const denied = requireAuth(request, env);
+      if (denied) return denied;
+      return handleReservationRecovery(request, env, url.pathname.endsWith("/inspect") ? "inspect" : "recover");
+    }
+    if (
+      url.pathname === "/api/operator/deletion/jobs/list" ||
+      url.pathname === "/api/operator/deletion/jobs/inspect" ||
+      url.pathname === "/api/operator/deletion/jobs/recover"
+    ) {
+      const denied = requireAuth(request, env);
+      if (denied) return denied;
+      return handleDeletionJobs(
+        request,
+        env,
+        url.pathname.endsWith("/list") ? "list" : url.pathname.endsWith("/inspect") ? "inspect" : "recover",
+      );
+    }
+    if (url.pathname === "/api/operator/sessions") {
+      return withOperatorCors(request, env, () => listOperatorSessions(request, env));
+    }
     if (url.pathname === "/api/sessions" && request.method === "GET") return listRows(request, env, "sessions");
     if (url.pathname === "/api/reports" && request.method === "GET") {
       return listRows(request, env, "diagnostic_reports");
     }
     if (request.method === "GET") {
       const runId = decodedPathId(url.pathname, /^\/api\/session\/([^/]+)$/);
-      if (runId !== null) return retrieveSession(request, env, runId);
+      if (runId !== null) return withOperatorCors(request, env, () => retrieveSession(request, env, runId));
       const reportId = decodedPathId(url.pathname, /^\/api\/report\/([^/]+)$/);
       if (reportId !== null) return retrieveReport(request, env, reportId);
       const sha = decodedPathId(url.pathname, /^\/api\/replay\/([^/]+)$/);

@@ -1,5 +1,21 @@
 # Lessons
 
+## 2026-09-02 — Write completion plans against the live worktree, not an imagined green field
+
+- Before drafting a detailed implementation plan in a dirty or concurrently changing tree,
+  inventory each requested surface as present, partial, missing, or externally unproven. Put
+  that snapshot near the top of the plan and make the remaining sequence start from it.
+- Re-read status and the relevant files immediately before finalizing. A single disclaimer that
+  uncommitted work must be “reconciled” does not tell the next engineer which half-built paths
+  are load-bearing, dead, or still unsafe.
+- When retention depends on a seemingly redundant storage write, state that write as an
+  invariant and test it directly. Otherwise the first tidy deduplication optimization can turn
+  a valid D1 entitlement into a missing R2 object months later, which is an impressively patient
+  sort of bug.
+- Do not invent a stale-lock TTL from CPU limits. Verify the platform's wall-time model and
+  specify an observable, fail-closed recovery procedure when age alone cannot prove an in-flight
+  request is dead.
+
 ## 2026-09-02 — Scale roadmap verification to the kind of edit
 
 - For a content-only edit inside an existing roadmap initiative, run the roadmap validator

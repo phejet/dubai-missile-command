@@ -4,6 +4,8 @@ import { sha256Hex } from "./sha256";
 export const CAPTURE_SCHEMA_VERSION = 2 as const;
 export const CAPTURE_MAX_RAW_BYTES = 4 * 1024 * 1024;
 export const EVENT_TAIL_MAX_BYTES = 256 * 1024;
+export const RUN_FEEDBACK_EMOJIS = ["🔥", "👍", "😕", "😤"] as const;
+export type RunFeedbackEmoji = (typeof RUN_FEEDBACK_EMOJIS)[number];
 
 export type CaptureTrigger = "gameover" | "manual" | "agent";
 export type SessionTrigger = "gameover" | "manual";
@@ -49,6 +51,7 @@ export interface SessionMeta extends CaptureMetaBase {
   runId: string;
   trigger: SessionTrigger;
   partial: false;
+  feedbackEmoji?: RunFeedbackEmoji | null;
 }
 
 export interface ReportMeta extends CaptureMetaBase {

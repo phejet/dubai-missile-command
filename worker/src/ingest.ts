@@ -165,6 +165,134 @@ interface PreparedReplay {
   stored: Uint8Array;
 }
 
+interface CaptureReservation {
+  requestId: string;
+}
+
+async function ownerIdHash(kind: "session" | "report", id: string): Promise<string> {
+  return sha256(new TextEncoder().encode(`${kind}\0${id}`));
+}
+
+async function reserveCaptureWrite(
+  env: Env,
+  replay: PreparedReplay | null,
+  owner: {
+    kind: "session" | "report";
+    id: string;
+    installId: string;
+    runId: string | null;
+    requestSha: string;
+    diagnosticR2Key: string | null;
+  },
+): Promise<CaptureReservation> {
+  const requestId = `${owner.kind}:${crypto.randomUUID()}`;
+  const now = Date.now();
+  const tombstoneHash = await ownerIdHash(owner.kind, owner.id);
+  const runTombstoneHash = owner.runId ? await ownerIdHash("session", owner.runId) : null;
+  await env.DB.prepare(
+    `INSERT OR IGNORE INTO capture_write_reservations (
+       request_id, owner_kind, owner_id, install_id, run_id, request_sha256, diagnostic_r2_key, created_at, updated_at
+     )
+     SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?
+     WHERE NOT EXISTS (
+       SELECT 1 FROM operator_deletion_scope_locks
+       WHERE (scope = 'install' AND reference = ?)
+          OR (scope = 'run' AND reference = ?)
+     )
+       AND NOT EXISTS (
+         SELECT 1 FROM capture_deletion_tombstones
+         WHERE (owner_kind = ? AND owner_id_hash = ? AND expires_at >= ?)
+            OR (? IS NOT NULL AND owner_kind = 'session' AND owner_id_hash = ? AND expires_at >= ?)
+       )`,
+  )
+    .bind(
+      requestId,
+      owner.kind,
+      owner.id,
+      owner.installId,
+      owner.runId,
+      owner.requestSha,
+      owner.diagnosticR2Key,
+      now,
+      now,
+      owner.installId,
+      owner.runId ?? (owner.kind === "session" ? owner.id : ""),
+      owner.kind,
+      tombstoneHash,
+      now,
+      runTombstoneHash,
+      runTombstoneHash,
+      now,
+    )
+    .run();
+  const scopeReservation = await env.DB.prepare(
+    "SELECT request_id FROM capture_write_reservations WHERE request_id = ?",
+  )
+    .bind(requestId)
+    .first();
+  if (!scopeReservation) {
+    const tombstoned = await env.DB.prepare(
+      `SELECT 1 AS found FROM capture_deletion_tombstones
+       WHERE (owner_kind = ? AND owner_id_hash = ? AND expires_at >= ?)
+          OR (? IS NOT NULL AND owner_kind = 'session' AND owner_id_hash = ? AND expires_at >= ?)`,
+    )
+      .bind(owner.kind, tombstoneHash, now, runTombstoneHash, runTombstoneHash, now)
+      .first();
+    throw new IngestError(
+      "store",
+      tombstoned
+        ? "Capture was deleted and cannot be retried"
+        : "Capture scope is temporarily locked for operator deletion",
+      tombstoned ? 409 : 503,
+    );
+  }
+  if (!replay) return { requestId };
+  await env.DB.prepare(
+    `INSERT OR IGNORE INTO replay_write_reservations (
+       request_id, replay_sha256, owner_kind, owner_id, state, created_at, updated_at
+     )
+     SELECT ?, ?, ?, ?, 'active', ?, ?
+     WHERE NOT EXISTS (
+       SELECT 1 FROM replay_deletion_locks WHERE replay_sha256 = ?
+     )`,
+  )
+    .bind(requestId, replay.row.replay_sha256, owner.kind, owner.id, Date.now(), Date.now(), replay.row.replay_sha256)
+    .run();
+  const reserved = await env.DB.prepare(
+    `SELECT replay_sha256, owner_kind, owner_id
+     FROM replay_write_reservations WHERE request_id = ?`,
+  )
+    .bind(requestId)
+    .first<{ replay_sha256: string; owner_kind: string; owner_id: string }>();
+  if (
+    !reserved ||
+    reserved.replay_sha256 !== replay.row.replay_sha256 ||
+    reserved.owner_kind !== owner.kind ||
+    reserved.owner_id !== owner.id
+  ) {
+    await env.DB.prepare("DELETE FROM capture_write_reservations WHERE request_id = ?").bind(requestId).run();
+    throw new IngestError("store", "Replay is temporarily locked for operator deletion", 503);
+  }
+  console.log(
+    JSON.stringify({
+      message: "replay write reserved",
+      requestId,
+      replaySha256: replay.row.replay_sha256,
+      ownerKind: owner.kind,
+      ownerId: owner.id,
+    }),
+  );
+  return { requestId };
+}
+
+async function releaseCaptureWrite(env: Env, reservation: CaptureReservation): Promise<void> {
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM replay_write_reservations WHERE request_id = ?").bind(reservation.requestId),
+    env.DB.prepare("DELETE FROM capture_write_reservations WHERE request_id = ?").bind(reservation.requestId),
+  ]);
+  console.log(JSON.stringify({ message: "replay write released", requestId: reservation.requestId }));
+}
+
 async function prepareReplay(
   replay: SessionUpload["replay"],
   replaySha256: string | null,
@@ -199,6 +327,33 @@ async function writeReplay(replay: PreparedReplay | null, env: Env): Promise<voi
     httpMetadata: { contentType: "application/json", contentEncoding: "gzip" },
     customMetadata: { sha256: replay.row.replay_sha256, kind: "replay" },
   });
+}
+
+async function cleanupUncommittedReplay(
+  replay: PreparedReplay | null,
+  reservation: CaptureReservation,
+  env: Env,
+): Promise<void> {
+  if (!replay) return;
+  const [sessionRef, reportRef, otherWriter] = await Promise.all([
+    env.DB.prepare("SELECT 1 AS found FROM sessions WHERE replay_sha256 = ?").bind(replay.row.replay_sha256).first(),
+    env.DB.prepare("SELECT 1 AS found FROM diagnostic_reports WHERE replay_sha256 = ?")
+      .bind(replay.row.replay_sha256)
+      .first(),
+    env.DB.prepare("SELECT 1 AS found FROM replay_write_reservations WHERE replay_sha256 = ? AND request_id <> ?")
+      .bind(replay.row.replay_sha256, reservation.requestId)
+      .first(),
+  ]);
+  if (sessionRef || reportRef || otherWriter) return;
+  await env.CAPTURES.delete(replay.row.r2_key);
+  if (await env.CAPTURES.head(replay.row.r2_key)) throw new Error("Unable to clean uncommitted replay object");
+  await env.DB.prepare(
+    `DELETE FROM replays WHERE replay_sha256 = ?
+       AND NOT EXISTS (SELECT 1 FROM sessions WHERE replay_sha256 = ?)
+       AND NOT EXISTS (SELECT 1 FROM diagnostic_reports WHERE replay_sha256 = ?)`,
+  )
+    .bind(replay.row.replay_sha256, replay.row.replay_sha256, replay.row.replay_sha256)
+    .run();
 }
 
 function sessionInsert(env: Env, row: SessionRow): D1PreparedStatement {
@@ -322,52 +477,70 @@ export async function ingestSession(request: Request, env: Env): Promise<Respons
       keyIdHash: authorization.keyIdHash,
       provenance: authorization.provenance,
     });
-    const existing = await env.DB.prepare(
-      "SELECT run_id, replay_sha256, sha256, submitter_key_id_hash FROM sessions WHERE run_id = ?",
-    )
-      .bind(row.run_id)
-      .first<ExistingSession>();
-    if (existing) {
-      if (
-        existing.sha256 !== row.sha256 ||
-        existing.replay_sha256 !== row.replay_sha256 ||
-        existing.submitter_key_id_hash !== row.submitter_key_id_hash
-      ) {
-        throw new IngestError("conflict", "runId already has different bytes or owner", 409);
+    const reservation = await reserveCaptureWrite(env, replay, {
+      kind: "session",
+      id: session.meta.runId,
+      installId: row.install_id,
+      runId: row.run_id,
+      requestSha: prepared.actualSha,
+      diagnosticR2Key: null,
+    });
+    let replayWritten = false;
+    try {
+      const existing = await env.DB.prepare(
+        "SELECT run_id, replay_sha256, sha256, submitter_key_id_hash FROM sessions WHERE run_id = ?",
+      )
+        .bind(row.run_id)
+        .first<ExistingSession>();
+      if (existing) {
+        if (
+          existing.sha256 !== row.sha256 ||
+          existing.replay_sha256 !== row.replay_sha256 ||
+          existing.submitter_key_id_hash !== row.submitter_key_id_hash
+        ) {
+          throw new IngestError("conflict", "runId already has different bytes or owner", 409);
+        }
+        await writeReplay(replay, env);
+        replayWritten = replay !== null;
+        if (replay) await replay.statement.run();
+        return jsonResponse(200, {
+          ok: true,
+          id: row.run_id,
+          encoding: prepared.encoding,
+          replaySha256: row.replay_sha256,
+          replayR2Key: row.replay_sha256 ? `replays/${row.replay_sha256}.json.gz` : null,
+        });
       }
+
       await writeReplay(replay, env);
-      if (replay) await replay.statement.run();
+      replayWritten = replay !== null;
+      await env.DB.batch<D1Result>([...(replay ? [replay.statement] : []), sessionInsert(env, row)]);
+      const committed = await env.DB.prepare(
+        "SELECT run_id, replay_sha256, sha256, submitter_key_id_hash FROM sessions WHERE run_id = ?",
+      )
+        .bind(row.run_id)
+        .first<ExistingSession>();
+      if (
+        !committed ||
+        committed.sha256 !== row.sha256 ||
+        committed.replay_sha256 !== row.replay_sha256 ||
+        committed.submitter_key_id_hash !== row.submitter_key_id_hash
+      ) {
+        throw new IngestError("conflict", "runId committed with different bytes or owner", 409);
+      }
       return jsonResponse(200, {
         ok: true,
         id: row.run_id,
         encoding: prepared.encoding,
-        replaySha256: row.replay_sha256,
-        replayR2Key: row.replay_sha256 ? `replays/${row.replay_sha256}.json.gz` : null,
+        replaySha256: committed.replay_sha256,
+        replayR2Key: committed.replay_sha256 ? `replays/${committed.replay_sha256}.json.gz` : null,
       });
+    } catch (error) {
+      if (replayWritten) await cleanupUncommittedReplay(replay, reservation, env);
+      throw error;
+    } finally {
+      await releaseCaptureWrite(env, reservation);
     }
-
-    await writeReplay(replay, env);
-    await env.DB.batch<D1Result>([...(replay ? [replay.statement] : []), sessionInsert(env, row)]);
-    const committed = await env.DB.prepare(
-      "SELECT run_id, replay_sha256, sha256, submitter_key_id_hash FROM sessions WHERE run_id = ?",
-    )
-      .bind(row.run_id)
-      .first<ExistingSession>();
-    if (
-      !committed ||
-      committed.sha256 !== row.sha256 ||
-      committed.replay_sha256 !== row.replay_sha256 ||
-      committed.submitter_key_id_hash !== row.submitter_key_id_hash
-    ) {
-      throw new IngestError("conflict", "runId committed with different bytes or owner", 409);
-    }
-    return jsonResponse(200, {
-      ok: true,
-      id: row.run_id,
-      encoding: prepared.encoding,
-      replaySha256: committed.replay_sha256,
-      replayR2Key: committed.replay_sha256 ? `replays/${committed.replay_sha256}.json.gz` : null,
-    });
   } catch (error) {
     return failure(error);
   }
@@ -414,89 +587,116 @@ export async function ingestReport(request: Request, env: Env): Promise<Response
       submitterKeyIdHash: authorization.keyIdHash,
       provenance: authorization.provenance,
     });
+    const replay = await prepareReplay(report.replay, report.meta.replaySha256, receivedAt, env);
+    const reservation = await reserveCaptureWrite(env, replay, {
+      kind: "report",
+      id: report.reportId,
+      installId: row.install_id,
+      runId: row.run_id,
+      requestSha: prepared.actualSha,
+      diagnosticR2Key: row.r2_key,
+    });
+    let replayWritten = false;
+    let reportObjectWritten = false;
 
-    const existing = await env.DB.prepare(
-      `SELECT report_id, replay_sha256, sha256, raw_bytes, stored_bytes, r2_key, submitter_key_id_hash
-       FROM diagnostic_reports WHERE report_id = ?`,
-    )
-      .bind(report.reportId)
-      .first<ExistingReport>();
-    if (existing) {
-      if (
-        existing.sha256 !== row.sha256 ||
-        existing.replay_sha256 !== row.replay_sha256 ||
-        existing.submitter_key_id_hash !== row.submitter_key_id_hash
-      ) {
-        throw new IngestError("conflict", "reportId already has different bytes or owner", 409);
-      }
-      const replay = await prepareReplay(report.replay, report.meta.replaySha256, receivedAt, env);
-      await writeReplay(replay, env);
-      if (replay) await replay.statement.run();
-      const object = await env.CAPTURES.head(existing.r2_key);
-      if (object && object.customMetadata?.sha256 !== existing.sha256) {
-        throw new IngestError("conflict", "reportId object has different bytes", 409);
-      }
-      if (!object) {
-        await env.CAPTURES.put(existing.r2_key, reportStored, {
-          httpMetadata: { contentType: "application/json", contentEncoding: "gzip" },
-          customMetadata: {
-            sha256: existing.sha256,
-            reportId: existing.report_id,
-            kind: "diagnostic-report",
-          },
+    try {
+      const existing = await env.DB.prepare(
+        `SELECT report_id, replay_sha256, sha256, raw_bytes, stored_bytes, r2_key, submitter_key_id_hash
+         FROM diagnostic_reports WHERE report_id = ?`,
+      )
+        .bind(report.reportId)
+        .first<ExistingReport>();
+      if (existing) {
+        if (
+          existing.sha256 !== row.sha256 ||
+          existing.replay_sha256 !== row.replay_sha256 ||
+          existing.submitter_key_id_hash !== row.submitter_key_id_hash
+        ) {
+          throw new IngestError("conflict", "reportId already has different bytes or owner", 409);
+        }
+        await writeReplay(replay, env);
+        replayWritten = replay !== null;
+        if (replay) await replay.statement.run();
+        const object = await env.CAPTURES.head(existing.r2_key);
+        if (object && object.customMetadata?.sha256 !== existing.sha256) {
+          throw new IngestError("conflict", "reportId object has different bytes", 409);
+        }
+        if (!object) {
+          await env.CAPTURES.put(existing.r2_key, reportStored, {
+            httpMetadata: { contentType: "application/json", contentEncoding: "gzip" },
+            customMetadata: {
+              sha256: existing.sha256,
+              reportId: existing.report_id,
+              kind: "diagnostic-report",
+            },
+          });
+          reportObjectWritten = true;
+        }
+        return jsonResponse(200, {
+          ok: true,
+          id: existing.report_id,
+          encoding: prepared.encoding,
+          rawBytes: existing.raw_bytes,
+          storedBytes: existing.stored_bytes,
+          r2Key: existing.r2_key,
+          replaySha256: existing.replay_sha256,
         });
+      }
+
+      await writeReplay(replay, env);
+      replayWritten = replay !== null;
+      const reportPut = await env.CAPTURES.put(row.r2_key, reportStored, {
+        onlyIf: { etagDoesNotMatch: "*" },
+        httpMetadata: { contentType: "application/json", contentEncoding: "gzip" },
+        customMetadata: { sha256: row.sha256, reportId: row.report_id, kind: "diagnostic-report" },
+      });
+      reportObjectWritten = true;
+      const createdReportObject = reportPut !== null;
+      if (!createdReportObject) {
+        const object = await env.CAPTURES.head(row.r2_key);
+        if (object?.customMetadata?.sha256 !== row.sha256) {
+          throw new IngestError("conflict", "reportId already has different bytes", 409);
+        }
+      }
+
+      await env.DB.batch([...(replay ? [replay.statement] : []), reportInsert(env, row)]);
+      const committed = await env.DB.prepare(
+        `SELECT report_id, replay_sha256, sha256, raw_bytes, stored_bytes, r2_key, submitter_key_id_hash
+         FROM diagnostic_reports WHERE report_id = ?`,
+      )
+        .bind(report.reportId)
+        .first<ExistingReport>();
+      if (
+        !committed ||
+        committed.sha256 !== row.sha256 ||
+        committed.replay_sha256 !== row.replay_sha256 ||
+        committed.submitter_key_id_hash !== row.submitter_key_id_hash
+      ) {
+        if (createdReportObject) await env.CAPTURES.delete(row.r2_key);
+        throw new IngestError("conflict", "reportId committed with different bytes", 409);
       }
       return jsonResponse(200, {
         ok: true,
-        id: existing.report_id,
+        id: row.report_id,
         encoding: prepared.encoding,
-        rawBytes: existing.raw_bytes,
-        storedBytes: existing.stored_bytes,
-        r2Key: existing.r2_key,
-        replaySha256: existing.replay_sha256,
+        rawBytes: row.raw_bytes,
+        storedBytes: row.stored_bytes,
+        r2Key: row.r2_key,
+        replaySha256: row.replay_sha256,
       });
-    }
-
-    const replay = await prepareReplay(report.replay, report.meta.replaySha256, receivedAt, env);
-    await writeReplay(replay, env);
-    const reportPut = await env.CAPTURES.put(row.r2_key, reportStored, {
-      onlyIf: { etagDoesNotMatch: "*" },
-      httpMetadata: { contentType: "application/json", contentEncoding: "gzip" },
-      customMetadata: { sha256: row.sha256, reportId: row.report_id, kind: "diagnostic-report" },
-    });
-    const createdReportObject = reportPut !== null;
-    if (!createdReportObject) {
-      const object = await env.CAPTURES.head(row.r2_key);
-      if (object?.customMetadata?.sha256 !== row.sha256) {
-        throw new IngestError("conflict", "reportId already has different bytes", 409);
+    } catch (error) {
+      const committedReport = await env.DB.prepare("SELECT 1 AS found FROM diagnostic_reports WHERE report_id = ?")
+        .bind(row.report_id)
+        .first();
+      if (reportObjectWritten && !committedReport) {
+        await env.CAPTURES.delete(row.r2_key);
+        if (await env.CAPTURES.head(row.r2_key)) throw new Error("Unable to clean uncommitted diagnostic object");
       }
+      if (replayWritten) await cleanupUncommittedReplay(replay, reservation, env);
+      throw error;
+    } finally {
+      await releaseCaptureWrite(env, reservation);
     }
-
-    await env.DB.batch([...(replay ? [replay.statement] : []), reportInsert(env, row)]);
-    const committed = await env.DB.prepare(
-      `SELECT report_id, replay_sha256, sha256, raw_bytes, stored_bytes, r2_key, submitter_key_id_hash
-       FROM diagnostic_reports WHERE report_id = ?`,
-    )
-      .bind(report.reportId)
-      .first<ExistingReport>();
-    if (
-      !committed ||
-      committed.sha256 !== row.sha256 ||
-      committed.replay_sha256 !== row.replay_sha256 ||
-      committed.submitter_key_id_hash !== row.submitter_key_id_hash
-    ) {
-      if (createdReportObject) await env.CAPTURES.delete(row.r2_key);
-      throw new IngestError("conflict", "reportId committed with different bytes", 409);
-    }
-    return jsonResponse(200, {
-      ok: true,
-      id: row.report_id,
-      encoding: prepared.encoding,
-      rawBytes: row.raw_bytes,
-      storedBytes: row.stored_bytes,
-      r2Key: row.r2_key,
-      replaySha256: row.replay_sha256,
-    });
   } catch (error) {
     return failure(error);
   }

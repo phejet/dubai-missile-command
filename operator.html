@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Replay Operator — Dubai Missile Command</title>
+  </head>
+  <body>
+    <main class="operator-shell">
+      <header class="operator-header">
+        <p class="operator-kicker">Developer tool · read only</p>
+        <h1>Uploaded runs</h1>
+        <p>Browse recent playtest uploads and launch replay evidence without exposing player history in the game.</p>
+      </header>
+      <form class="operator-form" id="operator-form">
+        <label>
+          Environment
+          <select id="operator-environment">
+            <option value="staging">Staging</option>
+            <option value="production">Production</option>
+          </select>
+        </label>
+        <label>
+          Operator bearer token
+          <input id="operator-token" type="password" autocomplete="off" required />
+        </label>
+        <button id="operator-refresh" type="submit">Load runs</button>
+      </form>
+      <p class="operator-status" id="operator-status" role="status" aria-live="polite">
+        Token stays in this page only.
+      </p>
+      <div class="operator-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Received</th>
+              <th>Build</th>
+              <th>Score</th>
+              <th>Wave</th>
+              <th>Outcome</th>
+              <th>Replay</th>
+              <th><span class="sr-only">Action</span></th>
+            </tr>
+          </thead>
+          <tbody id="operator-runs"></tbody>
+        </table>
+      </div>
+      <p class="operator-note">
+        This browser is intentionally read-only. Data deletion uses the separately confirmed operator procedure.
+      </p>
+    </main>
+    <script type="module" src="/src/operator-browser.ts"></script>
+  </body>
+</html>

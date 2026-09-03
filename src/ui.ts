@@ -24,6 +24,7 @@ import {
 import type { UpgradeNodeId, UpgradeProgressionState } from "./types";
 import SFX from "./sound";
 import { BUILDING_SURVIVAL_BONUS_POINTS, getBuildingSurvivalBonus } from "./wave-bonus";
+import { RUN_FEEDBACK_EMOJIS, type RunFeedbackEmoji } from "./capture";
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -60,6 +61,7 @@ export interface RunRecapCallbacks {
   onClose: () => void;
   onSaveReplay: () => void | Promise<void>;
   onShareRun?: () => void | Promise<void>;
+  onFeedback?: (emoji: RunFeedbackEmoji) => Promise<{ ok: boolean; message: string }>;
   onWatchFullReplay: () => void;
   onWatchFromWave?: (startTick: number) => void;
 }
@@ -921,6 +923,27 @@ function renderRunRecapActions(data: RunRecapData, canShare: boolean): string {
     </div>`;
 }
 
+const FEEDBACK_LABELS: Record<RunFeedbackEmoji, string> = {
+  "🔥": "Intense",
+  "👍": "Fun",
+  "😕": "Confusing",
+  "😤": "Frustrating",
+};
+
+function renderRunRecapFeedback(enabled: boolean): string {
+  if (!enabled) return "";
+  return `<div class="run-recap__feedback">
+    <span class="run-recap__feedback-prompt">How did that run feel?</span>
+    <div class="run-recap__feedback-buttons" role="group" aria-label="Run feedback">
+      ${RUN_FEEDBACK_EMOJIS.map(
+        (emoji) =>
+          `<button type="button" data-run-recap-feedback data-emoji="${emoji}" aria-label="${FEEDBACK_LABELS[emoji]}">${emoji}</button>`,
+      ).join("")}
+    </div>
+    <span class="run-recap__feedback-status" data-run-recap-feedback-status role="status" aria-live="polite"></span>
+  </div>`;
+}
+
 export function showRunRecap(data: RunRecapData, callbacks: RunRecapCallbacks): void {
   hideRunRecap();
   const container = document.getElementById("run-recap-panel")!;
@@ -932,6 +955,7 @@ export function showRunRecap(data: RunRecapData, callbacks: RunRecapCallbacks): 
       ${renderRunRecapHero(data)}
       <div class="run-recap__feature" id="run-recap-feature">${renderFeaturedWave(getSelectedCard(), bestWave)}</div>
       ${renderWavePills(data.waveCards, bestWave, selectedWave)}
+      ${renderRunRecapFeedback(callbacks.onFeedback !== undefined)}
       ${renderRunRecapActions(data, callbacks.onShareRun !== undefined)}
     </div>`;
 
@@ -958,7 +982,27 @@ export function showRunRecap(data: RunRecapData, callbacks: RunRecapCallbacks): 
     else if (target.closest("[data-run-recap-watch]")) callbacks.onWatchFullReplay();
     else if (target.closest("[data-run-recap-save]")) void callbacks.onSaveReplay();
     else if (target.closest("[data-run-recap-share]")) void callbacks.onShareRun?.();
-    else {
+    else if (target.closest("[data-run-recap-feedback]")) {
+      const button = target.closest<HTMLButtonElement>("[data-run-recap-feedback]");
+      const emoji = button?.dataset.emoji as RunFeedbackEmoji | undefined;
+      if (!button || !emoji || !callbacks.onFeedback) return;
+      const buttons = Array.from(container.querySelectorAll<HTMLButtonElement>("[data-run-recap-feedback]"));
+      const feedbackStatus = container.querySelector<HTMLElement>("[data-run-recap-feedback-status]");
+      buttons.forEach((candidate) => (candidate.disabled = true));
+      if (feedbackStatus) feedbackStatus.textContent = "Saving…";
+      void callbacks.onFeedback(emoji).then((result) => {
+        if (!button.isConnected) return;
+        buttons.forEach((candidate) => {
+          candidate.disabled = false;
+          candidate.setAttribute("aria-pressed", String(result.ok && candidate === button));
+          candidate.classList.toggle("run-recap__feedback-selected", result.ok && candidate === button);
+        });
+        if (feedbackStatus) {
+          feedbackStatus.textContent = result.message;
+          feedbackStatus.dataset.state = result.ok ? "saved" : "error";
+        }
+      });
+    } else {
       const button = target.closest<HTMLButtonElement>("[data-wave-pill]");
       const wave = Number(button?.dataset.wave);
       if (button && Number.isFinite(wave)) selectWave(wave);

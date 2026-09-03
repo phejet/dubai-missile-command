@@ -19,6 +19,8 @@ export interface D1Database {
 export interface R2ObjectBody {
   body: ReadableStream<Uint8Array>;
   size: number;
+  version?: string;
+  uploaded?: Date;
   customMetadata?: Record<string, string>;
 }
 

@@ -158,7 +158,7 @@
     <!-- roadmap-source:v1 -->
     <main>
       <header>
-        <p class="muted">Dubai Missile Command · Updated 2026-09-02</p>
+        <p class="muted">Dubai Missile Command · Updated 2026-09-03</p>
         <h1>Roadmap</h1>
         <p>
           One current view of product direction, delivery status, gates, and next work. Detailed designs and execution
@@ -170,8 +170,9 @@
         <h2>Now</h2>
         <div class="notice">
           <strong>Active: RM-04 — Retention, visibility, and feedback.</strong><br />
-          Next action: implement the 365/270/90-day retention contract and prove public share expiry before adding
-          operator or feedback UI.
+          Local implementation and automated verification are complete. Next action: deploy the exact reviewed commit
+          to Staging, read back the lifecycle rules, and run the guarded retention, deletion, public-expiry,
+          browse-to-play, feedback, indicator, privacy, and TestFlight proofs.
         </div>
       </section>
 
@@ -251,22 +252,29 @@
               <span class="phase__outcome">Make automatic playtest capture trustworthy over time.</span>
             </summary>
             <div class="phase__body">
-              <p><strong>Next:</strong></p>
-              <ol>
+              <p><strong>Locally implemented and verified; awaiting Staging/physical proof:</strong></p>
+              <ul>
                 <li>Keep D1 gameplay summaries for 365 days.</li>
                 <li>Keep full R2 replays and public share mappings for 270 days.</li>
                 <li>Keep diagnostics and free-text material for 90 days.</li>
-                <li>Add and test the manual operator deletion procedure.</li>
+                <li>Previewed, confirmed, durable manual operator deletion with replay-write coordination.</li>
                 <li>
-                  Add a read-only, bearer-authenticated operator replay browser that lists uploaded runs with received
-                  time, build, score, wave, outcome, and replay availability, and can launch an available replay. Exit:
-                  prove the complete browse-to-play flow against Staging uploads.
+                  Read-only, bearer-authenticated operator replay browser with received time, build, score, wave,
+                  outcome, replay availability, and replay launch.
                 </li>
-                <li>Add a persistent auto-upload indicator.</li>
-                <li>Add emoji-only recap feedback without friendly names or free text.</li>
-                <li>Add the app-owned privacy declaration and accessible privacy policy.</li>
-                <li>Deploy to Staging and complete physical TestFlight proof.</li>
-              </ol>
+                <li>Persistent auto-upload indicator.</li>
+                <li>Emoji-only recap feedback without friendly names or free text.</li>
+                <li>App-owned iOS privacy declaration, accessible policy, and operator deletion runbook.</li>
+              </ul>
+              <p>
+                <strong>Next:</strong> deploy this exact commit to Staging, exercise the backdated retention fixtures
+                and manual deletion procedure, prove lifecycle read-back and replay-clock refresh, complete the
+                operator browse-to-play and TestFlight checks, and retain Production closure until all current gates
+                pass.
+              </p>
+              <p>
+                <a href="docs/rm-04-retention-and-manual-deletion-plan.md">Retention and manual deletion plan</a>
+              </p>
               <p><strong>Deferred:</strong> player-facing upload history and self-service deletion.</p>
             </div>
           </details>
@@ -354,6 +362,8 @@
           <li><a href=".plans/run-recap-playtest-platform.md">Historical playtest-platform design record</a></li>
           <li><a href="docs/shared-run-links.md">Shared-run links</a></li>
           <li><a href="docs/authenticated-capture-ingestion.md">Authenticated capture ingestion</a></li>
+          <li><a href="docs/rm-04-retention-and-manual-deletion-plan.md">RM-04 retention and deletion plan</a></li>
+          <li><a href="docs/privacy-and-manual-deletion.md">Privacy and manual deletion runbook</a></li>
           <li><a href="tasks/todo.md">Execution checklist and evidence log</a></li>
         </ul>
       </section>
@@ -361,6 +371,15 @@
       <section id="changes">
         <h2>Recent roadmap changes</h2>
         <ul>
+          <li>
+            <strong>2026-09-03:</strong> repaired the RM-04 deletion review findings with scope/replay serialization,
+            exact-ID tombstones, observable job recovery, object-first diagnostic expiry, and adversarial local tests;
+            Staging and physical proof remain open.
+          </li>
+          <li>
+            <strong>2026-09-02:</strong> completed RM-04 local implementation and automated verification; Staging and
+            physical proof remain open.
+          </li>
           <li>
             <strong>2026-09-02:</strong> added a developer-only operator browser for uploaded runs and replay playback.
           </li>

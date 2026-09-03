@@ -7,6 +7,7 @@ on:
       - "worker/**"
       - "src/capture-contract.ts"
       - "src/capture-auth-protocol.ts"
+      - "scripts/verify-r2-lifecycle.mjs"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/deploy-worker.yml"
@@ -100,7 +101,10 @@ jobs:
             --var "ENROLLMENT_ENABLED:$ENROLLMENT_ENABLED" \
             --var "PUBLIC_GAME_URL:https://phejet.github.io/dubai-missile-command/" \
             --secrets-file "$secrets_file"
-      - run: npm run worker:lifecycle:staging
+      - name: Apply and verify staging R2 lifecycle
+        run: |
+          npm run worker:lifecycle:staging
+          npm run worker:lifecycle:verify:staging
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
@@ -165,7 +169,10 @@ jobs:
             --var "ENROLLMENT_ENABLED:$ENROLLMENT_ENABLED" \
             --var "PUBLIC_GAME_URL:https://phejet.github.io/dubai-missile-command/" \
             --secrets-file "$secrets_file"
-      - run: npm run worker:lifecycle:production
+      - name: Apply and verify production R2 lifecycle
+        run: |
+          npm run worker:lifecycle:production
+          npm run worker:lifecycle:verify:production
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}

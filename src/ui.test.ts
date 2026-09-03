@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cacheHudElements, type HudSnapshot, updateHud } from "./ui";
+import { cacheHudElements, showRunRecap, type HudSnapshot, updateHud } from "./ui";
+import { createEmptyGameStats } from "./game-logic";
+import type { RunRecapData } from "./types";
 
 function makeHud(overrides: Partial<HudSnapshot> = {}): HudSnapshot {
   return {
@@ -88,5 +90,45 @@ describe("HUD active button", () => {
     expect(button.hidden).toBe(true);
     expect(button.dataset.phase).toBe("spent");
     expect(document.getElementById("active-meta")?.textContent).toBe("USED");
+  });
+});
+
+describe("run recap feedback", () => {
+  it("renders only the reserved emoji choices and reports the saved selection accessibly", async () => {
+    document.body.innerHTML = '<section id="run-recap-panel"></section>';
+    const data: RunRecapData = {
+      score: 1200,
+      wave: 2,
+      timePlayedMs: 30_000,
+      hitRatio: 0.5,
+      burjHealth: 0,
+      outcome: "burj_destroyed",
+      totalStats: createEmptyGameStats(),
+      waves: [],
+      waveCards: [],
+      upgrades: [],
+      hasReplay: true,
+    };
+    const onFeedback = vi.fn(async () => ({ ok: true, message: "Feedback saved" }));
+    showRunRecap(data, {
+      onClose: vi.fn(),
+      onSaveReplay: vi.fn(),
+      onWatchFullReplay: vi.fn(),
+      onFeedback,
+    });
+    const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-run-recap-feedback]"));
+    expect(buttons.map((button) => button.textContent)).toEqual(["🔥", "👍", "😕", "😤"]);
+    expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual([
+      "Intense",
+      "Fun",
+      "Confusing",
+      "Frustrating",
+    ]);
+    buttons[0].click();
+    await vi.waitFor(() => expect(onFeedback).toHaveBeenCalledWith("🔥"));
+    await vi.waitFor(() =>
+      expect(document.querySelector("[data-run-recap-feedback-status]")?.textContent).toBe("Feedback saved"),
+    );
+    expect(buttons[0].getAttribute("aria-pressed")).toBe("true");
   });
 });

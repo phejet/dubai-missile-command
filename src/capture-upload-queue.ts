@@ -1,5 +1,5 @@
 import { Directory, Encoding, Filesystem } from "@capacitor/filesystem";
-import { serializedBytes, type SessionUpload } from "./capture";
+import { RUN_FEEDBACK_EMOJIS, serializedBytes, type RunFeedbackEmoji, type SessionUpload } from "./capture";
 import type { UploadCaptureResult } from "./capture-sink";
 
 export type SessionUploadChannel = "staging" | "production";
@@ -17,6 +17,7 @@ interface QueuedSessionUpload {
   nextAttemptAt: number;
   rawBytes: number;
   session: SessionUpload;
+  pendingFeedbackEmoji?: RunFeedbackEmoji;
 }
 
 interface QueueFile {
@@ -40,10 +41,16 @@ export interface SessionUploadDrainResult extends SessionUploadQueueSnapshot {
   deferred: number;
 }
 
+type QueueFeedbackResult = { ok: true } | { ok: false; reason: string; status?: number };
+
 export interface SessionUploadQueue {
   enqueue(session: SessionUpload): Promise<SessionUploadQueueSnapshot & { accepted: boolean }>;
   inspect(): Promise<SessionUploadQueueSnapshot>;
-  drain(send: (session: SessionUpload) => Promise<UploadCaptureResult>): Promise<SessionUploadDrainResult>;
+  drain(
+    send: (session: SessionUpload) => Promise<UploadCaptureResult>,
+    sendFeedback?: (runId: string, emoji: RunFeedbackEmoji) => Promise<QueueFeedbackResult>,
+  ): Promise<SessionUploadDrainResult>;
+  setFeedbackEmoji(runId: string, emoji: RunFeedbackEmoji): Promise<SessionUploadQueueSnapshot & { found: boolean }>;
   remove(runId: string): Promise<SessionUploadQueueSnapshot>;
   clear(): Promise<void>;
 }
@@ -101,7 +108,8 @@ function validItem(value: unknown): value is QueuedSessionUpload {
     Number.isSafeInteger(item.rawBytes) &&
     (item.rawBytes ?? 0) >= 0 &&
     validSession(item.session) &&
-    item.session.meta.runId === item.runId
+    item.session.meta.runId === item.runId &&
+    (item.pendingFeedbackEmoji === undefined || RUN_FEEDBACK_EMOJIS.includes(item.pendingFeedbackEmoji))
   );
 }
 
@@ -136,7 +144,7 @@ function retryDelay(attempts: number): number {
   return Math.min(SESSION_UPLOAD_RETRY_MAX_MS, SESSION_UPLOAD_RETRY_BASE_MS * 2 ** Math.max(0, attempts - 1));
 }
 
-export function isRetryableUploadResult(result: UploadCaptureResult): boolean {
+export function isRetryableUploadResult(result: UploadCaptureResult | QueueFeedbackResult): boolean {
   if (result.ok) return false;
   if (result.reason === "network" || result.reason === "timeout") return true;
   return (
@@ -200,7 +208,7 @@ export function createSessionUploadQueue(
         return snapshot(items);
       });
     },
-    drain(send) {
+    drain(send, sendFeedback) {
       return exclusive(async () => {
         let items = await load();
         await save(items);
@@ -215,8 +223,23 @@ export function createSessionUploadQueue(
           }
           const result = await send(structuredClone(item.session));
           if (result.ok) {
-            sentRunIds.push(item.runId);
-            items = items.filter((candidate) => candidate.runId !== item.runId);
+            const feedbackResult: QueueFeedbackResult = item.pendingFeedbackEmoji
+              ? sendFeedback
+                ? await sendFeedback(item.runId, item.pendingFeedbackEmoji)
+                : { ok: false as const, reason: "feedback-handler-unavailable" }
+              : { ok: true as const };
+            if (feedbackResult.ok) {
+              sentRunIds.push(item.runId);
+              items = items.filter((candidate) => candidate.runId !== item.runId);
+            } else if (isRetryableUploadResult(feedbackResult)) {
+              item.attempts += 1;
+              item.nextAttemptAt = currentTime + retryDelay(item.attempts);
+              await save(items);
+              break;
+            } else {
+              droppedRunIds.push(item.runId);
+              items = items.filter((candidate) => candidate.runId !== item.runId);
+            }
           } else if (isRetryableUploadResult(result)) {
             item.attempts += 1;
             item.nextAttemptAt = currentTime + retryDelay(item.attempts);
@@ -229,6 +252,17 @@ export function createSessionUploadQueue(
           await save(items);
         }
         return { ...snapshot(items), sentRunIds, droppedRunIds, deferred };
+      });
+    },
+    setFeedbackEmoji(runId, emoji) {
+      return exclusive(async () => {
+        const items = await load();
+        const item = items.find((candidate) => candidate.runId === runId);
+        if (!item) return { ...snapshot(items), found: false };
+        item.pendingFeedbackEmoji = emoji;
+        const next = prune(items, now());
+        await save(next);
+        return { ...snapshot(next), found: next.some((candidate) => candidate.runId === runId) };
       });
     },
     remove(runId) {

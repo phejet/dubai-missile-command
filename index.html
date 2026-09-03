@@ -23,6 +23,13 @@
       >
         <div class="game-shell__ambient" aria-hidden="true"></div>
         <div class="app-flavor-badge" aria-hidden="true"></div>
+        <div
+          class="capture-upload-indicator"
+          id="capture-upload-indicator"
+          role="status"
+          aria-live="polite"
+          hidden
+        ></div>
         <div class="replay-player" id="replay-player" role="group" aria-label="Replay controls" hidden>
           <button
             type="button"
@@ -150,6 +157,10 @@
                   <span class="battlefield-option__label">Send Last Run</span>
                   <span class="battlefield-option__meta" id="option-capture-send-meta">Finish a run first</span>
                 </button>
+                <a class="battlefield-option" href="privacy.html" target="_blank" rel="noopener" role="menuitem">
+                  <span class="battlefield-option__label">Privacy</span>
+                  <span class="battlefield-option__meta">Policy & deletion</span>
+                </a>
                 <div class="battlefield-debug-starts" id="debug-starts" aria-label="Debug wave starts"></div>
                 <div class="battlefield-options-menu__build" id="options-build-id"></div>
               </div>

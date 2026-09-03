@@ -4,7 +4,7 @@ import type { CaptureChannel } from "./capture-policy";
 import { sha256Hex } from "./sha256";
 
 type RemoteChannel = Extract<CaptureChannel, "staging" | "production">;
-type CapturePurpose = "session" | "report" | "share";
+type CapturePurpose = "session" | "report" | "share" | "feedback";
 
 interface StorageLike {
   getItem(key: string): string | null;

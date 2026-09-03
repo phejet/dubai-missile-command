@@ -8,6 +8,11 @@ export function replayFixture(): ReplayData {
     seed: 42,
     actions: [],
     finalTick: 10,
+    initialState: {
+      metaProgression: { version: 1, completedObjectives: [] },
+      forcedUpgradeFamilies: [],
+      burjHealth: 7,
+    },
     _buildId: "build+dirty",
     _savedAt: "2026-08-04T00:00:00.000Z",
     _env: { platform: "web", native: false, ua: "recording", dpr: 2, screenW: 390, screenH: 844 },
