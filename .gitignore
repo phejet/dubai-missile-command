@@ -79,6 +79,7 @@ leak-probe-results.json
 /captures/
 /diag-results/
 /operator-results/
+/telemetry-results/
 
 # Secrets and local credential material.
 # Listed before the files exist: the accident is a new secret file landing in a

@@ -1,6 +1,14 @@
 import { spawnSync } from "node:child_process";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { evidencePayload, request } from "./operator-delete-capture.mjs";
+import {
+  evidencePayload,
+  findDeletionTelemetryArtifacts,
+  removeDeletionTelemetryArtifacts,
+  request,
+} from "./operator-delete-capture.mjs";
 
 describe("operator deletion CLI guards", () => {
   it("prints help without requiring credentials", () => {
@@ -52,10 +60,47 @@ describe("operator deletion CLI guards", () => {
       planDigest: "a".repeat(64),
       sessions: ["private-run"],
       replayObjects: ["replays/private.json.gz"],
+      telemetryPrivateArtifactsRemoved: 2,
       token: "absolutely-not",
     });
     expect(evidence.counts.sessions).toBe(1);
+    expect(evidence.counts.telemetryPrivateArtifacts).toBe(2);
     expect(JSON.stringify(evidence)).not.toContain("private-run");
     expect(JSON.stringify(evidence)).not.toContain("absolutely-not");
+  });
+
+  it("finds and removes private telemetry artifacts matching deletion-preview sessions", async () => {
+    const resultsRoot = await mkdtemp(resolve(tmpdir(), "dmc-delete-telemetry-"));
+    for (const [name, runId] of [
+      ["matching", "private-run"],
+      ["unrelated", "other-run"],
+    ]) {
+      const directory = resolve(resultsRoot, name);
+      await mkdir(directory);
+      await writeFile(
+        resolve(directory, "candidates.private.json"),
+        JSON.stringify({ schema: 1, candidates: [{ runId }] }),
+      );
+    }
+    const matches = await findDeletionTelemetryArtifacts({ sessions: ["private-run"] }, resultsRoot);
+    expect(matches.map(({ artifactName, matchedCandidates }) => ({ artifactName, matchedCandidates }))).toEqual([
+      { artifactName: "matching", matchedCandidates: 1 },
+    ]);
+    expect(await removeDeletionTelemetryArtifacts(matches)).toEqual([
+      { artifactName: "matching", matchedCandidates: 1 },
+    ]);
+    await expect(readFile(resolve(resultsRoot, "matching/candidates.private.json"), "utf8")).rejects.toThrow();
+    await expect(readFile(resolve(resultsRoot, "unrelated/candidates.private.json"), "utf8")).resolves.toContain(
+      "other-run",
+    );
+  });
+
+  it("fails closed when a private telemetry artifact is malformed", async () => {
+    const resultsRoot = await mkdtemp(resolve(tmpdir(), "dmc-delete-telemetry-invalid-"));
+    await mkdir(resolve(resultsRoot, "broken"));
+    await writeFile(resolve(resultsRoot, "broken/candidates.private.json"), "not-json");
+    await expect(findDeletionTelemetryArtifacts({ sessions: ["private-run"] }, resultsRoot)).rejects.toThrow(
+      /invalid JSON/,
+    );
   });
 });

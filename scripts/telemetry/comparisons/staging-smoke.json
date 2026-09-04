@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "id": "staging-legacy-vs-attested-smoke",
+  "question": "Can RM-06 compare a legacy Staging build with an attested Staging build without overstating the evidence?",
+  "baselineBuilds": ["c89807a+45c4574e"],
+  "candidateBuilds": ["ad774a0"],
+  "receivedFrom": "2026-08-21T00:00:00.000Z",
+  "receivedTo": "2026-09-02T00:00:00.000Z",
+  "filters": {
+    "appFlavors": ["unknown", "staging"],
+    "platforms": ["ios"],
+    "inputClasses": ["touch"],
+    "sources": ["gameover"],
+    "excludeEphemeral": true,
+    "excludeUnknownProvenance": false
+  },
+  "knownChanges": ["Workflow smoke comparison only; the build pair contains unrelated changes."],
+  "knownConfounders": [
+    "Each build cohort currently contains one install.",
+    "The baseline has legacy unknown app provenance while the candidate is attested Staging."
+  ]
+}

@@ -37,6 +37,13 @@ requires typing the complete confirmation string. A changed target set invalidat
 and requires a new preview. This can happen normally when a replay reference crosses its
 retention boundary between preview and execution; it is policy-clock drift, not tampering.
 
+The preview also scans every live `telemetry-results/*/candidates.private.json` artifact for the
+target session IDs. Matching private candidate files are listed before confirmation and removed
+before the remote deletion executes. A malformed or unreadable candidate artifact aborts the
+operation; do not bypass that failure, because deleting D1 while retaining a derived local run ID
+is not a completed privacy deletion. Identifier-free telemetry summaries remain because they
+cannot be linked back to the deleted run.
+
 Production requires both the environment and a separate acknowledgement:
 
 ```bash
@@ -56,6 +63,7 @@ listed as preserved and remains intact.
 The response is complete only when `verified` is `true`. The script writes a redacted record to
 the gitignored `operator-results/` directory containing only the environment, date, job ID,
 digest, result, and counts.
+The counts include any private telemetry candidate artifacts removed locally before execution.
 
 ## Resume and escalation
 

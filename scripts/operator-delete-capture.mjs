@@ -4,6 +4,10 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createInterface } from "node:readline/promises";
+import {
+  findMatchingPrivateCandidateArtifacts,
+  removeMatchingPrivateCandidateArtifacts,
+} from "./telemetry/private-artifacts.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
@@ -66,8 +70,23 @@ export function evidencePayload(environment, payload) {
       preservedReplayObjects: Array.isArray(payload.preservedReplayObjects)
         ? payload.preservedReplayObjects.length
         : undefined,
+      telemetryPrivateArtifacts:
+        typeof payload.telemetryPrivateArtifactsRemoved === "number"
+          ? payload.telemetryPrivateArtifactsRemoved
+          : undefined,
     },
   };
+}
+
+export async function findDeletionTelemetryArtifacts(previewPayload, resultsRoot = resolve(root, "telemetry-results")) {
+  return findMatchingPrivateCandidateArtifacts(
+    resultsRoot,
+    Array.isArray(previewPayload.sessions) ? previewPayload.sessions : [],
+  );
+}
+
+export async function removeDeletionTelemetryArtifacts(matches) {
+  return removeMatchingPrivateCandidateArtifacts(matches);
 }
 
 function writeEvidence(environment, payload) {
@@ -180,11 +199,20 @@ async function main() {
     throw new Error(`Preview failed (${preview.response.status})`);
   }
   console.log(JSON.stringify(preview.payload, null, 2));
+  const telemetryMatches = await findDeletionTelemetryArtifacts(preview.payload);
+  if (telemetryMatches.length) {
+    console.log(
+      `Private telemetry artifacts matching this preview: ${telemetryMatches
+        .map((match) => `${match.artifactName} (${match.matchedCandidates})`)
+        .join(", ")}. They will be removed before remote deletion executes.`,
+    );
+  }
   if (!process.stdin.isTTY) throw new Error("Confirmation requires an interactive terminal");
   const readline = createInterface({ input: process.stdin, output: process.stdout });
   const entered = await readline.question("Type the exact confirmation shown above: ");
   readline.close();
   if (entered !== preview.payload.confirmation) throw new Error("Confirmation did not match; nothing was deleted");
+  const removedTelemetryArtifacts = await removeDeletionTelemetryArtifacts(telemetryMatches);
   const executed = await request(
     endpoint,
     "/api/operator/deletion/execute",
@@ -197,7 +225,10 @@ async function main() {
     token,
   );
   console.log(JSON.stringify(executed.payload, null, 2));
-  writeEvidence(environment, executed.payload);
+  writeEvidence(environment, {
+    ...executed.payload,
+    telemetryPrivateArtifactsRemoved: removedTelemetryArtifacts.length,
+  });
   if (!executed.response.ok) {
     fail(
       executed.payload.jobId

@@ -158,7 +158,7 @@
     <!-- roadmap-source:v1 -->
     <main>
       <header>
-        <p class="muted">Dubai Missile Command · Updated 2026-09-03</p>
+        <p class="muted">Dubai Missile Command · Updated 2026-09-04</p>
         <h1>Roadmap</h1>
         <p>
           One current view of product direction, delivery status, gates, and next work. Detailed designs and execution
@@ -170,9 +170,10 @@
         <h2>Now</h2>
         <div class="notice">
           <strong>Active: RM-04 — Retention, visibility, and feedback.</strong><br />
-          Local implementation and automated verification are complete. Next action: deploy the exact reviewed commit
-          to Staging, read back the lifecycle rules, and run the guarded retention, deletion, public-expiry,
-          browse-to-play, feedback, indicator, privacy, and TestFlight proofs.
+          Reviewed commit <code>f155635</code> is deployed to Staging and its lifecycle rules were read back
+          successfully; its direct Dev and Staging builds are installed and launched on the paired iPhone. Next action:
+          run the guarded retention, deletion, public-expiry, browse-to-play, feedback, indicator, privacy, and
+          TestFlight proofs.
         </div>
       </section>
 
@@ -252,7 +253,7 @@
               <span class="phase__outcome">Make automatic playtest capture trustworthy over time.</span>
             </summary>
             <div class="phase__body">
-              <p><strong>Locally implemented and verified; awaiting Staging/physical proof:</strong></p>
+              <p><strong>Implemented, deployed to Staging, and awaiting the remaining guarded/physical proof:</strong></p>
               <ul>
                 <li>Keep D1 gameplay summaries for 365 days.</li>
                 <li>Keep full R2 replays and public share mappings for 270 days.</li>
@@ -267,15 +268,88 @@
                 <li>App-owned iOS privacy declaration, accessible policy, and operator deletion runbook.</li>
               </ul>
               <p>
-                <strong>Next:</strong> deploy this exact commit to Staging, exercise the backdated retention fixtures
-                and manual deletion procedure, prove lifecycle read-back and replay-clock refresh, complete the
-                operator browse-to-play and TestFlight checks, and retain Production closure until all current gates
-                pass.
+                <strong>Next:</strong> exercise the backdated retention fixtures and manual deletion procedure, prove
+                the same-key replay-clock refresh, complete the operator browse-to-play and TestFlight checks, and
+                retain Production closure until all current gates pass. Staging deployment and lifecycle read-back for
+                exact commit <code>f155635</code> passed in protected workflow <code>33758581259</code>; its direct Dev
+                and Staging builds were installed and launched on the paired iPhone.
               </p>
               <p>
                 <a href="docs/rm-04-retention-and-manual-deletion-plan.md">Retention and manual deletion plan</a>
               </p>
               <p><strong>Deferred:</strong> player-facing upload history and self-service deletion.</p>
+            </div>
+          </details>
+
+          <details class="phase" id="rm-08" data-roadmap-id="RM-08" data-status="planned" data-depends-on="RM-04">
+            <summary>
+              <span class="phase__id">RM-08</span>
+              <span>Replay inspection UI</span>
+              <span class="status">Planned</span>
+              <span class="phase__outcome">Turn captured runs into fast, evidence-led playtest review.</span>
+            </summary>
+            <div class="phase__body">
+              <ul>
+                <li>Extend the delivered operator list and replay launch rather than rebuilding them.</li>
+                <li>Find and filter captures by build, score, wave, outcome, feedback, and replay availability.</li>
+                <li>Inspect run metadata, upgrade/wave history, and deterministic playback in one workflow.</li>
+                <li>Add playback controls that reach a relevant wave or moment without replaying the entire run.</li>
+              </ul>
+              <p>
+                <strong>Exit:</strong> a developer can find an unusual Staging run and inspect its relevant replay
+                evidence entirely through the UI, without a D1 query, CLI, or downloaded replay file.
+              </p>
+              <p>
+                <strong>Non-goals:</strong> player-facing history, replay mutation, deletion, collaborative annotations,
+                and competitive ranking.
+              </p>
+            </div>
+          </details>
+
+          <details
+            class="phase"
+            id="rm-06"
+            data-roadmap-id="RM-06"
+            data-status="gated"
+            data-depends-on="RM-04 RM-08"
+          >
+            <summary>
+              <span class="phase__id">RM-06</span>
+              <span>Cross-build telemetry analysis</span>
+              <span class="status status--gated">Gated</span>
+              <span class="phase__outcome">Detect cross-build trends and hand unusual runs to replay inspection.</span>
+            </summary>
+            <div class="phase__body">
+              <p><strong>Implemented and Staging-smoke-proven; exit gates remain:</strong></p>
+              <ul>
+                <li>Guarded summary-only Staging D1 export from a reviewed comparison specification.</li>
+                <li>Run-level and install-weighted trends with explicit confidence and confounder warnings.</li>
+                <li>Identifier-free reports and short-lived deterministic RM-08 candidate artifacts.</li>
+                <li>Representation-aware privacy guards and deletion-aware private-candidate cleanup.</li>
+                <li>Repeated live proof with matching query, data, calculation, and candidate digests.</li>
+              </ul>
+              <p>
+                <strong>Remaining:</strong> open the generated candidates through RM-08, then run one human-reviewed
+                comparison where both build cohorts contain at least 5 installs and 20 sessions.
+              </p>
+              <p><a href="docs/rm-06-cross-build-telemetry-analysis-plan.md">Detailed implementation plan</a></p>
+              <p><strong>Deferred:</strong> dashboards, automatic balance decisions, and replay annotations.</p>
+            </div>
+          </details>
+
+          <details class="phase" id="rm-07" data-roadmap-id="RM-07" data-status="planned" data-depends-on="RM-03">
+            <summary>
+              <span class="phase__id">RM-07</span>
+              <span>Late polish</span>
+              <span class="status">Planned</span>
+              <span class="phase__outcome">Add social and platform work justified by usage.</span>
+            </summary>
+            <div class="phase__body">
+              <ul>
+                <li>Open Graph preview cards and, if useful, a short domain.</li>
+                <li>Achievements, Game Center, and improved install handoff.</li>
+                <li>Other work justified by observed player behaviour.</li>
+              </ul>
             </div>
           </details>
 
@@ -297,38 +371,6 @@
               </ul>
             </div>
           </details>
-
-          <details class="phase" id="rm-06" data-roadmap-id="RM-06" data-status="planned" data-depends-on="RM-04">
-            <summary>
-              <span class="phase__id">RM-06</span>
-              <span>Telemetry inspection</span>
-              <span class="status">Planned</span>
-              <span class="phase__outcome">Find cross-build trends and unusual runs.</span>
-            </summary>
-            <div class="phase__body">
-              <ul>
-                <li>Ad-hoc D1 exports and human-led cross-build trend analysis.</li>
-                <li>Unusual-run and balance-anomaly queries.</li>
-                <li>Replay annotations only after volume makes them worthwhile.</li>
-              </ul>
-            </div>
-          </details>
-
-          <details class="phase" id="rm-07" data-roadmap-id="RM-07" data-status="planned" data-depends-on="RM-03">
-            <summary>
-              <span class="phase__id">RM-07</span>
-              <span>Late polish</span>
-              <span class="status">Planned</span>
-              <span class="phase__outcome">Add social and platform work justified by usage.</span>
-            </summary>
-            <div class="phase__body">
-              <ul>
-                <li>Open Graph preview cards and, if useful, a short domain.</li>
-                <li>Achievements, Game Center, and improved install handoff.</li>
-                <li>Other work justified by observed player behaviour.</li>
-              </ul>
-            </div>
-          </details>
         </div>
       </section>
 
@@ -336,8 +378,8 @@
         <h2>Current gates</h2>
         <ol>
           <li>Prove App Attest category <code>2</code> from the proper Staging TestFlight build.</li>
-          <li>Implement and verify the Phase 4 retention and manual deletion contract.</li>
-          <li>Add the app-owned privacy declaration and accessible policy.</li>
+          <li>Prove the implemented Phase 4 retention and manual deletion contract against guarded Staging fixtures.</li>
+          <li>Verify the app-owned privacy declaration and accessible policy in the physical distribution paths.</li>
           <li>Keep Production capture disabled until the exact Staging-tested commit passes these gates.</li>
         </ol>
       </section>
@@ -345,14 +387,18 @@
       <section id="decisions">
         <h2>Current decisions</h2>
         <ul>
-          <li>Historical telemetry is retained for cross-build gameplay comparison.</li>
+          <li>
+            Historical telemetry is retained for human-led RM-06 cross-build comparison; a dashboard and automatic
+            balance decisions are deferred.
+          </li>
           <li>Self-service deletion is deferred; manual requests are sufficient for the current cohort.</li>
           <li>The anonymous install label remains app-local and is not an authorization boundary.</li>
           <li>Initial feedback is emoji-only; friendly names and free-text notes are deferred.</li>
           <li>
-            The operator replay browser is developer-only and read-only; player history and replay mutation are out.
+            RM-08 extends the operator replay browser as a developer-only, read-only inspection tool; player history,
+            replay mutation, deletion, and collaborative annotations remain out.
           </li>
-          <li>Phase 5 keeps its population and product gates after Phase 4 finishes.</li>
+          <li>RM-05 remains last and keeps its population and product gates after RM-04 finishes.</li>
         </ul>
       </section>
 
@@ -371,6 +417,34 @@
       <section id="changes">
         <h2>Recent roadmap changes</h2>
         <ul>
+          <li>
+            <strong>2026-09-04:</strong> repaired RM-06's implementation review findings across raw-Markdown privacy,
+            proportion estimands, candidate-rule audits, policy ownership, boundary coverage, operator deletion, and
+            failure diagnostics; final repeated Staging proof remained read-only and deterministic.
+          </li>
+          <li>
+            <strong>2026-09-04:</strong> implemented RM-06's guarded Staging exporter, deterministic install-aware
+            analysis, privacy-minimised reports, confidence gates, and RM-08 candidate generation. Two live runs matched
+            all digests and reported zero writes; RM-08 handoff and diverse-cohort evidence remain open.
+          </li>
+          <li>
+            <strong>2026-09-04:</strong> renamed RM-06 to Cross-build telemetry analysis, made its RM-08 replay-inspection
+            dependency explicit, and adopted a detailed privacy-minimised, reproducible comparison plan.
+          </li>
+          <li>
+            <strong>2026-09-04:</strong> inserted RM-08 Replay inspection UI after RM-04 and moved gated RM-05
+            Leaderboard and Daily Challenge to the bottom; stable IDs and RM-05 entry gates were preserved.
+          </li>
+          <li>
+            <strong>2026-09-04:</strong> installed and launched the direct-signed Dev and Staging builds from
+            <code>f155635</code> on the paired iPhone. The direct Staging install replaces its TestFlight identity, so
+            the category <code>2</code> gate still requires reinstalling and proving the proper TestFlight artifact.
+          </li>
+          <li>
+            <strong>2026-09-03:</strong> deployed exact reviewed commit <code>f155635</code> to Staging; protected
+            preflight, migrations, Worker deployment, lifecycle apply/read-back, and live health passed. Production
+            remained untouched; prepared Dev/Staging phone installs are blocked only on the paired device being locked.
+          </li>
           <li>
             <strong>2026-09-03:</strong> repaired the RM-04 deletion review findings with scope/replay serialization,
             exact-ID tombstones, observable job recovery, object-first diagnostic expiry, and adversarial local tests;

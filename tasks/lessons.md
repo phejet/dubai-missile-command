@@ -1,5 +1,25 @@
 # Lessons
 
+## 2026-09-04 — Make safety guards inspect the bytes actually written
+
+- A public-artifact privacy guard must validate each output in its real representation. Scan
+  structured JSON structurally and Markdown as raw text; wrapping Markdown inside `JSON.stringify`
+  changes identifier boundaries and can make the guard weaker than the test that rereads the file.
+- A reported interval must estimate the same quantity as the displayed point estimate. Keep pooled
+  run rates and equally weighted install rates separate, and attach clustered intervals only to
+  the install-weighted estimand they resample.
+- When deterministic selection has deduplication or per-install caps, record every requested rule
+  as selected, merged, or unavailable. Silent `return` paths turn a documented selection protocol
+  into wishful thinking.
+- Publish policy from the exact constants used by classification; never hard-code the same
+  thresholds beside a decorative policy object and call that one source of truth.
+- Do not mark a verification matrix implemented from broad green gates. Add an assertion for every
+  named boundary, including empty/zero cases, filters, retention clocks, parser permutations, and
+  the actual query adapter.
+- A privacy runbook requirement is part of the implementation. Wire deletion tooling to locate and
+  remove derived private artifacts, or explicitly defer the promise before claiming the slice is
+  complete.
+
 ## 2026-09-02 — Write completion plans against the live worktree, not an imagined green field
 
 - Before drafting a detailed implementation plan in a dirty or concurrently changing tree,

@@ -41,6 +41,7 @@
     "replay:verify": "npx tsx src/headless/validate-replay.ts",
     "diag:extract": "npx tsx scripts/extract-diagnostic-replays.ts",
     "diag:pull": "node scripts/diag-pull.mjs",
+    "telemetry:analyze": "node scripts/analyze-telemetry.mjs",
     "qa:pixi-phase6": "node scripts/capture-pixi-phase6.mjs",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",

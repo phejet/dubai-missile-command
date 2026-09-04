@@ -74,6 +74,20 @@ These cover:
 - replay round-trip
 - golden-seed canaries
 
+### Capture operations and telemetry
+
+- `scripts/analyze-telemetry.test.mjs`
+- `scripts/operator-delete-capture.test.mjs`
+- `scripts/seed-retention-fixtures.test.mjs`
+
+These cover:
+
+- fixed-query and explicit-environment guards
+- comparison/row validation and zero-write evidence
+- install-aware statistics, confidence labels, and deterministic candidates
+- identifier-free public artifacts and scoped private-artifact cleanup
+- deletion and retention operator safety
+
 ## E2E Tests (Playwright)
 
 ### Smoke
@@ -124,3 +138,5 @@ That is intentional because those files are mostly orchestration or environment-
 - If you change browser UI flow or input plumbing, run `npm run test:e2e`.
 - If you change replay serialization or playback logic, run both replay unit tests and replay E2E.
 - If you change render-only code, render tests are useful, but smoke E2E still catches integration breakage.
+- If you change telemetry acquisition, statistics, or artifacts, run the focused telemetry test
+  plus the full unit, lint, and format gates; remote Staging proof must remain read-only.

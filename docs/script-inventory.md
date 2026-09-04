@@ -29,6 +29,19 @@ Older notes and some legacy probes still reference `.js` or `.mjs` names.
 - `src/headless/bench-draft.ts` — preset sweep in draft mode
 - `src/headless/bench-report.ts` — structured benchmark output
 
+### Capture operations and telemetry
+
+- `scripts/analyze-telemetry.mjs` — guarded Staging-only, summary-only cross-build analysis;
+  emits identifier-free reports plus short-lived private RM-08 candidate IDs under ignored
+  `telemetry-results/`
+- `scripts/operator-delete-capture.mjs` — confirmed/resumable operator deletion and recovery
+- `scripts/seed-retention-fixtures.mjs` — guarded Staging retention/deletion fixture lifecycle
+
+Run telemetry analysis only through `npm run telemetry:analyze`. Its checked-in SQL is restricted
+to the explicit Staging D1 database and the script must report zero writes. Generated private
+candidate files are operator material, not repository artifacts. The operator deletion preview
+locates matching private candidates and removes those files before remote deletion executes.
+
 ## LLM-Assisted Tooling
 
 - `src/headless/learn.ts`
