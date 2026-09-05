@@ -47,6 +47,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "test:e2e:quick": "playwright test --grep @quick",
     "test:capture-e2e": "playwright test e2e/capture.spec.ts --config playwright.capture.config.ts",
     "test:worker": "vitest run --config worker/vitest.config.ts && vitest run --config worker/vitest.http.config.ts",
     "worker:dev": "wrangler dev --config worker/wrangler.jsonc",
