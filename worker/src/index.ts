@@ -426,9 +426,11 @@ export default {
     if (url.pathname === "/api/reports" && request.method === "GET") {
       return listRows(request, env, "diagnostic_reports");
     }
-    if (request.method === "GET") {
+    if (request.method === "GET" || request.method === "OPTIONS") {
       const runId = decodedPathId(url.pathname, /^\/api\/session\/([^/]+)$/);
       if (runId !== null) return withOperatorCors(request, env, () => retrieveSession(request, env, runId));
+    }
+    if (request.method === "GET") {
       const reportId = decodedPathId(url.pathname, /^\/api\/report\/([^/]+)$/);
       if (reportId !== null) return retrieveReport(request, env, reportId);
       const sha = decodedPathId(url.pathname, /^\/api\/replay\/([^/]+)$/);

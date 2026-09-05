@@ -1923,6 +1923,49 @@ describe("capture Worker split", () => {
     ).toBe(403);
   });
 
+  it("allows browser preflight and authenticated retrieval of an operator replay", async () => {
+    const session = sessionFixture({ runId: "operator-replay-cors" });
+    expect((await post("session", session)).status).toBe(200);
+    const url = `https://worker.test/api/session/${session.meta.runId}`;
+    const origin = "https://phejet.github.io";
+    const preflight = await SELF.fetch(url, {
+      method: "OPTIONS",
+      headers: {
+        Origin: origin,
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "authorization",
+      },
+    });
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers.get("access-control-allow-origin")).toBe(origin);
+    expect(preflight.headers.get("access-control-allow-methods")).toBe("GET, OPTIONS");
+    expect(preflight.headers.get("access-control-allow-headers")).toBe("Authorization");
+
+    const unauthorized = await SELF.fetch(url, { headers: { Origin: origin } });
+    expect(unauthorized.status).toBe(401);
+    expect(unauthorized.headers.get("access-control-allow-origin")).toBe(origin);
+    const replay = await SELF.fetch(url, {
+      headers: { Origin: origin, Authorization: "Bearer test-secret" },
+    });
+    expect(replay.status).toBe(200);
+    expect(replay.headers.get("access-control-allow-origin")).toBe(origin);
+    expect(replay.headers.get("cache-control")).toBe("private, no-store");
+    expect(await replay.json()).toMatchObject({ ok: true, replay: session.replay });
+
+    for (const method of ["OPTIONS", "GET"]) {
+      const denied = await SELF.fetch(url, {
+        method,
+        headers: { Origin: "https://evil.example", Authorization: "Bearer test-secret" },
+      });
+      expect(denied.status).toBe(403);
+      expect(denied.headers.get("access-control-allow-origin")).toBeNull();
+    }
+    expect((await SELF.fetch(url, { method: "OPTIONS" })).status).toBe(400);
+    expect((await SELF.fetch(url, { method: "POST", headers: { Authorization: "Bearer test-secret" } })).status).toBe(
+      404,
+    );
+  });
+
   it("allows only configured origins on both ingest routes", async () => {
     for (const route of ["session", "report", "share", "feedback"]) {
       const allowed = await SELF.fetch(`https://worker.test/api/${route}`, {
