@@ -1,4 +1,5 @@
 name: Deploy Capture Worker
+run-name: ${{ inputs.release_id && format('Staging release {0}', inputs.release_id) || github.event.head_commit.message || 'Deploy Capture Worker' }}
 
 on:
   push:
@@ -13,6 +14,10 @@ on:
       - ".github/workflows/deploy-worker.yml"
   workflow_dispatch:
     inputs:
+      release_id:
+        description: Optional correlation ID for the Staging release command
+        required: false
+        type: string
       target:
         description: Deployment environment
         required: true

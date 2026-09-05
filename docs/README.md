@@ -37,6 +37,8 @@ This folder holds repo-specific notes for future maintenance, not player-facing 
 
 ## Tooling And Workflow
 
+- [`staging-testflight-release.md`](./staging-testflight-release.md) — one-command Staging TestFlight release, API-key setup, protected deployment, and resumable Apple processing/group assignment.
+
 - [`headless-bot-workflow.md`](./headless-bot-workflow.md) — headless simulation, bot decisions, worker-based training, and LLM-assisted scripts.
 - [`build-targets.md`](./build-targets.md) — Vite targets, Capacitor differences, replay save endpoint, CI, and deploy behavior.
 - [`testing-matrix.md`](./testing-matrix.md) — what is covered by unit tests vs E2E, and how to run each layer.
