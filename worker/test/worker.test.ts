@@ -6,7 +6,7 @@ import { replayFixture, reportFixture, sessionFixture } from "../../test-fixture
 import type { VerifiedAttestation, VerifyAttestationOptions } from "../src/app-attest";
 import worker, { runRetention } from "../src/index";
 import type { Env } from "../src/bindings";
-import { challenge, enroll } from "../src/capture-auth";
+import { authorizeCapture, challenge, enroll } from "../src/capture-auth";
 import { buildDeletionPlan, deletionPlanDigest, executeDeletionJob, handleDeletion } from "../src/deletion";
 import { ingestSession, readBounded } from "../src/ingest";
 import {
@@ -569,6 +569,44 @@ describe("capture Worker split", () => {
       apple_app_id: "TESTTEAM1.com.phejet.dubaicmd.dev",
       status: "active",
     });
+  });
+
+  it.each([2, null])("logs only verified distribution facts, preserving category %s", async (validationCategory) => {
+    const decodedBodySha256 = "a".repeat(64);
+    const headers = await captureAuthHeaders("session", decodedBodySha256, validationCategory);
+    const logged = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await authorizeCapture(
+        new Request("https://worker.test/api/session", { headers }),
+        { ...env, APPLE_VALIDATION_CATEGORIES: "2" } as unknown as Env,
+        { purpose: "session", build: "build+dirty", decodedBodySha256 },
+      );
+      expect(logged.mock.calls).toEqual([
+        [
+          JSON.stringify({
+            message: "capture distribution verified",
+            purpose: "session",
+            build: "build+dirty",
+            validationCategory,
+            bundleVersion: "1",
+            appFlavor: "dev",
+            appleEnvironment: "development",
+          }),
+        ],
+      ]);
+      logged.mockClear();
+      // Reusing the assertion is rejected and must not emit a success event.
+      await expect(
+        authorizeCapture(
+          new Request("https://worker.test/api/session", { headers }),
+          { ...env, APPLE_VALIDATION_CATEGORIES: "2" } as unknown as Env,
+          { purpose: "session", build: "build+dirty", decodedBodySha256 },
+        ),
+      ).rejects.toThrow();
+      expect(logged).not.toHaveBeenCalled();
+    } finally {
+      logged.mockRestore();
+    }
   });
 
   it("makes enrollment idempotent but refuses conflicting or revoked credential reuse", async () => {

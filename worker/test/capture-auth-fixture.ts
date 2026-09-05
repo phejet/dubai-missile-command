@@ -108,17 +108,23 @@ async function challenge(purpose: "session" | "report" | "share" | "feedback", k
   return ((await response.json()) as { challengeToken: string }).challengeToken;
 }
 
-async function assertion(token: string, bodySha256: string, counter: number): Promise<string> {
+async function assertion(
+  token: string,
+  bodySha256: string,
+  counter: number,
+  validationCategory: number | null,
+): Promise<string> {
   const value = credential();
   const rpIdHash = await sha256(new TextEncoder().encode(APP_ID));
   const counterBytes = new Uint8Array(4);
   new DataView(counterBytes.buffer).setUint32(0, counter);
-  const extensions = encodeCBOR(
-    new Map<string | number, CBORType>([
-      ["apple_bundle_version_01", BUNDLE_VERSION],
-      ["apple_validation_category_01", new Uint8Array([1, 0, 0, 0])],
-    ]),
-  );
+  const facts = new Map<string | number, CBORType>([["apple_bundle_version_01", BUNDLE_VERSION]]);
+  if (validationCategory !== null) {
+    const categoryBytes = new Uint8Array(4);
+    new DataView(categoryBytes.buffer).setUint32(0, validationCategory, true);
+    facts.set("apple_validation_category_01", categoryBytes);
+  }
+  const extensions = encodeCBOR(facts);
   const authenticatorData = concatBytes(rpIdHash, new Uint8Array([0]), counterBytes, extensions);
   const clientDataHash = await sha256(captureClientData(token, bodySha256));
   const nonce = await sha256(concatBytes(authenticatorData, clientDataHash));
@@ -138,6 +144,7 @@ async function assertion(token: string, bodySha256: string, counter: number): Pr
 export async function captureAuthHeaders(
   purpose: "session" | "report" | "share" | "feedback",
   bodySha256: string,
+  validationCategory: number | null = 1,
 ): Promise<Record<string, string>> {
   const value = credential();
   const token = await challenge(purpose, value.keyId);
@@ -147,7 +154,7 @@ export async function captureAuthHeaders(
   if (!row) throw new Error("test credential missing");
   return {
     "x-dmc-challenge-token": token,
-    "x-dmc-assertion": await assertion(token, bodySha256, row.assertion_counter + 1),
+    "x-dmc-assertion": await assertion(token, bodySha256, row.assertion_counter + 1, validationCategory),
   };
 }
 
