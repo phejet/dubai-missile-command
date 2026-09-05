@@ -21,7 +21,7 @@ jobs:
         run: |
           node -e 'const os = require("node:os"); console.log(JSON.stringify({ node: process.version, platform: os.platform(), arch: os.arch(), cpus: os.availableParallelism(), cpu: os.cpus()[0]?.model, memoryGiB: os.totalmem() / 2 ** 30 }, null, 2))'
       - name: Full browser suite
-        run: npm run test:e2e -- --reporter=list,json
+        run: npm run test:e2e -- --reporter=list,json,./e2e/timing-reporter.ts
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-report/full.json
       - name: Capture browser suite
