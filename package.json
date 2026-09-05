@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "ios:release:staging": "node scripts/release-staging.mjs",
     "dev": "vite",
     "dev:lan": "CAPACITOR=1 DMC_APP_FLAVOR=dev DMC_CAPTURE_CHANNEL=staging vite --host 0.0.0.0",
     "dev:lan:offline": "CAPACITOR=1 DMC_APP_FLAVOR=dev DMC_CAPTURE_CHANNEL=off vite --host 0.0.0.0",

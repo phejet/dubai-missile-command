@@ -48,12 +48,21 @@
   opacity: 0.7;
 }
 
-.app-flavor-badge {
-  display: none;
+.app-status-row {
   position: absolute;
   z-index: 20;
   top: max(8px, env(safe-area-inset-top));
   left: max(8px, env(safe-area-inset-left));
+  right: max(8px, env(safe-area-inset-right));
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.app-flavor-badge {
+  display: none;
+  flex-shrink: 0;
   padding: 4px 8px;
   border: 1px solid currentColor;
   border-radius: 999px;
@@ -66,10 +75,11 @@
 }
 
 .capture-upload-indicator {
-  position: absolute;
-  z-index: 20;
-  top: max(8px, env(safe-area-inset-top));
-  left: max(8px, env(safe-area-inset-left));
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   min-height: 24px;
   padding: 5px 9px 5px 23px;
   border: 1px solid rgba(130, 160, 168, 0.42);
@@ -97,11 +107,6 @@
   border-radius: 50%;
   background: #70858a;
   transform: translateY(-50%);
-}
-
-.game-shell[data-app-flavor="dev"] .capture-upload-indicator,
-.game-shell[data-app-flavor="staging"] .capture-upload-indicator {
-  top: max(38px, calc(env(safe-area-inset-top) + 38px));
 }
 
 .capture-upload-indicator[data-state="ready"] {
