@@ -558,10 +558,23 @@ export async function authorizeCapture(
     )
     .run();
   if (!reserved.success || reserved.meta?.changes !== 1) reject("submission:counter-conflict");
+  const provenance = deriveCaptureProvenance(verified.appId, config.appleTeamId, credential.apple_environment);
+  // Distribution proof only: never include credential IDs, assertions, tokens, or capture bodies.
+  console.log(
+    JSON.stringify({
+      message: "capture distribution verified",
+      purpose: input.purpose,
+      build: input.build,
+      validationCategory: verified.validationCategory,
+      bundleVersion: verified.bundleVersion,
+      appFlavor: provenance.appFlavor,
+      appleEnvironment: provenance.appleEnvironment,
+    }),
+  );
   return {
     keyIdHash: claims.keyIdHash,
     assertionCounter: verified.counter,
-    provenance: deriveCaptureProvenance(verified.appId, config.appleTeamId, credential.apple_environment),
+    provenance,
   };
 }
 
