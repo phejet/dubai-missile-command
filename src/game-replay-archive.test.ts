@@ -167,6 +167,23 @@ describe("Game replay archive wiring", () => {
     vi.unstubAllGlobals();
   });
 
+  it("keeps the hidden game-over battlefield idle while the death clip owns playback", () => {
+    const { runtime } = createGameWithArchive(null);
+    const frame = vi.mocked(requestAnimationFrame).mock.calls.at(-1)![0];
+    vi.mocked(renderer.renderGameOver).mockClear();
+    vi.mocked(renderer.renderTitle).mockClear();
+    expect(document.getElementById("battlefield-card")!.hidden).toBe(true);
+    expect(mocks.mountDeathClip).toHaveBeenCalled();
+
+    frame(100);
+    frame(116);
+    expect(renderer.renderGameOver).not.toHaveBeenCalled();
+
+    runtime.setScreen("title");
+    frame(132);
+    expect(renderer.renderTitle).toHaveBeenCalledOnce();
+  });
+
   it("withholds the death clip, shows delayed honest copy, then mounts after persistence", async () => {
     const archive = deferredArchive();
     createGameWithArchive(archive.promise);

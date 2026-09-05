@@ -17,5 +17,25 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
-      - run: npm run test:capture-e2e
+      - name: Record runner capacity
+        run: |
+          node -e 'const os = require("node:os"); console.log(JSON.stringify({ node: process.version, platform: os.platform(), arch: os.arch(), cpus: os.availableParallelism(), cpu: os.cpus()[0]?.model, memoryGiB: os.totalmem() / 2 ** 30 }, null, 2))'
+      - name: Full browser suite
+        run: npm run test:e2e -- --reporter=list,json,./e2e/timing-reporter.ts
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-report/full.json
+      - name: Capture browser suite
+        run: npm run test:capture-e2e -- --reporter=list,json
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-report/capture.json
+      - name: Summarize browser timings
+        if: always()
+        run: node scripts/summarize-e2e-timings.mjs playwright-report/full.json playwright-report/capture.json >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload browser timing reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-timings-${{ github.run_attempt }}
+          path: playwright-report/*.json
+          if-no-files-found: warn
+          retention-days: 14
