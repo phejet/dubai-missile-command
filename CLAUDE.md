@@ -22,6 +22,13 @@ After implementing a feature or bug fix, proactively check whether the dev serve
 
 ## Browser Smoke Tests
 
+For the short local feedback loop, run the existing boot/state, firing, and portrait
+shop checks (this is a subset, not the full E2E gate):
+
+```bash
+npm run test:e2e:quick
+```
+
 Use the maintained Playwright smoke suite for browser boot/input/shop-flow checks:
 
 ```bash

@@ -714,3 +714,10 @@ someone who can't see the state machine?" A full stop says malfunction. Prefer s
 preserve momentum. And when a feel report contradicts clean metrics, the metric is measuring
 the wrong quantity — find the one that would have caught it (here: px moved per tick while
 in the state) rather than defending the old one.
+
+## 2026-09-06 — Use the user's feedback-loop budget
+
+- Do not label a 35-second local E2E run quick or acceptable without the user's
+  latency target. The full local E2E command target is under 5 seconds.
+- Distinguish normal local settings from a CI-mode local experiment; report command
+  wall time including startup, and do not meet the target by silently dropping coverage.

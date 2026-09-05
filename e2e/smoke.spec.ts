@@ -40,9 +40,15 @@ async function forceGameOver(page: import("@playwright/test").Page) {
     game.burjAlive = false;
     game.burjHealth = 0;
   });
-  await expect(page.locator("#game-shell")).toHaveAttribute("data-screen", "gameover", {
-    timeout: timingBudget(10000),
-  });
+  // Observe the transition on the next frame rather than adding assertion
+  // polling backoff to the game's one-second death sequence.
+  await page.waitForFunction(
+    () => document.querySelector<HTMLElement>("#game-shell")?.dataset.screen === "gameover",
+    undefined,
+    {
+      timeout: timingBudget(10000),
+    },
+  );
 }
 
 test.describe("Smoke tests", () => {
@@ -82,7 +88,7 @@ test.describe("Smoke tests", () => {
     expect(hasGameRef).toBe(true);
   });
 
-  test("game state has expected shape after start", async ({ page }) => {
+  test("game state has expected shape after start", { tag: "@quick" }, async ({ page }) => {
     await startGameFromScreen(page);
 
     const state = await page.evaluate(() => {
@@ -107,7 +113,7 @@ test.describe("Smoke tests", () => {
     expect(state.hasDroneArray).toBe(true);
   });
 
-  test("clicking during gameplay fires an interceptor", async ({ page }) => {
+  test("clicking during gameplay fires an interceptor", { tag: "@quick" }, async ({ page }) => {
     // Start game
     await startGameFromScreen(page);
 
@@ -366,16 +372,14 @@ test.describe("Smoke tests", () => {
     await expect(page.locator("#game-shell")).toHaveAttribute("data-screen", "playing");
     await expect(page.locator("#game-canvas")).toHaveAttribute("data-pixi-gameplay-static", "ready");
     await expect(page.locator("#game-canvas")).toHaveAttribute("data-pixi-context", "active");
-    await expect
-      .poll(
-        () =>
-          page.evaluate(() => {
-            const checkpoint = window.__gameRef?.current?._replayCheckpoints?.find((entry) => entry.tick >= 60);
-            return typeof checkpoint?.diagnostics.rngState === "number";
-          }),
-        { timeout: timingBudget(5000) },
-      )
-      .toBe(true);
+    await page.waitForFunction(
+      () => {
+        const checkpoint = window.__gameRef?.current?._replayCheckpoints?.find((entry) => entry.tick >= 60);
+        return typeof checkpoint?.diagnostics.rngState === "number";
+      },
+      undefined,
+      { timeout: timingBudget(5000) },
+    );
     expect(pageErrors).toEqual([]);
   });
 });
@@ -427,7 +431,7 @@ test.describe("Portrait iPhone layout", () => {
     expect(canvasBox!.width).toBeLessThanOrEqual(390);
   });
 
-  test("opens the responsive portrait shop modal", async ({ page }) => {
+  test("opens the responsive portrait shop modal", { tag: "@quick" }, async ({ page }) => {
     await startGameFromScreen(page);
     await page.evaluate(() => window.__openShopPreview!());
     await expect(page.locator('[role="dialog"]')).toBeVisible();

@@ -5,12 +5,15 @@ const isCI = Boolean(process.env.CI);
 export default defineConfig({
   testDir: "./e2e",
   testIgnore: "capture.spec.ts",
+  // Keep individual durations visible in CI so renderer stalls can be located.
+  reporter: "list",
+  fullyParallel: !isCI,
   timeout: isCI ? 90000 : 30000,
   expect: { timeout: isCI ? 15000 : 5000 },
   // Pixi gameplay and the graphics editor are both GPU/CPU-heavy. GitHub's
   // two-core hosted runners chronically starve concurrent browser contexts,
   // producing unrelated animation and mount timeouts across different specs.
-  workers: isCI ? 1 : undefined,
+  workers: isCI ? 1 : 4,
   use: {
     baseURL: "http://127.0.0.1:4173",
     // Sandboxed environments provide a pinned Chromium here; without the
