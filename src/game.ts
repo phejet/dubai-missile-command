@@ -2789,7 +2789,9 @@ export class Game {
             wave: this.finalWave,
             stats: this.finalStats,
           };
-          this.renderer.renderGameOver(snapshot);
+          // The visible death clip owns a separate renderer. Drawing the hidden
+          // battlefield here competes with its playback, especially in software WebGL.
+          if (!this.battlefieldCard.hidden) this.renderer.renderGameOver(snapshot);
         }
       }
     };
