@@ -36,7 +36,7 @@ The same manual test identified separate replay transport feedback: wave navigat
 
 ## Remaining RM-04 gates outside this validation
 
-Signed TestFlight category 2 remains open. Emoji feedback, corrected upload badge, and privacy surfaces were subsequently proven below. RM-04 remains in progress.
+The user approved iOS-26-compatible distribution proof below; signed category 2 is deferred to iOS 27. Emoji feedback, corrected upload badge, and privacy surfaces passed. Deployment of the user-proven replay fixes remains before RM-04 closure.
 
 ## Local replay follow-up confirmation
 
@@ -50,4 +50,4 @@ The redacted Worker observer received verified session and feedback events at 08
 
 The exact build-5 archive contains the app-owned PrivacyInfo.xcprivacy (tracking false), privacy.html, and a native manifest for Staging / Staging channel / 3b76192. Its CFBundleVersion is 5 and bundle is com.phejet.dubaicmd.staging. This plus the phone policy check closes the privacy-surface proof.
 
-[Apple's WWDC26 App Attest session](https://developer.apple.com/videos/play/wwdc2026/201/) states that launch-category/bundle-version extensions are new in iOS 27. The user confirmed iOS 26.6.1. This device cannot supply the iOS-27-only fields; approval is pending to accept its proven TestFlight/App Attest production path and defer signed category-2 proof to iOS 27. No authentication policy or allowlist was weakened.
+[Apple's WWDC26 App Attest session](https://developer.apple.com/videos/play/wwdc2026/201/) states that launch-category/bundle-version extensions are new in iOS 27. The user confirmed iOS 26.6.1. This device cannot supply the iOS-27-only fields; the user approved accepting its proven TestFlight/App Attest production path for RM-04 and deferring signed category-2 proof to iOS 27. No authentication policy or allowlist was weakened.
