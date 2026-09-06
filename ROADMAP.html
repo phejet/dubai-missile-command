@@ -170,11 +170,10 @@
         <h2>Now</h2>
         <div class="notice">
           <strong>Active: RM-04 — Retention, visibility, and feedback.</strong><br />
-          Staging retention, authenticated run/install deletion, shared-replay preservation, and fixture cleanup passed;
-          all 21 genuine uploads remain available. The operator replay CORS fix is deployed and live preflight passes.
-          Authenticated operator listing and replay playback are user-proven. Isolated lifecycle expiry, exact rule
-          restoration, and fixture cleanup passed. Next action: resolve missing signed TestFlight category evidence and
-          deploy the user-proven replay fixes. TestFlight feedback, upload-indicator, and privacy checks passed.
+          Retention/deletion, lifecycle expiry and cleanup, authenticated operator playback, and TestFlight
+          feedback/privacy proofs passed. The user approved iOS 26 distribution evidence; iOS-27-only signed category
+          proof remains a deferred follow-up. Next action: merge and release PR #22 with deterministic wave seeking,
+          stable replay controls, and upload status confined to Settings.
         </div>
       </section>
 
@@ -256,7 +255,9 @@
             </summary>
             <div class="phase__body">
               <p>
-                <strong>Implemented, deployed to Staging, and awaiting the remaining guarded/physical proof:</strong>
+                <strong
+                  >Core implementation and Staging/physical proofs complete; replay follow-up release pending:</strong
+                >
               </p>
               <ul>
                 <li>Keep D1 gameplay summaries for 365 days.</li>
@@ -272,26 +273,18 @@
                 <li>App-owned iOS privacy declaration, accessible policy, and operator deletion runbook.</li>
               </ul>
               <p>
-                <strong>Next:</strong> finish TestFlight signed-category, feedback, upload-indicator, and privacy
-                checks. On 2026-09-06, the user confirmed authenticated operator listing, Play, and browser replay
-                playback. Replay toolbar stability, local operator access, and deterministic wave navigation are fixed
-                locally and user-confirmed; these follow-up fixes await deployment. Live Staging lifecycle read-back
-                matched the 90/270-day repository rules. At 2026-09-06T07:57:54Z the isolated canary returned 404 while
-                its control remained 200; original rules were restored and read back, and both exact fixture keys were
-                verified absent by 07:57:58Z. Lifecycle proof is complete. Latest successful Staging deployment is
-                <code>3b76192</code> (workflow <code>33952012463</code>); health passes and Production was skipped. PR
-                #19 is merged and deployed to Staging as <code>3330db4</code>; live replay preflight passes. Retention,
-                run/install deletion, shared-replay preservation, and fixture cleanup passed against Staging
-                <code>7cbba3e</code>; all 21 genuine sessions/replays and two shares were preserved. TestFlight build
-                <code>1.0 (4)</code> is installed through TestFlight; the user completed a human run and confirmed “Last
-                run uploaded.” API authentication and distribution signing now pass. Signed backend category, feedback,
-                and physical privacy checks remain open. PR #20 is merged as <code>3b76192</code>; build
-                <code>1.0 (5)</code> with the upload badge correction is processed and assigned to internal testers
-                through the automated release. Staging deployment passed with Production skipped. The user confirmed
-                build-5 feedback, corrected badge, and readable privacy policy on the phone. The matching archive
-                contains the app-owned privacy manifest. Verified session/feedback logs show Staging/Apple production
-                but null category and bundle version; category 2 is deferred to iOS 27 with user approval. Production
-                capture remains closed.
+                <strong>Next:</strong> merge and release PR #22. Its wave-seek, fixed-size replay transport, and local
+                operator fixes passed automated checks and the user's feel-check. The user then requested removal of the
+                redundant gameplay upload badge; Settings retains upload status. Retention, run/install deletion, and
+                shared-replay preservation passed against Staging <code>7cbba3e</code>, preserving all 21 genuine
+                uploads and two shares. Lifecycle proof passed on 2026-09-06: the canary expired while its control
+                survived; original rules were restored and both fixtures were verified absent. Authenticated browser
+                playback is user-proven. TestFlight build <code>1.0 (5)</code>, source <code>3b76192</code>, passed the
+                user's upload, feedback, badge, and privacy-policy checks; its archive includes the app-owned privacy
+                manifest. Verified session/feedback events identify Staging and Apple's production environment, with
+                category and bundle-version fields absent. The user confirmed iOS 26.6.1 and approved that distribution
+                evidence for RM-04; signed category 2 proof remains explicitly deferred to iOS 27 and does not alone
+                block RM-04 completion. Runtime authentication policy is unchanged. Production capture remains closed.
               </p>
               <p>
                 <a href="docs/rm-04-retention-and-manual-deletion-plan.md">Retention and manual deletion plan</a>
