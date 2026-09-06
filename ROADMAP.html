@@ -158,7 +158,7 @@
     <!-- roadmap-source:v1 -->
     <main>
       <header>
-        <p class="muted">Dubai Missile Command · Updated 2026-09-04</p>
+        <p class="muted">Dubai Missile Command · Updated 2026-09-06</p>
         <h1>Roadmap</h1>
         <p>
           One current view of product direction, delivery status, gates, and next work. Detailed designs and execution
@@ -170,10 +170,11 @@
         <h2>Now</h2>
         <div class="notice">
           <strong>Active: RM-04 — Retention, visibility, and feedback.</strong><br />
-          Reviewed commit <code>f155635</code> is deployed to Staging and its lifecycle rules were read back
-          successfully; its direct Dev and Staging builds are installed and launched on the paired iPhone. Next action:
-          run the guarded retention, deletion, public-expiry, browse-to-play, feedback, indicator, privacy, and
-          TestFlight proofs.
+          Staging retention, authenticated run/install deletion, shared-replay preservation, and fixture cleanup passed;
+          all 21 genuine uploads remain available. The operator replay CORS fix is deployed and live preflight passes.
+          Authenticated operator listing and replay playback are user-proven. Isolated lifecycle expiry, exact rule
+          restoration, and fixture cleanup passed. Next action: resolve missing signed TestFlight category evidence and
+          deploy the user-proven replay fixes. TestFlight feedback, upload-indicator, and privacy checks passed.
         </div>
       </section>
 
@@ -253,7 +254,9 @@
               <span class="phase__outcome">Make automatic playtest capture trustworthy over time.</span>
             </summary>
             <div class="phase__body">
-              <p><strong>Implemented, deployed to Staging, and awaiting the remaining guarded/physical proof:</strong></p>
+              <p>
+                <strong>Implemented, deployed to Staging, and awaiting the remaining guarded/physical proof:</strong>
+              </p>
               <ul>
                 <li>Keep D1 gameplay summaries for 365 days.</li>
                 <li>Keep full R2 replays and public share mappings for 270 days.</li>
@@ -268,14 +271,34 @@
                 <li>App-owned iOS privacy declaration, accessible policy, and operator deletion runbook.</li>
               </ul>
               <p>
-                <strong>Next:</strong> exercise the backdated retention fixtures and manual deletion procedure, prove
-                the same-key replay-clock refresh, complete the operator browse-to-play and TestFlight checks, and
-                retain Production closure until all current gates pass. Staging deployment and lifecycle read-back for
-                exact commit <code>f155635</code> passed in protected workflow <code>33758581259</code>; its direct Dev
-                and Staging builds were installed and launched on the paired iPhone.
+                <strong>Next:</strong> finish TestFlight signed-category, feedback, upload-indicator, and privacy
+                checks. On 2026-09-06, the user confirmed authenticated operator listing, Play, and browser replay
+                playback. Replay toolbar stability, local operator access, and deterministic wave navigation are fixed
+                locally and user-confirmed; these follow-up fixes await deployment. Live Staging lifecycle read-back
+                matched the 90/270-day repository rules. At 2026-09-06T07:57:54Z the isolated canary returned 404 while
+                its control remained 200; original rules were restored and read back, and both exact fixture keys were
+                verified absent by 07:57:58Z. Lifecycle proof is complete. Latest successful Staging deployment is
+                <code>3b76192</code> (workflow <code>33952012463</code>); health passes and Production was skipped. PR
+                #19 is merged and deployed to Staging as <code>3330db4</code>; live replay preflight passes. Retention,
+                run/install deletion, shared-replay preservation, and fixture cleanup passed against Staging
+                <code>7cbba3e</code>; all 21 genuine sessions/replays and two shares were preserved. TestFlight build
+                <code>1.0 (4)</code> is installed through TestFlight; the user completed a human run and confirmed “Last
+                run uploaded.” API authentication and distribution signing now pass. Signed backend category, feedback,
+                and physical privacy checks remain open. PR #20 is merged as <code>3b76192</code>; build
+                <code>1.0 (5)</code> with the upload badge correction is processed and assigned to internal testers
+                through the automated release. Staging deployment passed with Production skipped. The user confirmed
+                build-5 feedback, corrected badge, and readable privacy policy on the phone. The matching archive
+                contains the app-owned privacy manifest. Verified session/feedback logs show Staging/Apple production
+                but null category and bundle version; category 2 remains unproven. Production capture remains closed.
               </p>
               <p>
                 <a href="docs/rm-04-retention-and-manual-deletion-plan.md">Retention and manual deletion plan</a>
+              </p>
+              <p><a href="docs/rm-04-validation-handover-2026-09-04.md">Earlier validation evidence and handoff</a></p>
+              <p>
+                <a href="docs/rm-04-browser-lifecycle-validation-2026-09-06.md"
+                  >Browser and lifecycle proof, including canary recovery</a
+                >
               </p>
               <p><strong>Deferred:</strong> player-facing upload history and self-service deletion.</p>
             </div>
@@ -306,13 +329,7 @@
             </div>
           </details>
 
-          <details
-            class="phase"
-            id="rm-06"
-            data-roadmap-id="RM-06"
-            data-status="gated"
-            data-depends-on="RM-04 RM-08"
-          >
+          <details class="phase" id="rm-06" data-roadmap-id="RM-06" data-status="gated" data-depends-on="RM-04 RM-08">
             <summary>
               <span class="phase__id">RM-06</span>
               <span>Cross-build telemetry analysis</span>
@@ -378,8 +395,6 @@
         <h2>Current gates</h2>
         <ol>
           <li>Prove App Attest category <code>2</code> from the proper Staging TestFlight build.</li>
-          <li>Prove the implemented Phase 4 retention and manual deletion contract against guarded Staging fixtures.</li>
-          <li>Verify the app-owned privacy declaration and accessible policy in the physical distribution paths.</li>
           <li>Keep Production capture disabled until the exact Staging-tested commit passes these gates.</li>
         </ol>
       </section>
@@ -418,6 +433,46 @@
         <h2>Recent roadmap changes</h2>
         <ul>
           <li>
+            <strong>2026-09-06:</strong> user proved TestFlight build-5 upload badge, emoji feedback, and privacy
+            policy; exact archive contains its app-owned privacy manifest. Verified upload/feedback logs omit category
+            and bundle-version fields. User confirmed iOS 26.6.1; Apple documents category extensions as new in iOS 27.
+            Roadmap gate correction awaits approval.
+          </li>
+          <li>
+            <strong>2026-09-06:</strong> proved isolated Staging lifecycle expiry with a live control, restored and
+            verified the exact original rules, and deleted/verified both fixture keys. Closed the RM-04 lifecycle gate;
+            TestFlight proofs remain.
+          </li>
+          <li>
+            <strong>2026-09-06:</strong> user proved authenticated operator listing and browser replay playback; closed
+            that RM-04 gate. Follow-up replay pause layout, local operator access, and wave-seek fixes passed automated
+            checks and user feel-check locally; deployment remains pending.
+          </li>
+          <li>
+            <strong>2026-09-06:</strong> reconfirmed Staging deployment, health, and 90/270-day lifecycle rules; started
+            a unique-prefix lifecycle canary with an independent control and recovery manifest. Physical expiry remains
+            pending. Corrected the stale retention/deletion gate to reflect its passed proof.
+          </li>
+          <li>
+            <strong>2026-09-05:</strong> passed authenticated retention and run/install deletion proofs, verified shared
+            replay preservation, and cleaned every original fixture object/row. Live browser validation exposed a replay
+            preflight 404; PR #19 fixes dispatch and adds redacted signed-category evidence. Staging permits deployment
+            only from main; the branch deployment was rejected after successful preflight. Physical build 1.0 (3) is
+            installed; remaining distribution/UI and lifecycle gates stay open.
+          </li>
+          <li>
+            <strong>2026-09-04:</strong> passed guarded Staging scheduled-retention and idempotency proof plus the
+            same-key R2 upload-clock proof from checked-out commit <code>7cbba3e</code>. All 21 genuine replay indexes
+            remained intact, the expected synthetic rows expired, and both diagnostic/probe canaries were verified
+            absent; authenticated deletion, lifecycle-canary disposition, and TestFlight proof remain open.
+          </li>
+          <li>
+            <strong>2026-09-04:</strong> planned RM-08 against the live operator, capture, replay-seek, and RM-06
+            candidate paths. The reviewed design keeps the existing vanilla browser and replay runtime, retires obsolete
+            raw session reads, adds no capture-schema migration, limits R2 checks to object-dependent status, and uses
+            fragment-only private candidate links. Implementation remains gated on RM-04 completion.
+          </li>
+          <li>
             <strong>2026-09-04:</strong> repaired RM-06's implementation review findings across raw-Markdown privacy,
             proportion estimands, candidate-rule audits, policy ownership, boundary coverage, operator deletion, and
             failure diagnostics; final repeated Staging proof remained read-only and deterministic.
@@ -428,8 +483,9 @@
             all digests and reported zero writes; RM-08 handoff and diverse-cohort evidence remain open.
           </li>
           <li>
-            <strong>2026-09-04:</strong> renamed RM-06 to Cross-build telemetry analysis, made its RM-08 replay-inspection
-            dependency explicit, and adopted a detailed privacy-minimised, reproducible comparison plan.
+            <strong>2026-09-04:</strong> renamed RM-06 to Cross-build telemetry analysis, made its RM-08
+            replay-inspection dependency explicit, and adopted a detailed privacy-minimised, reproducible comparison
+            plan.
           </li>
           <li>
             <strong>2026-09-04:</strong> inserted RM-08 Replay inspection UI after RM-04 and moved gated RM-05

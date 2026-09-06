@@ -60,7 +60,6 @@ import {
   type ReplayWaveStart,
 } from "./replay-wave-navigation";
 import { mountRunRecapDeathClip } from "./run-recap-death-clip";
-import { handleRunRecapReplayEvent } from "./run-recap-replay-events";
 import { buildRunRecapData } from "./run-recap";
 import { saveReplayToFile } from "./save-replay";
 import { createRunShareLink, presentRunShareSheet } from "./share-run";
@@ -1223,8 +1222,9 @@ export class Game {
     const game = this.gameRef.current;
     this.replayPlayer.hidden = false;
     this.replayPlayer.dataset.playbackNumber = String(this.replayPlaybackNumber);
-    this.replayPlayerStatus.textContent = `Wave ${game?.wave ?? 1}${this.replayPaused ? " · Paused" : ""}`;
+    this.replayPlayerStatus.textContent = `Wave ${game?.wave ?? 1}`;
     this.replayPlayPauseButton.textContent = this.replayPaused ? "▶" : "Ⅱ";
+    this.replayPlayPauseButton.dataset.paused = String(this.replayPaused);
     this.replayPlayPauseButton.setAttribute("aria-label", this.replayPaused ? "Play replay" : "Pause replay");
     this.replayPreviousWaveButton.disabled = findPreviousReplayWaveStart(this.replayWaveStarts, tick) === null;
     this.replayNextWaveButton.disabled = findNextReplayWaveStart(this.replayWaveStarts, tick) === null;
@@ -1368,8 +1368,8 @@ export class Game {
     const replayAnchor = shouldSeek ? this.findReplayAnchorForSeek(replayData, seekToTick) : null;
     let runner: ReturnType<typeof createReplayRunner>;
     const onReplaySimEvent = <Type extends keyof SimEventMap>(type: Type, data: SimEventMap[Type]) => {
-      if (seeking) handleRunRecapReplayEvent(replayData, runner, type, data);
-      else this.handleSimEvent(type, data);
+      // Seeking suppresses presentation only; the runner owns bonus/shop transitions.
+      if (!seeking) this.handleSimEvent(type, data);
     };
     const onReplayEvent: import("./types").ReplayEventSink = (type, data) => {
       if (type !== "replay_divergence") return;

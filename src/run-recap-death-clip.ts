@@ -5,7 +5,6 @@ import { PixiRenderer } from "./pixi-render";
 import { createReplayStateAnchor } from "./replay-anchor";
 import { createReplayRunner, createReplayRunnerFromAnchor } from "./replay";
 import { seekRunnerToTick } from "./replay-seek";
-import { handleRunRecapReplayEvent } from "./run-recap-replay-events";
 import type { ReplayData, ReplayStateAnchor } from "./types";
 
 const CLIP_TICKS = 300;
@@ -54,11 +53,7 @@ async function createRunnerAtTick(
   onRunner: (runner: ReplayRunner | null) => void,
 ): Promise<RunnerAtTickResult> {
   let runner: ReplayRunner;
-  runner = anchor
-    ? createReplayRunnerFromAnchor(replay, anchor, (type, data) =>
-        handleRunRecapReplayEvent(replay, runner, type, data),
-      )
-    : createReplayRunner(replay, (type, data) => handleRunRecapReplayEvent(replay, runner, type, data));
+  runner = anchor ? createReplayRunnerFromAnchor(replay, anchor) : createReplayRunner(replay);
   onRunner(runner);
   runner.init();
   const signal = {

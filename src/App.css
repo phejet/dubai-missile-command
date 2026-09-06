@@ -945,6 +945,7 @@
 }
 
 .replay-player__button {
+  flex: 0 0 34px;
   width: 34px;
   height: 30px;
   border: 1px solid rgba(109, 217, 255, 0.26);
@@ -957,13 +958,24 @@
   cursor: pointer;
 }
 
+.replay-player__button[data-paused="true"] {
+  border-color: #ffd086;
+  background: #62451d;
+  color: #ffe2af;
+  box-shadow: 0 0 8px rgba(255, 208, 134, 0.3);
+}
+
 .replay-player__button:disabled {
   opacity: 0.3;
   cursor: default;
 }
 
 .replay-player__counter {
-  min-width: 112px;
+  box-sizing: border-box;
+  flex: 0 0 124px;
+  width: 124px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   padding: 0 6px;
   color: #effcff;
   font-size: clamp(0.62rem, 2.25cqw, 1rem);

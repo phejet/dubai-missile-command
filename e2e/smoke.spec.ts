@@ -190,6 +190,47 @@ test.describe("Smoke tests", () => {
     expect(threats.missiles + threats.drones).toBeGreaterThan(0);
   });
 
+  test("seeks recorded replay waves without divergence while playing or paused", async ({ page }) => {
+    const { runGame } = await import("../src/headless/sim-runner");
+    const recorded = runGame(null, {
+      seed: 1481412993,
+      record: true,
+      draftMode: true,
+      isHuman: true,
+      stopCondition: { type: "waveComplete", wave: 3 },
+      checkpoints: true,
+    });
+    const replay = {
+      version: recorded.version!,
+      seed: recorded.seed,
+      initialState: recorded.initialState!,
+      actions: recorded.actions!,
+      checkpoints: recorded.checkpoints,
+      draftMode: true,
+      isHuman: true,
+      stopCondition: { type: "waveComplete" as const, wave: 3 },
+    };
+    const warnings: string[] = [];
+    page.on("console", (message) => {
+      if (/Replay diverged|seek target .*not reached/.test(message.text())) warnings.push(message.text());
+    });
+    await page.waitForFunction(() => typeof window.__loadReplay === "function");
+    await page.evaluate((data) => window.__loadReplay!(data), replay);
+    await expect(page.locator("#replay-player")).toBeVisible();
+    await page.getByRole("button", { name: "Next wave start", exact: true }).click();
+    await expect(page.locator("#replay-player-status")).toHaveText("Wave 2");
+    await page.getByRole("button", { name: "Pause replay", exact: true }).click();
+    await page.getByRole("button", { name: "Next wave start", exact: true }).click();
+    await expect(page.locator("#replay-player-status")).toHaveText("Wave 3");
+    await expect(page.locator("#replay-play-pause")).toHaveAttribute("data-paused", "true");
+    await page.getByRole("button", { name: "Previous wave start", exact: true }).click();
+    await expect(page.locator("#replay-player-status")).toHaveText("Wave 2");
+    const tick = await page.evaluate(() => window.__gameRef!.current!._replayTick!);
+    await page.getByRole("button", { name: "Play replay", exact: true }).click();
+    await page.waitForFunction((start) => window.__gameRef!.current!._replayTick! >= start + 61, tick);
+    expect(warnings).toEqual([]);
+  });
+
   test("opens run recap from game over", async ({ page }) => {
     test.slow();
     await startGameFromScreen(page);
@@ -268,7 +309,14 @@ test.describe("Smoke tests", () => {
     await expect(page.locator("#game-shell")).toHaveAttribute("data-screen", "playing");
     await expect(page.locator("#game-canvas")).toHaveAttribute("data-pixi-gameplay-generation", firstReplayGeneration!);
     await expect(page.locator("#replay-player")).toBeVisible();
+    const transport = page.locator("#replay-player");
+    const pauseButton = page.locator("#replay-play-pause");
+    const transportBounds = await transport.boundingBox();
+    const pauseBounds = await pauseButton.boundingBox();
     await page.getByRole("button", { name: /pause replay/i }).click();
+    await expect(pauseButton).toHaveAttribute("data-paused", "true");
+    expect(await transport.boundingBox()).toEqual(transportBounds);
+    expect(await pauseButton.boundingBox()).toEqual(pauseBounds);
     const pausedTick = await page.evaluate(() => window.__gameRef!.current!._replayTick ?? 0);
     await page.waitForTimeout(250);
     expect(await page.evaluate(() => window.__gameRef!.current!._replayTick ?? 0)).toBe(pausedTick);
