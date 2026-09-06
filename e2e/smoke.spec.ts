@@ -55,21 +55,13 @@ test.describe("Smoke tests", () => {
     await expect(canvas).toBeVisible();
   });
 
-  test("phone capture status stays beside the Staging badge", async ({ page }) => {
+  test("phone keeps its flavor badge without a gameplay upload badge", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 740 });
     await page.evaluate(() => {
       document.querySelector<HTMLElement>("#game-shell")!.dataset.appFlavor = "staging";
-      const indicator = document.querySelector<HTMLElement>("#capture-upload-indicator")!;
-      indicator.hidden = false;
-      indicator.textContent = "Auto-upload needs attention";
     });
-    const badge = await page.locator(".app-flavor-badge").boundingBox();
-    const indicator = await page.locator("#capture-upload-indicator").boundingBox();
-    expect(badge).not.toBeNull();
-    expect(indicator).not.toBeNull();
-    expect(indicator!.x).toBeGreaterThan(badge!.x + badge!.width);
-    expect(Math.abs(indicator!.y + indicator!.height / 2 - badge!.y - badge!.height / 2)).toBeLessThan(1);
-    expect(indicator!.x + indicator!.width).toBeLessThanOrEqual(320);
+    await expect(page.locator(".app-flavor-badge")).toBeVisible();
+    await expect(page.locator("#capture-upload-indicator")).toHaveCount(0);
   });
 
   test("clicking canvas starts the game", async ({ page }) => {

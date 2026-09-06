@@ -332,12 +332,10 @@ describe("Game capture orchestration", () => {
     const runtime = internals(game);
     const consentButton = document.getElementById("option-capture-consent") as HTMLButtonElement;
     const sendButton = document.getElementById("option-capture-send") as HTMLButtonElement;
-    const indicator = document.getElementById("capture-upload-indicator")!;
 
     expect(consentButton.hidden).toBe(false);
     expect(sendButton.hidden).toBe(true);
-    expect(indicator.hidden).toBe(false);
-    expect(indicator.textContent).toBe("Playtest uploads off");
+    expect(document.getElementById("capture-upload-indicator")).toBeNull();
     consentButton.click();
     await vi.waitFor(() => expect(mocks.enrollCaptureCredential).toHaveBeenCalledTimes(1));
     expect(mocks.enrollCaptureCredential).toHaveBeenCalledWith({
@@ -346,7 +344,7 @@ describe("Game capture orchestration", () => {
       buildId: "test-build",
     });
     expect(document.getElementById("option-capture-consent-meta")!.textContent).toBe("Ready");
-    expect(indicator.textContent).toBe("Auto-upload off");
+    expect(document.getElementById("option-capture-auto-meta")!.textContent).toBe("Off");
     expect(sendButton.hidden).toBe(false);
     expect(sendButton.disabled).toBe(true);
 
@@ -388,10 +386,6 @@ describe("Game capture orchestration", () => {
     });
     expect(mocks.reportProblem).not.toHaveBeenCalled();
     expect(document.getElementById("option-capture-auto-meta")!.textContent).toMatch(/^Sent/);
-    expect(document.getElementById("capture-upload-indicator")!).toMatchObject({
-      textContent: "Last run uploaded",
-      dataset: expect.objectContaining({ state: "ready" }),
-    });
   });
 
   it("shares an automatically uploaded recap without uploading the session twice", async () => {
@@ -553,10 +547,6 @@ describe("Game capture orchestration", () => {
     runtime.handleSimEvent("gameOver", { score: 100, wave: 1, stats: createEmptyGameStats() });
     await vi.waitFor(() => expect(queue.enqueue).toHaveBeenCalledTimes(1));
     expect(document.getElementById("option-capture-auto-meta")!.textContent).toBe("Queued • 1");
-    expect(document.getElementById("capture-upload-indicator")!).toMatchObject({
-      textContent: "1 upload queued",
-      dataset: expect.objectContaining({ state: "queued" }),
-    });
 
     vi.advanceTimersByTime(1);
     mocks.uploadSession.mockResolvedValueOnce({ ok: false, reason: "auth", status: 401 });
@@ -566,10 +556,6 @@ describe("Game capture orchestration", () => {
     await vi.waitFor(() => expect(mocks.uploadSession).toHaveBeenCalledTimes(2));
     expect(queue.enqueue).toHaveBeenCalledTimes(1);
     expect(document.getElementById("option-capture-auto-meta")!.textContent).toBe("Failed • auth");
-    expect(document.getElementById("capture-upload-indicator")!).toMatchObject({
-      textContent: "Auto-upload needs attention",
-      dataset: expect.objectContaining({ state: "error" }),
-    });
   });
 
   it("lets the replay runner open the shop after the bonus UI completes", () => {

@@ -2217,7 +2217,6 @@ export class Game {
     if (!config) {
       autoButton.hidden = true;
       sendButton.hidden = true;
-      this.syncCaptureIndicator();
       return;
     }
 
@@ -2249,42 +2248,6 @@ export class Game {
     document.getElementById("option-capture-send-meta")!.textContent =
       this.captureSendMessage ??
       (this.captureSendBusy ? "Sending…" : completedRunAvailable ? "Ready" : "Finish a run first");
-    this.syncCaptureIndicator();
-  }
-
-  private syncCaptureIndicator(): void {
-    const indicator = document.getElementById("capture-upload-indicator")!;
-    const config = this.remoteCaptureConfig();
-    indicator.hidden = config === null;
-    if (!config) return;
-    const consent = getRemoteCaptureConsent(config.channel);
-    const automatic = getAutomaticSessionUploadEnabled(config.channel);
-    let state = "off";
-    let label = consent === "granted" ? "Auto-upload off" : "Playtest uploads off";
-    if (consent === "granted" && automatic) {
-      if (this.automaticCaptureBusy) {
-        state = "sending";
-        label = "Uploading run";
-      } else if (
-        this.captureAutoMessage?.startsWith("Failed") ||
-        this.captureAutoMessage === "Queue unavailable" ||
-        this.captureAutoMessage?.startsWith("Dropped")
-      ) {
-        state = "error";
-        label = "Auto-upload needs attention";
-      } else if (this.captureQueueBusy && this.captureQueueCount > 0) {
-        state = "sending";
-        label = "Retrying uploads";
-      } else if (this.captureQueueCount > 0) {
-        state = "queued";
-        label = `${this.captureQueueCount} upload${this.captureQueueCount === 1 ? "" : "s"} queued`;
-      } else {
-        state = "ready";
-        label = this.lastUploadedRunId ? "Last run uploaded" : "Auto-upload on";
-      }
-    }
-    indicator.dataset.state = state;
-    indicator.textContent = label;
   }
 
   private async toggleRemoteCaptureConsent(): Promise<void> {

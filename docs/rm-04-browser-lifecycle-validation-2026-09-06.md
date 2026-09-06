@@ -51,3 +51,7 @@ The redacted Worker observer received verified session and feedback events at 08
 The exact build-5 archive contains the app-owned PrivacyInfo.xcprivacy (tracking false), privacy.html, and a native manifest for Staging / Staging channel / 3b76192. Its CFBundleVersion is 5 and bundle is com.phejet.dubaicmd.staging. This plus the phone policy check closes the privacy-surface proof.
 
 [Apple's WWDC26 App Attest session](https://developer.apple.com/videos/play/wwdc2026/201/) states that launch-category/bundle-version extensions are new in iOS 27. The user confirmed iOS 26.6.1. This device cannot supply the iOS-27-only fields; the user approved accepting its proven TestFlight/App Attest production path for RM-04 and deferring signed category-2 proof to iOS 27. No authentication policy or allowlist was weakened.
+
+## Requested gameplay badge removal
+
+After completing the build-5 phone proof, the user requested removal of the redundant gameplay upload badge because Settings already displays capture status. The global badge, its styling, and its duplicate sync logic are removed. Settings retains consent, upload on/off, sent, queued, and failure status. The isolated release branch passed 13 capture-orchestration tests, typecheck, and the phone-layout browser check (1 passed, 3.5s including startup). This supersedes the permanent on-screen indicator requirement; it does not change capture or authentication policy.
