@@ -25,7 +25,15 @@ import {
   resolveReplayStopWave,
   shouldStopReplayAtWaveComplete,
 } from "../replay-bootstrap";
-import type { GameStats, ReplayAction, ReplayCheckpoint, ReplayData, TacticId, CommanderStyle } from "../types";
+import type {
+  GameState,
+  GameStats,
+  ReplayAction,
+  ReplayCheckpoint,
+  ReplayData,
+  TacticId,
+  CommanderStyle,
+} from "../types";
 
 interface RunGameOptions {
   preset?: string | null;
@@ -39,6 +47,9 @@ interface RunGameOptions {
   initialState?: ReplayData["initialState"];
   isHuman?: boolean;
   passive?: boolean;
+  /** Dev hook: receives the live game state once it is initialised, before the tick loop.
+   *  Used by analysis tooling (see score-attrib.ts) to instrument the run. */
+  onInit?: (g: GameState) => void;
 }
 
 export function runGame(botConfig: Record<string, unknown> | null, options: RunGameOptions = {}) {
@@ -64,6 +75,7 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
   applyReplayInitialState(g, initialState);
   if (draftMode) (g as unknown as { _draftMode: boolean })._draftMode = true;
   applyReplayBootstrap(g, options, startWave);
+  options.onInit?.(g);
   let lastFireTick = -Infinity;
   let deathCause = "timeout";
   const actions: ReplayAction[] | null = record ? [] : null;
