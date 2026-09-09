@@ -2,242 +2,23 @@
 //
 // Answers "where do the points actually come from?" by intercepting every write
 // to GameState.score and tagging it with the subsystem that caused it.
+// Instrumentation lives in score-probe.ts and is shared with combo-eval.ts.
 //
 // Usage:
 //   npx tsx src/headless/score-attrib.ts [--preset=perfect] [--games=20] [--seed=1000]
-//   npx tsx src/headless/score-attrib.ts --all
+//   npx tsx src/headless/score-attrib.ts --all [--fixed-build] [--json=out.json]
 
+import { readFileSync, writeFileSync } from "fs";
+import { resolve } from "path";
 import { runGame } from "./sim-runner";
-import type { Explosion, GameState } from "../types";
-
-type Tagged = Explosion & { _src?: string };
+import { SRC, attachScoreProbe, emptyLedger, reportUnclassified, type Ledger } from "./score-probe";
+import type { GameState } from "../types";
 
 const args = process.argv.slice(2);
 const getArg = (name: string, def: string): string => {
   const a = args.find((x) => x.startsWith(`--${name}=`));
   return a ? a.split("=")[1] : def;
 };
-
-// ── source maps, derived from the source files themselves ─────────────────────
-// Stack frames give us file:line but no function names (the sim is built from
-// arrow callbacks), so we build the file:line -> label maps by reading the sim
-// source at startup. That keeps the tool honest when the sim is edited.
-
-import { readFileSync, writeFileSync } from "fs";
-import { dirname, resolve } from "path";
-import { fileURLToPath } from "url";
-
-const SRC = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const readSrc = (f: string) => readFileSync(resolve(SRC, f), "utf8").split("\n");
-
-const WEAPON_BY_COLOR: [RegExp, string][] = [
-  [/COL\.hornet/, "hornet"],
-  [/COL\.roadrunner/, "roadrunner"],
-  [/COL\.patriot/, "patriot"],
-  [/COL\.interceptor/, "player-interceptor"],
-  [/COL\.flare/, "flare"],
-  [/COL\.phalanx/, "phalanx"],
-  [/COL\.laser/, "ironbeam"],
-  [/COL\.emp/, "emp"],
-];
-
-function labelFromWindow(lines: string[], idx: number, span = 12): string | null {
-  const chunk = lines.slice(idx, idx + span).join("\n");
-  for (const [re, label] of WEAPON_BY_COLOR) if (re.test(chunk)) return label;
-  return null;
-}
-
-/** file:line of every boom()/createExplosion() call site -> the weapon that owns it. */
-const explosionSites = new Map<string, string>();
-/** file:line of every score write -> a coarse kind. */
-const scoreSites = new Map<string, string>();
-/** file:line of every damageTarget() call site -> the weapon that owns it. */
-const damageSites = new Map<string, string>();
-
-for (const file of ["game-sim.ts", "game-sim-flare.ts", "game-sim-emp.ts", "game-sim-patriot.ts"]) {
-  const lines = readSrc(file);
-  lines.forEach((line, i) => {
-    const key = `${file}:${i + 1}`;
-    if (/\bboom\(/.test(line) && !/function boom/.test(line)) {
-      explosionSites.set(key, labelFromWindow(lines, i) ?? (file === "game-sim-flare.ts" ? "flare" : "enemy-impact"));
-    }
-    if (/\bdamageTarget\(/.test(line) && !/function damageTarget/.test(line)) {
-      damageSites.set(key, labelFromWindow(lines, i, 3) ?? "unknown-weapon");
-    }
-    if (/\.score\s*[+-]=/.test(line)) {
-      const win = lines.slice(Math.max(0, i - 8), i + 2).join("\n");
-      if (/getBuildingSurvivalBonus/.test(line)) scoreSites.set(key, "bonus:buildings-survived");
-      else if (/250 \* g\.wave/.test(line)) scoreSites.set(key, "bonus:wave-clear");
-      else if (/\.score\s*-=/.test(line)) scoreSites.set(key, "penalty:f15-friendly-fire");
-      else if (/getKillReward/.test(line)) scoreSites.set(key, /updateFlares|destroyThreat/.test(win) ? "kill:flare" : "kill:aoe");
-      else if (/[Bb]onus/.test(line)) scoreSites.set(key, "multikill:aoe");
-      else scoreSites.set(key, "unclassified");
-    }
-  });
-}
-{
-  const lines = readSrc("game-logic.ts");
-  lines.forEach((line, i) => {
-    if (/\.score\s*\+=/.test(line) && /getKillReward/.test(line)) {
-      scoreSites.set(`game-logic.ts:${i + 1}`, "kill:damageTarget");
-    }
-  });
-}
-// The buildings-survived bonus is applied by the host (bonus screen in the browser,
-// the sim-runner sink headlessly), not by the sim.
-{
-  const lines = readSrc("headless/sim-runner.ts");
-  lines.forEach((line, i) => {
-    if (/getBuildingSurvivalBonus/.test(line) && /\.score\s*\+=/.test(line)) {
-      scoreSites.set(`sim-runner.ts:${i + 1}`, "bonus:buildings-survived");
-    }
-  });
-}
-
-Error.stackTraceLimit = 60;
-const FRAME_RE = /([A-Za-z0-9._-]+\.ts):(\d+):\d+/;
-
-function frames(): { key: string; raw: string }[] {
-  const err = new Error();
-  const out: { key: string; raw: string }[] = [];
-  for (const raw of (err.stack ?? "").split("\n").slice(2)) {
-    const m = FRAME_RE.exec(raw);
-    if (m) out.push({ key: `${m[1]}:${m[2]}`, raw });
-  }
-  return out;
-}
-
-/** Which weapon created this explosion? Walk out until we hit a known boom() site. */
-function classifyExplosionSource(fs: { key: string }[]): string {
-  for (const f of fs) {
-    const hit = explosionSites.get(f.key);
-    if (hit) return hit;
-  }
-  return "other";
-}
-
-/** Which subsystem awarded these points? */
-function classifyScore(fs: { key: string }[], currentSrc: string | null): string {
-  for (const f of fs) {
-    const kind = scoreSites.get(f.key);
-    if (!kind) continue;
-    if (kind === "kill:aoe") return `kill:${currentSrc ?? "?"}`;
-    if (kind === "multikill:aoe") return `multikill:${currentSrc ?? "?"}`;
-    if (kind === "kill:damageTarget") {
-      for (const g of fs) {
-        const w = damageSites.get(g.key);
-        if (w) return `kill:${w}`;
-      }
-      return "kill:direct-damage";
-    }
-    return kind;
-  }
-  return "unknown";
-}
-
-// ── instrumentation ───────────────────────────────────────────────────────────
-interface Ledger {
-  bySource: Record<string, number>;
-  comboAmplification: number; // points that exist only because combo > 1
-  baseKillPoints: number; // sum of raw kill rewards, combo stripped
-  killsBySource: Record<string, number>;
-  comboSamples: number[];
-  rawSites: Record<string, number>;
-  comboAmpBySource: Record<string, number>;
-}
-
-function instrument(g: GameState, led: Ledger): void {
-  let currentEx: Tagged | null = null;
-
-  // Tag explosions with their creator, and let chain blasts inherit their root's tag.
-  let arr = g.explosions as Tagged[];
-  const wrap = (a: Tagged[]): Tagged[] => {
-    const push = Array.prototype.push.bind(a);
-    const forEach = Array.prototype.forEach.bind(a);
-    Object.defineProperty(a, "push", {
-      configurable: true,
-      value: (...items: Tagged[]) => {
-        const fs = frames();
-        for (const it of items) {
-          // Chain blasts belong to whatever weapon started the chain.
-          it._src =
-            it.rootExplosionId != null
-              ? (a.find((e) => e.id === it.rootExplosionId)?._src ?? "chain")
-              : classifyExplosionSource(fs);
-        }
-        return push(...items);
-      },
-    });
-    Object.defineProperty(a, "forEach", {
-      configurable: true,
-      value: (cb: (e: Tagged, i: number, all: Tagged[]) => void, thisArg?: unknown) =>
-        forEach((e: Tagged, i: number, all: Tagged[]) => {
-          const prev = currentEx;
-          currentEx = e;
-          try {
-            cb.call(thisArg, e, i, all);
-          } finally {
-            currentEx = prev;
-          }
-        }),
-    });
-    return a;
-  };
-  wrap(arr);
-  Object.defineProperty(g, "explosions", {
-    configurable: true,
-    get: () => arr,
-    set: (v: Tagged[]) => {
-      arr = wrap(v);
-    },
-  });
-
-  // Intercept every score write.
-  let score = g.score;
-  Object.defineProperty(g, "score", {
-    configurable: true,
-    get: () => score,
-    set: (v: number) => {
-      const delta = v - score;
-      score = v;
-      if (delta === 0) return;
-      const fs = frames();
-      const tag = classifyScore(fs, currentEx?._src ?? null);
-      led.bySource[tag] = (led.bySource[tag] ?? 0) + delta;
-      if (tag === "unknown" || tag === "unclassified") {
-        const site = fs.slice(0, 4).map((f) => f.key).join(" <- ");
-        led.rawSites[site] = (led.rawSites[site] ?? 0) + delta;
-      }
-      if (tag.startsWith("kill:")) {
-        const combo = Math.max(1, g.combo);
-        const base = delta / combo;
-        led.baseKillPoints += base;
-        led.comboAmplification += delta - base;
-        led.comboAmpBySource[tag] = (led.comboAmpBySource[tag] ?? 0) + (delta - base);
-        led.killsBySource[tag] = (led.killsBySource[tag] ?? 0) + 1;
-        led.comboSamples.push(combo);
-      }
-    },
-  });
-}
-
-function reportUnclassified(led: Ledger): void {
-  for (const [site, pts] of Object.entries(led.rawSites)) {
-    console.log(`  !! unclassified ${pts} pts from ${site}`);
-  }
-}
-
-function emptyLedger(): Ledger {
-  return {
-    bySource: {},
-    comboAmplification: 0,
-    baseKillPoints: 0,
-    killsBySource: {},
-    comboSamples: [],
-    rawSites: {},
-    comboAmpBySource: {},
-  };
-}
 
 interface RunSummary {
   preset: string;
@@ -273,7 +54,7 @@ function runOne(preset: string, seed: number): RunSummary {
     maxTicks: 200000,
     onInit: (g) => {
       live = g;
-      instrument(g, led);
+      attachScoreProbe(g, led);
     },
   });
   reportUnclassified(led);
