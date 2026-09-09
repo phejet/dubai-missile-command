@@ -1,0 +1,819 @@
+<title>Scoring &amp; Combo Review</title>
+<style>
+  .viz-root, body {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --plane: #f9f9f7;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #898781;
+    --grid: #e1e0d9;
+    --axis: #c3c2b7;
+    --border: rgba(11, 11, 11, 0.1);
+    /* ordinal skill ramp — tiers are an ordered scale, so one hue, light→dark */
+    --tier-novice: #86b6ef;
+    --tier-average: #5598e7;
+    --tier-good: #2a78d6;
+    --tier-perfect: #184f95;
+    /* categorical slots for the point-source breakdown */
+    --cat-1: #2a78d6;
+    --cat-2: #eb6834;
+    --cat-3: #1baf7a;
+    --cat-4: #eda100;
+    --accent: #2a78d6;
+    --good: #0ca30c;
+    --critical: #d03b3b;
+    --warning: #fab219;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root,
+    :root:where(:not([data-theme="light"])) body {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --plane: #0d0d0d;
+      --text-primary: #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted: #898781;
+      --grid: #2c2c2a;
+      --axis: #383835;
+      --border: rgba(255, 255, 255, 0.1);
+      --tier-novice: #184f95;
+      --tier-average: #256abf;
+      --tier-good: #3987e5;
+      --tier-perfect: #9ec5f4;
+      --cat-1: #3987e5;
+      --cat-2: #d95926;
+      --cat-3: #199e70;
+      --cat-4: #c98500;
+      --accent: #3987e5;
+    }
+  }
+  :root[data-theme="dark"] .viz-root,
+  :root[data-theme="dark"] body {
+    color-scheme: dark;
+    --surface-1: #1a1a19;
+    --plane: #0d0d0d;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255, 255, 255, 0.1);
+    --tier-novice: #184f95;
+    --tier-average: #256abf;
+    --tier-good: #3987e5;
+    --tier-perfect: #9ec5f4;
+    --cat-1: #3987e5;
+    --cat-2: #d95926;
+    --cat-3: #199e70;
+    --cat-4: #c98500;
+    --accent: #3987e5;
+  }
+
+  body {
+    margin: 0;
+    background: var(--plane);
+    color: var(--text-primary);
+    font: 15px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 40px 20px 96px; }
+  header.masthead { border-bottom: 2px solid var(--text-primary); padding-bottom: 20px; margin-bottom: 8px; }
+  h1 { font-size: 30px; line-height: 1.2; margin: 0 0 6px; letter-spacing: -0.02em; }
+  .sub { color: var(--text-secondary); margin: 0; font-size: 15px; }
+  .meta { color: var(--text-muted); font-size: 13px; margin-top: 12px; }
+  h2 {
+    font-size: 21px; margin: 52px 0 4px; letter-spacing: -0.01em;
+    padding-top: 20px; border-top: 1px solid var(--border);
+  }
+  h2 .num { color: var(--text-muted); font-weight: 400; margin-right: 10px; }
+  h3 { font-size: 16px; margin: 28px 0 6px; }
+  p { margin: 10px 0; }
+  .lede { color: var(--text-secondary); margin: 4px 0 20px; }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em;
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 4px; padding: 1px 5px;
+  }
+  a { color: var(--accent); }
+
+  .card {
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 10px; padding: 20px; margin: 20px 0;
+  }
+  .fig { margin: 22px 0 8px; }
+  .fig-title { font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+  .fig-note { font-size: 13px; color: var(--text-secondary); margin: 0 0 14px; }
+  .fig-cap { font-size: 13px; color: var(--text-muted); margin-top: 10px; }
+  .scroll { overflow-x: auto; }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 24px 0; }
+  .kpi { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .kpi .v { font-size: 30px; font-weight: 650; letter-spacing: -0.02em; line-height: 1.1; }
+  .kpi .l { font-size: 13px; color: var(--text-secondary); margin-top: 5px; }
+  .hero { font-size: 52px; font-weight: 650; letter-spacing: -0.03em; line-height: 1; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th, td { text-align: right; padding: 7px 9px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; white-space: normal; }
+  thead th { color: var(--text-secondary); font-weight: 600; border-bottom: 1px solid var(--axis); }
+  tbody tr.hl { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+  tbody tr.hl td:first-child { font-weight: 650; }
+  td.num { font-variant-numeric: tabular-nums; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--text-secondary); margin-bottom: 10px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .sw { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+
+  .callout { border-left: 3px solid var(--accent); padding: 2px 0 2px 16px; margin: 20px 0; }
+  .callout.warn { border-left-color: var(--warning); }
+  .callout.crit { border-left-color: var(--critical); }
+  .callout p:first-child { margin-top: 0; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  ul, ol { margin: 10px 0; padding-left: 22px; }
+  li { margin: 5px 0; }
+  .tag {
+    display: inline-block; font-size: 11px; font-weight: 650; letter-spacing: 0.04em;
+    text-transform: uppercase; padding: 2px 7px; border-radius: 4px;
+    border: 1px solid var(--border); color: var(--text-secondary); vertical-align: 2px;
+  }
+  .tag.rec { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, transparent); }
+
+  .tip {
+    position: fixed; pointer-events: none; opacity: 0; transition: opacity .1s;
+    background: var(--surface-1); border: 1px solid var(--axis); border-radius: 7px;
+    padding: 8px 10px; font-size: 12.5px; box-shadow: 0 4px 14px rgba(0,0,0,.16);
+    z-index: 50; max-width: 260px; line-height: 1.45;
+  }
+  .tip b { display: block; margin-bottom: 3px; font-size: 13px; }
+  .tip .r { display: flex; justify-content: space-between; gap: 14px; color: var(--text-secondary); }
+  .tip .r em { font-style: normal; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+  svg { display: block; max-width: 100%; }
+  svg text { fill: var(--text-secondary); font: 12px system-ui, -apple-system, sans-serif; }
+  svg .tick { fill: var(--text-muted); font-size: 11px; }
+  svg .lbl { fill: var(--text-primary); font-size: 12px; font-weight: 600; }
+  svg .grid { stroke: var(--grid); stroke-width: 1; }
+  svg .axis { stroke: var(--axis); stroke-width: 1; }
+  .hit { fill: transparent; cursor: crosshair; }
+
+  details { margin: 12px 0; }
+  summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+  details[open] summary { margin-bottom: 8px; }
+  .footnote { font-size: 13px; color: var(--text-muted); }
+</style>
+
+<div class="wrap viz-root">
+
+<header class="masthead">
+  <h1>Scoring &amp; Combo Review</h1>
+  <p class="sub">Where the points actually come from in Dubai Missile Command, why skill barely moves the number, and what 16 candidate combo rules do about it.</p>
+  <p class="meta">Branch <code>claude/points-calculation-review-yej8oy</code> · 240 instrumented headless runs + 200 re-scored runs · generated from <code>src/headless/score-attrib.ts</code> and <code>src/headless/combo-eval.ts</code></p>
+</header>
+
+<h2><span class="num">01</span>The headline</h2>
+<p class="lede">The score is a wave counter wearing a different label.</p>
+
+<div class="kpis">
+  <div class="kpi"><div class="v" id="k-r2">—</div><div class="l">of score variance is explained by <strong>final wave alone</strong>, with no knowledge of how the run was played</div></div>
+  <div class="kpi"><div class="v" id="k-ppk">—</div><div class="l">points per kill, novice → perfect. Doubling accuracy is worth <strong>+7%</strong> per kill</div></div>
+  <div class="kpi"><div class="v" id="k-flat">—</div><div class="l">of a novice's score is <strong>flat wave income</strong> — awarded for existing, not for playing</div></div>
+  <div class="kpi"><div class="v" id="k-combo">—</div><div class="l">of combo-generated points land on kills the player <strong>did not make</strong></div></div>
+</div>
+
+<p>Four bot skill presets, upgrade build held constant so the comparison is aim and reaction only. Median score rises cleanly from novice to perfect — but almost all of that rise is survival, not skill expression. Fit score against final wave and the quadratic explains <span id="inl-r2">—</span> of the variance. Two runs that die on the same wave land within a few percent of each other regardless of how they were played.</p>
+
+<div class="callout crit">
+  <p><strong>The core problem.</strong> Skill is priced almost entirely through <em>longevity</em>. A player who shoots twice as accurately earns 7% more per kill; they score higher only because accuracy buys them more waves, and the waves pay a flat, escalating stipend. The score therefore duplicates a number already on screen (wave reached) instead of measuring how well the city was defended.</p>
+</div>
+
+<h2><span class="num">02</span>Where the points come from</h2>
+<p class="lede">Between 44% and 70% of every run is income no amount of skill changes.</p>
+
+<div class="card">
+  <div class="fig-title">Point sources by skill tier</div>
+  <p class="fig-note">Share of total score. 60 runs per tier, upgrade build held constant.</p>
+  <div class="legend" id="lg-src"></div>
+  <div class="scroll"><div id="ch-sources"></div></div>
+  <p class="fig-cap">Each segment is direct-labelled with its share; the table below carries the same numbers.</p>
+</div>
+
+<p>Two awards make up the flat block, and both are indexed on the <em>wave number</em> rather than on anything the player did:</p>
+<ul>
+  <li><strong>Buildings survived</strong> — <code>100 × buildingsAlive × wave</code>, evaluated at each wave-end bonus screen. With 12 scenic buildings that is up to 1,200 × wave per wave.</li>
+  <li><strong>Wave clear</strong> — <code>250 × wave</code>, in <code>game-sim.ts</code> at the wave-complete branch.</li>
+</ul>
+<p>Because each is linear in the wave index, the cumulative total is <em>quadratic</em> in waves survived. Clearing wave 11 with the city intact pays 14,450 points for the act of clearing it. That is the "each next wave just gives more points" effect, and it is the single largest term in the game.</p>
+
+<div class="card">
+  <div class="fig-title">Median score by the wave the run ended on</div>
+  <p class="fig-note">Tiers plotted separately. If skill were priced, the lines would separate vertically. They do not.</p>
+  <div class="legend" id="lg-tiers1"></div>
+  <div class="scroll"><div id="ch-wave"></div></div>
+  <p class="fig-cap">Points shown only where a tier has 3+ runs ending on that wave. Hover for medians and sample sizes.</p>
+</div>
+
+<p>The lines lie on top of each other. At wave 5 a novice run and an average run are within 1%; at wave 7 average and good are within 1%; at wave 9 they are within 1.3%. Where the tiers <em>do</em> differ is in how far right they reach.</p>
+
+<div class="callout warn">
+  <p><strong>Caveat on this chart.</strong> Same-wave comparison is confounded by selection: an <code>average</code> run that reaches wave 9 was, by definition, one of that tier's better runs. The confound cuts toward <em>overstating</em> separation, so the near-zero gap observed is if anything a conservative reading — but it means the right conclusion is drawn from the R² and points-per-kill figures, not from this chart alone.</p>
+</div>
+
+<h2><span class="num">03</span>Three leaks in the current rules</h2>
+
+<h3>1. The combo multiplier pays out on kills the player did not make</h3>
+<p>Combo is built purely by the player: <code>processRootExplosionCombo</code> increments only on a <code>playerCaused</code> root explosion that killed something, and resets to 1 on a whiff. But the award itself, <code>g.score += getKillReward(t) * g.combo</code>, runs at every kill site — Patriot, Phalanx, Hornets, Roadrunner, Iron Beam, EMP and flares included.</p>
+<div class="card">
+  <div class="fig-title">Combo amplification — points that exist only because the multiplier was above x1</div>
+  <div class="scroll"><table id="tb-leak"></table></div>
+</div>
+<p>Measured across 100 runs: <strong>29–40% of all combo-generated points land on automated kills</strong>. For a perfect run that is roughly 11,900 points per game of the player's multiplier being spent on their own turrets.</p>
+
+<h3>2. Multi-kill bonuses are not gated on the player at all</h3>
+<p>In <code>game-sim.ts</code> the DOUBLE / TRIPLE / MEGA KILL awards (150 / 350 / 700) fire on <em>any</em> explosion reaching 2+ kills. Only the <code>multiShots</code> statistic checks <code>playerCaused</code>; the points do not. A Patriot's blast radius harvests MEGA KILLs on its own, and <code>multikill:hornet</code> plus <code>multikill:patriot</code> come to <strong>8.9% of a perfect run's score</strong>.</p>
+<div class="callout"><p>This one reads as a straight bug rather than a balance choice, and is worth fixing regardless of what happens to the rest of the scoring.</p></div>
+
+<h3>3. Automation is paid at the player's rate</h3>
+<p>The player personally kills 63–73% of threats; automated systems take the rest and are paid identically per kill — on top of already paying the player by keeping them alive into higher-value waves. That is the same contribution counted twice.</p>
+
+<h3>Bonus finding: build choice outweighs aim</h3>
+<p>With the <em>shipped</em> presets rather than a fixed build, <code>average</code> outscores <code>good</code> — 69,960 against 54,296. The <code>average</code> bot buys EMP and Patriot early; the <code>good</code> bot buys Hornets first and Patriot last. Every tier comparison in this report holds the build constant for exactly this reason, but in real play the effect is live: it is a plausible explanation for "I played better and the number went down".</p>
+
+<h2><span class="num">04</span>Does the rhythm premise hold up?</h2>
+<p class="lede">The proposal was that landing three shots in quick succession is harder than three spread out. It is — and the data also says something awkward about rewarding it.</p>
+
+<div class="card">
+  <div class="fig-title">Hit rate by the gap since the previous shot</div>
+  <p class="fig-note">A "hit" is a player blast that killed at least one threat. Gaps measured within a wave, within a run. All player blasts across 50 runs per tier.</p>
+  <div class="legend" id="lg-tiers2"></div>
+  <div class="scroll"><div id="ch-burst"></div></div>
+  <p class="fig-cap">Hover for hit rate and sample size per bucket. One threshold applied to every series: buckets holding fewer than 250 shots are omitted. For the three weaker tiers that removes the 60&ndash;120 and 120+ buckets, which carry only 4&ndash;168 shots each and are dominated by end-of-wave cleanup rather than by rhythm; plotting them would read as a steep trend where there is only noise.</p>
+</div>
+
+<p><strong>Within a player, the premise is confirmed and the effect is large.</strong> A perfect-tier run hits 47% of the time when firing inside 15 ticks of the previous shot, 66% at 15&ndash;30 ticks, 85% at 30&ndash;60, and 99.7% when more than a second has passed (n = 9,750 / 8,821 / 2,407 / 598). The same gradient shows up in the average and good tiers across the well-sampled 0&ndash;60 tick range: 35% &rarr; 45% &rarr; 67% and 41% &rarr; 49% &rarr; 61%. Firing fast genuinely costs accuracy, and the effect is worth roughly 20&ndash;40 percentage points of hit rate.</p>
+
+<div class="callout warn">
+  <p><strong>But rapid fire is the regime where skill separates <em>least</em>.</strong> In the 0&ndash;15 tick bucket the four tiers land at 50.3%, 34.8%, 41.2% and 47.2% &mdash; not merely close but <em>out of order</em>, with novice nominally top. Separation only appears further right, and even there only <code>perfect</code> stands clear (84.7% at 30&ndash;60 ticks); average and good are interleaved at 67.4% and 60.8%. A bonus that paid purely for firing fast would reward the one regime that does not discriminate at all.</p>
+  <p>Read the cross-tier comparison with care, because it is confounded by construction: the presets differ in <code>minClickInterval</code> and <code>maxBurstShots</code>, so the novice bot almost never fires inside 15 ticks (n = 582) while the perfect bot does it constantly (n = 9,750) and under harder pressure. The tiers are not sampling the same rhythm regime. The <em>within-tier</em> gradient is the solid finding here; the cross-tier ordering is suggestive at best, and the safe conclusion is the weak one &mdash; fast shooting is harder, but this data does not show it to be a skill discriminator.</p>
+</div>
+
+<p>The design reading: frame a rhythm bonus as <em>sustained pressure</em> — hits that keep landing while the tempo is high — rather than as fast fingers. And note that the game already has the mechanical substrate for this. <code>player-fire-limiter.ts</code> runs a burst-charge magazine (2 per live launcher, 4 with Double Magazine) with a catch-up recharge curve of 30 → 10 → 5 ticks, where firing resets the streak. Holding fire and then spending a full magazine is already a distinct, skilled act. It is simply not scored.</p>
+
+<h2><span class="num">05</span>Cash out at 3, or at 5?</h2>
+<p class="lede">The threshold question has a clean empirical answer, and it is not the one that maximises skill separation.</p>
+
+<div class="card">
+  <div class="fig-title">How far consecutive-hit streaks actually get</div>
+  <p class="fig-note">Share of streaks reaching at least N consecutive hitting shots. A streak ends on any blast that kills nothing.</p>
+  <div class="legend" id="lg-tiers3"></div>
+  <div class="scroll"><div id="ch-streak"></div></div>
+  <p class="fig-cap">Dashed guides mark the two proposed thresholds.</p>
+</div>
+
+<p>Player blasts whiff often — even at perfect play the blast hit rate is only about 55%, so streaks break constantly. That sets hard limits on any consecutive-hit mechanic:</p>
+<div class="card"><div class="scroll"><table id="tb-thresh"></table></div></div>
+
+<ul>
+  <li><strong>Five is effectively expert-only.</strong> It fires <strong>0.0 times per wave for a novice</strong> and 0.1 for an average player &mdash; those players would finish a whole run without the mechanic ever triggering, and would never learn it exists. Only 1&ndash;3% of a non-expert's streaks reach five at all.</li>
+  <li><strong>Three is reachable but still not frequent</strong> at the low end: 0.7 cash-outs per wave for a novice, 1.3 for good, 3.9 for perfect. That is enough to be discovered and enough to feel like a reward, which five is not.</li>
+  <li><strong>Five separates skill better</strong> precisely <em>because</em> it is rare &mdash; 13.5x novice&rarr;perfect spread against 10.4x for three, on the reformed base. Rarity and legibility are in direct tension, and the threshold choice is exactly that trade.</li>
+</ul>
+
+<div class="callout">
+  <p><strong>The resolution is not to choose.</strong> Pay at 3 so the mechanic is legible, and let the payout escalate on each consecutive cash-out so that chaining to 6, 9 and beyond carries the separation that a bare 5-threshold would. That is the <code>cashout-3-escalating</code> and <code>rhythm-3-chain</code> rules below.</p>
+</div>
+
+<h2><span class="num">06</span>Sixteen combo rules, measured</h2>
+<p class="lede">Every rule re-scored against the same 200 recorded runs, on an equal points budget.</p>
+
+<div class="callout">
+  <p><strong>Why this is exact rather than a guess.</strong> <code>g.combo</code> is read only at the five score-award sites, the HUD, and the <code>maxCombo</code> stat — never in spawning, targeting, damage or the fire economy. A different combo rule could not have changed how any recorded run played out, so re-scoring an event log offline gives the same answer as re-simulating. Every rule is also calibrated to spend the <em>same total combo budget</em> as the current one across the dataset, so the comparison isolates the shape of the mechanic rather than how generous its constant happens to be.</p>
+</div>
+
+<div class="card">
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+    <span style="font-size:13px;color:var(--text-secondary)">Score base:</span>
+    <button id="btn-cur" class="tabbtn" data-base="current">as it ships today</button>
+    <button id="btn-ref" class="tabbtn" data-base="reform">with the structural fixes</button>
+  </div>
+  <p class="fig-note" id="base-note"></p>
+  <div class="scroll"><table id="tb-schemes"></table></div>
+</div>
+
+<details>
+  <summary>What each column means</summary>
+  <ul style="font-size:14px">
+    <li><strong>nov / avg / good / perf</strong> — median total score for that tier under this rule.</li>
+    <li><strong>spread</strong> — perfect ÷ novice. How much the score separates the best player from the worst.</li>
+    <li><strong>same-wave</strong> — within runs that ended on the same wave, best tier ÷ worst tier. This is the number that says whether the score measures skill rather than longevity. 1.00x means it does not.</li>
+    <li><strong>combo %</strong> — how much of a perfect run's score the combo term accounts for.</li>
+    <li><strong>acc corr</strong> — correlation between the combo term and the player's accuracy <em>within a single tier</em>. Pooling across tiers just re-measures the tier gap, so this is computed inside each tier and averaged. It answers: among players of similar ability, does the mechanic reward the more accurate one?</li>
+    <li><strong>fires/wave</strong> — how often the player is shown a payoff. Legibility.</li>
+  </ul>
+</details>
+
+<div class="card">
+  <div class="fig-title">The legibility / discrimination trade-off</div>
+  <p class="fig-note">On the reformed base. Up is better separation between skill levels; right is more frequent feedback to the player.</p>
+  <div class="legend" id="lg-tradeoff"></div>
+  <div class="scroll"><div id="ch-tradeoff"></div></div>
+  <p class="fig-cap">Rules named in the recommendation are highlighted. Hover any point for its full description.</p>
+</div>
+
+<h2><span class="num">07</span>What the numbers say</h2>
+
+<div class="callout crit">
+  <p><strong>Combo redesign alone cannot fix this.</strong> On the base as it ships, every one of the sixteen rules lands between 8.4x and 10.3x skill spread, and same-wave separation between 1.03x and 1.12x. The combo term is only ~17% of a perfect run's score; the flat wave income drowns it. Change the combo rule on its own and the scoreboard will look essentially the same.</p>
+  <p>On the reformed base — flat income cut, automated kills at 0.45x, multi-kill bonuses player-gated — the combo term becomes ~30% of the score and the choice of rule starts to matter: spread ranges 8.5x to 13.5x, same-wave 1.06x to 1.23x. <strong>Fix the base first; then the combo rule is worth arguing about.</strong></p>
+</div>
+
+<h3>Recommended order of work</h3>
+<ol>
+  <li><span class="tag rec">bug</span> <strong>Gate multi-kill bonuses on <code>ex.playerCaused</code>.</strong> Smallest change here, and defensible on its own terms.</li>
+  <li><span class="tag rec">step 1</span> <strong>Stop the combo leak</strong> — apply <code>g.combo</code> only to kills from player-caused explosions. This is the specific thing that felt wrong, and it is a contained change at five award sites.</li>
+  <li><span class="tag rec">step 2</span> <strong>De-index the flat bonuses from the wave counter.</strong> Tie the wave bonus to the threat value actually faced × the fraction of the city still standing, so it grows with difficulty but collapses when the player leaks. This is the change that does the heavy lifting.</li>
+  <li><span class="tag rec">step 3</span> <strong>Pay automated kills at ~0.45x.</strong> Also turns "beat your own turrets to the target" into a real skill expression, since it is already a race.</li>
+  <li><span class="tag rec">step 4</span> <strong>Then pick the combo rule</strong>, from the shortlist below.</li>
+</ol>
+
+<h3>The combo shortlist</h3>
+<p>Three defensible answers depending on what the mechanic should feel like:</p>
+<ul>
+  <li><strong><code>rhythm-3-chain</code></strong> — cash out every 3 hits, value scaled by how tightly the three landed and by how many cash-outs have been chained without a miss. Best same-wave separation among the frequent-feedback rules (1.172x), fires 3.9x/wave. This is the closest to the original proposal and it survives measurement.</li>
+  <li><strong><code>escalating-mult</code></strong> — keep today's per-shot multiplier feel (fires 22x/wave, constant feedback) but make the ladder superlinear so the top rungs are worth disproportionately more. 12.07x spread, and it preserves the fine-grained accuracy sensitivity that discrete cash-outs lose.</li>
+  <li><strong><code>cashout-5</code> / <code>rhythm-5</code></strong> — the highest skill separation (13.5x, same-wave up to 1.23x), but fires about once per wave. Choose this only if the score is meant to be a leaderboard instrument rather than moment-to-moment feedback.</li>
+</ul>
+<p>The rules to avoid are the forgiving rolling windows (<code>window-3</code>, <code>window-4</code>), where misses do not reset. They fire most often but discriminate worst on every measure — 8.5x spread, 0.26–0.33 accuracy correlation. Forgiveness and skill expression are directly opposed here.</p>
+
+<h2><span class="num">08</span>Limits of this analysis</h2>
+<ul>
+  <li><strong>No cloud replays.</strong> The capture worker gates <code>/api/sessions</code> behind <code>CAPTURE_BEARER_TOKEN</code>, which was not available. Everything here is measured against the headless bot presets. The harnesses accept real recorded runs unchanged, so pointing them at the archive is a credentials problem, not a tooling one.</li>
+  <li><strong>Bots are not people.</strong> The four presets model skill through aim jitter, reaction delay, click interval and peripheral attention. They are a reasonable ladder but they do not reproduce human pacing, tilt, or the way a person reads a wave. The rapid-fire confound in section 04 is a direct consequence.</li>
+  <li><strong>Same-wave separation is selection-confounded</strong> in both directions, as noted in section 02. It is reported because it is the right question, not because the estimate is clean.</li>
+  <li><strong>The <code>--reform</code> base is a sketch, not a proposal.</strong> Its constants (flat income ÷ 3, automation at 0.45x) were chosen to be roughly plausible, so it shows the <em>shape</em> of what happens when the flat term stops dominating, not a tuned design.</li>
+  <li><strong>Not modelled: the incentive to skip upgrades.</strong> Paying automated kills less creates a reason not to buy turrets. Upgrades would need to stay clearly net-positive for survival; <code>upgrade-sweep.ts</code> is the tool to check that before shipping any of this.</li>
+</ul>
+
+<h2><span class="num">09</span>Reproducing this</h2>
+<div class="card">
+<pre style="margin:0;overflow-x:auto;font-size:13px"><code># where the points come from, by skill tier
+npx tsx src/headless/score-attrib.ts --all --games=60 --fixed-build --json=attrib.json
+
+# score every candidate combo rule, on both score bases
+npx tsx src/headless/combo-eval.ts --games=50 --json=combo.json
+npx tsx src/headless/combo-eval.ts --games=50 --reform --json=combo-reform.json</code></pre>
+</div>
+<p class="footnote"><code>score-probe.ts</code> holds the shared instrumentation. Its file:line → subsystem maps are derived by reading the sim source at startup rather than hardcoded, so the tools do not silently mis-attribute when the sim is edited. An instrumented run was verified to produce the same score and wave as an uninstrumented one on the same seed.</p>
+
+</div>
+<div class="tip" id="tip"></div>
+
+<script id="report-data" type="application/json">{"waveR2": 0.9899401326229058, "tiers": {"novice": {"medianScore": 17117.0, "meanWave": 4.916666666666667, "killsPerShot": 0.6986626036905367, "ptsPerKill": 261.26153846153846, "maxCombo": 5.0, "n": 60}, "average": {"medianScore": 30027.0, "meanWave": 6.483333333333333, "killsPerShot": 0.7197986577181208, "ptsPerKill": 262.1545530492899, "maxCombo": 6.0, "n": 60}, "good": {"medianScore": 55879.0, "meanWave": 7.933333333333334, "killsPerShot": 0.7956718979892105, "ptsPerKill": 270.4857657068063, "maxCombo": 7.0, "n": 60}, "perfect": {"medianScore": 171685.0, "meanWave": 11.8, "killsPerShot": 1.3258270582777203, "ptsPerKill": 280.786131276467, "maxCombo": 10.0, "n": 60}}, "sources": {"novice": {"player": {"perGame": 3128.3, "share": 0.17314642790592985}, "auto": {"perGame": 1121.7333333333333, "share": 0.06208615533346494}, "combo": {"perGame": 1253.1666666666667, "share": 0.0693607812243437}, "flat": {"perGame": 12564.166666666666, "share": 0.6954066355362615}, "total": {"perGame": 18067.366666666665, "share": 1.0}}, "average": {"player": {"perGame": 7315.2, "share": 0.2043930498018061}, "auto": {"perGame": 2830.3, "share": 0.07908104342383691}, "combo": {"perGame": 2835.2, "share": 0.07921795368521443}, "flat": {"perGame": 22809.166666666668, "share": 0.6373079530891426}, "total": {"perGame": 35789.86666666667, "share": 1.0}}, "good": {"player": {"perGame": 12918.866666666667, "share": 0.22261088729363895}, "auto": {"perGame": 5230.266666666666, "share": 0.09012511186087092}, "combo": {"perGame": 5598.433333333333, "share": 0.09646915971377402}, "flat": {"perGame": 34285.833333333336, "share": 0.5907948411317161}, "total": {"perGame": 58033.4, "share": 1.0}}, "perfect": {"player": {"perGame": 38834.333333333336, "share": 0.22313858847887563}, "auto": {"perGame": 27753.633333333335, "share": 0.15946988233333748}, "combo": {"perGame": 31169.7, "share": 0.1790982943265841}, "flat": {"perGame": 76279.16666666667, "share": 0.43829323486120275}, "total": {"perGame": 174036.83333333334, "share": 1.0}}}, "scoreByWave": {"novice": {"3": {"median": 5510, "n": 5}, "4": {"median": 10588, "n": 17}, "5": {"median": 17527.0, "n": 24}, "6": {"median": 25631.0, "n": 8}, "7": {"median": 38406.0, "n": 4}, "8": {"median": 51980.0, "n": 2}}, "average": {"4": {"median": 10190, "n": 3}, "5": {"median": 18077.0, "n": 14}, "6": {"median": 28384, "n": 15}, "7": {"median": 39954, "n": 15}, "8": {"median": 52400, "n": 7}, "9": {"median": 70986, "n": 5}, "11": {"median": 124226, "n": 1}}, "good": {"5": {"median": 17936, "n": 1}, "6": {"median": 28436.0, "n": 10}, "7": {"median": 40796.0, "n": 10}, "8": {"median": 55460, "n": 15}, "9": {"median": 76164, "n": 19}, "10": {"median": 102366, "n": 5}}, "perfect": {"9": {"median": 85122.0, "n": 2}, "10": {"median": 106906.0, "n": 2}, "11": {"median": 140632.0, "n": 22}, "12": {"median": 177624, "n": 19}, "13": {"median": 221548.0, "n": 12}, "14": {"median": 239146, "n": 1}, "15": {"median": 321984.0, "n": 2}}}, "schemes": {"current": [{"name": "escalating-mult", "blurb": "continuous multiplier like today, but superlinear (x1, x2, x4, x7, x11...) so the top rungs are worth far more; player kills only", "byTier": {"novice": {"median": 16965.3499391224, "ratio": 1, "comboShare": 0.05699356479998373, "triggersPerWave": 8.333333333333334}, "average": {"median": 29454.8745554362, "ratio": 1.7361784260938073, "comboShare": 0.0699706135547355, "triggersPerWave": 11.714285714285714}, "good": {"median": 59772.06002277775, "ratio": 3.5231846226137846, "comboShare": 0.08786656745923455, "triggersPerWave": 14.777777777777779}, "perfect": {"median": 168373.29423415283, "ratio": 9.924540008802353, "comboShare": 0.16876427933648294, "triggersPerWave": 22}}, "skillSpread": 9.924540008802353, "accuracyCorr": 0.5132441460932047, "sameWaveSpread": 1.0662173952332141}, {"name": "rhythm-3-chain", "blurb": "cash out every 3 hits; value x tightness (all 3 inside 90 ticks = full) x chain bonus (+75% per consecutive cash-out, reset on a miss)", "byTier": {"novice": {"median": 17937.589417490333, "ratio": 1, "comboShare": 0.09658474079746264, "triggersPerWave": 0.6666666666666666}, "average": {"median": 32110.468687813358, "ratio": 1.7901217348917315, "comboShare": 0.1007324692246947, "triggersPerWave": 0.8888888888888888}, "good": {"median": 62019.29805830111, "ratio": 3.457504607493591, "comboShare": 0.09249554220708774, "triggersPerWave": 1.3333333333333333}, "perfect": {"median": 163841.28450268228, "ratio": 9.133963359810556, "comboShare": 0.15445437662012115, "triggersPerWave": 3.9166666666666665}}, "skillSpread": 9.133963359810556, "accuracyCorr": 0.4599742987700939, "sameWaveSpread": 1.0621751421676144}, {"name": "current", "blurb": "x1..x10 multiplier, +1 per hitting shot, resets to x1 on a miss, applied to ALL kills", "byTier": {"novice": {"median": 17332, "ratio": 1, "comboShare": 0.06422557274329352, "triggersPerWave": 8.333333333333334}, "average": {"median": 29788, "ratio": 1.7186706669743828, "comboShare": 0.07673604616987736, "triggersPerWave": 12}, "good": {"median": 61042, "ratio": 3.5219247634433417, "comboShare": 0.087767316254288, "triggersPerWave": 15.11111111111111}, "perfect": {"median": 168702, "ratio": 9.733556427417493, "comboShare": 0.16681833030006066, "triggersPerWave": 23.181818181818183}}, "skillSpread": 9.733556427417493, "accuracyCorr": 0.730852739735719, "sameWaveSpread": 1.0541368213432991}, {"name": "player-only", "blurb": "identical multiplier, but automated kills are paid at base rate (no combo)", "byTier": {"novice": {"median": 17272.789104382235, "ratio": 1, "comboShare": 0.06694021349853607, "triggersPerWave": 8.333333333333334}, "average": {"median": 29537.24226159934, "ratio": 1.710044746282783, "comboShare": 0.08374736475913648, "triggersPerWave": 12}, "good": {"median": 59794.17695777681, "ratio": 3.461755747518887, "comboShare": 0.09669834296052764, "triggersPerWave": 15.11111111111111}, "perfect": {"median": 167361.10200239872, "ratio": 9.689292273008647, "comboShare": 0.16563526662915593, "triggersPerWave": 23.181818181818183}}, "skillSpread": 9.689292273008647, "accuracyCorr": 0.5625814391702548, "sameWaveSpread": 1.068460842522905}, {"name": "cashout-3", "blurb": "3 consecutive hitting shots pays a flat bonus and resets the counter to 0", "byTier": {"novice": {"median": 18156.578993821713, "ratio": 1, "comboShare": 0.10884347342440612, "triggersPerWave": 0.6666666666666666}, "average": {"median": 32348.210650191235, "ratio": 1.7816247576814235, "comboShare": 0.11345152953896628, "triggersPerWave": 0.8888888888888888}, "good": {"median": 62012.31597528685, "ratio": 3.4154185100832204, "comboShare": 0.103581425767348, "triggersPerWave": 1.3333333333333333}, "perfect": {"median": 165054.57958223007, "ratio": 9.090621071204797, "comboShare": 0.16062077971763647, "triggersPerWave": 3.9166666666666665}}, "skillSpread": 9.090621071204797, "accuracyCorr": 0.48410327156906907, "sameWaveSpread": 1.063859076004004}, {"name": "cashout-3-escalating", "blurb": "3 hits in a row pays a bonus that grows with each cash-out held in the same wave", "byTier": {"novice": {"median": 17962.169544740973, "ratio": 1, "comboShare": 0.09917926260371443, "triggersPerWave": 0.6666666666666666}, "average": {"median": 32090.147043432757, "ratio": 1.786540705091397, "comboShare": 0.10421293368820046, "triggersPerWave": 0.8888888888888888}, "good": {"median": 61952.655677655675, "ratio": 3.4490630724390634, "comboShare": 0.0938354398440413, "triggersPerWave": 1.3333333333333333}, "perfect": {"median": 165485.45839874411, "ratio": 9.212999464599505, "comboShare": 0.15693986679278174, "triggersPerWave": 3.9166666666666665}}, "skillSpread": 9.212999464599505, "accuracyCorr": 0.47463280208366365, "sameWaveSpread": 1.0608519250638573}, {"name": "cashout-5", "blurb": "5 consecutive hitting shots pays a flat bonus and resets the counter to 0", "byTier": {"novice": {"median": 16400, "ratio": 1, "comboShare": 0, "triggersPerWave": 0}, "average": {"median": 31466.89322617681, "ratio": 1.9187130015961469, "comboShare": 0.05841862148572426, "triggersPerWave": 0.14285714285714285}, "good": {"median": 59173.50172215843, "ratio": 3.6081403489120993, "comboShare": 0.08788336679256252, "triggersPerWave": 0.25}, "perfect": {"median": 168467.57290470722, "ratio": 10.272412981994343, "comboShare": 0.17154433289842538, "triggersPerWave": 1.0769230769230769}}, "skillSpread": 10.272412981994343, "accuracyCorr": 0.31554645937620185, "sameWaveSpread": 1.1086892967046222}, {"name": "cashout-5-escalating", "blurb": "5 hits in a row pays a bonus that grows with each cash-out held in the same wave", "byTier": {"novice": {"median": 16400, "ratio": 1, "comboShare": 0, "triggersPerWave": 0}, "average": {"median": 31011.369774919614, "ratio": 1.8909371813975375, "comboShare": 0.05474910835498544, "triggersPerWave": 0.14285714285714285}, "good": {"median": 62380.53376205788, "ratio": 3.8036910830523096, "comboShare": 0.08252526641836709, "triggersPerWave": 0.25}, "perfect": {"median": 167364.9174705252, "ratio": 10.205177894544219, "comboShare": 0.16804424841332494, "triggersPerWave": 1.0769230769230769}}, "skillSpread": 10.205177894544219, "accuracyCorr": 0.31846383449255544, "sameWaveSpread": 1.0961885547359351}, {"name": "rhythm-3@60t", "blurb": "3 hits in a row, bonus scaled by tightness \u2014 full value if all 3 land within 60 ticks, tapering to 0.25x when spread out", "byTier": {"novice": {"median": 18179.19339969693, "ratio": 1, "comboShare": 0.10490980837651485, "triggersPerWave": 0.6666666666666666}, "average": {"median": 32095.567180083388, "ratio": 1.7655110694085283, "comboShare": 0.10594014965833129, "triggersPerWave": 0.8888888888888888}, "good": {"median": 62107.96785692624, "ratio": 3.4164314384796444, "comboShare": 0.11359461178469521, "triggersPerWave": 1.3333333333333333}, "perfect": {"median": 164333.69451514335, "ratio": 9.039658190658942, "comboShare": 0.1580322872732073, "triggersPerWave": 3.9166666666666665}}, "skillSpread": 9.039658190658942, "accuracyCorr": 0.4705053223877427, "sameWaveSpread": 1.0827685039025268}, {"name": "rhythm-3@120t", "blurb": "3 hits in a row, bonus scaled by tightness \u2014 full value if all 3 land within 120 ticks, tapering to 0.25x when spread out", "byTier": {"novice": {"median": 18237.856014992507, "ratio": 1, "comboShare": 0.1095797634650352, "triggersPerWave": 0.6666666666666666}, "average": {"median": 32564.94937331335, "ratio": 1.7855689477174945, "comboShare": 0.1142715396973775, "triggersPerWave": 0.8888888888888888}, "good": {"median": 62337.42405997003, "ratio": 3.4180236980007566, "comboShare": 0.10785721555094753, "triggersPerWave": 1.3333333333333333}, "perfect": {"median": 164358.13330946333, "ratio": 9.011921860461669, "comboShare": 0.15857333078328417, "triggersPerWave": 3.9166666666666665}}, "skillSpread": 9.011921860461669, "accuracyCorr": 0.47648516875459224, "sameWaveSpread": 1.062191702459082}, {"name": "rhythm-5@150t", "blurb": "5 hits in a row, bonus scaled by tightness \u2014 full value if all 5 land within 150 ticks, tapering to 0.25x when spread out", "byTier": {"novice": {"median": 16400, "ratio": 1, "comboShare": 0, "triggersPerWave": 0}, "average": {"median": 32062.19763495274, "ratio": 1.9550120509117523, "comboShare": 0.06185395698101154, "triggersPerWave": 0.14285714285714285}, "good": {"median": 60742.19602123981, "ratio": 3.703792440319501, "comboShare": 0.09473055098650629, "triggersPerWave": 0.25}, "perfect": {"median": 168602.18650419728, "ratio": 10.280621128304713, "comboShare": 0.16884531579921255, "triggersPerWave": 1.0769230769230769}}, "skillSpread": 10.280621128304713, "accuracyCorr": 0.3051653778317718, "sameWaveSpread": 1.1194997260316464}, {"name": "window-3@90t", "blurb": "pays every time 3 hits land inside a rolling 90-tick window; misses do not reset, they just do not count", "byTier": {"novice": {"median": 18324.247382000303, "ratio": 1, "comboShare": 0.10807876755190335, "triggersPerWave": 1.4}, "average": {"median": 32328.940051601152, "ratio": 1.7642710981602168, "comboShare": 0.1408498803267758, "triggersPerWave": 2.6}, "good": {"median": 61599.43481560176, "ratio": 3.361635189236212, "comboShare": 0.14295002361721076, "triggersPerWave": 3.6666666666666665}, "perfect": {"median": 161897.46334800427, "ratio": 8.83514940466446, "comboShare": 0.14314633652927053, "triggersPerWave": 6.666666666666667}}, "skillSpread": 8.83514940466446, "accuracyCorr": 0.2567140833082919, "sameWaveSpread": 1.0582540306953916}, {"name": "window-3@150t", "blurb": "pays every time 3 hits land inside a rolling 150-tick window; misses do not reset, they just do not count", "byTier": {"novice": {"median": 19267.240603426235, "ratio": 1, "comboShare": 0.14861323376728747, "triggersPerWave": 2.2}, "average": {"median": 32838.48120685247, "ratio": 1.7043686681845298, "comboShare": 0.16267118316334966, "triggersPerWave": 3.5}, "good": {"median": 61745.28509332652, "ratio": 3.2046771182349043, "comboShare": 0.14946145800024624, "triggersPerWave": 4.444444444444445}, "perfect": {"median": 161617.8107900793, "ratio": 8.38821781056387, "comboShare": 0.1359439897554032, "triggersPerWave": 7.333333333333333}}, "skillSpread": 8.38821781056387, "accuracyCorr": 0.32758156256155063, "sameWaveSpread": 1.0345212982986054}, {"name": "window-4@150t", "blurb": "pays every time 4 hits land inside a rolling 150-tick window; misses do not reset, they just do not count", "byTier": {"novice": {"median": 18763.511755485895, "ratio": 1, "comboShare": 0.11688801068070714, "triggersPerWave": 1}, "average": {"median": 32970.88401253919, "ratio": 1.757180875424318, "comboShare": 0.14919023812861926, "triggersPerWave": 2.142857142857143}, "good": {"median": 61983.90752351096, "ratio": 3.303427862078574, "comboShare": 0.14669527217905898, "triggersPerWave": 2.875}, "perfect": {"median": 161810.23354231974, "ratio": 8.623664677003292, "comboShare": 0.14225432258181597, "triggersPerWave": 5}}, "skillSpread": 8.623664677003292, "accuracyCorr": 0.2906119080265907, "sameWaveSpread": 1.0297891601678943}, {"name": "tempo-90t", "blurb": "multiplier +1 per hit, -1 for every 90 ticks without a hit, -2 on a miss; pays player kills only", "byTier": {"novice": {"median": 17036.18046859316, "ratio": 1, "comboShare": 0.043221069757621834, "triggersPerWave": 8.333333333333334}, "average": {"median": 29006.66659544055, "ratio": 1.7026508171192147, "comboShare": 0.05801114694182167, "triggersPerWave": 12}, "good": {"median": 58167.79707794865, "ratio": 3.414368448677987, "comboShare": 0.071985041731772, "triggersPerWave": 14.9}, "perfect": {"median": 168236.63466776034, "ratio": 9.875255488042693, "comboShare": 0.17435129812934694, "triggersPerWave": 22.454545454545453}}, "skillSpread": 9.875255488042693, "accuracyCorr": 0.4830103944527819, "sameWaveSpread": 1.0629262367507324}, {"name": "tempo-150t", "blurb": "multiplier +1 per hit, -1 for every 150 ticks without a hit, -2 on a miss; pays player kills only", "byTier": {"novice": {"median": 16992.75866680903, "ratio": 1, "comboShare": 0.0410338018566983, "triggersPerWave": 8.333333333333334}, "average": {"median": 28953.369930228804, "ratio": 1.703865187397838, "comboShare": 0.05579484112602919, "triggersPerWave": 12}, "good": {"median": 58146.068820681365, "ratio": 3.421814548231931, "comboShare": 0.06740294970748287, "triggersPerWave": 14.9}, "perfect": {"median": 168354.57731789927, "ratio": 9.907430607293712, "comboShare": 0.17999384288446968, "triggersPerWave": 21.916666666666668}}, "skillSpread": 9.907430607293712, "accuracyCorr": 0.4713037713922101, "sameWaveSpread": 1.060801855839407}], "reform": [{"name": "escalating-mult", "blurb": "continuous multiplier like today, but superlinear (x1, x2, x4, x7, x11...) so the top rungs are worth far more; player kills only", "byTier": {"novice": {"median": 7548.514167392858, "ratio": 1, "comboShare": 0.1254168866283769, "triggersPerWave": 8.333333333333334}, "average": {"median": 15326.381579041677, "ratio": 2.0303838926668103, "comboShare": 0.15749579282447662, "triggersPerWave": 11.714285714285714}, "good": {"median": 30502.168909625245, "ratio": 4.040817601082973, "comboShare": 0.1728680811614875, "triggersPerWave": 14.777777777777779}, "perfect": {"median": 91107.07201193049, "ratio": 12.069537128973487, "comboShare": 0.31892326110640645, "triggersPerWave": 22}}, "skillSpread": 12.069537128973487, "accuracyCorr": 0.5132441460932047, "sameWaveSpread": 1.125035411391582}, {"name": "rhythm-3-chain", "blurb": "cash out every 3 hits; value x tightness (all 3 inside 90 ticks = full) x chain bonus (+75% per consecutive cash-out, reset on a miss)", "byTier": {"novice": {"median": 8132.370722771333, "ratio": 1, "comboShare": 0.2018896473200469, "triggersPerWave": 0.6666666666666666}, "average": {"median": 15911.944139807667, "ratio": 1.9566181476765272, "comboShare": 0.19930930011704145, "triggersPerWave": 0.8888888888888888}, "good": {"median": 32001.309169412227, "ratio": 3.9350529212601963, "comboShare": 0.18863768154713703, "triggersPerWave": 1.3333333333333333}, "perfect": {"median": 86575.06228045994, "ratio": 10.645734833268529, "comboShare": 0.2920989866793513, "triggersPerWave": 3.9166666666666665}}, "skillSpread": 10.645734833268529, "accuracyCorr": 0.4599742987700939, "sameWaveSpread": 1.1721642422319312}, {"name": "current", "blurb": "x1..x10 multiplier, +1 per hitting shot, resets to x1 on a miss, applied to ALL kills", "byTier": {"novice": {"median": 7787.600000000001, "ratio": 1, "comboShare": 0.14452386369877526, "triggersPerWave": 8.333333333333334}, "average": {"median": 14799.166666666666, "ratio": 1.9003501292653273, "comboShare": 0.16360299723561159, "triggersPerWave": 12}, "good": {"median": 29412.611111111124, "ratio": 3.7768518042928654, "comboShare": 0.17902583815174133, "triggersPerWave": 15.11111111111111}, "perfect": {"median": 89619.39999999989, "ratio": 11.507961374492767, "comboShare": 0.316084845828863, "triggersPerWave": 23.181818181818183}}, "skillSpread": 11.507961374492767, "accuracyCorr": 0.730852739735719, "sameWaveSpread": 1.1079010178195519}, {"name": "player-only", "blurb": "identical multiplier, but automated kills are paid at base rate (no combo)", "byTier": {"novice": {"median": 7865.10877800478, "ratio": 1, "comboShare": 0.15948001269784098, "triggersPerWave": 8.333333333333334}, "average": {"median": 15319.64522138872, "ratio": 1.9477982636719497, "comboShare": 0.18291040957051938, "triggersPerWave": 12}, "good": {"median": 30442.35357889992, "ratio": 3.8705572215394755, "comboShare": 0.1882807452045396, "triggersPerWave": 15.11111111111111}, "perfect": {"median": 88789.40200239871, "ratio": 11.289024031136515, "comboShare": 0.3105700561261834, "triggersPerWave": 23.181818181818183}}, "skillSpread": 11.289024031136515, "accuracyCorr": 0.5625814391702548, "sameWaveSpread": 1.1299436379648091}, {"name": "cashout-3", "blurb": "3 consecutive hitting shots pays a flat bonus and resets the counter to 0", "byTier": {"novice": {"median": 8294.298323036188, "ratio": 1, "comboShare": 0.23004246652095658, "triggersPerWave": 0.6666666666666666}, "average": {"median": 16528.756310679615, "ratio": 1.9927853649504548, "comboShare": 0.2330596486427008, "triggersPerWave": 0.8888888888888888}, "good": {"median": 30485.742306560747, "ratio": 3.675505886000158, "comboShare": 0.20159065697352024, "triggersPerWave": 1.3333333333333333}, "perfect": {"median": 86482.87958223007, "ratio": 10.426786717091748, "comboShare": 0.29852217675777964, "triggersPerWave": 3.9166666666666665}}, "skillSpread": 10.426786717091748, "accuracyCorr": 0.48410327156906907, "sameWaveSpread": 1.1622960947497947}, {"name": "cashout-3-escalating", "blurb": "3 hits in a row pays a bonus that grows with each cash-out held in the same wave", "byTier": {"novice": {"median": 8148.75747427176, "ratio": 1, "comboShare": 0.20992724660413672, "triggersPerWave": 0.6666666666666666}, "average": {"median": 16076.283254840397, "ratio": 1.9728508678284238, "comboShare": 0.21668801701923332, "triggersPerWave": 0.8888888888888888}, "good": {"median": 30969.293249607534, "ratio": 3.800492694424582, "comboShare": 0.18803494530593753, "triggersPerWave": 1.3333333333333333}, "perfect": {"median": 85697.44836909122, "ratio": 10.516627674791591, "comboShare": 0.30244890781992806, "triggersPerWave": 3.9166666666666665}}, "skillSpread": 10.516627674791591, "accuracyCorr": 0.47463280208366365, "sameWaveSpread": 1.1644039777939197}, {"name": "cashout-5", "blurb": "5 consecutive hitting shots pays a flat bonus and resets the counter to 0", "byTier": {"novice": {"median": 6961.4111111111115, "ratio": 1, "comboShare": 0, "triggersPerWave": 0}, "average": {"median": 15264.395484117873, "ratio": 2.192715706698368, "comboShare": 0.1281777368273161, "triggersPerWave": 0.14285714285714285}, "good": {"median": 29636.96874601352, "ratio": 4.257322010290405, "comboShare": 0.1804743599690442, "triggersPerWave": 0.25}, "perfect": {"median": 93839.2794999361, "ratio": 13.479922102310434, "comboShare": 0.31751242295569077, "triggersPerWave": 1.0769230769230769}}, "skillSpread": 13.479922102310434, "accuracyCorr": 0.31554645937620185, "sameWaveSpread": 1.1905925647067188}, {"name": "cashout-5-escalating", "blurb": "5 hits in a row pays a bonus that grows with each cash-out held in the same wave", "byTier": {"novice": {"median": 6961.4111111111115, "ratio": 1, "comboShare": 0, "triggersPerWave": 0}, "average": {"median": 14978.92325830654, "ratio": 2.151707896463502, "comboShare": 0.12068801587814963, "triggersPerWave": 0.14285714285714285}, "good": {"median": 29081.83644158628, "ratio": 4.1775777895330375, "comboShare": 0.1705265368965643, "triggersPerWave": 0.25}, "perfect": {"median": 93846.62665237575, "ratio": 13.480977513680683, "comboShare": 0.31407712578414904, "triggersPerWave": 1.0769230769230769}}, "skillSpread": 13.480977513680683, "accuracyCorr": 0.31846383449255544, "sameWaveSpread": 1.1672687377586837}, {"name": "rhythm-3@60t", "blurb": "3 hits in a row, bonus scaled by tightness \u2014 full value if all 3 land within 60 ticks, tapering to 0.25x when spread out", "byTier": {"novice": {"median": 8307.637746922412, "ratio": 1, "comboShare": 0.2323160347018206, "triggersPerWave": 0.6666666666666666}, "average": {"median": 15971.901404565813, "ratio": 1.9225563139753716, "comboShare": 0.2227239523343229, "triggersPerWave": 0.8888888888888888}, "good": {"median": 30834.52777074936, "ratio": 3.7115879038144266, "comboShare": 0.21549234161783185, "triggersPerWave": 1.3333333333333333}, "perfect": {"median": 85761.99451514333, "ratio": 10.323270841571555, "comboShare": 0.2990506289359839, "triggersPerWave": 3.9166666666666665}}, "skillSpread": 10.323270841571555, "accuracyCorr": 0.4705053223877427, "sameWaveSpread": 1.1778248146248713}, {"name": "rhythm-3@120t", "blurb": "3 hits in a row, bonus scaled by tightness \u2014 full value if all 3 land within 120 ticks, tapering to 0.25x when spread out", "byTier": {"novice": {"median": 8429.76002498751, "ratio": 1, "comboShare": 0.23216227614566942, "triggersPerWave": 0.6666666666666666}, "average": {"median": 16659.353383308353, "ratio": 1.9762547609809373, "comboShare": 0.23295277564612998, "triggersPerWave": 0.8888888888888888}, "good": {"median": 30837.942731634183, "ratio": 3.65822308585586, "comboShare": 0.2089690867692283, "triggersPerWave": 1.3333333333333333}, "perfect": {"median": 85786.43330946333, "ratio": 10.176616304043653, "comboShare": 0.2964035365852493, "triggersPerWave": 3.9166666666666665}}, "skillSpread": 10.176616304043653, "accuracyCorr": 0.47648516875459224, "sameWaveSpread": 1.1707530952735499}, {"name": "rhythm-5@150t", "blurb": "5 hits in a row, bonus scaled by tightness \u2014 full value if all 5 land within 150 ticks, tapering to 0.25x when spread out", "byTier": {"novice": {"median": 7107.311111111111, "ratio": 1, "comboShare": 0, "triggersPerWave": 0}, "average": {"median": 15329.199211650917, "ratio": 2.1568211904620633, "comboShare": 0.1315825178088652, "triggersPerWave": 0.14285714285714285}, "good": {"median": 30430.707957714767, "ratio": 4.281606289914812, "comboShare": 0.19312063216661762, "triggersPerWave": 0.25}, "perfect": {"median": 92864.43619961242, "ratio": 13.066043507569855, "comboShare": 0.31163396980660973, "triggersPerWave": 1.0769230769230769}}, "skillSpread": 13.066043507569855, "accuracyCorr": 0.3051653778317718, "sameWaveSpread": 1.2317388467620087}, {"name": "window-3@90t", "blurb": "pays every time 3 hits land inside a rolling 90-tick window; misses do not reset, they just do not count", "byTier": {"novice": {"median": 8789.346334800426, "ratio": 1, "comboShare": 0.22490941374001866, "triggersPerWave": 1.4}, "average": {"median": 18057.81782937893, "ratio": 2.0545120355402355, "comboShare": 0.2856527607602453, "triggersPerWave": 2.6}, "good": {"median": 33838.90043506855, "ratio": 3.8499905619929025, "comboShare": 0.2719044758769979, "triggersPerWave": 3.6666666666666665}, "perfect": {"median": 83960.79668133757, "ratio": 9.552564375453526, "comboShare": 0.278899886017961, "triggersPerWave": 6.666666666666667}}, "skillSpread": 9.552564375453526, "accuracyCorr": 0.2567140833082919, "sameWaveSpread": 1.0965557607633005}, {"name": "window-3@150t", "blurb": "pays every time 3 hits land inside a rolling 150-tick window; misses do not reset, they just do not count", "byTier": {"novice": {"median": 9760.214997585159, "ratio": 1, "comboShare": 0.29841033897555763, "triggersPerWave": 2.2}, "average": {"median": 18170.922267678063, "ratio": 1.8617338114143853, "comboShare": 0.31164715453781927, "triggersPerWave": 3.5}, "good": {"median": 33623.24549561068, "ratio": 3.444928775024898, "comboShare": 0.28169602742175387, "triggersPerWave": 4.444444444444445}, "perfect": {"median": 82663.39725560384, "ratio": 8.469423806346084, "comboShare": 0.2680035835591063, "triggersPerWave": 7.333333333333333}}, "skillSpread": 8.469423806346084, "accuracyCorr": 0.32758156256155063, "sameWaveSpread": 1.0719753738446316}, {"name": "window-4@150t", "blurb": "pays every time 4 hits land inside a rolling 150-tick window; misses do not reset, they just do not count", "byTier": {"novice": {"median": 9218.51792058516, "ratio": 1, "comboShare": 0.24168686454406663, "triggersPerWave": 1}, "average": {"median": 18182.750679205852, "ratio": 1.9724158303802128, "comboShare": 0.2911222024637966, "triggersPerWave": 2.142857142857143}, "good": {"median": 33392.762434691744, "ratio": 3.622356947435655, "comboShare": 0.27509804332974325, "triggersPerWave": 2.875}, "perfect": {"median": 83873.56687565302, "ratio": 9.098378676290409, "comboShare": 0.2788310793454411, "triggersPerWave": 5}}, "skillSpread": 9.098378676290409, "accuracyCorr": 0.2906119080265907, "sameWaveSpread": 1.0577000414499262}, {"name": "tempo-90t", "blurb": "multiplier +1 per hit, -1 for every 90 ticks without a hit, -2 on a miss; pays player kills only", "byTier": {"novice": {"median": 7262.788174636477, "ratio": 1, "comboShare": 0.10855876678508329, "triggersPerWave": 8.333333333333334}, "average": {"median": 14512.558532271032, "ratio": 1.9982076006226666, "comboShare": 0.12651759313599384, "triggersPerWave": 12}, "good": {"median": 29752.163744615318, "ratio": 4.096520926841501, "comboShare": 0.1449162234365317, "triggersPerWave": 14.9}, "perfect": {"median": 92870.2039096243, "ratio": 12.787128259357875, "comboShare": 0.3238930394827022, "triggersPerWave": 22.454545454545453}}, "skillSpread": 12.787128259357875, "accuracyCorr": 0.4830103944527819, "sameWaveSpread": 1.1193307275473996}, {"name": "tempo-150t", "blurb": "multiplier +1 per hit, -1 for every 150 ticks without a hit, -2 on a miss; pays player kills only", "byTier": {"novice": {"median": 7220.185652131292, "ratio": 1, "comboShare": 0.10190427274887424, "triggersPerWave": 8.333333333333334}, "average": {"median": 14446.727720061048, "ratio": 2.0008803673623805, "comboShare": 0.121209322129194, "triggersPerWave": 12}, "good": {"median": 29730.435487348033, "ratio": 4.117682968245013, "comboShare": 0.13743703307870855, "triggersPerWave": 14.9}, "perfect": {"median": 93282.35542880255, "ratio": 12.919661615801662, "comboShare": 0.3300866846627741, "triggersPerWave": 21.916666666666668}}, "skillSpread": 12.919661615801662, "accuracyCorr": 0.4713037713922101, "sameWaveSpread": 1.1164391125724566}]}, "burst": {"novice": [{"lo": 0, "hi": 15, "rate": 0.5034364261168385, "n": 582}, {"lo": 15, "hi": 30, "rate": 0.40261560018682857, "n": 2141}, {"lo": 30, "hi": 60, "rate": 0.5810643564356436, "n": 1616}, {"lo": 60, "hi": 120, "rate": 0.4945054945054945, "n": 91}, {"lo": 120, "hi": null, "rate": 0, "n": 4}], "average": [{"lo": 0, "hi": 15, "rate": 0.34817683123588256, "n": 3099}, {"lo": 15, "hi": 30, "rate": 0.453318335208099, "n": 3556}, {"lo": 30, "hi": 60, "rate": 0.6736898973527823, "n": 1851}, {"lo": 60, "hi": 120, "rate": 0.30327868852459017, "n": 122}, {"lo": 120, "hi": null, "rate": 0.05555555555555555, "n": 18}], "good": [{"lo": 0, "hi": 15, "rate": 0.4121742590013925, "n": 5027}, {"lo": 15, "hi": 30, "rate": 0.48792884371029227, "n": 5509}, {"lo": 30, "hi": 60, "rate": 0.6075268817204301, "n": 2046}, {"lo": 60, "hi": 120, "rate": 0.17857142857142858, "n": 168}, {"lo": 120, "hi": null, "rate": 0.022727272727272728, "n": 44}], "perfect": [{"lo": 0, "hi": 15, "rate": 0.472, "n": 9750}, {"lo": 15, "hi": 30, "rate": 0.6551411404602653, "n": 8821}, {"lo": 30, "hi": 60, "rate": 0.8466971333610304, "n": 2407}, {"lo": 60, "hi": 120, "rate": 0.9966555183946488, "n": 598}, {"lo": 120, "hi": null, "rate": 1, "n": 188}]}, "streaks": {"novice": {"1": 1.0, "2": 0.33473684210526317, "3": 0.11508771929824561, "4": 0.04070175438596491, "5": 0.013333333333333334, "6": 0.007017543859649123, "8": 0.0014035087719298245, "10": 0.0}, "average": {"1": 1.0, "2": 0.3203479576399395, "3": 0.11649016641452345, "4": 0.0472768532526475, "5": 0.018532526475037822, "6": 0.00794251134644478, "8": 0.0007564296520423601, "10": 0.0}, "good": {"1": 1.0, "2": 0.3635138776610078, "3": 0.13257881972514146, "4": 0.06009161950956615, "5": 0.03233629749393695, "6": 0.01751549447588251, "8": 0.006197790353004581, "10": 0.0029641606036108865}, "perfect": {"1": 1.0, "2": 0.5584633450763294, "3": 0.303472571716155, "4": 0.17060895822848515, "5": 0.09679583962422413, "6": 0.057708438181513166, "8": 0.022982721019963095, "10": 0.01073645361516524}}, "streaksPerWave": {"novice": 5.72289156626506, "average": 8.160493827160494, "good": 9.324120603015075, "perfect": 10.120543293718166}, "nRuns": 240}</script>
+<script>window.__REPORT__=JSON.parse(document.getElementById("report-data").textContent);</script>
+<script>
+const D = window.__REPORT__;
+const TIERS = ["novice", "average", "good", "perfect"];
+const TIER_VAR = { novice: "--tier-novice", average: "--tier-average", good: "--tier-good", perfect: "--tier-perfect" };
+const CAT = { player: "--cat-1", auto: "--cat-2", combo: "--cat-3", flat: "--cat-4" };
+const CAT_LABEL = {
+  player: "Player kills (base value)",
+  auto: "Automated kills (base value)",
+  combo: "Combo amplification",
+  flat: "Flat wave income",
+};
+const cssv = (n) => `var(${n})`;
+const fmt = (n) => Math.round(n).toLocaleString();
+const pct = (n, d = 1) => `${(n * 100).toFixed(d)}%`;
+const NS = "http://www.w3.org/2000/svg";
+
+function el(tag, attrs = {}, text) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (text != null) e.textContent = text;
+  return e;
+}
+function svg(w, h) {
+  const s = el("svg", { viewBox: `0 0 ${w} ${h}`, width: w, height: h, role: "img" });
+  s.style.minWidth = w + "px";
+  return s;
+}
+
+// ── tooltip ───────────────────────────────────────────────────────────────────
+const tip = document.getElementById("tip");
+function showTip(evt, html) {
+  tip.innerHTML = html;
+  tip.style.opacity = "1";
+  const r = tip.getBoundingClientRect();
+  let x = evt.clientX + 14;
+  let y = evt.clientY - r.height - 12;
+  if (x + r.width > innerWidth - 8) x = evt.clientX - r.width - 14;
+  if (y < 8) y = evt.clientY + 18;
+  tip.style.left = x + "px";
+  tip.style.top = y + "px";
+}
+const hideTip = () => (tip.style.opacity = "0");
+function hoverable(node, html) {
+  node.addEventListener("mousemove", (e) => showTip(e, html));
+  node.addEventListener("mouseleave", hideTip);
+  node.addEventListener("touchstart", (e) => showTip(e.touches[0], html), { passive: true });
+}
+
+function legend(id, items) {
+  const box = document.getElementById(id);
+  if (!box) return;
+  box.innerHTML = items
+    .map((i) => `<span><i class="sw" style="background:${i.color}"></i>${i.label}</span>`)
+    .join("");
+}
+
+// ── KPIs ──────────────────────────────────────────────────────────────────────
+document.getElementById("k-r2").textContent = D.waveR2.toFixed(3).replace(/^0/, "");
+document.getElementById("inl-r2").textContent = pct(D.waveR2, 1);
+document.getElementById("k-ppk").textContent =
+  `${fmt(D.tiers.novice.ptsPerKill)} → ${fmt(D.tiers.perfect.ptsPerKill)}`;
+document.getElementById("k-flat").textContent = pct(D.sources.novice.flat.share, 0);
+document.getElementById("k-combo").textContent = "29–40%";
+
+// ── 1. stacked point sources ──────────────────────────────────────────────────
+(function () {
+  const order = ["player", "auto", "combo", "flat"];
+  legend("lg-src", order.map((k) => ({ color: cssv(CAT[k]), label: CAT_LABEL[k] })));
+  const W = 900, rowH = 46, padL = 92, padR = 16, top = 26;
+  const H = top + TIERS.length * rowH + 12;
+  const s = svg(W, H);
+  const barW = W - padL - padR;
+  s.appendChild(el("text", { x: padL, y: 14, class: "tick" }, "0%"));
+  s.appendChild(el("text", { x: padL + barW, y: 14, class: "tick", "text-anchor": "end" }, "100% of score"));
+
+  TIERS.forEach((t, i) => {
+    const y = top + i * rowH;
+    const h = 26;
+    s.appendChild(el("text", { x: 0, y: y + h / 2 + 4, class: "lbl" }, t));
+    s.appendChild(
+      el("text", { x: 0, y: y + h / 2 + 18, class: "tick" }, `${fmt(D.sources[t].total.perGame)} pts`),
+    );
+    let x = padL;
+    order.forEach((k) => {
+      const share = D.sources[t][k].share;
+      const w = Math.max(0, share * barW - 2); // 2px surface gap between segments
+      const g = el("g");
+      const rect = el("rect", { x, y, width: w, height: h, rx: 4, fill: cssv(CAT[k]) });
+      g.appendChild(rect);
+      if (share > 0.055) {
+        g.appendChild(
+          el(
+            "text",
+            {
+              x: x + w / 2,
+              y: y + h / 2 + 4,
+              "text-anchor": "middle",
+              fill: "#fff",
+              style: "font-size:12px;font-weight:650;paint-order:stroke;stroke:rgba(0,0,0,.25);stroke-width:2px",
+            },
+            pct(share, 0),
+          ),
+        );
+      }
+      hoverable(
+        g,
+        `<b>${t} — ${CAT_LABEL[k]}</b><div class="r"><span>share of score</span><em>${pct(share)}</em></div>` +
+          `<div class="r"><span>per game</span><em>${fmt(D.sources[t][k].perGame)}</em></div>`,
+      );
+      s.appendChild(g);
+      x += share * barW;
+    });
+  });
+  document.getElementById("ch-sources").appendChild(s);
+})();
+
+// ── 2. score by final wave ────────────────────────────────────────────────────
+(function () {
+  legend("lg-tiers1", TIERS.map((t) => ({ color: cssv(TIER_VAR[t]), label: t })));
+  const W = 900, H = 380, padL = 66, padR = 96, padT = 16, padB = 42;
+  const s = svg(W, H);
+  const pts = {};
+  let maxW = 0, minW = 99, maxS = 0;
+  TIERS.forEach((t) => {
+    pts[t] = Object.entries(D.scoreByWave[t])
+      .map(([w, v]) => ({ w: +w, ...v }))
+      .filter((p) => p.n >= 3)
+      .sort((a, b) => a.w - b.w);
+    pts[t].forEach((p) => {
+      maxW = Math.max(maxW, p.w);
+      minW = Math.min(minW, p.w);
+      maxS = Math.max(maxS, p.median);
+    });
+  });
+  const niceMax = Math.ceil(maxS / 50000) * 50000;
+  const X = (w) => padL + ((w - minW) / (maxW - minW)) * (W - padL - padR);
+  const Y = (v) => H - padB - (v / niceMax) * (H - padT - padB);
+
+  for (let v = 0; v <= niceMax; v += 50000) {
+    s.appendChild(el("line", { x1: padL, x2: W - padR, y1: Y(v), y2: Y(v), class: "grid" }));
+    s.appendChild(el("text", { x: padL - 10, y: Y(v) + 4, class: "tick", "text-anchor": "end" }, fmt(v / 1000) + "k"));
+  }
+  s.appendChild(el("line", { x1: padL, x2: W - padR, y1: Y(0), y2: Y(0), class: "axis" }));
+  for (let w = minW; w <= maxW; w++) {
+    s.appendChild(el("text", { x: X(w), y: H - padB + 18, class: "tick", "text-anchor": "middle" }, w));
+  }
+  s.appendChild(
+    el("text", { x: (padL + W - padR) / 2, y: H - 6, class: "tick", "text-anchor": "middle" }, "wave the run ended on"),
+  );
+
+  TIERS.forEach((t) => {
+    const p = pts[t];
+    if (!p.length) return;
+    const col = cssv(TIER_VAR[t]);
+    s.appendChild(
+      el("path", {
+        d: p.map((q, i) => `${i ? "L" : "M"}${X(q.w)},${Y(q.median)}`).join(" "),
+        fill: "none",
+        stroke: col,
+        "stroke-width": 2,
+        "stroke-linejoin": "round",
+      }),
+    );
+    p.forEach((q) => {
+      const g = el("g");
+      g.appendChild(el("circle", { cx: X(q.w), cy: Y(q.median), r: 5.5, fill: col, stroke: "var(--surface-1)", "stroke-width": 2 }));
+      g.appendChild(el("circle", { cx: X(q.w), cy: Y(q.median), r: 13, class: "hit" }));
+      hoverable(
+        g,
+        `<b>${t} · ended on wave ${q.w}</b><div class="r"><span>median score</span><em>${fmt(q.median)}</em></div>` +
+          `<div class="r"><span>runs</span><em>${q.n}</em></div>`,
+      );
+      s.appendChild(g);
+    });
+    const last = p[p.length - 1];
+    // The tier curves coincide, so labels go below-right into empty space
+    // rather than on top of the shared line. Perfect ends the series, so its
+    // label sits on the point.
+    const dy = t === "perfect" ? 4 : 20;
+    s.appendChild(
+      el("text", { x: X(last.w) + 10, y: Y(last.median) + dy, fill: col, style: "font-size:12px;font-weight:650" }, t),
+    );
+  });
+  document.getElementById("ch-wave").appendChild(s);
+})();
+
+// ── 3. hit rate by gap ────────────────────────────────────────────────────────
+(function () {
+  legend("lg-tiers2", TIERS.map((t) => ({ color: cssv(TIER_VAR[t]), label: t })));
+  const labels = ["0–15", "15–30", "30–60", "60–120", "120+"];
+  const W = 900, H = 340, padL = 56, padR = 90, padT = 16, padB = 46;
+  const s = svg(W, H);
+  const X = (i) => padL + (i / (labels.length - 1)) * (W - padL - padR);
+  const Y = (v) => H - padB - v * (H - padT - padB);
+  for (let v = 0; v <= 1; v += 0.25) {
+    s.appendChild(el("line", { x1: padL, x2: W - padR, y1: Y(v), y2: Y(v), class: "grid" }));
+    s.appendChild(el("text", { x: padL - 10, y: Y(v) + 4, class: "tick", "text-anchor": "end" }, pct(v, 0)));
+  }
+  s.appendChild(el("line", { x1: padL, x2: W - padR, y1: Y(0), y2: Y(0), class: "axis" }));
+  labels.forEach((l, i) =>
+    s.appendChild(el("text", { x: X(i), y: H - padB + 18, class: "tick", "text-anchor": "middle" }, l)),
+  );
+  s.appendChild(
+    el("text", { x: (padL + W - padR) / 2, y: H - 8, class: "tick", "text-anchor": "middle" },
+      "ticks since the previous shot  ·  ← firing fast          taking time →"),
+  );
+  TIERS.forEach((t) => {
+    const row = D.burst[t];
+    const col = cssv(TIER_VAR[t]);
+    // Tail buckets carry only a few dozen shots each for the weaker tiers and are
+    // dominated by end-of-wave cleanup rather than by rhythm, so they are excluded
+    // rather than drawn as if they were comparable.
+    const usable = row.map((b, i) => ({ ...b, i })).filter((b) => b.n >= 250);
+    s.appendChild(
+      el("path", {
+        d: usable.map((b, i) => `${i ? "L" : "M"}${X(b.i)},${Y(b.rate)}`).join(" "),
+        fill: "none",
+        stroke: col,
+        "stroke-width": 2,
+        "stroke-linejoin": "round",
+      }),
+    );
+    usable.forEach((b) => {
+      const g = el("g");
+      g.appendChild(el("circle", { cx: X(b.i), cy: Y(b.rate), r: 5.5, fill: col, stroke: "var(--surface-1)", "stroke-width": 2 }));
+      g.appendChild(el("circle", { cx: X(b.i), cy: Y(b.rate), r: 9, class: "hit" }));
+      hoverable(
+        g,
+        `<b>${t} · ${labels[b.i]} ticks</b><div class="r"><span>hit rate</span><em>${pct(b.rate)}</em></div>` +
+          `<div class="r"><span>shots</span><em>${fmt(b.n)}</em></div>`,
+      );
+      s.appendChild(g);
+    });
+  });
+  // Only `perfect` separates; the other three interleave, so they share one label
+  // rather than three colliding ones. That interleaving is the finding.
+  const pLast = D.burst.perfect.map((b, i) => ({ ...b, i })).filter((b) => b.n >= 250).pop();
+  s.appendChild(
+    el("text", { x: X(pLast.i) + 10, y: Y(pLast.rate) + 4, fill: cssv(TIER_VAR.perfect), style: "font-size:12px;font-weight:650" }, "perfect"),
+  );
+  s.appendChild(
+    el("text", { x: X(2) + 12, y: Y(D.burst.average[2].rate) - 10, fill: cssv(TIER_VAR.good), style: "font-size:12px;font-weight:650" }, "novice · average · good"),
+  );
+  document.getElementById("ch-burst").appendChild(s);
+})();
+
+// ── 4. streak survival ────────────────────────────────────────────────────────
+(function () {
+  legend("lg-tiers3", TIERS.map((t) => ({ color: cssv(TIER_VAR[t]), label: t })));
+  const ks = [1, 2, 3, 4, 5, 6, 8, 10];
+  const W = 900, H = 340, padL = 56, padR = 90, padT = 16, padB = 46;
+  const s = svg(W, H);
+  const X = (i) => padL + (i / (ks.length - 1)) * (W - padL - padR);
+  const Y = (v) => H - padB - v * (H - padT - padB);
+  for (let v = 0; v <= 1; v += 0.25) {
+    s.appendChild(el("line", { x1: padL, x2: W - padR, y1: Y(v), y2: Y(v), class: "grid" }));
+    s.appendChild(el("text", { x: padL - 10, y: Y(v) + 4, class: "tick", "text-anchor": "end" }, pct(v, 0)));
+  }
+  [3, 5].forEach((k) => {
+    const i = ks.indexOf(k);
+    s.appendChild(el("line", { x1: X(i), x2: X(i), y1: padT, y2: Y(0), stroke: "var(--axis)", "stroke-width": 1, "stroke-dasharray": "3 3" }));
+    s.appendChild(el("text", { x: X(i), y: padT + 2, class: "tick", "text-anchor": "middle" }, `cash out at ${k}`));
+  });
+  s.appendChild(el("line", { x1: padL, x2: W - padR, y1: Y(0), y2: Y(0), class: "axis" }));
+  ks.forEach((k, i) => s.appendChild(el("text", { x: X(i), y: H - padB + 18, class: "tick", "text-anchor": "middle" }, "≥" + k)));
+  s.appendChild(
+    el("text", { x: (padL + W - padR) / 2, y: H - 8, class: "tick", "text-anchor": "middle" }, "consecutive hitting shots"),
+  );
+  TIERS.forEach((t) => {
+    const col = cssv(TIER_VAR[t]);
+    const p = ks.map((k, i) => ({ i, v: D.streaks[t][String(k)], k }));
+    s.appendChild(
+      el("path", { d: p.map((q, i) => `${i ? "L" : "M"}${X(q.i)},${Y(q.v)}`).join(" "), fill: "none", stroke: col, "stroke-width": 2, "stroke-linejoin": "round" }),
+    );
+    p.forEach((q) => {
+      const g = el("g");
+      g.appendChild(el("circle", { cx: X(q.i), cy: Y(q.v), r: 5, fill: col, stroke: "var(--surface-1)", "stroke-width": 2 }));
+      g.appendChild(el("circle", { cx: X(q.i), cy: Y(q.v), r: 9, class: "hit" }));
+      hoverable(g, `<b>${t} · streaks of ${q.k}+</b><div class="r"><span>share of streaks</span><em>${pct(q.v)}</em></div>`);
+      s.appendChild(g);
+    });
+  });
+  // novice, average and good lie on top of each other — that is the finding, so
+  // they get one shared label rather than four colliding ones.
+  const iFour = ks.indexOf(4);
+  s.appendChild(
+    el("text", { x: X(iFour) + 12, y: Y(D.streaks.perfect["4"]) + 4, fill: cssv(TIER_VAR.perfect), style: "font-size:12px;font-weight:650" }, "perfect"),
+  );
+  s.appendChild(
+    el("text", { x: X(iFour) + 12, y: Y(D.streaks.good["4"]) + 4, fill: cssv(TIER_VAR.good), style: "font-size:12px;font-weight:650" }, "novice · average · good"),
+  );
+  document.getElementById("ch-streak").appendChild(s);
+})();
+
+// ── tables ────────────────────────────────────────────────────────────────────
+function table(node, head, rows) {
+  node.innerHTML =
+    `<thead><tr>${head.map((h) => `<th>${h}</th>`).join("")}</tr></thead>` +
+    `<tbody>${rows
+      .map(
+        (r) =>
+          `<tr class="${r.hl ? "hl" : ""}">${r.cells
+            .map((c, i) => `<td class="${i ? "num" : ""}">${c}</td>`)
+            .join("")}</tr>`,
+      )
+      .join("")}</tbody>`;
+}
+
+table(
+  document.getElementById("tb-leak"),
+  ["Tier", "Total combo amplification", "On the player's own kills", "On automated kills", "Automated share"],
+  [
+    { cells: ["novice", "1,021", "691", "329", "32.3%"] },
+    { cells: ["average", "2,963", "2,047", "916", "30.9%"] },
+    { cells: ["good", "5,304", "3,751", "1,554", "29.3%"] },
+    { cells: ["perfect", "29,359", "17,499", "11,860", "40.4%"], hl: true },
+  ],
+);
+
+const fires = (rule, t) =>
+  D.schemes.current.find((r) => r.name === rule).byTier[t].triggersPerWave.toFixed(1);
+table(
+  document.getElementById("tb-thresh"),
+  ["Tier", "Streaks per wave", "Reach 3+", "Reach 5+", "Cash-outs/wave at 3", "at 5"],
+  TIERS.map((t) => ({
+    hl: t === "perfect",
+    cells: [
+      t,
+      D.streaksPerWave[t].toFixed(1),
+      pct(D.streaks[t]["3"], 0),
+      pct(D.streaks[t]["5"], 0),
+      fires("cashout-3", t),
+      fires("cashout-5", t),
+    ],
+  })),
+);
+
+// ── scheme table + trade-off scatter ─────────────────────────────────────────
+const RECOMMENDED = new Set(["rhythm-3-chain", "escalating-mult", "cashout-5"]);
+const AVOID = new Set(["window-3@90t", "window-3@150t", "window-4@150t"]);
+
+function renderSchemes(base) {
+  const reps = D.schemes[base];
+  document.getElementById("base-note").textContent =
+    base === "current"
+      ? "Scored on the rules as they ship. Every rule lands in a narrow band — the combo term is too small a share of the score to matter yet."
+      : "Scored with flat wave income cut to a third and scaled by city integrity, automated kills at 0.45x, and multi-kill bonuses gated to the player's own blasts. Now the choice of rule matters.";
+  document.querySelectorAll(".tabbtn").forEach((b) => {
+    const on = b.dataset.base === base;
+    b.style.background = on ? "var(--accent)" : "transparent";
+    b.style.color = on ? "#fff" : "var(--text-secondary)";
+    b.style.border = "1px solid " + (on ? "var(--accent)" : "var(--border)");
+  });
+
+  const sorted = [...reps].sort((a, b) => b.sameWaveSpread - a.sameWaveSpread);
+  table(
+    document.getElementById("tb-schemes"),
+    ["Rule", "nov", "avg", "good", "perf", "spread", "same-wave", "combo %", "acc corr", "fires/wave"],
+    sorted.map((r) => ({
+      hl: RECOMMENDED.has(r.name),
+      cells: [
+        `<code>${r.name}</code>${r.name === "current" ? ' <span class="tag">today</span>' : ""}${
+          RECOMMENDED.has(r.name) ? ' <span class="tag rec">shortlist</span>' : ""
+        }`,
+        fmt(r.byTier.novice.median),
+        fmt(r.byTier.average.median),
+        fmt(r.byTier.good.median),
+        fmt(r.byTier.perfect.median),
+        r.skillSpread.toFixed(2) + "x",
+        r.sameWaveSpread.toFixed(3) + "x",
+        pct(r.byTier.perfect.comboShare, 1),
+        r.accuracyCorr.toFixed(2),
+        r.byTier.perfect.triggersPerWave.toFixed(1),
+      ],
+    })),
+  );
+}
+
+(function tradeoff() {
+  const reps = D.schemes.reform;
+  const W = 900, H = 400, padL = 60, padR = 30, padT = 22, padB = 52;
+  const s = svg(W, H);
+  const xs = reps.map((r) => r.byTier.perfect.triggersPerWave);
+  const ys = reps.map((r) => r.skillSpread);
+  const xMax = Math.ceil(Math.max(...xs) / 5) * 5;
+  const yMin = Math.floor(Math.min(...ys)) - 0.5;
+  const yMax = Math.ceil(Math.max(...ys)) + 0.5;
+  const X = (v) => padL + (v / xMax) * (W - padL - padR);
+  const Y = (v) => H - padB - ((v - yMin) / (yMax - yMin)) * (H - padT - padB);
+
+  for (let v = Math.ceil(yMin); v <= yMax; v += 1) {
+    s.appendChild(el("line", { x1: padL, x2: W - padR, y1: Y(v), y2: Y(v), class: "grid" }));
+    s.appendChild(el("text", { x: padL - 10, y: Y(v) + 4, class: "tick", "text-anchor": "end" }, v + "x"));
+  }
+  s.appendChild(el("line", { x1: padL, x2: W - padR, y1: Y(yMin), y2: Y(yMin), class: "axis" }));
+  for (let v = 0; v <= xMax; v += 5) {
+    s.appendChild(el("text", { x: X(v), y: H - padB + 18, class: "tick", "text-anchor": "middle" }, v));
+  }
+  s.appendChild(el("text", { x: (padL + W - padR) / 2, y: H - 10, class: "tick", "text-anchor": "middle" }, "payoffs shown to the player per wave  →  more feedback"));
+  s.appendChild(el("text", { x: 14, y: padT + 4, class: "tick" }, "↑ skill spread (perfect ÷ novice)"));
+
+  reps.forEach((r) => {
+    const x = X(r.byTier.perfect.triggersPerWave);
+    const y = Y(r.skillSpread);
+    const rec = RECOMMENDED.has(r.name);
+    const avoid = AVOID.has(r.name);
+    const cur = r.name === "current";
+    const col = rec ? "var(--good)" : avoid ? "var(--critical)" : cur ? cssv("--cat-2") : "var(--text-muted)";
+    const g = el("g");
+    g.appendChild(el("circle", { cx: x, cy: y, r: rec || cur ? 8 : 6, fill: col, stroke: "var(--surface-1)", "stroke-width": 2, "fill-opacity": rec || cur || avoid ? 1 : 0.55 }));
+    g.appendChild(el("circle", { cx: x, cy: y, r: 16, class: "hit" }));
+    if (rec || cur) {
+      const right = x > W * 0.6; // anchor inward so labels never run off the edge
+      g.appendChild(
+        el(
+          "text",
+          { x: x + (right ? -12 : 12), y: y + 4, class: "lbl", style: "font-size:11.5px", "text-anchor": right ? "end" : "start" },
+          r.name,
+        ),
+      );
+    }
+    hoverable(
+      g,
+      `<b>${r.name}</b><div style="color:var(--text-secondary);margin:4px 0 6px">${r.blurb}</div>` +
+        `<div class="r"><span>skill spread</span><em>${r.skillSpread.toFixed(2)}x</em></div>` +
+        `<div class="r"><span>same-wave</span><em>${r.sameWaveSpread.toFixed(3)}x</em></div>` +
+        `<div class="r"><span>accuracy corr</span><em>${r.accuracyCorr.toFixed(2)}</em></div>` +
+        `<div class="r"><span>fires/wave</span><em>${r.byTier.perfect.triggersPerWave.toFixed(1)}</em></div>`,
+    );
+    s.appendChild(g);
+  });
+  legend("lg-tradeoff", [
+    { color: "var(--good)", label: "shortlisted" },
+    { color: cssv("--cat-2"), label: "the rule today" },
+    { color: "var(--critical)", label: "rolling windows — discriminate worst" },
+    { color: "var(--text-muted)", label: "other candidates" },
+  ]);
+  document.getElementById("ch-tradeoff").appendChild(s);
+})();
+
+document.querySelectorAll(".tabbtn").forEach((b) => {
+  b.style.cssText = "padding:5px 12px;border-radius:6px;font:inherit;font-size:13px;cursor:pointer";
+  b.addEventListener("click", () => renderSchemes(b.dataset.base));
+});
+renderSchemes("current");
+</script>
