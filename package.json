@@ -57,6 +57,7 @@
     "worker:lifecycle:verify:production": "node scripts/verify-r2-lifecycle.mjs --env=production --bucket=dmc-captures",
     "operator:delete": "node scripts/operator-delete-capture.mjs",
     "operator:retention-fixtures": "node scripts/seed-retention-fixtures.mjs",
+    "operator:r2-clock-probe": "node scripts/probe-r2-upload-clock.mjs",
     "typecheck": "tsc --noEmit",
     "operator:bundle-check": "vite build --manifest && node scripts/check-operator-bundle.mjs"
   },
