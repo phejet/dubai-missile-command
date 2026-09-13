@@ -2,12 +2,25 @@
 
 Canvas-based missile defense game built with React + Vite.
 
-## Checkout policy
+## Shared checkout and handoffs
 
-Do not create or use Git worktrees unless the user explicitly requests them. Work in
-the shared repository checkout by default. This also applies to scripts and release
-workflows that create worktrees automatically; a release request alone does not
-authorize a worktree.
+The user hands one task back and forth between Claude and Codex in this checkout: design, review,
+implementation, code review. Sessions are also replaced mid-task when context runs out.
+
+- When you start, read `git status` and, if present, the `## Current handoff` block at the top of
+  `tasks/todo.md`. Uncommitted changes you didn't make are most likely this task's work, from the other agent,
+  an earlier session, or the user. Build on them; if you can't tell what they are, ask. Never isolate your work
+  from them.
+- If local state blocks you (changes you can't place, being behind `origin/main`, a failing check, a release
+  that needs a clean tree), stop and ask the user. Don't work around it: no worktrees, clones, branches, PRs,
+  stashes, resets, or bypassed checks.
+- Commit and push only when the user says so. Every push to `main` deploys Pages and the Staging Worker.
+  After a push, this checkout must match `origin/main`, with nothing from the shipped task left uncommitted.
+- Worktrees are for parallel dev loops the user sets up. When a worktree's work lands on `main`, remove the
+  worktree and its branch, then update this checkout.
+- When you stop (context running low, handing off, or waiting on the user), replace or add the
+  `## Current handoff` block with at most 15 lines: task and roadmap ID, uncommitted files and their state
+  (in progress, verified, awaiting commit), next action, open questions.
 
 ## Quick Start
 

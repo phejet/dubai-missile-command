@@ -34,8 +34,7 @@ export function releaseStatus(driver, release) {
 
 // Releases run in the shared checkout. Refuse before `npm ci` replaces its dependencies.
 export function checkoutProblem({ status, head, remote }) {
-  if (status)
-    return "Release needs a clean checkout. Ask the user how to handle local changes; do not stash, commit, or create another checkout.";
+  if (status) return "Release needs a clean checkout. Stop and ask the user how to handle local changes.";
   if (head !== remote) return "Release needs this checkout at origin/main. Ask the user before pulling or pushing.";
   return null;
 }

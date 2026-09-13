@@ -10,8 +10,8 @@ steps through individual tool calls. It runs in this shared checkout, which must
 and equal to `origin/main`; it never creates a worktree or temporary checkout. It fetches,
 runs `npm ci` in place (restart a running dev server afterwards), saves verbose output to
 disk, deploys Staging, uploads, waits, and verifies internal-group assignment.
-If the checkout is dirty or not at `origin/main`, stop and ask the user. Do not stash,
-commit, push, reset, or create another checkout to get past the guard.
+If the checkout is dirty or not at `origin/main`, stop and ask the user, then do what they
+decide; don't work around the guard yourself.
 
 ```bash
 npm run ios:release:staging

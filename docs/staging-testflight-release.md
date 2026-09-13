@@ -62,7 +62,7 @@ after a later failure. It requires the exact source on remote main and successfu
 deployment with Production skipped before attempting upload. A fresh archive requires a
 clean checkout; Capacitor sync can leave generated tracked changes afterward. Preserve or
 review them normally; the command never resets the checkout. When working changes are
-present, ask the user how to handle them before releasing; do not create a separate checkout.
+present, ask the user how to handle them before releasing.
 
 The app declares `ITSAppUsesNonExemptEncryption=false` for its exempt platform security,
 authentication, and hashing. Reassess this declaration if encryption dependencies change.

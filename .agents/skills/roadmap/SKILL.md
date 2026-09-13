@@ -45,7 +45,8 @@ of erasing the reasoning trail.
 
 ### Execute
 
-1. Re-read `ROADMAP.html` and the worktree immediately before starting.
+1. Re-read `ROADMAP.html`, `git status`, and the `## Current handoff` block in `tasks/todo.md`
+   immediately before starting.
 2. Select an approved, ready initiative. Do not bypass a recorded gate because implementation
    looks convenient.
 3. Put detailed steps and verification evidence in the project's execution plan, linked to the
@@ -64,6 +65,8 @@ summaries.
 
 A handoff must leave the canonical roadmap with the actual status, evidence link, unresolved
 gate, and next action. Never declare an externally verified gate complete from local tests.
+The roadmap holds product state only; record checkout state (uncommitted files, what they wait
+on) in the `## Current handoff` block of `tasks/todo.md`, as AGENTS.md describes.
 
 ## Concurrent-agent discipline
 

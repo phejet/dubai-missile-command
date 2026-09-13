@@ -64,7 +64,7 @@ EMP firing lives in `sim-runner.ts` (not the brain): triggers when ≥ `emp.minI
 1. Capture a baseline (`train.ts`) per preset. Note efficiency and median wave.
 2. Record one or two games per preset (`record.ts`) and skim the action log.
 3. Adjust `bot-config.json` (and brain code if needed). Keep edits per-iteration small so the cause of any regression is obvious.
-4. Re-run, compare deltas, commit if improved.
+4. Re-run, compare deltas, and report them; commit only when the user approves.
 5. Run unit tests after brain code changes:
 
    ```bash

@@ -1,12 +1,19 @@
 # Lessons
 
-## 2026-09-13 — Require an explicit request for worktrees
+## 2026-09-14 — Restart the dev server only when it serves the task
 
-- The user rejected the temporary-worktree approach after shipped changes left the
-  shared checkout stale and apparently full of uncommitted work.
-- Do not create or use Git worktrees unless explicitly requested by the user,
-  including through release scripts. Use the shared checkout and preserve unrelated
-  changes there; a dirty tree is not permission to create another checkout.
+- The project rule covers a dev server you stopped yourself, or a change that needs browser verification.
+  After the system killed it for memory, a docs/CI-only change needed neither, and restarting under heavy
+  swap just got it killed again. Report the kill instead.
+
+## 2026-09-13 — Stop and ask when local state blocks you
+
+- Fresh Codex sessions inherited uncommitted task work, treated it as unrelated, and shipped their own slices
+  from `/tmp` worktrees and PRs. The shared checkout ended up 8 commits behind with stale duplicates.
+- Uncommitted changes you didn't make are usually the current task's work from another agent or an earlier
+  session. Build on them. When local state blocks committing, releasing, or shipping, stop and ask the user;
+  never route around it with worktrees, clones, branches, PRs, or stashes. Worktrees are for parallel loops
+  the user sets up.
 
 ## 2026-09-05 — Make routine releases script-driven and quiet
 
