@@ -38,6 +38,13 @@ function bearerHeaders(): HeadersInit {
   return { Authorization: `Bearer ${value}` };
 }
 
+function requestUrl(path: string): URL {
+  if (import.meta.env.DEV && environment.value === "staging") {
+    return new URL(`/api/operator-dev/staging${path}`, window.location.origin);
+  }
+  return new URL(path, endpoint());
+}
+
 function setStatus(message: string, error = false): void {
   status.textContent = message;
   status.dataset.state = error ? "error" : "ready";
@@ -80,7 +87,7 @@ async function play(session: OperatorSession, button: HTMLButtonElement): Promis
   button.disabled = true;
   setStatus(`Loading ${session.runId}…`);
   try {
-    const response = await fetch(new URL(`/api/session/${encodeURIComponent(session.runId)}`, endpoint()), {
+    const response = await fetch(requestUrl(`/api/session/${encodeURIComponent(session.runId)}`), {
       headers: bearerHeaders(),
       cache: "no-store",
     });
@@ -121,7 +128,7 @@ async function loadSessions(): Promise<void> {
   refresh.disabled = true;
   setStatus("Loading uploads…");
   try {
-    const response = await fetch(new URL("/api/operator/sessions?limit=100", endpoint()), {
+    const response = await fetch(requestUrl("/api/operator/sessions?limit=100"), {
       headers: bearerHeaders(),
       cache: "no-store",
     });

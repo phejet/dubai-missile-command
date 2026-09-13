@@ -74,83 +74,6 @@
   box-shadow: 0 0 14px currentColor;
 }
 
-.capture-upload-indicator {
-  position: relative;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  min-height: 24px;
-  padding: 5px 9px 5px 23px;
-  border: 1px solid rgba(130, 160, 168, 0.42);
-  border-radius: 999px;
-  color: #b8c9cc;
-  background: rgba(5, 15, 20, 0.9);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.24);
-  font:
-    700 9px/1.2 ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    monospace;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  pointer-events: none;
-}
-
-.capture-upload-indicator::before {
-  content: "";
-  position: absolute;
-  left: 9px;
-  top: 50%;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #70858a;
-  transform: translateY(-50%);
-}
-
-.capture-upload-indicator[data-state="ready"] {
-  color: #8fffd7;
-  border-color: rgba(94, 226, 200, 0.42);
-}
-
-.capture-upload-indicator[data-state="ready"]::before {
-  background: #5ee2c8;
-  box-shadow: 0 0 8px rgba(94, 226, 200, 0.8);
-}
-
-.capture-upload-indicator[data-state="sending"]::before {
-  background: #7bd7ff;
-  animation: capture-upload-pulse 800ms ease-in-out infinite alternate;
-}
-
-.capture-upload-indicator[data-state="queued"] {
-  color: #ffd28a;
-}
-
-.capture-upload-indicator[data-state="queued"]::before {
-  background: #f3b95f;
-}
-
-.capture-upload-indicator[data-state="error"] {
-  color: #ff9b8c;
-  border-color: rgba(255, 126, 108, 0.48);
-}
-
-.capture-upload-indicator[data-state="error"]::before {
-  background: #ff7e6c;
-}
-
-@keyframes capture-upload-pulse {
-  from {
-    opacity: 0.35;
-  }
-  to {
-    opacity: 1;
-    box-shadow: 0 0 8px rgba(123, 215, 255, 0.9);
-  }
-}
-
 .game-shell[data-app-flavor="dev"] .app-flavor-badge {
   display: block;
   color: #ff4fd8;
@@ -945,6 +868,7 @@
 }
 
 .replay-player__button {
+  flex: 0 0 34px;
   width: 34px;
   height: 30px;
   border: 1px solid rgba(109, 217, 255, 0.26);
@@ -957,13 +881,24 @@
   cursor: pointer;
 }
 
+.replay-player__button[data-paused="true"] {
+  border-color: #ffd086;
+  background: #62451d;
+  color: #ffe2af;
+  box-shadow: 0 0 8px rgba(255, 208, 134, 0.3);
+}
+
 .replay-player__button:disabled {
   opacity: 0.3;
   cursor: default;
 }
 
 .replay-player__counter {
-  min-width: 112px;
+  box-sizing: border-box;
+  flex: 0 0 124px;
+  width: 124px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   padding: 0 6px;
   color: #effcff;
   font-size: clamp(0.62rem, 2.25cqw, 1rem);

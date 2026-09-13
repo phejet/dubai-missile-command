@@ -69,6 +69,15 @@ export async function seekRunnerToTick(
     onProgress?.(runner.getTick());
   }
 
+  if (!signal.cancelled && !runner.isFinished() && runner.getTick() === targetTick) {
+    // Bonus completion, shop actions and the next wave share one replay tick.
+    // Land after those transitions so a wave-start seek shows the requested wave,
+    // including when playback remains paused. No simulation tick is advanced here.
+    resumeIfPaused(runner);
+    if (runner.getState()?.state === "shop" && !runner.isShopPaused()) runner.step();
+    if (runner.isShopPaused()) runner.resumeFromShop();
+  }
+
   const finalTick = runner.getTick();
   return { reached: !signal.cancelled && finalTick >= targetTick, finalTick };
 }

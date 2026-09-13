@@ -60,7 +60,6 @@ import {
   type ReplayWaveStart,
 } from "./replay-wave-navigation";
 import { mountRunRecapDeathClip } from "./run-recap-death-clip";
-import { handleRunRecapReplayEvent } from "./run-recap-replay-events";
 import { buildRunRecapData } from "./run-recap";
 import { saveReplayToFile } from "./save-replay";
 import { createRunShareLink, presentRunShareSheet } from "./share-run";
@@ -1223,8 +1222,9 @@ export class Game {
     const game = this.gameRef.current;
     this.replayPlayer.hidden = false;
     this.replayPlayer.dataset.playbackNumber = String(this.replayPlaybackNumber);
-    this.replayPlayerStatus.textContent = `Wave ${game?.wave ?? 1}${this.replayPaused ? " · Paused" : ""}`;
+    this.replayPlayerStatus.textContent = `Wave ${game?.wave ?? 1}`;
     this.replayPlayPauseButton.textContent = this.replayPaused ? "▶" : "Ⅱ";
+    this.replayPlayPauseButton.dataset.paused = String(this.replayPaused);
     this.replayPlayPauseButton.setAttribute("aria-label", this.replayPaused ? "Play replay" : "Pause replay");
     this.replayPreviousWaveButton.disabled = findPreviousReplayWaveStart(this.replayWaveStarts, tick) === null;
     this.replayNextWaveButton.disabled = findNextReplayWaveStart(this.replayWaveStarts, tick) === null;
@@ -1368,8 +1368,8 @@ export class Game {
     const replayAnchor = shouldSeek ? this.findReplayAnchorForSeek(replayData, seekToTick) : null;
     let runner: ReturnType<typeof createReplayRunner>;
     const onReplaySimEvent = <Type extends keyof SimEventMap>(type: Type, data: SimEventMap[Type]) => {
-      if (seeking) handleRunRecapReplayEvent(replayData, runner, type, data);
-      else this.handleSimEvent(type, data);
+      // Seeking suppresses presentation only; the runner owns bonus/shop transitions.
+      if (!seeking) this.handleSimEvent(type, data);
     };
     const onReplayEvent: import("./types").ReplayEventSink = (type, data) => {
       if (type !== "replay_divergence") return;
@@ -2217,7 +2217,6 @@ export class Game {
     if (!config) {
       autoButton.hidden = true;
       sendButton.hidden = true;
-      this.syncCaptureIndicator();
       return;
     }
 
@@ -2249,42 +2248,6 @@ export class Game {
     document.getElementById("option-capture-send-meta")!.textContent =
       this.captureSendMessage ??
       (this.captureSendBusy ? "Sending…" : completedRunAvailable ? "Ready" : "Finish a run first");
-    this.syncCaptureIndicator();
-  }
-
-  private syncCaptureIndicator(): void {
-    const indicator = document.getElementById("capture-upload-indicator")!;
-    const config = this.remoteCaptureConfig();
-    indicator.hidden = config === null;
-    if (!config) return;
-    const consent = getRemoteCaptureConsent(config.channel);
-    const automatic = getAutomaticSessionUploadEnabled(config.channel);
-    let state = "off";
-    let label = consent === "granted" ? "Auto-upload off" : "Playtest uploads off";
-    if (consent === "granted" && automatic) {
-      if (this.automaticCaptureBusy) {
-        state = "sending";
-        label = "Uploading run";
-      } else if (
-        this.captureAutoMessage?.startsWith("Failed") ||
-        this.captureAutoMessage === "Queue unavailable" ||
-        this.captureAutoMessage?.startsWith("Dropped")
-      ) {
-        state = "error";
-        label = "Auto-upload needs attention";
-      } else if (this.captureQueueBusy && this.captureQueueCount > 0) {
-        state = "sending";
-        label = "Retrying uploads";
-      } else if (this.captureQueueCount > 0) {
-        state = "queued";
-        label = `${this.captureQueueCount} upload${this.captureQueueCount === 1 ? "" : "s"} queued`;
-      } else {
-        state = "ready";
-        label = this.lastUploadedRunId ? "Last run uploaded" : "Auto-upload on";
-      }
-    }
-    indicator.dataset.state = state;
-    indicator.textContent = label;
   }
 
   private async toggleRemoteCaptureConsent(): Promise<void> {

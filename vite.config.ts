@@ -7,6 +7,7 @@ import type { Plugin, UserConfig, ViteDevServer } from "vite";
 import perfPlugin from "./vite-perf-plugin";
 import replayPlugin from "./vite-replay-plugin";
 import capturePlugin from "./vite-capture-plugin";
+import operatorPlugin from "./vite-operator-plugin";
 import { getBuildId } from "./vite-build-id";
 import {
   assertIosFlavorCaptureChannel,
@@ -140,6 +141,7 @@ export default defineConfig(({ command }): UserConfig => {
       devHtmlEntryAliases(appBase),
       replayPlugin(),
       capturePlugin(),
+      operatorPlugin(captureBaseUrl("staging")),
       perfPlugin(),
       nativeBuildManifest(iosAppFlavor, channel, buildId),
     ],
