@@ -30,7 +30,7 @@ export default class TimingReporter implements Reporter {
     this.operations.sort((a, b) => b.duration - a.duration);
     mkdirSync("playwright-report", { recursive: true });
     writeFileSync("playwright-report/operations.json", JSON.stringify(this.operations, null, 2));
-    const escape = (text: string) => text.replaceAll("|", "\\|").replaceAll(/\r?\n/g, " ");
+    const escape = (text: string) => text.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
     const rows = this.operations
       .slice(0, 30)
       .map(

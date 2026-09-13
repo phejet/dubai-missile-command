@@ -169,7 +169,8 @@ describe("Game replay archive wiring", () => {
 
   it("keeps the hidden game-over battlefield idle while the death clip owns playback", () => {
     const { runtime } = createGameWithArchive(null);
-    const frame = vi.mocked(requestAnimationFrame).mock.calls.at(-1)![0];
+    const frameCalls = vi.mocked(requestAnimationFrame).mock.calls;
+    const frame = frameCalls[frameCalls.length - 1][0];
     vi.mocked(renderer.renderGameOver).mockClear();
     vi.mocked(renderer.renderTitle).mockClear();
     expect(document.getElementById("battlefield-card")!.hidden).toBe(true);
