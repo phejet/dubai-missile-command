@@ -1,6 +1,9 @@
 # Staging TestFlight releases
 
-Run `npm run ios:release:staging` from a clean checkout of the current remote `main`.
+Run `npm run ios:release:staging` from this checkout while it is clean and equal to remote
+`main`. The quiet launcher fetches, stops before touching dependencies if either condition
+fails, then runs `npm ci` in place (restart a running dev server afterwards). It never
+creates a worktree or temporary checkout. Detailed output stays in the printed log file.
 The command archives the Staging app, adds its exact source/build number to Staging's
 existing allowlists, waits for the protected Staging deployment, uploads through Xcode,
 waits for Apple processing, and assigns/verifies the existing internal tester group.
@@ -37,11 +40,13 @@ It does not prove signing/upload permissions until a real archive/export runs.
 
 ## Recovery and boundaries
 
-The command prints a mode-limited release record under gitignored
-`operator-results/staging-releases/`. Keep that directory and archive until complete.
-Resume with `npm run ios:release:staging -- --resume /absolute/path/to/release.json`.
-Use the same source revision and internal group. Run only one Staging release at a time;
-concurrent releases can race build numbering or additive GitHub-variable updates.
+Use `npm run ios:release:staging -- --status` for a small JSON summary and
+`npm run ios:release:staging -- --resume` to continue the last attempt. The launcher saves
+its pointer in gitignored `operator-results/staging-deploy.json` and its log under
+`operator-results/staging-deploy/`, and prevents simultaneous invocations from this checkout.
+Its engine keeps the detailed release record and archive under gitignored
+`operator-results/staging-releases/`. Keep those files until the release completes.
+Use only one release Mac/checkout at a time; the local lock does not coordinate other Macs.
 
 Polling stops after 30 minutes and can be resumed. Apple processing can take longer;
 timeout is not evidence of failure. An upload attempt is recorded before export begins
@@ -55,9 +60,9 @@ resume then checks its result.
 The release adds allowlist entries; it never removes existing entries or rolls them back
 after a later failure. It requires the exact source on remote main and successful Staging
 deployment with Production skipped before attempting upload. A fresh archive requires a
-clean worktree; Capacitor sync can leave generated tracked changes afterward. Preserve or
-review them normally; the command never resets the worktree. Use a dedicated clean checkout
-for releases when working changes are present.
+clean checkout; Capacitor sync can leave generated tracked changes afterward. Preserve or
+review them normally; the command never resets the checkout. When working changes are
+present, ask the user how to handle them before releasing; do not create a separate checkout.
 
 The app declares `ITSAppUsesNonExemptEncryption=false` for its exempt platform security,
 authentication, and hashing. Reassess this declaration if encryption dependencies change.

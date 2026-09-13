@@ -195,8 +195,7 @@ export async function main(args = process.argv.slice(2)) {
   ];
   if (!state.archived) {
     if (command("git", ["status", "--porcelain"]))
-      throw new Error("Archive requires a clean checkout; use a fresh checkout to retry an interrupted build.");
-    command("npm", ["run", "typecheck"], true);
+      throw new Error("Archive requires a clean checkout; ask the user how to handle local changes, then resume.");
     command("npm", ["run", "build:ios:staging"], true);
     command("npm", ["run", "cap:sync:staging"], true);
     command(
