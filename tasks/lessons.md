@@ -1,5 +1,64 @@
 # Lessons
 
+## 2026-09-13 — Require an explicit request for worktrees
+
+- The user rejected the temporary-worktree approach after shipped changes left the
+  shared checkout stale and apparently full of uncommitted work.
+- Do not create or use Git worktrees unless explicitly requested by the user,
+  including through release scripts. Use the shared checkout and preserve unrelated
+  changes there; a dirty tree is not permission to create another checkout.
+
+## 2026-09-05 — Make routine releases script-driven and quiet
+
+- User wants the whole Staging release automated, with minimal successful-path tokens.
+  Put checkout, release, waiting, group verification, status and resume in maintained scripts;
+  save verbose native logs to disk and report only stage changes and the final result.
+- Separate implementation validation from deployment. Reuse the exact source's required CI
+  evidence and avoid duplicate local typechecks/full suites. This release's full browser CI
+  took 6.2 minutes; capture E2E took 11.3 seconds. Assess test scope from changed behavior.
+
+## 2026-09-05 — Keep capture status beside environment identity
+
+- The user observed the upload badge covering the high score on iPhone. Keep flavor and upload
+  status in one shared layout row; verify their combined footprint at phone widths.
+- Staging distribution should have a maintained agent-driven release path. Identify signing,
+  compliance, allowlisting, and tester assignment upfront instead of handing off each click.
+
+## 2026-09-05 — Keep distribution checks out of a blocked UI detour
+
+- After a user-confirmed TestFlight upload, use existing command-line/API access for backend
+  checks. If App Store Connect has no authenticated API and computer access is unavailable,
+  ask for the narrow TestFlight availability check instead of introducing a permissions setup.
+
+## 2026-09-05 — Prove distribution from signed facts
+
+- Check a TestFlight artifact's source commit against every requested feature before asking
+  the user to install it. Build 1.0 (3), from ad774a0, can prove distribution but predates
+  f155635's RM-04 feedback, indicator, and privacy files; it cannot validate those UI additions.
+- A category allowlist does not prove which category was received when missing category fields
+  remain valid. Observe the verified signed field directly and preserve missing values as null;
+  never translate successful enrollment into a category-2 claim by exclusion alone.
+- After a user-confirmed TestFlight install, devicectl reported the expected build 1.0 (3) but
+  still labelled it Developer App. Treat that flag as inconclusive for distribution provenance;
+  use the installed version and signed App Attest facts instead of asking for an unnecessary uninstall.
+
+## 2026-09-04 — Make planning contracts close the paths they claim to secure
+
+- A curated response served beside an obsolete raw response under the same credential is
+  defense-in-depth, not an access boundary. Audit every caller and retire the raw route when it is
+  unused; when the credential still authorizes other sensitive tooling, state that scope honestly.
+- Split filters at the cheapest authoritative layer. Push null, age, and join-presence states into
+  SQL, and reserve remote object probes plus scan pagination only for availability that D1 cannot
+  prove.
+- Pin human units to executable constants and give mixed numeric comparisons field-specific
+  tolerances. “Ten seconds” and “normalized equality” are not implementation contracts until they
+  name the tick conversion, exact fields, and epsilon boundaries.
+- Resolve determinism choices in the plan instead of offering implementers an either/or. Derived
+  navigation URLs do not belong in analytical digests; assert their stable construction directly.
+- Inventory existing public signatures and measure lazy dependency weight before describing
+  runtime work. A plan should distinguish widening an API from creating it and budget the bundle
+  pulled into a formerly tiny internal page.
+
 ## 2026-09-04 — Make safety guards inspect the bytes actually written
 
 - A public-artifact privacy guard must validate each output in its real representation. Scan
@@ -715,7 +774,38 @@ preserve momentum. And when a feel report contradicts clean metrics, the metric 
 the wrong quantity — find the one that would have caught it (here: px moved per tick while
 in the state) rather than defending the old one.
 
+## 2026-09-06 — Use the user's feedback-loop budget
+
+- Do not label a 35-second local E2E run quick or acceptable without the user's
+  latency target. The full local E2E command target is under 5 seconds.
+- Distinguish normal local settings from a CI-mode local experiment; report command
+  wall time including startup, and do not meet the target by silently dropping coverage.
+
+## 2026-09-06 — Keep replay transport targets stationary
+
+- Pausing must not change toolbar dimensions or move another action under the pointer.
+- Indicate playback state on the fixed-size play/pause button, and verify button bounds across toggles.
+
+## 2026-09-06 — Verify the full local operator request path
+
+- HTTP 200 for operator.html does not prove its authenticated backend is reachable.
+- Before handing out a local operator URL, verify browser-origin preflight or the maintained local read proxy, including a rejected-token response visible to the browser.
+
+## 2026-09-06 — Exercise real replay boundaries in seek tests
+
+- A fake runner and fabricated wave markers cannot prove deterministic wave navigation.
+- Cover the real runner, recorded checkpoints, human bonus, shop purchase, and next-wave transition together.
+
+## 2026-09-06 — Check platform availability before setting a proof gate
+
+- Apple launch-category and bundle-version App Attest extensions are new in iOS 27; iOS 26.6.1 cannot supply them.
+- Verify OS availability before making an optional signed field a universal release gate. Keep verified distribution,
+  cryptographic app identity, and optional OS-specific facts distinct; never infer missing fields as category 2.
+
+## 2026-09-06 — Keep upload status out of gameplay
+
+- The user wants capture/upload status in Settings only. Do not add a duplicate gameplay badge.
+
 ## 2026-09-13 — Follow the requested delivery route
 
-- For RM-08, use local verification and a direct main push as explicitly requested; do not create a PR. Preserve unrelated changes through the isolated checkout.
-- Roadmap evidence links must target tracked files that exist in a clean checkout.
+- For this RM-08 delivery, the user explicitly requested local tests and a direct main push, without a PR.
