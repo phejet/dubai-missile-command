@@ -172,7 +172,9 @@
           <strong>Active: RM-08 — Replay inspection UI.</strong><br />
           RM-04 is complete on Staging. PR #22 was merged as <code>433799b</code> and released as
           TestFlight build 6, processed and assigned to internal testers on 2026-09-13.
-          Next action: verify and deploy the RM-08 inspection UI, then prove the Staging investigation flow.
+          RM-08 source <code>8bff209</code> is deployed to Pages and the Staging Worker.
+          Real-run inspection and longest-retained-run playback passed within the review-machine timing budgets.
+          Next action: finish the generated-candidate link/cleanup proof, then obtain human usefulness confirmation.
           The user confirmed updating to build 6 on 2026-09-13. Production capture remains closed.
         </div>
       </section>
@@ -321,6 +323,13 @@
                 <strong>Non-goals:</strong> player-facing history, replay mutation, deletion, collaborative annotations,
                 and competitive ranking.
               </p>
+              <p>
+                <strong>Proven:</strong> local gates, Pages and Staging Worker deployment, and live browser
+                authentication/CORS rejection behavior; all 23 retained runs were browsed, and the longest run
+                matched its summary and reached the selected tick paused in 1.35 seconds. Generated-candidate
+                handoff/cleanup and human usefulness proof remain open.
+                <a href="docs/rm-08-validation-2026-09-13.md">Verification evidence</a>.
+              </p>
               <p><a href="docs/rm-08-replay-inspection-ui-plan.md">Detailed implementation plan</a></p>
             </div>
           </details>
@@ -390,7 +399,10 @@
       <section id="gates">
         <h2>Current gates</h2>
         <ol>
-          <li>RM-08 requires deployed Staging investigation and human usefulness proof before completion.</li>
+          <li>
+            RM-08 requires the generated-candidate link/cleanup proof and human usefulness confirmation before
+            completion.
+          </li>
           <li>Production capture remains disabled; this release authorizes Staging only.</li>
         </ol>
       </section>
@@ -430,6 +442,10 @@
       <section id="changes">
         <h2>Recent roadmap changes</h2>
         <ul>
+          <li><strong>2026-09-13:</strong> deployed RM-08 source <code>8bff209</code> to Pages and Staging after
+            retrying GitHub's internal startup failure. Live UI, rejected-token/CORS, authenticated real-run
+            inspection, and longest-run selected-tick playback passed; generated-candidate link/cleanup and human
+            usefulness acceptance remain open.</li>
           <li><strong>2026-09-13:</strong> merged PR #22 as <code>433799b</code> and released Staging
             TestFlight build 6. Protected deployment passed, Apple processing completed, and internal-group
             assignment was verified. RM-04 is complete; RM-08 is next. The user confirmed updating to build 6.
