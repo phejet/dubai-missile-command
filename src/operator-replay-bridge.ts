@@ -4,13 +4,40 @@ export const OPERATOR_REPLAY_QUERY = "operatorReplay";
 export const OPERATOR_REPLAY_READY = "dmc-operator-replay-ready";
 export const OPERATOR_REPLAY_LOAD = "dmc-operator-replay-load";
 
+export interface OperatorReplayOptions {
+  seekToTick?: number;
+  startPaused?: boolean;
+}
+
 export function isReplayData(value: unknown): value is ReplayData {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const replay = value as Partial<ReplayData>;
-  return typeof replay.seed === "number" && Number.isFinite(replay.seed) && Array.isArray(replay.actions);
+  return (
+    Number.isSafeInteger(replay.version) &&
+    replay.version! > 0 &&
+    typeof replay.seed === "number" &&
+    Number.isFinite(replay.seed) &&
+    Array.isArray(replay.actions) &&
+    typeof replay.initialState === "object" &&
+    replay.initialState !== null &&
+    !Array.isArray(replay.initialState) &&
+    (replay.finalTick === undefined || (Number.isSafeInteger(replay.finalTick) && replay.finalTick >= 0))
+  );
 }
 
-export function installOperatorReplayReceiver(loadReplay: (replay: ReplayData) => Promise<void>): boolean {
+export function validReplayOptions(replay: ReplayData, options: OperatorReplayOptions): boolean {
+  return (
+    (options.startPaused === undefined || typeof options.startPaused === "boolean") &&
+    (options.seekToTick === undefined ||
+      (Number.isSafeInteger(options.seekToTick) &&
+        options.seekToTick >= 0 &&
+        (replay.finalTick === undefined || options.seekToTick <= replay.finalTick)))
+  );
+}
+
+export function installOperatorReplayReceiver(
+  loadReplay: (replay: ReplayData, options?: OperatorReplayOptions) => Promise<void>,
+): boolean {
   const url = new URL(window.location.href);
   if (url.searchParams.get(OPERATOR_REPLAY_QUERY) !== "1" || !window.opener) return false;
   const source = window.opener;
@@ -18,10 +45,15 @@ export function installOperatorReplayReceiver(loadReplay: (replay: ReplayData) =
   const receive = (event: MessageEvent<unknown>) => {
     if (event.origin !== origin || event.source !== source) return;
     if (typeof event.data !== "object" || event.data === null) return;
-    const message = event.data as { type?: unknown; replay?: unknown };
-    if (message.type !== OPERATOR_REPLAY_LOAD || !isReplayData(message.replay)) return;
+    const message = event.data as { type?: unknown; replay?: unknown } & OperatorReplayOptions;
+    if (
+      message.type !== OPERATOR_REPLAY_LOAD ||
+      !isReplayData(message.replay) ||
+      !validReplayOptions(message.replay, message)
+    )
+      return;
     window.removeEventListener("message", receive);
-    void loadReplay(message.replay);
+    void loadReplay(message.replay, { seekToTick: message.seekToTick, startPaused: message.startPaused });
   };
   window.addEventListener("message", receive);
   source.postMessage({ type: OPERATOR_REPLAY_READY }, origin);

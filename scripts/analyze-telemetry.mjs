@@ -380,6 +380,7 @@ export function buildArtifacts({
     calculationDigest: analysis.calculationDigest,
     candidates: analysis.candidates.map((candidate) => ({
       ...candidate,
+      inspectionUrl: candidateInspectionUrl(candidate.runId),
       receivedAt: new Date(candidate.receivedAt).toISOString(),
     })),
     selectionAudit: analysis.selectionAudit,
@@ -484,4 +485,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
   });
+}
+
+export const STAGING_OPERATOR_BASE = "https://phejet.github.io/dubai-missile-command/operator.html";
+export function candidateInspectionUrl(runId) {
+  if (typeof runId !== "string" || !/^[A-Za-z0-9._+-]{1,64}$/.test(runId)) throw new Error("Invalid candidate run ID");
+  return `${STAGING_OPERATOR_BASE}#${new URLSearchParams({ environment: "staging", run: runId })}`;
 }

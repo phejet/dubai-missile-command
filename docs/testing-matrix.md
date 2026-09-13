@@ -140,3 +140,13 @@ That is intentional because those files are mostly orchestration or environment-
 - If you change render-only code, render tests are useful, but smoke E2E still catches integration breakage.
 - If you change telemetry acquisition, statistics, or artifacts, run the focused telemetry test
   plus the full unit, lint, and format gates; remote Staging proof must remain read-only.
+
+## RM-08 replay inspection
+
+- `src/operator-api.test.ts`: strict filters, cursor/fragment schemas, response projection and request generations.
+- `src/operator-inspection.test.ts`: real human bonus/shop replay, summary comparisons, tolerances, cancellation and timeline targets.
+- `src/operator-replay-bridge.test.ts`: same-origin opener-only, one-message launch with validated paused seek options.
+- `worker/test/operator-sessions.test.ts`: SQL filters/paging, retention/status boundaries, D1-only curated details, corrupt storage, retired raw routes, and actual migrated query-plan index use.
+- `e2e/operator.spec.ts`: deep-linked run outside page one, lazy inspection, filtered paging, wave/exact-tick popup, incompatible/missing evidence, and narrow layout.
+- `npm run operator:bundle-check`: production manifest graph and 20 KiB gzip growth budget; reports lazy inspection dependencies separately.
+- Staging acceptance: unusual retained run, private candidate handoff, list/detail under 2s and far-seek under 5s on the review machine; human usefulness proof stays separate from automated tests.

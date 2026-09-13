@@ -11,6 +11,7 @@ import {
 } from "./telemetry/analysis.mjs";
 import { validateComparisonSpec } from "./telemetry/comparison-schema.mjs";
 import {
+  candidateInspectionUrl,
   assertReadOnlyQuery,
   assertPublicArtifacts,
   buildArtifacts,
@@ -428,6 +429,21 @@ describe("artifact privacy and lifecycle", () => {
     });
     expect(artifacts.verification).not.toHaveProperty("shareableArtifactsContainIdentifiers");
     expect(candidates).toContain("run-base-01");
+    expect(publicArtifact).not.toContain("inspectionUrl");
+    expect(publicArtifact).not.toContain("operator.html#");
+    for (const candidate of JSON.parse(candidates).candidates)
+      expect(candidate.inspectionUrl).toBe(candidateInspectionUrl(candidate.runId));
+    const repeated = buildArtifacts({
+      analysis,
+      spec,
+      query: "SELECT fixture;",
+      queryMeta: { changes: 0, rowsWritten: 0, rowsRead: rows.length },
+      generatedAt: new Date("2026-09-04T00:00:00.000Z"),
+      toolBuild: "fixture",
+      rawRows: rows,
+    });
+    expect(repeated.candidatesPrivate).toEqual(artifacts.candidatesPrivate);
+    expect(repeated.manifest.candidateDigest).toBe(analysis.candidateDigest);
     expect(await cleanupPrivate(directory, "fixture-comparison")).toBe(true);
     await expect(readFile(resolve(output, "candidates.private.json"), "utf8")).rejects.toThrow();
   });
@@ -460,5 +476,14 @@ describe("artifact privacy and lifecycle", () => {
 
   it("refuses Production before attempting to read a comparison", async () => {
     await expect(main(["--env", "production", "--comparison", "missing.json"])).rejects.toThrow(/only --env staging/);
+  });
+});
+
+describe("RM-08 private candidate link", () => {
+  it("builds a deterministic fragment-only Staging URL", () => {
+    expect(candidateInspectionUrl("run+old")).toBe(
+      "https://phejet.github.io/dubai-missile-command/operator.html#environment=staging&run=run%2Bold",
+    );
+    expect(() => candidateInspectionUrl("../bad")).toThrow();
   });
 });

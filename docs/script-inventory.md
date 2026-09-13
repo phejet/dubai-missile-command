@@ -91,3 +91,5 @@ The E2E tests are the maintained automation path. The standalone scripts are con
 - Reach for `sim-runner.ts`, `train.ts`, `record.ts`, and the Playwright suites first.
 - Treat root-level JS/MJS utilities as convenience probes that may need quick maintenance before use.
 - If a script reads stale filenames or constants, fix the script or route through the maintained entrypoints instead.
+
+- `scripts/check-operator-bundle.mjs` — read-only production manifest traversal for the operator's static JS/CSS graph. `npm run operator:bundle-check` builds with a manifest and enforces the checked-in baseline plus 20 KiB gzip, rejecting renderer/simulation dependencies in the initial graph. Lazy inspection transfer is reported separately. `--record-baseline` is only for an explicitly reviewed baseline change.

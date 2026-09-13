@@ -1,0 +1,11 @@
+{
+  "source": "RM-04 operator before RM-08, 2026-09-13",
+  "files": [
+    "assets/modulepreload-polyfill-BxR_cmXS.js",
+    "assets/operator-CM8oMjh4.js",
+    "assets/operator-replay-bridge-Fi5NSo6u.js",
+    "assets/operator-xSZOCVWQ.css"
+  ],
+  "gzipBytes": 3209,
+  "maxAdditionalGzipBytes": 20480
+}

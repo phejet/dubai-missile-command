@@ -22,7 +22,7 @@ export default function operatorPlugin(stagingUrl: string): Plugin {
         const url = new URL(req.url ?? "/", "http://local.invalid");
         let sessionId: string | undefined;
         try {
-          const match = /^\/api\/session\/([^/]+)$/.exec(url.pathname);
+          const match = /^\/api\/operator\/sessions\/([^/]+)(?:\/replay)?$/.exec(url.pathname);
           if (match) sessionId = decodeURIComponent(match[1]);
         } catch {
           return reject(400, "Invalid session ID");

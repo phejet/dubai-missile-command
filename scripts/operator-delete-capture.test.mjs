@@ -1,3 +1,4 @@
+import { candidateInspectionUrl } from "./analyze-telemetry.mjs";
 import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -79,7 +80,7 @@ describe("operator deletion CLI guards", () => {
       await mkdir(directory);
       await writeFile(
         resolve(directory, "candidates.private.json"),
-        JSON.stringify({ schema: 1, candidates: [{ runId }] }),
+        JSON.stringify({ schema: 1, candidates: [{ runId, inspectionUrl: candidateInspectionUrl(runId) }] }),
       );
     }
     const matches = await findDeletionTelemetryArtifacts({ sessions: ["private-run"] }, resultsRoot);

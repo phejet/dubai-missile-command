@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="no-referrer" />
     <meta name="robots" content="noindex, nofollow" />
     <title>Replay Operator — Dubai Missile Command</title>
   </head>
@@ -18,7 +19,7 @@
           Environment
           <select id="operator-environment">
             <option value="staging">Staging</option>
-            <option value="production">Production</option>
+            <option value="production" disabled>Production — unavailable</option>
           </select>
         </label>
         <label>
@@ -30,21 +31,65 @@
       <p class="operator-status" id="operator-status" role="status" aria-live="polite">
         Token stays in this page only.
       </p>
-      <div class="operator-table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Received</th>
-              <th>Build</th>
-              <th>Score</th>
-              <th>Wave</th>
-              <th>Outcome</th>
-              <th>Replay</th>
-              <th><span class="sr-only">Action</span></th>
-            </tr>
-          </thead>
-          <tbody id="operator-runs"></tbody>
-        </table>
+      <form id="operator-filters" class="operator-filters" aria-label="Run filters">
+        <label>Build<input name="build" maxlength="64" /></label>
+        <label>Minimum score<input name="minScore" type="number" min="0" step="1" /></label>
+        <label>Maximum score<input name="maxScore" type="number" min="0" step="1" /></label>
+        <label>Minimum wave<input name="minWave" type="number" min="0" step="1" /></label>
+        <label>Maximum wave<input name="maxWave" type="number" min="0" step="1" /></label>
+        <label
+          >Outcome<select name="outcome">
+            <option value="">All outcomes</option>
+            <option value="burj_destroyed">Burj destroyed</option>
+            <option value="survived">Survived</option>
+            <option value="abandoned">Abandoned</option>
+          </select></label
+        >
+        <label
+          >Feedback<select name="feedback">
+            <option value="">All feedback</option>
+            <option value="none">No feedback</option>
+            <option>🔥</option>
+            <option>👍</option>
+            <option>😕</option>
+            <option>😤</option>
+          </select></label
+        >
+        <label
+          >Replay<select name="replay">
+            <option value="">All replay states</option>
+            <option>available</option>
+            <option>expired</option>
+            <option>missing</option>
+            <option>omitted</option>
+          </select></label
+        >
+        <button type="submit">Apply filters</button><button type="reset">Reset filters</button>
+      </form>
+      <div class="operator-workspace">
+        <section id="operator-results" tabindex="-1" aria-label="Run results">
+          <h2>Runs</h2>
+          <p id="operator-empty">Load runs to begin, or open a candidate link.</p>
+          <div class="operator-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Received / build</th>
+                  <th>Score / wave</th>
+                  <th>Outcome / feedback</th>
+                  <th>Replay</th>
+                  <th>Inspect</th>
+                </tr>
+              </thead>
+              <tbody id="operator-runs"></tbody>
+            </table>
+          </div>
+          <button id="operator-more" type="button" hidden>Load more</button>
+        </section>
+        <section id="operator-detail" class="operator-detail" tabindex="-1" aria-label="Run inspector">
+          <h2>Run inspector</h2>
+          <p>Select a run to inspect its summary and replay.</p>
+        </section>
       </div>
       <p class="operator-note">
         This browser is intentionally read-only. Data deletion uses the separately confirmed operator procedure.

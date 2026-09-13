@@ -56,7 +56,8 @@
     "worker:lifecycle:verify:production": "node scripts/verify-r2-lifecycle.mjs --env=production --bucket=dmc-captures",
     "operator:delete": "node scripts/operator-delete-capture.mjs",
     "operator:retention-fixtures": "node scripts/seed-retention-fixtures.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "operator:bundle-check": "vite build --manifest && node scripts/check-operator-bundle.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.0",

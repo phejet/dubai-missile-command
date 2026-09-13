@@ -517,7 +517,7 @@ export function bootGame({ launchUrl }: BootGameOptions = {}): BootGameRuntime {
     );
   }
   const initialSharedReplay = parseSharedReplayRequest(launchUrl ?? window.location.href, __DMC_SHARE_BASE_URLS__);
-  const operatorReplay = installOperatorReplayReceiver((replay) => game.loadReplay(replay));
+  const operatorReplay = installOperatorReplayReceiver((replay, options) => game.loadReplay(replay, options));
   if (initialSharedReplay && !initialPerfRequest && !operatorReplay) void loadSharedReplay(initialSharedReplay);
   startPerfCommandPolling();
   return {

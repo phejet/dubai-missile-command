@@ -688,18 +688,13 @@ describe("capture Worker split", () => {
   it("stores a replay-less session and retrieves an explicit null replay", async () => {
     const session = sessionFixture({ replay: null });
     expect((await post("session", session)).status).toBe(200);
-    const response = await SELF.fetch("https://worker.test/api/session/run", {
+    const response = await SELF.fetch("https://worker.test/api/operator/sessions/run/replay", {
       headers: { Authorization: "Bearer test-secret" },
     });
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
       ok: true,
-      session: { replay_sha256: null, app_flavor: "dev" },
-      provenance: {
-        appFlavor: "dev",
-        bundleId: "com.phejet.dubaicmd.dev",
-        appleEnvironment: "development",
-      },
+      replayStatus: "omitted",
       replay: null,
     });
   });
@@ -1054,7 +1049,7 @@ describe("capture Worker split", () => {
     expect(await env.DB.prepare("SELECT replay_sha256 FROM replays").first()).toBeNull();
     expect((await SELF.fetch(`https://worker.test/api/shared/${shareId}`)).status).toBe(404);
     const clock = vi.spyOn(Date, "now").mockReturnValue(now);
-    const retainedSummary = await SELF.fetch("https://worker.test/api/session/retention-run", {
+    const retainedSummary = await SELF.fetch("https://worker.test/api/operator/sessions/retention-run/replay", {
       headers: { Authorization: "Bearer test-secret" },
     });
     expect(await retainedSummary.json()).toMatchObject({ replay: null, replayStatus: "expired" });
@@ -1129,11 +1124,10 @@ describe("capture Worker split", () => {
         .bind(now - 271 * day)
         .run();
 
-      const privateLookup = await SELF.fetch("https://worker.test/api/session/logical-old-replay", {
+      const privateLookup = await SELF.fetch("https://worker.test/api/operator/sessions/logical-old-replay/replay", {
         headers: { Authorization: "Bearer test-secret" },
       });
       expect(await privateLookup.json()).toMatchObject({
-        session: { run_id: "logical-old-replay", display_name: null, feedback_note: null },
         replay: null,
         replayStatus: "expired",
       });
@@ -1167,7 +1161,7 @@ describe("capture Worker split", () => {
         .run();
       expect(
         (
-          await SELF.fetch("https://worker.test/api/session/logical-old-replay", {
+          await SELF.fetch("https://worker.test/api/operator/sessions/logical-old-replay/replay", {
             headers: { Authorization: "Bearer test-secret" },
           })
         ).status,
@@ -1189,7 +1183,7 @@ describe("capture Worker split", () => {
       await env.DB.prepare("UPDATE sessions SET received_at = ?")
         .bind(now - 270 * day)
         .run();
-      const retrieved = await SELF.fetch("https://worker.test/api/session/boundary-run", {
+      const retrieved = await SELF.fetch("https://worker.test/api/operator/sessions/boundary-run/replay", {
         headers: { Authorization: "Bearer test-secret" },
       });
       expect(await retrieved.json()).toMatchObject({ replay: expect.any(Object) });
@@ -1806,9 +1800,12 @@ describe("capture Worker split", () => {
     const missingIndex = sessionFixture({ runId: "missing-index-run" });
     expect((await post("session", missingIndex)).status).toBe(200);
     await env.DB.prepare("DELETE FROM replays WHERE replay_sha256 = ?").bind(missingIndex.meta.replaySha256).run();
-    const missingIndexResponse = await SELF.fetch("https://worker.test/api/session/missing-index-run", {
-      headers: { Authorization: "Bearer test-secret" },
-    });
+    const missingIndexResponse = await SELF.fetch(
+      "https://worker.test/api/operator/sessions/missing-index-run/replay",
+      {
+        headers: { Authorization: "Bearer test-secret" },
+      },
+    );
     expect(missingIndexResponse.status).toBe(200);
     expect(await missingIndexResponse.json()).toMatchObject({ replay: null, replayStatus: "missing" });
     const operatorList = await SELF.fetch("https://worker.test/api/operator/sessions", {
@@ -1845,7 +1842,7 @@ describe("capture Worker split", () => {
     const missing = sessionFixture({ runId: "missing-run" });
     expect((await post("session", missing)).status).toBe(200);
     await env.CAPTURES.delete(`replays/${missing.meta.replaySha256}.json.gz`);
-    const missingResponse = await SELF.fetch("https://worker.test/api/session/missing-run", {
+    const missingResponse = await SELF.fetch("https://worker.test/api/operator/sessions/missing-run/replay", {
       headers: { Authorization: "Bearer test-secret" },
     });
     expect(missingResponse.status).toBe(200);
@@ -1880,9 +1877,9 @@ describe("capture Worker split", () => {
     await post("report", reportFixture({ reportId: "report-auth" }));
     const sha = sessionFixture().meta.replaySha256;
     for (const path of [
-      "/api/sessions",
+      "/api/operator/sessions",
       "/api/reports",
-      "/api/session/run",
+      "/api/operator/sessions/run/replay",
       "/api/report/report-auth",
       `/api/replay/${sha}`,
     ]) {
@@ -1897,23 +1894,12 @@ describe("capture Worker split", () => {
     }
   });
 
-  it("lists and filters capture rows by server-derived app flavor", async () => {
-    await post("session", sessionFixture({ runId: "dev-filter" }));
-    const headers = { Authorization: "Bearer test-secret" };
-    const devResponse = await SELF.fetch("https://worker.test/api/sessions?flavor=dev", { headers });
-    expect(devResponse.status).toBe(200);
-    expect(await devResponse.json()).toMatchObject({
-      sessions: [
-        {
-          run_id: "dev-filter",
-          app_flavor: "dev",
-          apple_bundle_id: "com.phejet.dubaicmd.dev",
-          apple_environment: "development",
-        },
-      ],
-    });
-    const stagingResponse = await SELF.fetch("https://worker.test/api/sessions?flavor=staging", { headers });
-    expect(await stagingResponse.json()).toMatchObject({ sessions: [] });
+  it("retires raw session reads", async () => {
+    for (const path of ["/api/sessions", "/api/session/run"]) {
+      expect(
+        (await SELF.fetch(`https://worker.test${path}`, { headers: { Authorization: "Bearer test-secret" } })).status,
+      ).toBe(404);
+    }
   });
 
   it("serves a minimal replay-aware operator list with restricted browser CORS", async () => {
@@ -1964,7 +1950,7 @@ describe("capture Worker split", () => {
   it("allows browser preflight and authenticated retrieval of an operator replay", async () => {
     const session = sessionFixture({ runId: "operator-replay-cors" });
     expect((await post("session", session)).status).toBe(200);
-    const url = `https://worker.test/api/session/${session.meta.runId}`;
+    const url = `https://worker.test/api/operator/sessions/${session.meta.runId}/replay`;
     const origin = "https://phejet.github.io";
     const preflight = await SELF.fetch(url, {
       method: "OPTIONS",
@@ -2000,7 +1986,7 @@ describe("capture Worker split", () => {
     }
     expect((await SELF.fetch(url, { method: "OPTIONS" })).status).toBe(400);
     expect((await SELF.fetch(url, { method: "POST", headers: { Authorization: "Bearer test-secret" } })).status).toBe(
-      404,
+      405,
     );
   });
 

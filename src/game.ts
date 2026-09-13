@@ -1466,8 +1466,11 @@ export class Game {
     this.syncReplayPlayer();
   }
 
-  async loadReplay(replayData: ReplayData): Promise<void> {
-    await this.startReplay(replayData);
+  async loadReplay(
+    replayData: ReplayData,
+    options: { seekToTick?: number; startPaused?: boolean } = {},
+  ): Promise<void> {
+    await this.startReplay(replayData, options);
   }
 
   async playNewRun(): Promise<void> {

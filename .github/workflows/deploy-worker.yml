@@ -7,6 +7,7 @@ on:
     paths:
       - "worker/**"
       - "src/capture-contract.ts"
+      - "src/operator-contract.ts"
       - "src/capture-auth-protocol.ts"
       - "scripts/verify-r2-lifecycle.mjs"
       - "package.json"

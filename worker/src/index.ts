@@ -1,3 +1,4 @@
+import { handleOperatorSessions } from "./operator-sessions";
 import { SAFE_ID, SHA256 } from "../../src/capture-contract";
 import { authorized } from "./auth";
 import type { Env, R2ObjectBody } from "./bindings";
@@ -5,14 +6,7 @@ import { challenge, enroll, revokeCredential } from "./capture-auth";
 import { handleDeletion, handleDeletionJobs, handleReservationRecovery } from "./deletion";
 import { submitFeedback } from "./feedback";
 import { ingestReport, ingestSession, jsonResponse } from "./ingest";
-import {
-  isRetained,
-  REPORT_RETENTION_MS,
-  REPLAY_RETENTION_MS,
-  retentionCutoff,
-  runRetention,
-  SESSION_RETENTION_MS,
-} from "./retention";
+import { REPORT_RETENTION_MS, REPLAY_RETENTION_MS, retentionCutoff, runRetention } from "./retention";
 import { redirectSharedRun, retrieveSharedRun, shareSession } from "./share";
 
 const DEFAULT_ORIGINS = new Set(["capacitor://localhost"]);
@@ -71,11 +65,20 @@ function operatorCorsHeaders(origin: string): HeadersInit {
 async function withOperatorCors(request: Request, env: Env, handler: () => Promise<Response>): Promise<Response> {
   const origin = request.headers.get("origin");
   if (origin && !operatorOrigins(env).has(origin)) {
-    return jsonResponse(403, { ok: false, stage: "auth", message: "Origin not allowed" });
+    const denied = jsonResponse(403, { ok: false, stage: "auth", message: "Origin not allowed" });
+    denied.headers.set("Cache-Control", "private, no-store");
+    return denied;
   }
   if (request.method === "OPTIONS") {
-    if (!origin) return jsonResponse(400, { ok: false, stage: "parse", message: "Origin required" });
-    return new Response(null, { status: 204, headers: operatorCorsHeaders(origin) });
+    if (!origin) {
+      const response = jsonResponse(400, { ok: false, stage: "parse", message: "Origin required" });
+      response.headers.set("Cache-Control", "private, no-store");
+      return response;
+    }
+    return new Response(null, {
+      status: 204,
+      headers: { ...operatorCorsHeaders(origin), "Cache-Control": "private, no-store" },
+    });
   }
   const response = await handler();
   if (!origin) return response;
@@ -145,36 +148,6 @@ async function replayValue(env: Env, sha: string | null): Promise<ReplayLookup> 
     return { replay: null, replayStatus: "missing" };
   }
   return { replay: await objectJson(object), replayStatus: "available" };
-}
-
-async function retrieveSession(request: Request, env: Env, runId: string): Promise<Response> {
-  const denied = requireAuth(request, env);
-  if (denied) return denied;
-  if (!SAFE_ID.test(runId)) return jsonResponse(400, { ok: false, stage: "parse", message: "Invalid runId" });
-  const row = await env.DB.prepare("SELECT * FROM sessions WHERE run_id = ?")
-    .bind(runId)
-    .first<Record<string, unknown>>();
-  if (!row) return jsonResponse(404, { ok: false, stage: "store", message: "Session not found" });
-  const now = Date.now();
-  if (!isRetained(Number(row.received_at), now, SESSION_RETENTION_MS)) {
-    return jsonResponse(404, { ok: false, stage: "store", message: "Session not found" });
-  }
-  if (!isRetained(Number(row.received_at), now, REPORT_RETENTION_MS)) {
-    row.display_name = null;
-    row.feedback_note = null;
-  }
-  const replay = isRetained(Number(row.received_at), now, REPLAY_RETENTION_MS)
-    ? await replayValue(env, (row.replay_sha256 as string | null) ?? null)
-    : { replay: null, replayStatus: "expired" as const };
-  return jsonResponse(200, {
-    ok: true,
-    session: row,
-    provenance: submissionProvenance(row),
-    replay: replay.replay,
-    ...(replay.replayStatus === "expired" || replay.replayStatus === "missing"
-      ? { replayStatus: replay.replayStatus }
-      : {}),
-  });
 }
 
 async function retrieveReport(request: Request, env: Env, reportId: string): Promise<Response> {
@@ -247,14 +220,14 @@ async function retrieveReplay(request: Request, env: Env, sha: string): Promise<
   );
 }
 
-async function listRows(request: Request, env: Env, table: "sessions" | "diagnostic_reports"): Promise<Response> {
+async function listRows(request: Request, env: Env): Promise<Response> {
   const denied = requireAuth(request, env);
   if (denied) return denied;
   const url = new URL(request.url);
   const clauses: string[] = [];
   const values: unknown[] = [];
   clauses.push("received_at >= ?");
-  values.push(retentionCutoff(Date.now(), table === "sessions" ? SESSION_RETENTION_MS : REPORT_RETENTION_MS));
+  values.push(retentionCutoff(Date.now(), REPORT_RETENTION_MS));
   for (const [parameter, column] of [
     ["install", "install_id"],
     ["build", "build"],
@@ -280,70 +253,10 @@ async function listRows(request: Request, env: Env, table: "sessions" | "diagnos
   const limit = Number.isFinite(requestedLimit) ? Math.min(200, Math.max(1, Math.trunc(requestedLimit))) : 50;
   values.push(limit);
   const where = clauses.length ? ` WHERE ${clauses.join(" AND ")}` : "";
-  const result = await env.DB.prepare(`SELECT * FROM ${table}${where} ORDER BY received_at DESC LIMIT ?`)
+  const result = await env.DB.prepare(`SELECT * FROM diagnostic_reports${where} ORDER BY received_at DESC LIMIT ?`)
     .bind(...values)
     .all();
-  const rows = (result.results ?? []).map((row) => {
-    if (
-      table === "sessions" &&
-      !isRetained(Number((row as Record<string, unknown>).received_at), Date.now(), REPORT_RETENTION_MS)
-    ) {
-      return { ...(row as Record<string, unknown>), display_name: null, feedback_note: null };
-    }
-    return row;
-  });
-  return jsonResponse(200, { ok: true, [table === "sessions" ? "sessions" : "reports"]: rows });
-}
-
-async function listOperatorSessions(request: Request, env: Env): Promise<Response> {
-  const denied = requireAuth(request, env);
-  if (denied) return denied;
-  const url = new URL(request.url);
-  const requestedLimit = Number(url.searchParams.get("limit") ?? 50);
-  const limit = Number.isFinite(requestedLimit) ? Math.min(200, Math.max(1, Math.trunc(requestedLimit))) : 50;
-  const result = await env.DB.prepare(
-    `SELECT s.run_id, s.received_at, s.build, s.score, s.wave_reached, s.outcome,
-            s.replay_sha256, r.r2_key
-     FROM sessions s
-     LEFT JOIN replays r ON r.replay_sha256 = s.replay_sha256
-     WHERE s.received_at >= ?
-     ORDER BY s.received_at DESC
-     LIMIT ?`,
-  )
-    .bind(retentionCutoff(Date.now(), SESSION_RETENTION_MS), limit)
-    .all<{
-      run_id: string;
-      received_at: number;
-      build: string;
-      score: number;
-      wave_reached: number;
-      outcome: string;
-      replay_sha256: string | null;
-      r2_key: string | null;
-    }>();
-  const sessions = await Promise.all(
-    (result.results ?? []).map(async (row) => {
-      const replayStatus = !row.replay_sha256
-        ? "omitted"
-        : !isRetained(row.received_at, Date.now(), REPLAY_RETENTION_MS)
-          ? "expired"
-          : !row.r2_key
-            ? "missing"
-            : (await env.CAPTURES.head(row.r2_key))
-              ? "available"
-              : "missing";
-      return {
-        runId: row.run_id,
-        receivedAt: row.received_at,
-        build: row.build,
-        score: row.score,
-        wave: row.wave_reached,
-        outcome: row.outcome,
-        replayStatus,
-      };
-    }),
-  );
-  return jsonResponse(200, { ok: true, sessions });
+  return jsonResponse(200, { ok: true, reports: result.results ?? [] });
 }
 
 function decodedPathId(pathname: string, pattern: RegExp): string | null {
@@ -420,16 +333,16 @@ export default {
       );
     }
     if (url.pathname === "/api/operator/sessions") {
-      return withOperatorCors(request, env, () => listOperatorSessions(request, env));
+      return withOperatorCors(request, env, () => handleOperatorSessions(request, env));
     }
-    if (url.pathname === "/api/sessions" && request.method === "GET") return listRows(request, env, "sessions");
     if (url.pathname === "/api/reports" && request.method === "GET") {
-      return listRows(request, env, "diagnostic_reports");
+      return listRows(request, env);
     }
-    if (request.method === "GET" || request.method === "OPTIONS") {
-      const runId = decodedPathId(url.pathname, /^\/api\/session\/([^/]+)$/);
-      if (runId !== null) return withOperatorCors(request, env, () => retrieveSession(request, env, runId));
-    }
+    const operatorRun = decodedPathId(url.pathname, /^\/api\/operator\/sessions\/([^/]+)(?:\/replay)?$/);
+    if (operatorRun !== null)
+      return withOperatorCors(request, env, () =>
+        handleOperatorSessions(request, env, operatorRun, url.pathname.endsWith("/replay")),
+      );
     if (request.method === "GET") {
       const reportId = decodedPathId(url.pathname, /^\/api\/report\/([^/]+)$/);
       if (reportId !== null) return retrieveReport(request, env, reportId);
