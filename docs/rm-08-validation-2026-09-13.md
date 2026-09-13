@@ -23,3 +23,16 @@ Secondary provenance/totals use a disclosure; primary summary and replay actions
 ## External acceptance still required
 
 Exact reviewed Staging deployment, genuine unusual-run UI investigation, longest retained candidate seek timing, private RM-06 candidate cleanup after review, and human usefulness confirmation. Mocked browser proof does not satisfy these gates. Production capture remains disabled.
+
+## Direct main delivery verification
+
+User requested local tests and direct main delivery without a PR. Verified the isolated implementation based on `433799b`:
+
+- Full unit suite: 777 tests across 73 files passed.
+- Worker suite: 105 tests across 8 files, plus the actual HTTP-wire test, passed.
+- Operator and gameplay smoke browser suites: all 16 tests passed (25.5 seconds); operator workflow took 2.5 seconds.
+- Typecheck, lint, changed-file formatting, roadmap validation, and diff whitespace checks passed.
+- Operator initial graph: 9,021 gzip bytes, +5,812 over baseline; lazy inspection graph: 67,486 gzip bytes. Bundle budget passed.
+- Replaced the roadmap link to ignored local `tasks/todo.md` with this tracked evidence document so clean-checkout validation succeeds.
+
+Deployed Staging investigation and human usefulness acceptance remain open.

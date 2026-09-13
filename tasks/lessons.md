@@ -714,3 +714,8 @@ someone who can't see the state machine?" A full stop says malfunction. Prefer s
 preserve momentum. And when a feel report contradicts clean metrics, the metric is measuring
 the wrong quantity — find the one that would have caught it (here: px moved per tick while
 in the state) rather than defending the old one.
+
+## 2026-09-13 — Follow the requested delivery route
+
+- For RM-08, use local verification and a direct main push as explicitly requested; do not create a PR. Preserve unrelated changes through the isolated checkout.
+- Roadmap evidence links must target tracked files that exist in a clean checkout.
