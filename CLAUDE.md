@@ -2,6 +2,13 @@
 
 Canvas-based missile defense game built with React + Vite.
 
+## Checkout policy
+
+Do not create or use Git worktrees unless the user explicitly requests them. Work in
+the shared repository checkout by default. This also applies to scripts and release
+workflows that create worktrees automatically; a release request alone does not
+authorize a worktree.
+
 ## Quick Start
 
 ```bash
