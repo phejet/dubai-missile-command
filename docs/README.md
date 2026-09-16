@@ -65,11 +65,12 @@ an explicit status, as `authenticated-capture-ingestion.md` does.
 
 - [Gameplay study and initial evidence](<./gameplay analysis Sep 2026/gameplay-design-report.html>).
 - [Reward attribution report](<./gameplay analysis Sep 2026/scoring-attribution-results.html>).
-- [Score-independent shooting quality](<./gameplay analysis Sep 2026/scoring-quality-results.html>) — measurements verified; human clip labels pending.
+- [Score-independent shooting quality](<./gameplay analysis Sep 2026/scoring-quality-results.html>) — measurements verified; user labels and defense-first criterion recorded.
+- [Matched progression and defense outcomes](<./gameplay analysis Sep 2026/scoring-progression-results.html>) — part four; strict matches are limited to early waves.
 - [Score-hidden clip review](<./gameplay analysis Sep 2026/scoring-quality-review.html>) — local Vite tool requiring the private study corpus; not a standalone published replay.
 - [Study plan](<./gameplay analysis Sep 2026/scoring-replay-study-plan.md>) and [part-three method](<./gameplay analysis Sep 2026/scoring-quality-method.md>).
 
-The three HTML reports embed anonymous aggregates and can be read without the private corpus.
+The four HTML reports embed anonymous aggregates and can be read without the private corpus.
 The analysis scripts are under `scripts/scoring-study/`; raw captures and generated evidence
 remain in ignored `operator-results/`. These reports do not change roadmap state.
 

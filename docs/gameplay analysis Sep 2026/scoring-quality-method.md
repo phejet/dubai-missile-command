@@ -1,7 +1,7 @@
 # Part three: shooting quality independent of score
 
 Date: 2026-09-15. Authorized scope: part three of the replay study. No scoring,
-spawn, counterfactual or progression-comparison experiment. No run ranking yet. Measurements and browser checks are verified; user labels on clips 01, 03 and 05 remain pending.
+spawn, counterfactual or progression-comparison experiment. No run ranking yet. Measurements and browser checks are verified; nine user labels and a defense-first criterion are recorded below.
 
 ## Definitions fixed before selecting clips
 
@@ -71,3 +71,22 @@ outputs intact under `attribution/`; write new artifacts under `quality/`.
 
 Deliver an HTML clip-review surface plus descriptive metrics and explicit denominators.
 No score association or ranking belongs in this step. Keep the local server running.
+
+## User calibration — 2026-09-16
+
+Nine user labels are recorded separately in `scoring-quality-user-labels.json`.
+Clip 02 was corrected from Wasteful to Productive; clip 06 remains unlabelled.
+Current totals: four Productive, four Wasteful and one Sensible withholding.
+Clip 01 was subsequently revised to Wasteful. The later export retained clip 02’s old
+timestamp and value, so its explicit conversational correction to Productive takes precedence.
+The user emphasized preventing threats from reaching their targets and found dense
+scenes difficult to evaluate. This supplies the preferred criterion, not reliable
+per-action causal labels. Do not infer the missing individual reasons or precise
+focal-shot versus whole-clip scope.
+
+Interpretation: prioritize observed damaging arrivals and losses to defended assets;
+use shooting efficiency and automation contributions to explain those outcomes.
+No-threat/withholding periods are not automatically mistakes, and kill-producing
+shots are not automatically good decisions. Compare exposure, wave duration and
+loadout before judging defense quality. No counterfactual saves, fitted skill metric,
+run rankings or part-four comparisons have been established here.

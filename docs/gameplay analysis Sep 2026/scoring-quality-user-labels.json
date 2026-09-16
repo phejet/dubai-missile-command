@@ -1,0 +1,57 @@
+{
+  "clip-01": {
+    "judgment": "Wasteful",
+    "reason": "",
+    "at": "2026-09-16T13:28:47.146Z",
+    "correction": {
+      "date": "2026-09-16",
+      "previousJudgment": "Ambiguous",
+      "source": "Updated user export with newer timestamp."
+    }
+  },
+  "clip-02": {
+    "judgment": "Productive",
+    "reason": "",
+    "at": "2026-09-16T13:07:36.658Z",
+    "correction": {
+      "date": "2026-09-16",
+      "previousJudgment": "Wasteful",
+      "source": "User explicitly corrected the label in conversation; original at field retained. Later export repeated Wasteful at the unchanged original timestamp, so the explicit correction is preserved."
+    }
+  },
+  "clip-03": {
+    "judgment": "Productive",
+    "reason": "",
+    "at": "2026-09-16T13:29:02.237Z"
+  },
+  "clip-04": {
+    "judgment": "Wasteful",
+    "reason": "",
+    "at": "2026-09-16T13:08:09.686Z"
+  },
+  "clip-05": {
+    "judgment": "Wasteful",
+    "reason": "",
+    "at": "2026-09-16T13:29:24.853Z"
+  },
+  "clip-07": {
+    "judgment": "Productive",
+    "reason": "",
+    "at": "2026-09-16T13:08:55.099Z"
+  },
+  "clip-08": {
+    "judgment": "Wasteful",
+    "reason": "",
+    "at": "2026-09-16T13:09:21.498Z"
+  },
+  "clip-09": {
+    "judgment": "Productive",
+    "reason": "",
+    "at": "2026-09-16T13:09:38.523Z"
+  },
+  "clip-10": {
+    "judgment": "Sensible withholding",
+    "reason": "",
+    "at": "2026-09-16T13:09:55.390Z"
+  }
+}

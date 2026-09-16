@@ -4,7 +4,8 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { resolve, basename } from "node:path";
 import { createHash } from "node:crypto";
 const root = resolve(".");
-const out = resolve("operator-results/scoring-study-20260915/attribution");
+const progression = process.argv.includes("--progression");
+const out = resolve("operator-results/scoring-study-20260915/" + (progression ? "progression" : "attribution"));
 mkdirSync(out, { recursive: true, mode: 0o700 });
 const auditPath = resolve("scripts/scoring-study/observer.mjs");
 const changes = [];
@@ -157,10 +158,17 @@ const observedFiles = new Set([
   "game-sim-patriot.ts",
   "replay.ts",
 ]);
-for (const observed of [false, true]) {
+for (const observed of process.argv.includes("--progression") ? [false] : [false, true]) {
   await build({
-    entryPoints: ["scripts/scoring-study/run.ts"],
-    outfile: resolve(out, observed ? "observed.mjs" : "baseline.mjs"),
+    entryPoints: [
+      process.argv.includes("--progression")
+        ? "scripts/scoring-study/progression-context.ts"
+        : "scripts/scoring-study/run.ts",
+    ],
+    outfile: resolve(
+      out,
+      process.argv.includes("--progression") ? "progression-context.mjs" : observed ? "observed.mjs" : "baseline.mjs",
+    ),
     bundle: true,
     platform: "node",
     format: "esm",
@@ -195,7 +203,10 @@ for (const observed of [false, true]) {
   });
 }
 writeFileSync(resolve(out, "instrumentation.json"), JSON.stringify(changes, null, 2), { mode: 0o600 });
-console.log("Built baseline and observed replay bundles inside", out.replace(root + "/", ""));
+console.log(
+  progression ? "Built progression context bundle inside" : "Built baseline and observed replay bundles inside",
+  out.replace(root + "/", ""),
+);
 
 writeFileSync(
   resolve(out, "source-hashes.json"),

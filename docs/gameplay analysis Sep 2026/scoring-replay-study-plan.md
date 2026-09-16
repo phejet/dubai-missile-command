@@ -1,6 +1,6 @@
 # Replay study: does score reward shooting skill?
 
-Date: 2026-09-15. Updated 2026-09-16: parts one and two verified; part three measurements verified, with human clip labels pending. Parts four through six have not started.
+Date: 2026-09-15. Updated 2026-09-16: parts one and two verified; part three measurements verified, with nine user labels and the defense-first criterion recorded; no skill ranking validated. Part four is now complete as an observational analysis; parts five and six have not started. See [matched progression results](scoring-progression-results.html).
 
 Latest evidence: [26-run live corpus findings](scoring-replay-initial-findings.md).
 The live retrieval update below supersedes the initial access blocker.
