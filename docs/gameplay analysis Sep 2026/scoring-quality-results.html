@@ -1,0 +1,1183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>What counts as good shooting? · Part three</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --muted: #acbdd0;
+        --green: #62dcca;
+        --amber: #efc480;
+        --pink: #e9a19d;
+        --line: #30425b;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #0a1321;
+        color: #edf3fb;
+        font:
+          16px/1.55 system-ui,
+          sans-serif;
+      }
+      main {
+        max-width: 1080px;
+        margin: auto;
+        padding: 44px 24px 70px;
+      }
+      h1 {
+        font-size: clamp(34px, 5vw, 57px);
+        line-height: 1.08;
+        letter-spacing: -0.035em;
+        margin: 16px 0;
+      }
+      h2 {
+        font-size: 24px;
+        margin-top: 0;
+      }
+      h3 {
+        font-size: 18px;
+      }
+      .lede {
+        font-size: 21px;
+        color: var(--muted);
+        max-width: 880px;
+      }
+      .tag {
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        color: var(--green);
+        text-transform: uppercase;
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 15px;
+      }
+      .card,
+      section {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #152236;
+        padding: 24px;
+      }
+      .card strong {
+        display: block;
+        font-size: 36px;
+        letter-spacing: -0.04em;
+      }
+      section {
+        margin-top: 28px;
+      }
+      .muted,
+      small {
+        color: var(--muted);
+      }
+      a {
+        color: var(--green);
+      }
+      .callout {
+        border-left: 3px solid var(--amber);
+        padding: 8px 16px;
+        background: #202b3d;
+      }
+      .stack {
+        display: flex;
+        height: 30px;
+        overflow: hidden;
+        border-radius: 6px;
+        background: #29364a;
+      }
+      .legend {
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+        margin: 14px 0;
+        font-size: 14px;
+      }
+      .dot {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        margin-right: 6px;
+        border-radius: 3px;
+      }
+      .table-wrap {
+        overflow: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+      td,
+      th {
+        text-align: right;
+        padding: 10px 8px;
+        border-bottom: 1px solid var(--line);
+        white-space: nowrap;
+      }
+      td:first-child,
+      th:first-child {
+        text-align: left;
+      }
+      th {
+        color: var(--muted);
+        font-weight: 500;
+      }
+      select {
+        font: inherit;
+        padding: 8px;
+        background: #0a1321;
+        color: inherit;
+        border: 1px solid #647890;
+        border-radius: 6px;
+        max-width: 100%;
+      }
+      .columns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 26px;
+      }
+      .metric-row {
+        display: grid;
+        grid-template-columns: 100px 1fr 62px;
+        gap: 12px;
+        align-items: center;
+        margin: 12px 0;
+      }
+      .metric-row .stack {
+        height: 20px;
+      }
+      .key {
+        font-size: 26px;
+        font-weight: 700;
+      }
+      summary {
+        cursor: pointer;
+        color: var(--green);
+      }
+      li {
+        margin: 10px 0;
+      }
+      .note {
+        border-top: 1px solid var(--line);
+        padding: 14px 0;
+      }
+      .pill {
+        display: inline-block;
+        border: 1px solid var(--amber);
+        border-radius: 6px;
+        padding: 5px 10px;
+        color: var(--amber);
+      }
+      @media (max-width: 620px) {
+        main {
+          padding: 26px 13px 45px;
+        }
+        .cards,
+        .columns {
+          grid-template-columns: 1fr;
+        }
+        .card {
+          padding: 16px;
+        }
+        .card strong {
+          font-size: 31px;
+        }
+        section {
+          padding: 20px 15px;
+        }
+        .lede {
+          font-size: 18px;
+        }
+        .metric-row {
+          grid-template-columns: 80px 1fr 52px;
+          gap: 7px;
+          font-size: 13px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="tag">Replay study · Part three · 15 September 2026</div>
+      <h1>An empty shot is an outcome.<br />Was it a bad choice?</h1>
+      <p class="lede">
+        38.9% of resolved empty shots had an intended target killed by another source first. That makes raw shot success
+        an incomplete measure of good play.
+      </p>
+      <p class="pill">Measurements verified · human calibration pending</p>
+      <p>
+        <a href="scoring-quality-review.html">Watch the ten score-hidden clips →</a> Start with clips
+        <strong>01, 03 and 05</strong> before opening the provisional judgments below. Clip playback requires the local
+        Vite server and private study corpus; this aggregate report is self-contained.
+      </p>
+      <div class="cards">
+        <div class="card"><strong>61.5%</strong>resolved shots caused damage<br /><small>2,086 / 3,390</small></div>
+        <div class="card">
+          <strong>507</strong>empty shots with a competing kill<br /><small>289 involved upgrade systems</small>
+        </div>
+        <div class="card">
+          <strong>224</strong>withholding intervals with upgrade kills and no asset damage<br /><small
+            >At least one second; charge and threats present</small
+          >
+        </div>
+      </div>
+      <section>
+        <h2>What we can say now</h2>
+        <ul>
+          <li>
+            <strong>Manual shots are frequently productive.</strong> 2,757 manual-origin kills came from 3,394 shots,
+            including chain descendants. A shot can hit several threats.
+          </li>
+          <li>
+            <strong>Empty shots have different histories.</strong> Some lose intended targets to other defenses or
+            another manual shot. Others begin with no intended target because the player is aiming ahead.
+          </li>
+          <li>
+            <strong>Withholding is sometimes followed by a good local outcome.</strong> Existing defenses can remove
+            threats while the player has firing capacity available. Observing that outcome does not establish the
+            player's intent.
+          </li>
+          <li>
+            <strong>We still need your judgment.</strong> These describe shooting behavior and outcomes. They are not a
+            validated skill score or a ranking of your runs.
+          </li>
+        </ul>
+      </section>
+      <section>
+        <h2>Shot outcomes, with the denominator exposed</h2>
+        <p>
+          <label for="run">Recording </label
+          ><select id="run">
+            <option value="all">All 26 recordings</option>
+          </select>
+        </p>
+        <p id="denominator"></p>
+        <div id="distribution"></div>
+        <p id="rates"></p>
+        <div class="columns">
+          <div>
+            <h3>Repeated and contested coverage</h3>
+            <p id="coverage"></p>
+          </div>
+          <div>
+            <h3>Projected urgent interceptions</h3>
+            <p id="urgent"></p>
+            <p class="muted">
+              The current-course predictor ignores defenses and structural shadowing. A projected impact within 60 ticks
+              is <strong>not a proved save</strong>. EMP slow-motion also changes wall-clock timing.
+            </p>
+          </div>
+        </div>
+        <p class="callout">
+          “Intended target” is the reference captured by the game's firing function. It is not a mind-reading device:
+          <strong>379</strong> resolved kill-producing shots had no intended target at launch.
+        </p>
+        <details>
+          <summary>Why the resolution count differs from part two</summary>
+          <p>
+            Part two used root combo-resolution events to identify empty shots. Part three observes projectile and
+            entire descendant-explosion lifetime. It resolves 3,390 shots normally and leaves 4 unresolved at recording
+            end; 0 were boundary-cleared. The 57 additional resolved empty shots were previously in the “no logged
+            resolved outcome” group. This refines shot-outcome accounting; reward attribution and all original totals
+            are unchanged.
+          </p>
+        </details>
+      </section>
+      <section>
+        <h2>Outcomes through waves</h2>
+        <p class="muted">
+          Pooled descriptive counts, including partial terminal waves. Later waves involve different threat volume,
+          loadouts and surviving runs. These figures do not establish deteriorating aim or a capacity wall.
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Wave</th>
+                <th>Run segments</th>
+                <th>Resolved shots</th>
+                <th>Damage success</th>
+                <th>Kills / shot</th>
+                <th>Burj HP lost</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td>26</td>
+                <td>203</td>
+                <td>91.1%</td>
+                <td>0.98</td>
+                <td>3</td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td>26</td>
+                <td>298</td>
+                <td>89.6%</td>
+                <td>0.93</td>
+                <td>12</td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td>25</td>
+                <td>305</td>
+                <td>80.0%</td>
+                <td>0.84</td>
+                <td>10</td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td>25</td>
+                <td>350</td>
+                <td>77.4%</td>
+                <td>0.85</td>
+                <td>14</td>
+              </tr>
+              <tr>
+                <td>5</td>
+                <td>24</td>
+                <td>406</td>
+                <td>58.1%</td>
+                <td>0.73</td>
+                <td>33</td>
+              </tr>
+              <tr>
+                <td>6</td>
+                <td>21</td>
+                <td>556</td>
+                <td>53.8%</td>
+                <td>0.75</td>
+                <td>36</td>
+              </tr>
+              <tr>
+                <td>7</td>
+                <td>17</td>
+                <td>453</td>
+                <td>53.0%</td>
+                <td>0.80</td>
+                <td>21</td>
+              </tr>
+              <tr>
+                <td>8</td>
+                <td>15</td>
+                <td>391</td>
+                <td>43.2%</td>
+                <td>0.74</td>
+                <td>30</td>
+              </tr>
+              <tr>
+                <td>9</td>
+                <td>10</td>
+                <td>310</td>
+                <td>40.0%</td>
+                <td>0.78</td>
+                <td>11</td>
+              </tr>
+              <tr>
+                <td>10</td>
+                <td>5</td>
+                <td>118</td>
+                <td>43.2%</td>
+                <td>0.99</td>
+                <td>12</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section>
+        <h2>Opportunity is context, not a penalty for waiting</h2>
+        <div class="columns">
+          <div>
+            <p><span class="key">11.3%</span><br />of active threat-present ticks had no ready firing charge.</p>
+            <p class="muted">
+              14,990 / 132,491 ticks. This mixes reloading and launcher availability; it does not prove unavoidable
+              overload.
+            </p>
+          </div>
+          <div>
+            <p>
+              <span class="key">473</span><br />intervals lasted at least one second with threats and a ready charge,
+              without manual fire.
+            </p>
+            <p class="muted">
+              224 included upgrade kills with no observed asset loss during the interval. In-flight manual shots and
+              prior damage can still matter.
+            </p>
+          </div>
+        </div>
+        <p>
+          Observed asset losses across the corpus: 182 Burj HP, 60 buildings, 31 launcher HP and 7 defense sites. These
+          are separate loss counts, not a composite quality score.
+        </p>
+        <details>
+          <summary>Opportunity measurement limits</summary>
+          <p>
+            Availability is projected on a cloned charge state before each recorded action tick, preserving simulation
+            state. We exclude shops, wave-complete intervals and post-destruction animation. A threat being present does
+            not establish a viable or useful aim point; an upgrade being owned does not prove a lane was covered.
+            Withholding windows are outcome-selected examples, not evidence that all non-shooting time was wise.
+          </p>
+        </details>
+      </section>
+      <section>
+        <h2>Calibrate the judgment</h2>
+        <p>
+          The clip player uses original recorded actions and the Pixi battlefield renderer, with score/combo/reward
+          labels hidden and recorded taps marked. The focal choice starts near 2 seconds. Playback, pause, replay and
+          scrubbing are available.
+        </p>
+        <p>
+          Please label <strong>01, 03 and 05</strong>:
+          <em>Productive, Wasteful, Sensible withholding, or Ambiguous</em>, with a short reason. Labels save in your
+          browser; copy them into the conversation.
+        </p>
+        <p><a href="scoring-quality-review.html">Open clip review →</a></p>
+        <details>
+          <summary>Provisional agent judgments — spoilers</summary>
+          <p class="muted">
+            Six score-hidden rendered temporal frames per clip at 0, 2, 2.25, 2.67, 3.5 and 6 seconds. Playback/seek
+            verified separately. These are frame-sequence judgments, not a continuous-motion human feel-check. The agent
+            knew the event-based selection categories and had previously analyzed this corpus; these are not independent
+            blinded labels. No candidate rankings have been computed.
+          </p>
+          <div class="note">
+            <strong>clip-01 · Ambiguous</strong> · medium confidence · 2.0–2.67 s
+            <p>
+              The manual aim is above a descending threat; a second detonation appears below while the manual burst
+              opens higher. Multiple defenses are active.
+            </p>
+            <p class="muted">
+              An empty outcome does not settle whether the lead aim was poor or another defense simply finished first.
+            </p>
+          </div>
+          <div class="note">
+            <strong>clip-02 · Productive</strong> · high confidence · 2.0–2.67 s
+            <p>
+              Several threats collect in the upper-left area. The aimed burst and expanding chain occupy that cluster,
+              which is gone by the next frame.
+            </p>
+            <p class="muted">
+              Placement exploits a visible cluster. This does not establish that the entire later defense was handled
+              well.
+            </p>
+          </div>
+          <div class="note">
+            <strong>clip-03 · Ambiguous</strong> · medium confidence · 2.0–3.5 s
+            <p>
+              A descending group approaches the tower while existing defenses fire and remove threats. No focal manual
+              tap is visible during that interval.
+            </p>
+            <p class="muted">
+              Allowing defenses to work looks plausible, but the frames do not establish what the player anticipated or
+              whether waiting was safe in advance.
+            </p>
+          </div>
+          <div class="note">
+            <strong>clip-04 · Ambiguous</strong> · low confidence · 2.0–3.5 s
+            <p>
+              A tap is placed below a descending threat, followed by another lower aim. The upper manual burst appears
+              offset from the still-descending missile.
+            </p>
+            <p class="muted">
+              This could be a timing/lead miss; successive taps and sparse frames prevent a confident verdict about the
+              focal choice.
+            </p>
+          </div>
+          <div class="note">
+            <strong>clip-05 · Ambiguous</strong> · medium confidence · 2.0–3.5 s
+            <p>
+              The focal aim sits low beside the tower as threats descend and other bursts clear the upper area. Later
+              frames show damage effects on the tower.
+            </p>
+            <p class="muted">
+              The lower interception can be useful even while another threat gets through. Neither a save nor blame for
+              later damage follows from the frames.
+            </p>
+          </div>
+          <div class="note">
+            <strong>clip-06 · Ambiguous</strong> · medium confidence · 2.0–2.67 s
+            <p>Two aim markers and several upgrade bursts overlap the right-hand group near the tower.</p>
+            <p class="muted">
+              Repeated coverage is visible, but a crowded intercept with multiple systems does not by itself make the
+              extra tap wasteful.
+            </p>
+          </div>
+          <div class="note">
+            <strong>clip-07 · Productive</strong> · high confidence · 2.0–2.67 s
+            <p>
+              The manual aim meets a dense upper-left cluster; a connected burst occupies it and the cluster disappears.
+            </p>
+            <p class="muted">The focal placement is productive despite continuing pressure elsewhere.</p>
+          </div>
+          <div class="note">
+            <strong>clip-08 · Productive</strong> · medium confidence · 2.0–2.67 s
+            <p>
+              The focal tap lies beside the tower tip among descending threats. A burst opens there and that local
+              approach clears.
+            </p>
+            <p class="muted">
+              The placement appears timely for that local threat; no claim that automation could not have handled it.
+            </p>
+          </div>
+          <div class="note">
+            <strong>clip-09 · Ambiguous</strong> · low confidence · 2.0–3.5 s
+            <p>
+              A tap sits ahead of the low left missile, followed by a tap on the right. The missile is still descending
+              in the next frames.
+            </p>
+            <p class="muted">
+              There may be a local lead error, but the relevant manual burst is not cleanly isolated in the sampled
+              sequence.
+            </p>
+          </div>
+          <div class="note">
+            <strong>clip-10 · Sensible withholding</strong> · medium confidence · 2.0–3.5 s
+            <p>
+              A single visible approach is removed by existing defenses while no focal manual tap appears. The tower is
+              already critical.
+            </p>
+            <p class="muted">
+              Withholding looks reasonable for this short interval. Critical health does not alone make every non-shot
+              wrong, and longer-horizon safety remains unknown.
+            </p>
+          </div>
+        </details>
+      </section>
+      <section>
+        <h2>Verification and next boundary</h2>
+        <p>
+          26 stored summaries match; all actions and 3,159 checkpoints consumed; 4,819 full sanitized state/RNG samples
+          match the part-two baseline. Six additional controlled cases cover full shot lifetime, boundary/terminal
+          censoring, shared intended targets, competing kills, read-only recharge projection and asset-loss observation.
+        </p>
+        <p>
+          Ten clips: 60 exact seek-frame checks and 70 rendered/headless checkpoint matches. Play/pause, label
+          persistence and 390px layout passed with no page errors. Six temporal frames per clip were visually inspected;
+          your motion/choice judgments remain essential.
+        </p>
+        <p class="muted">
+          One player's 26 runs across eight builds, ending on waves 2–10. No independent skill labels yet, no run
+          ranking, no score correlation test, no counterfactual saves, no scoring or spawn change. Part four's matched
+          progression comparisons come after this calibration.
+        </p>
+        <p>
+          <a href="scoring-quality-method.md">Definitions and selection rules</a> ·
+          <a href="scoring-attribution-results.html">Part two attribution</a>
+        </p>
+      </section>
+      <script id="metrics" type="application/json">
+        {
+          "pooled": {
+            "shots": 3394,
+            "resolved": 3390,
+            "boundaryCleared": 0,
+            "terminalUnresolved": 4,
+            "successful": 2086,
+            "killProducing": 2086,
+            "resolvedKills": 2757,
+            "resolvedBase": 89732,
+            "allKills": 2757,
+            "allBase": 89732,
+            "distribution": [1304, 1764, 183, 45, 94],
+            "contestedEmpty": 507,
+            "contestedEmptyUpgrade": 289,
+            "repeatedCoverage": 223,
+            "urgentKills": 517,
+            "emptyNoIntended": 584,
+            "productiveNoIntended": 379
+          },
+          "runs": [
+            {
+              "label": "run-001",
+              "shots": 1,
+              "resolved": 1,
+              "boundaryCleared": 0,
+              "terminalUnresolved": 0,
+              "successful": 1,
+              "killProducing": 1,
+              "resolvedKills": 1,
+              "resolvedBase": 20,
+              "allKills": 1,
+              "allBase": 20,
+              "distribution": [0, 1, 0, 0, 0],
+              "contestedEmpty": 0,
+              "contestedEmptyUpgrade": 0,
+              "repeatedCoverage": 0,
+              "urgentKills": 0,
+              "emptyNoIntended": 0,
+              "productiveNoIntended": 0
+            },
+            {
+              "label": "run-002",
+              "shots": 20,
+              "resolved": 20,
+              "boundaryCleared": 0,
+              "terminalUnresolved": 0,
+              "successful": 15,
+              "killProducing": 15,
+              "resolvedKills": 16,
+              "resolvedBase": 384,
+              "allKills": 16,
+              "allBase": 384,
+              "distribution": [5, 14, 1, 0, 0],
+              "contestedEmpty": 0,
+              "contestedEmptyUpgrade": 0,
+              "repeatedCoverage": 0,
+              "urgentKills": 0,
+              "emptyNoIntended": 0,
+              "productiveNoIntended": 1
+            },
+            {
+              "label": "run-003",
+              "shots": 236,
+              "resolved": 236,
+              "boundaryCleared": 0,
+              "terminalUnresolved": 0,
+              "successful": 147,
+              "killProducing": 147,
+              "resolvedKills": 212,
+              "resolvedBase": 7340,
+              "allKills": 212,
+              "allBase": 7340,
+              "distribution": [89, 116, 16, 6, 9],
+              "contestedEmpty": 40,
+              "contestedEmptyUpgrade": 22,
+              "repeatedCoverage": 19,
+              "urgentKills": 39,
+              "emptyNoIntended": 39,
+              "productiveNoIntended": 24
+            },
+            {
+              "label": "run-004",
+              "shots": 19,
+              "resolved": 19,
+              "boundaryCleared": 0,
+              "terminalUnresolved": 0,
+              "successful": 16,
+              "killProducing": 16,
+              "resolvedKills": 18,
+              "resolvedBase": 424,
+              "allKills": 18,
+              "allBase": 424,
+              "distribution": [3, 14, 2, 0, 0],
+              "contestedEmpty": 1,
+              "contestedEmptyUpgrade": 0,
+              "repeatedCoverage": 0,
+              "urgentKills": 4,
+              "emptyNoIntended": 0,
+              "productiveNoIntended": 2
+            },
+            {
+              "label": "run-005",
+              "shots": 224,
+              "resolved": 224,
+              "boundaryCleared": 0,
+              "terminalUnresolved": 0,
+              "successful": 132,
+              "killProducing": 132,
+              "resolvedKills": 207,
+              "resolvedBase": 7518,
+              "allKills": 207,
+              "allBase": 7518,
+              "distribution": [92, 100, 15, 5, 12],
+              "contestedEmpty": 36,
+              "contestedEmptyUpgrade": 22,
+              "repeatedCoverage": 14,
+              "urgentKills": 32,
+              "emptyNoIntended": 43,
+              "productiveNoIntended": 28
+            },
+            {
+              "label": "run-006",
+              "shots": 231,
+              "resolved": 231,
+              "boundaryCleared": 0,
+              "terminalUnresolved": 0,
+              "successful": 125,
+              "killProducing": 125,
+              "resolvedKills": 177,
+              "resolvedBase": 5940,
+              "allKills": 177,
+              "allBase": 5940,
+              "distribution": [106, 101, 11, 5, 8],
+              "contestedEmpty": 52,
+              "contestedEmptyUpgrade": 26,
+              "repeatedCoverage": 20,
+              "urgentKills": 38,
+              "emptyNoIntended": 45,
+              "productiveNoIntended": 26
+            },
+            {
+              "label": "run-007",
+              "shots": 130,
+              "resolved": 130,
+              "boundaryCleared": 0,
+              "terminalUnresolved": 0,
+              "successful": 79,
+              "killProducing": 79,
+              "resolvedKills": 98,
+              "resolvedBase": 2914,
+              "allKills": 98,
+              "allBase": 2914,
+              "distribution": [51, 69, 8, 0, 2],
+              "contestedEmpty": 14,
+              "contestedEmptyUpgrade": 6,
+              "repeatedCoverage": 12,
+              "urgentKills": 15,
+              "emptyNoIntended": 26,
+              "productiveNoIntended": 12
+            },
+            {
+              "label": "run-008",
+              "shots": 109,
+              "resolved": 109,
+              "boundaryCleared": 0,
+              "terminalUnresolved": 0,
+              "successful": 62,
+              "killProducing": 62,
+              "resolvedKills": 80,
+              "resolvedBase": 2302,
+              "allKills": 80,
+              "allBase": 2302,
+              "distribution": [47, 51, 6, 4, 1],
+              "contestedEmpty": 18,
+              "contestedEmptyUpgrade": 5,
+              "repeatedCoverage": 8,
+              "urgentKills": 16,
+              "emptyNoIntended": 22,
+              "productiveNoIntended": 10
+            },
+            {
+              "label": "run-009",
+              "shots": 48,
+              "resolved": 48,
+              "boundaryCleared": 0,
+              "terminalUnresolved": 0,
+              "successful": 46,
+              "killProducing": 46,
+              "resolvedKills": 50,
+              "resolvedBase": 1254,
+              "allKills": 50,
+              "allBase": 1254,
+              "distribution": [2, 42, 4, 0, 0],
+              "contestedEmpty": 1,
+              "contestedEmptyUpgrade": 0,
+              "repeatedCoverage": 1,
+              "urgentKills": 4,
+              "emptyNoIntended": 1,
+              "productiveNoIntended": 3
+            },
+            {
+              "label": "run-010",
+              "shots": 146,
+              "resolved": 146,
+              "boundaryCleared": 0,
+              "terminalUnresolved": 0,
+              "successful": 98,
+              "killProducing": 98,
+              "resolvedKills": 106,
+              "resolvedBase": 3142,
+              "allKills": 106,
+              "allBase": 3142,
+              "distribution": [48, 94, 3, 0, 1],
+              "contestedEmpty": 18,
+              "contestedEmptyUpgrade": 11,
+              "repeatedCoverage": 8,
+              "urgentKills": 23,
+              "emptyNoIntended": 25,
+              "productiveNoIntended": 22
+            },
+            {
+              "label": "run-011",
+              "shots": 104,
+              "resolved": 104,
+              "boundaryCleared": 0,
+              "terminalUnresolved": 0,
+              "successful": 69,
+              "killProducing": 69,
+              "resolvedKills": 82,
+              "resolvedBase": 2466,
+              "allKills": 82,
+              "allBase": 2466,
+              "distribution": [35, 64, 2, 0, 3],
+              "contestedEmpty": 12,
+              "contestedEmptyUpgrade": 5,
+              "repeatedCoverage": 8,
+              "urgentKills": 8,
+              "emptyNoIntended": 12,
+              "productiveNoIntended": 9
+            },
+            {
+              "label": "run-012",
+              "shots": 117,
+              "resolved": 117,
+              "boundaryCleared": 0,
+              "terminalUnresolved": 0,
+              "successful": 71,
+              "killProducing": 71,
+              "resolvedKills": 85,
+              "resolvedBase": 2498,
+              "allKills": 85,
+              "allBase": 2498,
+              "distribution": [46, 63, 6, 1, 1],
+              "contestedEmpty": 15,
+              "contestedEmptyUpgrade": 6,
+              "repeatedCoverage": 11,
+              "urgentKills": 16,
+              "emptyNoIntended": 21,
+              "productiveNoIntended": 8
+            },
+            {
+              "label": "run-013",
+              "shots": 177,
+              "resolved": 177,
+              "boundaryCleared": 0,
+              "terminalUnresolved": 0,
+              "successful": 124,
+              "killProducing": 124,
+              "resolvedKills": 163,
+              "resolvedBase": 5610,
+              "allKills": 163,
+              "allBase": 5610,
+              "distribution": [53, 104, 13, 2, 5],
+              "contestedEmpty": 20,
+              "contestedEmptyUpgrade": 12,
+              "repeatedCoverage": 11,
+              "urgentKills": 34,
+              "emptyNoIntended": 26,
+              "productiveNoIntended": 20
+            },
+            {
+              "label": "run-014",
+              "shots": 123,
+              "resolved": 123,
+              "boundaryCleared": 0,
+              "terminalUnresolved": 0,
+              "successful": 98,
+              "killProducing": 98,
+              "resolvedKills": 128,
+              "resolvedBase": 4146,
+              "allKills": 128,
+              "allBase": 4146,
+              "distribution": [25, 83, 9, 2, 4],
+              "contestedEmpty": 6,
+              "contestedEmptyUpgrade": 3,
+              "repeatedCoverage": 3,
+              "urgentKills": 31,
+              "emptyNoIntended": 12,
+              "productiveNoIntended": 10
+            },
+            {
+              "label": "run-015",
+              "shots": 139,
+              "resolved": 138,
+              "boundaryCleared": 0,
+              "terminalUnresolved": 1,
+              "successful": 101,
+              "killProducing": 101,
+              "resolvedKills": 129,
+              "resolvedBase": 4232,
+              "allKills": 129,
+              "allBase": 4232,
+              "distribution": [37, 88, 6, 2, 5],
+              "contestedEmpty": 11,
+              "contestedEmptyUpgrade": 2,
+              "repeatedCoverage": 8,
+              "urgentKills": 25,
+              "emptyNoIntended": 17,
+              "productiveNoIntended": 10
+            },
+            {
+              "label": "run-016",
+              "shots": 94,
+              "resolved": 93,
+              "boundaryCleared": 0,
+              "terminalUnresolved": 1,
+              "successful": 69,
+              "killProducing": 69,
+              "resolvedKills": 73,
+              "resolvedBase": 2100,
+              "allKills": 73,
+              "allBase": 2100,
+              "distribution": [24, 65, 4, 0, 0],
+              "contestedEmpty": 10,
+              "contestedEmptyUpgrade": 4,
+              "repeatedCoverage": 5,
+              "urgentKills": 11,
+              "emptyNoIntended": 5,
+              "productiveNoIntended": 11
+            },
+            {
+              "label": "run-017",
+              "shots": 168,
+              "resolved": 168,
+              "boundaryCleared": 0,
+              "terminalUnresolved": 0,
+              "successful": 111,
+              "killProducing": 111,
+              "resolvedKills": 149,
+              "resolvedBase": 5028,
+              "allKills": 149,
+              "allBase": 5028,
+              "distribution": [57, 93, 9, 4, 5],
+              "contestedEmpty": 23,
+              "contestedEmptyUpgrade": 11,
+              "repeatedCoverage": 16,
+              "urgentKills": 23,
+              "emptyNoIntended": 21,
+              "productiveNoIntended": 22
+            },
+            {
+              "label": "run-018",
+              "shots": 43,
+              "resolved": 43,
+              "boundaryCleared": 0,
+              "terminalUnresolved": 0,
+              "successful": 35,
+              "killProducing": 35,
+              "resolvedKills": 35,
+              "resolvedBase": 872,
+              "allKills": 35,
+              "allBase": 872,
+              "distribution": [8, 35, 0, 0, 0],
+              "contestedEmpty": 3,
+              "contestedEmptyUpgrade": 2,
+              "repeatedCoverage": 1,
+              "urgentKills": 4,
+              "emptyNoIntended": 0,
+              "productiveNoIntended": 9
+            },
+            {
+              "label": "run-019",
+              "shots": 224,
+              "resolved": 224,
+              "boundaryCleared": 0,
+              "terminalUnresolved": 0,
+              "successful": 118,
+              "killProducing": 118,
+              "resolvedKills": 193,
+              "resolvedBase": 7024,
+              "allKills": 193,
+              "allBase": 7024,
+              "distribution": [106, 91, 11, 6, 10],
+              "contestedEmpty": 49,
+              "contestedEmptyUpgrade": 29,
+              "repeatedCoverage": 16,
+              "urgentKills": 45,
+              "emptyNoIntended": 47,
+              "productiveNoIntended": 40
+            },
+            {
+              "label": "run-020",
+              "shots": 111,
+              "resolved": 111,
+              "boundaryCleared": 0,
+              "terminalUnresolved": 0,
+              "successful": 79,
+              "killProducing": 79,
+              "resolvedKills": 96,
+              "resolvedBase": 2810,
+              "allKills": 96,
+              "allBase": 2810,
+              "distribution": [32, 68, 8, 1, 2],
+              "contestedEmpty": 10,
+              "contestedEmptyUpgrade": 7,
+              "repeatedCoverage": 5,
+              "urgentKills": 18,
+              "emptyNoIntended": 11,
+              "productiveNoIntended": 18
+            },
+            {
+              "label": "run-021",
+              "shots": 133,
+              "resolved": 133,
+              "boundaryCleared": 0,
+              "terminalUnresolved": 0,
+              "successful": 90,
+              "killProducing": 90,
+              "resolvedKills": 123,
+              "resolvedBase": 3942,
+              "allKills": 123,
+              "allBase": 3942,
+              "distribution": [43, 73, 9, 4, 4],
+              "contestedEmpty": 13,
+              "contestedEmptyUpgrade": 7,
+              "repeatedCoverage": 7,
+              "urgentKills": 23,
+              "emptyNoIntended": 20,
+              "productiveNoIntended": 13
+            },
+            {
+              "label": "run-022",
+              "shots": 148,
+              "resolved": 148,
+              "boundaryCleared": 0,
+              "terminalUnresolved": 0,
+              "successful": 78,
+              "killProducing": 78,
+              "resolvedKills": 103,
+              "resolvedBase": 3470,
+              "allKills": 103,
+              "allBase": 3470,
+              "distribution": [70, 67, 6, 1, 4],
+              "contestedEmpty": 23,
+              "contestedEmptyUpgrade": 16,
+              "repeatedCoverage": 7,
+              "urgentKills": 21,
+              "emptyNoIntended": 39,
+              "productiveNoIntended": 18
+            },
+            {
+              "label": "run-023",
+              "shots": 287,
+              "resolved": 287,
+              "boundaryCleared": 0,
+              "terminalUnresolved": 0,
+              "successful": 117,
+              "killProducing": 117,
+              "resolvedKills": 172,
+              "resolvedBase": 6060,
+              "allKills": 172,
+              "allBase": 6060,
+              "distribution": [170, 92, 15, 1, 9],
+              "contestedEmpty": 57,
+              "contestedEmptyUpgrade": 33,
+              "repeatedCoverage": 23,
+              "urgentKills": 41,
+              "emptyNoIntended": 98,
+              "productiveNoIntended": 40
+            },
+            {
+              "label": "run-024",
+              "shots": 142,
+              "resolved": 142,
+              "boundaryCleared": 0,
+              "terminalUnresolved": 0,
+              "successful": 89,
+              "killProducing": 89,
+              "resolvedKills": 116,
+              "resolvedBase": 3688,
+              "allKills": 116,
+              "allBase": 3688,
+              "distribution": [53, 74, 10, 1, 4],
+              "contestedEmpty": 27,
+              "contestedEmptyUpgrade": 17,
+              "repeatedCoverage": 11,
+              "urgentKills": 25,
+              "emptyNoIntended": 17,
+              "productiveNoIntended": 9
+            },
+            {
+              "label": "run-025",
+              "shots": 71,
+              "resolved": 70,
+              "boundaryCleared": 0,
+              "terminalUnresolved": 1,
+              "successful": 49,
+              "killProducing": 49,
+              "resolvedKills": 55,
+              "resolvedBase": 1416,
+              "allKills": 55,
+              "allBase": 1416,
+              "distribution": [21, 43, 6, 0, 0],
+              "contestedEmpty": 8,
+              "contestedEmptyUpgrade": 5,
+              "repeatedCoverage": 3,
+              "urgentKills": 3,
+              "emptyNoIntended": 7,
+              "productiveNoIntended": 6
+            },
+            {
+              "label": "run-026",
+              "shots": 149,
+              "resolved": 148,
+              "boundaryCleared": 0,
+              "terminalUnresolved": 1,
+              "successful": 67,
+              "killProducing": 67,
+              "resolvedKills": 90,
+              "resolvedBase": 3132,
+              "allKills": 90,
+              "allBase": 3132,
+              "distribution": [81, 59, 3, 0, 5],
+              "contestedEmpty": 40,
+              "contestedEmptyUpgrade": 38,
+              "repeatedCoverage": 6,
+              "urgentKills": 18,
+              "emptyNoIntended": 30,
+              "productiveNoIntended": 8
+            }
+          ]
+        }
+      </script>
+      <script>
+        const data = JSON.parse(document.getElementById("metrics").textContent);
+        const $ = (id) => document.getElementById(id);
+        const fmt = (n) => n.toLocaleString("en-US");
+        for (const r of data.runs) {
+          const o = document.createElement("option");
+          o.value = r.label;
+          o.textContent = r.label;
+          $("run").append(o);
+        }
+        function render() {
+          const s = data.runs.find((r) => r.label === $("run").value) || data.pooled;
+          $("denominator").textContent =
+            fmt(s.shots) +
+            " fired = " +
+            fmt(s.resolved) +
+            " normally resolved + " +
+            s.boundaryCleared +
+            " boundary-cleared + " +
+            s.terminalUnresolved +
+            " terminal-unresolved. Only resolved shots enter the rates below.";
+          const max = Math.max(...s.distribution);
+          $("distribution").innerHTML = s.distribution
+            .map(
+              (n, i) =>
+                '<div class="metric-row"><span>' +
+                ["0 kills", "1 kill", "2 kills", "3 kills", "4+ kills"][i] +
+                '</span><div class="stack"><span style="width:' +
+                (100 * n) / (max || 1) +
+                "%;background:" +
+                (i ? "#62dcca" : "#e9a19d") +
+                '"></span></div><span>' +
+                fmt(n) +
+                "</span></div>",
+            )
+            .join("");
+          $("rates").textContent =
+            ((100 * s.successful) / s.resolved).toFixed(1) +
+            "% damage success · " +
+            (s.resolvedKills / s.resolved).toFixed(2) +
+            " kills per resolved shot · " +
+            (s.resolvedBase / s.resolved).toFixed(2) +
+            " base threat value per resolved shot. Base value uses existing game weights, excluding combo and bonuses.";
+          $("coverage").textContent =
+            fmt(s.repeatedCoverage) +
+            " of " +
+            fmt(s.shots) +
+            " shots shared an intended target with another live manual interceptor. " +
+            fmt(s.contestedEmpty) +
+            " resolved empty shots had a competing kill, including " +
+            fmt(s.contestedEmptyUpgrade) +
+            " involving upgrades. These are observations, not automatically wasted shots.";
+          $("urgent").textContent =
+            fmt(s.urgentKills) +
+            " manual-origin kills occurred when the maintained predictor put the threat within 60 ticks of damaging the Burj on its current course.";
+        }
+        $("run").addEventListener("change", render);
+        render();
+      </script>
+    </main>
+  </body>
+</html>

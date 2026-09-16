@@ -1,0 +1,2705 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Skill, score & survival — Dubai Missile Command</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #101719;
+        --panel: #192326;
+        --line: #334449;
+        --text: #edf1eb;
+        --muted: #b0bfbc;
+        --mint: #a4e4bd;
+        --gold: #f6ca7c;
+        --red: #ee9687;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          16px/1.65 system-ui,
+          -apple-system,
+          sans-serif;
+      }
+      main {
+        max-width: 1150px;
+        margin: auto;
+        padding: 48px 32px 80px;
+      }
+      a {
+        color: var(--mint);
+      }
+      nav {
+        display: flex;
+        gap: 24px;
+        flex-wrap: wrap;
+        border-bottom: 1px solid var(--line);
+        padding: 0 0 20px;
+        font-size: 13px;
+      }
+      nav a {
+        text-decoration: none;
+      }
+      header {
+        padding: 68px 0 40px;
+        max-width: 860px;
+      }
+      .eyebrow {
+        font-size: 12px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--mint);
+        font-weight: 700;
+      }
+      h1 {
+        font-size: clamp(42px, 7vw, 78px);
+        line-height: 1.04;
+        letter-spacing: -0.055em;
+        margin: 18px 0 24px;
+      }
+      h2 {
+        font-size: clamp(27px, 4vw, 38px);
+        line-height: 1.2;
+        letter-spacing: -0.035em;
+        margin: 10px 0 18px;
+      }
+      h3 {
+        font-size: 19px;
+        margin: 0 0 10px;
+      }
+      p {
+        margin: 0 0 16px;
+      }
+      .lead {
+        font-size: 21px;
+        color: var(--muted);
+        max-width: 740px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+      .two {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .panel {
+        padding: 25px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--panel);
+      }
+      .metric {
+        font-size: 44px;
+        font-weight: 650;
+        letter-spacing: -0.05em;
+        color: var(--mint);
+        line-height: 1.15;
+        margin: 10px 0;
+      }
+      .muted,
+      small {
+        color: var(--muted);
+      }
+      small {
+        display: block;
+        font-size: 13px;
+      }
+      .tag {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: 3px 9px;
+        color: var(--mint);
+        margin-bottom: 12px;
+      }
+      .hypothesis {
+        color: var(--gold);
+      }
+      section {
+        padding-top: 64px;
+        scroll-margin-top: 20px;
+      }
+      .intro {
+        max-width: 780px;
+        color: var(--muted);
+      }
+      .callout {
+        border-left: 3px solid var(--gold);
+        padding: 12px 20px;
+        margin-top: 22px;
+        background: #f6ca7c08;
+      }
+      .controls {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin: 16px 0 20px;
+      }
+      select,
+      button {
+        font: inherit;
+        color: var(--text);
+        background: var(--bg);
+        border: 1px solid #688079;
+        border-radius: 7px;
+        padding: 9px 12px;
+      }
+      button {
+        cursor: pointer;
+      }
+      input {
+        accent-color: var(--mint);
+        width: 17px;
+        height: 17px;
+      }
+      label {
+        display: flex;
+        gap: 9px;
+        align-items: center;
+        font-size: 14px;
+      }
+      svg {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+      svg text {
+        font-family: system-ui, sans-serif;
+        fill: var(--muted);
+      }
+      .legend {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+        font-size: 13px;
+        margin-top: 12px;
+      }
+      .dot {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+        margin-right: 7px;
+      }
+      .flow {
+        display: grid;
+        grid-template-columns: 1fr 38px 1.2fr 38px 1fr;
+        align-items: center;
+        gap: 7px;
+      }
+      .node {
+        border: 1px solid var(--line);
+        padding: 18px 12px;
+        text-align: center;
+        border-radius: 10px;
+      }
+      .node strong {
+        display: block;
+      }
+      .arrow {
+        text-align: center;
+        color: var(--mint);
+        font-size: 25px;
+      }
+      .split {
+        display: grid;
+        gap: 12px;
+      }
+      .formula {
+        font-size: 17px;
+        color: var(--gold);
+      }
+      .bar {
+        display: flex;
+        height: 26px;
+        overflow: hidden;
+        border-radius: 5px;
+        margin: 18px 0;
+      }
+      .bar span:first-child {
+        background: var(--gold);
+        width: 53.2%;
+      }
+      .bar span:last-child {
+        background: #79ad9a;
+        width: 46.8%;
+      }
+      .table-wrap {
+        overflow-x: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        font-size: 14px;
+      }
+      th,
+      td {
+        padding: 13px 14px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        color: var(--mint);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .steps {
+        counter-reset: step;
+      }
+      .step {
+        display: grid;
+        grid-template-columns: 42px 1fr;
+        gap: 16px;
+        padding: 21px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .step:before {
+        counter-increment: step;
+        content: counter(step, decimal-leading-zero);
+        color: var(--mint);
+        font-size: 22px;
+      }
+      .step p {
+        margin: 0;
+        color: var(--muted);
+      }
+      details {
+        margin-top: 20px;
+      }
+      summary {
+        cursor: pointer;
+        color: var(--mint);
+      }
+      footer {
+        border-top: 1px solid var(--line);
+        margin-top: 65px;
+        padding-top: 22px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .sr {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+      }
+      :focus-visible {
+        outline: 3px solid var(--gold);
+        outline-offset: 4px;
+      }
+      @media (max-width: 700px) {
+        main {
+          padding: 25px 18px 50px;
+        }
+        header {
+          padding-top: 42px;
+        }
+        .grid,
+        .two {
+          grid-template-columns: 1fr;
+        }
+        .panel {
+          padding: 20px;
+        }
+        .flow {
+          grid-template-columns: 1fr;
+        }
+        .arrow {
+          transform: rotate(90deg);
+        }
+        nav {
+          gap: 15px;
+        }
+        section {
+          padding-top: 45px;
+        }
+        .lead {
+          font-size: 18px;
+        }
+      }
+      @media print {
+        body {
+          background: white;
+          color: #172521;
+        }
+        main {
+          max-width: none;
+          padding: 0;
+        }
+        .panel {
+          background: white;
+          border-color: #bbb;
+          break-inside: avoid;
+        }
+        .muted,
+        small,
+        .intro,
+        .lead,
+        svg text {
+          color: #42524b;
+          fill: #42524b;
+        }
+        h1 {
+          font-size: 48px;
+        }
+        nav,
+        .controls,
+        button {
+          display: none;
+        }
+        section {
+          padding-top: 30px;
+        }
+        .metric,
+        .eyebrow,
+        .tag,
+        h3,
+        th,
+        a {
+          color: #176046;
+        }
+        .callout {
+          background: #faf5e8;
+        }
+        .node {
+          border-color: #999;
+        }
+        footer {
+          color: #444;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <nav aria-label="Report sections">
+        <a href="#evidence">01 · Evidence</a><a href="#scoring">02 · Scoring</a><a href="#difficulty">03 · Difficulty</a
+        ><a href="#ideas">04 · Ideas to test</a><a href="#study">05 · Study plan</a>
+      </nav>
+      <header>
+        <div class="eyebrow">Dubai Missile Command / Gameplay design study / 15 Sep 2026</div>
+        <h1>Skill, score<br />& survival.</h1>
+        <p class="lead">
+          Does the game reward better shooting—and does late-wave pressure leave enough room for better shooting to
+          matter?
+        </p>
+        <span class="tag">26 verified replays</span>
+        <span class="tag hypothesis">Discovery + proposed experiments</span>
+      </header>
+      <div class="grid">
+        <div class="panel">
+          <small>Last completed wave scored highest</small>
+          <div class="metric">23 / 26</div>
+          <p>88.5% of runs match your observation.</p>
+        </div>
+        <div class="panel">
+          <small>Completed-wave points from explicit bonuses</small>
+          <div class="metric">53.2%</div>
+          <p>Wave-clear and building-survival rewards alone.</p>
+        </div>
+        <div class="panel">
+          <small>Final score versus final wave</small>
+          <div class="metric">r = 0.95</div>
+          <p>Strong association. Not a measure of shooting skill.</p>
+        </div>
+      </div>
+      <section id="evidence">
+        <div class="eyebrow">01 / What the recordings show</div>
+        <h2>Your busiest wave usually wins.</h2>
+        <p class="intro">
+          The last completed wave remains the highest earner in 21 of 26 runs even after removing explicit bonuses from
+          completed waves. Bonuses explain part of the pattern; the remaining points still mix kill volume, automation
+          and player execution.
+        </p>
+        <div class="panel">
+          <h3>Explore points earned by wave</h3>
+          <p class="muted">
+            Each selection is one verified recording. Remove bonuses to inspect how much of the late-wave rise remains.
+          </p>
+          <div class="controls">
+            <label for="run"
+              >Recording
+              <select id="run"></select></label
+            ><label><input id="bonuses" type="checkbox" checked /> Include completion & building bonuses</label>
+          </div>
+          <div id="chart" aria-live="polite"></div>
+          <div class="legend">
+            <span><i class="dot" style="background: var(--mint)"></i>Completed wave: remaining points</span
+            ><span><i class="dot" style="background: var(--gold)"></i>Explicit bonuses</span
+            ><span><i class="dot" style="background: #718c94"></i>Partial fatal wave</span>
+          </div>
+          <p id="chart-note" class="muted" style="margin-top: 16px"></p>
+          <details>
+            <summary>Show the selected recording as a table</summary>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Wave</th>
+                    <th>Points</th>
+                    <th>Bonuses</th>
+                    <th>Threats destroyed</th>
+                    <th>Max combo</th>
+                  </tr>
+                </thead>
+                <tbody id="wave-table"></tbody>
+              </table>
+            </div>
+          </details>
+        </div>
+        <div class="grid two" style="margin-top: 16px">
+          <div class="panel">
+            <h3>A revealing comparison</h3>
+            <p>
+              In the newest wave-10 run, wave 3 earned <strong>8,190 points at max combo ×10</strong>. Wave 9 earned
+              <strong>20,008 at max combo ×4</strong>, with 88 threats destroyed versus 16.
+            </p>
+            <small
+              >This does not prove wave 3 was played better. Combo is one signal; threat mix and upgrades also
+              differ.</small
+            >
+          </div>
+          <div class="panel">
+            <h3>What the 53.2% means</h3>
+            <div class="bar" aria-label="53.2 percent explicit bonuses; 46.8 percent remaining points">
+              <span></span><span></span>
+            </div>
+            <p>
+              <strong style="color: var(--gold)">53.2% explicit bonuses</strong><br /><strong style="color: var(--mint)"
+                >46.8% remaining points</strong
+              >
+            </p>
+            <small
+              >Pooled across 168 completed waves. Remaining points include both player and automated rewards, plus
+              penalties—not just skill.</small
+            >
+          </div>
+        </div>
+      </section>
+      <section id="scoring">
+        <div class="eyebrow">02 / The current incentive</div>
+        <h2>You build the multiplier.<br />Everything spends its value.</h2>
+        <p class="intro">
+          Successful player blasts raise the shared combo, up to ×10. An empty resolved player blast resets it to ×1.
+          Both player kills and automated kills receive the multiplier.
+        </p>
+        <div class="panel">
+          <span class="tag">Confirmed in scoring rules</span>
+          <div
+            class="flow"
+            role="img"
+            aria-label="A successful player blast increases shared combo, which multiplies both player and automated kill rewards."
+          >
+            <div class="node"><strong>Successful player blast</strong><small>At least one kill</small></div>
+            <div class="arrow">→</div>
+            <div class="node"><strong>Shared combo ×1–×10</strong><small>Empty player blast → reset to ×1</small></div>
+            <div class="arrow">→</div>
+            <div class="split">
+              <div class="node"><strong>Player kill points</strong><small>Base value × combo</small></div>
+              <div class="node"><strong>Automated kill points</strong><small>Base value × the same combo</small></div>
+            </div>
+          </div>
+          <div class="callout">
+            <strong>At ×10, holding fire can protect future automated rewards.</strong><br />A successful shot still
+            earns points, but cannot raise combo further. An empty shot risks reducing future rewards from your whole
+            defense network. Automated kills do not consume combo; the problem is who carries the risk.
+          </div>
+        </div>
+        <details>
+          <summary>Full scoring rules relevant to the study</summary>
+          <div class="panel">
+            <p class="formula">Kill points = threat base value × shared combo</p>
+            <p>
+              Base values: ordinary missile 28; drones 20/40; MIRV 100; bomb 42; MIRV warhead and stack2 56; stack3 72.
+            </p>
+            <p>
+              Root multi-kills award 150 / 350 / 700 for two / three / four-plus kills. The points are not restricted to
+              player explosions. Wave completion adds 250 × wave; surviving buildings add 100 × buildings × wave. A
+              direct friendly F-15 hit costs 500.
+            </p>
+            <p>
+              Paid shop purchases use the same score balance. These 26 recordings use draft mode, so paid spending must
+              not be assumed to explain their differences.
+            </p>
+            <small
+              >The displayed hit ratio counts automated kills too. It cannot independently tell us how accurately you
+              shot.</small
+            >
+          </div>
+        </details>
+      </section>
+      <section id="difficulty">
+        <div class="eyebrow">03 / The difficulty wall</div>
+        <h2>More decisions.<br />Not just more simultaneous deadlines.</h2>
+        <p class="intro">
+          Your experience: around waves 10–11, builds and active weapons seem to matter more than execution. The code
+          increases late-wave threat budget and concurrent pressure, but we have not yet measured whether particular
+          losses were avoidable through better timing.
+        </p>
+        <div class="grid two">
+          <div class="panel">
+            <span class="tag hypothesis">Problem hypothesis</span>
+            <h3>Pressure overlaps until choices disappear</h3>
+            <svg
+              viewBox="0 0 440 190"
+              role="img"
+              aria-label="Illustrative timeline with three threat groups whose impact windows overlap"
+            >
+              <text x="5" y="20" font-size="12">THREAT GROUPS → TIME</text>
+              <path d="M20 158H420" stroke="#597078" />
+              <rect x="180" y="38" width="170" height="24" rx="5" fill="#ee9687" />
+              <rect x="210" y="80" width="155" height="24" rx="5" fill="#ee9687" />
+              <rect x="195" y="122" width="185" height="24" rx="5" fill="#ee9687" />
+              <path d="M260 30V153" stroke="#f6ca7c" stroke-dasharray="4 4" />
+              <text x="180" y="182" font-size="12">Impact windows pile up</text>
+            </svg>
+            <p>
+              When too many threats require answers at once, accuracy may no longer compensate for insufficient firing
+              capacity.
+            </p>
+            <small>Concept sketch, not measured replay data.</small>
+          </div>
+          <div class="panel">
+            <span class="tag hypothesis">Experiment to test</span>
+            <h3>Stagger pressure to reward timing</h3>
+            <svg
+              viewBox="0 0 440 190"
+              role="img"
+              aria-label="Illustrative timeline with staggered threat groups and recharge gaps"
+            >
+              <text x="5" y="20" font-size="12">THREAT GROUPS → TIME</text>
+              <path d="M20 158H420" stroke="#597078" />
+              <rect x="25" y="38" width="100" height="24" rx="5" fill="#a4e4bd" />
+              <rect x="170" y="80" width="100" height="24" rx="5" fill="#a4e4bd" />
+              <rect x="315" y="122" width="100" height="24" rx="5" fill="#a4e4bd" />
+              <path d="M143 30V153M288 30V153" stroke="#f6ca7c" stroke-dasharray="4 4" />
+              <text x="95" y="182" font-size="12">Aim · commit · recover · reprioritize</text>
+            </svg>
+            <p>
+              Keep dangerous encounters, but test distinct bursts, viable cluster shots and enough recovery time for
+              timing to change the outcome.
+            </p>
+            <small>Concept sketch, not a tested new spawn schedule.</small>
+          </div>
+        </div>
+        <div class="callout">
+          <strong>The question to measure:</strong> with the same build, could a better timed sequence of shots
+          materially change survival? Separate missed opportunities from weak coverage and genuine capacity overload.
+        </div>
+      </section>
+      <section id="ideas">
+        <div class="eyebrow">04 / Candidate experiments</div>
+        <h2>Three scoring ideas. No winner yet.</h2>
+        <p class="intro">
+          These are hypotheses to compare against the same recorded events. No alternative scoring model has been run
+          yet.
+        </p>
+        <div class="table-wrap panel">
+          <table>
+            <thead>
+              <tr>
+                <th>Idea</th>
+                <th>What the player gains</th>
+                <th>What could go wrong</th>
+                <th>Evidence needed</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Player-only combo bonus</strong><br />Automation earns base value.</td>
+                <td>Precision directly improves the reward for your own shots.</td>
+                <td>Last-hit competition; contested misses still feel unfair.</td>
+                <td>Who gains points at matched waves, and whether useful continued shooting pays.</td>
+              </tr>
+              <tr>
+                <td><strong>Per-shot quality bonus</strong><br />Reward productive shots and clusters.</td>
+                <td>A good shot has its own value without risking the whole defense multiplier.</td>
+                <td>Cheap single-kill spam may beat careful multi-kills.</td>
+                <td>Shot efficiency, cluster quality, wasted coverage and sensitivity to timing.</td>
+              </tr>
+              <tr>
+                <td>
+                  <strong>Defense score + player contribution</strong><br />Keep survival value; add bounded shooting
+                  and assist rewards.
+                </td>
+                <td>Build strategy and hands-on execution both count.</td>
+                <td>Attribution becomes opaque; “save” bonuses may reward imaginary rescues.</td>
+                <td>Reliable kill/assist ownership and understandable feedback. Causal proof for saves.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="callout">
+          Design target: exceptional shooting earns a meaningful premium under comparable conditions. We do not need to
+          force an early wave to score higher than a later one.
+        </p>
+      </section>
+      <section id="study">
+        <div class="eyebrow">05 / How we reach a decision</div>
+        <h2>Replay first. Change the rules second.</h2>
+        <div class="steps">
+          <div class="step">
+            <div>
+              <h3>Inventory and reproduce <span class="tag">Done</span></h3>
+              <p>
+                26 retained Staging sessions downloaded. All replay checkpoints, stored summaries and final ticks agree.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div>
+              <h3>Attribute every reward</h3>
+              <p>
+                Record player shots, automated kills, active abilities, chain roots, assists and score changes.
+                Reconcile the event ledger to the original score exactly.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div>
+              <h3>Judge shooting without seeing score</h3>
+              <p>
+                Review 8–12 short clips: cluster shots, misses, contested kills, sensible restraint and urgent threats.
+                Compare equal-wave opportunities, builds and completed versus partial waves.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div>
+              <h3>Rescore the same battle</h3>
+              <p>
+                Calculate candidate points beside the unchanged simulation. Preserve purchases, damage, RNG and original
+                replay verification. Hold out entire runs and check whether results survive different parameter choices.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div>
+              <h3>Measure and test pressure separately</h3>
+              <p>
+                Align impact deadlines, firing charges, recharge gaps, live defenses and active availability. Test
+                staggering and composition with controlled threat budgets. Changed spawns need new responses—not blindly
+                reused shot coordinates.
+              </p>
+            </div>
+          </div>
+          <div class="step">
+            <div>
+              <h3>Choose finalists, then feel-check</h3>
+              <p>
+                Show who gains or loses points and why. Test whether the player feels rewarded for useful shooting while
+                sensible reliance on upgrades still works.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section id="limits">
+        <h2>What we can—and cannot—claim.</h2>
+        <div class="grid two">
+          <div class="panel">
+            <h3>Established</h3>
+            <p>
+              Your last-completed-wave observation is strongly represented in the recordings. Explicit survival bonuses
+              are a large component of score. The shared combo gives automation the benefit of player precision.
+            </p>
+          </div>
+          <div class="panel">
+            <h3>Still open</h3>
+            <p>
+              Which waves contained your best shooting; the exact player/automation split; whether the late-wave wall is
+              mechanically unavoidable; and which redesign would improve play.
+            </p>
+          </div>
+        </div>
+        <details>
+          <summary>Method and source notes</summary>
+          <p style="margin-top: 16px">
+            One player's 26 iOS draft-mode runs across eight builds; 168 completed waves and 26 fatal partial waves.
+            Final waves range from 2 to 10. No wave-11 recording is available. These are repeated observations across
+            different builds and seeds, not population-wide evidence.
+          </p>
+          <p>
+            Highest-score counts include ties. One run only completes wave 1; excluding it yields 22/25 with current
+            scores and 20/25 after bonus subtraction. The second comparison includes completed waves only. The
+            correlation is Pearson's r, pooled across builds; it does not establish causation.
+          </p>
+          <p>
+            Derived using the maintained replay inspection and recap code. Rules reviewed in game-logic.ts, game-sim.ts,
+            wave-bonus.ts and wave-spawner.ts. Only anonymous wave summaries are embedded here; no credentials, raw
+            replays or private run identifiers.
+          </p>
+        </details>
+      </section>
+      <footer>
+        <p>
+          Dubai Missile Command · Gameplay study · 15 September 2026<br />Initial evidence and proposed experiments. No
+          gameplay changes made.
+        </p>
+        <button id="print" type="button">Print / Save as PDF</button>
+      </footer>
+    </main>
+    <script id="report-data" type="application/json">
+      [
+        {
+          "finalWave": 2,
+          "waves": [
+            {
+              "wave": 1,
+              "scoreEarned": 1166,
+              "missileKills": 1,
+              "droneKills": 2,
+              "maxCombo": 2,
+              "buildingsSurviving": 8,
+              "terminal": false
+            },
+            {
+              "wave": 2,
+              "scoreEarned": 368,
+              "missileKills": 3,
+              "droneKills": 5,
+              "maxCombo": 2,
+              "buildingsSurviving": 0,
+              "terminal": true
+            }
+          ]
+        },
+        {
+          "finalWave": 5,
+          "waves": [
+            {
+              "wave": 1,
+              "scoreEarned": 1954,
+              "missileKills": 5,
+              "droneKills": 3,
+              "maxCombo": 6,
+              "buildingsSurviving": 9,
+              "terminal": false
+            },
+            {
+              "wave": 2,
+              "scoreEarned": 3392,
+              "missileKills": 3,
+              "droneKills": 7,
+              "maxCombo": 8,
+              "buildingsSurviving": 9,
+              "terminal": false
+            },
+            {
+              "wave": 3,
+              "scoreEarned": 6290,
+              "missileKills": 5,
+              "droneKills": 7,
+              "maxCombo": 8,
+              "buildingsSurviving": 9,
+              "terminal": false
+            },
+            {
+              "wave": 4,
+              "scoreEarned": 9848,
+              "missileKills": 15,
+              "droneKills": 9,
+              "maxCombo": 8,
+              "buildingsSurviving": 9,
+              "terminal": false
+            },
+            {
+              "wave": 5,
+              "scoreEarned": 2252,
+              "missileKills": 3,
+              "droneKills": 3,
+              "maxCombo": 8,
+              "buildingsSurviving": 0,
+              "terminal": true
+            }
+          ]
+        },
+        {
+          "finalWave": 10,
+          "waves": [
+            {
+              "wave": 1,
+              "scoreEarned": 1998,
+              "missileKills": 4,
+              "droneKills": 3,
+              "maxCombo": 4,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 2,
+              "scoreEarned": 4508,
+              "missileKills": 7,
+              "droneKills": 8,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 3,
+              "scoreEarned": 8190,
+              "missileKills": 10,
+              "droneKills": 6,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 4,
+              "scoreEarned": 9934,
+              "missileKills": 13,
+              "droneKills": 12,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 5,
+              "scoreEarned": 9902,
+              "missileKills": 20,
+              "droneKills": 12,
+              "maxCombo": 9,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 6,
+              "scoreEarned": 11630,
+              "missileKills": 35,
+              "droneKills": 11,
+              "maxCombo": 8,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 7,
+              "scoreEarned": 13506,
+              "missileKills": 41,
+              "droneKills": 15,
+              "maxCombo": 5,
+              "buildingsSurviving": 8,
+              "terminal": false
+            },
+            {
+              "wave": 8,
+              "scoreEarned": 16186,
+              "missileKills": 46,
+              "droneKills": 10,
+              "maxCombo": 4,
+              "buildingsSurviving": 8,
+              "terminal": false
+            },
+            {
+              "wave": 9,
+              "scoreEarned": 20008,
+              "missileKills": 67,
+              "droneKills": 21,
+              "maxCombo": 4,
+              "buildingsSurviving": 7,
+              "terminal": false
+            },
+            {
+              "wave": 10,
+              "scoreEarned": 15462,
+              "missileKills": 56,
+              "droneKills": 29,
+              "maxCombo": 10,
+              "buildingsSurviving": 0,
+              "terminal": true
+            }
+          ]
+        },
+        {
+          "finalWave": 4,
+          "waves": [
+            {
+              "wave": 1,
+              "scoreEarned": 2146,
+              "missileKills": 4,
+              "droneKills": 4,
+              "maxCombo": 9,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 2,
+              "scoreEarned": 4412,
+              "missileKills": 6,
+              "droneKills": 8,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 3,
+              "scoreEarned": 4404,
+              "missileKills": 1,
+              "droneKills": 7,
+              "maxCombo": 3,
+              "buildingsSurviving": 9,
+              "terminal": false
+            },
+            {
+              "wave": 4,
+              "scoreEarned": 808,
+              "missileKills": 6,
+              "droneKills": 10,
+              "maxCombo": 10,
+              "buildingsSurviving": 0,
+              "terminal": true
+            }
+          ]
+        },
+        {
+          "finalWave": 10,
+          "waves": [
+            {
+              "wave": 1,
+              "scoreEarned": 1614,
+              "missileKills": 3,
+              "droneKills": 3,
+              "maxCombo": 6,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 2,
+              "scoreEarned": 4234,
+              "missileKills": 5,
+              "droneKills": 10,
+              "maxCombo": 9,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 3,
+              "scoreEarned": 7042,
+              "missileKills": 7,
+              "droneKills": 7,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 4,
+              "scoreEarned": 8872,
+              "missileKills": 12,
+              "droneKills": 12,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 5,
+              "scoreEarned": 9726,
+              "missileKills": 19,
+              "droneKills": 9,
+              "maxCombo": 5,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 6,
+              "scoreEarned": 13132,
+              "missileKills": 33,
+              "droneKills": 15,
+              "maxCombo": 9,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 7,
+              "scoreEarned": 18626,
+              "missileKills": 32,
+              "droneKills": 9,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 8,
+              "scoreEarned": 20326,
+              "missileKills": 56,
+              "droneKills": 15,
+              "maxCombo": 5,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 9,
+              "scoreEarned": 23072,
+              "missileKills": 73,
+              "droneKills": 18,
+              "maxCombo": 5,
+              "buildingsSurviving": 9,
+              "terminal": false
+            },
+            {
+              "wave": 10,
+              "scoreEarned": 16714,
+              "missileKills": 65,
+              "droneKills": 30,
+              "maxCombo": 10,
+              "buildingsSurviving": 0,
+              "terminal": true
+            }
+          ]
+        },
+        {
+          "finalWave": 10,
+          "waves": [
+            {
+              "wave": 1,
+              "scoreEarned": 2078,
+              "missileKills": 5,
+              "droneKills": 3,
+              "maxCombo": 9,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 2,
+              "scoreEarned": 6192,
+              "missileKills": 7,
+              "droneKills": 9,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 3,
+              "scoreEarned": 5990,
+              "missileKills": 5,
+              "droneKills": 11,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 4,
+              "scoreEarned": 6612,
+              "missileKills": 11,
+              "droneKills": 10,
+              "maxCombo": 8,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 5,
+              "scoreEarned": 10972,
+              "missileKills": 23,
+              "droneKills": 9,
+              "maxCombo": 7,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 6,
+              "scoreEarned": 14586,
+              "missileKills": 35,
+              "droneKills": 15,
+              "maxCombo": 7,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 7,
+              "scoreEarned": 15648,
+              "missileKills": 37,
+              "droneKills": 15,
+              "maxCombo": 8,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 8,
+              "scoreEarned": 18698,
+              "missileKills": 44,
+              "droneKills": 13,
+              "maxCombo": 8,
+              "buildingsSurviving": 9,
+              "terminal": false
+            },
+            {
+              "wave": 9,
+              "scoreEarned": 25120,
+              "missileKills": 67,
+              "droneKills": 21,
+              "maxCombo": 9,
+              "buildingsSurviving": 9,
+              "terminal": false
+            },
+            {
+              "wave": 10,
+              "scoreEarned": 12052,
+              "missileKills": 55,
+              "droneKills": 25,
+              "maxCombo": 10,
+              "buildingsSurviving": 0,
+              "terminal": true
+            }
+          ]
+        },
+        {
+          "finalWave": 8,
+          "waves": [
+            {
+              "wave": 1,
+              "scoreEarned": 1966,
+              "missileKills": 4,
+              "droneKills": 3,
+              "maxCombo": 5,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 2,
+              "scoreEarned": 4148,
+              "missileKills": 3,
+              "droneKills": 8,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 3,
+              "scoreEarned": 5488,
+              "missileKills": 6,
+              "droneKills": 6,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 4,
+              "scoreEarned": 9144,
+              "missileKills": 9,
+              "droneKills": 9,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 5,
+              "scoreEarned": 8398,
+              "missileKills": 18,
+              "droneKills": 10,
+              "maxCombo": 8,
+              "buildingsSurviving": 7,
+              "terminal": false
+            },
+            {
+              "wave": 6,
+              "scoreEarned": 8544,
+              "missileKills": 21,
+              "droneKills": 8,
+              "maxCombo": 8,
+              "buildingsSurviving": 6,
+              "terminal": false
+            },
+            {
+              "wave": 7,
+              "scoreEarned": 14024,
+              "missileKills": 28,
+              "droneKills": 13,
+              "maxCombo": 9,
+              "buildingsSurviving": 6,
+              "terminal": false
+            },
+            {
+              "wave": 8,
+              "scoreEarned": 2200,
+              "missileKills": 10,
+              "droneKills": 6,
+              "maxCombo": 10,
+              "buildingsSurviving": 0,
+              "terminal": true
+            }
+          ]
+        },
+        {
+          "finalWave": 6,
+          "waves": [
+            {
+              "wave": 1,
+              "scoreEarned": 2522,
+              "missileKills": 6,
+              "droneKills": 4,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 2,
+              "scoreEarned": 4500,
+              "missileKills": 8,
+              "droneKills": 8,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 3,
+              "scoreEarned": 5714,
+              "missileKills": 6,
+              "droneKills": 12,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 4,
+              "scoreEarned": 6894,
+              "missileKills": 14,
+              "droneKills": 7,
+              "maxCombo": 4,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 5,
+              "scoreEarned": 8944,
+              "missileKills": 21,
+              "droneKills": 12,
+              "maxCombo": 5,
+              "buildingsSurviving": 8,
+              "terminal": false
+            },
+            {
+              "wave": 6,
+              "scoreEarned": 4516,
+              "missileKills": 17,
+              "droneKills": 9,
+              "maxCombo": 10,
+              "buildingsSurviving": 0,
+              "terminal": true
+            }
+          ]
+        },
+        {
+          "finalWave": 5,
+          "waves": [
+            {
+              "wave": 1,
+              "scoreEarned": 2230,
+              "missileKills": 6,
+              "droneKills": 4,
+              "maxCombo": 6,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 2,
+              "scoreEarned": 5096,
+              "missileKills": 5,
+              "droneKills": 6,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 3,
+              "scoreEarned": 7630,
+              "missileKills": 6,
+              "droneKills": 11,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 4,
+              "scoreEarned": 10160,
+              "missileKills": 11,
+              "droneKills": 8,
+              "maxCombo": 10,
+              "buildingsSurviving": 8,
+              "terminal": false
+            },
+            {
+              "wave": 5,
+              "scoreEarned": 3454,
+              "missileKills": 10,
+              "droneKills": 1,
+              "maxCombo": 10,
+              "buildingsSurviving": 0,
+              "terminal": true
+            }
+          ]
+        },
+        {
+          "finalWave": 8,
+          "waves": [
+            {
+              "wave": 1,
+              "scoreEarned": 2094,
+              "missileKills": 5,
+              "droneKills": 3,
+              "maxCombo": 9,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 2,
+              "scoreEarned": 4152,
+              "missileKills": 6,
+              "droneKills": 6,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 3,
+              "scoreEarned": 5766,
+              "missileKills": 5,
+              "droneKills": 11,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 4,
+              "scoreEarned": 6660,
+              "missileKills": 8,
+              "droneKills": 10,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 5,
+              "scoreEarned": 10670,
+              "missileKills": 20,
+              "droneKills": 11,
+              "maxCombo": 8,
+              "buildingsSurviving": 9,
+              "terminal": false
+            },
+            {
+              "wave": 6,
+              "scoreEarned": 11318,
+              "missileKills": 34,
+              "droneKills": 13,
+              "maxCombo": 7,
+              "buildingsSurviving": 9,
+              "terminal": false
+            },
+            {
+              "wave": 7,
+              "scoreEarned": 14378,
+              "missileKills": 41,
+              "droneKills": 12,
+              "maxCombo": 4,
+              "buildingsSurviving": 9,
+              "terminal": false
+            },
+            {
+              "wave": 8,
+              "scoreEarned": 6626,
+              "missileKills": 37,
+              "droneKills": 9,
+              "maxCombo": 10,
+              "buildingsSurviving": 0,
+              "terminal": true
+            }
+          ]
+        },
+        {
+          "finalWave": 6,
+          "waves": [
+            {
+              "wave": 1,
+              "scoreEarned": 1898,
+              "missileKills": 4,
+              "droneKills": 3,
+              "maxCombo": 8,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 2,
+              "scoreEarned": 5444,
+              "missileKills": 4,
+              "droneKills": 10,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 3,
+              "scoreEarned": 6690,
+              "missileKills": 9,
+              "droneKills": 11,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 4,
+              "scoreEarned": 8244,
+              "missileKills": 10,
+              "droneKills": 11,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 5,
+              "scoreEarned": 11322,
+              "missileKills": 19,
+              "droneKills": 9,
+              "maxCombo": 7,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 6,
+              "scoreEarned": 4004,
+              "missileKills": 26,
+              "droneKills": 9,
+              "maxCombo": 10,
+              "buildingsSurviving": 0,
+              "terminal": true
+            }
+          ]
+        },
+        {
+          "finalWave": 6,
+          "waves": [
+            {
+              "wave": 1,
+              "scoreEarned": 1870,
+              "missileKills": 4,
+              "droneKills": 3,
+              "maxCombo": 8,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 2,
+              "scoreEarned": 4636,
+              "missileKills": 4,
+              "droneKills": 6,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 3,
+              "scoreEarned": 5546,
+              "missileKills": 5,
+              "droneKills": 9,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 4,
+              "scoreEarned": 8040,
+              "missileKills": 12,
+              "droneKills": 10,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 5,
+              "scoreEarned": 8834,
+              "missileKills": 17,
+              "droneKills": 9,
+              "maxCombo": 5,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 6,
+              "scoreEarned": 6836,
+              "missileKills": 35,
+              "droneKills": 14,
+              "maxCombo": 10,
+              "buildingsSurviving": 0,
+              "terminal": true
+            }
+          ]
+        },
+        {
+          "finalWave": 9,
+          "waves": [
+            {
+              "wave": 1,
+              "scoreEarned": 2050,
+              "missileKills": 5,
+              "droneKills": 3,
+              "maxCombo": 9,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 2,
+              "scoreEarned": 5352,
+              "missileKills": 4,
+              "droneKills": 9,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 3,
+              "scoreEarned": 6324,
+              "missileKills": 7,
+              "droneKills": 10,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 4,
+              "scoreEarned": 9482,
+              "missileKills": 11,
+              "droneKills": 9,
+              "maxCombo": 10,
+              "buildingsSurviving": 9,
+              "terminal": false
+            },
+            {
+              "wave": 5,
+              "scoreEarned": 16514,
+              "missileKills": 21,
+              "droneKills": 10,
+              "maxCombo": 10,
+              "buildingsSurviving": 8,
+              "terminal": false
+            },
+            {
+              "wave": 6,
+              "scoreEarned": 18270,
+              "missileKills": 31,
+              "droneKills": 12,
+              "maxCombo": 10,
+              "buildingsSurviving": 8,
+              "terminal": false
+            },
+            {
+              "wave": 7,
+              "scoreEarned": 16002,
+              "missileKills": 34,
+              "droneKills": 15,
+              "maxCombo": 7,
+              "buildingsSurviving": 7,
+              "terminal": false
+            },
+            {
+              "wave": 8,
+              "scoreEarned": 17140,
+              "missileKills": 45,
+              "droneKills": 18,
+              "maxCombo": 5,
+              "buildingsSurviving": 7,
+              "terminal": false
+            },
+            {
+              "wave": 9,
+              "scoreEarned": 11326,
+              "missileKills": 47,
+              "droneKills": 21,
+              "maxCombo": 10,
+              "buildingsSurviving": 0,
+              "terminal": true
+            }
+          ]
+        },
+        {
+          "finalWave": 8,
+          "waves": [
+            {
+              "wave": 1,
+              "scoreEarned": 2514,
+              "missileKills": 5,
+              "droneKills": 4,
+              "maxCombo": 8,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 2,
+              "scoreEarned": 5694,
+              "missileKills": 3,
+              "droneKills": 10,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 3,
+              "scoreEarned": 6870,
+              "missileKills": 4,
+              "droneKills": 10,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 4,
+              "scoreEarned": 10770,
+              "missileKills": 11,
+              "droneKills": 10,
+              "maxCombo": 10,
+              "buildingsSurviving": 9,
+              "terminal": false
+            },
+            {
+              "wave": 5,
+              "scoreEarned": 9998,
+              "missileKills": 18,
+              "droneKills": 12,
+              "maxCombo": 10,
+              "buildingsSurviving": 8,
+              "terminal": false
+            },
+            {
+              "wave": 6,
+              "scoreEarned": 16422,
+              "missileKills": 35,
+              "droneKills": 13,
+              "maxCombo": 10,
+              "buildingsSurviving": 6,
+              "terminal": false
+            },
+            {
+              "wave": 7,
+              "scoreEarned": 16522,
+              "missileKills": 49,
+              "droneKills": 11,
+              "maxCombo": 8,
+              "buildingsSurviving": 6,
+              "terminal": false
+            },
+            {
+              "wave": 8,
+              "scoreEarned": 5266,
+              "missileKills": 12,
+              "droneKills": 10,
+              "maxCombo": 10,
+              "buildingsSurviving": 0,
+              "terminal": true
+            }
+          ]
+        },
+        {
+          "finalWave": 9,
+          "waves": [
+            {
+              "wave": 1,
+              "scoreEarned": 1746,
+              "missileKills": 3,
+              "droneKills": 3,
+              "maxCombo": 7,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 2,
+              "scoreEarned": 4616,
+              "missileKills": 4,
+              "droneKills": 6,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 3,
+              "scoreEarned": 7790,
+              "missileKills": 8,
+              "droneKills": 12,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 4,
+              "scoreEarned": 10024,
+              "missileKills": 12,
+              "droneKills": 10,
+              "maxCombo": 10,
+              "buildingsSurviving": 9,
+              "terminal": false
+            },
+            {
+              "wave": 5,
+              "scoreEarned": 10018,
+              "missileKills": 13,
+              "droneKills": 8,
+              "maxCombo": 10,
+              "buildingsSurviving": 8,
+              "terminal": false
+            },
+            {
+              "wave": 6,
+              "scoreEarned": 11234,
+              "missileKills": 21,
+              "droneKills": 10,
+              "maxCombo": 10,
+              "buildingsSurviving": 8,
+              "terminal": false
+            },
+            {
+              "wave": 7,
+              "scoreEarned": 15042,
+              "missileKills": 35,
+              "droneKills": 12,
+              "maxCombo": 10,
+              "buildingsSurviving": 8,
+              "terminal": false
+            },
+            {
+              "wave": 8,
+              "scoreEarned": 21044,
+              "missileKills": 42,
+              "droneKills": 17,
+              "maxCombo": 9,
+              "buildingsSurviving": 8,
+              "terminal": false
+            },
+            {
+              "wave": 9,
+              "scoreEarned": 10728,
+              "missileKills": 42,
+              "droneKills": 20,
+              "maxCombo": 10,
+              "buildingsSurviving": 0,
+              "terminal": true
+            }
+          ]
+        },
+        {
+          "finalWave": 7,
+          "waves": [
+            {
+              "wave": 1,
+              "scoreEarned": 2294,
+              "missileKills": 5,
+              "droneKills": 4,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 2,
+              "scoreEarned": 4188,
+              "missileKills": 3,
+              "droneKills": 10,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 3,
+              "scoreEarned": 5768,
+              "missileKills": 6,
+              "droneKills": 7,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 4,
+              "scoreEarned": 6914,
+              "missileKills": 9,
+              "droneKills": 7,
+              "maxCombo": 9,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 5,
+              "scoreEarned": 8282,
+              "missileKills": 18,
+              "droneKills": 11,
+              "maxCombo": 6,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 6,
+              "scoreEarned": 11502,
+              "missileKills": 27,
+              "droneKills": 14,
+              "maxCombo": 8,
+              "buildingsSurviving": 9,
+              "terminal": false
+            },
+            {
+              "wave": 7,
+              "scoreEarned": 2106,
+              "missileKills": 17,
+              "droneKills": 10,
+              "maxCombo": 10,
+              "buildingsSurviving": 0,
+              "terminal": true
+            }
+          ]
+        },
+        {
+          "finalWave": 9,
+          "waves": [
+            {
+              "wave": 1,
+              "scoreEarned": 1666,
+              "missileKills": 3,
+              "droneKills": 3,
+              "maxCombo": 7,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 2,
+              "scoreEarned": 4612,
+              "missileKills": 2,
+              "droneKills": 9,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 3,
+              "scoreEarned": 4840,
+              "missileKills": 5,
+              "droneKills": 10,
+              "maxCombo": 10,
+              "buildingsSurviving": 9,
+              "terminal": false
+            },
+            {
+              "wave": 4,
+              "scoreEarned": 8446,
+              "missileKills": 11,
+              "droneKills": 9,
+              "maxCombo": 10,
+              "buildingsSurviving": 9,
+              "terminal": false
+            },
+            {
+              "wave": 5,
+              "scoreEarned": 11066,
+              "missileKills": 20,
+              "droneKills": 9,
+              "maxCombo": 10,
+              "buildingsSurviving": 9,
+              "terminal": false
+            },
+            {
+              "wave": 6,
+              "scoreEarned": 10880,
+              "missileKills": 23,
+              "droneKills": 12,
+              "maxCombo": 8,
+              "buildingsSurviving": 8,
+              "terminal": false
+            },
+            {
+              "wave": 7,
+              "scoreEarned": 13992,
+              "missileKills": 38,
+              "droneKills": 13,
+              "maxCombo": 7,
+              "buildingsSurviving": 8,
+              "terminal": false
+            },
+            {
+              "wave": 8,
+              "scoreEarned": 20554,
+              "missileKills": 58,
+              "droneKills": 15,
+              "maxCombo": 8,
+              "buildingsSurviving": 8,
+              "terminal": false
+            },
+            {
+              "wave": 9,
+              "scoreEarned": 11688,
+              "missileKills": 37,
+              "droneKills": 18,
+              "maxCombo": 10,
+              "buildingsSurviving": 0,
+              "terminal": true
+            }
+          ]
+        },
+        {
+          "finalWave": 5,
+          "waves": [
+            {
+              "wave": 1,
+              "scoreEarned": 2314,
+              "missileKills": 5,
+              "droneKills": 4,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 2,
+              "scoreEarned": 4472,
+              "missileKills": 6,
+              "droneKills": 9,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 3,
+              "scoreEarned": 5566,
+              "missileKills": 5,
+              "droneKills": 10,
+              "maxCombo": 7,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 4,
+              "scoreEarned": 8744,
+              "missileKills": 11,
+              "droneKills": 8,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 5,
+              "scoreEarned": 5248,
+              "missileKills": 12,
+              "droneKills": 5,
+              "maxCombo": 10,
+              "buildingsSurviving": 0,
+              "terminal": true
+            }
+          ]
+        },
+        {
+          "finalWave": 10,
+          "waves": [
+            {
+              "wave": 1,
+              "scoreEarned": 1998,
+              "missileKills": 6,
+              "droneKills": 3,
+              "maxCombo": 8,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 2,
+              "scoreEarned": 5368,
+              "missileKills": 7,
+              "droneKills": 9,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 3,
+              "scoreEarned": 5302,
+              "missileKills": 6,
+              "droneKills": 6,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 4,
+              "scoreEarned": 5814,
+              "missileKills": 9,
+              "droneKills": 8,
+              "maxCombo": 5,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 5,
+              "scoreEarned": 9032,
+              "missileKills": 20,
+              "droneKills": 10,
+              "maxCombo": 8,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 6,
+              "scoreEarned": 14526,
+              "missileKills": 35,
+              "droneKills": 13,
+              "maxCombo": 5,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 7,
+              "scoreEarned": 15868,
+              "missileKills": 44,
+              "droneKills": 11,
+              "maxCombo": 4,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 8,
+              "scoreEarned": 22156,
+              "missileKills": 55,
+              "droneKills": 15,
+              "maxCombo": 5,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 9,
+              "scoreEarned": 24908,
+              "missileKills": 66,
+              "droneKills": 17,
+              "maxCombo": 5,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 10,
+              "scoreEarned": 14876,
+              "missileKills": 69,
+              "droneKills": 33,
+              "maxCombo": 10,
+              "buildingsSurviving": 0,
+              "terminal": true
+            }
+          ]
+        },
+        {
+          "finalWave": 7,
+          "waves": [
+            {
+              "wave": 1,
+              "scoreEarned": 2334,
+              "missileKills": 4,
+              "droneKills": 3,
+              "maxCombo": 6,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 2,
+              "scoreEarned": 3926,
+              "missileKills": 2,
+              "droneKills": 9,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 3,
+              "scoreEarned": 4938,
+              "missileKills": 6,
+              "droneKills": 7,
+              "maxCombo": 8,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 4,
+              "scoreEarned": 10866,
+              "missileKills": 13,
+              "droneKills": 11,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 5,
+              "scoreEarned": 15652,
+              "missileKills": 20,
+              "droneKills": 9,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 6,
+              "scoreEarned": 14338,
+              "missileKills": 36,
+              "droneKills": 11,
+              "maxCombo": 9,
+              "buildingsSurviving": 8,
+              "terminal": false
+            },
+            {
+              "wave": 7,
+              "scoreEarned": 5834,
+              "missileKills": 19,
+              "droneKills": 8,
+              "maxCombo": 10,
+              "buildingsSurviving": 0,
+              "terminal": true
+            }
+          ]
+        },
+        {
+          "finalWave": 8,
+          "waves": [
+            {
+              "wave": 1,
+              "scoreEarned": 2038,
+              "missileKills": 5,
+              "droneKills": 3,
+              "maxCombo": 5,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 2,
+              "scoreEarned": 3768,
+              "missileKills": 5,
+              "droneKills": 7,
+              "maxCombo": 9,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 3,
+              "scoreEarned": 6062,
+              "missileKills": 8,
+              "droneKills": 10,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 4,
+              "scoreEarned": 7756,
+              "missileKills": 11,
+              "droneKills": 9,
+              "maxCombo": 9,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 5,
+              "scoreEarned": 10680,
+              "missileKills": 20,
+              "droneKills": 10,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 6,
+              "scoreEarned": 12062,
+              "missileKills": 36,
+              "droneKills": 13,
+              "maxCombo": 8,
+              "buildingsSurviving": 8,
+              "terminal": false
+            },
+            {
+              "wave": 7,
+              "scoreEarned": 19268,
+              "missileKills": 45,
+              "droneKills": 13,
+              "maxCombo": 8,
+              "buildingsSurviving": 8,
+              "terminal": false
+            },
+            {
+              "wave": 8,
+              "scoreEarned": 2210,
+              "missileKills": 8,
+              "droneKills": 2,
+              "maxCombo": 10,
+              "buildingsSurviving": 0,
+              "terminal": true
+            }
+          ]
+        },
+        {
+          "finalWave": 8,
+          "waves": [
+            {
+              "wave": 1,
+              "scoreEarned": 1610,
+              "missileKills": 4,
+              "droneKills": 3,
+              "maxCombo": 5,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 2,
+              "scoreEarned": 4840,
+              "missileKills": 7,
+              "droneKills": 6,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 3,
+              "scoreEarned": 4988,
+              "missileKills": 7,
+              "droneKills": 6,
+              "maxCombo": 6,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 4,
+              "scoreEarned": 6808,
+              "missileKills": 9,
+              "droneKills": 9,
+              "maxCombo": 8,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 5,
+              "scoreEarned": 7510,
+              "missileKills": 14,
+              "droneKills": 10,
+              "maxCombo": 4,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 6,
+              "scoreEarned": 12100,
+              "missileKills": 38,
+              "droneKills": 12,
+              "maxCombo": 6,
+              "buildingsSurviving": 9,
+              "terminal": false
+            },
+            {
+              "wave": 7,
+              "scoreEarned": 13738,
+              "missileKills": 44,
+              "droneKills": 12,
+              "maxCombo": 8,
+              "buildingsSurviving": 8,
+              "terminal": false
+            },
+            {
+              "wave": 8,
+              "scoreEarned": 7304,
+              "missileKills": 32,
+              "droneKills": 14,
+              "maxCombo": 10,
+              "buildingsSurviving": 0,
+              "terminal": true
+            }
+          ]
+        },
+        {
+          "finalWave": 10,
+          "waves": [
+            {
+              "wave": 1,
+              "scoreEarned": 1868,
+              "missileKills": 6,
+              "droneKills": 3,
+              "maxCombo": 6,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 2,
+              "scoreEarned": 4172,
+              "missileKills": 5,
+              "droneKills": 7,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 3,
+              "scoreEarned": 4572,
+              "missileKills": 7,
+              "droneKills": 7,
+              "maxCombo": 4,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 4,
+              "scoreEarned": 7080,
+              "missileKills": 10,
+              "droneKills": 8,
+              "maxCombo": 9,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 5,
+              "scoreEarned": 10334,
+              "missileKills": 24,
+              "droneKills": 10,
+              "maxCombo": 5,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 6,
+              "scoreEarned": 12946,
+              "missileKills": 34,
+              "droneKills": 12,
+              "maxCombo": 5,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 7,
+              "scoreEarned": 19244,
+              "missileKills": 51,
+              "droneKills": 12,
+              "maxCombo": 5,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 8,
+              "scoreEarned": 16090,
+              "missileKills": 41,
+              "droneKills": 9,
+              "maxCombo": 3,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 9,
+              "scoreEarned": 23238,
+              "missileKills": 69,
+              "droneKills": 18,
+              "maxCombo": 7,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 10,
+              "scoreEarned": 1782,
+              "missileKills": 6,
+              "droneKills": 7,
+              "maxCombo": 10,
+              "buildingsSurviving": 0,
+              "terminal": true
+            }
+          ]
+        },
+        {
+          "finalWave": 9,
+          "waves": [
+            {
+              "wave": 1,
+              "scoreEarned": 1922,
+              "missileKills": 3,
+              "droneKills": 3,
+              "maxCombo": 6,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 2,
+              "scoreEarned": 4540,
+              "missileKills": 3,
+              "droneKills": 8,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 3,
+              "scoreEarned": 7410,
+              "missileKills": 7,
+              "droneKills": 7,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 4,
+              "scoreEarned": 7420,
+              "missileKills": 10,
+              "droneKills": 9,
+              "maxCombo": 10,
+              "buildingsSurviving": 9,
+              "terminal": false
+            },
+            {
+              "wave": 5,
+              "scoreEarned": 8860,
+              "missileKills": 14,
+              "droneKills": 12,
+              "maxCombo": 6,
+              "buildingsSurviving": 9,
+              "terminal": false
+            },
+            {
+              "wave": 6,
+              "scoreEarned": 12862,
+              "missileKills": 18,
+              "droneKills": 11,
+              "maxCombo": 7,
+              "buildingsSurviving": 9,
+              "terminal": false
+            },
+            {
+              "wave": 7,
+              "scoreEarned": 18716,
+              "missileKills": 42,
+              "droneKills": 16,
+              "maxCombo": 7,
+              "buildingsSurviving": 9,
+              "terminal": false
+            },
+            {
+              "wave": 8,
+              "scoreEarned": 21208,
+              "missileKills": 49,
+              "droneKills": 18,
+              "maxCombo": 6,
+              "buildingsSurviving": 9,
+              "terminal": false
+            },
+            {
+              "wave": 9,
+              "scoreEarned": 976,
+              "missileKills": 8,
+              "droneKills": 6,
+              "maxCombo": 10,
+              "buildingsSurviving": 0,
+              "terminal": true
+            }
+          ]
+        },
+        {
+          "finalWave": 6,
+          "waves": [
+            {
+              "wave": 1,
+              "scoreEarned": 2580,
+              "missileKills": 6,
+              "droneKills": 3,
+              "maxCombo": 8,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 2,
+              "scoreEarned": 5272,
+              "missileKills": 5,
+              "droneKills": 9,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 3,
+              "scoreEarned": 4490,
+              "missileKills": 3,
+              "droneKills": 8,
+              "maxCombo": 5,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 4,
+              "scoreEarned": 8448,
+              "missileKills": 10,
+              "droneKills": 10,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 5,
+              "scoreEarned": 12582,
+              "missileKills": 17,
+              "droneKills": 10,
+              "maxCombo": 10,
+              "buildingsSurviving": 7,
+              "terminal": false
+            },
+            {
+              "wave": 6,
+              "scoreEarned": 740,
+              "missileKills": 7,
+              "droneKills": 4,
+              "maxCombo": 10,
+              "buildingsSurviving": 0,
+              "terminal": true
+            }
+          ]
+        },
+        {
+          "finalWave": 9,
+          "waves": [
+            {
+              "wave": 1,
+              "scoreEarned": 2088,
+              "missileKills": 6,
+              "droneKills": 4,
+              "maxCombo": 6,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 2,
+              "scoreEarned": 5288,
+              "missileKills": 7,
+              "droneKills": 10,
+              "maxCombo": 10,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 3,
+              "scoreEarned": 4328,
+              "missileKills": 3,
+              "droneKills": 9,
+              "maxCombo": 3,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 4,
+              "scoreEarned": 7122,
+              "missileKills": 14,
+              "droneKills": 8,
+              "maxCombo": 3,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 5,
+              "scoreEarned": 8708,
+              "missileKills": 19,
+              "droneKills": 8,
+              "maxCombo": 2,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 6,
+              "scoreEarned": 13084,
+              "missileKills": 35,
+              "droneKills": 10,
+              "maxCombo": 3,
+              "buildingsSurviving": 10,
+              "terminal": false
+            },
+            {
+              "wave": 7,
+              "scoreEarned": 10096,
+              "missileKills": 30,
+              "droneKills": 13,
+              "maxCombo": 3,
+              "buildingsSurviving": 8,
+              "terminal": false
+            },
+            {
+              "wave": 8,
+              "scoreEarned": 17358,
+              "missileKills": 55,
+              "droneKills": 11,
+              "maxCombo": 5,
+              "buildingsSurviving": 7,
+              "terminal": false
+            },
+            {
+              "wave": 9,
+              "scoreEarned": 11352,
+              "missileKills": 50,
+              "droneKills": 18,
+              "maxCombo": 10,
+              "buildingsSurviving": 0,
+              "terminal": true
+            }
+          ]
+        }
+      ]
+    </script>
+    <script>
+      const runs = JSON.parse(document.getElementById("report-data").textContent);
+      const select = document.getElementById("run");
+      const check = document.getElementById("bonuses");
+      const fmt = (n) => Math.round(n).toLocaleString("en-US");
+      runs.forEach((r, i) => {
+        const o = document.createElement("option");
+        o.value = i;
+        o.textContent = `Recording ${i + 1} · reached wave ${r.finalWave}`;
+        select.append(o);
+      });
+      select.value = "2";
+      function render() {
+        const r = runs[Number(select.value)],
+          show = check.checked;
+        const ws = r.waves;
+        const width = 940,
+          height = 340,
+          left = 68,
+          right = 18,
+          top = 25,
+          bottom = 45;
+        const plotH = height - top - bottom,
+          plotW = width - left - right;
+        const bonus = (w) => (w.terminal ? 0 : 250 * w.wave + 100 * w.buildingsSurviving * w.wave);
+        const value = (w) => w.scoreEarned - (show ? 0 : bonus(w));
+        const max = Math.ceil(Math.max(...ws.map(value)) / 4000) * 4000 || 4000;
+        const step = plotW / ws.length,
+          bw = Math.min(54, step * 0.65);
+        let s = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-labelledby="chart-title chart-desc"><title id="chart-title">Points earned per wave for recording ${Number(select.value) + 1}</title><desc id="chart-desc">${show ? "Including" : "Excluding"} explicit bonuses. The final wave is partial. Exact values are available in the table below.</desc>`;
+        for (let j = 0; j <= 4; j++) {
+          const y = top + plotH - (j * plotH) / 4;
+          s += `<path d="M${left} ${y}H${width - right}" stroke="#334449"/><text x="${left - 12}" y="${y + 4}" text-anchor="end" font-size="13">${fmt((max * j) / 4)}</text>`;
+        }
+        ws.forEach((w, i) => {
+          const x = left + step * i + (step - bw) / 2,
+            total = value(w),
+            b = show ? bonus(w) : 0,
+            core = total - b,
+            baseY = top + plotH;
+          const coreH = (core / max) * plotH,
+            bh = (b / max) * plotH;
+          s += `<g><title>Wave ${w.wave}${w.terminal ? " (partial)" : ""}: ${fmt(total)} points; ${fmt(bonus(w))} explicit bonuses; ${w.missileKills + w.droneKills} threats; max combo ×${w.maxCombo}</title><rect x="${x}" y="${baseY - coreH}" width="${bw}" height="${Math.max(0, coreH)}" fill="${w.terminal ? "#718c94" : "#a4e4bd"}"/><rect x="${x}" y="${baseY - coreH - bh}" width="${bw}" height="${Math.max(0, bh)}" fill="#f6ca7c"/><text x="${x + bw / 2}" y="${height - 20}" text-anchor="middle" font-size="13">${w.wave}${w.terminal ? "*" : ""}</text></g>`;
+        });
+        s += "</svg>";
+        document.getElementById("chart").innerHTML = s;
+        const cs = ws.filter((w) => !w.terminal),
+          peak = Math.max(...cs.map(value)),
+          peaks = cs
+            .filter((w) => value(w) === peak)
+            .map((w) => w.wave)
+            .join(", ");
+        document.getElementById("chart-note").textContent =
+          `Highest completed wave${peaks.includes(",") ? "s" : ""}: ${peaks} (${fmt(peak)} points). * Wave ${r.finalWave} is the partial fatal wave. ${show ? "Gold shows explicit bonuses." : "Bonuses removed; remaining points still include automated kills."}`;
+        document.getElementById("wave-table").innerHTML = ws
+          .map(
+            (w) =>
+              `<tr><td>${w.wave}${w.terminal ? " (partial)" : ""}</td><td>${fmt(value(w))}</td><td>${fmt(bonus(w))}${show ? "" : " (removed)"}</td><td>${w.missileKills + w.droneKills}</td><td>×${w.maxCombo}</td></tr>`,
+          )
+          .join("");
+      }
+      select.addEventListener("change", render);
+      check.addEventListener("change", render);
+      document.getElementById("print").addEventListener("click", () => window.print());
+      render();
+    </script>
+  </body>
+</html>

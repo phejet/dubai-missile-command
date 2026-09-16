@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Shooting quality · Score-hidden review</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #0b1320;
+        color: #e8f0fa;
+        font:
+          16px/1.5 system-ui,
+          sans-serif;
+      }
+      main {
+        max-width: 1020px;
+        padding: 30px 20px;
+        margin: auto;
+      }
+      h1 {
+        font-size: 32px;
+        line-height: 1.15;
+        margin: 8px 0 16px;
+      }
+      h2 {
+        font-size: 20px;
+      }
+      .muted {
+        color: #a7b9cf;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 440px) minmax(0, 1fr);
+        gap: 30px;
+      }
+      .stage {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 9/16;
+        background: #080f19;
+      }
+      canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+      #taps {
+        pointer-events: none;
+      }
+      button,
+      select,
+      textarea {
+        font: inherit;
+        background: #162438;
+        color: inherit;
+        border: 1px solid #60748b;
+        border-radius: 7px;
+        padding: 9px;
+      }
+      button {
+        cursor: pointer;
+      }
+      select,
+      textarea {
+        max-width: 100%;
+      }
+      textarea {
+        width: 100%;
+        min-height: 95px;
+      }
+      .toolbar {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin: 12px 0;
+      }
+      #play,
+      #restart {
+        width: 88px;
+      }
+      #time {
+        font-variant-numeric: tabular-nums;
+        min-width: 100px;
+      }
+      #scrub {
+        width: 100%;
+      }
+      label {
+        display: block;
+        margin: 12px 0 6px;
+      }
+      .panel {
+        background: #142033;
+        padding: 22px;
+        border: 1px solid #304159;
+        border-radius: 12px;
+      }
+      #capacity,
+      #active,
+      #phase {
+        font-size: 13px;
+      }
+      #phase {
+        color: #f0c77d;
+        min-height: 20px;
+      }
+      a {
+        color: #65dece;
+      }
+      .tag {
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        color: #65dece;
+        text-transform: uppercase;
+      }
+      li {
+        margin: 10px 0;
+      }
+      #status {
+        font-size: 13px;
+        min-height: 40px;
+      }
+      #saved {
+        min-height: 48px;
+        font-size: 14px;
+      }
+      @media (max-width: 700px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        main {
+          padding: 20px 12px;
+        }
+        .stage {
+          max-width: 440px;
+          margin: auto;
+        }
+        .panel {
+          padding: 16px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="tag">Study part three · blind clip review</div>
+      <h1>Was that good shooting?</h1>
+      <p class="muted">
+        Ten eight-second excerpts from the original recordings. Score, combo and reward labels are hidden. Watch
+        placement, timing, other defenses and what actually happens.
+      </p>
+      <div class="layout">
+        <div>
+          <div class="toolbar">
+            <label for="clip">Clip</label
+            ><select id="clip"></select
+            ><span id="time">0.0 s</span>
+          </div>
+          <div class="stage">
+            <canvas id="battlefield" width="900" height="1600"></canvas
+            ><canvas id="taps" width="900" height="1600"></canvas>
+          </div>
+          <div class="toolbar"><button id="play">Play</button><button id="restart">Restart</button></div>
+          <label for="scrub">Clip position</label><input id="scrub" type="range" min="0" max="480" value="0" />
+          <div id="capacity"></div>
+          <div id="active"></div>
+          <div id="phase"></div>
+          <p id="status" class="muted">Loading…</p>
+        </div>
+        <aside>
+          <div class="panel">
+            <h2>Judge the choice, not just the kill</h2>
+            <p>
+              The focal shot or withholding interval begins near <strong>2 seconds</strong>. Look at the lead-in and
+              outcome before deciding.
+            </p>
+            <ul>
+              <li><strong>Productive:</strong> placement or timing usefully catches threats.</li>
+              <li><strong>Wasteful:</strong> the choice appears avoidably unproductive.</li>
+              <li><strong>Sensible withholding:</strong> allowing existing defenses to work looks reasonable.</li>
+              <li><strong>Ambiguous:</strong> the outcome alone does not settle the choice.</li>
+            </ul>
+            <p class="muted">
+              A threat disappearing first does not prove a bad shot. A low interception does not prove a save.
+            </p>
+            <label for="judgment">Your judgment</label
+            ><select id="judgment">
+              <option value="">Choose…</option>
+              <option>Productive</option>
+              <option>Wasteful</option>
+              <option>Sensible withholding</option>
+              <option>Ambiguous</option></select
+            ><label for="reason">What did you notice? Include a clip timestamp if useful.</label
+            ><textarea id="reason" placeholder="At 2.4 s…"></textarea>
+            <div class="toolbar"><button id="save">Save label</button><button id="copy">Copy labels</button></div>
+            <p id="saved" aria-live="polite"></p>
+            <textarea id="export" hidden aria-label="Labels to copy"></textarea>
+            <p class="muted">
+              Labels stay in this browser until you copy them into the conversation. Nothing is uploaded.
+            </p>
+          </div>
+          <p class="muted">
+            Original replay simulation and Pixi battlefield rendering, with recorded tap markers added. Playback pauses
+            at the clip end. Seeking preserves recorded actions and state.
+          </p>
+          <p><a href="scoring-quality-results.html">Descriptive metrics and method →</a></p>
+        </aside>
+      </div>
+    </main>
+    <script type="module" src="../../scripts/scoring-study/quality-player.ts"></script>
+  </body>
+</html>

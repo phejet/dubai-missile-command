@@ -1,0 +1,87 @@
+{
+  "status": "provisional; awaiting independent user labels",
+  "reviewMethod": "Six score-hidden rendered temporal frames per clip at 0, 2, 2.25, 2.67, 3.5 and 6 seconds. Playback/seek verified separately. These are frame-sequence judgments, not a continuous-motion human feel-check. The agent knew the event-based selection categories and had previously analyzed this corpus; these are not independent blinded labels.",
+  "rankingComputed": false,
+  "judgments": [
+    {
+      "clip": "clip-01",
+      "judgment": "Ambiguous",
+      "confidence": "medium",
+      "time": "2.0–2.67 s",
+      "observation": "The manual aim is above a descending threat; a second detonation appears below while the manual burst opens higher. Multiple defenses are active.",
+      "interpretation": "An empty outcome does not settle whether the lead aim was poor or another defense simply finished first."
+    },
+    {
+      "clip": "clip-02",
+      "judgment": "Productive",
+      "confidence": "high",
+      "time": "2.0–2.67 s",
+      "observation": "Several threats collect in the upper-left area. The aimed burst and expanding chain occupy that cluster, which is gone by the next frame.",
+      "interpretation": "Placement exploits a visible cluster. This does not establish that the entire later defense was handled well."
+    },
+    {
+      "clip": "clip-03",
+      "judgment": "Ambiguous",
+      "confidence": "medium",
+      "time": "2.0–3.5 s",
+      "observation": "A descending group approaches the tower while existing defenses fire and remove threats. No focal manual tap is visible during that interval.",
+      "interpretation": "Allowing defenses to work looks plausible, but the frames do not establish what the player anticipated or whether waiting was safe in advance."
+    },
+    {
+      "clip": "clip-04",
+      "judgment": "Ambiguous",
+      "confidence": "low",
+      "time": "2.0–3.5 s",
+      "observation": "A tap is placed below a descending threat, followed by another lower aim. The upper manual burst appears offset from the still-descending missile.",
+      "interpretation": "This could be a timing/lead miss; successive taps and sparse frames prevent a confident verdict about the focal choice."
+    },
+    {
+      "clip": "clip-05",
+      "judgment": "Ambiguous",
+      "confidence": "medium",
+      "time": "2.0–3.5 s",
+      "observation": "The focal aim sits low beside the tower as threats descend and other bursts clear the upper area. Later frames show damage effects on the tower.",
+      "interpretation": "The lower interception can be useful even while another threat gets through. Neither a save nor blame for later damage follows from the frames."
+    },
+    {
+      "clip": "clip-06",
+      "judgment": "Ambiguous",
+      "confidence": "medium",
+      "time": "2.0–2.67 s",
+      "observation": "Two aim markers and several upgrade bursts overlap the right-hand group near the tower.",
+      "interpretation": "Repeated coverage is visible, but a crowded intercept with multiple systems does not by itself make the extra tap wasteful."
+    },
+    {
+      "clip": "clip-07",
+      "judgment": "Productive",
+      "confidence": "high",
+      "time": "2.0–2.67 s",
+      "observation": "The manual aim meets a dense upper-left cluster; a connected burst occupies it and the cluster disappears.",
+      "interpretation": "The focal placement is productive despite continuing pressure elsewhere."
+    },
+    {
+      "clip": "clip-08",
+      "judgment": "Productive",
+      "confidence": "medium",
+      "time": "2.0–2.67 s",
+      "observation": "The focal tap lies beside the tower tip among descending threats. A burst opens there and that local approach clears.",
+      "interpretation": "The placement appears timely for that local threat; no claim that automation could not have handled it."
+    },
+    {
+      "clip": "clip-09",
+      "judgment": "Ambiguous",
+      "confidence": "low",
+      "time": "2.0–3.5 s",
+      "observation": "A tap sits ahead of the low left missile, followed by a tap on the right. The missile is still descending in the next frames.",
+      "interpretation": "There may be a local lead error, but the relevant manual burst is not cleanly isolated in the sampled sequence."
+    },
+    {
+      "clip": "clip-10",
+      "judgment": "Sensible withholding",
+      "confidence": "medium",
+      "time": "2.0–3.5 s",
+      "observation": "A single visible approach is removed by existing defenses while no focal manual tap appears. The tower is already critical.",
+      "interpretation": "Withholding looks reasonable for this short interval. Critical health does not alone make every non-shot wrong, and longer-horizon safety remains unknown."
+    }
+  ]
+}

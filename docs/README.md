@@ -61,6 +61,18 @@ an explicit status, as `authenticated-capture-ingestion.md` does.
 
 - [`../.plans/replay-upload-backend-status.md`](../.plans/replay-upload-backend-status.md) — map of the Cloudflare replay/diagnostics upload design across its three plan documents: what is already built, what is still paper, the unresolved D1-vs-KV scope conflict, and the branch/PR sweep behind those conclusions.
 
+## Gameplay Analysis — September 2026
+
+- [Gameplay study and initial evidence](<./gameplay analysis Sep 2026/gameplay-design-report.html>).
+- [Reward attribution report](<./gameplay analysis Sep 2026/scoring-attribution-results.html>).
+- [Score-independent shooting quality](<./gameplay analysis Sep 2026/scoring-quality-results.html>) — measurements verified; human clip labels pending.
+- [Score-hidden clip review](<./gameplay analysis Sep 2026/scoring-quality-review.html>) — local Vite tool requiring the private study corpus; not a standalone published replay.
+- [Study plan](<./gameplay analysis Sep 2026/scoring-replay-study-plan.md>) and [part-three method](<./gameplay analysis Sep 2026/scoring-quality-method.md>).
+
+The three HTML reports embed anonymous aggregates and can be read without the private corpus.
+The analysis scripts are under `scripts/scoring-study/`; raw captures and generated evidence
+remain in ignored `operator-results/`. These reports do not change roadmap state.
+
 ## Historical Analysis
 
 - [`spawn-commander-analysis.md`](./spawn-commander-analysis.md) — benchmark comparison of old and new spawn systems.
