@@ -10,13 +10,13 @@ for (const seed of [42, 123, 456]) {
   setScoreAuditSink((entry) => {
     total += entry.amount;
     entries++;
-    assert(entry.combo >= 1 && entry.combo <= COMBO_CAP, "combo outside cap");
+    assert(entry.combo >= 1 && entry.combo < COMBO_CAP, "live combo must stay below the cap");
     if (entry.kind === "kill") {
       assert(entry.source !== undefined && entry.base !== undefined);
       assert.equal(entry.amount, PLAYER_KILL_SOURCES.has(entry.source) ? entry.base * entry.combo : 0);
     }
     if (entry.kind === "cashout") {
-      assert.equal(entry.combo, COMBO_CAP);
+      assert.equal(entry.combo, COMBO_CAP - 1, "cash-out must come from the hit that reaches the cap");
       assert.equal(entry.amount, COMBO_CASHOUT_BONUS);
       cashouts++;
     }

@@ -54,18 +54,18 @@ afterEach(() => {
 });
 
 describe("player scoring rules", () => {
-  it("advances four times, cashes out the fifth hit, then starts again", () => {
+  it("advances to x4, cashes out the hit that reaches x5, then starts again", () => {
     let combo = 1;
     for (let hit = 1; hit <= 6; hit++) {
       const result = stepCombo(combo, "hit");
       expect(result).toEqual({
-        combo: hit === 5 ? 1 : hit === 6 ? 2 : hit + 1,
-        bonus: hit === 5 ? 1000 : 0,
-        cashout: hit === 5,
+        combo: hit === 4 ? 1 : hit > 4 ? hit - 3 : hit + 1,
+        bonus: hit === 4 ? 1000 : 0,
+        cashout: hit === 4,
       });
       combo = result.combo;
     }
-    for (let level = 1; level <= COMBO_CAP; level++) {
+    for (let level = 1; level < COMBO_CAP; level++) {
       expect(stepCombo(level, "hold").combo).toBe(level);
       expect(stepCombo(level, "miss").combo).toBe(1);
     }
@@ -116,7 +116,7 @@ describe("player scoring rules", () => {
     expect(g.score).toBe(150);
     expect(g.stats.missileKills).toBe(2);
   });
-  it("cash-out resolves after kills, clears the increment toast and restarts the streak", () => {
+  it("the hit that reaches x5 banks the bonus in the combo toast and restarts the streak", () => {
     const g = game();
     for (let hit = 1; hit <= 6; hit++) {
       const target = missile();
@@ -130,24 +130,25 @@ describe("player scoring rules", () => {
       root.growing = false;
       root.alpha = 0;
       update(g, 1);
-      expect(g.combo).toBe(hit === 5 ? 1 : hit === 6 ? 2 : hit + 1);
-      expect(g.score - before).toBe(getKillReward(target) * multiplier + (hit === 5 ? COMBO_CASHOUT_BONUS : 0));
-      if (hit === 5) {
-        expect(g.comboToast).toBeNull();
-        expect(g.comboBonusToast?.bonus).toBe(1000);
-      }
+      expect(g.combo).toBe(hit === 4 ? 1 : hit > 4 ? hit - 3 : hit + 1);
+      expect(g.score - before).toBe(getKillReward(target) * multiplier + (hit === 4 ? COMBO_CASHOUT_BONUS : 0));
+      if (hit === 4) {
+        // The same toast style as every combo step, announcing x5 and the banked bonus.
+        expect(g.comboToast).toMatchObject({ multiplier: COMBO_CAP, bonus: COMBO_CASHOUT_BONUS });
+        expect(g.stats.maxCombo).toBe(COMBO_CAP);
+      } else expect(g.comboToast?.bonus).toBeUndefined();
       g.explosions = [];
     }
   });
   it("processes overlapping roots in order at expiry", () => {
     const g = game();
-    g.combo = 4;
+    g.combo = 3;
     for (let i = 0; i < 2; i++) {
       createExplosion(g, 100, 100, 20, "#fff", true, 20, { source: "player" });
       Object.assign(g.explosions[i], { kills: 1, growing: false, alpha: i === 0 ? 0 : 0.5 });
     }
     update(g, 1);
-    expect(g.combo).toBe(5);
+    expect(g.combo).toBe(4);
     expect(g.score).toBe(0);
     g.explosions[0].alpha = 0;
     update(g, 1);
@@ -205,7 +206,7 @@ describe("player scoring rules", () => {
   it("a wave-ending cash-out lands before the wave bonus screen", () => {
     const g = game();
     g.schedule = [];
-    g.combo = COMBO_CAP;
+    g.combo = COMBO_CAP - 1;
     g.missiles = [missile()];
     createExplosion(g, 100, 100, 80, "#fff", true, 80, { source: "player" });
     const entries: ScoreAuditEntry[] = [];
@@ -225,31 +226,31 @@ describe("player scoring rules", () => {
     expect(atBonus!.kinds).toEqual(["kill", "wave_clear", "cashout"]);
     expect(atBonus!.combo).toBe(1);
     expect(atBonus!.score).toBe(atBonus!.audited);
-    expect(atBonus!.score).toBe(getKillReward(missile()) * COMBO_CAP + 250 * g.wave + COMBO_CASHOUT_BONUS);
+    expect(atBonus!.score).toBe(getKillReward(missile()) * (COMBO_CAP - 1) + 250 * g.wave + COMBO_CASHOUT_BONUS);
   });
   it("overlapping roots score each kill at the multiplier current when it lands", () => {
     const g = game();
-    g.combo = 4;
+    g.combo = 3;
     const entries: ScoreAuditEntry[] = [];
     setScoreAuditSink((entry) => entries.push(entry));
     g.missiles = [missile(100)];
     createExplosion(g, 100, 100, 20, "#fff", true, 20, { source: "player" });
     createExplosion(g, 700, 100, 20, "#fff", true, 20, { source: "player" });
     const [first, second] = g.explosions;
-    update(g, 1); // first root kills at x4
+    update(g, 1); // first root kills at x3
     Object.assign(first, { growing: false, alpha: 0 });
     Object.assign(second, { growing: false, alpha: 0.9 });
-    update(g, 1); // first root resolves: x4 -> x5
-    expect(g.combo).toBe(5);
+    update(g, 1); // first root resolves: x3 -> x4
+    expect(g.combo).toBe(4);
     g.missiles = [missile(700)];
     second.alpha = 0.9;
-    update(g, 1); // second root kills at x5
+    update(g, 1); // second root kills at x4
     second.alpha = 0;
-    update(g, 1); // second root resolves: cash-out
+    update(g, 1); // second root resolves: reaching x5 cashes out
     const base = getKillReward(missile());
     expect(entries.map((e) => [e.kind, e.amount])).toEqual([
+      ["kill", base * 3],
       ["kill", base * 4],
-      ["kill", base * 5],
       ["cashout", COMBO_CASHOUT_BONUS],
     ]);
     expect(g.combo).toBe(1);

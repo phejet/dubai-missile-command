@@ -875,7 +875,8 @@ export function awardKill(g: GameState, target: Threat, source: KillSource): voi
 export function stepCombo(combo: number, outcome: "hit" | "miss" | "hold") {
   if (outcome === "hold") return { combo, bonus: 0, cashout: false };
   if (outcome === "miss") return { combo: 1, bonus: 0, cashout: false };
-  return combo >= COMBO_CAP
+  // Reaching the cap is the payoff: that hit banks the bonus and the streak restarts.
+  return combo + 1 >= COMBO_CAP
     ? { combo: 1, bonus: COMBO_CASHOUT_BONUS, cashout: true }
     : { combo: combo + 1, bonus: 0, cashout: false };
 }

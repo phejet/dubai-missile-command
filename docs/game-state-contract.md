@@ -197,7 +197,7 @@ Those are temporary interpolation fields. They should not be relied on for gamep
 - If you need deterministic playback, serialize `ReplayData`, not `GameState`.
 - If you add a new combat entity, check render, replay checkpointing, headless bot logic, and interpolation helpers.
 
-## Player-only scoring (replay v13)
+## Player-only scoring (replay v14)
 
 `Explosion.source` is a required `KillSource`; chains inherit it. Interceptor roots
 retain `intendedTargets` references. Scored deaths set `Threat.killedBy`. All score
@@ -210,11 +210,12 @@ Patriot, Iron Beam, Phalanx, impact and friendly-fire explosions earn zero kill 
 Multi-kill bonuses remain available to every source.
 
 `COMBO_CAP` (5) and `COMBO_CASHOUT_BONUS` (1,000), in `game-logic.ts`, control combo
-tuning. Productive player-caused roots advance combo when processed; a hit at the cap
-pays the bonus and resets to 1. Empty flare roots hold. Empty interceptor roots hold
+tuning. Productive player-caused roots advance combo when processed; the hit that
+reaches the cap pays the bonus and resets to 1, so the live multiplier tops out at
+`COMBO_CAP - 1` while `maxCombo` records the cap for a cash-out. Empty flare roots hold. Empty interceptor roots hold
 only if an intended target died to automation before the damage window closed.
 `Explosion._holdEligible` freezes at alpha ≤ 0.2; deaths during the fade do not count.
 Forced wave-end processing skips empty roots and includes productive cash-outs.
 
-`comboBonusToast` holds `{ bonus, x, y, timer, pulse }` or null. Cash-out clears
-`comboToast`, preventing a stale ×5 increment popup alongside the reset HUD.
+A cash-out sets `comboToast` to `{ multiplier: COMBO_CAP, bonus, ... }`; the optional
+`bonus` distinguishes it from an ordinary combo step.

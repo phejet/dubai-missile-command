@@ -173,9 +173,8 @@ Bots, replay tooling, editor helpers, and manual debugging all depend on these.
 
 ## Combo cash-out overlay
 
-The transient snapshot includes `comboBonusToast` (visibility, label, bonus, world
-position, alpha and scale). It follows the multi-kill popup's rise/fade/pulse math,
-with a 44-world-pixel upward offset when a multi-kill popup is visible. `ui.ts` updates
-`#overlay-combo-bonus`; it reuses the multi-kill CSS with `data-tier="combo"`.
-HUD and increment-toast tiers derive from `COMBO_CAP`: warm at 2–3, hot at 4, critical
-at 5. Phone placement and simultaneous popup legibility await human verification.
+A cash-out uses the ordinary combo toast: its text becomes "5× COMBO!" plus a "+1000"
+line (critical tier). When a multi-kill popup is visible at the same time, `ui.ts`
+anchors the combo toast to it and offsets it by both measured heights (below it near
+the top of the screen), so neither hides the other. HUD tiers derive from `COMBO_CAP`,
+whose live maximum is one below the cap: warm at 2×, hot at 3×, critical at 4×.

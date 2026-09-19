@@ -83,15 +83,6 @@ export interface TransientOverlaySnapshot {
     scale: number;
     tier: "normal" | "triple" | "mega";
   };
-  comboBonusToast: {
-    visible: boolean;
-    label: string;
-    bonus: number;
-    x: number;
-    y: number;
-    alpha: number;
-    scale: number;
-  };
   comboToast: {
     visible: boolean;
     text: string;
@@ -620,13 +611,14 @@ export function updateHud(hud: HudSnapshot): void {
   if (h.comboPanel) {
     const combo = Math.max(1, hud.combo);
     const active = combo >= 2;
-    const tier = combo >= COMBO_CAP ? "critical" : combo >= COMBO_CAP - 1 ? "hot" : combo >= 2 ? "warm" : "idle";
+    // The live multiplier tops out one below the cap: the hit that reaches it cashes out.
+    const tier = combo >= COMBO_CAP - 1 ? "critical" : combo >= COMBO_CAP - 2 ? "hot" : combo >= 2 ? "warm" : "idle";
     h.comboPanel.dataset.active = String(active);
     h.comboPanel.dataset.tier = tier;
     if (h.comboValue) h.comboValue.textContent = `${combo}\u00d7`;
     if (h.comboStatus) {
       h.comboStatus.textContent =
-        combo >= COMBO_CAP ? "Overdrive" : combo >= COMBO_CAP - 1 ? "Burning" : combo >= 2 ? "Building" : "Standby";
+        combo >= COMBO_CAP - 1 ? "Overdrive" : combo >= COMBO_CAP - 2 ? "Burning" : combo >= 2 ? "Building" : "Standby";
     }
   }
   // Active upgrade button
@@ -686,9 +678,6 @@ const transientOverlayElements = {
   multiKill: null as HTMLElement | null,
   multiKillLabel: null as HTMLElement | null,
   multiKillBonus: null as HTMLElement | null,
-  comboBonus: null as HTMLElement | null,
-  comboBonusLabel: null as HTMLElement | null,
-  comboBonusValue: null as HTMLElement | null,
   comboToast: null as HTMLElement | null,
 };
 
@@ -701,9 +690,6 @@ export function cacheTransientOverlayElements(): void {
   transientOverlayElements.multiKill = document.getElementById("overlay-multi-kill");
   transientOverlayElements.multiKillLabel = document.getElementById("overlay-multi-kill-label");
   transientOverlayElements.multiKillBonus = document.getElementById("overlay-multi-kill-bonus");
-  transientOverlayElements.comboBonus = document.getElementById("overlay-combo-bonus");
-  transientOverlayElements.comboBonusLabel = document.getElementById("overlay-combo-bonus-label");
-  transientOverlayElements.comboBonusValue = document.getElementById("overlay-combo-bonus-value");
   transientOverlayElements.comboToast = document.getElementById("overlay-combo-toast");
 }
 
@@ -719,7 +705,7 @@ function setOverlayVisible(
   element.style.transform = transform;
 }
 
-const COMBO_BONUS_STACK_BELOW_Y = 260;
+const COMBO_TOAST_STACK_BELOW_Y = 260;
 
 function setOverlayWorldPosition(element: HTMLElement | null, x: number, y: number): void {
   if (!element) return;
@@ -764,34 +750,23 @@ export function updateTransientOverlays(snapshot: TransientOverlaySnapshot): voi
     `translate(-50%, -50%) scale(${snapshot.multiKillToast.scale})`,
   );
 
-  // A cash-out on a multi-kill shot shows both popups at once. They are the same size,
-  // so stack the bonus one popup-height off the multi-kill anchor (below it near the top).
-  const bonus = snapshot.comboBonusToast;
+  // A combo step on a multi-kill shot shows both toasts at once. Stack the combo toast
+  // clear of the multi-kill popup (below it near the top) so a cash-out stays readable.
+  const combo = snapshot.comboToast;
   const multi = snapshot.multiKillToast;
-  const stacked = bonus.visible && multi.visible;
-  const stackBelow = stacked && multi.y < COMBO_BONUS_STACK_BELOW_Y;
-  const bonusOffset = !stacked ? "-50%" : stackBelow ? "calc(50% + 16px)" : "calc(-150% - 16px)";
-  if (els.comboBonusLabel) els.comboBonusLabel.textContent = bonus.label;
-  if (els.comboBonusValue) els.comboBonusValue.textContent = `+${bonus.bonus}`;
-  if (els.comboBonus) setOverlayWorldPosition(els.comboBonus, stacked ? multi.x : bonus.x, stacked ? multi.y : bonus.y);
-  setOverlayVisible(
-    els.comboBonus,
-    bonus.visible,
-    bonus.alpha,
-    `translate(-50%, ${bonusOffset}) scale(${bonus.scale})`,
-  );
-
+  const stacked = combo.visible && multi.visible && !!els.comboToast && !!els.multiKill;
   if (els.comboToast) {
-    els.comboToast.textContent = snapshot.comboToast.text;
-    els.comboToast.dataset.tier = snapshot.comboToast.tier;
-    setOverlayWorldPosition(els.comboToast, snapshot.comboToast.x, snapshot.comboToast.y);
+    els.comboToast.textContent = combo.text;
+    els.comboToast.dataset.tier = combo.tier;
+    setOverlayWorldPosition(els.comboToast, stacked ? multi.x : combo.x, stacked ? multi.y : combo.y);
   }
-  setOverlayVisible(
-    els.comboToast,
-    snapshot.comboToast.visible,
-    snapshot.comboToast.alpha,
-    `translate(-50%, -50%) scale(${snapshot.comboToast.scale})`,
-  );
+  // Show before measuring: a hidden element reports zero height on its first frame.
+  setOverlayVisible(els.comboToast, combo.visible, combo.alpha, `translate(-50%, -50%) scale(${combo.scale})`);
+  if (stacked) {
+    const gap = (els.multiKill!.offsetHeight * multi.scale + els.comboToast!.offsetHeight * combo.scale) / 2 + 8;
+    const offset = multi.y < COMBO_TOAST_STACK_BELOW_Y ? gap : -gap;
+    els.comboToast!.style.transform = `translate(-50%, calc(-50% + ${offset}px)) scale(${combo.scale})`;
+  }
 }
 
 // ─── Game Over ──────────────────────────────────────────────────────

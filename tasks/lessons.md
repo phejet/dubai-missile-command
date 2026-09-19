@@ -871,3 +871,10 @@ in the state) rather than defending the old one.
 ## 2026-09-19 — Respect a separate verification handoff
 
 - When the user assigns review and checks to another model, implement and run only focused sanity checks; document remaining verification rather than executing the full suite.
+
+## 2026-09-19 — Tie a streak reward to the moment the player sees the milestone
+
+- The first cash-out paid on the hit after "5× COMBO!" appeared, matching the original wording
+  ("once it's 5 and you still hit another one") but not the feel: in play the user expected the
+  bonus with the 5× toast itself. For thresholds and rewards, confirm which visible event fires
+  the reward, and show the payoff in the same toast as the milestone.

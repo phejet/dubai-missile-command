@@ -11,13 +11,6 @@ export type KillSource =
   | "impact"
   | "friendlyFire";
 export type ScoreKind = "kill" | "multi" | "cashout" | "wave_clear" | "building_bonus" | "friendly_fire" | "spending";
-export interface ComboBonusToast {
-  bonus: number;
-  x: number;
-  y: number;
-  timer: number;
-  pulse: number;
-}
 
 // ── Core types for Dubai Missile Command ──
 
@@ -489,6 +482,8 @@ export interface MultiKillToast {
 
 export interface ComboToast {
   multiplier: number;
+  /** Cash-out bonus banked by the hit that reached the combo cap. */
+  bonus?: number;
   timer: number;
   x: number;
   y: number;
@@ -726,7 +721,6 @@ export interface SimState {
   multiKillToast: MultiKillToast | null;
   combo: number;
   comboToast: ComboToast | null;
-  comboBonusToast: ComboBonusToast | null;
 
   commander: Commander;
   schedule: SpawnEntry[];

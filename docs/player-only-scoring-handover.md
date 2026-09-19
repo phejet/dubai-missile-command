@@ -9,7 +9,8 @@ implementation as fully verified or ready to ship.
 Implement [the approved plan](player-only-scoring-plan.md), under the RM-08 supporting
 scoring study. Player, F-15, EMP and flare kills score base × combo; automation,
 impact and friendly-fire explosion kills score zero. Multi-kill bonuses still pay.
-The fifth consecutive productive root from ×1 cashes out +1,000 and resets to ×1.
+The fourth consecutive productive root from ×1 — the hit that reaches ×5 — cashes out
++1,000 and resets to ×1 (changed after the iPhone feel-check; see below).
 Empty flare roots hold; empty interceptor roots hold when automation killed an
 intended target before the blast damage window closed. Other empty roots reset.
 
@@ -186,3 +187,23 @@ study artifacts and fails there), 830/831 unit tests (the open item above), work
 tests 105/105, quick E2E 3/3, replay E2E 6/6, fixture old/new trace match, headless
 score audit (3 seeds), sources and holds check (33 games), headless determinism,
 roadmap validation, popup DOM check. Not done: iPhone feel-check.
+
+## Feel-check change — 2026-09-19
+
+The user saw "5× COMBO!" and then got the bonus on the following hit, and asked for the
+bonus to arrive with the 5× moment in the same toast style. Now:
+
+- `stepCombo`: the hit that takes the combo to `COMBO_CAP` pays `COMBO_CASHOUT_BONUS`
+  and resets to 1, so the live multiplier tops out at ×4 and kills never score at ×5.
+  `maxCombo` still records 5 for a cash-out.
+- The combo toast shows "5× COMBO!" and "+1000" (critical tier). The separate COMBO BONUS
+  popup, its state (`comboBonusToast`) and its overlay element are removed. When a
+  multi-kill popup is also visible, the combo toast stacks clear of it by measured
+  heights; `verify-popup.mjs` measures 0 overlap at every tested position.
+- HUD tiers: warm 2×, hot 3×, critical ("Overdrive") 4×.
+- Replay version 14, because the v13 dev build (which uploads captures to staging) used
+  the old timing. Fixture gameplay traces still match; golden seed now 33,892 (14
+  cash-outs).
+- This rule differs from the Part Six study's C5 scenarios, which paid on the hit at ×5.
+  Cash-outs are now more frequent (every four consecutive hits) and worth more than all
+  player kill points in the golden-seed run; tune `COMBO_CASHOUT_BONUS` if needed.

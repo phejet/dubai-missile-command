@@ -1,7 +1,7 @@
 import { chromium } from "playwright";
 import { mkdirSync, writeFileSync } from "node:fs";
 
-// Browser check of the cash-out popup next to a live multi-kill popup.
+// Browser check of the cash-out combo toast ("5× COMBO! +1000") next to a live multi-kill popup.
 // Needs local Vite on port 5173. Measures real DOM boxes; writes screenshots.
 const out = "operator-results/scoring-change-20260919/popup/";
 mkdirSync(out, { recursive: true });
@@ -32,9 +32,8 @@ try {
       const boxes = await page.evaluate(async ({ x, y }) => {
         const g = window.__gameRef.current;
         g.combo = 1;
-        g.comboToast = null;
         g.multiKillToast = { label: "TRIPLE KILL", bonus: 350, kills: 3, x, y, timer: 90, pulse: 1 };
-        g.comboBonusToast = { bonus: 1000, x, y: y - 20, timer: 90, pulse: 1 };
+        g.comboToast = { multiplier: 5, bonus: 1000, x, y: y - 20, timer: 70, pulse: 1 };
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
         const rect = (id) => {
           const el = document.getElementById(id);
@@ -43,9 +42,8 @@ try {
           return { left: b.left, top: b.top, right: b.right, bottom: b.bottom, text: el.textContent.trim() };
         };
         return {
-          bonus: rect("overlay-combo-bonus"),
+          bonus: rect("overlay-combo-toast"),
           multi: rect("overlay-multi-kill"),
-          increment: rect("overlay-combo-toast"),
           hud: document.getElementById("hud-combo-value")?.textContent,
           canvas: document.getElementById("game-canvas").getBoundingClientRect().toJSON(),
         };
@@ -64,10 +62,9 @@ try {
         bonusText: bonus?.text,
         multiText: multi?.text,
         overlapPx: overlap === null ? null : Math.round(overlap),
-        gapPx: bonus && multi ? Math.round(multi.top - bonus.bottom) : null,
+        gapPx: bonus && multi ? Math.round(Math.max(multi.top - bonus.bottom, bonus.top - multi.bottom)) : null,
         bonusInsideCanvas: inside(bonus),
         multiInsideCanvas: inside(multi),
-        staleIncrementToast: boxes.increment !== null,
         hud: boxes.hud,
       });
       await page.screenshot({ path: `${out}${viewport.name}-${spot.name}.png` });

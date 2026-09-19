@@ -388,7 +388,6 @@ export function createEditorScene(): GameState {
     multiKillToast: null,
     combo: 1,
     comboToast: null,
-    comboBonusToast: null,
     launcherFireTick: [0, 0],
     _replayTick: 100,
     commander: { style: "balanced", history: [] },

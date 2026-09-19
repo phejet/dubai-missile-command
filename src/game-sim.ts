@@ -1,4 +1,4 @@
-import { addScore, awardKill, stepCombo, AUTOMATED_KILL_SOURCES, type ExplosionOptions } from "./game-logic";
+import { addScore, awardKill, stepCombo, AUTOMATED_KILL_SOURCES, COMBO_CAP, type ExplosionOptions } from "./game-logic";
 import {
   CANVAS_W,
   CANVAS_H,
@@ -344,7 +344,6 @@ export function initGame(): GameState {
     _waveSummaries: [],
     _waveSummaryRecorded: false,
     comboToast: null,
-    comboBonusToast: null,
     // Spawn commander + schedule
     commander,
     schedule: wave1.schedule,
@@ -2323,16 +2322,17 @@ function processRootExplosionCombo(g: GameState, forceFinalKills: boolean, onEve
     const next = stepCombo(g.combo, outcome);
     if (next.cashout) {
       addScore(g, next.bonus, "cashout", ex.source);
-      g.comboBonusToast = { bonus: next.bonus, x: ex.x, y: ex.y - 20, timer: 90, pulse: 1 };
-      g.comboToast = null;
+      g.comboToast = { multiplier: COMBO_CAP, bonus: next.bonus, timer: 70, x: ex.x, y: ex.y - 20, pulse: 1 };
       onEvent?.("sfx", { name: "multiKill" });
     } else if (next.combo > g.combo) {
       g.comboToast = { multiplier: next.combo, timer: 70, x: ex.x, y: ex.y - 20, pulse: 1 };
     }
     g.combo = next.combo;
-    g._waveMaxCombo = Math.max(g._waveMaxCombo ?? 1, g.combo);
+    // A cash-out counts as reaching the cap even though the live multiplier restarts.
+    const reached = next.cashout ? COMBO_CAP : g.combo;
+    g._waveMaxCombo = Math.max(g._waveMaxCombo ?? 1, reached);
     g.stats = normalizeGameStats(g.stats);
-    g.stats.maxCombo = Math.max(g.stats.maxCombo, g.combo);
+    g.stats.maxCombo = Math.max(g.stats.maxCombo, reached);
   });
 }
 
@@ -2525,11 +2525,6 @@ export function update(g: GameState, dt: number, onEvent?: SimEventSink | null) 
       g.multiKillToast.pulse = Math.max(0, (g.multiKillToast.pulse ?? 0) - 0.08 * dt);
     }
     if (g.multiKillToast.timer <= 0) g.multiKillToast = null;
-  }
-  if (g.comboBonusToast) {
-    g.comboBonusToast.timer -= dt;
-    g.comboBonusToast.pulse = Math.max(0, g.comboBonusToast.pulse - 0.08 * dt);
-    if (g.comboBonusToast.timer <= 0) g.comboBonusToast = null;
   }
   if (g.comboToast) {
     g.comboToast.timer -= dt;

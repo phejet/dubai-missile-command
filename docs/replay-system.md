@@ -43,10 +43,14 @@ This means replays are sensitive to gameplay code drift.
 - optional `isHuman`
 - optional metadata such as `_buildId` and `_savedAt`
 
-Current recording version is `13`. Missing, older, and newer versions are rejected rather
+Current recording version is `14`. Missing, older, and newer versions are rejected rather
 than replayed best-effort.
 
 Version notes:
+
+- `version: 14` pays the +1,000 cash-out on the hit that reaches ×5 (shown in the combo
+  toast) instead of on the next hit at ×5. Version 13 recordings score differently and are
+  rejected; fixture gameplay traces are unchanged.
 
 - `version: 13` scores only player-initiated kills, uses the ×5/+1,000 combo cash-out,
   and holds combo for automation-stolen targets and empty flare blasts. Earlier recordings

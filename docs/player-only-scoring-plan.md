@@ -7,7 +7,9 @@ Three scoring changes, nothing else in gameplay:
 1. **Automation earns no kill points.** Hornets, Roadrunner, Patriot, Iron Beam, Phalanx and
    threats exploding on impact score 0. Interceptor shots (and their chain explosions), F-15,
    EMP and flares keep base × combo. Multi-kill bonuses still pay for every source.
-2. **Combo caps at ×5 and cashes out.** The next hit at ×5 (the fifth hit in a row from ×1)
+2. **Combo caps at ×5 and cashes out.** _Revised after the feel-check: the hit that reaches ×5
+   (the fourth in a row from ×1) pays the bonus in the "5× COMBO! +1000" toast; see the
+   handover._ Originally: the next hit at ×5 (the fifth hit in a row from ×1)
    pays a flat **+1,000**, shows a small popup styled like the multi-kill popup, and resets
    the combo to ×1.
 3. **Non-misses don't reset the combo.** An empty shot whose intended target was killed by

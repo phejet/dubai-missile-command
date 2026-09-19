@@ -297,7 +297,6 @@ function emptyTransientOverlaySnapshot(titleCopyVisible = false): TransientOverl
       scale: 1,
       tier: "normal",
     },
-    comboBonusToast: { visible: false, label: "COMBO BONUS", bonus: 0, x: CANVAS_W / 2, y: 200, alpha: 0, scale: 1 },
     comboToast: {
       visible: false,
       text: "",
@@ -380,31 +379,17 @@ function buildTransientOverlaySnapshot(game: GameState | null, screen: GameScree
     };
   }
 
-  if (game.comboBonusToast && game.comboBonusToast.timer > 0) {
-    const toast = game.comboBonusToast;
-    snapshot.comboBonusToast = {
-      visible: true,
-      label: "COMBO BONUS",
-      bonus: toast.bonus,
-      x: toast.x,
-      y: toast.y - 36 - (90 - toast.timer) * 0.5,
-      alpha: Math.min(1, toast.timer / 20),
-      scale: 1 + toast.pulse * 0.18,
-    };
-  }
-
   if (game.comboToast && game.comboToast.timer > 0) {
     const toast = game.comboToast;
     const rise = (70 - toast.timer) * 0.38;
-    const isMax = toast.multiplier >= COMBO_CAP;
     snapshot.comboToast = {
       visible: true,
-      text: isMax ? `${COMBO_CAP}\u00d7 COMBO!` : `${toast.multiplier}\u00d7`,
+      text: toast.bonus ? `${toast.multiplier}\u00d7 COMBO!\n+${toast.bonus}` : `${toast.multiplier}\u00d7`,
       x: toast.x,
       y: toast.y - rise,
       alpha: Math.min(1, toast.timer / 15),
       scale: 1 + toast.pulse * 0.24,
-      tier: toast.multiplier >= COMBO_CAP ? "critical" : toast.multiplier >= COMBO_CAP - 1 ? "hot" : "warm",
+      tier: toast.bonus ? "critical" : toast.multiplier >= COMBO_CAP - 1 ? "hot" : "warm",
     };
   }
 
