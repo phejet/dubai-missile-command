@@ -136,6 +136,8 @@ export async function appAttestKeyIdHash(keyId: string): Promise<string> {
   return toHex(await sha256(concatBytes(KEY_HASH_PREFIX, fromKeyIdBase64(keyId))));
 }
 
+const ANY_BUILD = "*";
+
 function parseList(value: string | undefined): string[] {
   return (
     value
@@ -170,6 +172,10 @@ export function captureAuthConfig(env: Env): CaptureAuthConfig {
   }
   const allowedBuilds = new Set(parseList(env.ALLOWED_BUILDS));
   if (allowedBuilds.size === 0) reject("config:allowed-builds", 503);
+  // "*" accepts any build (Dev builds upload to Staging); production keeps an exact list.
+  if (workerEnvironment === "production" && allowedBuilds.has(ANY_BUILD)) {
+    reject("config:production-allowed-builds", 503);
+  }
   const allowedBundleVersions = new Set(parseList(env.APPLE_BUNDLE_VERSIONS));
   const allowedValidationCategories = parseValidationCategories(env.APPLE_VALIDATION_CATEGORIES);
   const appleTeamId = env.APPLE_TEAM_ID?.trim() ?? "";
@@ -215,7 +221,7 @@ export function captureAuthConfig(env: Env): CaptureAuthConfig {
 }
 
 export function requireAllowedBuild(build: string, config: CaptureAuthConfig): void {
-  if (!config.allowedBuilds.has(build)) reject("build:not-allowed", 400);
+  if (!config.allowedBuilds.has(ANY_BUILD) && !config.allowedBuilds.has(build)) reject("build:not-allowed", 400);
 }
 
 async function hmac(payload: string, secret: string): Promise<Uint8Array> {

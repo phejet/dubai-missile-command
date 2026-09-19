@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Env } from "./bindings";
-import { CaptureAuthorizationError, captureAuthConfig } from "./capture-auth";
+import { CaptureAuthorizationError, captureAuthConfig, requireAllowedBuild } from "./capture-auth";
 
 function configEnv(overrides: Partial<Env> = {}): Env {
   return {
@@ -56,6 +56,39 @@ describe("capture auth bundle identity configuration", () => {
     expectConfigReason(
       () => captureAuthConfig(configEnv({ ...production, APPLE_BUNDLE_IDS: "com.phejet.dubaicmd.prod" })),
       "config:production-apple-bundle-id",
+    );
+  });
+});
+
+describe("capture auth build allowlist", () => {
+  it("accepts only listed builds from an exact list", () => {
+    const config = captureAuthConfig(configEnv({ ALLOWED_BUILDS: "build-1,build-2" }));
+    expect(() => requireAllowedBuild("build-2", config)).not.toThrow();
+    expectConfigReason(() => requireAllowedBuild("build-1+dirty", config), "build:not-allowed");
+  });
+
+  it("accepts any build on staging when the list is *", () => {
+    const config = captureAuthConfig(configEnv({ ALLOWED_BUILDS: "*" }));
+    expect(() => requireAllowedBuild("b333183+7e9ef4ad", config)).not.toThrow();
+  });
+
+  it("still fails closed for an empty list", () => {
+    expectConfigReason(() => captureAuthConfig(configEnv({ ALLOWED_BUILDS: " , " })), "config:allowed-builds");
+  });
+
+  it("refuses * in production", () => {
+    const production = {
+      WORKER_BUILD: "production",
+      APPLE_BUNDLE_IDS: "com.phejet.dubaicmd",
+      APPLE_ATTEST_ENVIRONMENTS: "production",
+    } satisfies Partial<Env>;
+    expectConfigReason(
+      () => captureAuthConfig(configEnv({ ...production, ALLOWED_BUILDS: "*" })),
+      "config:production-allowed-builds",
+    );
+    expectConfigReason(
+      () => captureAuthConfig(configEnv({ ...production, ALLOWED_BUILDS: "build-1,*" })),
+      "config:production-allowed-builds",
     );
   });
 });

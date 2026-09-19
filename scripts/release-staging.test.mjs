@@ -37,6 +37,7 @@ describe("Staging TestFlight release guards", () => {
     expect(additiveList("old, current", "new")).toBe("old,current,new");
     expect(additiveList("old,current", "current")).toBe("old,current");
     expect(() => additiveList(" , ", "new")).toThrow("empty");
+    expect(additiveList("*", "new")).toBe("*");
   });
 
   it("never selects an external or ambiguous tester group", () => {

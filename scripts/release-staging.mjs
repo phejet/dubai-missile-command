@@ -23,6 +23,7 @@ export function additiveList(current, value) {
     .map((item) => item.trim())
     .filter(Boolean);
   if (!entries.length) throw new Error("Refusing to replace an empty Staging allowlist.");
+  if (entries.includes("*")) return entries.join(",");
   return [...new Set([...entries, value])].join(",");
 }
 

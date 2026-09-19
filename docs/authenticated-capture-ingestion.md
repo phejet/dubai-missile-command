@@ -570,7 +570,9 @@ remote environment. `ALLOWED_BUILDS` is a rolling exact list of distributed
 `__DMC_BUILD_ID__` values: add a build before distribution, retain only builds still in
 test, and remove retired values during normal deployment. It is rollout hygiene for
 first-party clients, not authentication or dependable revocation; revoke the App Attest
-key to block a submitter. `ENROLLMENT_ENABLED` is also required and defaults to `false`.
+key to block a submitter. Staging may instead set `ALLOWED_BUILDS=*` to accept any build,
+because Dev builds (a new build ID per commit or dirty tree) upload there; the Worker refuses
+`*` in production. `ENROLLMENT_ENABLED` is also required and defaults to `false`.
 Require `APPLE_BUNDLE_IDS` as an exact comma-separated allowlist. Staging may temporarily
 carry reviewed Dev/Staging/legacy identities during migration; production must contain
 only `com.phejet.dubaicmd`.
