@@ -1,10 +1,15 @@
 # Replay study: does score reward shooting skill?
 
-Date: 2026-09-15. Updated 2026-09-16: parts one and two verified; part three measurements verified, with nine user labels and the defense-first criterion recorded; no skill ranking validated. Part four is now complete as an observational analysis; parts five and six have not started. See [matched progression results](scoring-progression-results.html).
+Date: 2026-09-15. Updated 2026-09-16: parts one and two verified; part three measurements verified, with nine user labels and the defense-first criterion recorded; no skill ranking validated. Part four is now complete as an observational analysis; part five is complete as a fixed-event scoring experiment; part six has not started. See [scoring alternatives](scoring-rescoring-results.html). See [matched progression results](scoring-progression-results.html).
 
 Latest evidence: [26-run live corpus findings](scoring-replay-initial-findings.md).
 The live retrieval update below supersedes the initial access blocker.
 This is an analysis plan, not a scoring redesign or a roadmap status change.
+
+Latest scoring clarification (2026-09-18): survival already rewards better defense
+through continued play; scoring should reward better skill. Earlier protection-based
+comparisons remain context, not the criterion for selecting a skill-scoring formula.
+Which skilled choices and execution should distinguish equally surviving runs is open.
 
 User clarification: genuine Staging play sessions are all the user's; retrieve all
 available sessions and retain the automated-test exclusions. Scope also includes
@@ -150,6 +155,12 @@ a separate counterfactual experiment, not rescoring the identical run.
 Hold out whole runs (and builds where feasible), show parameter sensitivity, and
 reject improvements that depend on one lucky run. Historical rescoring measures
 rewards for existing behavior; it cannot prove how people will adapt to new incentives.
+
+### Before Part Six: building targeting and impact audit (RM-09)
+
+The [building-impact audit](building-impact-audit-results.html), inserted on 2026-09-19,
+is complete for the available local corpus. Review its two reproduced defects and
+coverage limits before returning to the scoring decision. No scoring or balance changes were made.
 
 ### 6. Return a decision, backed by examples
 

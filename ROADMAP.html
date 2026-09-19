@@ -158,7 +158,7 @@
     <!-- roadmap-source:v1 -->
     <main>
       <header>
-        <p class="muted">Dubai Missile Command · Updated 2026-09-13</p>
+        <p class="muted">Dubai Missile Command · Updated 2026-09-19</p>
         <h1>Roadmap</h1>
         <p>
           One current view of product direction, delivery status, gates, and next work. Detailed designs and execution
@@ -169,13 +169,15 @@
       <section id="now">
         <h2>Now</h2>
         <div class="notice">
-          <strong>Active: RM-08 — Replay inspection UI.</strong><br />
-          RM-04 is complete on Staging. PR #22 was merged as <code>433799b</code> and released as
-          TestFlight build 6, processed and assigned to internal testers on 2026-09-13.
-          RM-08 source <code>8bff209</code> is deployed to Pages and the Staging Worker.
-          Real-run inspection and longest-retained-run playback passed within the review-machine timing budgets.
-          Next action: finish the generated-candidate link/cleanup proof, then obtain human usefulness confirmation.
-          The user confirmed updating to build 6 on 2026-09-13. Production capture remains closed.
+          <strong>RM-09 — Building targeting and impact audit: analysis complete.</strong><br />
+          RM-04 is complete on Staging. PR #22 was merged as <code>433799b</code> and released as TestFlight build 6,
+          processed and assigned to internal testers on 2026-09-13. RM-08 source <code>8bff209</code> is deployed to
+          Pages and the Staging Worker. Real-run inspection and longest-retained-run playback passed within the
+          review-machine timing budgets. RM-08 still needs generated-candidate link/cleanup proof and human usefulness
+          confirmation. The user confirmed updating to build 6 on 2026-09-13. Production capture remains closed. Next
+          action: review the RM-09 findings and choose the follow-up for bomb trajectory and swept-collision defects.
+          This investigation precedes RM-06 and the scoring study’s Part Six decision; the second proposed idea is
+          unspecified.
         </div>
       </section>
 
@@ -215,9 +217,9 @@
                 <li>Manual upload, automatic upload, offline queue, rate limits, and hostile-input coverage.</li>
               </ul>
               <p>
-                <strong>Distribution proven:</strong> user-installed Staging TestFlight build 5 on iOS 26.6.1,
-                with verified App Attest production uploads. Signed category <code>2</code> proof is deferred to
-                iOS 27; the existing category policy is unchanged.
+                <strong>Distribution proven:</strong> user-installed Staging TestFlight build 5 on iOS 26.6.1, with
+                verified App Attest production uploads. Signed category <code>2</code> proof is deferred to iOS 27; the
+                existing category policy is unchanged.
               </p>
               <p><a href="docs/authenticated-capture-ingestion.md">Authenticated ingestion design</a></p>
             </div>
@@ -257,7 +259,9 @@
             </summary>
             <div class="phase__body">
               <p>
-                <strong>Core implementation, prior physical proofs, and replay follow-up Staging release complete:</strong>
+                <strong
+                  >Core implementation, prior physical proofs, and replay follow-up Staging release complete:</strong
+                >
               </p>
               <ul>
                 <li>Keep D1 gameplay summaries for 365 days.</li>
@@ -274,19 +278,18 @@
               </ul>
               <p>
                 <strong>Released:</strong> PR #22 merged as <code>433799b</code>; TestFlight build 6 is processed and
-                assigned to internal testers. Its wave-seek, fixed-size replay transport, and
-                local operator fixes passed automated checks and the user's feel-check. The user then requested
-                removal of the redundant gameplay upload badge; Settings retains upload status.
-                Retention, run/install deletion, and shared-replay preservation passed against Staging
-                <code>7cbba3e</code>, preserving all 21 genuine uploads and two shares. Lifecycle proof passed on
-                2026-09-06: the canary expired while its control survived; original rules were restored and both
-                fixtures were verified absent. Authenticated browser playback is user-proven.
-                TestFlight build <code>1.0 (5)</code>, source <code>3b76192</code>, passed the user's upload,
-                feedback, badge, and privacy-policy checks; its archive includes the app-owned privacy manifest.
-                Verified session/feedback events identify Staging and Apple's production environment, with category
-                and bundle-version fields absent. The user confirmed iOS 26.6.1 and approved that distribution
-                evidence for RM-04; signed category 2 proof remains explicitly deferred to iOS 27 and does not
-                alone block RM-04 completion. Runtime authentication policy is unchanged. Production capture remains closed.
+                assigned to internal testers. Its wave-seek, fixed-size replay transport, and local operator fixes
+                passed automated checks and the user's feel-check. The user then requested removal of the redundant
+                gameplay upload badge; Settings retains upload status. Retention, run/install deletion, and
+                shared-replay preservation passed against Staging <code>7cbba3e</code>, preserving all 21 genuine
+                uploads and two shares. Lifecycle proof passed on 2026-09-06: the canary expired while its control
+                survived; original rules were restored and both fixtures were verified absent. Authenticated browser
+                playback is user-proven. TestFlight build <code>1.0 (5)</code>, source <code>3b76192</code>, passed the
+                user's upload, feedback, badge, and privacy-policy checks; its archive includes the app-owned privacy
+                manifest. Verified session/feedback events identify Staging and Apple's production environment, with
+                category and bundle-version fields absent. The user confirmed iOS 26.6.1 and approved that distribution
+                evidence for RM-04; signed category 2 proof remains explicitly deferred to iOS 27 and does not alone
+                block RM-04 completion. Runtime authentication policy is unchanged. Production capture remains closed.
               </p>
               <p>
                 <a href="docs/rm-04-retention-and-manual-deletion-plan.md">Retention and manual deletion plan</a>
@@ -325,16 +328,73 @@
               </p>
               <p>
                 <strong>Proven:</strong> local gates, Pages and Staging Worker deployment, and live browser
-                authentication/CORS rejection behavior; all 23 retained runs were browsed, and the longest run
-                matched its summary and reached the selected tick paused in 1.35 seconds. Generated-candidate
-                handoff/cleanup and human usefulness proof remain open.
+                authentication/CORS rejection behavior; all 23 retained runs were browsed, and the longest run matched
+                its summary and reached the selected tick paused in 1.35 seconds. Generated-candidate handoff/cleanup
+                and human usefulness proof remain open.
                 <a href="docs/rm-08-validation-2026-09-13.md">Verification evidence</a>.
+              </p>
+              <p>
+                <strong>Supporting replay study (2026-09-18):</strong> Parts One–Five analyze 26 existing recordings.
+                <a href="docs/gameplay%20analysis%20Sep%202026/scoring-rescoring-results.html">Part Five</a>
+                compares three scoring families with every recorded shot, kill and outcome fixed. The user clarified
+                that survival already rewards defense through continued play; scoring should reward better skill.
+                Protection and manual activity are not validated substitutes for skill. The analysis identifies
+                incentives and trade-offs; it validates no skill metric and selects no replacement formula. No gameplay
+                change or new capture was made. Review the report before Part Six or a changed-input experiment; RM-08's
+                existing exit proofs remain open.
               </p>
               <p><a href="docs/rm-08-replay-inspection-ui-plan.md">Detailed implementation plan</a></p>
             </div>
           </details>
 
-          <details class="phase" id="rm-06" data-roadmap-id="RM-06" data-status="gated" data-depends-on="RM-04 RM-08">
+          <details class="phase" id="rm-09" data-roadmap-id="RM-09" data-status="shipped" open>
+            <summary>
+              <span class="phase__id">RM-09</span>
+              <span>Building targeting and impact audit</span>
+              <span class="status status--shipped">Analyzed</span>
+              <span class="phase__outcome"
+                >Explain why surrounding buildings survive and identify genuine missed impacts.</span
+              >
+            </summary>
+            <div class="phase__body">
+              <p>
+                <strong>Scope:</strong> inventory all available replays; audit target selection, trajectories, collision
+                and destruction for city buildings, excluding the Burj. Separate sites and launchers.
+              </p>
+              <p>
+                <strong>Exit:</strong> verified corpus coverage, targeting percentages with explicit denominators,
+                reconciled threat outcomes and building losses, trajectory evidence for suspicious misses, and minimal
+                reproductions for confirmed defects. Separate interception and prior target loss from bugs.
+              </p>
+              <p>
+                <strong>Evidence:</strong> 110 local payloads inventoried; 26 human runs verified. All 1,238 bombs
+                select buildings; 92.8% are intercepted or neutralized. Found 132 initially misaligned bomb paths, one
+                recorded wrong-building hit and one missed incidental missile crossing. Both defects reproduce. All 60
+                building deaths reconcile; no endpoint contact failed to destroy its building. Live inventory was not
+                refreshed; 50 divergent automated recordings and 12 endpoint-less fixtures are excluded.
+              </p>
+              <p>
+                <a href="docs/gameplay%20analysis%20Sep%202026/building-impact-audit-results.html"
+                  >HTML findings and trajectories</a
+                >
+              </p>
+              <p>
+                <strong>Next:</strong> review findings before authorizing fixes or tuning. No gameplay changes were
+                made. The user's second idea awaits description.
+              </p>
+              <p>
+                <a href="docs/gameplay%20analysis%20Sep%202026/building-impact-audit-plan.md">Detailed audit plan</a>
+              </p>
+            </div>
+          </details>
+
+          <details
+            class="phase"
+            id="rm-06"
+            data-roadmap-id="RM-06"
+            data-status="gated"
+            data-depends-on="RM-04 RM-08 RM-09"
+          >
             <summary>
               <span class="phase__id">RM-06</span>
               <span>Cross-build telemetry analysis</span>
@@ -403,6 +463,7 @@
             RM-08 requires the generated-candidate link/cleanup proof and human usefulness confirmation before
             completion.
           </li>
+          <li>RM-09 building-impact analysis precedes RM-06 and the scoring study’s Part Six decision.</li>
           <li>Production capture remains disabled; this release authorizes Staging only.</li>
         </ol>
       </section>
@@ -411,7 +472,11 @@
         <h2>Current decisions</h2>
         <ul>
           <li>Upload status belongs in Settings; the redundant gameplay badge was removed in TestFlight build 6.</li>
-          <li>On 2026-09-06, the user approved TestFlight installation plus verified App Attest production uploads as RM-04 distribution proof on iOS 26.6.1. Signed category 2/bundle-version proof is deferred until iOS 27 is available; absent fields remain null and runtime authentication policy is unchanged.</li>
+          <li>
+            On 2026-09-06, the user approved TestFlight installation plus verified App Attest production uploads as
+            RM-04 distribution proof on iOS 26.6.1. Signed category 2/bundle-version proof is deferred until iOS 27 is
+            available; absent fields remain null and runtime authentication policy is unchanged.
+          </li>
           <li>
             Historical telemetry is retained for human-led RM-06 cross-build comparison; a dashboard and automatic
             balance decisions are deferred.
@@ -442,15 +507,35 @@
       <section id="changes">
         <h2>Recent roadmap changes</h2>
         <ul>
-          <li><strong>2026-09-13:</strong> deployed RM-08 source <code>8bff209</code> to Pages and Staging after
-            retrying GitHub's internal startup failure. Live UI, rejected-token/CORS, authenticated real-run
-            inspection, and longest-run selected-tick playback passed; generated-candidate link/cleanup and human
-            usefulness acceptance remain open.</li>
-          <li><strong>2026-09-13:</strong> merged PR #22 as <code>433799b</code> and released Staging
-            TestFlight build 6. Protected deployment passed, Apple processing completed, and internal-group
-            assignment was verified. RM-04 is complete; RM-08 is next. The user confirmed updating to build 6.
-            <a href="docs/rm-04-release-2026-09-13.md">Release evidence</a>.</li>
-          <li><strong>2026-09-06:</strong> user proved TestFlight build-5 upload badge, emoji feedback, and privacy policy; exact archive contains its app-owned privacy manifest. Verified upload/feedback logs omit category and bundle-version fields. User confirmed iOS 26.6.1; Apple documents category extensions as new in iOS 27. User approved the proven iOS 26 TestFlight/App Attest production path for RM-04; category-2 proof is deferred to iOS 27.</li>
+          <li>
+            <strong>2026-09-19:</strong> inserted RM-09 before RM-06 as the next investigation: audit
+            surrounding-building targeting and impacts across available replays. Completed the local-corpus audit with
+            reproducible bomb-trajectory and swept-collision defects. HTML evidence and coverage limits recorded; no
+            gameplay changes. Existing RM-08 release proofs remain open.
+          </li>
+          <li>
+            <strong>2026-09-18:</strong> recorded the authorized fixed-recording scoring study and its Part Five
+            evidence under RM-08. Existing release gates remain unchanged; no scoring redesign is approved.
+          </li>
+          <li>
+            <strong>2026-09-13:</strong> deployed RM-08 source <code>8bff209</code> to Pages and Staging after retrying
+            GitHub's internal startup failure. Live UI, rejected-token/CORS, authenticated real-run inspection, and
+            longest-run selected-tick playback passed; generated-candidate link/cleanup and human usefulness acceptance
+            remain open.
+          </li>
+          <li>
+            <strong>2026-09-13:</strong> merged PR #22 as <code>433799b</code> and released Staging TestFlight build 6.
+            Protected deployment passed, Apple processing completed, and internal-group assignment was verified. RM-04
+            is complete; RM-08 is next. The user confirmed updating to build 6.
+            <a href="docs/rm-04-release-2026-09-13.md">Release evidence</a>.
+          </li>
+          <li>
+            <strong>2026-09-06:</strong> user proved TestFlight build-5 upload badge, emoji feedback, and privacy
+            policy; exact archive contains its app-owned privacy manifest. Verified upload/feedback logs omit category
+            and bundle-version fields. User confirmed iOS 26.6.1; Apple documents category extensions as new in iOS 27.
+            User approved the proven iOS 26 TestFlight/App Attest production path for RM-04; category-2 proof is
+            deferred to iOS 27.
+          </li>
           <li>
             <strong>2026-09-06:</strong> proved isolated Staging lifecycle expiry with a live control, restored and
             verified the exact original rules, and deleted/verified both fixture keys. Closed the RM-04 lifecycle gate;

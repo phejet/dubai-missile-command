@@ -1,13 +1,14 @@
 # Gameplay analysis — September 2026
 
-The four reports, in order:
+The five reports, in order:
 
 1. [Initial evidence and study design](gameplay-design-report.html).
 2. [Reward attribution](scoring-attribution-results.html).
 3. [Score-independent shooting quality](scoring-quality-results.html).
 4. [Matched progression and defense outcomes](scoring-progression-results.html).
+5. [Fixed-event scoring alternatives](scoring-rescoring-results.html).
 
-All four embed anonymous aggregate data and can be opened without the private
+All five embed anonymous aggregate data and can be opened without the private
 recordings. They document analysis, not a gameplay or roadmap change.
 
 ## Part three status
@@ -83,3 +84,20 @@ The last command needs local Vite and Chromium. All generated data and screensho
 remain in the ignored `progression/` directory. No rescoring or new gameplay experiment
 was run. See the [part-four method](scoring-progression-method.md) for definitions,
 matching tiers, run-block resampling and limits.
+
+## Part five status and reproduction
+
+[Part five](scoring-rescoring-results.html) compares three candidate scoring families
+at three settings each on the same 26 recordings. All raw scores fall; reference
+settings favor better protection in 11/12, 8/12 and 8/12 strict pairs respectively.
+These dependent early-wave comparisons do not validate skill or identify a winner.
+See the [formulas, reproduction and limits](scoring-rescoring-method.md). Private
+ledgers, input hashes, crosscheck and browser evidence are in `rescoring/`.
+No gameplay changes; Part Six and changed-input experiments remain unstarted.
+
+## Building-impact investigation (RM-09)
+
+[Surrounding-building targeting and impact findings](building-impact-audit-results.html)
+complete the inserted investigation before Part Six and RM-06: 26 human runs verified,
+1,238 building-directed bombs, two reproduced defects, and all 60 building losses reconciled.
+See [reproduction and coverage limits](building-impact-audit-method.md). No gameplay changes.

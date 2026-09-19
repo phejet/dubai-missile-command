@@ -1,0 +1,2577 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>City buildings: targeting and impact audit</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font:
+          16px/1.6 system-ui,
+          sans-serif;
+        background: #0c131d;
+        color: #dce7f2;
+      }
+      body {
+        margin: 0;
+      }
+      main {
+        max-width: 1040px;
+        margin: auto;
+        padding: 36px 24px 80px;
+      }
+      h1,
+      h2,
+      h3 {
+        line-height: 1.2;
+        color: #fff;
+      }
+      h1 {
+        font-size: clamp(2rem, 5vw, 3.5rem);
+        max-width: 850px;
+      }
+      h2 {
+        margin-top: 46px;
+      }
+      a {
+        color: #83cfff;
+      }
+      .muted,
+      small {
+        color: #a3b5c9;
+      }
+      .lead {
+        font-size: 1.2rem;
+      }
+      .notice {
+        border-left: 4px solid #ffb45c;
+        padding: 16px 20px;
+        background: #192331;
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+      }
+      .card {
+        padding: 18px;
+        background: #172330;
+        border: 1px solid #314658;
+        border-radius: 8px;
+      }
+      .card strong {
+        font-size: 2rem;
+        display: block;
+        color: #85dec5;
+      }
+      .table {
+        overflow: auto;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 0.94rem;
+      }
+      th,
+      td {
+        padding: 10px 12px;
+        text-align: left;
+        border-bottom: 1px solid #304153;
+      }
+      th {
+        color: #9bc6df;
+      }
+      code {
+        color: #b7e3ff;
+        overflow-wrap: anywhere;
+      }
+      select {
+        max-width: 100%;
+        padding: 10px;
+        font: inherit;
+        background: #182738;
+        color: #fff;
+        border: 1px solid #58748a;
+        border-radius: 6px;
+      }
+      svg {
+        width: 100%;
+        height: auto;
+        background: #111c29;
+        border: 1px solid #304153;
+        border-radius: 8px;
+      }
+      details {
+        padding: 14px 0;
+      }
+      summary {
+        cursor: pointer;
+        color: #9bd4ff;
+      }
+      .diagram {
+        max-width: 650px;
+        margin: 20px auto;
+      }
+      li {
+        margin: 8px 0;
+      }
+      @media (max-width: 600px) {
+        main {
+          padding: 20px 16px 50px;
+        }
+        .cards {
+          grid-template-columns: 1fr;
+        }
+        .card strong {
+          font-size: 1.7rem;
+        }
+        th,
+        td {
+          padding: 8px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="muted">RM-09 · 19 September 2026 · Existing recordings, unchanged simulation</p>
+      <h1>City buildings survive mostly because threats never reach them. Two real defects also exist.</h1>
+      <p class="lead">
+        This audit covers the ten surrounding buildings. The main tower is excluded. All 26 saved human runs reproduce
+        exactly, and the observer preserves their simulation state.
+      </p>
+      <div class="cards">
+        <div class="card">
+          <strong>27.7%</strong>of spawned missiles + bombs target buildings<br /><small
+            >1238 / 4472; all are dropped bombs</small
+          >
+        </div>
+        <div class="card">
+          <strong>92.8%</strong>of those bombs are intercepted or neutralized<br /><small>1149 / 1238</small>
+        </div>
+        <div class="card">
+          <strong>10.7%</strong>start on a path that misses the selected building<br /><small
+            >132 / 1238; geometric prediction, not observed ground misses</small
+          >
+        </div>
+      </div>
+      <h2>What targets the skyline?</h2>
+      <p>
+        Every one of the 1238 dropped bombs selects a live building’s roof center. Ordinary missiles, MIRVs and stack
+        missiles select the tower, launchers or defense sites instead. They can still hit city buildings incidentally.
+        The selector’s “70%” means nearest versus second-nearest target; it is not a building-targeting percentage.
+      </p>
+      <p>
+        Including carrier drones, bombs represent <strong>19.1% (1238/6479)</strong> of all spawned hostile entities.
+        These counts include each spawned descendant once: 4485 root entities and 1994 descendants. A stack parent
+        changing type is not counted again. Bombs are counted at drop, not when their carrier spawns; intercepted
+        carriers therefore reduce actual bomb exposure.
+      </p>
+      <div class="table">
+        <table>
+          <thead>
+            <tr>
+              <th>Threat at spawn</th>
+              <th>Count</th>
+              <th>City building selected</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>missile</td>
+              <td>2079</td>
+              <td>0% (target-selection code; incidental hits possible)</td>
+            </tr>
+            <tr>
+              <td>drone</td>
+              <td>2007</td>
+              <td>0% (target-selection code; incidental hits possible)</td>
+            </tr>
+            <tr>
+              <td>bomb</td>
+              <td>1238</td>
+              <td>100% (verified selector trace)</td>
+            </tr>
+            <tr>
+              <td>mirv</td>
+              <td>217</td>
+              <td>0% (target-selection code; incidental hits possible)</td>
+            </tr>
+            <tr>
+              <td>stack2</td>
+              <td>139</td>
+              <td>0% (target-selection code; incidental hits possible)</td>
+            </tr>
+            <tr>
+              <td>stack_child</td>
+              <td>101</td>
+              <td>0% (target-selection code; incidental hits possible)</td>
+            </tr>
+            <tr>
+              <td>mirv_warhead</td>
+              <td>655</td>
+              <td>0% (target-selection code; incidental hits possible)</td>
+            </tr>
+            <tr>
+              <td>stack3</td>
+              <td>43</td>
+              <td>0% (target-selection code; incidental hits possible)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <h2>Where did the building-directed bombs go?</h2>
+      <div class="table">
+        <table>
+          <thead>
+            <tr>
+              <th>Recorded outcome</th>
+              <th>Bombs</th>
+              <th>Share of all bombs</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Non-player blast / chain</td>
+              <td>685</td>
+              <td>55.3%</td>
+            </tr>
+            <tr>
+              <td>Still alive at recording end</td>
+              <td>69</td>
+              <td>5.6%</td>
+            </tr>
+            <tr>
+              <td>Player-caused blast / chain</td>
+              <td>263</td>
+              <td>21.2%</td>
+            </tr>
+            <tr>
+              <td>Flare neutralization</td>
+              <td>154</td>
+              <td>12.4%</td>
+            </tr>
+            <tr>
+              <td>Flare destruction</td>
+              <td>38</td>
+              <td>3.1%</td>
+            </tr>
+            <tr>
+              <td>Intended building destroyed</td>
+              <td>18</td>
+              <td>1.5%</td>
+            </tr>
+            <tr>
+              <td>Ground: target already destroyed</td>
+              <td>1</td>
+              <td>0.1%</td>
+            </tr>
+            <tr>
+              <td>Direct defense damage</td>
+              <td>9</td>
+              <td>0.7%</td>
+            </tr>
+            <tr>
+              <td>Different building destroyed</td>
+              <td>1</td>
+              <td>0.1%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        <strong>Only 18 bombs destroyed their intended building; one destroyed a different building.</strong> Of the 19
+        resolved bombs arriving at a building while their selected target remained alive, 18 hit the intended target
+        (94.7%). That conditional figure excludes 1149 intercepted/neutralized bombs, 69 still alive at recording end,
+        and one ground impact after its target had already died. It must not be read as general bomb accuracy.
+      </p>
+      <p>
+        “Player-caused” is the explosion’s recorded ownership flag, including inherited chains; “non-player” includes
+        defense and impact-origin blasts. These categories do not establish that the player deliberately defended a
+        building, or that every interception prevented a future hit. Flare outcomes and direct defense damage are
+        recorded at their actual destruction branches.
+      </p>
+      <h2>Defect 1: the bomb selects a target but its velocity does not reliably reach it</h2>
+      <p>
+        At drop, <code>vx = (targetX − startX) × 0.004</code>, while <code>vy</code> is independently randomized between
+        2.4 and 4.0. Both stay constant in normal bomb flight. Horizontal arrival therefore depends on drop height and
+        vertical speed; storing <code>targetX / targetY</code> does not guide the bomb.
+      </p>
+      <p>
+        At the roof, <code>x = startX + vx × (roofY − startY) / vy</code>. 132 initial forward rays never intersect the
+        selected building’s rectangle. Most of those bombs are intercepted first; the geometric defect is not 132
+        observed failed impacts.
+      </p>
+      <div class="table">
+        <table>
+          <thead>
+            <tr>
+              <th>Outcome among the 132 initially misaligned bombs</th>
+              <th>Count</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Non-player blast / chain</td>
+              <td>83</td>
+            </tr>
+            <tr>
+              <td>Player-caused blast / chain</td>
+              <td>22</td>
+            </tr>
+            <tr>
+              <td>Flare neutralization</td>
+              <td>11</td>
+            </tr>
+            <tr>
+              <td>Flare destruction</td>
+              <td>4</td>
+            </tr>
+            <tr>
+              <td>Still alive at recording end</td>
+              <td>10</td>
+            </tr>
+            <tr>
+              <td>Different building destroyed</td>
+              <td>1</td>
+            </tr>
+            <tr>
+              <td>Direct defense damage</td>
+              <td>1</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="notice">
+        <strong>Recorded proof: run-016, wave 6, bomb 112, ticks 3898–4362.</strong> It selects building 2, whose
+        horizontal bounds are 150–184. Its trajectory reaches that roof at x=219.2, already beyond the building. It
+        continues into building 3 while the intended building is still alive. Replaying that exact initial state through
+        the real missile updater reproduces the wrong-building hit.
+      </div>
+      <h3>Inspect the trajectories</h3>
+      <label for="example">Recorded case </label
+      ><select id="example">
+        <option value="0">Bomb misses intended building</option>
+        <option value="1">Successful intended hit</option>
+        <option value="2">Target already destroyed</option>
+      </select>
+      <p id="exampleText"></p>
+      <div class="diagram">
+        <svg
+          id="trajectory"
+          viewBox="0 0 900 1470"
+          role="img"
+          aria-label="Recorded bomb trajectory and selected city building"
+        ></svg>
+      </div>
+      <p class="muted">
+        Orange: intended building. Pink: actual building hit, if different. Cyan: sampled recorded path. Dashed orange:
+        direct line to the selected roof center. Gray rectangles show geometry, not contemporaneous survival.
+        Coordinates use the actual 900-pixel game world; building labels are left-to-right, starting at 1.
+      </p>
+      <h2>Defect 2: endpoint-only collision can miss a crossing</h2>
+      <p>
+        <strong>run-003, wave 7, warhead 194, tick 5850:</strong> a MIRV child travels from (291.47, 1234.26) to
+        (299.29, 1278.92). The segment crosses building 4, but its endpoint lies beyond the right edge. The collision
+        checks only that endpoint, so the building survives. The warhead is intercepted two ticks later. This was an
+        incidental building crossing by a threat aimed at a defense site, not a building-targeted bomb.
+      </p>
+      <div class="diagram">
+        <svg viewBox="250 1220 80 200" role="img" aria-label="Magnified missed building corner crossing">
+          <rect x="262" y="1260" width="34" height="144" fill="#e4a55233" stroke="#ffb45c" stroke-width=".6" />
+          <path
+            d="M 291.47347624231475 1234.2623345012385 L 299.2903632611607 1278.923777785492"
+            stroke="#71e3df"
+            stroke-width=".8"
+          />
+          <circle cx="291.47347624231475" cy="1234.2623345012385" r="1.3" fill="#71e3df" />
+          <circle cx="299.2903632611607" cy="1278.923777785492" r="1.3" fill="#ff83b0" />
+        </svg>
+      </div>
+      <p>
+        Across all verified human runs,
+        <strong>52 eligible endpoint contacts destroyed their buildings: zero damage-application failures</strong>. An
+        independent swept-segment check finds <strong>one additional missed crossing</strong> (1/53 observed geometric
+        contacts, 1.9%). No swept-only bomb contact occurs. The actual missed missile segment reproduces in an isolated
+        real update; a separate deliberately high-speed fixture also demonstrates the general endpoint limitation.
+      </p>
+      <h2>Why survival feels generous</h2>
+      <p>
+        The 26 runs start with 260 building instances and end with 200 still alive: <strong>76.9% survival</strong>, or
+        7.7 of 10 buildings per run on average. This mixes different run lengths and is descriptive, not a balance
+        target. All 60 losses reconcile to an actual threat: 52 missile/bomb collisions and eight drone dive impacts.
+      </p>
+      <div class="table">
+        <table>
+          <thead>
+            <tr>
+              <th>Threat responsible for building loss</th>
+              <th>Buildings destroyed</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>missile</td>
+              <td>14</td>
+            </tr>
+            <tr>
+              <td>drone</td>
+              <td>8</td>
+            </tr>
+            <tr>
+              <td>mirv_warhead</td>
+              <td>17</td>
+            </tr>
+            <tr>
+              <td>bomb</td>
+              <td>19</td>
+            </tr>
+            <tr>
+              <td>stack_child</td>
+              <td>1</td>
+            </tr>
+            <tr>
+              <td>stack2</td>
+              <td>1</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Most building-directed bombs disappear in combat well before impact. Broad blasts, chains and flares can protect
+        the skyline without a deliberate building-defense shot. The bomb trajectory bug and one missed missile corner
+        are real, but the evidence does not support blaming most building survival on failed collision damage.
+      </p>
+      <details>
+        <summary>Exposure and loss by building</summary>
+        <div class="table">
+          <table>
+            <thead>
+              <tr>
+                <th>Building</th>
+                <th>Bombs selecting it</th>
+                <th>Destroyed across 26 runs</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td>136</td>
+                <td>9</td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td>199</td>
+                <td>9</td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td>54</td>
+                <td>8</td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td>182</td>
+                <td>5</td>
+              </tr>
+              <tr>
+                <td>5</td>
+                <td>84</td>
+                <td>9</td>
+              </tr>
+              <tr>
+                <td>6</td>
+                <td>164</td>
+                <td>3</td>
+              </tr>
+              <tr>
+                <td>7</td>
+                <td>67</td>
+                <td>0</td>
+              </tr>
+              <tr>
+                <td>8</td>
+                <td>75</td>
+                <td>6</td>
+              </tr>
+              <tr>
+                <td>9</td>
+                <td>240</td>
+                <td>2</td>
+              </tr>
+              <tr>
+                <td>10</td>
+                <td>37</td>
+                <td>9</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+      <details>
+        <summary>All 26 verified human runs</summary>
+        <div class="table">
+          <table>
+            <thead>
+              <tr>
+                <th>Run</th>
+                <th>Final wave</th>
+                <th>Threats</th>
+                <th>Bombs</th>
+                <th>Initially misaligned</th>
+                <th>Intended hits</th>
+                <th>Buildings left</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>run-001</td>
+                <td>2</td>
+                <td>24</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+                <td>8</td>
+              </tr>
+              <tr>
+                <td>run-002</td>
+                <td>5</td>
+                <td>83</td>
+                <td>8</td>
+                <td>1</td>
+                <td>0</td>
+                <td>9</td>
+              </tr>
+              <tr>
+                <td>run-003</td>
+                <td>10</td>
+                <td>491</td>
+                <td>105</td>
+                <td>13</td>
+                <td>1</td>
+                <td>7</td>
+              </tr>
+              <tr>
+                <td>run-004</td>
+                <td>4</td>
+                <td>60</td>
+                <td>1</td>
+                <td>0</td>
+                <td>0</td>
+                <td>9</td>
+              </tr>
+              <tr>
+                <td>run-005</td>
+                <td>10</td>
+                <td>484</td>
+                <td>109</td>
+                <td>9</td>
+                <td>0</td>
+                <td>9</td>
+              </tr>
+              <tr>
+                <td>run-006</td>
+                <td>10</td>
+                <td>470</td>
+                <td>105</td>
+                <td>7</td>
+                <td>0</td>
+                <td>7</td>
+              </tr>
+              <tr>
+                <td>run-007</td>
+                <td>8</td>
+                <td>211</td>
+                <td>41</td>
+                <td>9</td>
+                <td>3</td>
+                <td>5</td>
+              </tr>
+              <tr>
+                <td>run-008</td>
+                <td>6</td>
+                <td>141</td>
+                <td>19</td>
+                <td>2</td>
+                <td>0</td>
+                <td>8</td>
+              </tr>
+              <tr>
+                <td>run-009</td>
+                <td>5</td>
+                <td>94</td>
+                <td>13</td>
+                <td>0</td>
+                <td>2</td>
+                <td>5</td>
+              </tr>
+              <tr>
+                <td>run-010</td>
+                <td>8</td>
+                <td>270</td>
+                <td>59</td>
+                <td>5</td>
+                <td>0</td>
+                <td>6</td>
+              </tr>
+              <tr>
+                <td>run-011</td>
+                <td>6</td>
+                <td>142</td>
+                <td>24</td>
+                <td>2</td>
+                <td>0</td>
+                <td>10</td>
+              </tr>
+              <tr>
+                <td>run-012</td>
+                <td>6</td>
+                <td>144</td>
+                <td>27</td>
+                <td>0</td>
+                <td>1</td>
+                <td>9</td>
+              </tr>
+              <tr>
+                <td>run-013</td>
+                <td>9</td>
+                <td>369</td>
+                <td>77</td>
+                <td>15</td>
+                <td>3</td>
+                <td>7</td>
+              </tr>
+              <tr>
+                <td>run-014</td>
+                <td>8</td>
+                <td>253</td>
+                <td>47</td>
+                <td>6</td>
+                <td>1</td>
+                <td>6</td>
+              </tr>
+              <tr>
+                <td>run-015</td>
+                <td>9</td>
+                <td>321</td>
+                <td>47</td>
+                <td>6</td>
+                <td>2</td>
+                <td>8</td>
+              </tr>
+              <tr>
+                <td>run-016</td>
+                <td>7</td>
+                <td>176</td>
+                <td>38</td>
+                <td>4</td>
+                <td>0</td>
+                <td>7</td>
+              </tr>
+              <tr>
+                <td>run-017</td>
+                <td>9</td>
+                <td>340</td>
+                <td>67</td>
+                <td>16</td>
+                <td>1</td>
+                <td>7</td>
+              </tr>
+              <tr>
+                <td>run-018</td>
+                <td>5</td>
+                <td>100</td>
+                <td>12</td>
+                <td>0</td>
+                <td>0</td>
+                <td>9</td>
+              </tr>
+              <tr>
+                <td>run-019</td>
+                <td>10</td>
+                <td>504</td>
+                <td>118</td>
+                <td>9</td>
+                <td>0</td>
+                <td>9</td>
+              </tr>
+              <tr>
+                <td>run-020</td>
+                <td>7</td>
+                <td>184</td>
+                <td>32</td>
+                <td>1</td>
+                <td>0</td>
+                <td>8</td>
+              </tr>
+              <tr>
+                <td>run-021</td>
+                <td>8</td>
+                <td>232</td>
+                <td>42</td>
+                <td>3</td>
+                <td>0</td>
+                <td>8</td>
+              </tr>
+              <tr>
+                <td>run-022</td>
+                <td>8</td>
+                <td>254</td>
+                <td>55</td>
+                <td>3</td>
+                <td>0</td>
+                <td>8</td>
+              </tr>
+              <tr>
+                <td>run-023</td>
+                <td>10</td>
+                <td>396</td>
+                <td>79</td>
+                <td>10</td>
+                <td>0</td>
+                <td>10</td>
+              </tr>
+              <tr>
+                <td>run-024</td>
+                <td>9</td>
+                <td>270</td>
+                <td>45</td>
+                <td>4</td>
+                <td>1</td>
+                <td>9</td>
+              </tr>
+              <tr>
+                <td>run-025</td>
+                <td>6</td>
+                <td>126</td>
+                <td>19</td>
+                <td>2</td>
+                <td>2</td>
+                <td>5</td>
+              </tr>
+              <tr>
+                <td>run-026</td>
+                <td>9</td>
+                <td>340</td>
+                <td>49</td>
+                <td>5</td>
+                <td>1</td>
+                <td>7</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+      <details>
+        <summary>Breakdown by spawn wave</summary>
+        <div class="table">
+          <table>
+            <thead>
+              <tr>
+                <th>Spawn wave</th>
+                <th>Threats</th>
+                <th>Bombs</th>
+                <th>Misaligned at drop</th>
+                <th>Eventual intended hits</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td>217</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td>364</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td>421</td>
+                <td>0</td>
+                <td>0</td>
+                <td>0</td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td>538</td>
+                <td>71</td>
+                <td>2</td>
+                <td>6</td>
+              </tr>
+              <tr>
+                <td>5</td>
+                <td>780</td>
+                <td>176</td>
+                <td>5</td>
+                <td>5</td>
+              </tr>
+              <tr>
+                <td>6</td>
+                <td>968</td>
+                <td>242</td>
+                <td>18</td>
+                <td>4</td>
+              </tr>
+              <tr>
+                <td>7</td>
+                <td>951</td>
+                <td>214</td>
+                <td>31</td>
+                <td>2</td>
+              </tr>
+              <tr>
+                <td>8</td>
+                <td>923</td>
+                <td>210</td>
+                <td>34</td>
+                <td>0</td>
+              </tr>
+              <tr>
+                <td>9</td>
+                <td>835</td>
+                <td>187</td>
+                <td>35</td>
+                <td>1</td>
+              </tr>
+              <tr>
+                <td>10</td>
+                <td>482</td>
+                <td>138</td>
+                <td>7</td>
+                <td>0</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Grouped by spawn wave; a bomb can resolve later. Final waves can be truncated.</p>
+      </details>
+      <details>
+        <summary>Breakdown by recorded build</summary>
+        <div class="table">
+          <table>
+            <thead>
+              <tr>
+                <th>Build</th>
+                <th>Runs</th>
+                <th>Bombs</th>
+                <th>Misaligned at drop</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>433799b</td>
+                <td>3</td>
+                <td>113</td>
+                <td>14</td>
+              </tr>
+              <tr>
+                <td>3b76192</td>
+                <td>1</td>
+                <td>1</td>
+                <td>0</td>
+              </tr>
+              <tr>
+                <td>ed43c4f</td>
+                <td>1</td>
+                <td>109</td>
+                <td>9</td>
+              </tr>
+              <tr>
+                <td>ad774a0</td>
+                <td>4</td>
+                <td>178</td>
+                <td>18</td>
+              </tr>
+              <tr>
+                <td>db501aa</td>
+                <td>2</td>
+                <td>83</td>
+                <td>7</td>
+              </tr>
+              <tr>
+                <td>0a23bb0</td>
+                <td>1</td>
+                <td>27</td>
+                <td>0</td>
+              </tr>
+              <tr>
+                <td>c89807a+45c4574e</td>
+                <td>13</td>
+                <td>678</td>
+                <td>79</td>
+              </tr>
+              <tr>
+                <td>ca082ad+cd8e6520</td>
+                <td>1</td>
+                <td>49</td>
+                <td>5</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>These are descriptive strata; no cross-build causality is inferred.</p>
+      </details>
+      <h2>Coverage and verification</h2>
+      <p>
+        Scanned the repository’s local JSON replay payloads, including nested diagnostics, saved runs, Staging backups,
+        public/performance fixtures and prior study inputs: <strong>110 payloads, 89 unique replay signatures</strong>.
+        Overlapping exports are deduplicated using seed, actions, initial state, mode, endpoint, version and build.
+      </p>
+      <ul>
+        <li>26 saved human runs: verified checkpoints, endpoint, actions and full operator summaries.</li>
+        <li>
+          One automated recording also verifies, but contains no spawned threats and contributes no gameplay
+          measurements.
+        </li>
+        <li>
+          50 automated recordings diverge from the current simulator and are quarantined. They are not silently treated
+          as valid historical evidence.
+        </li>
+        <li>12 legacy fixtures lack a recorded final tick and cannot establish a verified historical endpoint.</li>
+      </ul>
+      <p>
+        All 3,159 human checkpoints and 4,819 sampled full-state/RNG hashes agree between unmodified and observed
+        playback. Four controlled collision cases pass, and both replay-derived defects reproduce independently of
+        player input. Input simulation files were not changed; instrumentation is applied only to generated analysis
+        bundles.
+      </p>
+      <p class="notice">
+        This is exhaustive for the local payloads discovered, including the 26-session Staging snapshot previously
+        retrieved on September 15. No operator bearer is available in this session, so the live server inventory was not
+        refreshed. Newer, expired or deleted recordings are not covered. Checkpoint agreement supports current-code
+        reconstruction; it cannot prove every unrecorded historical intermediate state.
+      </p>
+      <details>
+        <summary>Full coverage ledger</summary>
+        <div class="table">
+          <table>
+            <thead>
+              <tr>
+                <th>Anonymous recording</th>
+                <th>Cohort</th>
+                <th>Status</th>
+                <th>Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>audit-001</td>
+                <td>automated</td>
+                <td>verified</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>run-001</td>
+                <td>human-study</td>
+                <td>verified</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>run-002</td>
+                <td>human-study</td>
+                <td>verified</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>run-003</td>
+                <td>human-study</td>
+                <td>verified</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>run-004</td>
+                <td>human-study</td>
+                <td>verified</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>run-005</td>
+                <td>human-study</td>
+                <td>verified</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>run-006</td>
+                <td>human-study</td>
+                <td>verified</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>run-007</td>
+                <td>human-study</td>
+                <td>verified</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>run-008</td>
+                <td>human-study</td>
+                <td>verified</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>run-009</td>
+                <td>human-study</td>
+                <td>verified</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>run-010</td>
+                <td>human-study</td>
+                <td>verified</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>run-011</td>
+                <td>human-study</td>
+                <td>verified</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>run-012</td>
+                <td>human-study</td>
+                <td>verified</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>run-013</td>
+                <td>human-study</td>
+                <td>verified</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>run-014</td>
+                <td>human-study</td>
+                <td>verified</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>run-015</td>
+                <td>human-study</td>
+                <td>verified</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>run-016</td>
+                <td>human-study</td>
+                <td>verified</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>run-017</td>
+                <td>human-study</td>
+                <td>verified</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>run-018</td>
+                <td>human-study</td>
+                <td>verified</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>run-019</td>
+                <td>human-study</td>
+                <td>verified</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>run-020</td>
+                <td>human-study</td>
+                <td>verified</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>run-021</td>
+                <td>human-study</td>
+                <td>verified</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>run-022</td>
+                <td>human-study</td>
+                <td>verified</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>run-023</td>
+                <td>human-study</td>
+                <td>verified</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>run-024</td>
+                <td>human-study</td>
+                <td>verified</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>run-025</td>
+                <td>human-study</td>
+                <td>verified</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>run-026</td>
+                <td>human-study</td>
+                <td>verified</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td>audit-028</td>
+                <td>fixture</td>
+                <td>unverifiable</td>
+                <td>No final tick / historical endpoint</td>
+              </tr>
+              <tr>
+                <td>audit-029</td>
+                <td>fixture</td>
+                <td>unverifiable</td>
+                <td>No final tick / historical endpoint</td>
+              </tr>
+              <tr>
+                <td>audit-030</td>
+                <td>fixture</td>
+                <td>unverifiable</td>
+                <td>No final tick / historical endpoint</td>
+              </tr>
+              <tr>
+                <td>audit-031</td>
+                <td>fixture</td>
+                <td>unverifiable</td>
+                <td>No final tick / historical endpoint</td>
+              </tr>
+              <tr>
+                <td>audit-032</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 1</td>
+              </tr>
+              <tr>
+                <td>audit-033</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 7</td>
+              </tr>
+              <tr>
+                <td>audit-034</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 6</td>
+              </tr>
+              <tr>
+                <td>audit-035</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 60</td>
+              </tr>
+              <tr>
+                <td>audit-036</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 60</td>
+              </tr>
+              <tr>
+                <td>audit-037</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 60</td>
+              </tr>
+              <tr>
+                <td>audit-038</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 60</td>
+              </tr>
+              <tr>
+                <td>audit-039</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 60</td>
+              </tr>
+              <tr>
+                <td>audit-040</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 60</td>
+              </tr>
+              <tr>
+                <td>audit-041</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 60</td>
+              </tr>
+              <tr>
+                <td>audit-042</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 1</td>
+              </tr>
+              <tr>
+                <td>audit-043</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 7</td>
+              </tr>
+              <tr>
+                <td>audit-044</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 9</td>
+              </tr>
+              <tr>
+                <td>audit-045</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 8</td>
+              </tr>
+              <tr>
+                <td>audit-046</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 6</td>
+              </tr>
+              <tr>
+                <td>audit-047</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 6</td>
+              </tr>
+              <tr>
+                <td>audit-048</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 6</td>
+              </tr>
+              <tr>
+                <td>audit-049</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 5</td>
+              </tr>
+              <tr>
+                <td>audit-050</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 5</td>
+              </tr>
+              <tr>
+                <td>audit-051</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 6</td>
+              </tr>
+              <tr>
+                <td>audit-052</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 6</td>
+              </tr>
+              <tr>
+                <td>audit-053</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 8</td>
+              </tr>
+              <tr>
+                <td>audit-054</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 6</td>
+              </tr>
+              <tr>
+                <td>audit-055</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 8</td>
+              </tr>
+              <tr>
+                <td>audit-056</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 8</td>
+              </tr>
+              <tr>
+                <td>audit-057</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 8</td>
+              </tr>
+              <tr>
+                <td>audit-058</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 8</td>
+              </tr>
+              <tr>
+                <td>audit-059</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 8</td>
+              </tr>
+              <tr>
+                <td>audit-060</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 8</td>
+              </tr>
+              <tr>
+                <td>audit-061</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 6</td>
+              </tr>
+              <tr>
+                <td>audit-062</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 6</td>
+              </tr>
+              <tr>
+                <td>audit-063</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 5</td>
+              </tr>
+              <tr>
+                <td>audit-064</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 7</td>
+              </tr>
+              <tr>
+                <td>audit-065</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 7</td>
+              </tr>
+              <tr>
+                <td>audit-066</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 6</td>
+              </tr>
+              <tr>
+                <td>audit-067</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 60</td>
+              </tr>
+              <tr>
+                <td>audit-068</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 60</td>
+              </tr>
+              <tr>
+                <td>audit-069</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 60</td>
+              </tr>
+              <tr>
+                <td>audit-070</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 60</td>
+              </tr>
+              <tr>
+                <td>audit-071</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 60</td>
+              </tr>
+              <tr>
+                <td>audit-072</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 1</td>
+              </tr>
+              <tr>
+                <td>audit-073</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 7</td>
+              </tr>
+              <tr>
+                <td>audit-074</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 60</td>
+              </tr>
+              <tr>
+                <td>audit-075</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 60</td>
+              </tr>
+              <tr>
+                <td>audit-076</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 60</td>
+              </tr>
+              <tr>
+                <td>audit-077</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 60</td>
+              </tr>
+              <tr>
+                <td>audit-078</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 60</td>
+              </tr>
+              <tr>
+                <td>audit-079</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 2</td>
+              </tr>
+              <tr>
+                <td>audit-080</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 4</td>
+              </tr>
+              <tr>
+                <td>audit-081</td>
+                <td>automated</td>
+                <td>quarantined</td>
+                <td>Checkpoint divergence at tick 8</td>
+              </tr>
+              <tr>
+                <td>audit-082</td>
+                <td>fixture</td>
+                <td>unverifiable</td>
+                <td>No final tick / historical endpoint</td>
+              </tr>
+              <tr>
+                <td>audit-083</td>
+                <td>fixture</td>
+                <td>unverifiable</td>
+                <td>No final tick / historical endpoint</td>
+              </tr>
+              <tr>
+                <td>audit-084</td>
+                <td>fixture</td>
+                <td>unverifiable</td>
+                <td>No final tick / historical endpoint</td>
+              </tr>
+              <tr>
+                <td>audit-085</td>
+                <td>fixture</td>
+                <td>unverifiable</td>
+                <td>No final tick / historical endpoint</td>
+              </tr>
+              <tr>
+                <td>audit-086</td>
+                <td>fixture</td>
+                <td>unverifiable</td>
+                <td>No final tick / historical endpoint</td>
+              </tr>
+              <tr>
+                <td>audit-087</td>
+                <td>fixture</td>
+                <td>unverifiable</td>
+                <td>No final tick / historical endpoint</td>
+              </tr>
+              <tr>
+                <td>audit-088</td>
+                <td>fixture</td>
+                <td>unverifiable</td>
+                <td>No final tick / historical endpoint</td>
+              </tr>
+              <tr>
+                <td>audit-089</td>
+                <td>fixture</td>
+                <td>unverifiable</td>
+                <td>No final tick / historical endpoint</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+      <h2>Recommended next change</h2>
+      <ol>
+        <li>
+          Make bomb launch velocity geometrically consistent with its selected roof target, preserving a deliberate
+          speed/fall-time policy. Re-measure building pressure afterward; this will change replay outcomes.
+        </li>
+        <li>
+          Use swept collision for missile/bomb building intersections, with explicit first-contact and collision-order
+          rules. Keep the tower outside this investigation’s scope.
+        </li>
+        <li>
+          Only then decide whether building-directed threat frequency needs tuning. The present recordings already show
+          substantial incidental protection.
+        </li>
+      </ol>
+      <p>
+        No gameplay fixes, tuning, commits or pushes were performed. Scripts are retained in
+        <code>scripts/building-audit/</code> for the eventual commit; private inputs, bundles and machine-readable
+        ledgers remain under <code>operator-results/building-audit-20260919/</code>.
+      </p>
+      <p>
+        <a href="building-impact-audit-plan.md">Audit plan</a> ·
+        <a href="building-impact-audit-method.md">Reproduction and limits</a> ·
+        <a href="../../ROADMAP.html#rm-09">Roadmap</a> · <a href="README.md">Study index</a>
+      </p>
+      <script type="application/json" id="auditData">
+        {
+          "files": 110,
+          "unique": 89,
+          "coverage": { "verified": 27, "unverifiable": 12, "quarantined": 50 },
+          "runCount": 26,
+          "total": 6479,
+          "missilesAndBombs": 4472,
+          "bombs": 1238,
+          "rayMisses": 132,
+          "outcomes": {
+            "Non-player blast / chain": 685,
+            "Still alive at recording end": 69,
+            "Player-caused blast / chain": 263,
+            "Flare neutralization": 154,
+            "Flare destruction": 38,
+            "Intended building destroyed": 18,
+            "Ground: target already destroyed": 1,
+            "Direct defense damage": 9,
+            "Different building destroyed": 1
+          },
+          "types": {
+            "missile": 2079,
+            "drone": 2007,
+            "bomb": 1238,
+            "mirv": 217,
+            "stack2": 139,
+            "stack_child": 101,
+            "mirv_warhead": 655,
+            "stack3": 43
+          },
+          "contacts": { "endpoint": 52, "swept-only": 1 },
+          "buildingDeaths": 60,
+          "deathTypes": { "missile": 14, "drone": 8, "mirv_warhead": 17, "bomb": 19, "stack_child": 1, "stack2": 1 },
+          "checkpoints": 3159,
+          "samples": 4819,
+          "roots": 4485,
+          "descendants": 1994,
+          "rows": [
+            {
+              "run": "run-001",
+              "build": "433799b",
+              "wave": 2,
+              "threats": 24,
+              "bombs": 0,
+              "rayMisses": 0,
+              "hits": 0,
+              "survivors": 8
+            },
+            {
+              "run": "run-002",
+              "build": "433799b",
+              "wave": 5,
+              "threats": 83,
+              "bombs": 8,
+              "rayMisses": 1,
+              "hits": 0,
+              "survivors": 9
+            },
+            {
+              "run": "run-003",
+              "build": "433799b",
+              "wave": 10,
+              "threats": 491,
+              "bombs": 105,
+              "rayMisses": 13,
+              "hits": 1,
+              "survivors": 7
+            },
+            {
+              "run": "run-004",
+              "build": "3b76192",
+              "wave": 4,
+              "threats": 60,
+              "bombs": 1,
+              "rayMisses": 0,
+              "hits": 0,
+              "survivors": 9
+            },
+            {
+              "run": "run-005",
+              "build": "ed43c4f",
+              "wave": 10,
+              "threats": 484,
+              "bombs": 109,
+              "rayMisses": 9,
+              "hits": 0,
+              "survivors": 9
+            },
+            {
+              "run": "run-006",
+              "build": "ad774a0",
+              "wave": 10,
+              "threats": 470,
+              "bombs": 105,
+              "rayMisses": 7,
+              "hits": 0,
+              "survivors": 7
+            },
+            {
+              "run": "run-007",
+              "build": "ad774a0",
+              "wave": 8,
+              "threats": 211,
+              "bombs": 41,
+              "rayMisses": 9,
+              "hits": 3,
+              "survivors": 5
+            },
+            {
+              "run": "run-008",
+              "build": "ad774a0",
+              "wave": 6,
+              "threats": 141,
+              "bombs": 19,
+              "rayMisses": 2,
+              "hits": 0,
+              "survivors": 8
+            },
+            {
+              "run": "run-009",
+              "build": "ad774a0",
+              "wave": 5,
+              "threats": 94,
+              "bombs": 13,
+              "rayMisses": 0,
+              "hits": 2,
+              "survivors": 5
+            },
+            {
+              "run": "run-010",
+              "build": "db501aa",
+              "wave": 8,
+              "threats": 270,
+              "bombs": 59,
+              "rayMisses": 5,
+              "hits": 0,
+              "survivors": 6
+            },
+            {
+              "run": "run-011",
+              "build": "db501aa",
+              "wave": 6,
+              "threats": 142,
+              "bombs": 24,
+              "rayMisses": 2,
+              "hits": 0,
+              "survivors": 10
+            },
+            {
+              "run": "run-012",
+              "build": "0a23bb0",
+              "wave": 6,
+              "threats": 144,
+              "bombs": 27,
+              "rayMisses": 0,
+              "hits": 1,
+              "survivors": 9
+            },
+            {
+              "run": "run-013",
+              "build": "c89807a+45c4574e",
+              "wave": 9,
+              "threats": 369,
+              "bombs": 77,
+              "rayMisses": 15,
+              "hits": 3,
+              "survivors": 7
+            },
+            {
+              "run": "run-014",
+              "build": "c89807a+45c4574e",
+              "wave": 8,
+              "threats": 253,
+              "bombs": 47,
+              "rayMisses": 6,
+              "hits": 1,
+              "survivors": 6
+            },
+            {
+              "run": "run-015",
+              "build": "c89807a+45c4574e",
+              "wave": 9,
+              "threats": 321,
+              "bombs": 47,
+              "rayMisses": 6,
+              "hits": 2,
+              "survivors": 8
+            },
+            {
+              "run": "run-016",
+              "build": "c89807a+45c4574e",
+              "wave": 7,
+              "threats": 176,
+              "bombs": 38,
+              "rayMisses": 4,
+              "hits": 0,
+              "survivors": 7
+            },
+            {
+              "run": "run-017",
+              "build": "c89807a+45c4574e",
+              "wave": 9,
+              "threats": 340,
+              "bombs": 67,
+              "rayMisses": 16,
+              "hits": 1,
+              "survivors": 7
+            },
+            {
+              "run": "run-018",
+              "build": "c89807a+45c4574e",
+              "wave": 5,
+              "threats": 100,
+              "bombs": 12,
+              "rayMisses": 0,
+              "hits": 0,
+              "survivors": 9
+            },
+            {
+              "run": "run-019",
+              "build": "c89807a+45c4574e",
+              "wave": 10,
+              "threats": 504,
+              "bombs": 118,
+              "rayMisses": 9,
+              "hits": 0,
+              "survivors": 9
+            },
+            {
+              "run": "run-020",
+              "build": "c89807a+45c4574e",
+              "wave": 7,
+              "threats": 184,
+              "bombs": 32,
+              "rayMisses": 1,
+              "hits": 0,
+              "survivors": 8
+            },
+            {
+              "run": "run-021",
+              "build": "c89807a+45c4574e",
+              "wave": 8,
+              "threats": 232,
+              "bombs": 42,
+              "rayMisses": 3,
+              "hits": 0,
+              "survivors": 8
+            },
+            {
+              "run": "run-022",
+              "build": "c89807a+45c4574e",
+              "wave": 8,
+              "threats": 254,
+              "bombs": 55,
+              "rayMisses": 3,
+              "hits": 0,
+              "survivors": 8
+            },
+            {
+              "run": "run-023",
+              "build": "c89807a+45c4574e",
+              "wave": 10,
+              "threats": 396,
+              "bombs": 79,
+              "rayMisses": 10,
+              "hits": 0,
+              "survivors": 10
+            },
+            {
+              "run": "run-024",
+              "build": "c89807a+45c4574e",
+              "wave": 9,
+              "threats": 270,
+              "bombs": 45,
+              "rayMisses": 4,
+              "hits": 1,
+              "survivors": 9
+            },
+            {
+              "run": "run-025",
+              "build": "c89807a+45c4574e",
+              "wave": 6,
+              "threats": 126,
+              "bombs": 19,
+              "rayMisses": 2,
+              "hits": 2,
+              "survivors": 5
+            },
+            {
+              "run": "run-026",
+              "build": "ca082ad+cd8e6520",
+              "wave": 9,
+              "threats": 340,
+              "bombs": 49,
+              "rayMisses": 5,
+              "hits": 1,
+              "survivors": 7
+            }
+          ],
+          "waves": [
+            { "wave": 1, "threats": 217, "bombs": 0, "rayMisses": 0, "hits": 0 },
+            { "wave": 2, "threats": 364, "bombs": 0, "rayMisses": 0, "hits": 0 },
+            { "wave": 3, "threats": 421, "bombs": 0, "rayMisses": 0, "hits": 0 },
+            { "wave": 4, "threats": 538, "bombs": 71, "rayMisses": 2, "hits": 6 },
+            { "wave": 5, "threats": 780, "bombs": 176, "rayMisses": 5, "hits": 5 },
+            { "wave": 6, "threats": 968, "bombs": 242, "rayMisses": 18, "hits": 4 },
+            { "wave": 7, "threats": 951, "bombs": 214, "rayMisses": 31, "hits": 2 },
+            { "wave": 8, "threats": 923, "bombs": 210, "rayMisses": 34, "hits": 0 },
+            { "wave": 9, "threats": 835, "bombs": 187, "rayMisses": 35, "hits": 1 },
+            { "wave": 10, "threats": 482, "bombs": 138, "rayMisses": 7, "hits": 0 }
+          ],
+          "examples": [
+            {
+              "name": "Bomb misses intended building",
+              "threat": {
+                "id": 112,
+                "type": "bomb",
+                "subtype": null,
+                "wave": 6,
+                "born": 3898,
+                "source": "game-sim.ts:1896",
+                "target": 1,
+                "aim": { "x": 167, "y": 1230 },
+                "start": {
+                  "x": 97.73728576638374,
+                  "y": 98.6175812097797,
+                  "vx": 0.2770508569344651,
+                  "vy": 2.580423241853714
+                },
+                "outcome": "game-sim.ts:1797",
+                "hitBuilding": 2,
+                "trajectory": [
+                  [3918, 103.27830290507305, 150.22604604685387],
+                  [3938, 108.81932004376236, 201.83451088392803],
+                  [3958, 114.36033718245167, 253.4429757210022],
+                  [3978, 119.90135432114099, 305.05144055807693],
+                  [3998, 125.4423714598303, 356.65990539515167],
+                  [4018, 130.9833885985196, 408.2683702322264],
+                  [4038, 136.52440573720892, 459.87683506930114],
+                  [4058, 142.06542287589824, 511.4852999063759],
+                  [4078, 147.60644001458755, 563.0937647434506],
+                  [4098, 153.14745715327686, 614.7022295805253],
+                  [4118, 158.68847429196617, 666.3106944176001],
+                  [4138, 164.2294914306555, 717.9191592546748],
+                  [4158, 169.7705085693448, 769.5276240917495],
+                  [4178, 175.3115257080341, 821.1360889288243],
+                  [4198, 180.85254284672342, 872.744553765899],
+                  [4218, 186.39355998541274, 924.3530186029737],
+                  [4238, 191.93457712410205, 975.9614834400485],
+                  [4258, 197.47559426279136, 1027.569948277123],
+                  [4278, 203.01661140148067, 1079.1784131141956],
+                  [4298, 208.55762854017, 1130.786877951268],
+                  [4318, 214.0986456788593, 1182.3953427883405],
+                  [4338, 219.6396628175486, 1234.003807625413],
+                  [4358, 225.18067995623792, 1285.6122724624854],
+                  [4362, 226.2888833839758, 1295.9339654299]
+                ],
+                "bounds": { "left": 150, "right": 184, "top": 1230, "bottom": 1404 },
+                "initialRayHits": false,
+                "roofX": 219.20978824672997,
+                "parent": 103,
+                "selectedAtSpawn": true,
+                "context": {},
+                "end": {
+                  "tick": 4362,
+                  "x": 226.2888833839758,
+                  "y": 1295.9339654299,
+                  "targetAlive": true,
+                  "flare": false
+                },
+                "run": "run-016"
+              },
+              "buildings": [
+                { "id": 0, "bounds": { "left": 92, "right": 126, "top": 1206, "bottom": 1404 }, "alive": true },
+                { "id": 1, "bounds": { "left": 150, "right": 184, "top": 1230, "bottom": 1404 }, "alive": true },
+                { "id": 2, "bounds": { "left": 190, "right": 250, "top": 1294, "bottom": 1404 }, "alive": false },
+                { "id": 3, "bounds": { "left": 262, "right": 296, "top": 1260, "bottom": 1404 }, "alive": true },
+                { "id": 4, "bounds": { "left": 320, "right": 358, "top": 1252, "bottom": 1404 }, "alive": false },
+                { "id": 5, "bounds": { "left": 582, "right": 654, "top": 1180, "bottom": 1404 }, "alive": true },
+                { "id": 6, "bounds": { "left": 660, "right": 706, "top": 1202, "bottom": 1404 }, "alive": true },
+                { "id": 7, "bounds": { "left": 710, "right": 738, "top": 1206, "bottom": 1404 }, "alive": true },
+                { "id": 8, "bounds": { "left": 740, "right": 774, "top": 1304, "bottom": 1404 }, "alive": true },
+                { "id": 9, "bounds": { "left": 780, "right": 828, "top": 1236, "bottom": 1404 }, "alive": false }
+              ]
+            },
+            {
+              "name": "Successful intended hit",
+              "threat": {
+                "id": 288,
+                "type": "bomb",
+                "subtype": null,
+                "wave": 9,
+                "born": 7808,
+                "source": "game-sim.ts:1896",
+                "target": 1,
+                "aim": { "x": 167, "y": 1230 },
+                "start": {
+                  "x": 154.69585546988847,
+                  "y": 574.8302161729765,
+                  "vx": 0.049216578120446115,
+                  "vy": 3.953321943804622
+                },
+                "outcome": "game-sim.ts:1797",
+                "hitBuilding": 1,
+                "trajectory": [
+                  [7828, 155.68018703229748, 653.8966550490699],
+                  [7848, 156.6645185947065, 732.9630939251632],
+                  [7868, 157.6488501571155, 812.0295328012566],
+                  [7888, 158.63318171952452, 891.0959716773499],
+                  [7908, 159.61751328193353, 970.1624105534432],
+                  [7928, 160.60184484434254, 1049.2288494295365],
+                  [7948, 161.58617640675155, 1128.2952883056298],
+                  [7968, 162.57050796916056, 1207.3617271817232],
+                  [7974, 162.86580743788326, 1231.0816588445512]
+                ],
+                "bounds": { "left": 150, "right": 184, "top": 1230, "bottom": 1404 },
+                "initialRayHits": true,
+                "roofX": 162.8523414091151,
+                "parent": 285,
+                "selectedAtSpawn": true,
+                "context": {},
+                "end": {
+                  "tick": 7974,
+                  "x": 162.86580743788326,
+                  "y": 1231.0816588445512,
+                  "targetAlive": true,
+                  "flare": false
+                },
+                "run": "run-003"
+              },
+              "buildings": [
+                { "id": 0, "bounds": { "left": 92, "right": 126, "top": 1206, "bottom": 1404 }, "alive": true },
+                { "id": 1, "bounds": { "left": 150, "right": 184, "top": 1230, "bottom": 1404 }, "alive": false },
+                { "id": 2, "bounds": { "left": 190, "right": 250, "top": 1294, "bottom": 1404 }, "alive": true },
+                { "id": 3, "bounds": { "left": 262, "right": 296, "top": 1260, "bottom": 1404 }, "alive": false },
+                { "id": 4, "bounds": { "left": 320, "right": 358, "top": 1252, "bottom": 1404 }, "alive": false },
+                { "id": 5, "bounds": { "left": 582, "right": 654, "top": 1180, "bottom": 1404 }, "alive": true },
+                { "id": 6, "bounds": { "left": 660, "right": 706, "top": 1202, "bottom": 1404 }, "alive": true },
+                { "id": 7, "bounds": { "left": 710, "right": 738, "top": 1206, "bottom": 1404 }, "alive": true },
+                { "id": 8, "bounds": { "left": 740, "right": 774, "top": 1304, "bottom": 1404 }, "alive": true },
+                { "id": 9, "bounds": { "left": 780, "right": 828, "top": 1236, "bottom": 1404 }, "alive": true }
+              ]
+            },
+            {
+              "name": "Target already destroyed",
+              "threat": {
+                "id": 81,
+                "type": "bomb",
+                "subtype": null,
+                "wave": 5,
+                "born": 2922,
+                "source": "game-sim.ts:1896",
+                "target": 8,
+                "aim": { "x": 757, "y": 1304 },
+                "start": {
+                  "x": 776.2662877965371,
+                  "y": 223.71195568958524,
+                  "vx": -0.07706515118614835,
+                  "vy": 3.1971922729164364
+                },
+                "outcome": "game-sim.ts:1840",
+                "hitBuilding": null,
+                "trajectory": [
+                  [2942, 774.7249847728139, 287.65580114791373],
+                  [2962, 773.1836817490906, 351.59964660624223],
+                  [2982, 771.6423787253674, 415.5434920645707],
+                  [3002, 770.1010757016442, 479.4873375228992],
+                  [3022, 768.5597726779209, 543.4311829812283],
+                  [3042, 767.0184696541977, 607.3750284395579],
+                  [3062, 765.4771666304745, 671.3188738978876],
+                  [3082, 763.9358636067512, 735.2627193562172],
+                  [3102, 762.394560583028, 799.2065648145468],
+                  [3122, 760.8532575593048, 863.1504102728765],
+                  [3142, 759.3119545355815, 927.0942557312061],
+                  [3162, 757.7706515118583, 991.0381011895357],
+                  [3182, 756.2293484881351, 1054.9819466478652],
+                  [3202, 754.6880454644119, 1118.9257921061949],
+                  [3222, 753.1467424406886, 1182.8696375645245],
+                  [3242, 751.6054394169654, 1246.8134830228541],
+                  [3262, 750.0641363932422, 1310.7573284811838],
+                  [3282, 748.5228333695189, 1374.7011739395134],
+                  [3296, 747.4439212529127, 1419.4618657603442]
+                ],
+                "bounds": { "left": 740, "right": 774, "top": 1304, "bottom": 1404 },
+                "initialRayHits": true,
+                "roofX": 750.2270150994875,
+                "parent": 66,
+                "selectedAtSpawn": true,
+                "context": {},
+                "end": {
+                  "tick": 3296,
+                  "x": 747.4439212529127,
+                  "y": 1419.4618657603442,
+                  "targetAlive": false,
+                  "flare": false
+                },
+                "run": "run-009"
+              },
+              "buildings": [
+                { "id": 0, "bounds": { "left": 92, "right": 126, "top": 1206, "bottom": 1404 }, "alive": false },
+                { "id": 1, "bounds": { "left": 150, "right": 184, "top": 1230, "bottom": 1404 }, "alive": true },
+                { "id": 2, "bounds": { "left": 190, "right": 250, "top": 1294, "bottom": 1404 }, "alive": true },
+                { "id": 3, "bounds": { "left": 262, "right": 296, "top": 1260, "bottom": 1404 }, "alive": true },
+                { "id": 4, "bounds": { "left": 320, "right": 358, "top": 1252, "bottom": 1404 }, "alive": true },
+                { "id": 5, "bounds": { "left": 582, "right": 654, "top": 1180, "bottom": 1404 }, "alive": false },
+                { "id": 6, "bounds": { "left": 660, "right": 706, "top": 1202, "bottom": 1404 }, "alive": true },
+                { "id": 7, "bounds": { "left": 710, "right": 738, "top": 1206, "bottom": 1404 }, "alive": false },
+                { "id": 8, "bounds": { "left": 740, "right": 774, "top": 1304, "bottom": 1404 }, "alive": false },
+                { "id": 9, "bounds": { "left": 780, "right": 828, "top": 1236, "bottom": 1404 }, "alive": false }
+              ]
+            }
+          ],
+          "sweep": {
+            "id": 194,
+            "tick": 5850,
+            "building": 3,
+            "point": false,
+            "eligible": true,
+            "priorOutcome": null,
+            "previous": { "x": 291.47347624231475, "y": 1234.2623345012385 },
+            "current": { "x": 299.2903632611607, "y": 1278.923777785492 },
+            "velocity": { "vx": 7.816887018845944, "vy": 44.66144328425336 },
+            "bounds": { "left": 262, "right": 296, "top": 1260, "bottom": 1404 },
+            "run": "run-003",
+            "threat": {
+              "id": 194,
+              "type": "mirv_warhead",
+              "subtype": null,
+              "wave": 7,
+              "born": 5767,
+              "source": "game-sim.ts:1725",
+              "target": null,
+              "aim": { "x": 334, "y": 1408 },
+              "start": {
+                "x": 116.16870021745257,
+                "y": 232.66613731723248,
+                "vx": 0.2336279664224225,
+                "vy": 1.3348232035124032
+              },
+              "outcome": "game-sim.ts:2216",
+              "hitBuilding": null,
+              "trajectory": [],
+              "parent": 189,
+              "context": { "playerCaused": false, "chain": false, "root": null },
+              "end": {
+                "tick": 5852,
+                "x": 315.95179404372504,
+                "y": 1374.1181363755527,
+                "targetAlive": null,
+                "flare": false
+              }
+            }
+          },
+          "rayMissOutcomes": {
+            "Non-player blast / chain": 83,
+            "Player-caused blast / chain": 22,
+            "Flare neutralization": 11,
+            "Flare destruction": 4,
+            "Still alive at recording end": 10,
+            "Different building destroyed": 1,
+            "Direct defense damage": 1
+          },
+          "buildings": [
+            { "building": 1, "targeted": 136, "destroyed": 9 },
+            { "building": 2, "targeted": 199, "destroyed": 9 },
+            { "building": 3, "targeted": 54, "destroyed": 8 },
+            { "building": 4, "targeted": 182, "destroyed": 5 },
+            { "building": 5, "targeted": 84, "destroyed": 9 },
+            { "building": 6, "targeted": 164, "destroyed": 3 },
+            { "building": 7, "targeted": 67, "destroyed": 0 },
+            { "building": 8, "targeted": 75, "destroyed": 6 },
+            { "building": 9, "targeted": 240, "destroyed": 2 },
+            { "building": 10, "targeted": 37, "destroyed": 9 }
+          ],
+          "coverageRows": [
+            { "label": "audit-001", "cohort": "automated", "status": "verified", "reason": "" },
+            { "label": "run-001", "cohort": "human-study", "status": "verified", "reason": "" },
+            { "label": "run-002", "cohort": "human-study", "status": "verified", "reason": "" },
+            { "label": "run-003", "cohort": "human-study", "status": "verified", "reason": "" },
+            { "label": "run-004", "cohort": "human-study", "status": "verified", "reason": "" },
+            { "label": "run-005", "cohort": "human-study", "status": "verified", "reason": "" },
+            { "label": "run-006", "cohort": "human-study", "status": "verified", "reason": "" },
+            { "label": "run-007", "cohort": "human-study", "status": "verified", "reason": "" },
+            { "label": "run-008", "cohort": "human-study", "status": "verified", "reason": "" },
+            { "label": "run-009", "cohort": "human-study", "status": "verified", "reason": "" },
+            { "label": "run-010", "cohort": "human-study", "status": "verified", "reason": "" },
+            { "label": "run-011", "cohort": "human-study", "status": "verified", "reason": "" },
+            { "label": "run-012", "cohort": "human-study", "status": "verified", "reason": "" },
+            { "label": "run-013", "cohort": "human-study", "status": "verified", "reason": "" },
+            { "label": "run-014", "cohort": "human-study", "status": "verified", "reason": "" },
+            { "label": "run-015", "cohort": "human-study", "status": "verified", "reason": "" },
+            { "label": "run-016", "cohort": "human-study", "status": "verified", "reason": "" },
+            { "label": "run-017", "cohort": "human-study", "status": "verified", "reason": "" },
+            { "label": "run-018", "cohort": "human-study", "status": "verified", "reason": "" },
+            { "label": "run-019", "cohort": "human-study", "status": "verified", "reason": "" },
+            { "label": "run-020", "cohort": "human-study", "status": "verified", "reason": "" },
+            { "label": "run-021", "cohort": "human-study", "status": "verified", "reason": "" },
+            { "label": "run-022", "cohort": "human-study", "status": "verified", "reason": "" },
+            { "label": "run-023", "cohort": "human-study", "status": "verified", "reason": "" },
+            { "label": "run-024", "cohort": "human-study", "status": "verified", "reason": "" },
+            { "label": "run-025", "cohort": "human-study", "status": "verified", "reason": "" },
+            { "label": "run-026", "cohort": "human-study", "status": "verified", "reason": "" },
+            {
+              "label": "audit-028",
+              "cohort": "fixture",
+              "status": "unverifiable",
+              "reason": "No final tick / historical endpoint"
+            },
+            {
+              "label": "audit-029",
+              "cohort": "fixture",
+              "status": "unverifiable",
+              "reason": "No final tick / historical endpoint"
+            },
+            {
+              "label": "audit-030",
+              "cohort": "fixture",
+              "status": "unverifiable",
+              "reason": "No final tick / historical endpoint"
+            },
+            {
+              "label": "audit-031",
+              "cohort": "fixture",
+              "status": "unverifiable",
+              "reason": "No final tick / historical endpoint"
+            },
+            {
+              "label": "audit-032",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 1"
+            },
+            {
+              "label": "audit-033",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 7"
+            },
+            {
+              "label": "audit-034",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 6"
+            },
+            {
+              "label": "audit-035",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 60"
+            },
+            {
+              "label": "audit-036",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 60"
+            },
+            {
+              "label": "audit-037",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 60"
+            },
+            {
+              "label": "audit-038",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 60"
+            },
+            {
+              "label": "audit-039",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 60"
+            },
+            {
+              "label": "audit-040",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 60"
+            },
+            {
+              "label": "audit-041",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 60"
+            },
+            {
+              "label": "audit-042",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 1"
+            },
+            {
+              "label": "audit-043",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 7"
+            },
+            {
+              "label": "audit-044",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 9"
+            },
+            {
+              "label": "audit-045",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 8"
+            },
+            {
+              "label": "audit-046",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 6"
+            },
+            {
+              "label": "audit-047",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 6"
+            },
+            {
+              "label": "audit-048",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 6"
+            },
+            {
+              "label": "audit-049",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 5"
+            },
+            {
+              "label": "audit-050",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 5"
+            },
+            {
+              "label": "audit-051",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 6"
+            },
+            {
+              "label": "audit-052",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 6"
+            },
+            {
+              "label": "audit-053",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 8"
+            },
+            {
+              "label": "audit-054",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 6"
+            },
+            {
+              "label": "audit-055",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 8"
+            },
+            {
+              "label": "audit-056",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 8"
+            },
+            {
+              "label": "audit-057",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 8"
+            },
+            {
+              "label": "audit-058",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 8"
+            },
+            {
+              "label": "audit-059",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 8"
+            },
+            {
+              "label": "audit-060",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 8"
+            },
+            {
+              "label": "audit-061",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 6"
+            },
+            {
+              "label": "audit-062",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 6"
+            },
+            {
+              "label": "audit-063",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 5"
+            },
+            {
+              "label": "audit-064",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 7"
+            },
+            {
+              "label": "audit-065",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 7"
+            },
+            {
+              "label": "audit-066",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 6"
+            },
+            {
+              "label": "audit-067",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 60"
+            },
+            {
+              "label": "audit-068",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 60"
+            },
+            {
+              "label": "audit-069",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 60"
+            },
+            {
+              "label": "audit-070",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 60"
+            },
+            {
+              "label": "audit-071",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 60"
+            },
+            {
+              "label": "audit-072",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 1"
+            },
+            {
+              "label": "audit-073",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 7"
+            },
+            {
+              "label": "audit-074",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 60"
+            },
+            {
+              "label": "audit-075",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 60"
+            },
+            {
+              "label": "audit-076",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 60"
+            },
+            {
+              "label": "audit-077",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 60"
+            },
+            {
+              "label": "audit-078",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 60"
+            },
+            {
+              "label": "audit-079",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 2"
+            },
+            {
+              "label": "audit-080",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 4"
+            },
+            {
+              "label": "audit-081",
+              "cohort": "automated",
+              "status": "quarantined",
+              "reason": "Checkpoint divergence at tick 8"
+            },
+            {
+              "label": "audit-082",
+              "cohort": "fixture",
+              "status": "unverifiable",
+              "reason": "No final tick / historical endpoint"
+            },
+            {
+              "label": "audit-083",
+              "cohort": "fixture",
+              "status": "unverifiable",
+              "reason": "No final tick / historical endpoint"
+            },
+            {
+              "label": "audit-084",
+              "cohort": "fixture",
+              "status": "unverifiable",
+              "reason": "No final tick / historical endpoint"
+            },
+            {
+              "label": "audit-085",
+              "cohort": "fixture",
+              "status": "unverifiable",
+              "reason": "No final tick / historical endpoint"
+            },
+            {
+              "label": "audit-086",
+              "cohort": "fixture",
+              "status": "unverifiable",
+              "reason": "No final tick / historical endpoint"
+            },
+            {
+              "label": "audit-087",
+              "cohort": "fixture",
+              "status": "unverifiable",
+              "reason": "No final tick / historical endpoint"
+            },
+            {
+              "label": "audit-088",
+              "cohort": "fixture",
+              "status": "unverifiable",
+              "reason": "No final tick / historical endpoint"
+            },
+            {
+              "label": "audit-089",
+              "cohort": "fixture",
+              "status": "unverifiable",
+              "reason": "No final tick / historical endpoint"
+            }
+          ]
+        }
+      </script>
+      <script>
+        const data = JSON.parse(document.querySelector("#auditData").textContent);
+        const sel = document.querySelector("#example");
+        function draw() {
+          const e = data.examples[Number(sel.value)],
+            t = e.threat;
+          document.querySelector("#exampleText").textContent =
+            t.run +
+            " · wave " +
+            t.wave +
+            " · threat " +
+            t.id +
+            " · ticks " +
+            t.born +
+            "–" +
+            t.end.tick +
+            ". Intended building " +
+            (t.target + 1) +
+            "; " +
+            (t.hitBuilding === null ? "no building hit" : "building " + (t.hitBuilding + 1) + " destroyed") +
+            ".";
+          const rects = e.buildings
+            .map((b) => {
+              const r = b.bounds,
+                color = b.id === t.target ? "#ffb45c" : b.id === t.hitBuilding ? "#ff83b0" : "#54718c";
+              return (
+                '<rect x="' +
+                r.left +
+                '" y="' +
+                r.top +
+                '" width="' +
+                (r.right - r.left) +
+                '" height="' +
+                (r.bottom - r.top) +
+                '" fill="' +
+                color +
+                '33" stroke="' +
+                color +
+                '" stroke-width="2"/><text x="' +
+                (r.left + r.right) / 2 +
+                '" y="1436" fill="#b5c9df" text-anchor="middle" font-size="18">' +
+                (b.id + 1) +
+                "</text>"
+              );
+            })
+            .join("");
+          const points = [[t.start.x, t.start.y], ...t.trajectory.map((p) => [p[1], p[2]]), [t.end.x, t.end.y]]
+            .map((p) => p.join(","))
+            .join(" ");
+          document.querySelector("#trajectory").innerHTML =
+            rects +
+            '<line x1="' +
+            t.start.x +
+            '" y1="' +
+            t.start.y +
+            '" x2="' +
+            t.aim.x +
+            '" y2="' +
+            t.aim.y +
+            '" stroke="#ffb45c" stroke-dasharray="10 10" stroke-width="2"/><polyline points="' +
+            points +
+            '" fill="none" stroke="#71e3df" stroke-width="4"/><circle cx="' +
+            t.end.x +
+            '" cy="' +
+            t.end.y +
+            '" r="7" fill="#ff83b0"/>';
+        }
+        sel.addEventListener("change", draw);
+        draw();
+      </script>
+    </main>
+  </body>
+</html>

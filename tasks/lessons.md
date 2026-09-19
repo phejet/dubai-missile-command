@@ -816,3 +816,50 @@ in the state) rather than defending the old one.
 ## 2026-09-13 — Follow the requested delivery route
 
 - For this RM-08 delivery, the user explicitly requested local tests and a direct main push, without a PR.
+
+## 2026-09-15 — Astra terminal sparkles
+
+- The user identified `[tui] whimsy = false` as the control for terminal sparkles. Check the active `CODEX_HOME` config before suggesting OS animation workarounds.
+
+## 2026-09-15 — Study skill rewards and opportunity together
+
+- User confirms genuine Staging play sessions are theirs; exclude known automated captures despite `isHuman`.
+- When assessing score versus skill, also examine whether late-wave overlap leaves meaningful timing decisions; score changes alone cannot fix a capacity wall.
+
+## 2026-09-15 — Make pending input visible
+
+- If the user cannot see an asynchronous input request, restate the required action plainly in the final response.
+- When authenticated operator access is available, use it for replay retrieval; Wrangler login is not a prerequisite.
+
+## 2026-09-15 — Keep replay experiment artifacts in the checkout
+
+- For this study, keep scripts, data, generated bundles and screenshots inside the project folder; do not use /tmp or other temporary directories for task artifacts.
+
+## 2026-09-16 — Keep a report series together
+
+- When the user names a report folder, group the reports and their supporting study notes there; update the documentation index, generator output paths, browser verification URLs and relative links together.
+
+## 2026-09-16 — Separate useful choices from productive outcomes
+
+- Preserve user clip labels separately from provisional agent judgments. Multi-kills and near-impact interceptions do not establish that a choice was useful; when labels disagree, clarify the reason and focal-shot versus whole-clip scope before fitting a skill metric.
+
+## 2026-09-16 — Ground quality in the defended outcome
+
+- The user’s criterion is preventing threats from reaching targets. Record corrected labels with provenance; do not elevate shot efficiency or sparse visual judgments into skill rankings, especially in crowded scenes. Distinguish actual asset protection from unproved per-shot saves.
+
+## 2026-09-16 — Reconcile exported labels with explicit corrections
+
+- A later browser export can repeat stale entries. Compare entry timestamps and preserve explicit conversational corrections unless the user clearly revises them; retain provenance instead of silently overwriting labels.
+
+## 2026-09-18 — Distinguish skill scoring from survival rewards
+
+- The user clarified that better defense already earns continued play; the scoring question is rewarding better skill. Do not substitute asset protection, survival, or manual activity for skill. Treat protection comparisons as context, and establish which skilled decisions/execution should distinguish equally surviving runs before judging a formula.
+
+## 2026-09-19 — Surrounding-building audit scope and artifacts
+
+- Audit missiles/bombs targeting city buildings around the Burj; tower collision is not the reported problem.
+- Keep all experiment and troubleshooting scripts in this repo for later commit; never use TMP. Deliver the report as HTML under docs with a clickable link.
+
+## 2026-09-19 — Check the economy mode before claiming counterfactual limits
+
+- All recorded study replays are draft mode (`draftMode: true`): wave-end picks are free and score never feeds back into play. Read the replay header and purchase path before claiming points drove purchases; in draft corpora, rescoring the fixed event ledger is exact, not hypothetical affordability.
