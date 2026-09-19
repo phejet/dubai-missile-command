@@ -2,7 +2,13 @@
 
 2026-09-19 · [RM-09](../../ROADMAP.html#rm-09) · [HTML findings](building-impact-audit-results.html)
 
-All commands run from this checkout. Scripts are retained under `scripts/building-audit/`
+Historical baseline: this audit describes replay v11 at commit `4145b2f`. The later
+[bomb targeting fix](building-impact-fix.html) advances the simulator to v12. Rebuilding
+the original audit on the fixed simulator will not reproduce the v11 recordings;
+retain its frozen ledgers and report. The separate `verify-fix.mjs` script checks
+recorded launch geometry against the corrected simulator.
+
+The original commands below run against that baseline checkout. Scripts are retained under `scripts/building-audit/`
 for the eventual commit. Inputs, generated bundles, detailed ledgers and browser artifacts
 stay in ignored `operator-results/building-audit-20260919/`. Nothing uses a TMP directory.
 

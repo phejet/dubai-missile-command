@@ -43,10 +43,13 @@ This means replays are sensitive to gameplay code drift.
 - optional `isHuman`
 - optional metadata such as `_buildId` and `_savedAt`
 
-Current recording version is `6`. Missing, older, and newer versions are rejected rather
+Current recording version is `12`. Missing, older, and newer versions are rejected rather
 than replayed best-effort.
 
 Version notes:
+
+- `version: 12` makes dropped bombs reach their selected building roof while preserving
+  vertical speed. Earlier recordings use different trajectories and are rejected.
 
 - `version: 6` records the deterministic initial state used by live play. This includes
   meta-progression objective gates, forced draft families, and starting Burj health.

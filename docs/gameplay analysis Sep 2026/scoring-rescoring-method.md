@@ -16,12 +16,13 @@ Use all 26 verified quality event ledgers and the original baseline summaries.
 Hash replay payloads, event ledgers and supporting inputs before and after analysis.
 Reconcile original reward sums and per-wave totals, kill/shot counts and prior
 baseline/observed summaries. Do not run candidate formulas inside the simulation.
-Original points alone drove every recorded purchase and outcome.
+**Correction (2026-09-19):** all 26 recordings are draft mode; picks are free and score
+never feeds back into play. Points drove no purchase or outcome in this corpus.
 
 All candidates retain base value for every scored kill, original wave/building
 bonuses, friendly-fire penalties and spending. Unscored neutralizations stay unscored.
-Report gross positive earnings and net after original debits separately. Alternative
-net balances are hypothetical accounting, not evidence of alternative affordability.
+Report gross positive earnings and net after original debits separately. The corpus
+has no spending, so candidate totals are exact rescorings, not affordability claims.
 No candidate invents a save bonus. Defense value here is the existing survival bonus,
 not a newly validated measure of all assets protected.
 

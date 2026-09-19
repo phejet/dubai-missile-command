@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bomb targeting fix — verification</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font:
+          17px/1.6 system-ui,
+          sans-serif;
+        background: #0c131d;
+        color: #dce7f2;
+      }
+      main {
+        max-width: 780px;
+        margin: 40px auto;
+        padding: 0 20px 60px;
+      }
+      h1,
+      h2 {
+        line-height: 1.2;
+        color: #fff;
+      }
+      a {
+        color: #83cfff;
+      }
+      .result {
+        padding: 20px;
+        background: #172330;
+        border-left: 4px solid #85dec5;
+      }
+      code {
+        overflow-wrap: anywhere;
+      }
+      li {
+        margin: 8px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p>19 September 2026 · RM-09 follow-up · Local implementation</p>
+      <h1>Bombs now fly toward the roof they select</h1>
+      <p>
+        Both waypoint and legacy carrier drops use one launch calculation. Falling speed remains randomly sampled from
+        2.4–4.0 pixels per tick. Horizontal speed now covers the distance to the target in the time remaining until roof
+        height.
+      </p>
+      <p><code>timeToRoof = (roofY − spawnY) / vy</code><br /><code>vx = (targetX − spawnX) / timeToRoof</code></p>
+      <p>
+        Target selection is unchanged. Releases without a live building, or with a selected roof at or above the release
+        point, are skipped rather than creating an invalid upward trajectory.
+      </p>
+      <div class="result">
+        <strong
+          >1,238 / 1,238 recorded launch scenarios hit and destroyed their selected building in isolated real
+          simulation.</strong
+        >
+        All 132 previously misaligned paths are corrected. Every scenario preserves its original vertical speed and the
+        two existing RNG draws for target selection and speed.
+      </div>
+      <h2>Verification</h2>
+      <ul>
+        <li>
+          Seven regression cases cover both drop paths, the recorded wrong-building hit, left/right approaches,
+          falling-speed samples and missing/unreachable roofs.
+        </li>
+        <li>
+          227 focused simulation, headless determinism and replay tests pass; the seed-42 canary remains unchanged.
+        </li>
+        <li>21 maintained browser smoke/replay checks pass, including portrait layout and wave seeking.</li>
+        <li>TypeScript, focused ESLint, formatting and diff checks pass.</li>
+      </ul>
+      <p>
+        The launch experiment disables other assets and defenses to isolate arrival at the selected building. It is a
+        counterfactual geometry/collision check, not a claim that all those bombs would hit in normal play.
+        Interception, diversion, an intervening asset or earlier target destruction can still prevent an intended hit.
+      </p>
+      <h2>Replay compatibility</h2>
+      <p>
+        The simulation change advances replay compatibility from v11 to v12. Old v11 captures are rejected by this build
+        rather than replayed with different trajectories. Their original data and the historical audit remain intact.
+        All three maintained performance replay fixtures were re-recorded; the wave-four fixture contains changed aiming
+        actions. Performance baselines were not recaptured and should not be compared across the changed fixture as
+        though the workload were identical.
+      </p>
+      <h2>Ready to feel-check</h2>
+      <p>
+        Watch bombs released off to one side of a surviving building: their fall should line up with its roof rather
+        than drift into the neighboring building. Building pressure may increase because previously incorrect
+        trajectories now connect.
+      </p>
+      <p>
+        The separate between-tick collision defect is unchanged. No gameplay tuning, commit or deployment is included.
+      </p>
+      <h2>Reproduce the launch experiment</h2>
+      <p>
+        Run <code>node scripts/building-audit/verify-fix.mjs</code> from the repository. It reads the preserved
+        historical ledger and writes results and its generated bundle under
+        <code>operator-results/building-audit-20260919/fix/</code>. The scripts are retained in this repo for a later
+        commit.
+      </p>
+      <p>
+        <a href="../../">Play the local build</a> ·
+        <a href="building-impact-audit-results.html">Original audit and trajectories</a> ·
+        <a href="building-impact-audit-method.md">Audit methodology</a>
+      </p>
+    </main>
+  </body>
+</html>

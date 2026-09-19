@@ -1844,6 +1844,30 @@ function updateMissiles(g: GameState, dt: number, onEvent?: SimEventSink | null)
   });
 }
 
+// Keep the sampled falling speed, and cover the horizontal distance in the same
+// time it takes to reach the selected roof. Both carrier paths use this launch rule.
+function dropBuildingBomb(g: GameState, d: Drone) {
+  const target = pickBuildingTarget(g, d.x);
+  if (!target || target.y <= d.y) return;
+  const vy = rand(2.4, 4.0);
+  const timeToRoof = (target.y - d.y) / vy;
+  g.missiles.push({
+    x: d.x,
+    y: d.y,
+    vx: (target.x - d.x) / timeToRoof,
+    vy,
+    accel: 1,
+    trail: [],
+    alive: true,
+    type: "bomb",
+    targetX: target.x,
+    targetY: target.y,
+    variant: d.variant ?? "normal",
+    speedMul: d.speedMul ?? 1,
+    _hitByExplosions: new Set(),
+  });
+}
+
 function updateDrones(g: GameState, _rng: () => number, dt: number, onEvent?: SimEventSink | null) {
   g.drones.forEach((d: Drone) => {
     if (!d.alive) return;
@@ -1891,24 +1915,7 @@ function updateDrones(g: GameState, _rng: () => number, dt: number, onEvent?: Si
         (d.bombsDropped ?? 0) < (d.bombIndices?.length ?? 0) &&
         d.pathIndex >= (d.bombIndices ?? [])[d.bombsDropped ?? 0]
       ) {
-        const bombT = pickBuildingTarget(g, d.x);
-        if (bombT) {
-          g.missiles.push({
-            x: d.x,
-            y: d.y,
-            vx: (bombT.x - d.x) * 0.004,
-            vy: rand(2.4, 4.0),
-            accel: 1,
-            trail: [],
-            alive: true,
-            type: "bomb",
-            targetX: bombT.x,
-            targetY: bombT.y,
-            variant: d.variant ?? "normal",
-            speedMul: d.speedMul ?? 1,
-            _hitByExplosions: new Set(),
-          });
-        }
+        dropBuildingBomb(g, d);
         d.bombsDropped = (d.bombsDropped ?? 0) + 1;
       }
     } else {
@@ -1919,25 +1926,7 @@ function updateDrones(g: GameState, _rng: () => number, dt: number, onEvent?: Si
         if (nearMid) {
           if (shahed136HasBomb(d.shahedVariant ?? "shahed-136-dive-bomber") && !d.bombDropped) {
             d.bombDropped = true;
-            const bombT = pickBuildingTarget(g, d.x);
-            if (bombT) {
-              const tx = bombT.x;
-              g.missiles.push({
-                x: d.x,
-                y: d.y,
-                vx: (tx - d.x) * 0.004,
-                vy: rand(2.4, 4.0),
-                accel: 1,
-                trail: [],
-                alive: true,
-                type: "bomb",
-                targetX: bombT.x,
-                targetY: bombT.y,
-                variant: d.variant ?? "normal",
-                speedMul: d.speedMul ?? 1,
-                _hitByExplosions: new Set(),
-              });
-            }
+            dropBuildingBomb(g, d);
           }
           if (shahed136HasDive(d.shahedVariant ?? "shahed-136-dive-bomber")) {
             d.diving = true;

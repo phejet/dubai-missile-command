@@ -1,0 +1,3118 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Part Six — Points for the player</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0a1220;
+        --card: #111e30;
+        --line: #2c3e54;
+        --ink: #e3ebf5;
+        --ink2: #b5c4d8;
+        --muted: #8fa1b8;
+        --accent: #6ee1c2;
+        --s1: #3987e5;
+        --s2: #d95926;
+        --removed: #d95926;
+        --kept: #3987e5;
+        font-family:
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+        line-height: 1.6;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+      }
+      main {
+        max-width: 1120px;
+        padding: 48px 24px 80px;
+        margin: auto;
+      }
+      h1 {
+        font-size: clamp(34px, 6vw, 62px);
+        line-height: 1.08;
+        letter-spacing: -0.03em;
+        max-width: 900px;
+        margin: 0.3em 0;
+      }
+      h2 {
+        font-size: 26px;
+        line-height: 1.25;
+        margin-top: 0;
+      }
+      h3 {
+        font-size: 18px;
+        margin-bottom: 0.4em;
+      }
+      p {
+        max-width: 90ch;
+      }
+      .tag {
+        color: var(--accent);
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        font-size: 12px;
+      }
+      .lede {
+        font-size: 20px;
+        color: var(--ink2);
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+        margin-top: 26px;
+      }
+      .card,
+      section {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 22px;
+      }
+      section {
+        margin-top: 22px;
+      }
+      .card strong {
+        font-size: 32px;
+        display: block;
+        line-height: 1.2;
+        margin: 4px 0;
+      }
+      .card small,
+      .muted {
+        color: var(--muted);
+      }
+      small {
+        color: var(--muted);
+      }
+      .callout {
+        padding: 14px 18px;
+        border-left: 3px solid #f3bc69;
+        background: #1d2939;
+        border-radius: 0 8px 8px 0;
+      }
+      a,
+      summary {
+        color: var(--accent);
+      }
+      summary {
+        cursor: pointer;
+      }
+      details {
+        margin: 16px 0;
+      }
+      .scroll {
+        overflow-x: auto;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 14px;
+      }
+      td,
+      th {
+        text-align: right;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--line);
+        white-space: nowrap;
+      }
+      th:first-child,
+      td:first-child {
+        text-align: left;
+      }
+      th {
+        color: var(--ink2);
+        font-weight: 600;
+      }
+      td {
+        font-variant-numeric: tabular-nums;
+      }
+      td.text {
+        text-align: left;
+      }
+      .bar {
+        display: block;
+        height: 6px;
+        border-radius: 0 4px 4px 0;
+        background: var(--kept);
+        margin-top: 4px;
+        max-width: 160px;
+      }
+      .bar.removed {
+        background: var(--removed);
+      }
+      .cellbar {
+        min-width: 170px;
+      }
+      .pill {
+        display: inline-block;
+        font-size: 12px;
+        padding: 1px 8px;
+        border-radius: 99px;
+        border: 1px solid var(--line);
+        color: var(--ink2);
+      }
+      .pill.removed {
+        border-color: var(--removed);
+        color: #ffb6a5;
+      }
+      .toolbar {
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+        margin: 16px 0;
+      }
+      label {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+        max-width: 100%;
+      }
+      select {
+        background: var(--bg);
+        color: inherit;
+        font: inherit;
+        border: 1px solid #6b839e;
+        border-radius: 6px;
+        padding: 7px 9px;
+        max-width: 100%;
+      }
+      .up {
+        color: #75dfb9;
+      }
+      .down {
+        color: #ffb6a5;
+      }
+      .chart {
+        position: relative;
+        margin-top: 10px;
+      }
+      .chart svg {
+        width: 100%;
+        height: auto;
+        display: block;
+        overflow: visible;
+      }
+      .legend {
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+        font-size: 14px;
+        color: var(--ink2);
+        margin-top: 6px;
+      }
+      .key {
+        display: inline-block;
+        width: 18px;
+        height: 2px;
+        vertical-align: middle;
+        margin-right: 6px;
+      }
+      .seq {
+        display: block;
+        text-align: left;
+      }
+      .key.rect {
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+      }
+      .tip {
+        position: absolute;
+        pointer-events: none;
+        background: #0a1220;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: 13px;
+        min-width: 150px;
+        box-shadow: 0 6px 20px #0008;
+      }
+      .tip b {
+        font-size: 15px;
+      }
+      .tip div {
+        white-space: nowrap;
+      }
+      .grid2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 22px;
+      }
+      .formula {
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 14px;
+        color: #b9d2ed;
+      }
+      @media (max-width: 760px) {
+        main {
+          padding: 24px 16px 50px;
+        }
+        .cards {
+          grid-template-columns: 1fr 1fr;
+        }
+        .grid2 {
+          grid-template-columns: 1fr;
+        }
+        section,
+        .card {
+          padding: 18px 14px;
+        }
+        h2 {
+          font-size: 22px;
+        }
+        .lede {
+          font-size: 17px;
+        }
+      }
+      @media (max-width: 420px) {
+        .cards {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="tag">Gameplay analysis · Part six · 19 September 2026</div>
+      <h1>Points for the player,<br />not the turrets.</h1>
+      <p class="lede">
+        The same 26 recorded runs, rescored under two proposed rules. Rule 1: only player-initiated actions (interceptor
+        shots, F-15, EMP, flares) earn kill points. Automated defenses earn nothing, apart from multi-kill bonuses. Rule
+        2, tested on its own and combined with rule 1: the combo caps at ×5 and pays a cash-out bonus on the next hit,
+        then resets.
+      </p>
+      <div class="cards">
+        <div class="card">
+          <small>Rule 1 · automation earns nothing</small><strong>−12.3%</strong>total points; every run loses 7.5% to
+          39.4%
+        </div>
+        <div class="card">
+          <small>Rules 1 + 2 · cash-out 350</small><strong>−15.6%</strong>total points; cash-out alone is −6.9%
+        </div>
+        <div class="card">
+          <small>Final leaderboard order</small><strong>ρ 0.998</strong>no run moves more than one place under rule 1
+        </div>
+        <div class="card">
+          <small>Survival bonuses</small><strong>48%</strong>of all points today: 10% wave clears, 38% buildings
+        </div>
+      </div>
+
+      <section>
+        <h2>This is an exact rescoring, not a simulation</h2>
+        <p>
+          All 26 recordings were played in draft mode: wave-end picks are free and score never feeds back into the game.
+          Every recorded shot, kill, pick and outcome therefore stays valid, and each number below is exactly what that
+          run would have scored under the rule. What the recordings cannot show is how players would <em>adapt</em> to
+          the new incentives.
+        </p>
+        <p class="muted">
+          Rules and bonus sizes were fixed in the <a href="scoring-player-only-method.md">method note</a> before any
+          result was calculated. Today's rules reproduce all 1,663,424 recorded points, every wave total and the
+          recorded multiplier on all 5,308 kills.
+        </p>
+      </section>
+
+      <section>
+        <h2>Where today's points come from</h2>
+        <p>
+          Survival bonuses are nearly half of all points. Automation and impact kills are 12.3%. Of automation's kill
+          points, <strong>64% came from the player's combo multiplier</strong>: a player's streak was multiplying
+          Patriot and Hornet kills.
+        </p>
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Component</th>
+                <th>Points</th>
+                <th>Share</th>
+                <th>Under rule 1</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Wave-clear bonus (250 × wave)</td>
+                <td>171,000</td>
+                <td>
+                  <span class="cellbar">10.3%<span class="bar" style="width: 27.4%"></span></span>
+                </td>
+                <td><span class="pill">kept</span></td>
+              </tr>
+              <tr>
+                <td>Building bonus (100 × buildings standing × wave)</td>
+                <td>624,500</td>
+                <td>
+                  <span class="cellbar">37.5%<span class="bar" style="width: 100%"></span></span>
+                </td>
+                <td><span class="pill">kept</span></td>
+              </tr>
+              <tr>
+                <td>Interceptor kills: base value</td>
+                <td>89,732</td>
+                <td>
+                  <span class="cellbar">5.4%<span class="bar" style="width: 14.4%"></span></span>
+                </td>
+                <td><span class="pill">kept</span></td>
+              </tr>
+              <tr>
+                <td>Interceptor kills: combo uplift</td>
+                <td>219,434</td>
+                <td>
+                  <span class="cellbar">13.2%<span class="bar" style="width: 35.1%"></span></span>
+                </td>
+                <td><span class="pill">kept</span></td>
+              </tr>
+              <tr>
+                <td>F-15, flare and EMP kills</td>
+                <td>42,714</td>
+                <td>
+                  <span class="cellbar">2.6%<span class="bar" style="width: 6.8%"></span></span>
+                </td>
+                <td><span class="pill">kept</span></td>
+              </tr>
+              <tr>
+                <td>Multi-kill bonuses from player actions</td>
+                <td>184,850</td>
+                <td>
+                  <span class="cellbar">11.1%<span class="bar" style="width: 29.6%"></span></span>
+                </td>
+                <td><span class="pill">kept</span></td>
+              </tr>
+              <tr>
+                <td>Multi-kill bonuses from automation and impacts</td>
+                <td>126,500</td>
+                <td>
+                  <span class="cellbar">7.6%<span class="bar" style="width: 20.3%"></span></span>
+                </td>
+                <td><span class="pill">kept (exception)</span></td>
+              </tr>
+              <tr>
+                <td>Automation kills: base value</td>
+                <td>70,234</td>
+                <td>
+                  <span class="cellbar">4.2%<span class="bar removed" style="width: 11.2%"></span></span>
+                </td>
+                <td><span class="pill removed">removed</span></td>
+              </tr>
+              <tr>
+                <td>Automation kills: player's combo uplift</td>
+                <td>125,296</td>
+                <td>
+                  <span class="cellbar">7.5%<span class="bar removed" style="width: 20.1%"></span></span>
+                </td>
+                <td><span class="pill removed">removed</span></td>
+              </tr>
+              <tr>
+                <td>Impact kills (threat exploding on contact)</td>
+                <td>9,164</td>
+                <td>
+                  <span class="cellbar">0.6%<span class="bar removed" style="width: 2%"></span></span>
+                </td>
+                <td><span class="pill removed">removed</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted">
+          Bars: blue kept, orange removed. Rows sum to 1,663,424. No friendly-fire penalties or spending occurred in
+          this corpus.
+        </p>
+      </section>
+
+      <section>
+        <h2>Survival: waves cleared and buildings standing</h2>
+        <p>Two bonuses are paid only when a wave is completed; the wave that ends a run pays neither.</p>
+        <ul>
+          <li><strong>Wave clear:</strong> 250 × wave number. Pure survival, 171,000 points (10.3% of all points).</li>
+          <li>
+            <strong>Buildings:</strong> 100 × buildings standing × wave number. The city starts with 10 buildings and
+            never rebuilds them. 624,500 points (37.5%).
+          </li>
+        </ul>
+        <p>
+          With every building standing, the building bonus would have paid 684,000. Building losses cost only
+          <strong>59,500 points (3.6% of all points)</strong>, so 91% of the building bonus is paid simply for surviving
+          the wave. In practice the building bonus is a second, larger wave-survival bonus: protecting buildings moves
+          the score very little.
+        </p>
+        <p>
+          Both rules leave these bonuses untouched, so their share grows: 47.8% of all points today, 54.5% under rule 1,
+          56.7% with cash-out 350 and 55.5% with cash-out 500.
+        </p>
+        <h3>Buildings lost, by wave</h3>
+        <p>
+          Across 26 runs the city lost 60 buildings (2.3 per run), 17 of them in the wave that ended the run. Losses
+          peak in wave 5 (16). At the end of every completed wave, runs averaged at least 8.3 of 10 buildings standing.
+        </p>
+        <div class="chart" id="lossChart" role="img" aria-label="Buildings lost by wave"></div>
+        <div class="legend">
+          <span><span class="key rect" style="background: var(--s1)"></span>Lost in a wave the run survived</span
+          ><span><span class="key rect" style="background: var(--s2)"></span>Lost in the run's final wave</span>
+        </div>
+        <h3>Survival as a share of each wave's points</h3>
+        <p>
+          Completed waves only. Survival bonuses make up 44–63% of a completed wave's points today, and more under the
+          new rules because kill points shrink.
+        </p>
+        <div
+          class="chart"
+          id="shareChart"
+          role="img"
+          aria-label="Survival share of completed-wave points by wave"
+        ></div>
+        <div class="legend">
+          <span><span class="key" style="background: var(--s1)"></span>Today</span
+          ><span><span class="key" style="background: var(--s2)"></span>Rule 1 (automation earns nothing)</span>
+        </div>
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Wave</th>
+                <th>Runs completing</th>
+                <th>Wave clear</th>
+                <th>Building bonus</th>
+                <th>Lost to damage</th>
+                <th>Avg standing</th>
+                <th>All 10 standing</th>
+                <th>Buildings lost</th>
+                <th>Survival share today</th>
+                <th>Rule 1</th>
+                <th>Rules 1 + 2 (350)</th>
+                <th>Rules 1 + 2 (500)</th>
+              </tr>
+            </thead>
+            <tbody id="survivalWaves">
+              <tr>
+                <td>1</td>
+                <td>26</td>
+                <td>6,500</td>
+                <td>25,700</td>
+                <td>300</td>
+                <td>9.9</td>
+                <td>24 of 26</td>
+                <td>3</td>
+                <td>61%</td>
+                <td>61%</td>
+                <td>58%</td>
+                <td>54%</td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td>25</td>
+                <td>12,500</td>
+                <td>49,800</td>
+                <td>200</td>
+                <td>10.0</td>
+                <td>24 of 25</td>
+                <td>0</td>
+                <td>53%</td>
+                <td>57%</td>
+                <td>63%</td>
+                <td>59%</td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td>25</td>
+                <td>18,750</td>
+                <td>74,100</td>
+                <td>900</td>
+                <td>9.9</td>
+                <td>22 of 25</td>
+                <td>2</td>
+                <td>63%</td>
+                <td>69%</td>
+                <td>73%</td>
+                <td>71%</td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td>24</td>
+                <td>24,000</td>
+                <td>92,800</td>
+                <td>3,200</td>
+                <td>9.7</td>
+                <td>17 of 24</td>
+                <td>6</td>
+                <td>58%</td>
+                <td>67%</td>
+                <td>73%</td>
+                <td>70%</td>
+              </tr>
+              <tr>
+                <td>5</td>
+                <td>21</td>
+                <td>26,250</td>
+                <td>96,500</td>
+                <td>8,500</td>
+                <td>9.2</td>
+                <td>12 of 21</td>
+                <td>16</td>
+                <td>56%</td>
+                <td>64%</td>
+                <td>67%</td>
+                <td>66%</td>
+              </tr>
+              <tr>
+                <td>6</td>
+                <td>17</td>
+                <td>25,500</td>
+                <td>88,800</td>
+                <td>13,200</td>
+                <td>8.7</td>
+                <td>6 of 17</td>
+                <td>13</td>
+                <td>52%</td>
+                <td>58%</td>
+                <td>60%</td>
+                <td>60%</td>
+              </tr>
+              <tr>
+                <td>7</td>
+                <td>15</td>
+                <td>26,250</td>
+                <td>87,500</td>
+                <td>17,500</td>
+                <td>8.3</td>
+                <td>4 of 15</td>
+                <td>8</td>
+                <td>48%</td>
+                <td>55%</td>
+                <td>56%</td>
+                <td>55%</td>
+              </tr>
+              <tr>
+                <td>8</td>
+                <td>10</td>
+                <td>20,000</td>
+                <td>68,800</td>
+                <td>11,200</td>
+                <td>8.6</td>
+                <td>3 of 10</td>
+                <td>6</td>
+                <td>47%</td>
+                <td>52%</td>
+                <td>53%</td>
+                <td>53%</td>
+              </tr>
+              <tr>
+                <td>9</td>
+                <td>5</td>
+                <td>11,250</td>
+                <td>40,500</td>
+                <td>4,500</td>
+                <td>9.0</td>
+                <td>2 of 5</td>
+                <td>3</td>
+                <td>44%</td>
+                <td>51%</td>
+                <td>51%</td>
+                <td>51%</td>
+              </tr>
+              <tr>
+                <td>10</td>
+                <td>0</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>3</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted">
+          "Buildings lost" counts every run that played the wave, including runs that died in it; the other columns
+          count completed waves only. No run completed wave 10.
+        </p>
+        <h3>Buildings standing, run by run</h3>
+        <p>
+          At the end of the run, 2 runs still had all 10 buildings. The average was 7.7 and the fewest was 5. Sequence:
+          buildings standing after each completed wave → at the end of the run.
+        </p>
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Run</th>
+                <th>Reached</th>
+                <th>Buildings after each wave → end</th>
+                <th>At end</th>
+                <th>Wave clear</th>
+                <th>Building bonus</th>
+                <th>Lost to damage</th>
+                <th>Survival share today</th>
+                <th>Rule 1</th>
+                <th>Rules 1 + 2 (350)</th>
+              </tr>
+            </thead>
+            <tbody id="survivalRuns">
+              <tr>
+                <td>run-003</td>
+                <td>wave 10</td>
+                <td><span class="seq">10 10 10 10 10 10 8 8 7 → 7</span></td>
+                <td>7</td>
+                <td>11,250</td>
+                <td>39,300</td>
+                <td>5,700</td>
+                <td>45%</td>
+                <td>50%</td>
+                <td>52%</td>
+              </tr>
+              <tr>
+                <td>run-005</td>
+                <td>wave 10</td>
+                <td><span class="seq">10 10 10 10 10 10 10 10 9 → 9</span></td>
+                <td>9</td>
+                <td>11,250</td>
+                <td>44,100</td>
+                <td>900</td>
+                <td>45%</td>
+                <td>51%</td>
+                <td>53%</td>
+              </tr>
+              <tr>
+                <td>run-006</td>
+                <td>wave 10</td>
+                <td><span class="seq">10 10 10 10 10 10 10 9 9 → 7</span></td>
+                <td>7</td>
+                <td>11,250</td>
+                <td>43,300</td>
+                <td>1,700</td>
+                <td>46%</td>
+                <td>53%</td>
+                <td>55%</td>
+              </tr>
+              <tr>
+                <td>run-019</td>
+                <td>wave 10</td>
+                <td><span class="seq">10 10 10 10 10 10 10 10 10 → 9</span></td>
+                <td>9</td>
+                <td>11,250</td>
+                <td>45,000</td>
+                <td>0</td>
+                <td>47%</td>
+                <td>52%</td>
+                <td>53%</td>
+              </tr>
+              <tr>
+                <td>run-023</td>
+                <td>wave 10</td>
+                <td><span class="seq">10 10 10 10 10 10 10 10 10 → 10</span></td>
+                <td>10</td>
+                <td>11,250</td>
+                <td>45,000</td>
+                <td>0</td>
+                <td>56%</td>
+                <td>62%</td>
+                <td>62%</td>
+              </tr>
+              <tr>
+                <td>run-013</td>
+                <td>wave 9</td>
+                <td><span class="seq">10 10 10 9 8 8 7 7 → 7</span></td>
+                <td>7</td>
+                <td>9,000</td>
+                <td>28,900</td>
+                <td>7,100</td>
+                <td>37%</td>
+                <td>44%</td>
+                <td>48%</td>
+              </tr>
+              <tr>
+                <td>run-015</td>
+                <td>wave 9</td>
+                <td><span class="seq">10 10 10 9 8 8 8 8 → 8</span></td>
+                <td>8</td>
+                <td>9,000</td>
+                <td>30,400</td>
+                <td>5,600</td>
+                <td>43%</td>
+                <td>46%</td>
+                <td>52%</td>
+              </tr>
+              <tr>
+                <td>run-017</td>
+                <td>wave 9</td>
+                <td><span class="seq">10 10 9 9 9 8 8 8 → 7</span></td>
+                <td>7</td>
+                <td>9,000</td>
+                <td>30,600</td>
+                <td>5,400</td>
+                <td>45%</td>
+                <td>52%</td>
+                <td>54%</td>
+              </tr>
+              <tr>
+                <td>run-024</td>
+                <td>wave 9</td>
+                <td><span class="seq">10 10 10 9 9 9 9 9 → 9</span></td>
+                <td>9</td>
+                <td>9,000</td>
+                <td>33,000</td>
+                <td>3,000</td>
+                <td>50%</td>
+                <td>55%</td>
+                <td>56%</td>
+              </tr>
+              <tr>
+                <td>run-026</td>
+                <td>wave 9</td>
+                <td><span class="seq">10 10 10 10 10 10 8 7 → 7</span></td>
+                <td>7</td>
+                <td>9,000</td>
+                <td>32,200</td>
+                <td>3,800</td>
+                <td>52%</td>
+                <td>60%</td>
+                <td>60%</td>
+              </tr>
+              <tr>
+                <td>run-007</td>
+                <td>wave 8</td>
+                <td><span class="seq">10 10 10 10 7 6 6 → 5</span></td>
+                <td>5</td>
+                <td>7,000</td>
+                <td>21,300</td>
+                <td>6,700</td>
+                <td>52%</td>
+                <td>59%</td>
+                <td>60%</td>
+              </tr>
+              <tr>
+                <td>run-010</td>
+                <td>wave 8</td>
+                <td><span class="seq">10 10 10 10 9 9 9 → 6</span></td>
+                <td>6</td>
+                <td>7,000</td>
+                <td>26,200</td>
+                <td>1,800</td>
+                <td>54%</td>
+                <td>63%</td>
+                <td>64%</td>
+              </tr>
+              <tr>
+                <td>run-014</td>
+                <td>wave 8</td>
+                <td><span class="seq">10 10 10 9 8 6 6 → 6</span></td>
+                <td>6</td>
+                <td>7,000</td>
+                <td>21,400</td>
+                <td>6,600</td>
+                <td>38%</td>
+                <td>43%</td>
+                <td>47%</td>
+              </tr>
+              <tr>
+                <td>run-021</td>
+                <td>wave 8</td>
+                <td><span class="seq">10 10 10 10 10 8 8 → 8</span></td>
+                <td>8</td>
+                <td>7,000</td>
+                <td>25,400</td>
+                <td>2,600</td>
+                <td>51%</td>
+                <td>57%</td>
+                <td>58%</td>
+              </tr>
+              <tr>
+                <td>run-022</td>
+                <td>wave 8</td>
+                <td><span class="seq">10 10 10 10 10 9 8 → 8</span></td>
+                <td>8</td>
+                <td>7,000</td>
+                <td>26,000</td>
+                <td>2,000</td>
+                <td>56%</td>
+                <td>62%</td>
+                <td>62%</td>
+              </tr>
+              <tr>
+                <td>run-016</td>
+                <td>wave 7</td>
+                <td><span class="seq">10 10 10 10 10 9 → 7</span></td>
+                <td>7</td>
+                <td>5,250</td>
+                <td>20,400</td>
+                <td>600</td>
+                <td>62%</td>
+                <td>70%</td>
+                <td>73%</td>
+              </tr>
+              <tr>
+                <td>run-020</td>
+                <td>wave 7</td>
+                <td><span class="seq">10 10 10 10 10 8 → 8</span></td>
+                <td>8</td>
+                <td>5,250</td>
+                <td>19,800</td>
+                <td>1,200</td>
+                <td>43%</td>
+                <td>51%</td>
+                <td>55%</td>
+              </tr>
+              <tr>
+                <td>run-008</td>
+                <td>wave 6</td>
+                <td><span class="seq">10 10 10 10 8 → 8</span></td>
+                <td>8</td>
+                <td>3,750</td>
+                <td>14,000</td>
+                <td>1,000</td>
+                <td>54%</td>
+                <td>60%</td>
+                <td>60%</td>
+              </tr>
+              <tr>
+                <td>run-011</td>
+                <td>wave 6</td>
+                <td><span class="seq">10 10 10 10 10 → 10</span></td>
+                <td>10</td>
+                <td>3,750</td>
+                <td>15,000</td>
+                <td>0</td>
+                <td>50%</td>
+                <td>55%</td>
+                <td>56%</td>
+              </tr>
+              <tr>
+                <td>run-012</td>
+                <td>wave 6</td>
+                <td><span class="seq">10 10 10 10 10 → 9</span></td>
+                <td>9</td>
+                <td>3,750</td>
+                <td>15,000</td>
+                <td>0</td>
+                <td>52%</td>
+                <td>59%</td>
+                <td>61%</td>
+              </tr>
+              <tr>
+                <td>run-025</td>
+                <td>wave 6</td>
+                <td><span class="seq">10 10 10 10 7 → 5</span></td>
+                <td>5</td>
+                <td>3,750</td>
+                <td>13,500</td>
+                <td>1,500</td>
+                <td>51%</td>
+                <td>57%</td>
+                <td>66%</td>
+              </tr>
+              <tr>
+                <td>run-002</td>
+                <td>wave 5</td>
+                <td><span class="seq">9 9 9 9 → 9</span></td>
+                <td>9</td>
+                <td>2,500</td>
+                <td>9,000</td>
+                <td>1,000</td>
+                <td>48%</td>
+                <td>80%</td>
+                <td>80%</td>
+              </tr>
+              <tr>
+                <td>run-009</td>
+                <td>wave 5</td>
+                <td><span class="seq">10 10 10 8 → 5</span></td>
+                <td>5</td>
+                <td>2,500</td>
+                <td>9,200</td>
+                <td>800</td>
+                <td>41%</td>
+                <td>48%</td>
+                <td>59%</td>
+              </tr>
+              <tr>
+                <td>run-018</td>
+                <td>wave 5</td>
+                <td><span class="seq">10 10 10 10 → 9</span></td>
+                <td>9</td>
+                <td>2,500</td>
+                <td>10,000</td>
+                <td>0</td>
+                <td>47%</td>
+                <td>66%</td>
+                <td>69%</td>
+              </tr>
+              <tr>
+                <td>run-004</td>
+                <td>wave 4</td>
+                <td><span class="seq">10 10 9 → 9</span></td>
+                <td>9</td>
+                <td>1,500</td>
+                <td>5,700</td>
+                <td>300</td>
+                <td>61%</td>
+                <td>69%</td>
+                <td>71%</td>
+              </tr>
+              <tr>
+                <td>run-001</td>
+                <td>wave 2</td>
+                <td><span class="seq">8 → 8</span></td>
+                <td>8</td>
+                <td>250</td>
+                <td>800</td>
+                <td>200</td>
+                <td>68%</td>
+                <td>98%</td>
+                <td>98%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Rule 1: automation earns nothing</h2>
+        <p>
+          Pooled, the rule removes 204,694 points (−12.3%); the median run loses −11.6%. The hardest-hit runs were short
+          and relied on automation: run-002 (−39%, ended wave 5, Patriot + Hornets), run-001 (−30%, ended wave 2,
+          Hornets), run-018 (−29%, ended wave 5, Hornets + Iron Beam + Roadrunner). The 15 runs that reached wave 8 or
+          later lose 7.5–15.5%.
+        </p>
+        <h3>Points removed, by source</h3>
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Source</th>
+                <th>Kills</th>
+                <th>Base value</th>
+                <th>Combo uplift</th>
+                <th>Removed</th>
+                <th>Multi-kill bonus kept</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Wild Hornets</td>
+                <td>902</td>
+                <td>31,216</td>
+                <td>47,290</td>
+                <td>78,506</td>
+                <td>43,150</td>
+              </tr>
+              <tr>
+                <td>Patriot</td>
+                <td>625</td>
+                <td>22,328</td>
+                <td>54,074</td>
+                <td>76,402</td>
+                <td>45,850</td>
+              </tr>
+              <tr>
+                <td>Roadrunner</td>
+                <td>460</td>
+                <td>16,266</td>
+                <td>20,572</td>
+                <td>36,838</td>
+                <td>27,850</td>
+              </tr>
+              <tr>
+                <td>Impact</td>
+                <td>71</td>
+                <td>3,460</td>
+                <td>5,704</td>
+                <td>9,164</td>
+                <td>8,400</td>
+              </tr>
+              <tr>
+                <td>Iron Beam</td>
+                <td>10</td>
+                <td>424</td>
+                <td>3,360</td>
+                <td>3,784</td>
+                <td>1,250</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="callout">
+          <strong>The multi-kill exception is not small.</strong> Automation and impacts keep 126,500 points of
+          multi-kill bonuses, 38% of what they earned before. Every automated source, and impacts, earned more from
+          multi-kill bonuses than from its kills' base value. Dropping the exception too would make rule 1 −19.9%
+          instead of −12.3%.
+        </p>
+        <h3>By wave</h3>
+        <p>The loss grows as automation takes over: −0.2% in wave 1, −12.6% by wave 4, −16.2% in wave 9.</p>
+        <div class="chart" id="waveChart" role="img" aria-label="Points change versus today by wave"></div>
+        <div class="legend">
+          <span><span class="key" style="background: var(--s1)"></span>Rule 1 (automation earns nothing)</span
+          ><span><span class="key" style="background: var(--s2)"></span>Rules 1 + 2 (cash-out 350)</span>
+        </div>
+        <p class="muted">
+          Every run's last wave is unfinished and pays no survival bonus, so kills dominate it. Wave 10 contains only
+          such final waves (5 runs), which is why its loss is largest.
+        </p>
+        <details>
+          <summary>Table: change by wave</summary>
+          <div class="scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Wave</th>
+                  <th>Runs</th>
+                  <th>Today</th>
+                  <th>Rule 1</th>
+                  <th>Rules 1 + 2</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>1</td>
+                  <td>26</td>
+                  <td>52,558</td>
+                  <td>−0.2%</td>
+                  <td>+6.3%</td>
+                </tr>
+                <tr>
+                  <td>2</td>
+                  <td>26</td>
+                  <td>117,190</td>
+                  <td>−6.3%</td>
+                  <td>−16.1%</td>
+                </tr>
+                <tr>
+                  <td>3</td>
+                  <td>25</td>
+                  <td>147,998</td>
+                  <td>−8.9%</td>
+                  <td>−14.6%</td>
+                </tr>
+                <tr>
+                  <td>4</td>
+                  <td>25</td>
+                  <td>200,910</td>
+                  <td>−12.6%</td>
+                  <td>−19.7%</td>
+                </tr>
+                <tr>
+                  <td>5</td>
+                  <td>24</td>
+                  <td>228,958</td>
+                  <td>−15.5%</td>
+                  <td>−19.2%</td>
+                </tr>
+                <tr>
+                  <td>6</td>
+                  <td>21</td>
+                  <td>235,532</td>
+                  <td>−11.5%</td>
+                  <td>−14.1%</td>
+                </tr>
+                <tr>
+                  <td>7</td>
+                  <td>17</td>
+                  <td>242,610</td>
+                  <td>−11.8%</td>
+                  <td>−13.6%</td>
+                </tr>
+                <tr>
+                  <td>8</td>
+                  <td>15</td>
+                  <td>214,366</td>
+                  <td>−12.4%</td>
+                  <td>−14.4%</td>
+                </tr>
+                <tr>
+                  <td>9</td>
+                  <td>10</td>
+                  <td>162,416</td>
+                  <td>−16.2%</td>
+                  <td>−16.6%</td>
+                </tr>
+                <tr>
+                  <td>10</td>
+                  <td>5</td>
+                  <td>60,886</td>
+                  <td>−24.2%</td>
+                  <td>−24.3%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+        <h3>Does the ranking change?</h3>
+        <p>
+          Barely, on final totals: how far a run got decides most of its score, through survival bonuses and more waves
+          of kills. Comparing runs <em>within the same wave</em> is more sensitive: rank agreement with today ranges
+          from 0.72 to 1.00 across waves.
+        </p>
+      </section>
+
+      <section>
+        <h2>Rule 2: cap ×5 and cash out</h2>
+        <h3>How the combo behaves today</h3>
+        <p>
+          23 of 26 runs fired at ×10. Only 11% of shots were fired at ×10, yet 28% of player kill points were earned
+          there. ×10 is an early-game state: 33% of shots in waves 2–4, 2% from wave 5 on. Later waves break the streak
+          because empty shots climb from 9% in wave 1 to 50% from wave 5.
+        </p>
+        <div class="chart" id="comboChart" role="img" aria-label="Share of shots at ×10 and empty shots by wave"></div>
+        <div class="legend">
+          <span><span class="key" style="background: var(--s1)"></span>Shots fired at ×10</span
+          ><span><span class="key" style="background: var(--s2)"></span>Empty shots (no kill)</span>
+        </div>
+        <details>
+          <summary>Table: combo by wave</summary>
+          <div class="scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Wave</th>
+                  <th>Shots</th>
+                  <th>At ×10</th>
+                  <th>Empty</th>
+                  <th>Target taken by automation</th>
+                  <th>Target taken by own shot</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>1</td>
+                  <td>203</td>
+                  <td>0%</td>
+                  <td>9%</td>
+                  <td>0</td>
+                  <td>2</td>
+                </tr>
+                <tr>
+                  <td>2</td>
+                  <td>298</td>
+                  <td>37%</td>
+                  <td>10%</td>
+                  <td>6</td>
+                  <td>5</td>
+                </tr>
+                <tr>
+                  <td>3</td>
+                  <td>305</td>
+                  <td>35%</td>
+                  <td>20%</td>
+                  <td>16</td>
+                  <td>11</td>
+                </tr>
+                <tr>
+                  <td>4</td>
+                  <td>350</td>
+                  <td>27%</td>
+                  <td>23%</td>
+                  <td>18</td>
+                  <td>15</td>
+                </tr>
+                <tr>
+                  <td>5</td>
+                  <td>406</td>
+                  <td>6%</td>
+                  <td>42%</td>
+                  <td>30</td>
+                  <td>34</td>
+                </tr>
+                <tr>
+                  <td>6</td>
+                  <td>557</td>
+                  <td>3%</td>
+                  <td>46%</td>
+                  <td>41</td>
+                  <td>40</td>
+                </tr>
+                <tr>
+                  <td>7</td>
+                  <td>454</td>
+                  <td>1%</td>
+                  <td>47%</td>
+                  <td>56</td>
+                  <td>19</td>
+                </tr>
+                <tr>
+                  <td>8</td>
+                  <td>391</td>
+                  <td>0%</td>
+                  <td>57%</td>
+                  <td>38</td>
+                  <td>31</td>
+                </tr>
+                <tr>
+                  <td>9</td>
+                  <td>312</td>
+                  <td>0%</td>
+                  <td>60%</td>
+                  <td>39</td>
+                  <td>32</td>
+                </tr>
+                <tr>
+                  <td>10</td>
+                  <td>118</td>
+                  <td>0%</td>
+                  <td>57%</td>
+                  <td>14</td>
+                  <td>15</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+        <h3>What resets the combo</h3>
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Reset cause</th>
+                <th>Resets</th>
+                <th>Share</th>
+                <th>From ×5 or higher</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Missed: nothing was taken from the shot</td>
+                <td>758</td>
+                <td>56%</td>
+                <td>86</td>
+              </tr>
+              <tr>
+                <td>Target destroyed by automation first</td>
+                <td>258</td>
+                <td>19%</td>
+                <td>29</td>
+              </tr>
+              <tr>
+                <td>Target destroyed by another of the player's shots</td>
+                <td>204</td>
+                <td>15%</td>
+                <td>26</td>
+              </tr>
+              <tr>
+                <td>Flare explosion that hit nothing</td>
+                <td>97</td>
+                <td>7%</td>
+                <td>7</td>
+              </tr>
+              <tr>
+                <td>Target destroyed by an ability or an impact</td>
+                <td>27</td>
+                <td>2%</td>
+                <td>0</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="muted">
+          "Destroyed first" means the shot's intended target died to something else during the shot's flight. That is
+          overlap, not proof the other kill caused the miss.
+        </p>
+        <p class="callout">
+          <strong>Two resets look unfair under either combo rule.</strong> In 258 cases the player's combo reset after
+          automation killed the shot's target first. In 97 cases a flare explosion with no kills counted as a player
+          miss (40 of them from ×2 or higher), because flare explosions feed the combo like interceptor shots.
+        </p>
+        <h3>Streaks: short ones are common, long ones carry the points</h3>
+        <p>
+          The recordings contain 672 streaks of consecutive hits. 84% are 1–4 hits, and score identically under both
+          rules. The 38 streaks of 10 or more hits (longest 44) hold 31% of all productive shots. Cash-out pays less
+          than sustained ×10 on those.
+        </p>
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Streak length</th>
+                <th>Streaks</th>
+                <th>Hits in them</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td>305</td>
+                <td>305</td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td>132</td>
+                <td>264</td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td>86</td>
+                <td>258</td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td>40</td>
+                <td>160</td>
+              </tr>
+              <tr>
+                <td>5-9</td>
+                <td>71</td>
+                <td>477</td>
+              </tr>
+              <tr>
+                <td>10-19</td>
+                <td>25</td>
+                <td>322</td>
+              </tr>
+              <tr>
+                <td>20+</td>
+                <td>13</td>
+                <td>339</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Worked example at the corpus average of 43 base points per productive shot (single-kill multipliers only, no
+          multi-kill bonus):
+        </p>
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Hits in a row</th>
+                <th>Today (×10 cap)</th>
+                <th>Cash-out 150</th>
+                <th>Cash-out 350</th>
+                <th>Cash-out 500</th>
+                <th>Cash-out 700</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>5</td>
+                <td>645</td>
+                <td>795</td>
+                <td>995</td>
+                <td>1,145</td>
+                <td>1,345</td>
+              </tr>
+              <tr>
+                <td>8</td>
+                <td>1,549</td>
+                <td>1,053</td>
+                <td>1,253</td>
+                <td>1,403</td>
+                <td>1,603</td>
+              </tr>
+              <tr>
+                <td>10</td>
+                <td>2,366</td>
+                <td>1,590</td>
+                <td>1,990</td>
+                <td>2,290</td>
+                <td>2,690</td>
+              </tr>
+              <tr>
+                <td>20</td>
+                <td>6,668</td>
+                <td>3,181</td>
+                <td>3,981</td>
+                <td>4,581</td>
+                <td>5,381</td>
+              </tr>
+              <tr>
+                <td>40</td>
+                <td>15,271</td>
+                <td>6,362</td>
+                <td>7,962</td>
+                <td>9,162</td>
+                <td>10,762</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Cash-out wins short streaks and loses long ones. Today's rule pulls ahead from 6 hits in a row against
+          cash-out 150, 7 against 350, 8 against 500 and 9 against 700. Matching sustained ×10 would need a bonus of
+          about 35 × the base value per shot, roughly 1,506 points here.
+        </p>
+        <h3>Who pays for the cash-out</h3>
+        <p>
+          Across the corpus there are 191 cash-outs (7.3 per run). On top of rule 1, cash-out 350 changes a run by
+          −16.0% to +0.2%. The loss tracks how much of a run's points came at ×10 (ρ -0.75): run-009 earned 88% at ×10
+          and loses 16.0%; run-025 earned 58% at ×10 and loses 12.1%; run-015 earned 36% at ×10 and loses 10.2%. The 20
+          runs that earned under 30% of their player points at ×10 lose at most 6.2% at 350; 18 of them gain at 700.
+        </p>
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Scenario</th>
+                <th>Total points</th>
+                <th>Change</th>
+                <th>Median run</th>
+                <th>Run range</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>all sources (today) · ×10 cap (today)</td>
+                <td>1,663,424</td>
+                <td>0.0%</td>
+                <td>0.0%</td>
+                <td>0.0% … 0.0%</td>
+              </tr>
+              <tr>
+                <td>all sources (today) · cap ×5, cash-out 0</td>
+                <td>1,482,582</td>
+                <td>−10.9%</td>
+                <td>−9.4%</td>
+                <td>−35.9% … 0.0%</td>
+              </tr>
+              <tr>
+                <td>all sources (today) · cap ×5, cash-out 150</td>
+                <td>1,511,232</td>
+                <td>−9.1%</td>
+                <td>−7.2%</td>
+                <td>−31.7% … 0.0%</td>
+              </tr>
+              <tr>
+                <td>all sources (today) · cap ×5, cash-out 350</td>
+                <td>1,549,432</td>
+                <td>−6.9%</td>
+                <td>−5.2%</td>
+                <td>−26.1% … 0.0%</td>
+              </tr>
+              <tr>
+                <td>all sources (today) · cap ×5, cash-out 500</td>
+                <td>1,578,082</td>
+                <td>−5.1%</td>
+                <td>−3.1%</td>
+                <td>−23.5% … +0.2%</td>
+              </tr>
+              <tr>
+                <td>all sources (today) · cap ×5, cash-out 700</td>
+                <td>1,616,282</td>
+                <td>−2.8%</td>
+                <td>−1.1%</td>
+                <td>−21.8% … +2.2%</td>
+              </tr>
+              <tr>
+                <td>player actions only · ×10 cap (today)</td>
+                <td>1,458,730</td>
+                <td>−12.3%</td>
+                <td>−11.6%</td>
+                <td>−39.4% … −7.5%</td>
+              </tr>
+              <tr>
+                <td>player actions only · cap ×5, cash-out 0</td>
+                <td>1,336,914</td>
+                <td>−19.6%</td>
+                <td>−18.5%</td>
+                <td>−42.3% … −12.1%</td>
+              </tr>
+              <tr>
+                <td>player actions only · cap ×5, cash-out 150</td>
+                <td>1,365,564</td>
+                <td>−17.9%</td>
+                <td>−16.8%</td>
+                <td>−41.0% … −11.3%</td>
+              </tr>
+              <tr>
+                <td>player actions only · cap ×5, cash-out 350</td>
+                <td>1,403,764</td>
+                <td>−15.6%</td>
+                <td>−14.7%</td>
+                <td>−39.3% … −9.7%</td>
+              </tr>
+              <tr>
+                <td>player actions only · cap ×5, cash-out 500</td>
+                <td>1,432,414</td>
+                <td>−13.9%</td>
+                <td>−13.5%</td>
+                <td>−38.1% … −7.9%</td>
+              </tr>
+              <tr>
+                <td>player actions only · cap ×5, cash-out 700</td>
+                <td>1,470,614</td>
+                <td>−11.6%</td>
+                <td>−11.3%</td>
+                <td>−36.4% … −3.6%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Every run, any scenario</h2>
+        <div class="toolbar">
+          <label
+            >Kill points
+            <select id="own">
+              <option value="P">player actions only</option>
+              <option value="today">all sources (today)</option>
+            </select></label
+          ><label
+            >Combo
+            <select id="combo">
+              <option value="C10">×10 cap (today)</option>
+              <option value="C5-0">cap ×5, cash-out 0</option>
+              <option value="C5-150">cap ×5, cash-out 150</option>
+              <option value="C5-350" selected>cap ×5, cash-out 350</option>
+              <option value="C5-500">cap ×5, cash-out 500</option>
+              <option value="C5-700">cap ×5, cash-out 700</option>
+            </select></label
+          >
+        </div>
+        <p id="selection" class="callout"></p>
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Run</th>
+                <th>Change</th>
+                <th>Today</th>
+                <th>Scenario</th>
+                <th>Rank change</th>
+                <th>Reached</th>
+                <th>Automation</th>
+                <th>Ability</th>
+              </tr>
+            </thead>
+            <tbody id="runs"></tbody>
+          </table>
+        </div>
+        <p class="muted">Sorted by change. Rank 1 is the highest final score; a positive rank change moves a run up.</p>
+      </section>
+
+      <section>
+        <h2>What this suggests</h2>
+        <ul>
+          <li>
+            <strong>Rule 1 is a clean, moderate cut.</strong> It removes 12.3% of points, mostly from late waves and
+            automation-heavy builds, and stops the player's combo from multiplying turret kills. It leaves the
+            leaderboard order almost intact.
+          </li>
+          <li>
+            <strong>Decide whether the multi-kill exception stays.</strong> It keeps 126,500 points flowing to
+            automation, mostly Patriot and Hornets. It keeps the DOUBLE/TRIPLE toasts consistent, but it is 7.6% of all
+            points.
+          </li>
+          <li>
+            <strong>The cash-out at 350 penalizes the longest streaks</strong>, which are the most consistent shooting
+            in these recordings. If the aim is a rhythm of short streaks without penalizing long ones, the bonus needs
+            to be about 700 or more, or it should grow with each consecutive cash-out.
+          </li>
+          <li>
+            <strong>Consider not resetting the combo on non-misses</strong>: when automation killed the target first, or
+            when a flare hit nothing. These are 355 of 1,344 resets, and the player could not prevent them.
+          </li>
+          <li>
+            Rescoring cannot show how people will play under a new combo. A playtest behind a debug toggle is the next
+            honest step.
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Verification and reproduction</h2>
+        <p>
+          Today's rules, replayed from the ledgers, reproduce all 26 run totals, all 194 wave totals (26 terminal),
+          every combo transition and the recorded multiplier on all 5,308 kills. Independent Python agrees on 2,328 wave
+          × scenario values, 312 rank checks, per-source totals and all 672 streaks. Ten hand-worked rule cases cover
+          ownership, multi-kills, cash-out timing, resets and wave carry-over. SHA-256 digests confirm all 55 consumed
+          inputs are unchanged.
+        </p>
+        <p class="formula">
+          node scripts/scoring-study/player-only-checks.mjs<br />node scripts/scoring-study/player-only-analysis.mjs<br />python3
+          scripts/scoring-study/player-only-crosscheck.py<br />node scripts/scoring-study/player-only-report.mjs
+        </p>
+        <p>
+          <a href="scoring-player-only-method.md">Method and frozen rules</a> ·
+          <a href="scoring-rescoring-results.html">Part five</a> · <a href="README.md">Report series</a>
+        </p>
+        <p class="muted">
+          Anonymous aggregate report. Raw recordings and ledgers stay in the ignored local study directory. No gameplay
+          change.
+        </p>
+      </section>
+
+      <script id="data" type="application/json">
+        {
+          "runs": [
+            {
+              "label": "run-001",
+              "finalWave": 2,
+              "automation": ["Hornets"],
+              "active": [],
+              "original": 1534,
+              "scores": {
+                "today|C10": 1534,
+                "today|C5-0": 1534,
+                "today|C5-150": 1534,
+                "today|C5-350": 1534,
+                "today|C5-500": 1534,
+                "today|C5-700": 1534,
+                "P|C10": 1070,
+                "P|C5-0": 1070,
+                "P|C5-150": 1070,
+                "P|C5-350": 1070,
+                "P|C5-500": 1070,
+                "P|C5-700": 1070
+              },
+              "ranks": {
+                "today|C10": 26,
+                "today|C5-0": 26,
+                "today|C5-150": 26,
+                "today|C5-350": 26,
+                "today|C5-500": 26,
+                "today|C5-700": 26,
+                "P|C10": 26,
+                "P|C5-0": 26,
+                "P|C5-150": 26,
+                "P|C5-350": 26,
+                "P|C5-500": 26,
+                "P|C5-700": 26
+              },
+              "originalRank": 26
+            },
+            {
+              "label": "run-002",
+              "finalWave": 5,
+              "automation": ["Patriot", "Hornets"],
+              "active": ["EMP"],
+              "original": 23736,
+              "scores": {
+                "today|C10": 23736,
+                "today|C5-0": 17156,
+                "today|C5-150": 17456,
+                "today|C5-350": 17856,
+                "today|C5-500": 18156,
+                "today|C5-700": 18556,
+                "P|C10": 14376,
+                "P|C5-0": 13696,
+                "P|C5-150": 13996,
+                "P|C5-350": 14396,
+                "P|C5-500": 14696,
+                "P|C5-700": 15096
+              },
+              "ranks": {
+                "today|C10": 24,
+                "today|C5-0": 24,
+                "today|C5-150": 24,
+                "today|C5-350": 24,
+                "today|C5-500": 24,
+                "today|C5-700": 24,
+                "P|C10": 24,
+                "P|C5-0": 24,
+                "P|C5-150": 24,
+                "P|C5-350": 24,
+                "P|C5-500": 24,
+                "P|C5-700": 24
+              },
+              "originalRank": 24
+            },
+            {
+              "label": "run-003",
+              "finalWave": 10,
+              "automation": ["Hornets", "Patriot"],
+              "active": ["Flares"],
+              "original": 111324,
+              "scores": {
+                "today|C10": 111324,
+                "today|C5-0": 103152,
+                "today|C5-150": 104802,
+                "today|C5-350": 107002,
+                "today|C5-500": 108652,
+                "today|C5-700": 110852,
+                "P|C10": 100484,
+                "P|C5-0": 92902,
+                "P|C5-150": 94552,
+                "P|C5-350": 96752,
+                "P|C5-500": 98402,
+                "P|C5-700": 100602
+              },
+              "ranks": {
+                "today|C10": 4,
+                "today|C5-0": 4,
+                "today|C5-150": 4,
+                "today|C5-350": 4,
+                "today|C5-500": 4,
+                "today|C5-700": 4,
+                "P|C10": 4,
+                "P|C5-0": 4,
+                "P|C5-150": 4,
+                "P|C5-350": 4,
+                "P|C5-500": 4,
+                "P|C5-700": 4
+              },
+              "originalRank": 4
+            },
+            {
+              "label": "run-004",
+              "finalWave": 4,
+              "automation": ["Patriot", "Hornets"],
+              "active": ["Flares"],
+              "original": 11770,
+              "scores": {
+                "today|C10": 11770,
+                "today|C5-0": 10950,
+                "today|C5-150": 11100,
+                "today|C5-350": 11300,
+                "today|C5-500": 11450,
+                "today|C5-700": 11650,
+                "P|C10": 10402,
+                "P|C5-0": 9822,
+                "P|C5-150": 9972,
+                "P|C5-350": 10172,
+                "P|C5-500": 10322,
+                "P|C5-700": 10522
+              },
+              "ranks": {
+                "today|C10": 25,
+                "today|C5-0": 25,
+                "today|C5-150": 25,
+                "today|C5-350": 25,
+                "today|C5-500": 25,
+                "today|C5-700": 25,
+                "P|C10": 25,
+                "P|C5-0": 25,
+                "P|C5-150": 25,
+                "P|C5-350": 25,
+                "P|C5-500": 25,
+                "P|C5-700": 25
+              },
+              "originalRank": 25
+            },
+            {
+              "label": "run-005",
+              "finalWave": 10,
+              "automation": ["Roadrunner", "Hornets", "Patriot"],
+              "active": ["Flares"],
+              "original": 123358,
+              "scores": {
+                "today|C10": 123358,
+                "today|C5-0": 113466,
+                "today|C5-150": 114966,
+                "today|C5-350": 116966,
+                "today|C5-500": 118466,
+                "today|C5-700": 120466,
+                "P|C10": 108060,
+                "P|C5-0": 101008,
+                "P|C5-150": 102508,
+                "P|C5-350": 104508,
+                "P|C5-500": 106008,
+                "P|C5-700": 108008
+              },
+              "ranks": {
+                "today|C10": 1,
+                "today|C5-0": 2,
+                "today|C5-150": 2,
+                "today|C5-350": 2,
+                "today|C5-500": 2,
+                "today|C5-700": 2,
+                "P|C10": 1,
+                "P|C5-0": 2,
+                "P|C5-150": 2,
+                "P|C5-350": 2,
+                "P|C5-500": 2,
+                "P|C5-700": 2
+              },
+              "originalRank": 1
+            },
+            {
+              "label": "run-006",
+              "finalWave": 10,
+              "automation": ["Hornets", "Patriot"],
+              "active": ["Flares"],
+              "original": 117948,
+              "scores": {
+                "today|C10": 117948,
+                "today|C5-0": 108068,
+                "today|C5-150": 109568,
+                "today|C5-350": 111568,
+                "today|C5-500": 113068,
+                "today|C5-700": 115068,
+                "P|C10": 102642,
+                "P|C5-0": 96402,
+                "P|C5-150": 97902,
+                "P|C5-350": 99902,
+                "P|C5-500": 101402,
+                "P|C5-700": 103402
+              },
+              "ranks": {
+                "today|C10": 3,
+                "today|C5-0": 3,
+                "today|C5-150": 3,
+                "today|C5-350": 3,
+                "today|C5-500": 3,
+                "today|C5-700": 3,
+                "P|C10": 3,
+                "P|C5-0": 3,
+                "P|C5-150": 3,
+                "P|C5-350": 3,
+                "P|C5-500": 3,
+                "P|C5-700": 3
+              },
+              "originalRank": 3
+            },
+            {
+              "label": "run-007",
+              "finalWave": 8,
+              "automation": ["Patriot", "Roadrunner"],
+              "active": [],
+              "original": 53912,
+              "scores": {
+                "today|C10": 53912,
+                "today|C5-0": 48840,
+                "today|C5-150": 50040,
+                "today|C5-350": 51640,
+                "today|C5-500": 52840,
+                "today|C5-700": 54440,
+                "P|C10": 47814,
+                "P|C5-0": 44142,
+                "P|C5-150": 45342,
+                "P|C5-350": 46942,
+                "P|C5-500": 48142,
+                "P|C5-700": 49742
+              },
+              "ranks": {
+                "today|C10": 16,
+                "today|C5-0": 15,
+                "today|C5-150": 15,
+                "today|C5-350": 15,
+                "today|C5-500": 15,
+                "today|C5-700": 15,
+                "P|C10": 16,
+                "P|C5-0": 15,
+                "P|C5-150": 15,
+                "P|C5-350": 15,
+                "P|C5-500": 15,
+                "P|C5-700": 15
+              },
+              "originalRank": 16
+            },
+            {
+              "label": "run-008",
+              "finalWave": 6,
+              "automation": ["Roadrunner", "Hornets"],
+              "active": ["EMP"],
+              "original": 33090,
+              "scores": {
+                "today|C10": 33090,
+                "today|C5-0": 31006,
+                "today|C5-150": 31606,
+                "today|C5-350": 32406,
+                "today|C5-500": 33006,
+                "today|C5-700": 33806,
+                "P|C10": 29654,
+                "P|C5-0": 28194,
+                "P|C5-150": 28794,
+                "P|C5-350": 29594,
+                "P|C5-500": 30194,
+                "P|C5-700": 30994
+              },
+              "ranks": {
+                "today|C10": 21,
+                "today|C5-0": 20,
+                "today|C5-150": 20,
+                "today|C5-350": 20,
+                "today|C5-500": 20,
+                "today|C5-700": 20,
+                "P|C10": 21,
+                "P|C5-0": 20,
+                "P|C5-150": 20,
+                "P|C5-350": 20,
+                "P|C5-500": 20,
+                "P|C5-700": 20
+              },
+              "originalRank": 21
+            },
+            {
+              "label": "run-009",
+              "finalWave": 5,
+              "automation": ["Hornets"],
+              "active": ["F-15"],
+              "original": 28570,
+              "scores": {
+                "today|C10": 28570,
+                "today|C5-0": 18306,
+                "today|C5-150": 19506,
+                "today|C5-350": 21106,
+                "today|C5-500": 22306,
+                "today|C5-700": 23906,
+                "P|C10": 24456,
+                "P|C5-0": 17090,
+                "P|C5-150": 18290,
+                "P|C5-350": 19890,
+                "P|C5-500": 21090,
+                "P|C5-700": 22690
+              },
+              "ranks": {
+                "today|C10": 22,
+                "today|C5-0": 23,
+                "today|C5-150": 23,
+                "today|C5-350": 23,
+                "today|C5-500": 22,
+                "today|C5-700": 22,
+                "P|C10": 22,
+                "P|C5-0": 22,
+                "P|C5-150": 22,
+                "P|C5-350": 22,
+                "P|C5-500": 22,
+                "P|C5-700": 22
+              },
+              "originalRank": 22
+            },
+            {
+              "label": "run-010",
+              "finalWave": 8,
+              "automation": ["Hornets"],
+              "active": ["EMP"],
+              "original": 61664,
+              "scores": {
+                "today|C10": 61664,
+                "today|C5-0": 56120,
+                "today|C5-150": 57320,
+                "today|C5-350": 58920,
+                "today|C5-500": 60120,
+                "today|C5-700": 61720,
+                "P|C10": 52672,
+                "P|C5-0": 49348,
+                "P|C5-150": 50548,
+                "P|C5-350": 52148,
+                "P|C5-500": 53348,
+                "P|C5-700": 54948
+              },
+              "ranks": {
+                "today|C10": 13,
+                "today|C5-0": 14,
+                "today|C5-150": 13,
+                "today|C5-350": 13,
+                "today|C5-500": 13,
+                "today|C5-700": 13,
+                "P|C10": 14,
+                "P|C5-0": 14,
+                "P|C5-150": 14,
+                "P|C5-350": 14,
+                "P|C5-500": 14,
+                "P|C5-700": 14
+              },
+              "originalRank": 13
+            },
+            {
+              "label": "run-011",
+              "finalWave": 6,
+              "automation": ["Hornets"],
+              "active": ["Flares"],
+              "original": 37602,
+              "scores": {
+                "today|C10": 37602,
+                "today|C5-0": 32664,
+                "today|C5-150": 33864,
+                "today|C5-350": 35464,
+                "today|C5-500": 36664,
+                "today|C5-700": 38264,
+                "P|C10": 33982,
+                "P|C5-0": 30634,
+                "P|C5-150": 31834,
+                "P|C5-350": 33434,
+                "P|C5-500": 34634,
+                "P|C5-700": 36234
+              },
+              "ranks": {
+                "today|C10": 18,
+                "today|C5-0": 18,
+                "today|C5-150": 18,
+                "today|C5-350": 18,
+                "today|C5-500": 18,
+                "today|C5-700": 18,
+                "P|C10": 18,
+                "P|C5-0": 18,
+                "P|C5-150": 18,
+                "P|C5-350": 18,
+                "P|C5-500": 18,
+                "P|C5-700": 18
+              },
+              "originalRank": 18
+            },
+            {
+              "label": "run-012",
+              "finalWave": 6,
+              "automation": ["Patriot", "Hornets"],
+              "active": ["Flares"],
+              "original": 35762,
+              "scores": {
+                "today|C10": 35762,
+                "today|C5-0": 32418,
+                "today|C5-150": 33168,
+                "today|C5-350": 34168,
+                "today|C5-500": 34918,
+                "today|C5-700": 35918,
+                "P|C10": 31678,
+                "P|C5-0": 29166,
+                "P|C5-150": 29916,
+                "P|C5-350": 30916,
+                "P|C5-500": 31666,
+                "P|C5-700": 32666
+              },
+              "ranks": {
+                "today|C10": 19,
+                "today|C5-0": 19,
+                "today|C5-150": 19,
+                "today|C5-350": 19,
+                "today|C5-500": 19,
+                "today|C5-700": 19,
+                "P|C10": 19,
+                "P|C5-0": 19,
+                "P|C5-150": 19,
+                "P|C5-350": 19,
+                "P|C5-500": 19,
+                "P|C5-700": 19
+              },
+              "originalRank": 19
+            },
+            {
+              "label": "run-013",
+              "finalWave": 9,
+              "automation": ["Patriot", "Roadrunner"],
+              "active": ["Flares"],
+              "original": 102460,
+              "scores": {
+                "today|C10": 102460,
+                "today|C5-0": 83330,
+                "today|C5-150": 85880,
+                "today|C5-350": 89280,
+                "today|C5-500": 91830,
+                "today|C5-700": 95230,
+                "P|C10": 86558,
+                "P|C5-0": 73674,
+                "P|C5-150": 76224,
+                "P|C5-350": 79624,
+                "P|C5-500": 82174,
+                "P|C5-700": 85574
+              },
+              "ranks": {
+                "today|C10": 5,
+                "today|C5-0": 6,
+                "today|C5-150": 6,
+                "today|C5-350": 6,
+                "today|C5-500": 6,
+                "today|C5-700": 6,
+                "P|C10": 6,
+                "P|C5-0": 6,
+                "P|C5-150": 6,
+                "P|C5-350": 6,
+                "P|C5-500": 6,
+                "P|C5-700": 6
+              },
+              "originalRank": 5
+            },
+            {
+              "label": "run-014",
+              "finalWave": 8,
+              "automation": ["Patriot"],
+              "active": ["F-15"],
+              "original": 74056,
+              "scores": {
+                "today|C10": 74056,
+                "today|C5-0": 61286,
+                "today|C5-150": 62786,
+                "today|C5-350": 64786,
+                "today|C5-500": 66286,
+                "today|C5-700": 68286,
+                "P|C10": 66304,
+                "P|C5-0": 56988,
+                "P|C5-150": 58488,
+                "P|C5-350": 60488,
+                "P|C5-500": 61988,
+                "P|C5-700": 63988
+              },
+              "ranks": {
+                "today|C10": 11,
+                "today|C5-0": 11,
+                "today|C5-150": 11,
+                "today|C5-350": 11,
+                "today|C5-500": 11,
+                "today|C5-700": 11,
+                "P|C10": 11,
+                "P|C5-0": 11,
+                "P|C5-150": 11,
+                "P|C5-350": 11,
+                "P|C5-500": 11,
+                "P|C5-700": 11
+              },
+              "originalRank": 11
+            },
+            {
+              "label": "run-015",
+              "finalWave": 9,
+              "automation": ["Hornets", "Patriot"],
+              "active": ["F-15"],
+              "original": 92242,
+              "scores": {
+                "today|C10": 92242,
+                "today|C5-0": 76090,
+                "today|C5-150": 78040,
+                "today|C5-350": 80640,
+                "today|C5-500": 82590,
+                "today|C5-700": 85190,
+                "P|C10": 85304,
+                "P|C5-0": 71332,
+                "P|C5-150": 73282,
+                "P|C5-350": 75882,
+                "P|C5-500": 77832,
+                "P|C5-700": 80432
+              },
+              "ranks": {
+                "today|C10": 7,
+                "today|C5-0": 9,
+                "today|C5-150": 8,
+                "today|C5-350": 8,
+                "today|C5-500": 7,
+                "today|C5-700": 7,
+                "P|C10": 7,
+                "P|C5-0": 8,
+                "P|C5-150": 7,
+                "P|C5-350": 7,
+                "P|C5-500": 7,
+                "P|C5-700": 7
+              },
+              "originalRank": 7
+            },
+            {
+              "label": "run-016",
+              "finalWave": 7,
+              "automation": ["Patriot", "Roadrunner"],
+              "active": ["Flares"],
+              "original": 41054,
+              "scores": {
+                "today|C10": 41054,
+                "today|C5-0": 37432,
+                "today|C5-150": 38182,
+                "today|C5-350": 39182,
+                "today|C5-500": 39932,
+                "today|C5-700": 40932,
+                "P|C10": 36418,
+                "P|C5-0": 33476,
+                "P|C5-150": 34226,
+                "P|C5-350": 35226,
+                "P|C5-500": 35976,
+                "P|C5-700": 36976
+              },
+              "ranks": {
+                "today|C10": 17,
+                "today|C5-0": 17,
+                "today|C5-150": 17,
+                "today|C5-350": 17,
+                "today|C5-500": 17,
+                "today|C5-700": 17,
+                "P|C10": 17,
+                "P|C5-0": 17,
+                "P|C5-150": 17,
+                "P|C5-350": 17,
+                "P|C5-500": 17,
+                "P|C5-700": 17
+              },
+              "originalRank": 17
+            },
+            {
+              "label": "run-017",
+              "finalWave": 9,
+              "automation": ["Patriot", "Hornets"],
+              "active": ["Flares"],
+              "original": 87744,
+              "scores": {
+                "today|C10": 87744,
+                "today|C5-0": 76864,
+                "today|C5-150": 78514,
+                "today|C5-350": 80714,
+                "today|C5-500": 82364,
+                "today|C5-700": 84564,
+                "P|C10": 75796,
+                "P|C5-0": 69858,
+                "P|C5-150": 71508,
+                "P|C5-350": 73708,
+                "P|C5-500": 75358,
+                "P|C5-700": 77558
+              },
+              "ranks": {
+                "today|C10": 8,
+                "today|C5-0": 8,
+                "today|C5-150": 7,
+                "today|C5-350": 7,
+                "today|C5-500": 8,
+                "today|C5-700": 8,
+                "P|C10": 9,
+                "P|C5-0": 9,
+                "P|C5-150": 9,
+                "P|C5-350": 9,
+                "P|C5-500": 9,
+                "P|C5-700": 9
+              },
+              "originalRank": 8
+            },
+            {
+              "label": "run-018",
+              "finalWave": 5,
+              "automation": ["Hornets", "Iron Beam", "Roadrunner"],
+              "active": [],
+              "original": 26344,
+              "scores": {
+                "today|C10": 26344,
+                "today|C5-0": 20240,
+                "today|C5-150": 20840,
+                "today|C5-350": 21640,
+                "today|C5-500": 22240,
+                "today|C5-700": 23040,
+                "P|C10": 18810,
+                "P|C5-0": 16786,
+                "P|C5-150": 17386,
+                "P|C5-350": 18186,
+                "P|C5-500": 18786,
+                "P|C5-700": 19586
+              },
+              "ranks": {
+                "today|C10": 23,
+                "today|C5-0": 22,
+                "today|C5-150": 22,
+                "today|C5-350": 22,
+                "today|C5-500": 23,
+                "today|C5-700": 23,
+                "P|C10": 23,
+                "P|C5-0": 23,
+                "P|C5-150": 23,
+                "P|C5-350": 23,
+                "P|C5-500": 23,
+                "P|C5-700": 23
+              },
+              "originalRank": 23
+            },
+            {
+              "label": "run-019",
+              "finalWave": 10,
+              "automation": ["Hornets", "Roadrunner"],
+              "active": ["Flares"],
+              "original": 119848,
+              "scores": {
+                "today|C10": 119848,
+                "today|C5-0": 116640,
+                "today|C5-150": 117690,
+                "today|C5-350": 119090,
+                "today|C5-500": 120140,
+                "today|C5-700": 121540,
+                "P|C10": 107424,
+                "P|C5-0": 104516,
+                "P|C5-150": 105566,
+                "P|C5-350": 106966,
+                "P|C5-500": 108016,
+                "P|C5-700": 109416
+              },
+              "ranks": {
+                "today|C10": 2,
+                "today|C5-0": 1,
+                "today|C5-150": 1,
+                "today|C5-350": 1,
+                "today|C5-500": 1,
+                "today|C5-700": 1,
+                "P|C10": 2,
+                "P|C5-0": 1,
+                "P|C5-150": 1,
+                "P|C5-350": 1,
+                "P|C5-500": 1,
+                "P|C5-700": 1
+              },
+              "originalRank": 2
+            },
+            {
+              "label": "run-020",
+              "finalWave": 7,
+              "automation": ["Hornets", "Roadrunner"],
+              "active": ["EMP"],
+              "original": 57888,
+              "scores": {
+                "today|C10": 57888,
+                "today|C5-0": 45628,
+                "today|C5-150": 47278,
+                "today|C5-350": 49478,
+                "today|C5-500": 51128,
+                "today|C5-700": 53328,
+                "P|C10": 49110,
+                "P|C5-0": 41660,
+                "P|C5-150": 43310,
+                "P|C5-350": 45510,
+                "P|C5-500": 47160,
+                "P|C5-700": 49360
+              },
+              "ranks": {
+                "today|C10": 15,
+                "today|C5-0": 16,
+                "today|C5-150": 16,
+                "today|C5-350": 16,
+                "today|C5-500": 16,
+                "today|C5-700": 16,
+                "P|C10": 15,
+                "P|C5-0": 16,
+                "P|C5-150": 16,
+                "P|C5-350": 16,
+                "P|C5-500": 16,
+                "P|C5-700": 16
+              },
+              "originalRank": 15
+            },
+            {
+              "label": "run-021",
+              "finalWave": 8,
+              "automation": ["Hornets", "Patriot"],
+              "active": ["Flares"],
+              "original": 63844,
+              "scores": {
+                "today|C10": 63844,
+                "today|C5-0": 56690,
+                "today|C5-150": 58040,
+                "today|C5-350": 59840,
+                "today|C5-500": 61190,
+                "today|C5-700": 62990,
+                "P|C10": 56444,
+                "P|C5-0": 52284,
+                "P|C5-150": 53634,
+                "P|C5-350": 55434,
+                "P|C5-500": 56784,
+                "P|C5-700": 58584
+              },
+              "ranks": {
+                "today|C10": 12,
+                "today|C5-0": 12,
+                "today|C5-150": 12,
+                "today|C5-350": 12,
+                "today|C5-500": 12,
+                "today|C5-700": 12,
+                "P|C10": 12,
+                "P|C5-0": 12,
+                "P|C5-150": 12,
+                "P|C5-350": 12,
+                "P|C5-500": 12,
+                "P|C5-700": 12
+              },
+              "originalRank": 12
+            },
+            {
+              "label": "run-022",
+              "finalWave": 8,
+              "automation": ["Patriot", "Roadrunner", "Hornets"],
+              "active": ["Flares"],
+              "original": 58898,
+              "scores": {
+                "today|C10": 58898,
+                "today|C5-0": 56302,
+                "today|C5-150": 57052,
+                "today|C5-350": 58052,
+                "today|C5-500": 58802,
+                "today|C5-700": 59802,
+                "P|C10": 53358,
+                "P|C5-0": 51452,
+                "P|C5-150": 52202,
+                "P|C5-350": 53202,
+                "P|C5-500": 53952,
+                "P|C5-700": 54952
+              },
+              "ranks": {
+                "today|C10": 14,
+                "today|C5-0": 13,
+                "today|C5-150": 14,
+                "today|C5-350": 14,
+                "today|C5-500": 14,
+                "today|C5-700": 14,
+                "P|C10": 13,
+                "P|C5-0": 13,
+                "P|C5-150": 13,
+                "P|C5-350": 13,
+                "P|C5-500": 13,
+                "P|C5-700": 13
+              },
+              "originalRank": 14
+            },
+            {
+              "label": "run-023",
+              "finalWave": 10,
+              "automation": ["Hornets", "Patriot"],
+              "active": ["Flares"],
+              "original": 101326,
+              "scores": {
+                "today|C10": 101326,
+                "today|C5-0": 99074,
+                "today|C5-150": 99824,
+                "today|C5-350": 100824,
+                "today|C5-500": 101574,
+                "today|C5-700": 102574,
+                "P|C10": 90638,
+                "P|C5-0": 89086,
+                "P|C5-150": 89836,
+                "P|C5-350": 90836,
+                "P|C5-500": 91586,
+                "P|C5-700": 92586
+              },
+              "ranks": {
+                "today|C10": 6,
+                "today|C5-0": 5,
+                "today|C5-150": 5,
+                "today|C5-350": 5,
+                "today|C5-500": 5,
+                "today|C5-700": 5,
+                "P|C10": 5,
+                "P|C5-0": 5,
+                "P|C5-150": 5,
+                "P|C5-350": 5,
+                "P|C5-500": 5,
+                "P|C5-700": 5
+              },
+              "originalRank": 6
+            },
+            {
+              "label": "run-024",
+              "finalWave": 9,
+              "automation": ["Patriot", "Iron Beam"],
+              "active": ["F-15"],
+              "original": 83914,
+              "scores": {
+                "today|C10": 83914,
+                "today|C5-0": 76004,
+                "today|C5-150": 77504,
+                "today|C5-350": 79504,
+                "today|C5-500": 81004,
+                "today|C5-700": 83004,
+                "P|C10": 76518,
+                "P|C5-0": 71348,
+                "P|C5-150": 72848,
+                "P|C5-350": 74848,
+                "P|C5-500": 76348,
+                "P|C5-700": 78348
+              },
+              "ranks": {
+                "today|C10": 9,
+                "today|C5-0": 10,
+                "today|C5-150": 10,
+                "today|C5-350": 9,
+                "today|C5-500": 9,
+                "today|C5-700": 9,
+                "P|C10": 8,
+                "P|C5-0": 7,
+                "P|C5-150": 8,
+                "P|C5-350": 8,
+                "P|C5-500": 8,
+                "P|C5-700": 8
+              },
+              "originalRank": 9
+            },
+            {
+              "label": "run-025",
+              "finalWave": 6,
+              "automation": ["Patriot"],
+              "active": ["F-15"],
+              "original": 34112,
+              "scores": {
+                "today|C10": 34112,
+                "today|C5-0": 25846,
+                "today|C5-150": 26746,
+                "today|C5-350": 27946,
+                "today|C5-500": 28846,
+                "today|C5-700": 30046,
+                "P|C10": 30072,
+                "P|C5-0": 23850,
+                "P|C5-150": 24750,
+                "P|C5-350": 25950,
+                "P|C5-500": 26850,
+                "P|C5-700": 28050
+              },
+              "ranks": {
+                "today|C10": 20,
+                "today|C5-0": 21,
+                "today|C5-150": 21,
+                "today|C5-350": 21,
+                "today|C5-500": 21,
+                "today|C5-700": 21,
+                "P|C10": 20,
+                "P|C5-0": 21,
+                "P|C5-150": 21,
+                "P|C5-350": 21,
+                "P|C5-500": 21,
+                "P|C5-700": 21
+              },
+              "originalRank": 20
+            },
+            {
+              "label": "run-026",
+              "finalWave": 9,
+              "automation": ["Roadrunner", "Patriot"],
+              "active": ["F-15"],
+              "original": 79424,
+              "scores": {
+                "today|C10": 79424,
+                "today|C5-0": 77476,
+                "today|C5-150": 77926,
+                "today|C5-350": 78526,
+                "today|C5-500": 78976,
+                "today|C5-700": 79576,
+                "P|C10": 68686,
+                "P|C5-0": 67130,
+                "P|C5-150": 67580,
+                "P|C5-350": 68180,
+                "P|C5-500": 68630,
+                "P|C5-700": 69230
+              },
+              "ranks": {
+                "today|C10": 10,
+                "today|C5-0": 7,
+                "today|C5-150": 9,
+                "today|C5-350": 10,
+                "today|C5-500": 10,
+                "today|C5-700": 10,
+                "P|C10": 10,
+                "P|C5-0": 10,
+                "P|C5-150": 10,
+                "P|C5-350": 10,
+                "P|C5-500": 10,
+                "P|C5-700": 10
+              },
+              "originalRank": 10
+            }
+          ],
+          "byWave": [
+            {
+              "wave": 1,
+              "runs": 26,
+              "today": 52558,
+              "p": 52462,
+              "both": 55882,
+              "shots": 203,
+              "at10": 1,
+              "empty": 18,
+              "lostSurvived": 3,
+              "lostFinal": 0,
+              "completed": 26,
+              "shareToday": 0.6126564937783021,
+              "shareP": 0.6137775913994892
+            },
+            {
+              "wave": 2,
+              "runs": 26,
+              "today": 117190,
+              "p": 109762,
+              "both": 98308,
+              "shots": 298,
+              "at10": 111,
+              "empty": 31,
+              "lostSurvived": 0,
+              "lostFinal": 0,
+              "completed": 25,
+              "shareToday": 0.5332899625070621,
+              "shareP": 0.5675916984019971
+            },
+            {
+              "wave": 3,
+              "runs": 25,
+              "today": 147998,
+              "p": 134758,
+              "both": 126374,
+              "shots": 305,
+              "at10": 106,
+              "empty": 61,
+              "lostSurvived": 2,
+              "lostFinal": 0,
+              "completed": 25,
+              "shareToday": 0.6273733428830119,
+              "shareP": 0.6890128971934876
+            },
+            {
+              "wave": 4,
+              "runs": 25,
+              "today": 200910,
+              "p": 175616,
+              "both": 161286,
+              "shots": 350,
+              "at10": 93,
+              "empty": 79,
+              "lostSurvived": 6,
+              "lostFinal": 0,
+              "completed": 24,
+              "shareToday": 0.5837023118209713,
+              "shareP": 0.6670626399232421
+            },
+            {
+              "wave": 5,
+              "runs": 24,
+              "today": 228958,
+              "p": 193518,
+              "both": 184890,
+              "shots": 406,
+              "at10": 26,
+              "empty": 170,
+              "lostSurvived": 12,
+              "lostFinal": 4,
+              "completed": 21,
+              "shareToday": 0.5630630630630631,
+              "shareP": 0.6415013483286995
+            },
+            {
+              "wave": 6,
+              "runs": 21,
+              "today": 235532,
+              "p": 208546,
+              "both": 202346,
+              "shots": 557,
+              "at10": 15,
+              "empty": 258,
+              "lostSurvived": 10,
+              "lostFinal": 3,
+              "completed": 17,
+              "shareToday": 0.5208808035144643,
+              "shareP": 0.5846009063104164
+            },
+            {
+              "wave": 7,
+              "runs": 17,
+              "today": 242610,
+              "p": 213886,
+              "both": 209606,
+              "shots": 454,
+              "at10": 5,
+              "empty": 214,
+              "lostSurvived": 6,
+              "lostFinal": 2,
+              "completed": 15,
+              "shareToday": 0.48472322836323345,
+              "shareP": 0.5473908105715001
+            },
+            {
+              "wave": 8,
+              "runs": 15,
+              "today": 214366,
+              "p": 187868,
+              "both": 183548,
+              "shots": 391,
+              "at10": 0,
+              "empty": 222,
+              "lostSurvived": 2,
+              "lostFinal": 4,
+              "completed": 10,
+              "shareToday": 0.46550639547074857,
+              "shareP": 0.5165313292538216
+            },
+            {
+              "wave": 9,
+              "runs": 10,
+              "today": 162416,
+              "p": 136152,
+              "both": 135442,
+              "shots": 312,
+              "at10": 0,
+              "empty": 188,
+              "lostSurvived": 2,
+              "lostFinal": 1,
+              "completed": 5,
+              "shareToday": 0.4447939765870765,
+              "shareP": 0.5103047036781383
+            },
+            {
+              "wave": 10,
+              "runs": 5,
+              "today": 60886,
+              "p": 46162,
+              "both": 46082,
+              "shots": 118,
+              "at10": 0,
+              "empty": 67,
+              "lostSurvived": 0,
+              "lostFinal": 3,
+              "completed": 0,
+              "shareToday": null,
+              "shareP": null
+            }
+          ]
+        }
+      </script>
+      <script>
+        const D = JSON.parse(document.getElementById("data").textContent),
+          $ = (id) => document.getElementById(id);
+        const fmt = (n) => Math.round(n).toLocaleString("en-US"),
+          pct = (x) => (x > 0 ? "+" : x < 0 ? "−" : "") + Math.abs(x).toFixed(1) + "%",
+          signed = (n) => (n > 0 ? "+" : n < 0 ? "−" : "") + Math.abs(n);
+        function cell(tr, text, cls) {
+          const td = document.createElement("td");
+          td.textContent = text;
+          if (cls) td.className = cls;
+          tr.appendChild(td);
+          return td;
+        }
+        function renderRuns() {
+          const id = $("own").value + "|" + $("combo").value;
+          const rows = D.runs
+            .map((r) => ({
+              ...r,
+              v: r.scores[id],
+              c: (100 * (r.scores[id] - r.original)) / r.original,
+              m: r.originalRank - r.ranks[id],
+            }))
+            .sort((a, b) => a.c - b.c);
+          const total = rows.reduce((a, r) => a + r.v, 0),
+            orig = rows.reduce((a, r) => a + r.original, 0),
+            max = Math.max(1, ...rows.map((r) => Math.abs(r.c)));
+          $("selection").textContent =
+            "26 runs · " + fmt(orig) + " → " + fmt(total) + " points (" + pct((100 * (total - orig)) / orig) + ")";
+          const body = $("runs");
+          body.replaceChildren();
+          for (const r of rows) {
+            const tr = document.createElement("tr");
+            cell(tr, r.label);
+            const c = cell(tr, pct(r.c), "cellbar");
+            const b = document.createElement("span");
+            b.className = "bar" + (r.c < 0 ? " removed" : "");
+            b.style.width = Math.max(2, (100 * Math.abs(r.c)) / max) + "%";
+            c.appendChild(b);
+            cell(tr, fmt(r.original));
+            cell(tr, fmt(r.v));
+            cell(tr, r.m ? signed(r.m) : "0", r.m > 0 ? "up" : r.m < 0 ? "down" : "");
+            cell(tr, "wave " + r.finalWave);
+            cell(tr, r.automation.join(", ") || "—", "text");
+            cell(tr, r.active.join(", ") || "—", "text");
+            body.appendChild(tr);
+          }
+        }
+        function lineChart(el, series, opts) {
+          el.replaceChildren();
+          const k = Math.min(2.2, Math.max(1, 720 / Math.max(1, el.clientWidth))),
+            W = 720,
+            H = 260 + 40 * (k - 1),
+            L = 48 * k,
+            R = 16,
+            T = 14,
+            B = 34 * k,
+            xs = D.byWave.map((w) => w.wave),
+            lo = opts.min,
+            hi = opts.max;
+          const x = (i) => L + ((W - L - R) * i) / (xs.length - 1),
+            y = (v) => T + ((H - T - B) * (hi - v)) / (hi - lo);
+          const ns = "http://www.w3.org/2000/svg",
+            svg = document.createElementNS(ns, "svg");
+          svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+          const add = (tag, attrs, text) => {
+            const e = document.createElementNS(ns, tag);
+            for (const k in attrs) e.setAttribute(k, attrs[k]);
+            if (text != null) e.textContent = text;
+            svg.appendChild(e);
+            return e;
+          };
+          for (const v of opts.ticks) {
+            add("line", {
+              x1: L,
+              x2: W - R,
+              y1: y(v),
+              y2: y(v),
+              stroke: v === 0 ? "#4a5d74" : "#22324a",
+              "stroke-width": 1,
+            });
+            add(
+              "text",
+              { x: L - 8, y: y(v) + 4 * k, "text-anchor": "end", fill: "#8fa1b8", "font-size": 12 * k },
+              v + "%",
+            );
+          }
+          xs.forEach((w, i) =>
+            add(
+              "text",
+              { x: x(i), y: H - 12 * k, "text-anchor": "middle", fill: "#8fa1b8", "font-size": 12 * k },
+              (k > 1.6 ? "" : "W") + w,
+            ),
+          );
+          for (const s of series) {
+            add("polyline", {
+              points: s.values
+                .map((v, i) => (v == null ? null : x(i) + "," + y(v)))
+                .filter(Boolean)
+                .join(" "),
+              fill: "none",
+              stroke: s.color,
+              "stroke-width": 2 * k,
+              "stroke-linejoin": "round",
+            });
+            s.values.forEach((v, i) => {
+              if (v != null)
+                add("circle", {
+                  cx: x(i),
+                  cy: y(v),
+                  r: 4 * k,
+                  fill: s.color,
+                  stroke: "#111e30",
+                  "stroke-width": 2 * k,
+                });
+            });
+          }
+          const cross = add("line", { y1: T, y2: H - B, stroke: "#8fa1b8", "stroke-width": 1, opacity: 0 });
+          el.appendChild(svg);
+          const tip = document.createElement("div");
+          tip.className = "tip";
+          tip.hidden = true;
+          el.appendChild(tip);
+          const show = (i) => {
+            cross.setAttribute("x1", x(i));
+            cross.setAttribute("x2", x(i));
+            cross.setAttribute("opacity", 0.6);
+            tip.replaceChildren();
+            const h = document.createElement("div");
+            h.textContent = opts.header ? opts.header(i) : "Wave " + xs[i] + " · " + D.byWave[i].runs + " runs";
+            h.className = "muted";
+            tip.appendChild(h);
+            for (const s of series) {
+              const row = document.createElement("div");
+              const k = document.createElement("span");
+              k.className = "key";
+              k.style.background = s.color;
+              const b = document.createElement("b");
+              b.textContent = s.values[i] == null ? "—" : s.fmt(s.values[i]);
+              row.append(k, b, " " + s.name);
+              tip.appendChild(row);
+            }
+            tip.hidden = false;
+            const box = el.getBoundingClientRect(),
+              px = (x(i) / W) * box.width;
+            tip.style.left = Math.min(box.width - tip.offsetWidth, Math.max(0, px + 12)) + "px";
+            tip.style.top = "8px";
+          };
+          const hit = add("rect", {
+            x: L,
+            y: T,
+            width: W - L - R,
+            height: H - T - B,
+            fill: "transparent",
+            tabindex: 0,
+          });
+          const pick = (e) => {
+            const b = svg.getBoundingClientRect();
+            const px = ((e.clientX - b.left) / b.width) * W;
+            return Math.max(0, Math.min(xs.length - 1, Math.round(((px - L) / (W - L - R)) * (xs.length - 1))));
+          };
+          hit.addEventListener("pointermove", (e) => show(pick(e)));
+          hit.addEventListener("pointerleave", () => {
+            tip.hidden = true;
+            cross.setAttribute("opacity", 0);
+          });
+          let fi = 0;
+          hit.addEventListener("focus", () => show(fi));
+          hit.addEventListener("keydown", (e) => {
+            if (e.key === "ArrowRight") fi = Math.min(xs.length - 1, fi + 1);
+            else if (e.key === "ArrowLeft") fi = Math.max(0, fi - 1);
+            else return;
+            e.preventDefault();
+            show(fi);
+          });
+          hit.addEventListener("blur", () => {
+            tip.hidden = true;
+            cross.setAttribute("opacity", 0);
+          });
+        }
+        function barChart(el, series, opts) {
+          el.replaceChildren();
+          const k = Math.min(2.2, Math.max(1, 720 / Math.max(1, el.clientWidth))),
+            W = 720,
+            H = 240 + 40 * (k - 1),
+            L = 40 * k,
+            R = 16,
+            T = 14,
+            B = 34 * k,
+            n = D.byWave.length,
+            hi = opts.max;
+          const band = (W - L - R) / n,
+            bw = band * 0.56,
+            x = (i) => L + band * i + (band - bw) / 2,
+            y = (v) => T + ((H - T - B) * (hi - v)) / hi;
+          const ns = "http://www.w3.org/2000/svg",
+            svg = document.createElementNS(ns, "svg");
+          svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+          const add = (tag, attrs, text) => {
+            const e = document.createElementNS(ns, tag);
+            for (const a in attrs) e.setAttribute(a, attrs[a]);
+            if (text != null) e.textContent = text;
+            svg.appendChild(e);
+            return e;
+          };
+          for (const v of opts.ticks) {
+            add("line", {
+              x1: L,
+              x2: W - R,
+              y1: y(v),
+              y2: y(v),
+              stroke: v === 0 ? "#4a5d74" : "#22324a",
+              "stroke-width": 1,
+            });
+            add("text", { x: L - 8, y: y(v) + 4 * k, "text-anchor": "end", fill: "#8fa1b8", "font-size": 12 * k }, v);
+          }
+          const tip = document.createElement("div");
+          tip.className = "tip";
+          tip.hidden = true;
+          D.byWave.forEach((w, i) => {
+            add(
+              "text",
+              { x: x(i) + bw / 2, y: H - 12 * k, "text-anchor": "middle", fill: "#8fa1b8", "font-size": 12 * k },
+              (k > 1.6 ? "" : "W") + w.wave,
+            );
+            let base = 0;
+            const marks = [];
+            for (const s of series) {
+              const v = s.value(w);
+              if (v > 0) {
+                const top = y(base + v),
+                  bottom = y(base) - (base > 0 ? 2 : 0);
+                marks.push(
+                  add("rect", {
+                    x: x(i),
+                    y: top,
+                    width: bw,
+                    height: Math.max(1, bottom - top),
+                    fill: s.color,
+                    rx: Math.min(3, bw / 4),
+                  }),
+                );
+              }
+              base += v;
+            }
+            const total = series.reduce((a, s) => a + s.value(w), 0);
+            if (total > 0)
+              add(
+                "text",
+                {
+                  x: x(i) + bw / 2,
+                  y: y(total) - 6 * k,
+                  "text-anchor": "middle",
+                  fill: "#b5c4d8",
+                  "font-size": 12 * k,
+                },
+                total,
+              );
+            const hit = add("rect", {
+              x: L + band * i,
+              y: T,
+              width: band,
+              height: H - T - B,
+              fill: "transparent",
+              tabindex: 0,
+            });
+            const show = () => {
+              marks.forEach((m) => m.setAttribute("opacity", 0.8));
+              tip.replaceChildren();
+              const h = document.createElement("div");
+              h.className = "muted";
+              h.textContent = "Wave " + w.wave + " · " + w.runs + " runs played it";
+              tip.appendChild(h);
+              for (const s of series) {
+                const row = document.createElement("div"),
+                  key = document.createElement("span"),
+                  b = document.createElement("b");
+                key.className = "key rect";
+                key.style.background = s.color;
+                b.textContent = s.value(w);
+                row.append(key, b, " " + s.name);
+                tip.appendChild(row);
+              }
+              tip.hidden = false;
+              const box = el.getBoundingClientRect(),
+                px = ((x(i) + bw) / W) * box.width;
+              tip.style.left = Math.min(box.width - tip.offsetWidth, Math.max(0, px + 8)) + "px";
+              tip.style.top = "8px";
+            };
+            const hide = () => {
+              marks.forEach((m) => m.removeAttribute("opacity"));
+              tip.hidden = true;
+            };
+            hit.addEventListener("pointerenter", show);
+            hit.addEventListener("pointerleave", hide);
+            hit.addEventListener("focus", show);
+            hit.addEventListener("blur", hide);
+          });
+          el.appendChild(svg);
+          el.appendChild(tip);
+        }
+        const chg = (w, k) => (100 * (w[k] - w.today)) / w.today;
+        function charts() {
+          lineChart(
+            $("waveChart"),
+            [
+              { name: "rule 1", color: "var(--s1)", values: D.byWave.map((w) => chg(w, "p")), fmt: pct },
+              { name: "rules 1 + 2", color: "var(--s2)", values: D.byWave.map((w) => chg(w, "both")), fmt: pct },
+            ],
+            { min: -30, max: 10, ticks: [10, 0, -10, -20, -30] },
+          );
+          lineChart(
+            $("comboChart"),
+            [
+              {
+                name: "shots at ×10",
+                color: "var(--s1)",
+                values: D.byWave.map((w) => (100 * w.at10) / w.shots),
+                fmt: (v) => v.toFixed(0) + "%",
+              },
+              {
+                name: "empty shots",
+                color: "var(--s2)",
+                values: D.byWave.map((w) => (100 * w.empty) / w.shots),
+                fmt: (v) => v.toFixed(0) + "%",
+              },
+            ],
+            { min: 0, max: 70, ticks: [0, 20, 40, 60] },
+          );
+          barChart(
+            $("lossChart"),
+            [
+              { name: "in a wave the run survived", color: "var(--s1)", value: (w) => w.lostSurvived },
+              { name: "in the run's final wave", color: "var(--s2)", value: (w) => w.lostFinal },
+            ],
+            { max: 18, ticks: [0, 5, 10, 15] },
+          );
+          lineChart(
+            $("shareChart"),
+            [
+              {
+                name: "today",
+                color: "var(--s1)",
+                values: D.byWave.map((w) => (w.shareToday == null ? null : 100 * w.shareToday)),
+                fmt: (v) => v.toFixed(0) + "%",
+              },
+              {
+                name: "rule 1",
+                color: "var(--s2)",
+                values: D.byWave.map((w) => (w.shareP == null ? null : 100 * w.shareP)),
+                fmt: (v) => v.toFixed(0) + "%",
+              },
+            ],
+            {
+              min: 0,
+              max: 80,
+              ticks: [0, 20, 40, 60, 80],
+              header: (i) => "Wave " + D.byWave[i].wave + " · " + D.byWave[i].completed + " runs completed it",
+            },
+          );
+        }
+        charts();
+        let lastW = innerWidth;
+        addEventListener("resize", () => {
+          if (innerWidth !== lastW) {
+            lastW = innerWidth;
+            charts();
+          }
+        });
+        for (const id of ["own", "combo"]) $(id).addEventListener("change", renderRuns);
+        renderRuns();
+      </script>
+    </main>
+  </body>
+</html>

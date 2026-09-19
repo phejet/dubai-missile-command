@@ -1,14 +1,15 @@
 # Gameplay analysis — September 2026
 
-The five reports, in order:
+The six reports, in order:
 
 1. [Initial evidence and study design](gameplay-design-report.html).
 2. [Reward attribution](scoring-attribution-results.html).
 3. [Score-independent shooting quality](scoring-quality-results.html).
 4. [Matched progression and defense outcomes](scoring-progression-results.html).
 5. [Fixed-event scoring alternatives](scoring-rescoring-results.html).
+6. [Player-only points and combo cash-out](scoring-player-only-results.html).
 
-All five embed anonymous aggregate data and can be opened without the private
+All six embed anonymous aggregate data and can be opened without the private
 recordings. They document analysis, not a gameplay or roadmap change.
 
 ## Part three status
