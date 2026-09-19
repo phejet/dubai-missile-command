@@ -14,7 +14,8 @@ try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1100 } }),
     errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  await page.routeWebSocket(/.*/, (socket) => socket.close());
+  // Mock (never forward) Vite HMR sockets so a rebuild cannot reload the page mid-check.
+  await page.routeWebSocket(/.*/, () => {});
   const response = await page.goto(
     "http://127.0.0.1:5173/dubai-missile-command/docs/gameplay%20analysis%20Sep%202026/scoring-player-only-results.html",
   );

@@ -1,3 +1,4 @@
+import { addScore } from "./game-logic";
 import {
   cloneDestroyedByTypeStats,
   getDefenseSitePlacement,
@@ -186,7 +187,7 @@ function buyBurjRepair(g: GameState, free = false): boolean {
   if (level >= costs.length) return false;
   const cost = costs[level];
   if (!free && g.score < cost) return false;
-  if (!free) g.score -= cost;
+  if (!free) addScore(g, -cost, "spending");
   g.upgrades.burjRepair++;
   g.burjHealth = Math.min(7, g.burjHealth + 1);
   if (g.burjHealth > 0) g.burjAlive = true;
@@ -335,7 +336,7 @@ export function buyUpgrade(g: GameState, request: string): boolean {
   if (!node) return false;
   if (getActiveChoiceWaveLockReason(g, node)) return false;
   if (g.score < node.cost) return false;
-  g.score -= node.cost;
+  addScore(g, -node.cost, "spending");
   g.ownedUpgradeNodes.add(nodeId);
   applyNodeSideEffects(g, nodeId);
   return true;
@@ -377,7 +378,7 @@ export function repairSite(g: GameState, siteKey: string): boolean {
   if (g.score < cost) return false;
   const site = g.defenseSites.find((s) => s.key === siteKey && !s.alive);
   if (!site) return false;
-  g.score -= cost;
+  addScore(g, -cost, "spending");
   site.alive = true;
   return true;
 }
@@ -387,7 +388,7 @@ export function repairLauncher(g: GameState, index: number): boolean {
   const cost = repairCost(g.wave);
   if (g.score < cost) return false;
   if (g.launcherHP[index] > 0) return false;
-  g.score -= cost;
+  addScore(g, -cost, "spending");
   const baseHP = getLauncherMaxHp(g);
   g.launcherHP[index] = baseHP;
   syncFireChargeForTick(g, g._replayTick ?? 0);

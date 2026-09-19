@@ -5,10 +5,11 @@ import { join } from "node:path";
 import { gzipSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { buildReplayArchiveRecords } from "../src/replay-archive";
+import { CURRENT_REPLAY_VERSION } from "../src/replay-version";
 import type { ReplayData } from "../src/types";
 import { extractDiagnosticReplays } from "./extract-diagnostic-replays";
 
-const replay = (version = 11): ReplayData => ({
+const replay = (version = CURRENT_REPLAY_VERSION): ReplayData => ({
   version,
   seed: 7,
   actions: [],
@@ -48,7 +49,7 @@ describe("diagnostic replay extractor", () => {
 
     expect(report.malformedLines).toBe(1);
     expect(report.duplicateEnvelopeRecords).toBe(1);
-    expect(report.archives[0]).toMatchObject({ status: "playable", replayVersion: 11 });
+    expect(report.archives[0]).toMatchObject({ status: "playable", replayVersion: CURRENT_REPLAY_VERSION });
     expect(report.archives[0].outputFile).toMatch(/^b1-w3-s900-[a-f0-9]{16}\.json$/);
     const recovered = JSON.parse(await readFile(join(out, report.archives[0].outputFile!), "utf8"));
     expect(recovered).toEqual(replay());

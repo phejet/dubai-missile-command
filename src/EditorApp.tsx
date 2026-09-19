@@ -240,9 +240,9 @@ function createPlayScene() {
   const scene = createEditorScene();
   scene.explosions = [];
   scene.particles = [];
-  createExplosion(scene, 350, 350, 55, COL.explosion, false); // threat
-  createExplosion(scene, 700, 550, 74, COL.interceptor, true, 0); // interceptor
-  createExplosion(scene, 200, 200, 45, "#ff4400", false, 0, { chain: true }); // chain
+  createExplosion(scene, 350, 350, 55, COL.explosion, false, 0, { source: "impact" }); // threat
+  createExplosion(scene, 700, 550, 74, COL.interceptor, true, 0, { source: "player" }); // interceptor
+  createExplosion(scene, 200, 200, 45, "#ff4400", false, 0, { source: "impact", chain: true }); // chain
   scene.shakeTimer = 0;
   scene.shakeIntensity = 0;
   return scene;

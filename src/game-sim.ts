@@ -1,3 +1,4 @@
+import { addScore, awardKill, stepCombo, AUTOMATED_KILL_SOURCES, type ExplosionOptions } from "./game-logic";
 import {
   CANVAS_W,
   CANVAS_H,
@@ -33,7 +34,6 @@ import {
   getDestroyedByTypeDelta,
   normalizeGameStats,
   recordThreatDestroyed,
-  getKillReward,
   getMultiKillBonus,
   getRng,
   computeShahed136Path,
@@ -119,8 +119,8 @@ function boom(
   color: string,
   playerCaused: boolean,
   onEvent: SimEventSink | null | undefined,
-  initialRadius = 0,
-  options: Record<string, unknown> = {},
+  initialRadius: number,
+  options: ExplosionOptions,
 ) {
   createExplosion(g, x, y, radius, color, playerCaused, initialRadius, options);
   if (onEvent) {
@@ -203,11 +203,11 @@ function applyBurjHitDamage(
   if (onEvent) onEvent("sfx", { name: "burjHit" });
   if (g.burjHealth > 0) {
     // Survived the hit — impact-point blast, game continues. Game over only at 0 HP.
-    boom(g, x, y, 60, "#ff5500", false, onEvent, 30);
+    boom(g, x, y, 60, "#ff5500", false, onEvent, 30, { source: "impact" });
     return;
   }
   g.burjAlive = false;
-  boom(g, BURJ_X, CITY_Y - BURJ_H / 2, 90, "#ff2200", false, onEvent, 50);
+  boom(g, BURJ_X, CITY_Y - BURJ_H / 2, 90, "#ff2200", false, onEvent, 50, { source: "impact" });
   if (!g.gameOverTimer) {
     g.gameOverTimer = 60;
     if (g._laserHandle) {
@@ -344,6 +344,7 @@ export function initGame(): GameState {
     _waveSummaries: [],
     _waveSummaryRecorded: false,
     comboToast: null,
+    comboBonusToast: null,
     // Spawn commander + schedule
     commander,
     schedule: wave1.schedule,
@@ -1180,7 +1181,7 @@ function hornetRunOutOfFuel(g: GameState, h: Hornet, allThreats: Threat[], onEve
   const inBlast = allThreats.some((t) => t.alive && dist(t.x, t.y, h.x, h.y) < h.blastRadius);
   if (inBlast) {
     h.alive = false;
-    boom(g, h.x, h.y, h.blastRadius, COL.hornet, false, onEvent, h.blastRadius * 0.5);
+    boom(g, h.x, h.y, h.blastRadius, COL.hornet, false, onEvent, h.blastRadius * 0.5, { source: "hornets" });
     return;
   }
   enterHornetDying(g, h, "fuelOut", onEvent);
@@ -1250,7 +1251,7 @@ export function updateHornetFlight(
       // threats on screen it is visibly ignoring. Coasting on and going off does not.
       if (h.coastTicks > HORNET_COAST_MAX_TICKS) {
         h.alive = false;
-        boom(g, h.x, h.y, h.blastRadius, COL.hornet, false, onEvent, h.blastRadius * 0.5);
+        boom(g, h.x, h.y, h.blastRadius, COL.hornet, false, onEvent, h.blastRadius * 0.5, { source: "hornets" });
         return;
       }
       // No `allowBelow` here, deliberately. Letting a coasting hornet accept a target
@@ -1351,7 +1352,7 @@ export function updateHornetFlight(
     // to be assigned and does nothing, which reads as the warhead failing.
     if (d < HORNET_FUZE_RADIUS || allThreats.some((t) => t.alive && dist(t.x, t.y, h.x, h.y) < HORNET_FUZE_RADIUS)) {
       h.alive = false;
-      boom(g, h.x, h.y, h.blastRadius, COL.hornet, false, onEvent, h.blastRadius * 0.5);
+      boom(g, h.x, h.y, h.blastRadius, COL.hornet, false, onEvent, h.blastRadius * 0.5, { source: "hornets" });
       return;
     }
     pushHornetTrail(h);
@@ -1391,7 +1392,7 @@ export function updateRoadrunnerFlight(
     r.life -= dt;
     if (r.life <= 0) {
       r.alive = false;
-      boom(g, r.x, r.y, r.blastRadius, COL.roadrunner, false, onEvent, 15);
+      boom(g, r.x, r.y, r.blastRadius, COL.roadrunner, false, onEvent, 15, { source: "roadrunner" });
       return;
     }
     r.trail.push({ x: r.x, y: r.y });
@@ -1419,7 +1420,7 @@ export function updateRoadrunnerFlight(
       const d = Math.sqrt(dx * dx + dy * dy);
       if (d < 15) {
         r.alive = false;
-        boom(g, rTarget.x, rTarget.y, r.blastRadius, COL.roadrunner, false, onEvent, 15);
+        boom(g, rTarget.x, rTarget.y, r.blastRadius, COL.roadrunner, false, onEvent, 15, { source: "roadrunner" });
         return;
       }
       // Lead the target slightly
@@ -1435,7 +1436,7 @@ export function updateRoadrunnerFlight(
       r.y += Math.sin(r.heading) * r.speed * dt;
       if (r.y >= GAMEPLAY_WATERLINE_Y) {
         r.alive = false;
-        boom(g, r.x, GAMEPLAY_WATERLINE_Y, r.blastRadius, COL.roadrunner, false, onEvent, 15);
+        boom(g, r.x, GAMEPLAY_WATERLINE_Y, r.blastRadius, COL.roadrunner, false, onEvent, 15, { source: "roadrunner" });
         return;
       }
     }
@@ -1576,7 +1577,7 @@ export function updateAutoSystems(g: GameState, dt: number, allThreats: Threat[]
     destroyThreat: (state, threat) => {
       if (!threat.alive) return;
       threat.alive = false;
-      state.score += getKillReward(threat) * state.combo;
+      awardKill(state, threat, "flare");
       recordThreatDestroyed(state, threat);
     },
     recordNeutralized: recordThreatDestroyed,
@@ -1617,7 +1618,7 @@ export function updateAutoSystems(g: GameState, dt: number, allThreats: Threat[]
             maxLife: 20,
             targetRef: t,
           });
-          damageTarget(g, t, t.type === "drone" ? 2 : 1, COL.laser, t.type === "drone" ? 20 : 15);
+          damageTarget(g, t, t.type === "drone" ? 2 : 1, COL.laser, t.type === "drone" ? 20 : 15, "ironBeam");
         }
         g.ironBeamTimer = 0;
         if (!g._laserHandle) {
@@ -1673,7 +1674,7 @@ export function updateAutoSystems(g: GameState, dt: number, allThreats: Threat[]
     b.cx = b.x + ((b.tx ?? b.x) - b.x) * progress;
     b.cy = b.y + ((b.ty ?? b.y) - b.y) * progress;
     if (b.life <= 0 && b.hit && b.targetRef?.alive) {
-      damageTarget(g, b.targetRef, 1, COL.phalanx, b.targetRef.type === "drone" ? 15 : 12);
+      damageTarget(g, b.targetRef, 1, COL.phalanx, b.targetRef.type === "drone" ? 15 : 12, "phalanx");
     }
   });
   g.phalanxBullets = g.phalanxBullets.filter((b) => b.life > 0);
@@ -1686,7 +1687,8 @@ export function updateAutoSystems(g: GameState, dt: number, allThreats: Threat[]
     isSiteAlive(g, "patriot"),
     isBurjImpactTarget,
     onEvent,
-    (x, y, radius, initialRadius) => boom(g, x, y, radius, COL.patriot, false, onEvent, initialRadius),
+    (x, y, radius, initialRadius) =>
+      boom(g, x, y, radius, COL.patriot, false, onEvent, initialRadius, { source: "patriot" }),
   );
 
   // ── EMP SHOCKWAVE ── (charging is handled in update() before waveComplete check)
@@ -1738,7 +1740,7 @@ function updateMissiles(g: GameState, dt: number, onEvent?: SimEventSink | null)
           _hitByExplosions: new Set(),
         });
       }
-      boom(g, m.x, m.y, 35, COL.mirv, false, onEvent, 0, { harmless: true });
+      boom(g, m.x, m.y, 35, COL.mirv, false, onEvent, 0, { source: "impact", harmless: true });
       if (onEvent) onEvent("sfx", { name: "mirvSplit" });
       return;
     }
@@ -1778,13 +1780,13 @@ function updateMissiles(g: GameState, dt: number, onEvent?: SimEventSink | null)
           _hitByExplosions: new Set(),
         });
       }
-      boom(g, m.x, m.y, 18, "#ffb36b", false, onEvent, 0, { harmless: true });
+      boom(g, m.x, m.y, 18, "#ffb36b", false, onEvent, 0, { source: "impact", harmless: true });
       if (onEvent) onEvent("sfx", { name: "mirvSplit" });
     }
     // Burj collision — tower body only; the pedestal remains a ground hit.
     if (m.alive && hitsBurjBody(g, m.x, m.y)) {
       m.alive = false;
-      boom(g, m.x, m.y, 55, "#ff4400", false, onEvent, 30);
+      boom(g, m.x, m.y, 55, "#ff4400", false, onEvent, 30, { source: "impact" });
       applyShake(g, 10, 4);
       applyBurjHitDamage(g, m.x, m.y, "missile", onEvent);
     }
@@ -1795,7 +1797,7 @@ function updateMissiles(g: GameState, dt: number, onEvent?: SimEventSink | null)
         const bounds = getGameplayBuildingBounds(b);
         if (m.x >= bounds.left && m.x <= bounds.right && m.y >= bounds.top && m.y <= bounds.bottom) {
           m.alive = false;
-          boom(g, m.x, m.y, 40, "#ff4400", false, onEvent, 20);
+          boom(g, m.x, m.y, 40, "#ff4400", false, onEvent, 20, { source: "impact" });
           b.alive = false;
           addBuildingDestroyFx(g, b);
         }
@@ -1812,7 +1814,7 @@ function updateMissiles(g: GameState, dt: number, onEvent?: SimEventSink | null)
         ) {
           m.alive = false;
           destroyDefenseSite(g, site);
-          boom(g, m.x, m.y, 60, "#ff4400", false, onEvent, 30);
+          boom(g, m.x, m.y, 60, "#ff4400", false, onEvent, 30, { source: "impact" });
           applyShake(g, 12, 5);
         }
       });
@@ -1823,7 +1825,7 @@ function updateMissiles(g: GameState, dt: number, onEvent?: SimEventSink | null)
         const l = getGameplayLauncherPosition(i);
         if (g.launcherHP[i] > 0 && m.alive && Math.abs(m.x - l.x) < 45 && m.y >= l.y - 36) {
           m.alive = false;
-          boom(g, m.x, m.y, 50, "#ff4400", false, onEvent, 25);
+          boom(g, m.x, m.y, 50, "#ff4400", false, onEvent, 25, { source: "impact" });
           applyShake(g, 10, 4);
           if (!g._debugMode) {
             g.launcherHP[i]--;
@@ -1838,7 +1840,7 @@ function updateMissiles(g: GameState, dt: number, onEvent?: SimEventSink | null)
     // Ground impact — never damages the Burj; body hits are handled above
     if (m.alive && m.y >= GAMEPLAY_WATERLINE_Y) {
       m.alive = false;
-      boom(g, m.x, GAMEPLAY_WATERLINE_Y, 50, "#ff4400", false, onEvent, 25);
+      boom(g, m.x, GAMEPLAY_WATERLINE_Y, 50, "#ff4400", false, onEvent, 25, { source: "impact" });
     }
     if (m.x < -50 || m.x > CANVAS_W + 50 || m.y > CANVAS_H + 50) m.alive = false;
   });
@@ -1957,7 +1959,7 @@ function updateDrones(g: GameState, _rng: () => number, dt: number, onEvent?: Si
     // Burj collision — tower body only; the pedestal remains a ground hit.
     if (d.alive && hitsBurjBody(g, d.x, d.y)) {
       d.alive = false;
-      boom(g, d.x, d.y, 70, "#ff6600", false, onEvent, 40);
+      boom(g, d.x, d.y, 70, "#ff6600", false, onEvent, 40, { source: "impact" });
       applyShake(g, 15, 6);
       applyBurjHitDamage(g, d.x, d.y, "drone", onEvent);
     }
@@ -1972,7 +1974,7 @@ function updateDrones(g: GameState, _rng: () => number, dt: number, onEvent?: Si
         // damages the Burj — a dive ending on the ground stays a ground hit
         const targetIsBurj = isBurjDiveTarget(g, d);
         d.alive = false;
-        boom(g, d.x, impactY, 70, "#ff6600", false, onEvent, 40);
+        boom(g, d.x, impactY, 70, "#ff6600", false, onEvent, 40, { source: "impact" });
         applyShake(g, 15, 6);
         if (targetIsBurj && (hitTarget || pathDone)) {
           applyBurjHitDamage(g, d.x, Math.min(impactY, getGameplayBurjCollisionBottom(2)), "drone", onEvent);
@@ -2129,7 +2131,7 @@ function updateInterceptors(g: GameState, dt: number, onEvent?: SimEventSink | n
     if (detonate) {
       ic.alive = false;
       if (ic.fromF15) {
-        boom(g, ic.x, ic.y, 30, "#aaccff", false, onEvent);
+        boom(g, ic.x, ic.y, 30, "#aaccff", false, onEvent, 0, { source: "f15" });
       } else {
         boom(
           g,
@@ -2140,6 +2142,7 @@ function updateInterceptors(g: GameState, dt: number, onEvent?: SimEventSink | n
           true,
           onEvent,
           INTERCEPTOR_PLAYER_BLAST_RADIUS,
+          { source: "player", intendedTargets: ic.intendedTargets },
         );
       }
     }
@@ -2163,6 +2166,17 @@ function updateExplosions(g: GameState, dt: number, onEvent?: SimEventSink | nul
     }
     if ((ex.heroPulse ?? 0) > 0) ex.heroPulse = Math.max(0, (ex.heroPulse ?? 0) - 0.06 * dt);
     if ((ex.linkAlpha ?? 0) > 0) ex.linkAlpha = Math.max(0, (ex.linkAlpha ?? 0) - 0.09 * dt);
+    if (
+      ex.alpha <= 0.2 &&
+      ex.playerCaused &&
+      ex.rootExplosionId === null &&
+      ex.intendedTargets &&
+      ex._holdEligible === undefined
+    ) {
+      ex._holdEligible =
+        (ex.kills ?? 0) === 0 &&
+        ex.intendedTargets.some((t) => !t.alive && t.killedBy !== undefined && AUTOMATED_KILL_SOURCES.has(t.killedBy));
+    }
     if (ex.alpha > 0.2 && !ex.harmless) {
       if (!ex.kills) ex.kills = 0;
       // For chain explosions, find the root explosion to aggregate kills
@@ -2176,7 +2190,7 @@ function updateExplosions(g: GameState, dt: number, onEvent?: SimEventSink | nul
             m.health = (m.health ?? 1) - 1;
             if ((m.health ?? 0) <= 0) {
               m.alive = false;
-              g.score += getKillReward(m) * g.combo;
+              awardKill(g, m, ex.source);
               recordThreatDestroyed(g, m);
               rootEx.kills = (rootEx.kills ?? 0) + 1;
               rootEx.heroPulse = Math.min(1.6, 0.65 + (rootEx.kills ?? 0) * 0.18);
@@ -2190,6 +2204,7 @@ function updateExplosions(g: GameState, dt: number, onEvent?: SimEventSink | nul
                 onEvent,
                 PLAYER_CHAIN_EXPLOSION_RADIUS,
                 {
+                  source: ex.source,
                   chain: true,
                   chainLevel: (ex.chainLevel ?? 0) + 1,
                   rootExplosionId: rootEx.id,
@@ -2203,7 +2218,7 @@ function updateExplosions(g: GameState, dt: number, onEvent?: SimEventSink | nul
           }
         } else if (dist(m.x, m.y, ex.x, ex.y) < ex.maxRadius) {
           m.alive = false;
-          g.score += getKillReward(m) * g.combo;
+          awardKill(g, m, ex.source);
           recordThreatDestroyed(g, m);
           rootEx.kills = (rootEx.kills ?? 0) + 1;
           rootEx.heroPulse = Math.min(1.6, 0.65 + (rootEx.kills ?? 0) * 0.18);
@@ -2217,6 +2232,7 @@ function updateExplosions(g: GameState, dt: number, onEvent?: SimEventSink | nul
             onEvent,
             PLAYER_CHAIN_EXPLOSION_RADIUS,
             {
+              source: ex.source,
               chain: true,
               chainLevel: (ex.chainLevel ?? 0) + 1,
               rootExplosionId: rootEx.id,
@@ -2234,7 +2250,7 @@ function updateExplosions(g: GameState, dt: number, onEvent?: SimEventSink | nul
           d.health--;
           if (d.health <= 0) {
             d.alive = false;
-            g.score += getKillReward(d) * g.combo;
+            awardKill(g, d, ex.source);
             recordThreatDestroyed(g, d);
             rootEx.kills = (rootEx.kills ?? 0) + 1;
             rootEx.heroPulse = Math.min(1.6, 0.65 + (rootEx.kills ?? 0) * 0.18);
@@ -2248,6 +2264,7 @@ function updateExplosions(g: GameState, dt: number, onEvent?: SimEventSink | nul
               onEvent,
               PLAYER_CHAIN_EXPLOSION_RADIUS,
               {
+                source: ex.source,
                 chain: true,
                 chainLevel: (ex.chainLevel ?? 0) + 1,
                 rootExplosionId: rootEx.id,
@@ -2270,7 +2287,7 @@ function updateExplosions(g: GameState, dt: number, onEvent?: SimEventSink | nul
         }
         const bonus = getMultiKillBonus(ex.kills ?? 0);
         const label = ex.kills === 2 ? "DOUBLE KILL" : ex.kills === 3 ? "TRIPLE KILL" : "MEGA KILL";
-        g.score += bonus;
+        addScore(g, bonus, "multi", ex.source);
         g.multiKillToast = { label, bonus, kills: ex.kills, x: ex.x, y: ex.y, timer: 90, pulse: 1 };
         ex.heroPulse = Math.max(ex.heroPulse ?? 0, 1.2);
         applyShake(g, 10 + (ex.kills ?? 0) * 2, 4 + (ex.kills ?? 0));
@@ -2283,7 +2300,7 @@ function updateExplosions(g: GameState, dt: number, onEvent?: SimEventSink | nul
       if ((ex.kills ?? 0) > prevKills) {
         const oldBonus = getMultiKillBonus(prevKills);
         const newBonus = getMultiKillBonus(ex.kills ?? 0);
-        g.score += newBonus - oldBonus;
+        addScore(g, newBonus - oldBonus, "multi", ex.source);
         const label = ex.kills === 2 ? "DOUBLE KILL" : ex.kills === 3 ? "TRIPLE KILL" : "MEGA KILL";
         g.multiKillToast = { label, bonus: newBonus, kills: ex.kills, x: ex.x, y: ex.y, timer: 90, pulse: 1 };
         ex.heroPulse = Math.max(ex.heroPulse ?? 0, 1.25);
@@ -2295,25 +2312,27 @@ function updateExplosions(g: GameState, dt: number, onEvent?: SimEventSink | nul
   });
 }
 
-function processRootExplosionCombo(g: GameState, forceFinalKills = false): void {
+function processRootExplosionCombo(g: GameState, forceFinalKills: boolean, onEvent?: SimEventSink | null): void {
   g.explosions.forEach((ex) => {
     if (ex._comboProcessed || !ex.playerCaused || ex.rootExplosionId !== null) return;
     const kills = ex.kills ?? 0;
     if (forceFinalKills && kills < 1) return;
     if (!forceFinalKills && ex.alpha > 0) return;
     ex._comboProcessed = true;
-    if (kills >= 1) {
-      const next = Math.min(10, g.combo + 1);
-      if (next > g.combo) {
-        g.comboToast = { multiplier: next, timer: 70, x: ex.x, y: ex.y - 20, pulse: 1 };
-      }
-      g.combo = next;
-      g._waveMaxCombo = Math.max(g._waveMaxCombo ?? 1, g.combo);
-      g.stats = normalizeGameStats(g.stats);
-      g.stats.maxCombo = Math.max(g.stats.maxCombo, g.combo);
-    } else {
-      g.combo = 1;
+    const outcome = kills >= 1 ? "hit" : ex.source === "flare" || ex._holdEligible === true ? "hold" : "miss";
+    const next = stepCombo(g.combo, outcome);
+    if (next.cashout) {
+      addScore(g, next.bonus, "cashout", ex.source);
+      g.comboBonusToast = { bonus: next.bonus, x: ex.x, y: ex.y - 20, timer: 90, pulse: 1 };
+      g.comboToast = null;
+      onEvent?.("sfx", { name: "multiKill" });
+    } else if (next.combo > g.combo) {
+      g.comboToast = { multiplier: next.combo, timer: 70, x: ex.x, y: ex.y - 20, pulse: 1 };
     }
+    g.combo = next.combo;
+    g._waveMaxCombo = Math.max(g._waveMaxCombo ?? 1, g.combo);
+    g.stats = normalizeGameStats(g.stats);
+    g.stats.maxCombo = Math.max(g.stats.maxCombo, g.combo);
   });
 }
 
@@ -2386,8 +2405,8 @@ function updatePlanes(g: GameState, dt: number, allThreats: Threat[], onEvent?: 
       if (p.alive && dist(ic.x, ic.y, p.x, p.y) < 18) {
         ic.alive = false;
         p.alive = false;
-        g.score -= 500;
-        boom(g, p.x, p.y, 40, "#ff0000", false, onEvent);
+        addScore(g, -500, "friendly_fire", "friendlyFire");
+        boom(g, p.x, p.y, 40, "#ff0000", false, onEvent, 0, { source: "friendlyFire" });
       }
     });
     if (p.x < -80 || p.x > CANVAS_W + 80) p.alive = false;
@@ -2431,7 +2450,7 @@ function updateHaltedSimVisuals(g: GameState, dt: number, onEvent?: SimEventSink
   updateHornetFlight(g, dt, [], onEvent);
   updateRoadrunnerFlight(g, dt, [], onEvent);
   updatePatriotFlight(g, dt, [], (x, y, radius, initialRadius) =>
-    boom(g, x, y, radius, COL.patriot, false, onEvent, initialRadius),
+    boom(g, x, y, radius, COL.patriot, false, onEvent, initialRadius, { source: "patriot" }),
   );
   updateBurjFireParticles(g, dt);
   updateParticleVisuals(g, dt);
@@ -2453,7 +2472,7 @@ function startWaveBonus(g: GameState, onEvent?: SimEventSink | null): void {
   if (g._bonusScreenStarted) return;
   g._bonusScreenStarted = true;
   if (g.burjAlive) {
-    processRootExplosionCombo(g, true);
+    processRootExplosionCombo(g, true, onEvent);
     g.stats = normalizeGameStats(g.stats);
   }
   if (g.burjAlive && onEvent) {
@@ -2506,6 +2525,11 @@ export function update(g: GameState, dt: number, onEvent?: SimEventSink | null) 
       g.multiKillToast.pulse = Math.max(0, (g.multiKillToast.pulse ?? 0) - 0.08 * dt);
     }
     if (g.multiKillToast.timer <= 0) g.multiKillToast = null;
+  }
+  if (g.comboBonusToast) {
+    g.comboBonusToast.timer -= dt;
+    g.comboBonusToast.pulse = Math.max(0, g.comboBonusToast.pulse - 0.08 * dt);
+    if (g.comboBonusToast.timer <= 0) g.comboBonusToast = null;
   }
   if (g.comboToast) {
     g.comboToast.timer -= dt;
@@ -2580,9 +2604,9 @@ export function update(g: GameState, dt: number, onEvent?: SimEventSink | null) 
     g._waveSummaryRecorded = false;
     g.shopOpened = false;
     g.waveClearedTimer = 120;
-    g.score += 250 * g.wave;
+    addScore(g, 250 * g.wave, "wave_clear");
     retireHornetsOnWaveComplete(g, onEvent);
-    processRootExplosionCombo(g, true);
+    processRootExplosionCombo(g, true, onEvent);
     g.stats = normalizeGameStats(g.stats);
     if (onEvent) {
       onEvent("sfx", { name: "waveCleared" });
@@ -2622,7 +2646,7 @@ export function update(g: GameState, dt: number, onEvent?: SimEventSink | null) 
   updateParticleVisuals(g, dt);
 
   // Combo: check dying player-caused root explosions
-  processRootExplosionCombo(g);
+  processRootExplosionCombo(g, false, onEvent);
 
   // PERF: This allocates six fresh arrays every tick. Keep the current filter
   // order for determinism; a future mark-and-sweep pass should preserve entity

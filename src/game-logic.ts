@@ -1,3 +1,4 @@
+import type { KillSource, ScoreKind } from "./types";
 import {
   DESTROYED_TYPE_KEYS,
   shahed136HasDive,
@@ -607,7 +608,13 @@ export function ov<T>(key: OverrideKey, fallback: T): T {
   return (overrides && key in overrides ? overrides[key] : fallback) as T;
 }
 
-interface ExplosionOptions {
+export interface ExplosionOptions {
+  source: KillSource;
+  intendedTargets?: Threat[];
+  chainLevel?: number;
+  linkFromX?: number;
+  linkFromY?: number;
+  linkAlpha?: number;
   harmless?: boolean;
   chain?: boolean;
   rootExplosionId?: number | null;
@@ -620,9 +627,9 @@ export function createExplosion(
   y: number,
   radius: number,
   color: string | null | undefined,
-  playerCaused?: boolean,
-  initialRadius = 0,
-  options: ExplosionOptions = {},
+  playerCaused: boolean,
+  initialRadius: number,
+  options: ExplosionOptions,
 ): void {
   const id = g.nextExplosionId++;
   g.explosions.push({
@@ -634,6 +641,8 @@ export function createExplosion(
     growing: true,
     alpha: 1,
     color: color || COL.explosion,
+    source: options.source,
+    intendedTargets: options.intendedTargets,
     playerCaused: !!playerCaused,
     harmless: !!options.harmless,
     chain: !!options.chain,
@@ -830,6 +839,45 @@ export function getPhalanxTurrets(level: number): { x: number; y: number }[] {
   if (level >= 2) turrets.push({ x: 860, y: 1504 });
   if (level >= 3) turrets.push({ x: 59, y: GROUND_Y - 30 });
   return turrets;
+}
+
+export const COMBO_CAP = 5;
+export const COMBO_CASHOUT_BONUS = 1000;
+export const PLAYER_KILL_SOURCES: ReadonlySet<KillSource> = new Set(["player", "f15", "emp", "flare"]);
+export const AUTOMATED_KILL_SOURCES: ReadonlySet<KillSource> = new Set([
+  "hornets",
+  "roadrunner",
+  "patriot",
+  "ironBeam",
+  "phalanx",
+]);
+export interface ScoreAuditEntry {
+  amount: number;
+  kind: ScoreKind;
+  source?: KillSource;
+  wave: number;
+  combo: number;
+  base?: number;
+}
+let scoreAuditSink: ((entry: ScoreAuditEntry) => void) | null = null;
+export function setScoreAuditSink(sink: typeof scoreAuditSink): void {
+  scoreAuditSink = sink;
+}
+export function addScore(g: GameState, amount: number, kind: ScoreKind, source?: KillSource, base?: number): void {
+  g.score += amount;
+  scoreAuditSink?.({ amount, kind, source, wave: g.wave, combo: g.combo, base });
+}
+export function awardKill(g: GameState, target: Threat, source: KillSource): void {
+  target.killedBy = source;
+  const base = getKillReward(target);
+  addScore(g, PLAYER_KILL_SOURCES.has(source) ? base * g.combo : 0, "kill", source, base);
+}
+export function stepCombo(combo: number, outcome: "hit" | "miss" | "hold") {
+  if (outcome === "hold") return { combo, bonus: 0, cashout: false };
+  if (outcome === "miss") return { combo: 1, bonus: 0, cashout: false };
+  return combo >= COMBO_CAP
+    ? { combo: 1, bonus: COMBO_CASHOUT_BONUS, cashout: true }
+    : { combo: combo + 1, bonus: 0, cashout: false };
 }
 
 export function getKillReward(target: Threat): number {
@@ -1061,29 +1109,32 @@ export function damageTarget(
   damage: number,
   color: string,
   radius: number,
+  source: KillSource,
   { noExplosion = false } = {},
 ): void {
   if (target.type === "drone") {
     target.health -= damage;
     if (target.health <= 0) {
       target.alive = false;
-      g.score += getKillReward(target) * g.combo;
+      awardKill(g, target, source);
       recordThreatDestroyed(g, target);
-      if (!noExplosion) createExplosion(g, target.x, target.y, radius, color, false, 0, { visualType: "drone" });
+      if (!noExplosion)
+        createExplosion(g, target.x, target.y, radius, color, false, 0, { source, visualType: "drone" });
     }
   } else if (target.type === "mirv") {
     (target as { health: number }).health -= damage;
     if ((target as { health: number }).health <= 0) {
       target.alive = false;
-      g.score += getKillReward(target) * g.combo;
+      awardKill(g, target, source);
       recordThreatDestroyed(g, target);
-      if (!noExplosion) createExplosion(g, target.x, target.y, 60, color, false, 0, { visualType: "missile" });
+      if (!noExplosion) createExplosion(g, target.x, target.y, 60, color, false, 0, { source, visualType: "missile" });
     }
   } else {
     target.alive = false;
-    g.score += getKillReward(target) * g.combo;
+    awardKill(g, target, source);
     recordThreatDestroyed(g, target);
-    if (!noExplosion) createExplosion(g, target.x, target.y, radius, color, false, 0, { visualType: "missile" });
+    if (!noExplosion)
+      createExplosion(g, target.x, target.y, radius, color, false, 0, { source, visualType: "missile" });
   }
 }
 

@@ -35,6 +35,7 @@ This folder holds repo-specific notes for future maintenance, not player-facing 
 - [`rm-06-cross-build-telemetry-analysis-plan.md`](./rm-06-cross-build-telemetry-analysis-plan.md) — implementation contract and Staging smoke evidence for reproducible, privacy-minimised comparisons across human-play build cohorts and deterministic anomaly handoff to RM-08.
 - [`privacy-and-manual-deletion.md`](./privacy-and-manual-deletion.md) — operator runbook for verified run/install deletion requests, durable job recovery, credential revocation, and redacted completion evidence.
 - [`replay-divergence-root-cause-plan.md`](./replay-divergence-root-cause-plan.md) — proven root cause of human-replay divergence at the wave-end boundary, plus the phased fix/diagnostic/guard plan.
+- [`player-only-scoring-plan.md`](./player-only-scoring-plan.md) — implementation plan, awaiting validation: automation earns no kill points, ×5 combo cash-out (+1,000 popup), and no combo reset for empty shots the player could not prevent.
 - [`hornet-blast-investigation-2026-07-26.md`](./hornet-blast-investigation-2026-07-26.md) — investigation log for the hornet rework and the explosion damage-model fix: replay-instrumented findings, the hypotheses that were disproved (including two probe artifacts and a wrong balance prediction), and why explosion damage no longer uses the growth animation.
 
 ## Tooling And Workflow

@@ -863,3 +863,11 @@ in the state) rather than defending the old one.
 ## 2026-09-19 — Check the economy mode before claiming counterfactual limits
 
 - All recorded study replays are draft mode (`draftMode: true`): wave-end picks are free and score never feeds back into play. Read the replay header and purchase path before claiming points drove purchases; in draft corpora, rescoring the fixed event ledger is exact, not hypothetical affordability.
+
+## 2026-09-19 — Separate a component's size from how much play moves it
+
+- I called the building bonus unimportant while also reporting it as 37.5% of points. Say which quantity is meant: a bonus can be large in total (paid on every survived wave) yet vary little between runs (only lost buildings differ). Report both, with a worked example, rather than a verdict like "barely matters".
+
+## 2026-09-19 — Respect a separate verification handoff
+
+- When the user assigns review and checks to another model, implement and run only focused sanity checks; document remaining verification rather than executing the full suite.

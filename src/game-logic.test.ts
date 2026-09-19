@@ -376,7 +376,7 @@ describe("fireInterceptor", () => {
 describe("createExplosion", () => {
   it("pushes explosion with correct properties", () => {
     const g = makeGameState();
-    createExplosion(g, 100, 200, 30, "#ff0000", true);
+    createExplosion(g, 100, 200, 30, "#ff0000", true, 0, { source: "player" });
     expect(g.explosions).toHaveLength(1);
     const ex = g.explosions[0];
     expect(ex.x).toBe(100);
@@ -391,13 +391,13 @@ describe("createExplosion", () => {
 
   it("creates 40 particles (10 dots + 16 debris + 14 sparks) for threat explosion", () => {
     const g = makeGameState();
-    createExplosion(g, 100, 200, 30, "#ff0000");
+    createExplosion(g, 100, 200, 30, "#ff0000", false, 0, { source: "impact" });
     expect(g.particles).toHaveLength(40);
   });
 
   it("uses textured white smoke puffs for interceptor explosions", () => {
     const g = makeGameState();
-    createExplosion(g, 100, 200, 30, COL.interceptor, true);
+    createExplosion(g, 100, 200, 30, COL.interceptor, true, 0, { source: "player" });
 
     const smoke = g.particles.filter((particle) => particle.type === "smokePuff");
 
@@ -416,7 +416,7 @@ describe("createExplosion", () => {
     });
 
     try {
-      createExplosion(g, 100, 200, 30, COL.interceptor, true);
+      createExplosion(g, 100, 200, 30, COL.interceptor, true, 0, { source: "player" });
       expect(calls).toBe(70);
     } finally {
       setRng(Math.random);
@@ -425,7 +425,7 @@ describe("createExplosion", () => {
 
   it("uses textured explosion puffs for drone death explosions", () => {
     const g = makeGameState();
-    createExplosion(g, 100, 200, 30, "#ff8800", false, 0, { visualType: "drone" });
+    createExplosion(g, 100, 200, 30, "#ff8800", false, 0, { source: "impact", visualType: "drone" });
 
     const explosionPuffs = g.particles.filter((particle) => particle.type === "explosionPuff");
 

@@ -1,3 +1,4 @@
+import { addScore } from "../game-logic";
 import { assertNoEditorOverridesForDeterministicRun, setRng, fireInterceptor } from "../game-logic";
 import {
   initGame,
@@ -75,7 +76,11 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
   const onSimEvent = isHuman
     ? (((type, data) => {
         if (type === "waveBonusStart") {
-          g.score += getBuildingSurvivalBonus(data as import("../types").SimEventMap["waveBonusStart"]);
+          addScore(
+            g,
+            getBuildingSurvivalBonus(data as import("../types").SimEventMap["waveBonusStart"]),
+            "building_bonus",
+          );
         }
       }) satisfies import("../types").SimEventSink)
     : null;

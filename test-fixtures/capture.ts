@@ -1,10 +1,11 @@
 import { serializedBytes, type CaptureSummary, type ProblemReport, type SessionUpload } from "../src/capture";
 import { sha256HexFallback } from "../src/sha256";
+import { CURRENT_REPLAY_VERSION } from "../src/replay-version";
 import type { ReplayData } from "../src/types";
 
 export function replayFixture(): ReplayData {
   return {
-    version: 11,
+    version: CURRENT_REPLAY_VERSION,
     seed: 42,
     actions: [],
     finalTick: 10,

@@ -417,7 +417,7 @@ describe("interceptor proximity fuse", () => {
 
     const missile = makeMissile({ x: 520, y: 500 });
     g.missiles.push(missile);
-    createExplosion(g, 520, 500, 80, "#fff", true, 80, { visualType: "missile" });
+    createExplosion(g, 520, 500, 80, "#fff", true, 80, { source: "player", visualType: "missile" });
     g.interceptors.push(
       makeInterceptor({
         x: 460,
@@ -443,7 +443,7 @@ describe("summary stats", () => {
     g.schedule = [{ type: "missile", tick: 999999 }];
     g.scheduleIdx = 0;
     g.missiles = [makeMissile({ x: 100, y: 100 }), makeMissile({ x: 112, y: 100 })];
-    createExplosion(g, 100, 100, 80, "#fff", true, 80, { visualType: "missile" });
+    createExplosion(g, 100, 100, 80, "#fff", true, 80, { source: "player", visualType: "missile" });
 
     sim.update(g, 1);
 
@@ -458,7 +458,7 @@ describe("summary stats", () => {
     g.scheduleIdx = 0;
     g.missiles = [makeMissile({ x: 100, y: 100 }), makeMissile({ x: 155, y: 100 })];
 
-    createExplosion(g, 100, 100, 80, "#fff", true, 80, { visualType: "missile" });
+    createExplosion(g, 100, 100, 80, "#fff", true, 80, { source: "player", visualType: "missile" });
     sim.update(g, 1);
 
     const chainExplosion = g.explosions.find((ex) => ex.rootExplosionId !== null);
@@ -473,7 +473,7 @@ describe("summary stats", () => {
     g.schedule = [{ type: "missile", tick: 999999 }];
     g.scheduleIdx = 0;
     g.missiles = [makeMissile({ x: 600, y: 100 })];
-    createExplosion(g, 100, 100, 80, "#fff", true, 80, { visualType: "missile" });
+    createExplosion(g, 100, 100, 80, "#fff", true, 80, { source: "player", visualType: "missile" });
     g.explosions[0].kills = 1;
     g.explosions[0].growing = false;
     g.explosions[0].alpha = 0;
@@ -501,7 +501,7 @@ describe("summary stats", () => {
     g.stats.destroyedByType.ballisticMissile = 5;
     g.stats.destroyedByType.shahed238 = 2;
     g.stats.multiShots = 4;
-    g.stats.maxCombo = 8;
+    g.stats.maxCombo = 5;
     g.score = 1234;
     g._waveStartScore = 1000;
     g._waveStartTick = 90;
@@ -511,7 +511,7 @@ describe("summary stats", () => {
     g._waveStartDroneKills = 0;
     g._waveStartDestroyedByType = baselineStats.destroyedByType;
     g._waveStartMultiShots = 1;
-    g._waveMaxCombo = 6;
+    g._waveMaxCombo = 4;
     g.waveComplete = true;
     g.waveClearedTimer = 0;
 
@@ -527,7 +527,7 @@ describe("summary stats", () => {
     expect(summary.destroyedByType.ballisticMissile).toBe(2);
     expect(summary.destroyedByType.shahed238).toBe(2);
     expect(summary.multiShots).toBe(3);
-    expect(summary.maxCombo).toBe(6);
+    expect(summary.maxCombo).toBe(4);
     expect(summary.missileKills).toBe(2);
     expect(summary.droneKills).toBe(2);
 
@@ -540,7 +540,7 @@ describe("summary stats", () => {
       missileKills: 2,
       droneKills: 2,
       multiShots: 3,
-      maxCombo: 6,
+      maxCombo: 4,
       burjHealth: 7,
       startTick: 90,
       endTick: 150,
@@ -560,7 +560,7 @@ describe("summary stats", () => {
     g.interceptors = [];
     g.explosions = [];
     g.particles = [];
-    createExplosion(g, 300, 400, 80, "#fff", true, 0, { visualType: "missile" });
+    createExplosion(g, 300, 400, 80, "#fff", true, 0, { source: "player", visualType: "missile" });
     const radiusAtClear = g.explosions[0].radius;
 
     sim.update(g, 1);
@@ -589,7 +589,7 @@ describe("summary stats", () => {
     g.schedule = [];
     g.scheduleIdx = 0;
     g.missiles = [makeMissile({ x: 100, y: 100 })];
-    createExplosion(g, 100, 100, 80, "#fff", true, 80, { visualType: "missile" });
+    createExplosion(g, 100, 100, 80, "#fff", true, 80, { source: "player", visualType: "missile" });
 
     sim.update(g, 1);
     for (let i = 0; i < 130; i++) sim.update(g, 1);
@@ -2142,7 +2142,7 @@ describe("Auto-defense targeting spread", () => {
     // clean, which is how a hornet could visibly detonate on a missile that flew on.
     const runner = makeBallisticMissile({ x: 340, y: 500, vx: -12, vy: 0, accel: 1 });
     g.missiles.push(runner);
-    createExplosion(g, 380, 500, 60, "#ffcc00", false, 5, { visualType: "missile" });
+    createExplosion(g, 380, 500, 60, "#ffcc00", false, 5, { source: "impact", visualType: "missile" });
 
     sim.update(g, 1);
 
@@ -2155,7 +2155,7 @@ describe("Auto-defense targeting spread", () => {
     const { sim, g } = makeCleanGame(5);
     const bystander = makeBallisticMissile({ x: 500, y: 500, vx: 0, vy: 0, accel: 1 });
     g.missiles.push(bystander);
-    createExplosion(g, 380, 500, 60, "#ffcc00", false, 5, { visualType: "missile" });
+    createExplosion(g, 380, 500, 60, "#ffcc00", false, 5, { source: "impact", visualType: "missile" });
 
     for (let tick = 0; tick < 40; tick++) sim.update(g, 1);
 

@@ -247,7 +247,12 @@ describe("golden-seed canary", () => {
     // buying flare + skyHunterMesh to launcherRapidReload + a second hornet pad. Read
     // it as a determinism canary, not as a balance measurement. Aggregate effect of
     // the decoupling over 40 games was -2.7%, inside the noise floor.
-    expect(r.score).toBe(25904);
+    // 25904 -> 28634 (player-only scoring, replay v13): same run (wave 7, timeout), only
+    // scoring changed. 9,134 player-owned kill points + 6,250 multi-kill (unchanged rules)
+    // + 5,250 wave clears + 8 cash-outs x 1,000; the 18 automation kills now score 0.
+    // This interceptor-heavy bot build gains because cash-outs outweigh the lost x6-x10
+    // uplift; automation-heavy builds lose (see Part Six report).
+    expect(r.score).toBe(28634);
     expect(r.wave).toBe(7);
     expect(r.deathCause).toBe("timeout");
   });

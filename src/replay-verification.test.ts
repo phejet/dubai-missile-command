@@ -10,11 +10,14 @@ import {
 } from "./replay-causal-snapshot";
 import { initGame } from "./game-sim";
 
+// Draft mode, like live play. Shop-mode (paid) replays currently apply recorded purchases
+// for free (resumeFromShop grants first), so their score checkpoints diverge once the bot
+// can afford an upgrade; see docs/player-only-scoring-handover.md.
 function recordReplay(): ReplayData {
   const result = runGame(null, {
     seed: 74,
     record: true,
-    draftMode: false,
+    draftMode: true,
     stopCondition: { type: "waveComplete", wave: 2 },
     checkpoints: true,
   });
@@ -23,7 +26,7 @@ function recordReplay(): ReplayData {
     seed: result.seed,
     actions: result.actions!,
     initialState: result.initialState!,
-    draftMode: false,
+    draftMode: true,
     stopCondition: { type: "waveComplete", wave: 2 },
     checkpoints: result.checkpoints,
   };

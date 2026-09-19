@@ -170,3 +170,12 @@ Bots, replay tooling, editor helpers, and manual debugging all depend on these.
 - Replay save happens on human game over, not as a general background autosave.
 - Title audio is controlled by `setScreen()`, not by the render layer.
 - The UI layer is imperative DOM code, so the controller must explicitly hide and clean up overlays.
+
+## Combo cash-out overlay
+
+The transient snapshot includes `comboBonusToast` (visibility, label, bonus, world
+position, alpha and scale). It follows the multi-kill popup's rise/fade/pulse math,
+with a 44-world-pixel upward offset when a multi-kill popup is visible. `ui.ts` updates
+`#overlay-combo-bonus`; it reuses the multi-kill CSS with `data-tier="combo"`.
+HUD and increment-toast tiers derive from `COMBO_CAP`: warm at 2–3, hot at 4, critical
+at 5. Phone placement and simultaneous popup legibility await human verification.

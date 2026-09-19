@@ -3342,3 +3342,7 @@
   text-align: center;
   pointer-events: none;
 }
+
+.transient-overlays__multi-kill[data-tier="combo"] {
+  color: var(--title-overlay-hud, #9affdd);
+}

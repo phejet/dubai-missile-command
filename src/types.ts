@@ -1,3 +1,24 @@
+export type KillSource =
+  | "player"
+  | "f15"
+  | "emp"
+  | "flare"
+  | "hornets"
+  | "roadrunner"
+  | "patriot"
+  | "ironBeam"
+  | "phalanx"
+  | "impact"
+  | "friendlyFire";
+export type ScoreKind = "kill" | "multi" | "cashout" | "wave_clear" | "building_bonus" | "friendly_fire" | "spending";
+export interface ComboBonusToast {
+  bonus: number;
+  x: number;
+  y: number;
+  timer: number;
+  pulse: number;
+}
+
 // ── Core types for Dubai Missile Command ──
 
 import type { FireChargeState } from "./player-fire-limiter";
@@ -24,6 +45,7 @@ export interface FlareControl {
 }
 
 export interface Missile {
+  killedBy?: KillSource;
   x: number;
   y: number;
   _px?: number;
@@ -51,6 +73,7 @@ export interface Missile {
 }
 
 export interface Drone {
+  killedBy?: KillSource;
   x: number;
   y: number;
   vx: number;
@@ -145,6 +168,9 @@ export interface BuildingDestroyFx {
 }
 
 export interface Explosion {
+  source: KillSource;
+  intendedTargets?: Threat[];
+  _holdEligible?: boolean;
   id: number;
   x: number;
   y: number;
@@ -700,6 +726,7 @@ export interface SimState {
   multiKillToast: MultiKillToast | null;
   combo: number;
   comboToast: ComboToast | null;
+  comboBonusToast: ComboBonusToast | null;
 
   commander: Commander;
   schedule: SpawnEntry[];

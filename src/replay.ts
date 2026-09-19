@@ -1,3 +1,4 @@
+import { addScore } from "./game-logic";
 import { assertNoEditorOverridesForDeterministicRun, getRng, setRng, setRngState, fireInterceptor } from "./game-logic";
 import {
   initGame,
@@ -285,7 +286,7 @@ function createReplayRunnerInternal(
   function resumeFromBonusScreen() {
     if (!bonusPaused || !g) return;
     if (pendingHumanBonus !== null) {
-      g.score += pendingHumanBonus;
+      addScore(g, pendingHumanBonus, "building_bonus");
       pendingHumanBonus = null;
     }
     completeWaveBonusAndOpenShop(g, emitSimEvent);

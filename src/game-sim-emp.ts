@@ -161,7 +161,7 @@ export function updateEmpRings(g: GameState, dt: number, allThreats: Threat[]): 
         const d = dist(t.x, t.y, ring.x, ring.y);
         if (d >= bandInner && d <= bandOuter) {
           ring.hitSet?.add(t);
-          damageTarget(g, t, ring.damage ?? 0, COL.emp, 20, { noExplosion: true });
+          damageTarget(g, t, ring.damage ?? 0, COL.emp, 20, "emp", { noExplosion: true });
           spawnEmpKillBurst(g, t.x, t.y, ring.x, ring.y);
         }
       });

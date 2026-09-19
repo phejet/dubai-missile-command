@@ -1,3 +1,4 @@
+import type { ExplosionOptions } from "./game-logic";
 import { BURJ_X, COL, GROUND_Y, LAUNCHERS, dist, getAmmoCapacity, getRng, ov, rand } from "./game-logic";
 import type { Drone, Flare, GameState, Missile, SimEventSink, Threat } from "./types";
 
@@ -12,8 +13,8 @@ export interface FlareDeps {
     color: string,
     playerCaused: boolean,
     onEvent: SimEventSink | null | undefined,
-    initialRadius?: number,
-    options?: Record<string, unknown>,
+    initialRadius: number,
+    options: ExplosionOptions,
   ) => void;
   destroyThreat: (g: GameState, threat: FlareThreat) => void;
   recordNeutralized: (g: GameState, threat: FlareThreat) => void;
@@ -191,7 +192,7 @@ function selfNeutralize(g: GameState, threat: FlareThreat, deps: FlareDeps): voi
   threat.alive = false;
   threat.flareControl = null;
   deps.recordNeutralized(g, threat);
-  deps.boom(g, threat.x, threat.y, 15, COL.flare, false, deps.onEvent, 0, { harmless: true });
+  deps.boom(g, threat.x, threat.y, 15, COL.flare, false, deps.onEvent, 0, { source: "flare", harmless: true });
 }
 
 // Spent itself with no target to turn against: the threat reached its payoff but
@@ -200,14 +201,14 @@ function spendThreat(g: GameState, threat: FlareThreat, deps: FlareDeps): void {
   if (!threat.alive) return;
   threat.flareControl = null;
   deps.destroyThreat(g, threat);
-  deps.boom(g, threat.x, threat.y, 65, COL.flare, true, deps.onEvent, 15);
+  deps.boom(g, threat.x, threat.y, 65, COL.flare, true, deps.onEvent, 15, { source: "flare" });
 }
 
 function consumeAtFlare(g: GameState, threat: FlareThreat, flare: Flare, deps: FlareDeps): void {
   flare.alive = false;
   threat.flareControl = null;
   deps.destroyThreat(g, threat);
-  deps.boom(g, flare.x, flare.y, 65, COL.flare, true, deps.onEvent, 15);
+  deps.boom(g, flare.x, flare.y, 65, COL.flare, true, deps.onEvent, 15, { source: "flare" });
 }
 
 function promoteToTurncoat(g: GameState, threat: FlareThreat, flare: Flare, deps: FlareDeps): void {
@@ -238,6 +239,7 @@ function detonateTurncoat(
   deps.destroyThreat(g, threat);
   deps.destroyThreat(g, victim);
   deps.boom(g, x, y, impactRadius, COL.flare, true, deps.onEvent, impactRadius * 0.55, {
+    source: "flare",
     visualType: victim.type === "drone" ? "drone" : "missile",
   });
   const rootEx = g.explosions[g.explosions.length - 1];

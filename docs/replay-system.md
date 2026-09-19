@@ -43,10 +43,15 @@ This means replays are sensitive to gameplay code drift.
 - optional `isHuman`
 - optional metadata such as `_buildId` and `_savedAt`
 
-Current recording version is `12`. Missing, older, and newer versions are rejected rather
+Current recording version is `13`. Missing, older, and newer versions are rejected rather
 than replayed best-effort.
 
 Version notes:
+
+- `version: 13` scores only player-initiated kills, uses the ×5/+1,000 combo cash-out,
+  and holds combo for automation-stolen targets and empty flare blasts. Earlier recordings
+  produce different scores and are rejected. The three perf fixtures retain identical
+  gameplay traces; only their version fields changed.
 
 - `version: 12` makes dropped bombs reach their selected building roof while preserving
   vertical speed. Earlier recordings use different trajectories and are rejected.
