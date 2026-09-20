@@ -319,9 +319,17 @@ test.describe("Smoke tests", () => {
     await page.waitForTimeout(250);
     expect(await page.evaluate(() => window.__gameRef!.current!._replayTick ?? 0)).toBe(pausedTick);
 
+    // Replay ticks track wall-clock time, so the pause lands wherever the transport measurements above
+    // finished: locally around tick 55, past the tick-60 wave start on a slower runner. Rewind to the
+    // first wave start instead of assuming playback is still inside wave 1.
+    const previousWaveButton = page.getByRole("button", { name: /previous wave start/i });
+    for (let rewind = 0; rewind < 5 && (await previousWaveButton.isEnabled()); rewind++) {
+      await previousWaveButton.click();
+    }
+    await expect.poll(() => page.evaluate(() => window.__gameRef!.current!._replayTick ?? 0)).toBe(0);
     await page.getByRole("button", { name: /next wave start/i }).click();
     await expect.poll(() => page.evaluate(() => window.__gameRef!.current!._replayTick ?? 0)).toBe(60);
-    await page.getByRole("button", { name: /previous wave start/i }).click();
+    await previousWaveButton.click();
     await expect.poll(() => page.evaluate(() => window.__gameRef!.current!._replayTick ?? 0)).toBe(0);
 
     await page.locator("#options-button").click();
