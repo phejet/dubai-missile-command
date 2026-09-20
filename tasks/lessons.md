@@ -899,3 +899,13 @@ in the state) rather than defending the old one.
   implementation intervention, not stop at correction counts. Here the unrestricted nearest-playable
   fallback favors the central Burj; filter alternates by category, allocation and reachable route
   before distance ranking. Distinguish all-family redirects from ordinary-missile counts.
+
+## 2026-09-20 — Match the verification to the change, not to the checklist
+
+- Adding an RM-10 `.phase` block that reused the existing markup, I still ran a two-width browser
+  screenshot pass because the roadmap skill said to. It proved nothing the validator and the diff
+  had not already proven, and cost a detour through a disconnected Chrome extension.
+- For content edits that reuse existing patterns, the validator plus reading the diff is the check.
+  Reserve rendering passes for CSS changes or markup the file does not already contain.
+- The roadmap skill and its schema reference were updated to say this; do not reintroduce a blanket
+  browser-review step.

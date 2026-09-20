@@ -158,7 +158,7 @@
     <!-- roadmap-source:v1 -->
     <main>
       <header>
-        <p class="muted">Dubai Missile Command · Updated 2026-09-19</p>
+        <p class="muted">Dubai Missile Command · Updated 2026-09-20</p>
         <h1>Roadmap</h1>
         <p>
           One current view of product direction, delivery status, gates, and next work. Detailed designs and execution
@@ -169,21 +169,74 @@
       <section id="now">
         <h2>Now</h2>
         <div class="notice">
-          <strong>RM-09 — Building targeting and impact audit: analysis complete.</strong><br />
-          RM-04 is complete on Staging. PR #22 was merged as <code>433799b</code> and released as TestFlight build 6,
-          processed and assigned to internal testers on 2026-09-13. RM-08 source <code>8bff209</code> is deployed to
-          Pages and the Staging Worker. Real-run inspection and longest-retained-run playback passed within the
-          review-machine timing budgets. RM-08 still needs generated-candidate link/cleanup proof and human usefulness
-          confirmation. The user confirmed updating to build 6 on 2026-09-13. Production capture remains closed. Next
-          action: review the RM-09 Defect 2 swept-collision fix plan. Defect 1 is committed locally as <code>064226d</code>.
-          This investigation precedes RM-06 and the scoring study’s Part Six decision; the second proposed idea is
-          unspecified.
+          <strong>RM-10 — Effective target pressure: design review underway.</strong><br />
+          RM-09's audit is complete and its target-pressure follow-up is now RM-10, the active initiative. Routing
+          direction is agreed: missiles use flank-specific reachable target pools, drones use cruise, visible commitment
+          and a target-dependent dive, both under one shared pressure budget. Implementation is not authorized. Next
+          action: settle the four remaining contract decisions in
+          <a href="docs/target-pressure-review-plan.html">the review plan</a> — allocation, accounting, fair-warning and
+          empty-pool fallback — then write the detailed AI execution handoff.<br />
+          RM-09 closed on 2026-09-20: Defect 1 is committed locally as <code>064226d</code> and Defect 2 was judged
+          insignificant and left unfixed. Still open elsewhere: RM-08 needs generated-candidate link/cleanup proof and
+          human usefulness confirmation, plus the player-only scoring iPhone feel-check. RM-04 is complete on Staging as
+          TestFlight build 6. Production capture remains closed.
         </div>
       </section>
 
       <section id="roadmap">
         <h2>Roadmap</h2>
         <div class="phase-list">
+          <details class="phase" id="rm-10" data-roadmap-id="RM-10" data-status="in_progress" data-depends-on="RM-09" open>
+            <summary>
+              <span class="phase__id">RM-10</span>
+              <span>Effective target pressure</span>
+              <span class="status status--active">In progress</span>
+              <span class="phase__outcome"
+                >Make attacks spread across the city so defending the Burj becomes a real choice.</span
+              >
+            </summary>
+            <div class="phase__body">
+              <p>
+                <strong>Problem:</strong> RM-09's trace of 26 historical human runs found 1,196 of 2,079 ordinary
+                missiles (57.5%) effectively aimed at the Burj, against a nominal 30% roll. Side-spawn approach
+                correction moved 635 targets toward the tower and six away, because the nearest playable alternative to
+                a blocked flank target is the centre-screen Burj. A further 17.0% had non-tower aims whose straight
+                routes still crossed the tower silhouette.
+              </p>
+              <p>
+                <strong>Agreed direction (2026-09-20):</strong> budget <em>effective</em> tower-bound routes rather than
+                initial target rolls. Missiles pick target and entry altitude together from flank-specific reachable
+                pools; drones cruise, show a visible commitment tell, then dive to a target-dependent point. Ordinary
+                city buildings become real destinations. Both families draw on one shared pressure budget, starting at
+                30% tower / 50% ordinary buildings / 20% combat infrastructure. Policy stays fixed across waves.
+              </p>
+              <p>
+                <strong>Scope holds:</strong> wave budgets, spawn intervals, concurrent caps, enemy stats, rewards,
+                upgrade behaviour and bomb damage are unchanged in this slice. Wave-volume flattening is a separate
+                session.
+              </p>
+              <p>
+                <strong>Exit:</strong> combined missile and drone pressure matches the agreed allocation per wave and
+                within short attack windows, with no silent tower fallback and no kill-driven compensation; clear
+                non-tower routes proven against real movement and collision geometry; replay/seek determinism intact;
+                and a human feel-check confirming legible destinations, fair warning, honest drone tells and worthwhile
+                building saves.
+              </p>
+              <p>
+                <strong>Stages:</strong> A reproduce the diagnosis · B freeze the contract · C shared budget and missile
+                routing · D drone routing and commitment · E independent combined review · F human feel-check · G close
+                and document. C and D stay separate for review; E inspects their integrated result.
+              </p>
+              <p>
+                <strong>Gate:</strong> implementation is not authorized. Four contract decisions remain with the user
+                (starting allocation, terminal-body accounting, fair-warning and altitude limits, empty-pool and
+                tower-only fallback); after they settle, the detailed AI execution handoff is written before any coding.
+              </p>
+              <p><a href="docs/target-pressure-review-plan.html">Illustrated review plan</a></p>
+              <p><a href="docs/target-pressure-retarget-trace.html">Retargeting trace evidence</a></p>
+            </div>
+          </details>
+
           <details class="phase" id="rm-01" data-roadmap-id="RM-01" data-status="shipped">
             <summary>
               <span class="phase__id">RM-01</span>
@@ -363,7 +416,7 @@
             <summary>
               <span class="phase__id">RM-09</span>
               <span>Building targeting and impact audit</span>
-              <span class="status status--shipped">Analyzed</span>
+              <span class="status status--shipped">Done</span>
               <span class="phase__outcome"
                 >Explain why surrounding buildings survive and identify genuine missed impacts.</span
               >
@@ -391,18 +444,14 @@
                 >
               </p>
               <p>
-                <strong>Follow-up (2026-09-19):</strong> Defect 1 bomb targeting is committed locally as
-                <code>064226d</code>; human feel-check remains. Defect 2 is planned, with earliest city-building
-                contact and existing collision-category priority. Next: review the
-                <a href="docs/gameplay%20analysis%20Sep%202026/building-impact-defect-2-plan.md">Defect 2 fix plan</a>
-                before implementation. Building-pressure tuning is now proposed for review (2026-09-20):
-                budget effective tower-bound routes rather than initial target rolls, introduce ordinary-building
-                destinations, and use one shared pressure budget. Routing direction agreed on 2026-09-20:
-                missiles use flank-specific reachable target pools; drones use cruise, visible commitment and
-                a target-dependent dive. Separate implementation slices receive combined verification. See the
-                <a href="docs/target-pressure-review-plan.html">illustrated target-pressure review plan</a>.
-                Next for this proposal: user design review, then a detailed AI execution handoff; implementation
-                is not yet authorized. Wave-volume tuning remains a separate discussion.
+                <strong>Closed 2026-09-20.</strong> Defect 1 bomb targeting is committed locally as
+                <code>064226d</code>; its feel-check rides along with RM-10's and does not hold this initiative open.
+                The user judged Defect 2, the swept-collision missed incidental crossing, insignificant and closed it
+                unfixed; its
+                <a href="docs/gameplay%20analysis%20Sep%202026/building-impact-defect-2-plan.md">fix plan</a> is
+                retained as history, not pending work. This audit's retargeting evidence became
+                <a href="#rm-10">RM-10 Effective target pressure</a>, which owns the remaining targeting work.
+                Wave-volume tuning remains a separate discussion.
               </p>
               <p>
                 <a href="docs/gameplay%20analysis%20Sep%202026/building-impact-audit-plan.md">Detailed audit plan</a>
@@ -485,7 +534,10 @@
             RM-08 requires the generated-candidate link/cleanup proof and human usefulness confirmation before
             completion.
           </li>
-          <li>RM-09 building-impact analysis precedes RM-06 and the scoring study’s Part Six decision.</li>
+          <li>
+            RM-10 implementation is not authorized until the four remaining contract decisions are settled and the
+            detailed execution handoff is written.
+          </li>
           <li>Production capture remains disabled; this release authorizes Staging only.</li>
         </ol>
       </section>
@@ -493,6 +545,15 @@
       <section id="decisions">
         <h2>Current decisions</h2>
         <ul>
+          <li>
+            RM-10 budgets <em>effective</em> tower-bound routes, not initial target rolls, at a starting 30/50/20
+            tower/ordinary-building/infrastructure split. Missiles and drones use separate planners under one shared
+            budget; wave volume, enemy stats and rewards stay out of this slice.
+          </li>
+          <li>
+            RM-09 Defect 2, the missed incidental swept-collision crossing, is closed unfixed as insignificant
+            (2026-09-20). Reopen it only if play evidence shows it matters.
+          </li>
           <li>Upload status belongs in Settings; the redundant gameplay badge was removed in TestFlight build 6.</li>
           <li>
             On 2026-09-06, the user approved TestFlight installation plus verified App Attest production uploads as
@@ -523,12 +584,23 @@
           <li><a href="docs/rm-04-retention-and-manual-deletion-plan.md">RM-04 retention and deletion plan</a></li>
           <li><a href="docs/privacy-and-manual-deletion.md">Privacy and manual deletion runbook</a></li>
           <li><a href="docs/rm-08-validation-2026-09-13.md">RM-08 verification evidence</a></li>
+          <li><a href="docs/target-pressure-review-plan.html">RM-10 effective target pressure review plan</a></li>
+          <li><a href="docs/target-pressure-retarget-trace.html">RM-10 retargeting trace evidence</a></li>
         </ul>
       </section>
 
       <section id="changes">
         <h2>Recent roadmap changes</h2>
         <ul>
+          <li>
+            <strong>2026-09-20:</strong> added RM-10 Effective target pressure at the front of the roadmap as the active
+            initiative, promoting RM-09's target-pressure follow-up into an initiative of its own. Routing direction is
+            agreed — flank-specific reachable missile pools, cruise/commit/dive drones, one shared effective pressure
+            budget starting at 30/50/20 — and implementation stays unauthorized until four contract decisions settle and
+            the execution handoff is written. Closed RM-09: Defect 1 is committed locally, Defect 2 was judged
+            insignificant and left unfixed, so it no longer gates RM-06. Retired the stale gate claiming RM-09 preceded
+            the scoring study's Part Six decision, which was taken on 2026-09-19.
+          </li>
           <li>
             <strong>2026-09-19:</strong> inserted RM-09 before RM-06 as the next investigation: audit
             surrounding-building targeting and impacts across available replays. Completed the local-corpus audit with

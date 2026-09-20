@@ -14,9 +14,14 @@ execute it over time.
 gates, decisions, and next action. Read it before consulting supporting plans. Treat design
 documents and execution logs as evidence or history, never as competing current status.
 
-Read [references/schema.md](references/schema.md) before creating, structurally changing, or
-reconciling the roadmap. Ordinary status reads and small content edits can follow the existing
-HTML structure directly.
+Statuses are `planned`, `gated`, `in_progress`, `shipped`, `deferred`, `cancelled`. Each initiative
+is one `details.phase` with a lowercase DOM id, `data-roadmap-id`, `data-status`, optional
+`data-depends-on`, a scannable summary and a `phase__body`. Stable IDs never change or get reused.
+That is usually all you need: copy the nearest existing block and edit its text.
+
+Read [references/schema.md](references/schema.md) only when creating the file from scratch, adding
+a kind of element or section the file does not already contain, or reconciling drift between the
+roadmap and the evidence. Adding, reordering, closing or rewording an initiative is not structural.
 
 Keep the roadmap simple static HTML by default. Use semantic elements, light CSS, native
 `<details>` disclosure, links, and optional figures. Add scripts or dynamic visuals only when
@@ -70,7 +75,8 @@ on) in the `## Current handoff` block of `tasks/todo.md`, as AGENTS.md describes
 
 ## Concurrent-agent discipline
 
-- Read `git status`, the current `ROADMAP.html`, and its diff immediately before editing.
+- Read `ROADMAP.html` before editing. Check `git status` and the roadmap's diff only when the tree
+  is dirty or another agent may have been in the file; on a clean tree that diff is empty.
 - Preserve unrelated or newer edits. Patch by stable ID; never regenerate the whole file from
   memory.
 - If another agent changed the same initiative, reconcile the meaning before writing. Do not
@@ -87,6 +93,9 @@ Run:
 node .agents/skills/roadmap/scripts/validate-roadmap.mjs
 ```
 
-Then format and browser-review `ROADMAP.html`. For visual changes, hand the page back to the
-human and say what changed. Passing validation proves structure, not that the priorities feel
-right.
+Then format `ROADMAP.html` and read your own diff. Passing validation proves structure, not that
+the priorities feel right, so hand priority-bearing changes back to the human and say what changed.
+
+Do not open the page in a browser for ordinary content edits, including adding an initiative that
+reuses the existing markup. The validator plus the diff is the check. Open it only when you changed
+the page's CSS or introduced markup the file does not already use, and say why you did.

@@ -102,7 +102,8 @@ After writing:
 
 1. run the roadmap validator;
 2. format the HTML;
-3. open it at desktop and mobile width when structure or styling changed;
+3. read the diff; open the page in a browser only for CSS changes or genuinely new markup, never
+   for content edits that reuse the existing phase, gate, decision or change patterns;
 4. hand visual or priority-bearing changes back for human review.
 
 ## Simplicity boundary
