@@ -878,3 +878,11 @@ in the state) rather than defending the old one.
   ("once it's 5 and you still hit another one") but not the feel: in play the user expected the
   bonus with the 5× toast itself. For thresholds and rewards, confirm which visible event fires
   the reward, and show the payoff in the same toast as the milestone.
+
+## 2026-09-20 — Allowlisted ingest drops dev-build uploads silently
+
+- A dev build installed on the phone uploaded nothing for a day: its build ID was not in the Staging
+  `ALLOWED_BUILDS` list, and a 400 is non-retryable, so runs were dropped, not queued. The app only
+  showed `Failed • …` until relaunch, then `On` again. Fixed by allowing `*` on Staging.
+- When a capture, telemetry or upload path goes quiet, check the server's allowlists against the exact
+  client build ID before suspecting the client.
