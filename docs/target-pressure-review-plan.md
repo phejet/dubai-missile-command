@@ -54,7 +54,7 @@ for playable angles, sorts by horizontal distance from the spawn, and takes the 
 (`src/game-sim.ts:423`). Nearby military targets often fail the angle check, leaving the central
 Burj as the nearest playable alternative. The 635 corrections toward the tower across
 missile/MIRV/stack launches are a symptom of this nearest-first fallback, not a faulty 30% roll.
-**Stage C intervention:** make alternate-candidate eligibility category-aware and constrained by
+**Stage B intervention:** make alternate-candidate eligibility category-aware and constrained by
 the shared effective-pressure allocation and flank reachability before any distance ranking.
 Distance may break ties within the eligible pool; it must not select the pressure category.
 A non-tower candidate still needs a tower-clear route, so category filtering alone is insufficient.
@@ -103,13 +103,13 @@ Do not force an impossible destination into a pool, and do not use the Burj as a
 replacement when a nearby defense fails an approach constraint.
 
 The approved architectural choice is reachable flank pools. Relaxing the blanket minimum-slope
-rule, exact fair-warning limits and permitted altitude ranges remain contract decisions for
-Stage B. A steep or vertical building approach is a candidate where playable, not permission
+rule, exact fair-warning limits and permitted altitude ranges remain contract decisions for the
+execution handoff. A steep or vertical building approach is a candidate where playable, not permission
 to create unseen low-altitude hits or convert side tactics to top attacks.
 
 An empty feasible pool is different from an exhausted target category. First try another eligible
-asset or entry altitude on the same side. If none works, record the conflict; Stage B must define
-whether to defer the entry or request an explicitly permitted schedule alternative. Threat-type
+asset or entry altitude on the same side. If none works, record the conflict; the execution handoff must
+define whether to defer the entry or request an explicitly permitted schedule alternative. Threat-type
 substitution is not implicitly approved: composition and budgets stay unchanged in this slice.
 
 ### Accounting: decisions to settle before implementation
@@ -120,7 +120,7 @@ stack reserves its terminal descendants once; converting a carrier into children
 both carrier and children as independent quota units. Bomber bodies and their bombs need explicit
 separate treatment; a non-attacking cruise-only carrier must not dilute the denominator.
 
-Stage B must specify the full lifecycle table: scheduled, reserved, committed, split, skipped,
+The execution handoff must specify the full lifecycle table: scheduled, reserved, committed, split, skipped,
 intercepted, exited and wave-ended. Include bombs skipped because buildings are gone, a MIRV
 intercepted before splitting, the original stack body becoming a child, and carrier collision
 risk before its children exist. Reservations are planning promises, not observed attacks; report
@@ -155,7 +155,7 @@ Validate the entire cruise, turn and dive against the actual skyline and movemen
 only the dive endpoint is insufficient. Preserve the commander’s entry side; a drone may then
 traverse the battlefield before diving. The cruise path itself remains committed and continuous;
 late target selection is limited to feasible continuations from the drone’s actual position.
-If no feasible continuation remains, use Stage B's explicit fallback without an instant turn.
+If no feasible continuation remains, use the handoff's explicit fallback without an instant turn.
 
 The visible bank reveals the final destination with sufficient response time. Once revealed,
 no further retargeting, even if that asset dies. No dodging player shots. Keep propeller and jet
@@ -171,19 +171,24 @@ threatened asset. Predictability after commitment rewards anticipation rather th
 
 ## 4. Execution stages and handoffs
 
-| Stage                                | Owner role                                          | Deliverable and exit gate                                                                                                                                                                                                                                                                                                   |
-| ------------------------------------ | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A. Reproduce the diagnosis           | Analysis AI                                         | Check the saved retargeting trace, preserve crossing analysis, explicit denominators and representative clips. Baseline replay equivalence demonstrated.                                                                                                                                                                    |
-| B. Freeze the contract               | Design/implementation AI, reviewed by a separate AI | Shared accounting lifecycle, short-group allocation, missile reachability, drone continuations, fair-warning limits, empty-pool fallback and replay policy. No unresolved invariant enters coding.                                                                                                                          |
-| C. Shared budget and missile routing | Implementation AI                                   | Central configuration, deterministic per-wave accounting, flank-specific target pools, category-aware alternate eligibility replacing the unrestricted nearest-first fallback, joint target/entry construction, ordinary-building destinations and split integration. Focused tests; intermediate slice, not final balance. |
-| D. Drone routing and commitment      | Implementation AI                                   | Cruise/commit/dive planner, target-dependent dive positions, whole-path geometry, visible tell and bomb accounting using the same budget. Propeller/jet cases and integration tests.                                                                                                                                        |
-| E. Independent verification          | Review AI                                           | Audit final combined missile/drone behavior, every spawn/retarget/split path, reconstructed pressure, replay/seek determinism, geometry, CPU cost and fallbacks. Return defects to C/D.                                                                                                                                     |
-| F. Human feel-check                  | User, supported by AI                               | Confirm flank identity, useful building saves, readable missile paths, fair warning, drone tells and meaningful sacrifice. Tune only agreed configuration; rerun affected checks.                                                                                                                                           |
-| G. Close and document                | Coordinating AI                                     | Results, known limitations, approved tuning, replay/fixture updates and roadmap state. Commit/deploy only on explicit user instruction.                                                                                                                                                                                     |
+The unresolved rules — accounting lifecycle, short-group allocation, missile reachability, drone
+continuations, fair-warning limits, empty-pool fallback and replay policy — are settled **in the
+execution handoff itself**, not in a separate review stage. The handoff is written after this
+review and is not complete while any of them is still open. Anything that materially changes how
+the game plays comes back to the user; routine implementation detail is the implementing AI's call.
+
+| Stage                                | Owner role            | Deliverable and exit gate                                                                                                                                                                                                                                                                                                   |
+| ------------------------------------ | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A. Reproduce the diagnosis           | Analysis AI           | Check the saved retargeting trace, preserve crossing analysis, explicit denominators and representative clips. Baseline replay equivalence demonstrated.                                                                                                                                                                    |
+| B. Shared budget and missile routing | Implementation AI     | Central configuration, deterministic per-wave accounting, flank-specific target pools, category-aware alternate eligibility replacing the unrestricted nearest-first fallback, joint target/entry construction, ordinary-building destinations and split integration. Focused tests; intermediate slice, not final balance. |
+| C. Drone routing and commitment      | Implementation AI     | Cruise/commit/dive planner, target-dependent dive positions, whole-path geometry, visible tell and bomb accounting using the same budget. Propeller/jet cases and integration tests.                                                                                                                                        |
+| D. Independent verification          | Review AI             | Audit final combined missile/drone behavior, every spawn/retarget/split path, reconstructed pressure, replay/seek determinism, geometry, CPU cost and fallbacks. Return defects to B/C.                                                                                                                                     |
+| E. Human feel-check                  | User, supported by AI | Confirm flank identity, useful building saves, readable missile paths, fair warning, drone tells and meaningful sacrifice. Tune only agreed configuration; rerun affected checks.                                                                                                                                           |
+| F. Close and document                | Coordinating AI       | Results, known limitations, approved tuning, replay/fixture updates and roadmap state. Commit/deploy only on explicit user instruction.                                                                                                                                                                                     |
 
 Roles may be different AI sessions. Keep missile and drone work separate for review, then verify
-the combined pressure budget before claiming completion. C and D can be handed between AI sessions;
-E must inspect their final integrated result. This review update does not launch agents or authorize
+the combined pressure budget before claiming completion. B and C can be handed between AI sessions;
+D must inspect their final integrated result. This review update does not launch agents or authorize
 implementation. The detailed execution handoff follows resolution of the remaining review decisions.
 
 ## 5. Verification and acceptance
@@ -225,7 +230,7 @@ one shared effective pressure budget; fixed policy across waves; no changes afte
    then human feel-check. Wave-volume tuning remains separate.
 2. Accept 30/50/20 as starting **effective** allocation, with site/launcher detail reported separately.
 3. Accept per-wave allocation with bounded variation and no kill-driven compensation; terminal-body
-   accounting is provisional until Stage B resolves carrier/child reservations rigorously.
+   accounting is provisional until the execution handoff resolves carrier/child reservations rigorously.
 4. Set fair-warning/altitude rules, permitted steep approaches and the fallback for an empty flank
    pool; separately accept or revise tower-only behavior when no other living assets remain.
 

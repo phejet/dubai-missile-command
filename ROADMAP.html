@@ -223,9 +223,10 @@
                 building saves.
               </p>
               <p>
-                <strong>Stages:</strong> A reproduce the diagnosis · B freeze the contract · C shared budget and missile
-                routing · D drone routing and commitment · E independent combined review · F human feel-check · G close
-                and document. C and D stay separate for review; E inspects their integrated result.
+                <strong>Stages:</strong> A reproduce the diagnosis · B shared budget and missile routing · C drone
+                routing and commitment · D independent combined review · E human feel-check · F close and document. B
+                and C stay separate for review; D inspects their integrated result. The unresolved contract rules are
+                settled inside the execution handoff rather than in a review stage of their own.
               </p>
               <p>
                 <strong>Gate:</strong> implementation is not authorized. Four contract decisions remain with the user
@@ -599,7 +600,9 @@
             budget starting at 30/50/20 — and implementation stays unauthorized until four contract decisions settle and
             the execution handoff is written. Closed RM-09: Defect 1 is committed locally, Defect 2 was judged
             insignificant and left unfixed, so it no longer gates RM-06. Retired the stale gate claiming RM-09 preceded
-            the scoring study's Part Six decision, which was taken on 2026-09-19.
+            the scoring study's Part Six decision, which was taken on 2026-09-19. Later the same day, dropped the
+            separate contract-freezing review stage: those rules are settled inside the execution handoff, leaving six
+            stages.
           </li>
           <li>
             <strong>2026-09-19:</strong> inserted RM-09 before RM-06 as the next investigation: audit
