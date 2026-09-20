@@ -886,3 +886,16 @@ in the state) rather than defending the old one.
   showed `Failed • …` until relaunch, then `On` again. Fixed by allowing `*` on Staging.
 - When a capture, telemetry or upload path goes quiet, check the server's allowlists against the exact
   client build ID before suspecting the client.
+
+## 2026-09-20 — Illustrate the requested drone behavior
+
+- When the user requests drone trajectory drawings, prioritize actual drone silhouettes, cruise
+  segments, commitment points and dotted dive paths over additional process or missile diagrams.
+- Keep proposed paths labeled schematic until verified against real movement and collision geometry.
+
+## 2026-09-20 — Name the mechanism behind aggregate targeting bias
+
+- A review plan must identify the exact selection rule that creates measured bias and the
+  implementation intervention, not stop at correction counts. Here the unrestricted nearest-playable
+  fallback favors the central Burj; filter alternates by category, allocation and reachable route
+  before distance ranking. Distinguish all-family redirects from ordinary-missile counts.

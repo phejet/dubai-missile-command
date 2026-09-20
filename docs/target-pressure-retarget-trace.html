@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Why 30% becomes 57.5% — replay trace</title>
+    <style>
+      body {
+        font:
+          17px/1.65 system-ui,
+          sans-serif;
+        color: #203248;
+        background: #f3f1eb;
+        margin: 0;
+      }
+      main {
+        max-width: 900px;
+        margin: auto;
+        padding: 35px 22px;
+      }
+      h1 {
+        font-size: clamp(30px, 5vw, 46px);
+        line-height: 1.15;
+      }
+      h2 {
+        margin-top: 40px;
+      }
+      a {
+        color: #23577b;
+      }
+      figure {
+        margin: 25px 0;
+        background: white;
+        padding: 24px;
+        border: 1px solid #d9dfe5;
+        border-radius: 8px;
+      }
+      .flow {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+      }
+      .flow b {
+        padding: 13px;
+        background: #edf2f7;
+        border-radius: 5px;
+      }
+      figcaption,
+      footer {
+        font-size: 13px;
+        color: #526173;
+        margin-top: 16px;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 15px;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 10px 6px;
+        border-bottom: 1px solid #cbd4dd;
+      }
+      .table {
+        overflow: auto;
+      }
+      code {
+        overflow-wrap: anywhere;
+        font-size: 0.85em;
+      }
+      .note {
+        border-left: 3px solid #ad402d;
+        padding: 12px 16px;
+        background: white;
+      }
+      li {
+        margin: 10px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p>
+        <a href="target-pressure-review-plan.html">← Illustrated review plan</a> · Replay evidence · 20 September 2026
+      </p>
+      <h1>Why a 30% roll becomes<br />57.5% tower targeting.</h1>
+      <p>
+        The initial roll works. A later approach correction replaces many side-spawned missiles’ destinations with the
+        Burj, before the missiles appear.
+      </p>
+      <figure>
+        <div class="flow">
+          <b>635 initially select tower</b><span>+</span><b>567 redirected toward it</b><span>−</span
+          ><b>6 redirected away</b><span>=</span><b>1,196 tower aims</b>
+        </div>
+        <figcaption>
+          2,079 ordinary missiles across 26 historical human replays. Initial tower selection: 30.5%; final tower aims:
+          57.5%. No initial tower fallback was used for these ordinary missiles. Accidental path crossings are excluded.
+        </figcaption>
+      </figure>
+      <h2>One recorded missile, step by step</h2>
+      <p>
+        <strong>run-004, wave 4, threat 51.</strong> Spawn observation tick 2381; actual tower impact observation tick
+        2606. These are the historical audit’s tick labels.
+      </p>
+      <ol>
+        <li>It spawns from the left edge at approximately <strong>(−10, 40)</strong>.</li>
+        <li>
+          The tower roll is <strong>0.835391</strong>, above 0.3. The initial selector chooses the
+          <strong>left launcher at (60, 1392)</strong>.
+        </li>
+        <li>
+          The approach check requires horizontal travel / vertical travel ≥ <strong>0.42</strong>. This path has only 70
+          px horizontal travel over roughly 1,352 px vertical travel: <strong>0.052</strong>. Rejected as too vertical.
+        </li>
+        <li>
+          The correction checks living alternatives and sorts the eligible ones by horizontal distance from the spawn.
+          It does <strong>not</strong> repeat the 30% roll.
+        </li>
+        <li>The Burj and right launcher both qualify. The <strong>Burj is closer horizontally</strong>, so it wins.</li>
+        <li>
+          The missile appears with its final aim at approximately <strong>(460, 1052)</strong>. It later hits the tower
+          near <strong>(443, 1016)</strong>.
+        </li>
+      </ol>
+      <div class="table">
+        <table>
+          <thead>
+            <tr>
+              <th>Candidate</th>
+              <th>Horizontal / vertical</th>
+              <th>Eligible?</th>
+              <th>Horizontal distance</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Burj</td>
+              <td>0.465</td>
+              <td>Yes</td>
+              <td>470 px</td>
+            </tr>
+            <tr>
+              <td>site:patriot</td>
+              <td>0.251</td>
+              <td>No</td>
+              <td>344 px</td>
+            </tr>
+            <tr>
+              <td>site:wildHornetsLeft</td>
+              <td>0.158</td>
+              <td>No</td>
+              <td>216 px</td>
+            </tr>
+            <tr>
+              <td>launcher:0</td>
+              <td>0.052</td>
+              <td>No</td>
+              <td>70 px</td>
+            </tr>
+            <tr>
+              <td>launcher:1</td>
+              <td>0.644</td>
+              <td>Yes</td>
+              <td>870 px</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <h2>Why the bias repeats</h2>
+      <p>
+        Initial selection favors nearby defenses. From a side entry, those targets often require a steep downward path
+        and fail the slope rule. The Burj is farther inward and its aim point is higher, making it more likely to pass.
+        The correction then favors it over an eligible launcher on the opposite edge.
+      </p>
+      <p class="note">
+        <strong>Side spawn is the key distinction.</strong> Top spawns preserve the target and move the spawn
+        horizontally when needed. In this corpus, zero ordinary missiles changed from another target to the Burj through
+        the top-spawn correction.
+      </p>
+      <h2>Verification and limits</h2>
+      <p>
+        The observer records the original RNG draw without adding draws, captures the actual candidate list without
+        recomputing it, and associates each correction with the spawned body. All 26 replays matched their saved full
+        threat traces, final scores, final waves and action consumption; all 3,159 checkpoints were verified.
+      </p>
+      <p>
+        This proves what happened in the historical corpus. It is not a newly captured current-build playtest. The same
+        selector and approach-correction branches remain in the inspected current code.
+      </p>
+      <footer>
+        Reproduce with <code>node scripts/target-pressure/trace-retargeting.mjs</code>.<br />Private detailed trace:
+        <code>operator-results/target-pressure-20260920/retarget-trace.json</code>.<br />Archived simulator SHA-256:
+        <code>7b8adbe5d3fdce5841c259ea2c5f0ca3343023756dd2abcecdf07dad0649261e</code>.<br />No gameplay files or
+        historical artifacts were modified.
+      </footer>
+    </main>
+  </body>
+</html>
