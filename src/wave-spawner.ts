@@ -1008,7 +1008,7 @@ export function computeAliveThreatValue(g: Pick<GameState, "missiles" | "drones"
 export function advanceSpawnSchedule(
   g: Pick<GameState, "missiles" | "drones" | "schedule" | "scheduleIdx" | "waveTick" | "concurrentCap">,
   dt: number,
-  spawnFn: (g: unknown, type: SpawnType, overrides: SpawnEntry["overrides"]) => void,
+  spawnFn: (g: unknown, type: SpawnType, overrides: SpawnEntry["overrides"]) => unknown,
 ) {
   while (g.scheduleIdx < g.schedule.length) {
     const next = g.schedule[g.scheduleIdx];
@@ -1017,11 +1017,12 @@ export function advanceSpawnSchedule(
     if (aliveValue + getThreatValue(next.type) > g.concurrentCap) {
       const bypassIndex = findSameCellBypassIndex(g, next, aliveValue);
       if (bypassIndex === -1) break;
-      const [bypass] = g.schedule.splice(bypassIndex, 1);
-      spawnFn(g, bypass.type, bypass.overrides);
+      const bypass = g.schedule[bypassIndex];
+      if (spawnFn(g, bypass.type, bypass.overrides) === false) break;
+      g.schedule.splice(bypassIndex, 1);
       continue;
     }
-    spawnFn(g, next.type, next.overrides);
+    if (spawnFn(g, next.type, next.overrides) === false) break;
     g.scheduleIdx++;
   }
   g.waveTick += dt;

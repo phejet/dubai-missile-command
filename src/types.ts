@@ -14,6 +14,8 @@ export type ScoreKind = "kill" | "multi" | "cashout" | "wave_clear" | "building_
 
 // ── Core types for Dubai Missile Command ──
 
+import type { PressureLedger } from "./target-pressure";
+import type { PendingMissileSpawn, PressureMissilePlan } from "./pressure-missiles";
 import type { FireChargeState } from "./player-fire-limiter";
 
 export type RNG = () => number;
@@ -38,6 +40,7 @@ export interface FlareControl {
 }
 
 export interface Missile {
+  pressure?: PressureMissilePlan;
   killedBy?: KillSource;
   x: number;
   y: number;
@@ -722,6 +725,8 @@ export interface SimState {
   combo: number;
   comboToast: ComboToast | null;
 
+  targetPressure?: PressureLedger;
+  pendingMissileSpawn?: PendingMissileSpawn;
   commander: Commander;
   schedule: SpawnEntry[];
   scheduleIdx: number;

@@ -909,3 +909,12 @@ in the state) rather than defending the old one.
   Reserve rendering passes for CSS changes or markup the file does not already contain.
 - The roadmap skill and its schema reference were updated to say this; do not reintroduce a blanket
   browser-review step.
+
+## 2026-09-22 — Review the delivered targeting behavior, not only the requested policy
+
+- Allowing steep routes is not approval for steep routes to dominate. Measure angle distributions;
+  visible warning time does not establish interception margin. Let the phone feel-check decide tuning.
+- Label 30/50/20 as requested allocation, and report committed mix plus geometric redistribution separately.
+- Break planner timings down by family and wave. A pooled median hides expensive MIRV planning;
+  desktop timings cannot establish iPhone cost. Require device evidence before release.
+- Preserve spawn separation and aim variation deliberately, or call out their removal for feel review.

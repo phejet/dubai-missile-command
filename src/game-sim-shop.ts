@@ -1,3 +1,4 @@
+import { createPressureLedger } from "./target-pressure";
 import { addScore } from "./game-logic";
 import {
   cloneDestroyedByTypeStats,
@@ -396,6 +397,8 @@ export function repairLauncher(g: GameState, index: number): boolean {
 }
 
 export function prepareWaveStart(g: GameState): void {
+  g.targetPressure = createPressureLedger(g.wave);
+  g.pendingMissileSpawn = undefined;
   const baseHP = getLauncherMaxHp(g);
   for (let i = 0; i < g.launcherHP.length; i++) {
     if (g.launcherHP[i] <= 0) g.launcherHP[i] = baseHP;

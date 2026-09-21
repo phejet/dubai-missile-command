@@ -157,6 +157,11 @@ export function buildReplayCheckpoint(g: GameState, tick: number, reason: string
       waveTick: roundCoord(g.waveTick),
       remainingHash: hashReplayDiagnostic(remainingSchedule),
     },
+    pressure: {
+      ledgerHash: hashReplayDiagnostic(g.targetPressure ?? null),
+      pendingHash: hashReplayDiagnostic(g.pendingMissileSpawn ?? null),
+      ownershipHash: hashReplayDiagnostic(g.missiles.filter((m) => m.alive).map((m) => m.pressure ?? null)),
+    },
     draftOffers: [...(g._draftOffers ?? [])],
     explosions: { count: explosions.length, hash: hashReplayDiagnostic(explosions) },
     flares: { count: flares.length, hash: hashReplayDiagnostic(flares) },

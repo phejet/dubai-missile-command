@@ -43,10 +43,18 @@ This means replays are sensitive to gameplay code drift.
 - optional `isHuman`
 - optional metadata such as `_buildId` and `_savedAt`
 
-Current recording version is `14`. Missing, older, and newer versions are rejected rather
+Current recording version is `15`. Missing, older, and newer versions are rejected rather
 than replayed best-effort.
 
 Version notes:
+
+- `version: 15` adds RM-10 missile pressure reservations and reachable routes. Carrier children
+  receive frozen plans and inherit visible warning; allocation and pending spawns belong to
+  replay anchors and checkpoint hashes. New targeting and RNG consumption change outcomes;
+  v14 recordings are rejected. Perf fixtures are re-recorded, not relabelled. The matching
+  pre-change simulator and three old fixtures are preserved locally under
+  `operator-results/target-pressure-stage-b/baseline-cc4a3d78a06328f7abd65edb17f767f1f1dd1983/`.
+  Timing baselines must be recaptured before cross-version performance comparisons.
 
 - `version: 14` pays the +1,000 cash-out on the hit that reaches ×5 (shown in the combo
   toast) instead of on the next hit at ×5. Version 13 recordings score differently and are

@@ -733,12 +733,6 @@ function expectLevelShahedAltitude(drone: Drone) {
   expect(drone.y).toBeLessThanOrEqual(burjMid);
 }
 
-function expectPlayableMissileAngle(missile: Missile) {
-  const dy = Math.max(1, (missile.targetY ?? missile.y) - missile.y);
-  expect(Math.abs(missile.vx / missile.vy)).toBeGreaterThanOrEqual(0.42 - 0.001);
-  expect(Math.abs((missile.targetX ?? missile.x) - missile.x) / dy).toBeGreaterThanOrEqual(0.42 - 0.001);
-}
-
 function makePropDrone(overrides: Partial<Drone> = {}): Drone {
   return {
     x: -20,
@@ -1030,44 +1024,27 @@ describe("Shahed-238 (jet) diving", () => {
   });
 });
 
-describe("Missile spawn angles", () => {
+describe("Missile committed entry routes", () => {
   afterEach(() => setRng(Math.random));
-
-  it("retargets edge-spawned missiles instead of sending them nearly vertical down the edge", () => {
-    setRng(() => 0.5);
+  it("preserves the left edge and targets a building instead of applying the old slope fallback", () => {
     const { g } = makeCleanGame(5);
-    g.burjAlive = false;
-
-    spawnMissile(g, { side: "left" });
-
-    const missile = g.missiles[0];
-    expect(missile.targetX).not.toBe(60);
-    expectPlayableMissileAngle(missile);
+    expect(spawnMissile(g, { side: "left" })).toBe(true);
+    expect(g.missiles[0].x).toBe(-10);
+    expect(g.targetPressure!.units[0].category).toBe("building");
+    expect(g.targetPressure!.units[0].warningTicks).toBeGreaterThanOrEqual(60);
   });
-
-  it("moves top-spawned missiles off-axis when the target is directly below", () => {
+  it("keeps top entries in the viewport rather than moving them offscreen to force a slope", () => {
     const { g } = makeCleanGame(5);
-    const rng = [0.5, 0.5125, 0.1];
-    let index = 0;
-    setRng(() => rng[Math.min(index++, rng.length - 1)]);
-
-    spawnMissile(g, { side: "top" });
-
-    const missile = g.missiles[0];
-    expect(missile.targetX).toBe(BURJ_X);
-    // Required offset is 0.42 × the vertical drop to the body aim point
-    expect(Math.abs(missile.x - BURJ_X)).toBeGreaterThan(400);
-    expectPlayableMissileAngle(missile);
+    expect(spawnMissile(g, { side: "top" })).toBe(true);
+    expect(g.missiles[0].y).toBe(-10);
+    expect(g.missiles[0].x).toBeGreaterThanOrEqual(50);
+    expect(g.missiles[0].x).toBeLessThanOrEqual(CANVAS_W - 50);
   });
-
-  it("applies the same angle guard to stacked missiles", () => {
-    setRng(() => 0.5);
+  it("reserves both stack units while preserving its entry side", () => {
     const { g } = makeCleanGame(5);
-    g.burjAlive = false;
-
-    spawnStackedMissile(g, 2, { side: "left" });
-
-    expectPlayableMissileAngle(g.missiles[0]);
+    expect(spawnStackedMissile(g, 2, { side: "left" })).toBe(true);
+    expect(g.missiles[0].x).toBe(-10);
+    expect(g.targetPressure!.units.map((u) => u.state)).toEqual(["committed", "reserved"]);
   });
 });
 

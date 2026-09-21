@@ -1,0 +1,128 @@
+{
+  "note": "Upper bound, not route feasibility. False proves impossible even without asset collisions. True does not prove a fair route exists.",
+  "rows": [
+    {
+      "wave": 5,
+      "minimumChildSpeed": 1.1,
+      "acceleration": 1.036,
+      "carrierTicks": 65,
+      "visibleCarrierTicks": 53,
+      "maximumTicksUntilExit": 118,
+      "canPossiblyOffer60ChildTicks": true
+    },
+    {
+      "wave": 8,
+      "minimumChildSpeed": 1.2800000000000002,
+      "acceleration": 1.0468,
+      "carrierTicks": 59,
+      "visibleCarrierTicks": 49,
+      "maximumTicksUntilExit": 93,
+      "canPossiblyOffer60ChildTicks": true
+    },
+    {
+      "wave": 10,
+      "minimumChildSpeed": 1.4000000000000001,
+      "acceleration": 1.054,
+      "carrierTicks": 56,
+      "visibleCarrierTicks": 47,
+      "maximumTicksUntilExit": 82,
+      "canPossiblyOffer60ChildTicks": true
+    },
+    {
+      "wave": 12,
+      "minimumChildSpeed": 1.5200000000000002,
+      "acceleration": 1.0612,
+      "carrierTicks": 53,
+      "visibleCarrierTicks": 44,
+      "maximumTicksUntilExit": 73,
+      "canPossiblyOffer60ChildTicks": true
+    },
+    {
+      "wave": 14,
+      "minimumChildSpeed": 1.6400000000000003,
+      "acceleration": 1.0684,
+      "carrierTicks": 50,
+      "visibleCarrierTicks": 42,
+      "maximumTicksUntilExit": 66,
+      "canPossiblyOffer60ChildTicks": true
+    },
+    {
+      "wave": 16,
+      "minimumChildSpeed": 1.7600000000000002,
+      "acceleration": 1.0756000000000001,
+      "carrierTicks": 48,
+      "visibleCarrierTicks": 41,
+      "maximumTicksUntilExit": 61,
+      "canPossiblyOffer60ChildTicks": true
+    },
+    {
+      "wave": 20,
+      "minimumChildSpeed": 2,
+      "acceleration": 1.09,
+      "carrierTicks": 44,
+      "visibleCarrierTicks": 37,
+      "maximumTicksUntilExit": 52,
+      "canPossiblyOffer60ChildTicks": false
+    },
+    {
+      "wave": 30,
+      "minimumChildSpeed": 2.5999999999999996,
+      "acceleration": 1.1260000000000001,
+      "carrierTicks": 36,
+      "visibleCarrierTicks": 31,
+      "maximumTicksUntilExit": 38,
+      "canPossiblyOffer60ChildTicks": false
+    }
+  ],
+  "ordinaryRows": [
+    {
+      "wave": 1,
+      "minimumSpeed": 1.16,
+      "acceleration": 1.0053999999999998,
+      "maximumTicksUntilExit": 430,
+      "canPossiblyOffer60Ticks": true
+    },
+    {
+      "wave": 10,
+      "minimumSpeed": 2.6,
+      "acceleration": 1.0134999999999998,
+      "maximumTicksUntilExit": 180,
+      "canPossiblyOffer60Ticks": true
+    },
+    {
+      "wave": 20,
+      "minimumSpeed": 4.2,
+      "acceleration": 1.0225,
+      "maximumTicksUntilExit": 110,
+      "canPossiblyOffer60Ticks": true
+    },
+    {
+      "wave": 30,
+      "minimumSpeed": 5.8,
+      "acceleration": 1.0314999999999999,
+      "maximumTicksUntilExit": 79,
+      "canPossiblyOffer60Ticks": true
+    },
+    {
+      "wave": 40,
+      "minimumSpeed": 7.4,
+      "acceleration": 1.0405,
+      "maximumTicksUntilExit": 62,
+      "canPossiblyOffer60Ticks": true
+    },
+    {
+      "wave": 50,
+      "minimumSpeed": 9,
+      "acceleration": 1.0494999999999999,
+      "maximumTicksUntilExit": 51,
+      "canPossiblyOffer60Ticks": false
+    },
+    {
+      "wave": 60,
+      "minimumSpeed": 10.6,
+      "acceleration": 1.0585,
+      "maximumTicksUntilExit": 43,
+      "canPossiblyOffer60Ticks": false
+    }
+  ]
+}

@@ -1,3 +1,6 @@
+import { spawnPressureMissile, splitPressureMissile, settleMissilePressure } from "./pressure-missiles";
+import { visiblePoint } from "./missile-routing";
+import { createPressureLedger } from "./target-pressure";
 import { addScore, awardKill, stepCombo, AUTOMATED_KILL_SOURCES, COMBO_CAP, type ExplosionOptions } from "./game-logic";
 import {
   CANVAS_W,
@@ -345,6 +348,7 @@ export function initGame(): GameState {
     _waveSummaryRecorded: false,
     comboToast: null,
     // Spawn commander + schedule
+    targetPressure: createPressureLedger(1),
     commander,
     schedule: wave1.schedule,
     scheduleIdx: 0,
@@ -385,89 +389,14 @@ function wrapAngle(angle: number): number {
   return angle;
 }
 
-const MIN_INCOMING_MISSILE_HORIZONTAL_SLOPE = 0.42;
-
-function missileTargetCandidates(g: GameState): Array<{ x: number; y: number }> {
-  const candidates: Array<{ x: number; y: number }> = [];
-  if (g.burjAlive) candidates.push(getBurjBodyAimPoint());
-  g.defenseSites.forEach((site) => {
-    if (site.alive) candidates.push({ x: site.x, y: site.y });
-  });
-  LAUNCHERS.forEach((_, i) => {
-    if (g.launcherHP[i] > 0) candidates.push(getGameplayLauncherPosition(i));
-  });
-  return candidates;
-}
-
-function isMissileAnglePlayable(startX: number, startY: number, target: { x: number; y: number }): boolean {
-  const dy = Math.max(1, target.y - startY);
-  return Math.abs(target.x - startX) / dy >= MIN_INCOMING_MISSILE_HORIZONTAL_SLOPE;
-}
-
-function resolveMissileApproach(
-  g: GameState,
-  startX: number,
-  startY: number,
-  preferredTarget: { x: number; y: number },
-): { startX: number; target: { x: number; y: number } } {
-  if (isMissileAnglePlayable(startX, startY, preferredTarget)) return { startX, target: preferredTarget };
-
-  if (startY < 0) {
-    const dy = Math.max(1, preferredTarget.y - startY);
-    const requiredDx = dy * MIN_INCOMING_MISSILE_HORIZONTAL_SLOPE;
-    const currentDx = preferredTarget.x - startX;
-    const side = currentDx === 0 ? (preferredTarget.x < CANVAS_W / 2 ? 1 : -1) : currentDx > 0 ? -1 : 1;
-    return { startX: preferredTarget.x + side * requiredDx, target: preferredTarget };
-  }
-
-  const alternate = missileTargetCandidates(g)
-    .filter((target) => isMissileAnglePlayable(startX, startY, target))
-    .sort((a, b) => Math.abs(a.x - startX) - Math.abs(b.x - startX))[0];
-  if (alternate) return { startX, target: alternate };
-
-  const dy = Math.max(1, preferredTarget.y - startY);
-  const requiredDx = dy * MIN_INCOMING_MISSILE_HORIZONTAL_SLOPE;
-  const currentDx = preferredTarget.x - startX;
-  const side = currentDx === 0 ? (preferredTarget.x < CANVAS_W / 2 ? 1 : -1) : currentDx > 0 ? -1 : 1;
-  return { startX: preferredTarget.x + side * requiredDx, target: preferredTarget };
-}
-
 export function spawnMirv(g: GameState, onEvent?: SimEventSink | null) {
   return spawnMirvWithOverrides(g, undefined, onEvent);
 }
 
 function spawnMirvWithOverrides(g: GameState, overrides?: SpawnEntry["overrides"], onEvent?: SimEventSink | null) {
-  let startX = rand(100, CANVAS_W - 100);
-  let target = pickTarget(g, startX);
-  if (!target) return;
-  const startY = -20;
-  ({ startX, target } = resolveMissileApproach(g, startX, startY, target));
-  const dx = target.x - startX;
-  const dy = target.y - startY;
-  const len = Math.sqrt(dx * dx + dy * dy);
-  if (len < 1) return;
-  const speedMul = overrides?.speedMul ?? 1;
-  const speed = (rand(0.6, 0.9) + g.wave * 0.05) * 2 * speedMul;
-  const hp = 1;
-  g.missiles.push({
-    x: startX,
-    y: startY,
-    vx: (dx / len) * speed,
-    vy: (dy / len) * speed,
-    accel: 1.018,
-    trail: [],
-    alive: true,
-    type: "mirv",
-    health: hp,
-    maxHealth: hp,
-    splitY: rand(180, 300),
-    warheadCount: 5 + Math.min(3, Math.max(0, Math.floor((g.wave - 8) / 3))),
-    splitTriggered: false,
-    variant: overrides?.variant ?? "normal",
-    speedMul,
-    _hitByExplosions: new Set(),
-  });
-  if (onEvent) onEvent("sfx", { name: "mirvIncoming" });
+  const spawned = spawnPressureMissile(g, "mirv", overrides);
+  if (spawned && onEvent) onEvent("sfx", { name: "mirvIncoming" });
+  return spawned;
 }
 
 export interface SpawnPlaneOptions {
@@ -549,150 +478,11 @@ function pickSeparatedSpawnY(g: GameState, spawnX: number, yMin: number, yMax: n
 }
 
 export function spawnMissile(g: GameState, overrides?: SpawnEntry["overrides"]) {
-  const _rng = getRng();
-  const speedMul = overrides?.speedMul ?? 1;
-  const speed = (rand(0.5, 1.0) + g.wave * 0.08) * 2 * speedMul;
-  const sideMinY = 20,
-    sideMaxY = 722;
-  const topSpawnY = -10;
-  let startX, startY;
-  const side = overrides?.side;
-  if (side === "left") {
-    startX = -10;
-    startY = pickSeparatedSpawnY(g, startX, sideMinY, sideMaxY);
-  } else if (side === "right") {
-    startX = CANVAS_W + 10;
-    startY = pickSeparatedSpawnY(g, startX, sideMinY, sideMaxY);
-  } else if (side === "top") {
-    startX = rand(50, CANVAS_W - 50);
-    startY = topSpawnY;
-  } else if (g.wave >= 2 && _rng() < Math.min(0.4, (g.wave - 1) * 0.1)) {
-    const fromLeft = _rng() > 0.5;
-    startX = fromLeft ? -10 : CANVAS_W + 10;
-    startY = pickSeparatedSpawnY(g, startX, sideMinY, sideMaxY);
-  } else {
-    startX = rand(50, CANVAS_W - 50);
-    startY = topSpawnY;
-  }
-  let target = pickTarget(g, startX);
-  if (!target) return;
-  ({ startX, target } = resolveMissileApproach(g, startX, startY, target));
-  const dx = target.x - startX;
-  const dy = target.y - startY;
-  const len = Math.sqrt(dx * dx + dy * dy);
-  if (len < 1) return;
-  g.missiles.push({
-    x: startX,
-    y: startY,
-    vx: (dx / len) * speed,
-    vy: (dy / len) * speed,
-    accel: 1.0045 + g.wave * 0.0009,
-    trail: [],
-    alive: true,
-    type: "missile",
-    targetX: target.x,
-    targetY: target.y,
-    variant: overrides?.variant ?? "normal",
-    speedMul,
-    _hitByExplosions: new Set(),
-  });
-}
-
-function getSplitCandidateTargets(g: GameState): Array<{ x: number; y: number }> {
-  const candidates: Array<{ x: number; y: number }> = [];
-  if (g.burjAlive) candidates.push(getBurjBodyAimPoint());
-  for (const site of g.defenseSites) {
-    if (site.alive) candidates.push({ x: site.x, y: site.y });
-  }
-  g.launcherHP.forEach((hp, i) => {
-    if (hp > 0) {
-      const pos = getGameplayLauncherPosition(i);
-      candidates.push({ x: pos.x, y: pos.y });
-    }
-  });
-  return candidates;
-}
-
-function pickSplitTargetsWide(
-  g: GameState,
-  extraCount: number,
-  originalTargetX: number,
-): Array<{ x: number; y: number }> {
-  const candidates = getSplitCandidateTargets(g);
-  if (candidates.length === 0 || extraCount <= 0) return [];
-  const unique = candidates.filter((c, idx) => candidates.findIndex((o) => o.x === c.x && o.y === c.y) === idx);
-  const picked: Array<{ x: number; y: number }> = [];
-  const anchors = [originalTargetX];
-
-  while (picked.length < Math.min(extraCount, unique.length)) {
-    let best: { x: number; y: number } | null = null;
-    let bestScore = -Infinity;
-    for (const c of unique) {
-      if (picked.includes(c)) continue;
-      const spacing = Math.min(...anchors.map((x) => Math.abs(c.x - x)));
-      if (spacing > bestScore) {
-        best = c;
-        bestScore = spacing;
-      }
-    }
-    if (!best) break;
-    picked.push(best);
-    anchors.push(best.x);
-  }
-  return picked;
+  return spawnPressureMissile(g, "missile", overrides);
 }
 
 export function spawnStackedMissile(g: GameState, stackCount: 2 | 3, overrides?: SpawnEntry["overrides"]) {
-  const _rng = getRng();
-  const speedMul = overrides?.speedMul ?? 1;
-  const speed = (rand(0.5, 1.0) + g.wave * 0.08) * 2 * speedMul;
-  const sideMinY = 20;
-  const sideMaxY = 722;
-  const topSpawnY = -10;
-  let startX, startY;
-  const side = overrides?.side;
-  if (side === "left") {
-    startX = -10;
-    startY = pickSeparatedSpawnY(g, startX, sideMinY, sideMaxY);
-  } else if (side === "right") {
-    startX = CANVAS_W + 10;
-    startY = pickSeparatedSpawnY(g, startX, sideMinY, sideMaxY);
-  } else if (side === "top") {
-    startX = rand(50, CANVAS_W - 50);
-    startY = topSpawnY;
-  } else if (g.wave >= 2 && _rng() < Math.min(0.4, (g.wave - 1) * 0.1)) {
-    const fromLeft = _rng() > 0.5;
-    startX = fromLeft ? -10 : CANVAS_W + 10;
-    startY = pickSeparatedSpawnY(g, startX, sideMinY, sideMaxY);
-  } else {
-    startX = rand(50, CANVAS_W - 50);
-    startY = topSpawnY;
-  }
-  let target = pickTarget(g, startX);
-  if (!target) return;
-  ({ startX, target } = resolveMissileApproach(g, startX, startY, target));
-  const dx = target.x - startX;
-  const dy = target.y - startY;
-  const len = Math.sqrt(dx * dx + dy * dy);
-  if (len < 1) return;
-  g.missiles.push({
-    x: startX,
-    y: startY,
-    vx: (dx / len) * speed,
-    vy: (dy / len) * speed,
-    accel: 1.0045 + g.wave * 0.0009,
-    trail: [],
-    alive: true,
-    type: stackCount === 2 ? "stack2" : "stack3",
-    splitTriggered: false,
-    splitAfterDist: len * 0.2,
-    travelDist: 0,
-    targetX: target.x,
-    targetY: target.y,
-    variant: overrides?.variant ?? "normal",
-    speedMul,
-    _hitByExplosions: new Set(),
-  });
+  return spawnPressureMissile(g, stackCount === 2 ? "stack2" : "stack3", overrides);
 }
 
 const SHAHED_136_DIVE_TELEGRAPH_TICKS = 52;
@@ -1698,6 +1488,7 @@ function updateMissiles(g: GameState, dt: number, onEvent?: SimEventSink | null)
   g.missiles.forEach((m: Missile) => {
     if (!m.alive) return;
     if (m.flareControl) return;
+    if (m.pressure && visiblePoint(m)) m.pressure.visibleTicks += dt;
     m.trail.push({ x: m.x, y: m.y });
     if (m.trail.length > 21) m.trail.shift();
     if (m.accel) {
@@ -1714,31 +1505,7 @@ function updateMissiles(g: GameState, dt: number, onEvent?: SimEventSink | null)
     // MIRV split
     if (m.type === "mirv" && !m.splitTriggered && m.y >= (m.splitY ?? Infinity)) {
       m.splitTriggered = true;
-      m.alive = false;
-      for (let i = 0; i < (m.warheadCount ?? 0); i++) {
-        const t = pickTarget(g, m.x);
-        if (!t) continue;
-        const dx = t.x - m.x;
-        const dy = t.y - m.y;
-        const len = Math.sqrt(dx * dx + dy * dy);
-        const spd = (rand(0.8, 1.2) + g.wave * 0.06) * 1;
-        const childSpeedMul = m.speedMul ?? 1;
-        g.missiles.push({
-          x: m.x + rand(-20, 20),
-          y: m.y + rand(-10, 10),
-          vx: (dx / len) * spd * childSpeedMul,
-          vy: (dy / len) * spd * childSpeedMul,
-          accel: 1.018 + g.wave * 0.0036,
-          trail: [],
-          alive: true,
-          type: "mirv_warhead",
-          targetX: t.x,
-          targetY: t.y,
-          variant: m.variant ?? "normal",
-          speedMul: childSpeedMul,
-          _hitByExplosions: new Set(),
-        });
-      }
+      splitPressureMissile(g, m);
       boom(g, m.x, m.y, 35, COL.mirv, false, onEvent, 0, { source: "impact", harmless: true });
       if (onEvent) onEvent("sfx", { name: "mirvSplit" });
       return;
@@ -1749,36 +1516,7 @@ function updateMissiles(g: GameState, dt: number, onEvent?: SimEventSink | null)
       (m.travelDist ?? 0) >= (m.splitAfterDist ?? Infinity)
     ) {
       m.splitTriggered = true;
-      const totalCount = m.type === "stack3" ? 3 : 2;
-      const extraTargets = pickSplitTargetsWide(g, totalCount - 1, m.targetX ?? m.x);
-      const baseSpeed = Math.sqrt(m.vx * m.vx + m.vy * m.vy);
-      m.type = "stack_child";
-      m.trail = [];
-      for (let i = 0; i < extraTargets.length; i++) {
-        const t = extraTargets[i];
-        const dx = t.x - m.x;
-        const dy = t.y - m.y;
-        const len = Math.sqrt(dx * dx + dy * dy);
-        if (len < 1) continue;
-        const offsetMag = (i - (extraTargets.length - 1) / 2) * 8;
-        const nx = -dy / len;
-        const ny = dx / len;
-        g.missiles.push({
-          x: m.x + nx * offsetMag,
-          y: m.y + ny * offsetMag,
-          vx: (dx / len) * baseSpeed,
-          vy: (dy / len) * baseSpeed,
-          accel: m.accel,
-          trail: [],
-          alive: true,
-          type: "stack_child",
-          targetX: t.x,
-          targetY: t.y,
-          variant: m.variant ?? "normal",
-          speedMul: m.speedMul ?? 1,
-          _hitByExplosions: new Set(),
-        });
-      }
+      splitPressureMissile(g, m);
       boom(g, m.x, m.y, 18, "#ffb36b", false, onEvent, 0, { source: "impact", harmless: true });
       if (onEvent) onEvent("sfx", { name: "mirvSplit" });
     }
@@ -2588,6 +2326,8 @@ export function update(g: GameState, dt: number, onEvent?: SimEventSink | null) 
     if (g._debugMode) {
       // Loop wave 1 indefinitely — reset spawn schedule
       const wave1 = generateWaveSchedule(1, g.commander);
+      g.targetPressure = createPressureLedger(g.wave);
+      g.pendingMissileSpawn = undefined;
       g.schedule = wave1.schedule;
       g.scheduleIdx = 0;
       g.waveTick = 0;
@@ -2613,9 +2353,9 @@ export function update(g: GameState, dt: number, onEvent?: SimEventSink | null) 
   // Spawning — consume schedule entries
   advanceSpawnSchedule(g, dt, (gameState, type, overrides) => {
     const gs = gameState as GameState;
-    if (type === "missile") spawnMissile(gs, overrides);
-    else if (type === "stack2") spawnStackedMissile(gs, 2, overrides);
-    else if (type === "stack3") spawnStackedMissile(gs, 3, overrides);
+    if (type === "missile") return spawnMissile(gs, overrides);
+    else if (type === "stack2") return spawnStackedMissile(gs, 2, overrides);
+    else if (type === "stack3") return spawnStackedMissile(gs, 3, overrides);
     else if (
       type === "shahed-136" ||
       type === "shahed-136-bomber" ||
@@ -2624,7 +2364,7 @@ export function update(g: GameState, dt: number, onEvent?: SimEventSink | null) 
     )
       spawnDroneOfType(gs, "shahed136", overrides, type);
     else if (type === "drone238") spawnDroneOfType(gs, "shahed238", overrides);
-    else if (type === "mirv") spawnMirvWithOverrides(gs, overrides, onEvent);
+    else if (type === "mirv") return spawnMirvWithOverrides(gs, overrides, onEvent);
   });
 
   const allThreats = [...g.missiles.filter((m) => m.alive), ...g.drones.filter((d) => d.alive)];
@@ -2646,6 +2386,7 @@ export function update(g: GameState, dt: number, onEvent?: SimEventSink | null) 
   // PERF: This allocates six fresh arrays every tick. Keep the current filter
   // order for determinism; a future mark-and-sweep pass should preserve entity
   // iteration order and replay hashes before replacing it.
+  settleMissilePressure(g);
   g.missiles = g.missiles.filter((m) => m.alive);
   g.drones = g.drones.filter((d) => d.alive);
   g.interceptors = g.interceptors.filter((ic) => ic.alive);

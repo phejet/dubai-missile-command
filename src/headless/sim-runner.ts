@@ -73,14 +73,11 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
     if (!checkpoints) return;
     checkpoints.push(buildReplayCheckpoint(g, checkpointTick, reason));
   };
+  let pendingHumanBonus: number | null = null;
   const onSimEvent = isHuman
     ? (((type, data) => {
         if (type === "waveBonusStart") {
-          addScore(
-            g,
-            getBuildingSurvivalBonus(data as import("../types").SimEventMap["waveBonusStart"]),
-            "building_bonus",
-          );
+          pendingHumanBonus = getBuildingSurvivalBonus(data as import("../types").SimEventMap["waveBonusStart"]);
         }
       }) satisfies import("../types").SimEventSink)
     : null;
@@ -225,10 +222,18 @@ export function runGame(botConfig: Record<string, unknown> | null, options: RunG
 
     // Advance simulation
     update(g, dt, onSimEvent);
-    if (isBonusUiPauseActive(g)) completeWaveBonusAndOpenShop(g, onSimEvent);
     const postTick = tick + 1;
     if ((g.state as string) === "gameover") recordCheckpoint(postTick, "gameover");
     else if (postTick % 60 === 0) recordCheckpoint(postTick);
+    // The replay runner checks post-update intervals before resuming the bonus UI.
+    // Keep boundary snapshots on the same side of that transition, including human bonuses.
+    if (isBonusUiPauseActive(g)) {
+      if (pendingHumanBonus !== null) {
+        addScore(g, pendingHumanBonus, "building_bonus");
+        pendingHumanBonus = null;
+      }
+      completeWaveBonusAndOpenShop(g, onSimEvent);
+    }
     if (shouldStopReplayAtWaveComplete(g, stopWave)) {
       deathCause = "completed";
       tick++;

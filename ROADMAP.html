@@ -169,13 +169,13 @@
       <section id="now">
         <h2>Now</h2>
         <div class="notice">
-          <strong>RM-10 — Effective target pressure: design review underway.</strong><br />
-          RM-09's audit is complete and its target-pressure follow-up is now RM-10, the active initiative. Routing
-          direction is agreed: missiles use flank-specific reachable target pools, drones use cruise, visible commitment
-          and a target-dependent dive, both under one shared pressure budget. Implementation is not authorized. Next
-          action: settle the four remaining contract decisions in
-          <a href="docs/target-pressure-review-plan.html">the review plan</a> — allocation, accounting, fair-warning and
-          empty-pool fallback — then write the detailed AI execution handoff.<br />
+          <strong>RM-10 — Stage B implemented and locally verified.</strong><br />
+          Shared terminal-body accounting and reachable missile routes are ready to feel-check. Ordinary buildings
+          are destinations; MIRV/stack children inherit reservations and visible carrier warning. User-approved
+          warning shortfalls and empty-sky flank fallbacks are recorded explicitly. Next: iPhone feel-check of
+          predominantly steep/vertical entries, then decide whether angle tuning is needed before Stage C.
+          Per-wave MIRV cost needs on-device measurement before release.
+          <a href="docs/target-pressure-stage-b-execution.md">Implementation evidence and handoff</a>.<br />
           RM-09 closed on 2026-09-20: Defect 1 is committed locally as <code>064226d</code> and Defect 2 was judged
           insignificant and left unfixed. Still open elsewhere: RM-08 needs generated-candidate link/cleanup proof and
           human usefulness confirmation, plus the player-only scoring iPhone feel-check. RM-04 is complete on Staging as
@@ -207,7 +207,7 @@
                 <strong>Agreed direction (2026-09-20):</strong> budget <em>effective</em> tower-bound routes rather than
                 initial target rolls. Missiles pick target and entry altitude together from flank-specific reachable
                 pools; drones cruise, show a visible commitment tell, then dive to a target-dependent point. Ordinary
-                city buildings become real destinations. Both families draw on one shared pressure budget, starting at
+                city buildings become real destinations. Both families draw on one shared pressure budget, requesting
                 30% tower / 50% ordinary buildings / 20% combat infrastructure. Policy stays fixed across waves.
               </p>
               <p>
@@ -229,9 +229,17 @@
                 settled inside the execution handoff rather than in a review stage of their own.
               </p>
               <p>
-                <strong>Gate:</strong> implementation is not authorized. Four contract decisions remain with the user
-                (starting allocation, terminal-body accounting, fair-warning and altitude limits, empty-pool and
-                tower-only fallback); after they settle, the detailed AI execution handoff is written before any coding.
+                <strong>Stage B locally verified (2026-09-21):</strong> shared deterministic ledger, flank-specific
+                missile routes, ordinary-building destinations, frozen split plans, explicit deferral/fallback and
+                replay v15 integration are implemented. Independent review confirmed 864 unit tests;
+                browser smoke/replay: 21 tests. Review-follow-up guards passed 199 focused tests;
+                controlled geometry/loss-state sweep: 1,113 cases with zero failed spawns or non-tower crossings.
+                Three bot recordings reproduce their checkpoints and report reservations separately from commitments.
+                Drones/bombs still use the old policy; combined distribution and human feel remain unproven.
+                Requested allocation is 30/50/20; the reviewer measured approximately 32/54/14 committed pressure
+                in their sample because buildings shield infrastructure. Review also found 84–98% of entries below
+                the old slope floor and wave-50 MIRV planning p50 2.94 ms on Mac. Phone feel and timing remain open.
+                <a href="docs/target-pressure-stage-b-execution.md">Stage B evidence and Stage C handoff</a>.
               </p>
               <p><a href="docs/target-pressure-review-plan.html">Illustrated review plan</a></p>
               <p><a href="docs/target-pressure-retarget-trace.html">Retargeting trace evidence</a></p>
@@ -536,8 +544,10 @@
             completion.
           </li>
           <li>
-            RM-10 implementation is not authorized until the four remaining contract decisions are settled and the
-            detailed execution handoff is written.
+            RM-10 requires Stage C drone/bomb integration, independent combined verification and human feel-check
+            before completion. First feel-check Stage B's predominantly steep/vertical entries on iPhone and decide
+            whether to tune angles before Stage C. Measure MIRV planning on device before release. DMC Dev was
+            installed on the configured iPhone on 2026-09-22; release, feel and device-performance proof remain open.
           </li>
           <li>Production capture remains disabled; this release authorizes Staging only.</li>
         </ol>
@@ -547,9 +557,14 @@
         <h2>Current decisions</h2>
         <ul>
           <li>
-            RM-10 budgets <em>effective</em> tower-bound routes, not initial target rolls, at a starting 30/50/20
+            RM-10 budgets <em>effective</em> tower-bound routes, not initial target rolls, at a requested 30/50/20
             tower/ordinary-building/infrastructure split. Missiles and drones use separate planners under one shared
             budget; wave volume, enemy stats and rewards stay out of this slice.
+          </li>
+          <li>
+            RM-10 warning defaults to 60 visible ticks, including carrier time for descendants. Preserve speeds and
+            report unavoidable shortfalls. If an empty sky leaves a required flank with no reachable non-tower asset,
+            allow an explicitly recorded same-flank tower attack; otherwise defer rather than changing side or family.
           </li>
           <li>
             RM-09 Defect 2, the missed incidental swept-collision crossing, is closed unfixed as insignificant
@@ -593,6 +608,16 @@
       <section id="changes">
         <h2>Recent roadmap changes</h2>
         <ul>
+          <li>
+            <strong>2026-09-22:</strong> incorporated independent Stage B review: distinguish requested from committed
+            allocation, make angle feel the next check, and require per-family iPhone performance evidence before
+            release. Added non-throwing corrupt-ownership recovery; left feel-bearing routing constants unchanged.
+          </li>
+          <li>
+            <strong>2026-09-21:</strong> implemented and locally verified RM-10 Stage B. User accepted inherited carrier
+            warning, reported warning shortfalls at unchanged speeds, and explicit empty-sky flank tower fallback.
+            Preserved v14 simulator/fixtures, re-recorded v15 fixtures, and handed off Stage C. RM-10 remains in progress.
+          </li>
           <li>
             <strong>2026-09-20:</strong> added RM-10 Effective target pressure at the front of the roadmap as the active
             initiative, promoting RM-09's target-pressure follow-up into an initiative of its own. Routing direction is

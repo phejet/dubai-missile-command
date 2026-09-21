@@ -251,7 +251,9 @@ describe("golden-seed canary", () => {
     // scoring changed. 8,392 player-owned kill points + 6,250 multi-kill (unchanged rules)
     // + 5,250 wave clears + 14 cash-outs x 1,000 (the hit reaching x5 banks the bonus);
     // the 18 automation kills now score 0. Automation-heavy builds lose (Part Six report).
-    expect(r.score).toBe(33892);
+    // 33892 -> 25416 (RM-10 Stage B, replay v15): routes, reservations and RNG consumption
+    // intentionally change. Same wave/time limit; this is not comparative balance evidence.
+    expect(r.score).toBe(25416);
     expect(r.wave).toBe(7);
     expect(r.deathCause).toBe("timeout");
   });

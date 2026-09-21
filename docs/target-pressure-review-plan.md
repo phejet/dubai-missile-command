@@ -1,6 +1,8 @@
 # Effective target pressure — design and execution review
 
-Date: 2026-09-20. Status: **routing direction agreed; remaining contract under review; implementation not authorized**.
+Date: 2026-09-20. Historical design review; **Stage B implemented and locally verified on 2026-09-21**.
+Current accepted rules, evidence and Stage C handoff: docs/target-pressure-stage-b-execution.md.
+The proposals and review questions below preserve the original design discussion.
 Roadmap context: proposed follow-up to RM-09. This document does not supersede ROADMAP.html.
 After approval, produce a separate, executable AI handoff with exact contracts, file ownership,
 tests, commands and stop conditions. Do not treat this review plan as that handoff.
