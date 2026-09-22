@@ -1,6 +1,7 @@
+import { planDronePressure, prepareDroneCommitment, dropPressureBomb, settleDronePressure } from "./pressure-drones";
 import { spawnPressureMissile, splitPressureMissile, settleMissilePressure } from "./pressure-missiles";
 import { visiblePoint } from "./missile-routing";
-import { createPressureLedger } from "./target-pressure";
+import { createPressureLedger, TARGET_PRESSURE } from "./target-pressure";
 import { addScore, awardKill, stepCombo, AUTOMATED_KILL_SOURCES, COMBO_CAP, type ExplosionOptions } from "./game-logic";
 import {
   CANVAS_W,
@@ -19,7 +20,7 @@ import {
   getGameplayBurjCollisionBottom,
   getBurjBodyAimPoint,
   applyShake,
-  getShahed136LevelFlightYRange,
+  getGameplayBurjCollisionTop,
   getGameplayLauncherPosition,
   dist,
   rand,
@@ -27,7 +28,6 @@ import {
   lerp,
   clamp01,
   pickTarget,
-  pickBuildingTarget,
   createExplosion,
   destroyDefenseSite,
   getPhalanxTurrets,
@@ -39,9 +39,6 @@ import {
   recordThreatDestroyed,
   getMultiKillBonus,
   getRng,
-  computeShahed136Path,
-  computeShahed136StraightPath,
-  computeShahed238Path,
   GAMEPLAY_SCENIC_LAUNCHER_Y,
   INTERCEPTOR_TAP_FUSE_RADIUS,
   IRON_BEAM_EMITTER_Y,
@@ -77,7 +74,13 @@ import {
   predictBurjImpactTicks,
   syncFireChargeForTick,
 } from "./game-logic";
-import { createCommander, generateWaveSchedule, advanceSpawnSchedule, isWaveFullySpawned } from "./wave-spawner";
+import {
+  createCommander,
+  generateWaveSchedule,
+  advanceSpawnSchedule,
+  isWaveFullySpawned,
+  SHAHED_136_TUNING,
+} from "./wave-spawner";
 import { createEmptyUpgradeLevels, createEmptyUpgradeProgression } from "./game-sim-upgrades";
 import {
   buyUpgrade,
@@ -485,8 +488,6 @@ export function spawnStackedMissile(g: GameState, stackCount: 2 | 3, overrides?:
   return spawnPressureMissile(g, stackCount === 2 ? "stack2" : "stack3", overrides);
 }
 
-const SHAHED_136_DIVE_TELEGRAPH_TICKS = 52;
-
 export function spawnDroneOfType(
   g: GameState,
   subtype: "shahed136" | "shahed238",
@@ -504,13 +505,15 @@ export function spawnDroneOfType(
   else if (side === "right") goingRight = false;
   else goingRight = _rng() > 0.5;
   const baseSpeed = isJet ? rand(2.5, 3.9) : rand(0.42, 0.84);
-  const shahedLevelSpeedMul = !isJet && !hasDive ? 1.45 : 1;
+  // Speed and wave-budget price are tuned together in SHAHED_136_TUNING.
+  const shahedLevelSpeedMul = !isJet && shahedVariant ? SHAHED_136_TUNING[shahedVariant].speedMul : 1;
   const speedMul = overrides?.speedMul ?? 1;
   const speed = (baseSpeed + g.wave * 0.05) * 2 * speedMul * shahedLevelSpeedMul;
   const health = 1;
   const spawnX = goingRight ? -20 : CANVAS_W + 20;
-  const [yMin, yMax] = yRange ?? getShahed136LevelFlightYRange();
-  const spawnY = pickSeparatedSpawnY(g, spawnX, yMin, yMax);
+  const [yMin, yMax] = yRange ?? [80, 590];
+  const ceiling = getGameplayBurjCollisionTop() - TARGET_PRESSURE.drone.cruiseClearance;
+  const spawnY = pickSeparatedSpawnY(g, spawnX, Math.min(yMin, ceiling), Math.min(yMax, ceiling));
   const drone: Drone = {
     x: spawnX,
     y: spawnY,
@@ -528,40 +531,7 @@ export function spawnDroneOfType(
     speedMul,
     _hitByExplosions: new Set(),
   };
-  if (isJet) {
-    const estimatedMidX = spawnX + (goingRight ? 1 : -1) * CANVAS_W * 0.4;
-    const target = pickTarget(g, estimatedMidX) || getBurjBodyAimPoint();
-    const path = computeShahed238Path(spawnX, spawnY, goingRight, speed, target);
-    drone.waypoints = path.waypoints;
-    drone.pathIndex = 0;
-    drone.bombIndices = path.bombIndices;
-    drone.bombsDropped = 0;
-    drone.diveStartIndex = path.diveStartIndex;
-    drone.diveTarget = target;
-  } else {
-    const target = hasDive
-      ? pickTarget(g, spawnX + (goingRight ? 1 : -1) * CANVAS_W * rand(0.28, 0.42)) || getBurjBodyAimPoint()
-      : { x: goingRight ? CANVAS_W + 80 : -80, y: spawnY };
-    const path = hasDive
-      ? computeShahed136Path(spawnX, spawnY, goingRight, speed, target)
-      : {
-          waypoints: computeShahed136StraightPath(spawnX, spawnY, speed, target),
-          diveStartIndex: undefined,
-          bombIndices: [] as number[],
-        };
-    drone.waypoints = path.waypoints;
-    drone.pathIndex = 0;
-    drone.bombIndices = hasBomb
-      ? hasDive
-        ? path.bombIndices
-        : [Math.max(1, Math.floor(path.waypoints.length * rand(0.46, 0.58)))]
-      : [];
-    drone.bombsDropped = 0;
-    if (hasDive && typeof path.diveStartIndex === "number") {
-      drone.diveStartIndex = path.diveStartIndex;
-      drone.diveTarget = target;
-    }
-  }
+  planDronePressure(g, drone, speed, isJet || hasDive, isJet ? 2 : hasBomb ? 1 : 0);
   g.drones.push(drone);
 }
 
@@ -1583,28 +1553,9 @@ function updateMissiles(g: GameState, dt: number, onEvent?: SimEventSink | null)
   });
 }
 
-// Keep the sampled falling speed, and cover the horizontal distance in the same
-// time it takes to reach the selected roof. Both carrier paths use this launch rule.
+// Both waypoint and legacy carriers use the same accounted, geometry-checked drop.
 function dropBuildingBomb(g: GameState, d: Drone) {
-  const target = pickBuildingTarget(g, d.x);
-  if (!target || target.y <= d.y) return;
-  const vy = rand(2.4, 4.0);
-  const timeToRoof = (target.y - d.y) / vy;
-  g.missiles.push({
-    x: d.x,
-    y: d.y,
-    vx: (target.x - d.x) / timeToRoof,
-    vy,
-    accel: 1,
-    trail: [],
-    alive: true,
-    type: "bomb",
-    targetX: target.x,
-    targetY: target.y,
-    variant: d.variant ?? "normal",
-    speedMul: d.speedMul ?? 1,
-    _hitByExplosions: new Set(),
-  });
+  dropPressureBomb(g, d);
 }
 
 function updateDrones(g: GameState, _rng: () => number, dt: number, onEvent?: SimEventSink | null) {
@@ -1615,6 +1566,7 @@ function updateDrones(g: GameState, _rng: () => number, dt: number, onEvent?: Si
     d.trail.push({ x: d.x, y: d.y });
     if (d.trail.length > (d.subtype === "shahed238" ? 13 : 10)) d.trail.shift();
     d.wobble += 0.05 * dt;
+    prepareDroneCommitment(g, d, dt);
     if (d.waypoints && d.waypoints.length >= 2) {
       // Follow precomputed trajectory.
       if (!d.waypoints || d.waypoints.length < 2) {
@@ -1628,13 +1580,15 @@ function updateDrones(g: GameState, _rng: () => number, dt: number, onEvent?: Si
         d.subtype === "shahed136" && shahed136HasDive(d.shahedVariant ?? "shahed-136-dive-bomber");
       const hasWaypointDive = Number.isFinite(diveStart);
       d.diveTelegraphing =
-        isShahed136Diver && !d.diving && (d.pathIndex ?? 0) >= diveStart - SHAHED_136_DIVE_TELEGRAPH_TICKS;
+        (d.pressure ? d.pressure.committed : isShahed136Diver) &&
+        !d.diving &&
+        (d.pathIndex ?? 0) >= diveStart - TARGET_PRESSURE.drone.tellTicks;
       // Two-phase Shahed-136 dive behavior: cruise feels lazy, dive ramps to terminal velocity.
       // diveSpeed is repurposed here as the ramping pathSpeed multiplier for waypoint paths.
       let pathSpeed = 1;
       if (isShahed136Diver && (d.pathIndex ?? 0) >= diveStart) {
         if (!d.diveSpeed) d.diveSpeed = 1.0;
-        d.diveSpeed = Math.min(4.0, d.diveSpeed * 1.06 ** dt);
+        d.diveSpeed = Math.min(TARGET_PRESSURE.drone.propMaxRamp, d.diveSpeed * TARGET_PRESSURE.drone.propRamp ** dt);
         pathSpeed = d.diveSpeed;
       }
       d.pathIndex = Math.min((d.pathIndex ?? 0) + dt * pathSpeed, d.waypoints.length - 1);
@@ -2387,6 +2341,7 @@ export function update(g: GameState, dt: number, onEvent?: SimEventSink | null) 
   // order for determinism; a future mark-and-sweep pass should preserve entity
   // iteration order and replay hashes before replacing it.
   settleMissilePressure(g);
+  settleDronePressure(g);
   g.missiles = g.missiles.filter((m) => m.alive);
   g.drones = g.drones.filter((d) => d.alive);
   g.interceptors = g.interceptors.filter((ic) => ic.alive);

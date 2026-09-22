@@ -1,7 +1,7 @@
 # RM-10 Stage B — implementation and handoff
 
 2026-09-22. Stage B is implemented; review follow-up addressed below. Not committed or released; Dev installed on the configured iPhone on 2026-09-22.
-Canonical status: [RM-10](../ROADMAP.html#rm-10). Next: iPhone angle feel-check; then decide on route tuning before C, drone routing.
+Canonical status: [RM-10](../ROADMAP.html#rm-10). Stage C now implemented with current missile angles by user instruction; see [Stage C evidence](target-pressure-stage-c-execution.md).
 This is an intermediate missile slice, not a claim that combined enemy pressure is balanced.
 
 ## Accepted rules
@@ -191,7 +191,9 @@ plans, invalid child IDs, duplicate child IDs and stale wave ownership.
 at `BASE_Y - BURJ_H * 0.8` instead of randomized over the old trunk interval. Watch overlapping
 entries, visible banding and repetitive tower convergence during the same feel-check.
 
-## Stage C handoff and human check
+## Stage C handoff and human check (historical)
+
+Superseded by [Stage C implementation evidence](target-pressure-stage-c-execution.md).
 
 Drones and bombs still use their existing targeting and movement. They are **not yet counted**
 in this ledger: Stage B must not be reported as achieving combined 30/50/20 pressure.

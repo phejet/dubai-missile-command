@@ -1,3 +1,4 @@
+import { TARGET_PRESSURE } from "./target-pressure";
 import type { KillSource, ScoreKind } from "./types";
 import {
   DESTROYED_TYPE_KEYS,
@@ -967,7 +968,7 @@ function cubicBezier(p0: Point, p1: Point, p2: Point, p3: Point, t: number): Poi
   };
 }
 
-function sampleCubicBezier(p0: Point, p1: Point, p2: Point, p3: Point, stepSize: number): Point[] {
+export function sampleCubicBezier(p0: Point, p1: Point, p2: Point, p3: Point, stepSize: number): Point[] {
   const N = 500;
   const fine: Point[] = [];
   for (let i = 0; i <= N; i++) {
@@ -1215,7 +1216,10 @@ function predictDroneBurjImpact(g: GameState, d: Drone, horizon: number): number
     for (let tick = 1; tick <= horizon; tick++) {
       let pathSpeed = 1;
       if (isShahed136Diver && pathIndex >= diveStart) {
-        diveSpeed = Math.min(4.0, Math.max(diveSpeed, 1.0) * 1.06);
+        diveSpeed = Math.min(
+          TARGET_PRESSURE.drone.propMaxRamp,
+          Math.max(diveSpeed, 1.0) * TARGET_PRESSURE.drone.propRamp,
+        );
         pathSpeed = diveSpeed;
       }
       pathIndex = Math.min(pathIndex + pathSpeed, d.waypoints.length - 1);

@@ -1018,7 +1018,8 @@ function getThreatSpriteAsset(
 ): PixiProjectileSpriteAsset {
   if (entity.type === "drone") {
     if (entity.subtype === "shahed238") return threatAssets.shahed238;
-    return shahed136HasDive(entity.shahedVariant ?? "shahed-136")
+    // Baseline Shaheds now dive, but keep their original airframe.
+    return entity.shahedVariant === "shahed-136-dive" || entity.shahedVariant === "shahed-136-dive-bomber"
       ? threatAssets.shahed136_dive
       : threatAssets.shahed136;
   }
@@ -3439,16 +3440,27 @@ export class PixiRenderer implements GameRenderer {
       }
 
       if (drone.diveTelegraphing && !drone.diving) {
+        if (drone.diveTarget) {
+          const dx = drone.diveTarget.x - drone.x,
+            dy = drone.diveTarget.y - drone.y;
+          const length = Math.hypot(dx, dy) || 1;
+          const ux = dx / length,
+            uy = dy / length;
+          const tipX = pos.x + ux * 48 * GAMEPLAY_ENEMY_SCALE;
+          const tipY = pos.y + uy * 48 * GAMEPLAY_ENEMY_SCALE;
+          node.overlay
+            .moveTo(pos.x + ux * 28 * GAMEPLAY_ENEMY_SCALE, pos.y + uy * 28 * GAMEPLAY_ENEMY_SCALE)
+            .lineTo(tipX, tipY)
+            .moveTo(tipX - ux * 10 - uy * 7, tipY - uy * 10 + ux * 7)
+            .lineTo(tipX, tipY)
+            .lineTo(tipX - ux * 10 + uy * 7, tipY - uy * 10 - ux * 7)
+            .stroke({ width: 2 * GAMEPLAY_EFFECT_SCALE, color: 0xffe08a, alpha: 0.9 });
+        }
         const pulse = 1 + Math.sin(game.time * 0.42 + pos.x * 0.01) * 0.18;
         const r = 25 * GAMEPLAY_ENEMY_SCALE * pulse;
         node.overlay
           .circle(pos.x, pos.y, r)
           .stroke({ width: 1.6 * GAMEPLAY_EFFECT_SCALE, color: 0xffc13a, alpha: 0.76 });
-        node.overlay
-          .moveTo(pos.x - 14 * GAMEPLAY_ENEMY_SCALE, pos.y + 14 * GAMEPLAY_ENEMY_SCALE)
-          .lineTo(pos.x, pos.y + 24 * GAMEPLAY_ENEMY_SCALE)
-          .lineTo(pos.x + 14 * GAMEPLAY_ENEMY_SCALE, pos.y + 14 * GAMEPLAY_ENEMY_SCALE)
-          .stroke({ width: 1.4 * GAMEPLAY_EFFECT_SCALE, color: 0xffe08a, alpha: 0.72 });
       }
 
       if (drone.diving) {

@@ -253,7 +253,11 @@ describe("golden-seed canary", () => {
     // the 18 automation kills now score 0. Automation-heavy builds lose (Part Six report).
     // 33892 -> 25416 (RM-10 Stage B, replay v15): routes, reservations and RNG consumption
     // intentionally change. Same wave/time limit; this is not comparative balance evidence.
-    expect(r.score).toBe(25416);
+    // 25416 -> 23292 (RM-10 Stage C, replay v16): targeted drone routes, bombs and RNG change.
+    // 23292 -> 36486 (Stage C follow-up): the baseline Shahed becomes the slowest diver and the
+    // dive airframe takes the speed premium, repriced in SHAHED_136_TUNING. Single-seed noise —
+    // over 24 seeds median score moved 29474 -> 27438 and median wave stayed 7.
+    expect(r.score).toBe(36486);
     expect(r.wave).toBe(7);
     expect(r.deathCause).toBe("timeout");
   });

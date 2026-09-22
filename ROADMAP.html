@@ -169,13 +169,14 @@
       <section id="now">
         <h2>Now</h2>
         <div class="notice">
-          <strong>RM-10 — Stage B implemented and locally verified.</strong><br />
-          Shared terminal-body accounting and reachable missile routes are ready to feel-check. Ordinary buildings
-          are destinations; MIRV/stack children inherit reservations and visible carrier warning. User-approved
-          warning shortfalls and empty-sky flank fallbacks are recorded explicitly. Next: iPhone feel-check of
-          predominantly steep/vertical entries, then decide whether angle tuning is needed before Stage C.
-          Per-wave MIRV cost needs on-device measurement before release.
-          <a href="docs/target-pressure-stage-b-execution.md">Implementation evidence and handoff</a>.<br />
+          <strong>RM-10 — Stage C implemented, reviewed and retuned.</strong><br />
+          Drones and bombs now share missile pressure accounting. Baseline Shaheds use targeted dives;
+          pure bombers cruise above the tower. Both propellers and jets show destination-bearing commitment tells.
+          User authorized retaining current missile angles on 2026-09-22. Review found the baseline Shahed kept the
+          stats it had for being harmless, inverting wave 1's teaching order; it is now the slow readable diver and the
+          dedicated dive airframe carries the speed premium. Next: Stage D independent combined review, then Stage E
+          human feel-check of that curve. Per-family device timing, including MIRVs, remains required before release.
+          <a href="docs/target-pressure-stage-c-execution.md">Stage C evidence and review handoff</a>.<br />
           RM-09 closed on 2026-09-20: Defect 1 is committed locally as <code>064226d</code> and Defect 2 was judged
           insignificant and left unfixed. Still open elsewhere: RM-08 needs generated-candidate link/cleanup proof and
           human usefulness confirmation, plus the player-only scoring iPhone feel-check. RM-04 is complete on Staging as
@@ -235,11 +236,34 @@
                 browser smoke/replay: 21 tests. Review-follow-up guards passed 199 focused tests;
                 controlled geometry/loss-state sweep: 1,113 cases with zero failed spawns or non-tower crossings.
                 Three bot recordings reproduce their checkpoints and report reservations separately from commitments.
-                Drones/bombs still use the old policy; combined distribution and human feel remain unproven.
+                At the Stage B checkpoint, drones/bombs still used the old policy; Stage C evidence follows below.
                 Requested allocation is 30/50/20; the reviewer measured approximately 32/54/14 committed pressure
                 in their sample because buildings shield infrastructure. Review also found 84–98% of entries below
                 the old slope floor and wave-50 MIRV planning p50 2.94 ms on Mac. Phone feel and timing remain open.
                 <a href="docs/target-pressure-stage-b-execution.md">Stage B evidence and Stage C handoff</a>.
+              </p>
+              <p>
+                <strong>Stage C locally verified (2026-09-22):</strong> target-dependent cruise/turn/dive routes,
+                final living-destination selection at the tell, frozen committed paths, bomb ownership transfer
+                and explicit cancellation are implemented. Baseline Shaheds now dive by user choice; pure bombers
+                remain bombers. 913 unit tests and 21 browser smoke/replay tests pass; 600 controlled cases show
+                no non-tower tower crossings. Three checkpoint-verified bot recordings commit 30.2/51.0/18.8%
+                tower/building/infrastructure pressure; ten-commitment windows contain 1–5 tower attacks.
+                Replay v16 fixtures are re-recorded. Independent review, human feel and device timings remain open.
+                <a href="docs/target-pressure-stage-c-execution.md">Stage C contract, evidence and handoff</a>.
+              </p>
+              <p>
+                <strong>Stage C review and variant retune (2026-09-22):</strong> review confirmed the mechanics and
+                reproduced the published allocation evidence, and found no correctness defect. It did find that
+                flipping the baseline Shahed to a diver left every stat that existed because it could not attack:
+                cheapest budget cost, 45% speed premium and exclusion from altitude tactics. Wave 1 opened with the
+                fastest propeller diver while wave 3 introduced one 45% slower. The baseline is now the slow readable
+                introductory diver and the dedicated dive airframe carries the premium, repriced together in one
+                <code>SHAHED_136_TUNING</code> table. Across 24 seeds the retune is balance-neutral (median score
+                29,474 to 27,438, median wave 7 either way); the seed-42 canary moved to 36,486 as single-seed noise.
+                915 unit tests, 21 browser tests and 840 controlled cases pass with zero non-tower tower crossings;
+                committed mix 30.8/52.3/16.9%. Perf fixtures re-recorded again. The retuned curve has only been seen
+                by the bot, so Stage E must judge it.
               </p>
               <p><a href="docs/target-pressure-review-plan.html">Illustrated review plan</a></p>
               <p><a href="docs/target-pressure-retarget-trace.html">Retargeting trace evidence</a></p>
@@ -544,9 +568,9 @@
             completion.
           </li>
           <li>
-            RM-10 requires Stage C drone/bomb integration, independent combined verification and human feel-check
-            before completion. First feel-check Stage B's predominantly steep/vertical entries on iPhone and decide
-            whether to tune angles before Stage C. Measure MIRV planning on device before release. DMC Dev was
+            RM-10 requires Stage D independent combined verification and Stage E human feel-check
+            before completion. Stage C is implemented, reviewed and retuned; the retuned difficulty curve has no human
+            verdict yet. User authorized Stage C with the current missile angles on 2026-09-22. Measure MIRV planning on device before release. DMC Dev was
             installed on the configured iPhone on 2026-09-22; release, feel and device-performance proof remain open.
           </li>
           <li>Production capture remains disabled; this release authorizes Staging only.</li>
@@ -608,6 +632,17 @@
       <section id="changes">
         <h2>Recent roadmap changes</h2>
         <ul>
+          <li>
+            <strong>2026-09-22:</strong> reviewed RM-10 Stage C and retuned the propeller Shahed variants. The baseline
+            becomes the slow readable introductory diver; the dedicated dive airframe takes the 45% speed premium, with
+            speed and wave-budget price unified in <code>SHAHED_136_TUNING</code>. Balance-neutral over 24 seeds; the
+            curve still needs a human feel-check.
+          </li>
+          <li>
+            <strong>2026-09-22:</strong> implemented RM-10 Stage C after the user authorized current missile angles
+            and targeted baseline-Shahed dives. Shared drone/bomb accounting, destination tells and replay v16
+            are locally verified; next is independent combined review, then human feel-check.
+          </li>
           <li>
             <strong>2026-09-22:</strong> incorporated independent Stage B review: distinguish requested from committed
             allocation, make angle feel the next check, and require per-family iPhone performance evidence before

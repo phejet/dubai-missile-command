@@ -13,6 +13,10 @@ function setup(path: "waypoint" | "legacy", x = recorded.x, y = recorded.y) {
   g.buildings.forEach((b, i) => (b.alive = i === 1 || i === 2));
   spawnDroneOfType(g, "shahed136", undefined, "shahed-136-bomber");
   const d = g.drones[0];
+  // Replace the production plan with a synthetic carrier at the historical launch.
+  // The common legacy drop entry reserves its own pressure at that position.
+  d.pressure = undefined;
+  g.targetPressure = undefined;
   Object.assign(d, { x, y, vx: -1, vy: 0, wobble: -0.05, diving: false, bombDropped: false, bombsDropped: 0 });
   if (path === "waypoint") {
     d.waypoints = [

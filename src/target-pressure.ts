@@ -1,4 +1,4 @@
-/** Shared terminal-body accounting. Drone/bomb callers join this ledger in Stage C. */
+/** Shared terminal-body accounting for missiles, drones and bombs. */
 export type PressureCategory = "tower" | "building" | "infrastructure";
 export const TARGET_PRESSURE = {
   sequence: [
@@ -19,6 +19,24 @@ export const TARGET_PRESSURE = {
   entrySamples: 9,
   horizonTicks: 1200,
   geometryEpsilon: 1e-7,
+  drone: {
+    tellTicks: 52,
+    tellInset: 40,
+    cruiseClearance: 40,
+    diveOffsets: [120, 60, 0, -60] as readonly number[],
+    turnHandle: 60,
+    terminalHandle: 100,
+    propCruiseSpeed: 1.08,
+    propDiveSpeed: 1.34,
+    jetDiveSpeed: 1.2,
+    propRamp: 1.06,
+    propMaxRamp: 4,
+    bombVy: [2.4, 4] as const,
+    propBombCruiseFraction: 0.5,
+    jetFirstBombFraction: 0.35,
+    jetBombSeparationFraction: 0.3,
+    jetBombSeparationTicks: 90,
+  },
 };
 
 export interface PressureUnit {
@@ -33,7 +51,7 @@ export interface PressureUnit {
   warningShortfall?: number;
   state: "reserved" | "committed" | "cancelled" | "ended";
   exception?: "non-tower-redistribution" | "tower-unavailable" | "tower-only" | "empty-flank-tower";
-  outcome?: "intercepted" | "removed" | "carrier-lost";
+  outcome?: "intercepted" | "removed" | "carrier-lost" | "no-route" | "target-lost";
 }
 export interface PressureLedger {
   wave: number;

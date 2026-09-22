@@ -1,6 +1,6 @@
 import type { ReplayInitialState } from "./types";
 
-export const CURRENT_REPLAY_VERSION = 15;
+export const CURRENT_REPLAY_VERSION = 16;
 
 export function createDefaultReplayInitialState(): ReplayInitialState {
   return {

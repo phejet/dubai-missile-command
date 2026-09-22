@@ -13,12 +13,28 @@ import type {
 
 // ── Threat values ──
 
+/**
+ * Propeller Shahed tuning. Speed and wave-budget price live together on purpose:
+ * a faster variant has to cost more, or the budget just spawns more of them.
+ *
+ * The baseline is the slow, readable introductory diver — highly visible, easy to
+ * shoot, forgiving in waves 1-2. The dedicated dive airframe (its own sprite) is
+ * the fast one, so meeting it from wave 3 is where reaction time starts to matter.
+ * These eight numbers are feel-tuning knobs; change them here and nowhere else.
+ */
+export const SHAHED_136_TUNING = {
+  "shahed-136": { speedMul: 1.0, threat: 1.0 },
+  "shahed-136-bomber": { speedMul: 1.45, threat: 1 },
+  "shahed-136-dive": { speedMul: 1.45, threat: 1.3 },
+  "shahed-136-dive-bomber": { speedMul: 1.45, threat: 1.55 },
+} as const satisfies Record<Shahed136Variant, { speedMul: number; threat: number }>;
+
 export const THREAT_VALUES = {
   missile: 1.5,
-  "shahed-136": 0.75,
-  "shahed-136-bomber": 1,
-  "shahed-136-dive": 1.05,
-  "shahed-136-dive-bomber": 1.25,
+  "shahed-136": SHAHED_136_TUNING["shahed-136"].threat,
+  "shahed-136-bomber": SHAHED_136_TUNING["shahed-136-bomber"].threat,
+  "shahed-136-dive": SHAHED_136_TUNING["shahed-136-dive"].threat,
+  "shahed-136-dive-bomber": SHAHED_136_TUNING["shahed-136-dive-bomber"].threat,
   drone238: 2.5,
   mirv: 3,
   stack2: 3,
@@ -50,9 +66,9 @@ function supportsSideOverride(type: SpawnType): boolean {
 
 function supportsAltitudeOverride(type: SpawnType): boolean {
   // Altitude tactics spawn threats high so they can descend onto the city.
-  // Non-dive Shahed-136 variants cruise horizontally at their spawn y, so
-  // sending them to y=40-320 just makes them sail over the Burj harmlessly.
-  return type === "drone238" || type === "shahed-136-dive" || type === "shahed-136-dive-bomber";
+  // The pure bomber cruises horizontally at its spawn y, so sending it to
+  // y=40-320 just makes it sail over the Burj and drop from nowhere useful.
+  return type === "drone238" || (isShahed136SpawnType(type) && type !== "shahed-136-bomber");
 }
 
 type CellRole = NonNullable<SpawnEntry["role"]>;
@@ -886,8 +902,10 @@ export function generateWaveSchedule(wave: number, commander: Commander): WaveRe
   for (const variant of SHAHED_136_VARIANTS) {
     if (wave === 1 && (variant === "shahed-136-dive" || variant === "shahed-136-bomber") && counts[variant] > 0) {
       // Wave 1: place the bomber and the dives across the wave so the player
-      // hits all three drone behaviours in sequence — base shaheds early,
-      // bomber mid, first dive mid, second dive as the closing flourish.
+      // meets each drone behaviour in escalating order — slow baseline divers
+      // early, bomber mid, then the faster dive airframe twice, the second as
+      // the closing flourish. Speeds come from SHAHED_136_TUNING; keep the
+      // baseline the slowest variant or this teaching order inverts.
       const baseCount = Math.max(1, counts["shahed-136"]);
       const span = baseCount * d136Interval;
       const bomberFraction = 0.5;

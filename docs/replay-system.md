@@ -43,10 +43,17 @@ This means replays are sensitive to gameplay code drift.
 - optional `isHuman`
 - optional metadata such as `_buildId` and `_savedAt`
 
-Current recording version is `15`. Missing, older, and newer versions are rejected rather
+Current recording version is `16`. Missing, older, and newer versions are rejected rather
 than replayed best-effort.
 
 Version notes:
+
+- `version: 16` adds RM-10 drone/bomb reservations, target-dependent dives and commitment tells.
+  Baseline Shahed-136s now dive; pure bombers cruise above the tower. Drone plans and transferred
+  bomb ownership participate in checkpoints and anchors. v15 inputs are rejected; the three
+  maintained fixtures were re-recorded. The matching v15 simulator and inputs are retained in
+  `operator-results/target-pressure-stage-c/baseline-60b1fa4b2f19857146ff6a978e3a18471b5aab0c/`.
+  Old timing baselines remain stale until recaptured on each platform.
 
 - `version: 15` adds RM-10 missile pressure reservations and reachable routes. Carrier children
   receive frozen plans and inherit visible warning; allocation and pending spawns belong to

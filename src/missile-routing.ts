@@ -104,7 +104,7 @@ function clipLine(constraints: Array<[number, number]>): number | null {
   }
   return low <= high && high >= 0 && low <= 1 ? Math.max(0, low) : null;
 }
-function rectEntry(a: Point, b: Point, r: RouteTarget["bounds"], margin = 0): number | null {
+export function rectEntry(a: Point, b: Point, r: RouteTarget["bounds"], margin = 0): number | null {
   const dx = b.x - a.x,
     dy = b.y - a.y;
   return clipLine([

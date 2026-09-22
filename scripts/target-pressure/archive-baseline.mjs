@@ -4,7 +4,8 @@ import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { build } from "esbuild";
 const revision = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
-const out = `operator-results/target-pressure-stage-b/baseline-${revision}`;
+const stage = process.argv.includes("--stage-c") ? "c" : "b";
+const out = `operator-results/target-pressure-stage-${stage}/baseline-${revision}`;
 if (existsSync(`${out}/manifest.json`)) {
   console.log(`Baseline already preserved: ${out}`);
 } else {
@@ -53,7 +54,11 @@ if (existsSync(`${out}/manifest.json`)) {
   writeFileSync(
     `${out}/manifest.json`,
     JSON.stringify(
-      { revision, fixtures, description: "Matching pre-Stage-B simulator and untouched v14 perf inputs" },
+      {
+        revision,
+        fixtures,
+        description: `Matching pre-Stage-${stage.toUpperCase()} simulator and untouched perf inputs`,
+      },
       null,
       2,
     ) + "\n",

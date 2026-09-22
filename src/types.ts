@@ -69,6 +69,7 @@ export interface Missile {
 }
 
 export interface Drone {
+  pressure?: import("./pressure-drones").DronePressurePlan;
   killedBy?: KillSource;
   x: number;
   y: number;
@@ -107,7 +108,7 @@ export function shahed136HasBomb(variant: Shahed136Variant | undefined): boolean
 }
 
 export function shahed136HasDive(variant: Shahed136Variant | undefined): boolean {
-  return variant === "shahed-136-dive" || variant === "shahed-136-dive-bomber";
+  return variant === "shahed-136" || variant === "shahed-136-dive" || variant === "shahed-136-dive-bomber";
 }
 
 export interface Interceptor {

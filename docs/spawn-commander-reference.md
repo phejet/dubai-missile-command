@@ -42,7 +42,7 @@ Each row defines:
 - `cap`
 - min/max ranges per spawn type
 
-The old `drone136` row value is treated as the total prop-drone pool, then split into `shahed-136`, bomber, dive, and dive-bomber variants by wave tier. Wave 1 uses only the baseline. Wave 2 introduces bombers. Wave 3 introduces dive drones. Wave 4+ can include dive-bombers.
+The old `drone136` row value is treated as the total prop-drone pool, then split into `shahed-136`, bomber, dive, and dive-bomber variants by wave tier. Wave 1 uses only the baseline. Wave 2 introduces bombers. Wave 3 introduces the faster dedicated dive airframe. Wave 4+ can include dive-bombers.
 
 ### Waves 9+
 
@@ -163,3 +163,14 @@ Schedules are split into attack groups with short tick gaps between groups. Thos
 - If you add a new spawn type, update `THREAT_VALUES`, type ranges, schedule generation, and alive-value accounting together.
 - If you tune wave pressure, check both the budget logic and the effective concurrent cap path.
 - If you change tactic availability or exclusion rules, verify commander history interactions and replay wave-plan logging.
+
+## RM-10 drone routing (Stage C)
+
+Baseline Shahed-136s now use targeted dives too, at the slowest propeller speed: they are the
+readable introductory diver. The dedicated dive airframe carries the 45% speed premium instead,
+so wave 3 escalates reaction time rather than repeating wave 1 more slowly. Variant speed and
+wave-budget price are tuned together in `SHAHED_136_TUNING` (`src/wave-spawner.ts`).
+Pure bombers retain a single bomb and cruise above the Burj; jets retain two bombs and a dive.
+All terminal drone bodies and bombs reserve from the shared per-wave pressure ledger. The
+commander entry side is preserved; target-dependent cruise distance and a 52-tick direction
+tell determine the dive. See [Stage C contract and evidence](target-pressure-stage-c-execution.md).

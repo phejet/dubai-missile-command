@@ -380,8 +380,8 @@ describe("generateWaveSchedule", () => {
   });
 
   it("applies altitude tactics to diving Shahed variants only", () => {
-    const DIVE_TYPES = ["shahed-136-dive", "shahed-136-dive-bomber"] as const;
-    const NON_DIVE_TYPES = ["shahed-136", "shahed-136-bomber"] as const;
+    const DIVE_TYPES = ["shahed-136", "shahed-136-dive", "shahed-136-dive-bomber"] as const;
+    const NON_DIVE_TYPES = ["shahed-136-bomber"] as const;
     type DiveType = (typeof DIVE_TYPES)[number];
     type NonDiveType = (typeof NON_DIVE_TYPES)[number];
 
@@ -399,7 +399,7 @@ describe("generateWaveSchedule", () => {
     expect(lowDivers.every((e) => e.overrides?.yRange?.[0] === 200 && e.overrides.yRange[1] === 320)).toBe(true);
     expect(highDivers.every((e) => e.overrides?.yRange?.[0] === 40 && e.overrides.yRange[1] === 120)).toBe(true);
 
-    // Non-dive flyers cruise at spawn altitude; an override would sail them over the Burj harmlessly.
+    // The pure bomber cruises at spawn altitude; an override would sail it over the Burj harmlessly.
     expect(lowFlyers.every((e) => e.overrides?.yRange === undefined)).toBe(true);
     expect(highFlyers.every((e) => e.overrides?.yRange === undefined)).toBe(true);
   });
@@ -500,7 +500,8 @@ describe("computeAliveThreatValue", () => {
         { alive: true, subtype: "shahed238" },
       ] as Drone[],
     };
-    expect(computeAliveThreatValue(g)).toBe(4.5);
+    // 1.0 baseline + 1.55 dive-bomber + 2.5 jet
+    expect(computeAliveThreatValue(g)).toBe(5.05);
   });
 
   it("counts mirv as 3, mirv_warhead as 1.5", () => {

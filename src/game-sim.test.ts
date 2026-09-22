@@ -12,7 +12,6 @@ import {
   computeShahed136StraightPath,
   getGameplayBurjCollisionTop,
   getGameplayBurjCollisionBottom,
-  getShahed136LevelFlightYRange,
   LAUNCHER_ARMOR_NODE,
   LAUNCHER_DOUBLE_MAGAZINE_NODE,
   LAUNCHER_HIGH_VELOCITY_NODE,
@@ -725,14 +724,6 @@ describe("terminal Burj impacts", () => {
   });
 });
 
-function expectLevelShahedAltitude(drone: Drone) {
-  const [minY, maxY] = getShahed136LevelFlightYRange();
-  const burjMid = GAMEPLAY_SCENIC_BASE_Y - BURJ_H;
-  expect(maxY).toBe(burjMid);
-  expect(drone.y).toBeGreaterThanOrEqual(minY);
-  expect(drone.y).toBeLessThanOrEqual(burjMid);
-}
-
 function makePropDrone(overrides: Partial<Drone> = {}): Drone {
   return {
     x: -20,
@@ -804,70 +795,29 @@ describe("Shahed-238 (jet) diving", () => {
     expect(g.drones[0].health).toBe(1);
   });
 
-  it("spawns baseline Shahed-136 as a straight flyer with no bomb or dive", () => {
+  it("spawns baseline Shahed-136 with a reserved targeted dive and no bombs", () => {
     setRng(() => 0.5);
     const { sim, g } = makeCleanGame(5);
     spawnDroneOfType(g, "shahed136", undefined, "shahed-136");
     const drone = g.drones[0];
-
     expect(drone.shahedVariant).toBe("shahed-136");
-    expect(drone.diveStartIndex).toBeUndefined();
+    expect(drone.diveStartIndex).toBeGreaterThan(0);
     expect(drone.bombIndices).toEqual([]);
     expect(drone.diveTarget).toBeUndefined();
-    expectLevelShahedAltitude(drone);
-    expect(drone.waypoints!.every((p) => Math.abs(p.y - drone.y) < 0.001)).toBe(true);
-    expect(drone.waypoints!.some((p) => Math.abs(p.x - BURJ_X) < 2)).toBe(true);
-
-    drone.pathIndex = Math.floor((drone.waypoints!.length - 1) * 0.55);
+    expect(drone.y).toBeLessThan(getGameplayBurjCollisionTop());
+    drone.pathIndex = drone.pressure!.route!.tellIndex;
     sim.update(g, 1);
-    expect(drone.diving).toBeFalsy();
+    expect(drone.diveTarget).toBeDefined();
+    expect(drone.diveTelegraphing).toBe(true);
     expect(g.missiles.some((m) => m.type === "bomb")).toBe(false);
   });
 
-  it("does not spawn non-diving Shahed-136 above the Burj collision band", () => {
-    setRng(() => 0);
+  it("keeps overridden cruise altitude above the tower so far-side dives remain possible", () => {
+    setRng(() => 0.5);
     const { g } = makeCleanGame(5);
-    spawnDroneOfType(g, "shahed136", undefined, "shahed-136");
-    const [minY, maxY] = getShahed136LevelFlightYRange();
-
-    expect(g.drones[0].y).toBeGreaterThanOrEqual(minY);
-    expect(g.drones[0].y).toBeLessThanOrEqual(maxY);
-    expect(g.drones[0].y).toBeGreaterThanOrEqual(getGameplayBurjCollisionTop(2));
-  });
-
-  it("baseline Shahed-136 level flight intersects the Burj body", () => {
-    setRng(() => 0.5);
-    const { sim, g } = makeCleanGame(5);
-    g.burjHealth = 1; // killing blow — the Burj now takes multiple hits
-    spawnDroneOfType(g, "shahed136", undefined, "shahed-136");
-    const drone = g.drones[0];
-
-    drone.pathIndex = Math.max(0, drone.waypoints!.findIndex((p) => Math.abs(p.x - BURJ_X) < 2) - 1);
-    sim.update(g, 2);
-
-    expect(drone.alive).toBe(false);
-    expect(g.burjHealth).toBe(0);
-    expect(g.burjAlive).toBe(false);
-  });
-
-  it("does not explode baseline Shahed-136 at screen center when level flight misses the Burj body", () => {
-    setRng(() => 0.5);
-    const { sim, g } = makeCleanGame(5);
-    const y = getGameplayBurjCollisionTop(2) - 20;
-    spawnDroneOfType(g, "shahed136", { side: "left", yRange: [y, y] }, "shahed-136");
-    const drone = g.drones[0];
-
-    drone.pathIndex = Math.max(0, drone.waypoints!.findIndex((p) => Math.abs(p.x - BURJ_X) < 2) - 1);
-    sim.update(g, 2);
-
-    expect(drone.alive).toBe(true);
-    expect(g.explosions).toHaveLength(0);
-
-    drone.pathIndex = drone.waypoints!.length - 2;
-    sim.update(g, 2);
-
-    expect(g.drones).toHaveLength(0);
-    expect(g.explosions).toHaveLength(0);
+    spawnDroneOfType(g, "shahed136", { side: "left", yRange: [900, 950] }, "shahed-136");
+    expect(g.drones[0].y).toBeLessThan(getGameplayBurjCollisionTop());
+    expect(g.drones[0].x).toBe(-20);
   });
 
   it("spawns bomber Shahed-136 with a single mid-flight bomb and no dive", () => {
@@ -880,7 +830,7 @@ describe("Shahed-238 (jet) diving", () => {
     expect(drone.diveStartIndex).toBeUndefined();
     expect(drone.bombIndices).toHaveLength(1);
     expect(drone.diveTarget).toBeUndefined();
-    expectLevelShahedAltitude(drone);
+    expect(drone.y).toBeLessThan(getGameplayBurjCollisionTop());
     expect(drone.waypoints!.every((p) => Math.abs(p.y - drone.y) < 0.001)).toBe(true);
 
     drone.pathIndex = drone.bombIndices![0] - 0.25;
@@ -890,7 +840,9 @@ describe("Shahed-238 (jet) diving", () => {
     expect(g.missiles.filter((m) => m.type === "bomb")).toHaveLength(1);
   });
 
-  it("makes baseline and bomber Shahed-136 45% faster than dive variants before overrides", () => {
+  // The baseline is the readable introductory diver, so it must stay the slowest
+  // propeller; the dedicated dive airframe and the pure bomber carry the premium.
+  it("makes the dive airframe and bomber 45% faster than the baseline Shahed-136", () => {
     const { g } = makeCleanGame(5);
 
     setRng(() => 0.5);
@@ -899,10 +851,13 @@ describe("Shahed-238 (jet) diving", () => {
     spawnDroneOfType(g, "shahed136", undefined, "shahed-136-bomber");
     setRng(() => 0.5);
     spawnDroneOfType(g, "shahed136", undefined, "shahed-136-dive");
+    setRng(() => 0.5);
+    spawnDroneOfType(g, "shahed136", undefined, "shahed-136-dive-bomber");
 
-    const [basic, bomber, dive] = g.drones;
-    expect(Math.abs(basic.vx)).toBeCloseTo(Math.abs(dive.vx) * 1.45);
-    expect(Math.abs(bomber.vx)).toBeCloseTo(Math.abs(dive.vx) * 1.45);
+    const [basic, bomber, dive, diveBomber] = g.drones;
+    expect(Math.abs(dive.vx)).toBeCloseTo(Math.abs(basic.vx) * 1.45);
+    expect(Math.abs(diveBomber.vx)).toBeCloseTo(Math.abs(basic.vx) * 1.45);
+    expect(Math.abs(bomber.vx)).toBeCloseTo(Math.abs(basic.vx) * 1.45);
   });
 
   it("telegraphs Shahed-136 dive variants before the terminal dive", () => {
@@ -951,7 +906,8 @@ describe("Shahed-238 (jet) diving", () => {
     expect(jet!.bombIndices![0]).toBeLessThan(jet!.diveStartIndex!);
     expect(jet!.bombIndices![1]).toBeLessThan(jet!.diveStartIndex!);
     expect(jet!.bombsDropped).toBe(0);
-    expect(jet!.diveTarget).toBeDefined();
+    expect(jet!.diveTarget).toBeUndefined();
+    expect(jet!.pressure!.route!.target).toBeDefined();
   });
 
   it("follows waypoints and advances pathIndex each tick", () => {

@@ -918,3 +918,18 @@ in the state) rather than defending the old one.
 - Break planner timings down by family and wave. A pooled median hides expensive MIRV planning;
   desktop timings cannot establish iPhone cost. Require device evidence before release.
 - Preserve spawn separation and aim variation deliberately, or call out their removal for feel review.
+
+## 2026-09-22 — Baseline Shaheds join targeted dives
+
+- User chose targeted dives for baseline Shahed-136s in RM-10 Stage C. Do not retain unbudgeted
+  straight tower rammers. Pure bombers remain bombers.
+- When an entity defined by _absence_ gains an ability, every stat that existed to compensate for
+  its harmlessness is now wrong. The baseline Shahed was cheap (0.75 budget), fast (1.45x) and
+  excluded from altitude tactics **because** it could not attack. Flipping one boolean
+  (`shahed136HasDive`) made it the fastest and cheapest attacker in its family, inverted wave 1's
+  teaching order, and left the wave budget underpricing it by 30%. Grep every site that branches on
+  the capability you just granted, not just the ones the feature touches.
+- Speed and wave-budget price must move together, in one table (`SHAHED_136_TUNING`). A faster
+  variant that is not repriced does not just hit harder — the budget spawns more of it.
+- Introductory variants are slow on purpose. Readability is the tutorial. Escalate later waves by
+  reusing the same attack faster, not by introducing a slower version of an earlier threat.

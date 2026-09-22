@@ -160,7 +160,10 @@ export function buildReplayCheckpoint(g: GameState, tick: number, reason: string
     pressure: {
       ledgerHash: hashReplayDiagnostic(g.targetPressure ?? null),
       pendingHash: hashReplayDiagnostic(g.pendingMissileSpawn ?? null),
-      ownershipHash: hashReplayDiagnostic(g.missiles.filter((m) => m.alive).map((m) => m.pressure ?? null)),
+      ownershipHash: hashReplayDiagnostic({
+        missiles: g.missiles.filter((m) => m.alive).map((m) => m.pressure ?? null),
+        drones: g.drones.filter((d) => d.alive).map((d) => d.pressure ?? null),
+      }),
     },
     draftOffers: [...(g._draftOffers ?? [])],
     explosions: { count: explosions.length, hash: hashReplayDiagnostic(explosions) },
