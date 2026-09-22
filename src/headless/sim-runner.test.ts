@@ -166,9 +166,9 @@ describe("replay round-trip", () => {
   it(
     "replaying produces identical checkpoint hashes at intervals",
     () => {
-      const original = runGame(null, { seed: 256, record: true });
+      const original = runGame(null, { seed: 7, record: true });
       expect(original.deathCause).toBe("destroyed");
-      const replayData: ReplayData = { version: CURRENT_REPLAY_VERSION, seed: 256, actions: original.actions! };
+      const replayData: ReplayData = { version: CURRENT_REPLAY_VERSION, seed: 7, actions: original.actions! };
 
       // Run replay twice, compare checkpoints every 200 ticks
       const hashSets: string[][] = [[], []];
@@ -204,7 +204,7 @@ describe("replay round-trip", () => {
   it(
     "round-trip works with multiple seeds",
     () => {
-      for (const seed of [42, 77, 256]) {
+      for (const seed of [42, 77, 7]) {
         const original = runGame(null, { seed, record: true });
         expect(original.deathCause).toBe("destroyed");
 
@@ -257,7 +257,15 @@ describe("golden-seed canary", () => {
     // 23292 -> 36486 (Stage C follow-up): the baseline Shahed becomes the slowest diver and the
     // dive airframe takes the speed premium, repriced in SHAHED_136_TUNING. Single-seed noise —
     // over 24 seeds median score moved 29474 -> 27438 and median wave stayed 7.
-    expect(r.score).toBe(36486);
+    // 36486 -> 33266 (calm teaching start): waves 1-2 cut both content and concurrency so a new
+    // player meets threats two or three at a time. Typical wave-1 on-screen count fell 4 -> 2 and
+    // its peak 9 -> 4; wave 2's peak fell 14 -> 7. Later waves are untouched.
+    // 33266 -> 25828 (entry legibility): routes are ranked by how readable the approach is instead
+    // of by raw visible ticks, and a descent that is both steep and stuck in the outer 12% of the
+    // screen is rejected outright because even a rare one reads as a bug. Wave-1 near-vertical
+    // entries fell 32% -> 0% and edge-hugging ones 16% -> 0% at every wave measured.
+    // Aggregate difficulty is unchanged; median over 16 seeds is ~30k at wave 7 either side.
+    expect(r.score).toBe(25828);
     expect(r.wave).toBe(7);
     expect(r.deathCause).toBe("timeout");
   });

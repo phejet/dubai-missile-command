@@ -265,6 +265,29 @@
                 committed mix 30.8/52.3/16.9%. Perf fixtures re-recorded again. The retuned curve has only been seen
                 by the bot, so Stage E must judge it.
               </p>
+              <p>
+                <strong>Device playtest findings (2026-09-22), open:</strong> two defects of the same class —
+                simulation that is correct but not legible.
+                <strong>(1) Near-vertical entries hug the screen edge — fixed 2026-09-22.</strong>
+                <code>entryRoutePool</code> picked the origin that maximised <code>visibleTicks</code>, and a
+                vertical drop falls the full screen height, so it won almost every contest. Measured before the
+                fix: wave 1 median entry slope 0.11, 32% near-vertical, 98% below the pre-RM-10 0.42 floor.
+                A probe showed the verticals were chosen rather than forced — for 54% of targets a slant above
+                0.42 existed and vertical also worked — but a blanket slope floor was the wrong fix, since a
+                dense skyline genuinely forces steep approaches and p10 achievable slope is only 0.19.
+                Candidates are now ranked by <code>approachLegibility</code>, which scores slope and distance
+                from the screen edges from geometry alone. After: wave 1 has 0% near-vertical and 0%
+                edge-hugging entries, median slope 0.36, median horizontal travel 385px. Because the score
+                needs no simulation, candidates are ordered before evaluation and the first feasible one is
+                provably best, so wave-20 MIRV planning improved 1.30ms to 0.57ms p50; wave-50 is 3.16ms
+                against a 2.94ms Stage B baseline, still pending device measurement.
+                <strong>(2) The pure bomber cruises far too high.</strong> Stage C moved it to the jet band to
+                stop it ramming the tower, so it now flies up to 584px above a tower tip at y=664, drops from
+                there and leaves; the eye never connects drone to bomb. Measured passively it dives 0% of the
+                time by design, where every other family dives 90-98%. Lowering its band to roughly [500, 620]
+                keeps it clear of the tower while staying in the same visual frame. RM-11 supersedes the wider
+                question of what this unit is for.
+              </p>
               <p><a href="docs/target-pressure-review-plan.html">Illustrated review plan</a></p>
               <p><a href="docs/target-pressure-retarget-trace.html">Retargeting trace evidence</a></p>
             </div>
@@ -523,6 +546,78 @@
             </div>
           </details>
 
+          <details class="phase" id="rm-11" data-roadmap-id="RM-11" data-status="planned" data-depends-on="RM-10">
+            <summary>
+              <span class="phase__id">RM-11</span>
+              <span>Patrol bombers and vertical echelons</span>
+              <span class="status">Planned</span>
+              <span class="phase__outcome">
+                Make attention, not volume, the thing the player runs out of.
+              </span>
+            </summary>
+            <div class="phase__body">
+              <p>
+                The pure bomber currently reads as a drone that forgot to attack: it cruises far above the tower,
+                drops a bomb and leaves. The behaviour is correct but unexplained. Give it a role instead of
+                removing it — a patrolling bomber that never rams, carries a visible payload, and taxes the
+                player's attention rather than their defences.
+              </p>
+              <ul>
+                <li>
+                  <strong>Payload is passes.</strong> One bomb per pass, so a visible payload of N reads directly
+                  as "this will bother me N more times". The return leg stays dangerous, and killing a loaded
+                  bomber on its way in is the strong play. It leaves after the final drop rather than flying an
+                  empty lap, which would be clutter holding a concurrency slot without carrying any decision.
+                </li>
+                <li>
+                  <strong>One shot to kill.</strong> No hit points and no health bar, which would be a foreign
+                  language in this game. Durability is denominated in time and attention instead: it comes back.
+                  Pass count is the difficulty knob, not health.
+                </li>
+                <li>
+                  <strong>Reward scales with remaining payload</strong>, or the payload indicator is decoration
+                  rather than an input to a decision.
+                </li>
+                <li>
+                  <strong>Visually distinct airframe</strong> from the Shahed family, which rams. A blinking
+                  bomb telegraphs each drop with enough lead that a player already tracking it can still act.
+                </li>
+                <li>
+                  <strong>Bombs keep drawing from the shared RM-10 ledger, tower included.</strong> Decided
+                  2026-09-22: a carrier bomb behaving like every other bomb is consistent and unsurprising, and
+                  a tower carve-out would be a special case with no player-facing reason.
+                </li>
+              </ul>
+              <p>
+                <strong>Vertical echelons.</strong> The separate and probably larger idea: threat volume is not
+                what creates difficulty, spatial separation is. Threats arriving in one region let the player
+                camp that region, so more of them is noise rather than challenge. A tactic that pairs high
+                cruising bombers with low fast threats forces attention across two vertically separated bands,
+                and that is where skill lives. Existing tactics separate by axis (<code>MIXED_AXIS</code>) or set
+                one altitude (<code>LOW_APPROACH</code>, <code>HIGH_APPROACH</code>); none deliberately splits
+                threats into simultaneous high and low echelons.
+              </p>
+              <p>
+                <strong>Sequencing:</strong> the premise is that over-focusing on bombers makes you miss the low
+                threat aimed at the tower. That only reads as tense if the punishing threat is legible, so the
+                near-vertical entries hugging the screen edge must be fixed first or this cannot be judged
+                honestly. Concurrency also has to be re-checked: loitering carriers hold threat-value budget, and
+                waves 1-2 now deliberately run at two to four threats on screen.
+              </p>
+              <p>
+                <strong>Reuse:</strong> <code>spawnF15Formation</code> and <code>f15ReturnTimer</code> already fly
+                back-and-forth passes, and <code>shahed-136-bomber</code> already cruises, drops and is excluded
+                from being a terminal pressure body. This is a sprite, a patrol loop, a payload indicator and a
+                tactic, not new systems.
+              </p>
+              <p>
+                <strong>Exit evidence:</strong> a human feel-check confirming the shoot-or-ignore choice is real,
+                that the echelon split reads as two areas rather than one crowded one, and that waves 1-2 stay
+                calm. Device performance and replay determinism as usual.
+              </p>
+            </div>
+          </details>
+
           <details class="phase" id="rm-07" data-roadmap-id="RM-07" data-status="planned" data-depends-on="RM-03">
             <summary>
               <span class="phase__id">RM-07</span>
@@ -632,6 +727,17 @@
       <section id="changes">
         <h2>Recent roadmap changes</h2>
         <ul>
+          <li>
+            <strong>2026-09-22:</strong> opened RM-11 for patrol bombers and vertical echelons, from a playtest
+            observation that the pure bomber reads as broken rather than as a role. Decided its bombs keep drawing
+            tower targets like any other bomb. Gated behind RM-10's missile-angle legibility fix.
+          </li>
+          <li>
+            <strong>2026-09-22:</strong> cut waves 1-2 content and concurrency for a calm teaching start after a
+            device playtest: typical wave-1 threats on screen fell from 4 to 2 and its peak from 9 to 4. Made the
+            WAVE_TABLE cap authoritative for the teaching waves; the budget-derived floor had been silently
+            overriding it.
+          </li>
           <li>
             <strong>2026-09-22:</strong> reviewed RM-10 Stage C and retuned the propeller Shahed variants. The baseline
             becomes the slow readable introductory diver; the dedicated dive airframe takes the 45% speed premium, with

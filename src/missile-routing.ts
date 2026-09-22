@@ -204,12 +204,65 @@ export function evaluateMissileRoute(
   return null;
 }
 
+/**
+ * How readable an approach is, 0..3, from geometry alone — no simulation needed.
+ *
+ * Every route `evaluateMissileRoute` returns already clears the visible-warning floor, so
+ * ranking is free to optimise for what the player can actually track. Because this depends
+ * only on the endpoints, candidates can be ordered before the expensive evaluation and the
+ * first feasible one is then provably the best, which costs fewer evaluations than scanning.
+ */
+/**
+ * A steep descent that also spends its whole visible life inside the outer band reads as a
+ * glitch rather than an attack: the player never sees it travel. This is a hard rejection,
+ * not a preference, because even a rare one looks like a bug. Steepness alone is fine — a
+ * route that crosses from the interior out to an edge target is still readable — and so is
+ * an edge entry that slants inward. Only the combination is barred.
+ *
+ * If it bars every candidate for a target, that target simply offers no route this spawn and
+ * the shared ledger redistributes to another asset in the same category.
+ */
+export function isUnreadableApproach(start: Point, target: Point): boolean {
+  const dy = target.y - start.y;
+  if (dy <= 0) return true;
+  const slope = Math.abs(target.x - start.x) / dy;
+  if (slope >= TARGET_PRESSURE.readableSlope) return false;
+  const midX = (start.x + target.x) / 2;
+  return Math.min(midX, CANVAS_W - midX) < TARGET_PRESSURE.edgeBandFrac * CANVAS_W;
+}
+
+export function approachLegibility(start: Point, target: Point): number {
+  const dy = target.y - start.y;
+  if (dy <= 0) return 0;
+  const slopeScore = Math.min(1, Math.abs(target.x - start.x) / dy / TARGET_PRESSURE.readableSlope);
+  const edgeBand = TARGET_PRESSURE.edgeBandFrac * CANVAS_W;
+  const midX = (start.x + target.x) / 2;
+  const interiorScore = Math.min(1, Math.max(0, Math.min(midX, CANVAS_W - midX) / edgeBand));
+  // Slope dominates: it is what lets the player lead the shot at all. Staying out of the
+  // outer band breaks ties, and is what makes a forced-steep route readable rather than lost.
+  return slopeScore * 2 + interiorScore;
+}
+
 export function entryRoutePool(g: GameState, side: EntrySide, preferred: Point, motion: RouteMotion): MissileRoute[] {
+  const readable = buildEntryRoutes(g, side, preferred, motion, false);
+  // Readability must never be able to stall a wave. When an entry side can reach nothing
+  // legibly — a lone surviving building tucked into that same corner, say — an unreadable
+  // approach beats no attack at all. In ordinary play some asset is always reachable, so
+  // this fallback stays unused rather than quietly becoming the normal path.
+  return readable.length > 0 ? readable : buildEntryRoutes(g, side, preferred, motion, true);
+}
+
+function buildEntryRoutes(
+  g: GameState,
+  side: EntrySide,
+  preferred: Point,
+  motion: RouteMotion,
+  allowUnreadable: boolean,
+): MissileRoute[] {
   const assets = missileAssets(g),
     routes: MissileRoute[] = [];
   for (const target of assets) {
     const origins: Point[] = [preferred];
-    if (side === "top") origins.push({ x: Math.max(50, Math.min(CANVAS_W - 50, target.x)), y: preferred.y });
     for (let i = 0; i < TARGET_PRESSURE.entrySamples; i++) {
       const t = i / (TARGET_PRESSURE.entrySamples - 1);
       origins.push(
@@ -221,14 +274,27 @@ export function entryRoutePool(g: GameState, side: EntrySide, preferred: Point, 
             },
       );
     }
+    // Straight down onto the target always works geometrically and is the least readable
+    // route there is, so it is scored like any other candidate and ends up last.
+    if (side === "top") origins.push({ x: Math.max(50, Math.min(CANVAS_W - 50, target.x)), y: preferred.y });
+
+    const ranked = origins
+      .filter((start) => allowUnreadable || !isUnreadableApproach(start, target))
+      .map((start) => ({ start, score: approachLegibility(start, target) }))
+      .sort((a, b) => b.score - a.score);
+    if (ranked.length === 0) continue;
+    // Keep the randomised preferred origin in front while it is nearly as readable as the
+    // best candidate, so repeat attacks on one target do not all fly the identical line.
+    const preferredIndex = ranked.findIndex((c) => c.start === preferred);
+    if (preferredIndex > 0 && ranked[preferredIndex].score >= ranked[0].score - TARGET_PRESSURE.legibilitySlack) {
+      ranked.unshift(...ranked.splice(preferredIndex, 1));
+    }
+
     let best: MissileRoute | null = null;
-    for (const start of origins) {
-      const route = evaluateMissileRoute(g, assets, start, target, motion);
-      if (route && (!best || route.visibleTicks > best.visibleTicks)) best = route;
-      if (route && route.visibleTicks >= TARGET_PRESSURE.warningTicks) {
-        best = route;
-        break;
-      }
+    for (const { start } of ranked) {
+      // Candidates are ordered by legibility, so the first feasible one is the best one.
+      best = evaluateMissileRoute(g, assets, start, target, motion);
+      if (best) break;
     }
     if (best) routes.push(best);
   }

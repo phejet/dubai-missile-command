@@ -164,6 +164,19 @@ Schedules are split into attack groups with short tick gaps between groups. Thos
 - If you tune wave pressure, check both the budget logic and the effective concurrent cap path.
 - If you change tactic availability or exclusion rules, verify commander history interactions and replay wave-plan logging.
 
+## Teaching waves (1-2)
+
+Waves 1-2 are deliberately sparse. Since RM-10 every baseline Shahed attacks instead of
+cruising past as scenery, so the same entity count reads as far more pressure than it did
+before; both waves had their content and their concurrency cut so a new player meets threats
+two or three at a time. Measured passively (nothing shot down), wave 1 now sits at 2 threats
+on screen with a peak of 4, and wave 2 at 4 with a peak of 7. Wave 3 is unchanged and is where
+difficulty is intended to start.
+
+Their `cap` in `WAVE_TABLE` is authoritative: `resolveConcurrentCap` applies the budget-derived
+floor only from wave 3 up. Before that, `Math.max(row.cap, budget * ratio)` silently overrode
+the table, so wave 1's hand-authored `cap: 10` was really 11 and could not be lowered.
+
 ## RM-10 drone routing (Stage C)
 
 Baseline Shahed-136s now use targeted dives too, at the slowest propeller speed: they are the

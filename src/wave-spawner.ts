@@ -180,20 +180,20 @@ const STYLE_WEIGHTS: Record<CommanderStyle, Record<string, number>> = {
 const WAVE_TABLE = [
   null, // index 0 unused (waves start at 1)
   {
-    budget: 14,
-    cap: 10,
-    missile: [4, 6],
-    drone136: [3, 4],
+    budget: 9,
+    cap: 4,
+    missile: [3, 4],
+    drone136: [2, 3],
     drone238: [0, 0],
     mirv: [0, 0],
     stack2: [0, 0],
     stack3: [0, 0],
   },
   {
-    budget: 20,
-    cap: 14,
-    missile: [4, 8],
-    drone136: [6, 10],
+    budget: 16,
+    cap: 7,
+    missile: [4, 6],
+    drone136: [4, 6],
     drone238: [0, 0],
     mirv: [0, 0],
     stack2: [0, 0],
@@ -261,9 +261,25 @@ const WAVE_TABLE = [
   },
 ];
 
+/**
+ * Budget-derived floor for how much threat value may be airborne at once, so the
+ * cap keeps scaling if a hand-authored table row goes stale.
+ *
+ * This floor does NOT apply to the teaching waves. Waves 1-2 set their cap directly
+ * in WAVE_TABLE and mean it: since RM-10 every baseline Shahed attacks instead of
+ * cruising past as scenery, so the same entity count reads as far more pressure than
+ * it used to, and a new player should meet threats two or three at a time.
+ */
+const TEACHING_WAVES = 2;
+
 function threatValueCapForBudget(budget: number, wave: number): number {
-  const ratio = wave <= 2 ? 0.78 : wave <= 5 ? 0.72 : 0.65;
+  const ratio = wave <= 5 ? 0.72 : 0.65;
   return Math.round(budget * ratio);
+}
+
+/** Teaching waves use their table cap verbatim; later waves take the budget floor too. */
+function resolveConcurrentCap(rowCap: number, budget: number, wave: number): number {
+  return wave <= TEACHING_WAVES ? rowCap : Math.max(rowCap, threatValueCapForBudget(budget, wave));
 }
 
 function emptySpawnTypeRanges(): Record<SpawnType, { min: number; max: number }> {
@@ -421,7 +437,7 @@ export function getWaveConfig(wave: number) {
     for (const variant of SHAHED_136_VARIANTS) types[variant] = shahedRanges[variant];
     return {
       budget: row.budget,
-      concurrentCap: Math.max(row.cap, threatValueCapForBudget(row.budget, wave)),
+      concurrentCap: resolveConcurrentCap(row.cap, row.budget, wave),
       shahed136Total: { min: row.drone136[0], max: row.drone136[1] },
       types,
     };

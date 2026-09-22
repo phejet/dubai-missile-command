@@ -19,6 +19,21 @@ export const TARGET_PRESSURE = {
   entrySamples: 9,
   horizonTicks: 1200,
   geometryEpsilon: 1e-7,
+  /**
+   * Entry legibility. A route that is on screen is not the same as a route the player
+   * can read: a near-vertical drop beside the bezel scores the most visible ticks of
+   * any candidate and reads as nothing. Routes are ranked by these instead.
+   *
+   * `readableSlope` is horizontal travel per unit of vertical travel that counts as
+   * fully readable (0.42 was the pre-RM-10 floor). It is a preference, not a floor —
+   * a dense skyline genuinely forces steep approaches onto some targets, and demanding
+   * 0.42 everywhere would make roughly 40% of targets unreachable.
+   * `edgeBandFrac` is the outer fraction of screen width, per side, that reads poorly.
+   */
+  readableSlope: 0.42,
+  edgeBandFrac: 0.12,
+  /** How much legibility to trade for entry variety, so repeats do not fly one identical line. */
+  legibilitySlack: 0.35,
   drone: {
     tellTicks: 52,
     tellInset: 40,
